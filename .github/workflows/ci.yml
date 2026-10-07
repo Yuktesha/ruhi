@@ -1,0 +1,31 @@
+name: Ruhi CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Core Engine Tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run ruhi-core tests
+        run: cargo test --verbose
+        working-directory: ruhi-core
+
+      - name: Build ruhi-tsf Release
+        run: cargo build --release --verbose
+        working-directory: ruhi-tsf

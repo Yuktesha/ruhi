@@ -1,0 +1,794 @@
+# 如喜 (RuhI) 專業/語境選配詞庫包 (Pluggable Lexicon Pack)
+# 領域：阿南達瑪迦心靈哲學與專用術語 (Philosophy & Spirituality)
+# 格式：詞彙\t注音\t權重\t標籤\t備註
+# 說明：此詞庫為獨立外掛包，權重已正規化至 900~1200 安全範圍，支援手動/自動裝卸
+#
+三摩地靈性	ㄙㄢ ㄇㄛˊ ㄉㄧˋ ㄌㄧㄥˊ ㄒㄧㄥˋ	1200	pack_philosophy	Gemma distilled
+至上意識	ㄓˋ ㄕㄤˋ ㄧˋ ㄕˋ	1200	pack_philosophy	Core Supreme Consciousness
+行動瑜伽	ㄒㄧㄥˊ ㄉㄨㄥˋ ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	Gemma distilled
+虔誠瑜伽	ㄑㄧㄢˊ ㄔㄥˊ ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	Gemma distilled
+智慧瑜伽	ㄓˋ ㄏㄨㄟˋ ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	Gemma distilled
+希瓦	ㄒㄧ ㄨㄚˇ	1200	pack_philosophy	Gemma evolved
+上主	ㄕㄤˋ ㄓㄨˇ	1200	pack_philosophy	Gemma evolved
+梵咒	ㄈㄢˋ ㄓㄡˋ	1200	pack_philosophy	Gemma evolved
+阿南	ㄜ ㄋㄢˊ	1200	pack_philosophy	Gemma evolved
+瑪迦	ㄇㄚˇ ㄐㄧㄚ	1200	pack_philosophy	Auto Ingested (freq=55)
+意為	ㄧˋ ㄨㄟˋ	1200	pack_philosophy	Auto Ingested (freq=14)
+於心	ㄩˊ ㄒㄧㄣ	1200	pack_philosophy	Auto Ingested (freq=13)
+之心	ㄓ ㄒㄧㄣ	1200	pack_philosophy	Auto Ingested (freq=13)
+脫之	ㄊㄨㄛ ㄓ	1200	pack_philosophy	Auto Ingested (freq=13)
+至上之父	ㄓˋ ㄕㄤˋ ㄓ ㄈㄨˇ	1200	pack_philosophy	Auto Ingested (freq=12)
+聖名唱頌	ㄕㄥˋ ㄇㄧㄥˊ ㄔㄤˋ ㄙㄨㄥˋ	1200	pack_philosophy	Auto Ingested (freq=12)
+制主	ㄓˋ ㄓㄨˇ	1200	pack_philosophy	Auto Ingested (freq=11)
+要做	ㄧㄠˋ ㄗㄨㄛˋ	1200	pack_philosophy	Auto Ingested (freq=11)
+音根	ㄧㄣ ㄍㄣ	1200	pack_philosophy	Auto Ingested (freq=11)
+們會	ㄇㄣˊ ㄏㄨㄟˋ	1200	pack_philosophy	Auto Ingested (freq=11)
+持咒	ㄔˊ ㄓㄡˋ	1200	pack_philosophy	Auto Ingested (freq=11)
+頌至上	ㄙㄨㄥˋ ㄓˋ ㄕㄤˋ	1200	pack_philosophy	Auto Ingested (freq=10)
+俱屬	ㄐㄩˋ ㄕㄨˇ	1200	pack_philosophy	Auto Ingested (freq=10)
+機俯瞰	ㄐㄧ ㄈㄨˇ ㄎㄢˋ	1200	pack_philosophy	Auto Ingested (freq=10)
+底輪	ㄉㄧˇ ㄌㄨㄣˊ	1200	pack_philosophy	Auto Ingested (freq=10)
+頂輪	ㄉㄧㄥˇ ㄌㄨㄣˊ	1200	pack_philosophy	Auto Ingested (freq=10)
+心輪	ㄒㄧㄣ ㄌㄨㄣˊ	1200	pack_philosophy	Auto Ingested (freq=10)
+至上聖	ㄓˋ ㄕㄤˋ ㄕㄥˋ	1200	pack_philosophy	Auto Ingested (freq=10)
+無相	ㄨˊ ㄒㄧㄤˋ	1200	pack_philosophy	Auto Ingested (freq=10)
+人哪	ㄖㄣˊ ㄋㄚˇ	1200	pack_philosophy	Auto Ingested (freq=10)
+心與悟道	ㄒㄧㄣ ㄩˇ ㄨˋ ㄉㄠˋ	1200	pack_philosophy	Auto Ingested (freq=10)
+之父	ㄓ ㄈㄨˇ	1200	pack_philosophy	Auto Ingested (freq=9)
+之源	ㄓ ㄩㄢˊ	1200	pack_philosophy	Auto Ingested (freq=9)
+滿坡	ㄇㄢˇ ㄆㄛ	1200	pack_philosophy	Auto Ingested (freq=9)
+體化	ㄊㄧˇ ㄏㄨㄚˋ	1200	pack_philosophy	Auto Ingested (freq=9)
+達里尼	ㄉㄚˊ ㄌㄧˇ ㄋㄧˊ	1200	pack_philosophy	Auto Ingested (freq=9)
+燈錄	ㄉㄥ ㄌㄨˋ	1200	pack_philosophy	Auto Ingested (freq=9)
+此即	ㄘˇ ㄐㄧˊ	1200	pack_philosophy	Auto Ingested (freq=9)
+靈質	ㄌㄧㄥˊ ㄓˊ	1200	pack_philosophy	Auto Ingested (freq=9)
+目證	ㄇㄨˋ ㄓㄥˋ	1200	pack_philosophy	Auto Ingested (freq=9)
+致因	ㄓˋ ㄧㄣ	1200	pack_philosophy	Auto Ingested (freq=9)
+些已	ㄒㄧㄝ ㄧˇ	1200	pack_philosophy	Auto Ingested (freq=9)
+住至上	ㄓㄨˋ ㄓˋ ㄕㄤˋ	1200	pack_philosophy	Auto Ingested (freq=9)
+物皆	ㄨˋ ㄐㄧㄝ	1200	pack_philosophy	Auto Ingested (freq=8)
+主聖	ㄓㄨˇ ㄕㄥˋ	1200	pack_philosophy	Auto Ingested (freq=8)
+餘依	ㄩˊ ㄧ	1200	pack_philosophy	Auto Ingested (freq=8)
+之士	ㄓ ㄕˋ	1200	pack_philosophy	Auto Ingested (freq=8)
+拉維	ㄌㄚ ㄨㄟˊ	1200	pack_philosophy	Auto Ingested (freq=8)
+想之	ㄒㄧㄤˇ ㄓ	1200	pack_philosophy	Auto Ingested (freq=8)
+中持	ㄓㄨㄥ ㄔˊ	1200	pack_philosophy	Auto Ingested (freq=8)
+他途	ㄊㄚ ㄊㄨˊ	1200	pack_philosophy	Auto Ingested (freq=7)
+俱屬性至	ㄐㄩˋ ㄕㄨˇ ㄒㄧㄥˋ ㄓˋ	1200	pack_philosophy	Auto Ingested (freq=7)
+為至	ㄨㄟˋ ㄓˋ	1200	pack_philosophy	Auto Ingested (freq=7)
+示錄	ㄕˋ ㄌㄨˋ	1200	pack_philosophy	Auto Ingested (freq=7)
+靈會	ㄌㄧㄥˊ ㄏㄨㄟˋ	1200	pack_philosophy	Auto Ingested (freq=7)
+唵聲	ㄢˇ ㄕㄥ	1200	pack_philosophy	Auto Ingested (freq=7)
+言道	ㄧㄢˊ ㄉㄠˋ	1200	pack_philosophy	Auto Ingested (freq=7)
+觀想持	ㄍㄨㄢ ㄒㄧㄤˇ ㄔˊ	1200	pack_philosophy	Auto Ingested (freq=7)
+文裡	ㄨㄣˊ ㄌㄧˇ	1200	pack_philosophy	Auto Ingested (freq=7)
+全知	ㄑㄩㄢˊ ㄓ	1200	pack_philosophy	Auto Ingested (freq=7)
+你做	ㄋㄧˇ ㄗㄨㄛˋ	1200	pack_philosophy	Auto Ingested (freq=6)
+輕舞	ㄑㄧㄥ ㄨˇ	1200	pack_philosophy	Auto Ingested (freq=6)
+云何	ㄩㄣˊ ㄏㄜˊ	1200	pack_philosophy	Auto Ingested (freq=6)
+超覺	ㄔㄠ ㄐㄩㄝˊ	1200	pack_philosophy	Auto Ingested (freq=6)
+具足	ㄐㄩˋ ㄗㄨˊ	1200	pack_philosophy	Auto Ingested (freq=6)
+麼事	˙ㄇㄜ ㄕˋ	1200	pack_philosophy	Auto Ingested (freq=6)
+致之	ㄓˋ ㄓ	1200	pack_philosophy	Auto Ingested (freq=6)
+瑪瑪	ㄇㄚˇ ㄇㄚˇ	1200	pack_philosophy	Auto Ingested (freq=6)
+性微	ㄒㄧㄥˋ ㄨㄟˊ	1200	pack_philosophy	Auto Ingested (freq=6)
+去做	ㄑㄩˋ ㄗㄨㄛˋ	1200	pack_philosophy	Auto Ingested (freq=6)
+收攝	ㄕㄡ ㄕㄜˋ	1200	pack_philosophy	Auto Ingested (freq=6)
+觀想至上	ㄍㄨㄢ ㄒㄧㄤˇ ㄓˋ ㄕㄤˋ	1200	pack_philosophy	Auto Ingested (freq=6)
+士舞	ㄕˋ ㄨˇ	1200	pack_philosophy	Auto Ingested (freq=6)
+亦不	ㄧˋ ㄅㄨˋ	1200	pack_philosophy	Auto Ingested (freq=6)
+悟至	ㄨˋ ㄓˋ	1200	pack_philosophy	Auto Ingested (freq=6)
+中之	ㄓㄨㄥ ㄓ	1200	pack_philosophy	Auto Ingested (freq=6)
+體間	ㄊㄧˇ ㄐㄧㄢˋ	1200	pack_philosophy	Auto Ingested (freq=6)
+須做	ㄒㄩ ㄗㄨㄛˋ	1200	pack_philosophy	Auto Ingested (freq=6)
+勾帕	ㄍㄡ ㄆㄚˋ	1200	pack_philosophy	Auto Ingested (freq=6)
+可循	ㄎㄜˇ ㄒㄩㄣˊ	1200	pack_philosophy	Auto Ingested (freq=5)
+均皆	ㄐㄩㄣ ㄐㄧㄝ	1200	pack_philosophy	Auto Ingested (freq=5)
+此項	ㄘˇ ㄒㄧㄤˋ	1200	pack_philosophy	Auto Ingested (freq=5)
+麼會	˙ㄇㄜ ㄏㄨㄟˋ	1200	pack_philosophy	Auto Ingested (freq=5)
+後再	ㄏㄡˋ ㄗㄞˋ	1200	pack_philosophy	Auto Ingested (freq=5)
+哈里	ㄏㄚ ㄌㄧˇ	1200	pack_philosophy	Auto Ingested (freq=5)
+者會	ㄓㄜˇ ㄏㄨㄟˋ	1200	pack_philosophy	Auto Ingested (freq=5)
+所做	ㄙㄨㄛˇ ㄗㄨㄛˋ	1200	pack_philosophy	Auto Ingested (freq=5)
+拉衍	ㄌㄚ ㄧㄢˇ	1200	pack_philosophy	Auto Ingested (freq=5)
+虔誠之	ㄑㄧㄢˊ ㄔㄥˊ ㄓ	1200	pack_philosophy	Auto Ingested (freq=5)
+人則	ㄖㄣˊ ㄗㄜˊ	1200	pack_philosophy	Auto Ingested (freq=5)
+靈各	ㄌㄧㄥˊ ㄍㄜˋ	1200	pack_philosophy	Auto Ingested (freq=5)
+生元	ㄕㄥ ㄩㄢˊ	1200	pack_philosophy	Auto Ingested (freq=5)
+他即	ㄊㄚ ㄐㄧˊ	1200	pack_philosophy	Auto Ingested (freq=5)
+你已	ㄋㄧˇ ㄧˇ	1200	pack_philosophy	Auto Ingested (freq=5)
+麼做	˙ㄇㄜ ㄗㄨㄛˋ	1200	pack_philosophy	Auto Ingested (freq=5)
+能做	ㄋㄥˊ ㄗㄨㄛˋ	1200	pack_philosophy	Auto Ingested (freq=5)
+於台	ㄩˊ ㄧˊ	1200	pack_philosophy	Auto Ingested (freq=5)
+薩杜	ㄙㄚˋ ㄉㄨˋ	1200	pack_philosophy	Auto Ingested (freq=5)
+此至	ㄘˇ ㄓˋ	1200	pack_philosophy	Auto Ingested (freq=4)
+要記住	ㄧㄠˋ ㄐㄧˋ ㄓㄨˋ	1200	pack_philosophy	Auto Ingested (freq=4)
+要使	ㄧㄠˋ ㄕˇ	1200	pack_philosophy	Auto Ingested (freq=4)
+界及	ㄐㄧㄝˋ ㄐㄧˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+種渴	ㄓㄨㄥˇ ㄎㄜˇ	1200	pack_philosophy	Auto Ingested (freq=4)
+此實	ㄘˇ ㄕˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+對其	ㄉㄨㄟˋ ㄑㄧˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+脈叢	ㄇㄞˋ ㄘㄨㄥˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+上時	ㄕㄤˋ ㄕˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+含藏	ㄏㄢˊ ㄗㄤˋ	1200	pack_philosophy	Auto Ingested (freq=4)
+瑜珈	ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	Auto Ingested (freq=4)
+識會	ㄕˋ ㄏㄨㄟˋ	1200	pack_philosophy	Auto Ingested (freq=4)
+其極	ㄑㄧˊ ㄐㄧˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+些渴	ㄒㄧㄝ ㄎㄜˇ	1200	pack_philosophy	Auto Ingested (freq=4)
+來做	ㄌㄞˊ ㄗㄨㄛˋ	1200	pack_philosophy	Auto Ingested (freq=4)
+育文	ㄩˋ ㄨㄣˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+瑜伽屋	ㄩˊ ㄐㄧㄚ ㄨ	1200	pack_philosophy	Auto Ingested (freq=4)
+空俯	ㄎㄨㄥ ㄈㄨˇ	1200	pack_philosophy	Auto Ingested (freq=4)
+會至	ㄏㄨㄟˋ ㄓˋ	1200	pack_philosophy	Auto Ingested (freq=4)
+之境	ㄓ ㄐㄧㄥˋ	1200	pack_philosophy	Auto Ingested (freq=4)
+士基舞	ㄕˋ ㄐㄧ ㄨˇ	1200	pack_philosophy	Auto Ingested (freq=4)
+所指	ㄙㄨㄛˇ ㄓˇ	1200	pack_philosophy	Auto Ingested (freq=4)
+沈潛	ㄔㄣˊ ㄑㄧㄢˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+人會	ㄖㄣˊ ㄏㄨㄟˋ	1200	pack_philosophy	Auto Ingested (freq=4)
+盡其	ㄐㄧㄣˋ ㄑㄧˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+之洋	ㄓ ㄧㄤˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+惱盡	ㄋㄠˇ ㄐㄧㄣˋ	1200	pack_philosophy	Auto Ingested (freq=4)
+行之	ㄒㄧㄥˊ ㄓ	1200	pack_philosophy	Auto Ingested (freq=4)
+靈已	ㄌㄧㄥˊ ㄧˇ	1200	pack_philosophy	Auto Ingested (freq=4)
+部功	ㄅㄨˋ ㄍㄨㄥ	1200	pack_philosophy	Auto Ingested (freq=4)
+斷持	ㄉㄨㄢˋ ㄔˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+午於	ㄨˇ ㄩˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+靈蛇	ㄌㄧㄥˊ ㄕㄜˊ	1200	pack_philosophy	Auto Ingested (freq=4)
+至上目標	ㄓˋ ㄕㄤˋ ㄇㄨˋ ㄅㄧㄠ	1200	pack_philosophy	Gemma evolved
+谷哈	ㄍㄨˇ ㄏㄚ	1200	pack_philosophy	Gemma evolved
+體悟	ㄊㄧˇ ㄨˋ	1200	pack_philosophy	Round 2 injection
+世俗知識	ㄕˋ ㄙㄨˊ ㄓ ㄕˋ	1200	pack_philosophy	Worldly Knowledge
+義釋	ㄧˋ ㄕˋ	1200	pack_philosophy	哲學經典專有名詞
+觀想持念	ㄍㄨㄢ ㄒㄧㄤˇ ㄔˊ ㄋㄧㄢˋ	1200	pack_philosophy	阿南達瑪迦修行核心概念
+喜悦	ㄒㄧˇ ㄩㄝˋ	1200	pack_philosophy	常用複合詞，指精神上的喜悅
+對治	ㄉㄨㄟˋ ㄓˋ	1200	pack_philosophy	指對抗、治療
+身所	ㄕㄣ ㄙㄨㄛˇ	1200	pack_philosophy	指個體與其本質的關係
+俱足	ㄐㄩˋ ㄗㄨˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+悟之	ㄨˋ ㄓ	1200	pack_philosophy	the realization of
+俗世	ㄙㄨˊ ㄕˋ	1200	pack_philosophy	the mundane world
+孔達里尼	ㄎㄨㄥˇ ㄉㄚˊ ㄌㄧˇ ㄋㄧˊ	1200	pack_philosophy	梵文音譯，關鍵哲學名詞
+非以	ㄈㄟ ㄧˇ	1200	pack_philosophy	Common negation phrase
+於新	ㄩˊ ㄒㄧㄣ	1200	pack_philosophy	Temporal prepositional phrase
+於加	ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	Place name
+其心輪	ㄑㄧˊ ㄒㄧㄣ ㄌㄨㄣˊ	1200	pack_philosophy	梵文心輪概念
+正性微生命	ㄓㄥˋ ㄒㄧㄥˋ ㄨㄟˊ ㄕㄥ ㄇㄧㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+道德之	ㄉㄠˋ ㄉㄜˊ ㄓ	1200	pack_philosophy	Key concept in ethical philosophy
+波質	ㄅㄛ ㄓˊ	1200	pack_philosophy	Specific term in metaphysical context
+無懼	ㄨˊ ㄐㄩˋ	1200	pack_philosophy	Central concept in spiritual philosophy
+心智層面	ㄒㄧㄣ ㄓˋ ㄘㄥˊ ㄇㄧㄢˋ	1200	pack_philosophy	哲學複合詞
+學漢	ㄒㄩㄝˊ ㄏㄢˋ	1200	pack_philosophy	學術領域的梵文音譯
+業力重擔	ㄧㄝˋ ㄌㄧˋ ㄓㄨㄥˋ ㄉㄢˋ	1200	pack_philosophy	阿南達瑪迦哲學關鍵詞
+羅摩	ㄌㄨㄛˊ ㄇㄛˊ	1200	pack_philosophy	印度神話人物
+悅支	ㄩㄝˋ ㄓ	1200	pack_philosophy	梵文音譯或哲學複合詞
+古魯輪	ㄍㄨˇ ㄌㄨˇ ㄌㄨㄣˊ	1200	pack_philosophy	梵文音譯
+臍輪	ㄑㄧˊ ㄌㄨㄣˊ	1200	pack_philosophy	阿南達瑪迦哲學專有名詞
+美醉	ㄇㄟˇ ㄗㄨㄟˋ	1200	pack_philosophy	描述心境
+質域場時	ㄓˊ ㄩˋ ㄔㄤˊ ㄕˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+質域場	ㄓˊ ㄩˋ ㄔㄤˊ	1200	pack_philosophy	哲學概念
+至上褔祉	ㄓˋ ㄕㄤˋ ㄈㄨˋ ㄓˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+手做	ㄕㄡˇ ㄗㄨㄛˋ	1200	pack_philosophy	阿南達瑪迦修行準則
+無執	ㄨˊ ㄓˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+夏克塔	ㄒㄧㄚˋ ㄎㄜˋ ㄊㄚˇ	1200	pack_philosophy	阿南達瑪迦哲學人物
+至上之主	ㄓˋ ㄕㄤˋ ㄓ ㄓㄨˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+誦梵咒	ㄙㄨㄥˋ ㄈㄢˋ ㄓㄡˋ	1200	pack_philosophy	梵語咒語的持誦
+負性	ㄈㄨˋ ㄒㄧㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學中的負面狀態
+較精細	ㄐㄧㄠˋ ㄐㄧㄥ ㄒㄧˋ	1200	pack_philosophy	精細程度的比較
+臣服瑜伽	ㄔㄣˊ ㄈㄨˊ ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	阿南達瑪迦瑜伽體系中的臣服瑜伽
+諸佛	ㄓㄨ ㄈㄛˊ	1200	pack_philosophy	梵文音譯
+古魯	ㄍㄨˇ ㄌㄨˇ	1200	pack_philosophy	梵文音譯
+人視	ㄖㄣˊ ㄕˋ	1200	pack_philosophy	哲學複合詞
+於其	ㄩˊ ㄑㄧˊ	1200	pack_philosophy	高頻哲學詞
+盧迪亞納	ㄌㄨˊ ㄉㄧˊ ㄧㄚˋ ㄋㄚˋ	1200	pack_philosophy	地點實體
+卡帕	ㄎㄚˇ ㄆㄚˋ	1200	pack_philosophy	梵文音譯
+當吾	ㄉㄤ ㄨˊ	1200	pack_philosophy	高頻哲學複合詞
+識份	ㄕˋ ㄈㄣˋ	1200	pack_philosophy	Combination of knowledge and identity
+無象	ㄨˊ ㄒㄧㄤˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+主會	ㄓㄨˇ ㄏㄨㄟˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的實體
+以人	ㄧˇ ㄖㄣˊ	1200	pack_philosophy	高頻哲學複合詞
+我至上	ㄨㄛˇ ㄓˋ ㄕㄤˋ	1200	pack_philosophy	不可分割之實體專名
+瑜伽道場	ㄩˊ ㄐㄧㄚ ㄉㄠˋ ㄔㄤˊ	1200	pack_philosophy	實體地點
+微素	ㄨㄟˊ ㄙㄨˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的精細程度描述
+超寫實	ㄔㄠ ㄒㄧㄝˇ ㄕˊ	1200	pack_philosophy	高頻哲學複合詞
+人即	ㄖㄣˊ ㄐㄧˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+離道	ㄌㄧˊ ㄉㄠˋ	1200	pack_philosophy	阿南達瑪迦哲學修行狀態
+無始	ㄨˊ ㄕˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+瑪珈	ㄇㄚˇ ㄐㄧㄚ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+月晨	ㄩㄝˋ ㄔㄣˊ	1200	pack_philosophy	固定時間詞
+即獲	ㄐㄧˊ ㄏㄨㄛˋ	1200	pack_philosophy	雙詞 Bigram 哲學語境
+無分別智	ㄨˊ ㄈㄣ ㄅㄧㄝˊ ㄓˋ	1200	pack_philosophy	梵文音譯哲學專有名詞
+喜悅甘露集卷	ㄒㄧˇ ㄩㄝˋ ㄍㄢ ㄌㄨˋ ㄐㄧˊ ㄐㄩㄢˋ	1200	pack_philosophy	阿南達瑪迦經典專有名詞
+向精細	ㄒㄧㄤˋ ㄐㄧㄥ ㄒㄧˋ	1200	pack_philosophy	Philosophical concept of refinement
+新人道主義	ㄒㄧㄣ ㄖㄣˊ ㄉㄠˋ ㄓㄨˇ ㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學概念
+會對	ㄏㄨㄟˋ ㄉㄨㄟˋ	1200	pack_philosophy	高頻哲學複合詞
+心靈波質	ㄒㄧㄣ ㄌㄧㄥˊ ㄅㄛ ㄓˊ	1200	pack_philosophy	哲學名詞
+靈波	ㄌㄧㄥˊ ㄅㄛ	1200	pack_philosophy	心靈波動的專有名詞
+宙音	ㄓㄡˋ ㄧㄣ	1200	pack_philosophy	宇宙音聲的專有名詞
+美道德智士	ㄇㄟˇ ㄉㄠˋ ㄉㄜˊ ㄓˋ ㄕˋ	1200	pack_philosophy	High-frequency philosophical compound
+限渴求	ㄒㄧㄢˋ ㄎㄜˇ ㄑㄧㄡˊ	1200	pack_philosophy	Philosophical compound
+承受其	ㄔㄥˊ ㄕㄡˋ ㄑㄧˊ	1200	pack_philosophy	核心哲學概念
+誨文	ㄏㄨㄟˋ ㄨㄣˊ	1200	pack_philosophy	梵文音譯，可能與經典中特定修行方式相關
+眾善	ㄓㄨㄥˋ ㄕㄢˋ	1200	pack_philosophy	高頻哲學複合詞
+頌舞	ㄙㄨㄥˋ ㄨˇ	1200	pack_philosophy	梵文音譯
+元性	ㄩㄢˊ ㄒㄧㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+仁善之	ㄖㄣˊ ㄕㄢˋ ㄓ	1200	pack_philosophy	高頻哲學複合詞
+阮琪瑜伽屋	ㄖㄨㄢˇ ㄑㄧˊ ㄩˊ ㄐㄧㄚ ㄨ	1200	pack_philosophy	實體專名
+娜拉達	ㄋㄚˋ ㄌㄚ ㄉㄚˊ	1200	pack_philosophy	梵文音譯
+哈里帕里曼陀羅	ㄏㄚ ㄌㄧˇ ㄆㄚˋ ㄌㄧˇ ㄇㄢˋ ㄊㄨㄛˊ ㄌㄨㄛˊ	1200	pack_philosophy	阿南達瑪迦哲學專有名詞
+蜿蜒道	ㄨㄢˇ ㄧㄢˊ ㄉㄠˋ	1200	pack_philosophy	常見的自然景觀描述
+數世	ㄕㄨˋ ㄕˋ	1200	pack_philosophy	時間單位
+聖導哲人	ㄕㄥˋ ㄉㄠˇ ㄓㄜˊ ㄖㄣˊ	1200	pack_philosophy	專有名詞，指阿南達瑪迦哲學中的導師
+予聖	ㄩˇ ㄕㄥˋ	1200	pack_philosophy	梵文音譯或高頻哲學複合詞
+此靜	ㄘˇ ㄐㄧㄥˋ	1200	pack_philosophy	高頻哲學複合詞
+為牠	ㄨㄟˋ ㄊㄚ	1200	pack_philosophy	指代動物
+於足	ㄩˊ ㄗㄨˊ	1200	pack_philosophy	固定搭配，意指滿足需求
+需求均	ㄒㄩ ㄑㄧㄡˊ ㄐㄩㄣ	1200	pack_philosophy	哲學語境中常見的詞組
+伕克里	ㄈㄨ ㄎㄜˋ ㄌㄧˇ	1200	pack_philosophy	梵文音譯
+軍姜	ㄐㄩㄣ ㄐㄧㄤ	1200	pack_philosophy	可能為新興哲學術語或人名
+修擬	ㄒㄧㄡ ㄋㄧˇ	1200	pack_philosophy	高頻哲學用語
+認知力之	ㄖㄣˋ ㄓ ㄌㄧˋ ㄓ	1200	pack_philosophy	哲學複合詞
+極致終	ㄐㄧˊ ㄓˋ ㄓㄨㄥ	1200	pack_philosophy	阿南達瑪迦哲學關鍵概念
+碳基食糧	ㄊㄢˋ ㄐㄧ ㄕˊ ㄌㄧㄤˊ	1200	pack_philosophy	哲學名詞
+代新倫理學	ㄉㄞˋ ㄒㄧㄣ ㄌㄨㄣˊ ㄌㄧˇ ㄒㄩㄝˊ	1200	pack_philosophy	哲學學術領域
+凡之	ㄈㄢˊ ㄓ	1200	pack_philosophy	Common phrase in philosophical texts
+有情眾生	ㄧㄡˇ ㄑㄧㄥˊ ㄓㄨㄥˋ ㄕㄥ	1200	pack_philosophy	Sentient beings
+巴加爾布爾	ㄅㄚ ㄐㄧㄚ ㄦˇ ㄅㄨˋ ㄦˇ	1200	pack_philosophy	地名
+新譯	ㄒㄧㄣ ㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學出版品
+院舞	ㄩㄢˋ ㄨˇ	1200	pack_philosophy	戲院舞臺上的舞
+第一階段	ㄉㄧˋ ㄧ ㄐㄧㄝ ㄉㄨㄢˋ	1200	pack_philosophy	阿南達瑪迦哲學階段
+你欲曉萬事	ㄋㄧˇ ㄩˋ ㄒㄧㄠˇ ㄨㄢˋ ㄕˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+都極其	ㄉㄡ ㄐㄧˊ ㄑㄧˊ	1200	pack_philosophy	高頻哲學複合詞
+吠陀諸神	ㄈㄟˋ ㄊㄨㄛˊ ㄓㄨ ㄕㄣˊ	1200	pack_philosophy	梵文音譯
+正曲率	ㄓㄥˋ ㄑㄩ ㄌㄩˋ	1200	pack_philosophy	高頻哲學複合詞
+至上正性	ㄓˋ ㄕㄤˋ ㄓㄥˋ ㄒㄧㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+即全	ㄐㄧˊ ㄑㄩㄢˊ	1200	pack_philosophy	阿南達瑪迦哲學關鍵詞
+至上負性	ㄓˋ ㄕㄤˋ ㄈㄨˋ ㄒㄧㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+既無理智亦無現實	ㄐㄧˋ ㄨˊ ㄌㄧˇ ㄓˋ ㄧˋ ㄨˊ ㄒㄧㄢˋ ㄕˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+靈性沁漫	ㄌㄧㄥˊ ㄒㄧㄥˋ ㄑㄧㄣˋ ㄇㄢˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+一實	ㄧ ㄕˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+八部瑜伽	ㄅㄚ ㄅㄨˋ ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	不可分割之實體專名
+納識	ㄋㄚˋ ㄕˋ	1200	pack_philosophy	梵文音譯或哲學複合詞
+悅性力量	ㄩㄝˋ ㄒㄧㄥˋ ㄌㄧˋ ˙ㄌㄧㄤ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+潛意識心靈	ㄑㄧㄢˊ ㄧˋ ㄕˋ ㄒㄧㄣ ㄌㄧㄥˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+虔誠弟子	ㄑㄧㄢˊ ㄔㄥˊ ㄉㄧˋ ㄗˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+拉莉塔	ㄌㄚ ㄌㄧˋ ㄊㄚˇ	1200	pack_philosophy	梵文名
+倍式唯識	ㄅㄟˋ ㄕˋ ㄨㄟˊ ㄕˋ	1200	pack_philosophy	梵文音譯
+類須	ㄌㄟˋ ㄒㄩ	1200	pack_philosophy	哲學語境中常見的複合詞
+傾盡	ㄑㄧㄥ ㄐㄧㄣˋ	1200	pack_philosophy	高頻哲學動詞
+也為	ㄧㄝˇ ㄨㄟˋ	1200	pack_philosophy	高頻哲學連接詞
+悟時	ㄨˋ ㄕˊ	1200	pack_philosophy	哲學狀態轉換
+加諸於	ㄐㄧㄚ ㄓㄨ ㄩˊ	1200	pack_philosophy	阿南達瑪迦哲學用語
+線時	ㄒㄧㄢˋ ㄕˊ	1200	pack_philosophy	界線
+彎意為	ㄨㄢ ㄧˋ ㄨㄟˋ	1200	pack_philosophy	阿南達瑪迦體式
+成未	ㄔㄥˊ ㄨㄟˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的狀態轉變描述
+伽漢	ㄐㄧㄚ ㄏㄢˋ	1200	pack_philosophy	梵文音譯，可能為特定瑜伽派別名稱
+心住至上	ㄒㄧㄣ ㄓㄨˋ ㄓˋ ㄕㄤˋ	1200	pack_philosophy	Key concept in Ananadamarga philosophy
+識心	ㄕˋ ㄒㄧㄣ	1200	pack_philosophy	心識，哲學概念
+首要之務	ㄕㄡˇ ㄧㄠˋ ㄓ ㄨˋ	1200	pack_philosophy	阿南達瑪迦哲學用語
+髮衣	ㄈㄚˇ ㄧ	1200	pack_philosophy	複合詞，指髮飾和衣物
+何懼之有	ㄏㄜˊ ㄐㄩˋ ㄓ ㄧㄡˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+生而為人	ㄕㄥ ㄦˊ ㄨㄟˊ ㄖㄣˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+潘達	ㄆㄢ ㄉㄚˊ	1200	pack_philosophy	阿南達瑪迦哲學關鍵詞
+悅性	ㄩㄝˋ ㄒㄧㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學中重要概念
+固原素	ㄍㄨˋ ㄩㄢˊ ㄙㄨˋ	1200	pack_philosophy	基本元素
+賜福予	ㄙˋ ㄈㄨˊ ㄩˇ	1200	pack_philosophy	阿南達瑪迦哲學用語
+者謂	ㄓㄜˇ ㄨㄟˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見語法結構
+之六	ㄓ ㄌㄧㄡˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的數詞表示
+薩勾	ㄙㄚˋ ㄍㄡ	1200	pack_philosophy	阿南達瑪迦哲學中常見的梵文音譯
+寶盒	ㄅㄠˇ ㄏㄜˊ	1200	pack_philosophy	阿南達瑪迦哲學中常見的比喻
+識時	ㄕˋ ㄕˊ	1200	pack_philosophy	哲學概念，指覺察時機
+心形	ㄒㄧㄣ ㄒㄧㄥˊ	1200	pack_philosophy	阿南達瑪迦哲學中常見的象徵
+梵咒波流	ㄈㄢˋ ㄓㄡˋ ㄅㄛ ㄌㄧㄡˊ	1200	pack_philosophy	梵文音譯+哲學概念
+心靈質將	ㄒㄧㄣ ㄌㄧㄥˊ ㄓˊ ㄐㄧㄤ	1200	pack_philosophy	哲學複合詞
+獻織	ㄒㄧㄢˋ ㄓ	1200	pack_philosophy	可能為特定儀式或哲學概念的複合詞
+克雅維克	ㄎㄜˋ ㄧㄚˇ ㄨㄟˊ ㄎㄜˋ	1200	pack_philosophy	冰島首都
+善盡職責	ㄕㄢˋ ㄐㄧㄣˋ ㄓˊ ㄗㄜˊ	1200	pack_philosophy	High-frequency phrase in philosophical context
+瓦帕	ㄨㄚˇ ㄆㄚˋ	1200	pack_philosophy	梵文音譯
+也使	ㄧㄝˇ ㄕˇ	1200	pack_philosophy	Conjunction indicating consequence
+梵咒和瑜伽	ㄈㄢˋ ㄓㄡˋ ㄏㄢˋ ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	High-frequency philosophical compound
+質之	ㄓˊ ㄓ	1200	pack_philosophy	哲學複合詞
+波伯	ㄅㄛ ㄅㄛˊ	1200	pack_philosophy	專名
+至上虔誠	ㄓˋ ㄕㄤˋ ㄑㄧㄢˊ ㄔㄥˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+梵咒皆	ㄈㄢˋ ㄓㄡˋ ㄐㄧㄝ	1200	pack_philosophy	梵文音譯
+傍祝	ㄆㄤˊ ㄓㄨˋ	1200	pack_philosophy	梵文音譯或高頻哲學複合詞
+集束統張	ㄐㄧˊ ㄕㄨˋ ㄊㄨㄥˇ ㄓㄤ	1200	pack_philosophy	阿南達瑪迦術語
+礙誨	ㄞˋ ㄏㄨㄟˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的阻礙與教誨概念組合
+均含攝	ㄐㄩㄣ ㄏㄢˊ ㄕㄜˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+弓和箭	ㄍㄨㄥ ㄏㄢˋ ㄐㄧㄢˋ	1200	pack_philosophy	阿南達瑪迦哲學中戰士的象徵
+他觀想持	ㄊㄚ ㄍㄨㄢ ㄒㄧㄤˇ ㄔˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+宇宙間最精細	ㄩˇ ㄓㄡˋ ㄐㄧㄢˋ ㄗㄨㄟˋ ㄐㄧㄥ ㄒㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學對宇宙本質的描述
+以使	ㄧˇ ㄕˇ	1200	pack_philosophy	阿南達瑪迦哲學中常見的修持方法描述
+含振	ㄏㄢˊ ㄓㄣˋ	1200	pack_philosophy	阿南達瑪迦哲學中的精細領域概念
+辨識精細	ㄅㄧㄢˋ ㄕˋ ㄐㄧㄥ ㄒㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學中的關鍵概念
+本體志	ㄅㄣˇ ㄊㄧˇ ㄓˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+自束縛	ㄗˋ ㄕㄨˋ ㄈㄨˊ	1200	pack_philosophy	阿南達瑪迦哲學解脫概念
+係指	ㄒㄧˋ ㄓˇ	1200	pack_philosophy	阿南達瑪迦哲學用語
+交會於巨石	ㄐㄧㄠ ㄏㄨㄟˋ ㄩˊ ㄐㄩˋ ㄕˊ	1200	pack_philosophy	固定詞組
+來世經歷	ㄌㄞˊ ㄕˋ ㄐㄧㄥ ㄌㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+經歷為	ㄐㄧㄥ ㄌㄧˋ ㄨㄟˋ	1200	pack_philosophy	固定詞組
+分彆	ㄈㄣ ㄅㄧㄝˋ	1200	pack_philosophy	常用詞，指區別、分離
+為欲	ㄨㄟˋ ㄩˋ	1200	pack_philosophy	哲學用語，表示為欲望
+愈趨精細	ㄩˋ ㄑㄩ ㄐㄧㄥ ㄒㄧˋ	1200	pack_philosophy	common phrase in philosophical texts
+明辨之	ㄇㄧㄥˊ ㄅㄧㄢˋ ㄓ	1200	pack_philosophy	key concept in Buddhist philosophy
+微奧法門	ㄨㄟˊ ㄠˋ ㄈㄚˇ ㄇㄣˊ	1200	pack_philosophy	高頻哲學複合詞
+示現	ㄕˋ ㄒㄧㄢˋ	1200	pack_philosophy	不可分割之實體專名
+脫欲	ㄊㄨㄛ ㄩˋ	1200	pack_philosophy	解脫欲望
+及瑪迦	ㄐㄧˊ ㄇㄚˇ ㄐㄧㄚ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+瑪琪	ㄇㄚˇ ㄑㄧˊ	1200	pack_philosophy	阿南達瑪迦哲學人物
+慕提之	ㄇㄨˋ ㄊㄧˊ ㄓ	1200	pack_philosophy	阿南達瑪迦哲學人物
+悅即	ㄩㄝˋ ㄐㄧˊ	1200	pack_philosophy	喜悅即
+武役	ㄨˇ ㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的社會職責分類
+別智	ㄅㄧㄝˊ ㄓˋ	1200	pack_philosophy	阿南達瑪迦哲學中，指無分別的智慧
+智同時	ㄓˋ ㄊㄨㄥˊ ㄕˊ	1200	pack_philosophy	阿南達瑪迦哲學中，強調智慧的同時作用
+外馳	ㄨㄞˋ ㄔˊ	1200	pack_philosophy	阿南達瑪迦哲學中，指心靈外馳於外在事物
+梵漢	ㄈㄢˋ ㄏㄢˋ	1200	pack_philosophy	梵文音譯組合
+摩尼蓮花輪	ㄇㄛˊ ㄋㄧˊ ㄌㄧㄢˊ ㄏㄨㄚ ㄌㄨㄣˊ	1200	pack_philosophy	梵文音譯，阿南達瑪迦哲學關鍵詞
+嗡嘛呢叭咪吽	ㄨㄥ ˙ㄇㄚ ˙ㄋㄜ ㄅㄚ ㄇㄧ ㄏㄨㄥ	1200	pack_philosophy	藏傳佛教咒語，不可分割
+嘛呢叭咪吽	˙ㄇㄚ ˙ㄋㄜ ㄅㄚ ㄇㄧ ㄏㄨㄥ	1200	pack_philosophy	藏傳咒語
+起修	ㄑㄧˇ ㄒㄧㄡ	1200	pack_philosophy	阿南達瑪迦哲學用語
+勤拂拭	ㄑㄧㄣˊ ㄈㄨˊ ㄕˋ	1200	pack_philosophy	高頻哲學用語
+惡友	ㄜˋ ㄧㄡˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+年於阮奇	ㄋㄧㄢˊ ㄩˊ ㄖㄨㄢˇ ㄑㄧˊ	1200	pack_philosophy	專有名詞，阿南達瑪迦哲學人物
+奇志音	ㄑㄧˊ ㄓˋ ㄧㄣ	1200	pack_philosophy	梵文音譯，可能為特定哲學術語
+即謂	ㄐㄧˊ ㄨㄟˋ	1200	pack_philosophy	高頻哲學複合詞
+粉粹	ㄈㄣˇ ㄘㄨㄟˋ	1200	pack_philosophy	高頻哲學修持動作
+昇孔達里尼	ㄕㄥ ㄎㄨㄥˇ ㄉㄚˊ ㄌㄧˇ ㄋㄧˊ	1200	pack_philosophy	不可分割之實體專名
+孔達里尼音根	ㄎㄨㄥˇ ㄉㄚˊ ㄌㄧˇ ㄋㄧˊ ㄧㄣ ㄍㄣ	1200	pack_philosophy	高頻哲學複合詞
+蟄伏生命力	ㄓˊ ㄈㄨˊ ㄕㄥ ㄇㄧㄥˋ ㄌㄧˋ	1200	pack_philosophy	哲學概念
+悅印	ㄩㄝˋ ㄧㄣˋ	1200	pack_philosophy	高頻哲學複合詞
+之門	ㄓ ㄇㄣˊ	1200	pack_philosophy	阿南達瑪迦哲學中常見的意象
+悟道之	ㄨˋ ㄉㄠˋ ㄓ	1200	pack_philosophy	高頻哲學複合詞
+阿帕	ㄜ ㄆㄚˋ	1200	pack_philosophy	梵文音譯
+巴克提	ㄅㄚ ㄎㄜˋ ㄊㄧˊ	1200	pack_philosophy	梵文音譯
+宙智	ㄓㄡˋ ㄓˋ	1200	pack_philosophy	宇宙智慧
+智渴	ㄓˋ ㄎㄜˇ	1200	pack_philosophy	心智渴望
+虔誠之主	ㄑㄧㄢˊ ㄔㄥˊ ㄓ ㄓㄨˇ	1200	pack_philosophy	High-frequency term in philosophical context
+始即	ㄕˇ ㄐㄧˊ	1200	pack_philosophy	固定詞組
+往精細	ㄨㄤˇ ㄐㄧㄥ ㄒㄧˋ	1200	pack_philosophy	哲學用語
+認知力	ㄖㄣˋ ㄓ ㄌㄧˋ	1200	pack_philosophy	核心哲學概念
+直平趴伏	ㄓˊ ㄆㄧㄥˊ ㄆㄚ ㄈㄨˊ	1200	pack_philosophy	Yoga posture
+極適	ㄐㄧˊ ㄕˋ	1200	pack_philosophy	常用哲學詞
+即持	ㄐㄧˊ ㄔˊ	1200	pack_philosophy	禪修用語
+血紅色	ㄒㄧㄝˇ ㄏㄨㄥˊ ㄙㄜˋ	1200	pack_philosophy	Color descriptor
+證之	ㄓㄥˋ ㄓ	1200	pack_philosophy	key term in epistemology
+即悅	ㄐㄧˊ ㄩㄝˋ	1200	pack_philosophy	心智狀態
+脩勢	ㄒㄧㄡ ㄕˋ	1200	pack_philosophy	梵文音譯，可能與修習相關
+元瑜伽	ㄩㄢˊ ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	不可分割之實體專名
+勝王瑜伽	ㄕㄥˋ ㄨㄤˊ ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	梵文音譯
+世時	ㄕˋ ㄕˊ	1200	pack_philosophy	時間概念
+此世	ㄘˇ ㄕˋ	1200	pack_philosophy	強調當下生命
+俱廬	ㄐㄩˋ ㄌㄨˊ	1200	pack_philosophy	阿南達瑪迦哲學經典書名
+德之士	ㄉㄜˊ ㄓ ㄕˋ	1200	pack_philosophy	Key concept in philosophical context
+治知	ㄓˋ ㄓ	1200	pack_philosophy	阿南達瑪迦哲學中，指對知識的掌握與運用
+耗盡其	ㄏㄠˋ ㄐㄧㄣˋ ㄑㄧˊ	1200	pack_philosophy	固定詞組
+助將	ㄓㄨˋ ㄐㄧㄤ	1200	pack_philosophy	固定詞組
+心靈質粒子	ㄒㄧㄣ ㄌㄧㄥˊ ㄓˊ ㄌㄧˋ ㄗˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+藝術音樂	ㄧˋ ㄕㄨˋ ㄧㄣ ㄩㄝˋ	1200	pack_philosophy	阿南達瑪迦哲學修持方式
+作永	ㄗㄨㄛˋ ㄩㄥˇ	1200	pack_philosophy	哲學用語，指持續不斷的行動
+畫素	ㄏㄨㄚˋ ㄙㄨˋ	1200	pack_philosophy	高頻圖像處理術語
+蟋蟀聲	ㄒㄧ ㄕㄨㄞˋ ㄕㄥ	1200	pack_philosophy	自然音效
+維識努	ㄨㄟˊ ㄕˋ ㄋㄨˇ	1200	pack_philosophy	阿南達瑪迦信仰密傳法門
+映鏡	ㄧㄥˋ ㄐㄧㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學概念
+像稻	ㄒㄧㄤˋ ㄉㄠˋ	1200	pack_philosophy	固定搭配
+社會監護	ㄕㄜˋ ㄏㄨㄟˋ ㄐㄧㄢ ㄏㄨˋ	1200	pack_philosophy	社會責任範疇
+主應世	ㄓㄨˇ ㄧㄥˋ ㄕˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+靈裡	ㄌㄧㄥˊ ㄌㄧˇ	1200	pack_philosophy	哲學核心概念
+視所	ㄕˋ ㄙㄨㄛˇ	1200	pack_philosophy	固定詞組
+瑪迦所	ㄇㄚˇ ㄐㄧㄚ ㄙㄨㄛˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+拉瑪	ㄌㄚ ㄇㄚˇ	1200	pack_philosophy	梵文音譯，重要人物
+服務衪	ㄈㄨˊ ㄨˋ ㄧˊ	1200	pack_philosophy	阿南達瑪迦修行目標
+亦非	ㄧˋ ㄈㄟ	1200	pack_philosophy	阿南達瑪迦哲學關鍵詞
+美賜	ㄇㄟˇ ㄙˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的詞彙
+也愈快	ㄧㄝˇ ㄩˋ ㄎㄨㄞˋ	1200	pack_philosophy	哲學語境中常見的複合詞
+對行為不執著	ㄉㄨㄟˋ ㄒㄧㄥˊ ㄨㄟˊ ㄅㄨˋ ㄓˊ ㄓㄨㄛˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+生即	ㄕㄥ ㄐㄧˊ	1200	pack_philosophy	阿南達瑪迦哲學關鍵詞
+種善	ㄓㄨㄥˇ ㄕㄢˋ	1200	pack_philosophy	阿南達瑪迦修行準則
+帕薩沙拉希	ㄆㄚˋ ㄙㄚˋ ㄕㄚ ㄌㄚ ㄒㄧ	1200	pack_philosophy	阿南達瑪迦人物名
+拉希	ㄌㄚ ㄒㄧ	1200	pack_philosophy	梵文音譯
+應知	ㄧㄥˋ ㄓ	1200	pack_philosophy	阿南達瑪迦哲學用語
+其真	ㄑㄧˊ ㄓㄣ	1200	pack_philosophy	Refers to the inherent truth
+井中	ㄐㄧㄥˇ ㄓㄨㄥ	1200	pack_philosophy	阿南達瑪迦哲學中常見的比喻
+已臻	ㄧˇ ㄓㄣ	1200	pack_philosophy	高頻哲學詞
+智之士	ㄓˋ ㄓ ㄕˋ	1200	pack_philosophy	哲學複合詞
+境邁	ㄐㄧㄥˋ ㄇㄞˋ	1200	pack_philosophy	哲學狀態轉換
+心祈	ㄒㄧㄣ ㄑㄧˊ	1200	pack_philosophy	複合動詞
+於博帕爾	ㄩˊ ㄅㄛˊ ㄆㄚˋ ㄦˇ	1200	pack_philosophy	地點實體
+非輕	ㄈㄟ ㄑㄧㄥ	1200	pack_philosophy	阿南達瑪迦哲學中常見的否定詞語組合
+心貫	ㄒㄧㄣ ㄍㄨㄢˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的複合詞
+瑜伽行	ㄩˊ ㄐㄧㄚ ㄒㄧㄥˊ	1200	pack_philosophy	核心哲學概念
+中曾	ㄓㄨㄥ ㄗㄥ	1200	pack_philosophy	阿南達瑪迦哲學用語
+虔誠亦	ㄑㄧㄢˊ ㄔㄥˊ ㄧˋ	1200	pack_philosophy	Specific phrase from the text
+解脫智	ㄐㄧㄝˇ ㄊㄨㄛ ㄓˋ	1200	pack_philosophy	Compound term related to liberation
+哈奴曼	ㄏㄚ ㄋㄨˊ ㄇㄢˋ	1200	pack_philosophy	阿南達瑪迦經典人物
+只識	ㄓˇ ㄕˋ	1200	pack_philosophy	固定搭配
+欲與至上	ㄩˋ ㄩˇ ㄓˋ ㄕㄤˋ	1200	pack_philosophy	哲學複合詞
+慧炬	ㄏㄨㄟˋ ㄐㄩˋ	1200	pack_philosophy	核心哲學概念
+曾艷雄	ㄗㄥ ㄧㄢˋ ㄒㄩㄥˊ	1200	pack_philosophy	人名
+真智士	ㄓㄣ ㄓˋ ㄕˋ	1200	pack_philosophy	哲學人物類型
+音京戲	ㄧㄣ ㄐㄧㄥ ㄒㄧˋ	1200	pack_philosophy	梵文音譯或哲學專有名詞
+體智	ㄊㄧˇ ㄓˋ	1200	pack_philosophy	哲學複合詞
+種污	ㄓㄨㄥˇ ㄨ	1200	pack_philosophy	污濁狀態
+感智	ㄍㄢˇ ㄓˋ	1200	pack_philosophy	情感智慧
+飢和渴	ㄐㄧ ㄏㄢˋ ㄎㄜˇ	1200	pack_philosophy	基本佛教哲學概念
+揚偽	ㄧㄤˊ ㄨㄟˋ	1200	pack_philosophy	哲學用語，指揭露虛假
+種偽	ㄓㄨㄥˇ ㄨㄟˋ	1200	pack_philosophy	指偽造的種類
+剝削與偽文化	ㄅㄛ ㄒㄩㄝˋ ㄩˇ ㄨㄟˋ ㄨㄣˊ ㄏㄨㄚˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+化智	ㄏㄨㄚˋ ㄓˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+來欺	ㄌㄞˊ ㄑㄧ	1200	pack_philosophy	阿南達瑪迦哲學中常見的欺騙與虛假概念
+智會	ㄓˋ ㄏㄨㄟˋ	1200	pack_philosophy	哲學名詞
+及偽	ㄐㄧˊ ㄨㄟˋ	1200	pack_philosophy	哲學名詞
+知智	ㄓ ㄓˋ	1200	pack_philosophy	哲學複合詞
+識祈	ㄕˋ ㄑㄧˊ	1200	pack_philosophy	哲學複合詞
+脩已	ㄒㄧㄡ ㄧˇ	1200	pack_philosophy	阿南達瑪迦修持用語
+非賤民	ㄈㄟ ㄐㄧㄢˋ ㄇㄧㄣˊ	1200	pack_philosophy	阿南達瑪迦社會階層
+女賢	ㄋㄩˇ ㄒㄧㄢˊ	1200	pack_philosophy	女性智慧
+至上實體	ㄓˋ ㄕㄤˋ ㄕˊ ㄊㄧˇ	1200	pack_philosophy	高頻哲學複合詞
+修者履	ㄒㄧㄡ ㄓㄜˇ ㄌㄩˇ	1200	pack_philosophy	修者履，指修行的者履行的道
+蓮足	ㄌㄧㄢˊ ㄗㄨˊ	1200	pack_philosophy	key term in Buddhist philosophy
+它即	ㄊㄚ ㄐㄧˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+輿薪裡急	ㄩˊ ㄒㄧㄣ ㄌㄧˇ ㄐㄧˊ	1200	pack_philosophy	梵文音譯或哲學複合詞
+儘可能	ㄐㄧㄣˇ ㄎㄜˇ ㄋㄥˊ	1200	pack_philosophy	高頻哲學語境
+十指之處	ㄕˊ ㄓˇ ㄓ ㄔㄨˋ	1200	pack_philosophy	阿南達瑪迦哲學關鍵詞
+識十	ㄕˋ ㄕˊ	1200	pack_philosophy	指意識層次上的十個階段
+間因	ㄐㄧㄢˋ ㄧㄣ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+哈罕	ㄏㄚ ㄏㄢˇ	1200	pack_philosophy	阿南達瑪迦哲學人物
+至上稟	ㄓˋ ㄕㄤˋ ㄅㄧㄥˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+至上經偈	ㄓˋ ㄕㄤˋ ㄐㄧㄥ ㄐㄧㄝˊ	1200	pack_philosophy	Key term in Buddhist philosophy
+知照音	ㄓ ㄓㄠˋ ㄧㄣ	1200	pack_philosophy	梵文音譯或哲學術語
+子焠	ㄗˇ ㄘㄨㄟˋ	1200	pack_philosophy	金屬煉製術語
+乃悅	ㄋㄞˇ ㄩㄝˋ	1200	pack_philosophy	阿南達瑪迦哲學用語
+礙往	ㄞˋ ㄨㄤˇ	1200	pack_philosophy	阿南達瑪迦哲學中常見的詞彙組合
+心智層	ㄒㄧㄣ ㄓˋ ㄘㄥˊ	1200	pack_philosophy	阿南達瑪迦哲學中描述心智層次的概念
+界裡	ㄐㄧㄝˋ ㄌㄧˇ	1200	pack_philosophy	常見哲學空間概念
+錢愈	ㄑㄧㄢˊ ㄩˋ	1200	pack_philosophy	量詞+副詞，常見哲學經濟論述
+智板	ㄓˋ ㄅㄢˇ	1200	pack_philosophy	阿南達瑪迦哲學術語，指心智的載體
+智淨化	ㄓˋ ㄐㄧㄥˋ ㄏㄨㄚˋ	1200	pack_philosophy	核心哲學概念
+納斯納加	ㄋㄚˋ ㄙ ㄋㄚˋ ㄐㄧㄚ	1200	pack_philosophy	梵文地名
+瓣淍	ㄅㄢˋ ㄓㄡ	1200	pack_philosophy	花瓣飄落
+即行	ㄐㄧˊ ㄒㄧㄥˊ	1200	pack_philosophy	阿南達瑪迦哲學用語
+舞音	ㄨˇ ㄧㄣ	1200	pack_philosophy	音樂與修持
+新革命	ㄒㄧㄣ ㄍㄜˊ ㄇㄧㄥˋ	1200	pack_philosophy	高頻哲學複合詞
+依舊目證	ㄧ ㄐㄧㄡˋ ㄇㄨˋ ㄓㄥˋ	1200	pack_philosophy	固定詞組
+思為	ㄙ ㄨㄟˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的複合詞
+即吾	ㄐㄧˊ ㄨˊ	1200	pack_philosophy	梵文音譯，指'即吾人'
+瓦利	ㄨㄚˇ ㄌㄧˋ	1200	pack_philosophy	梵文音譯，指'解脫'
+負性及	ㄈㄨˋ ㄒㄧㄥˋ ㄐㄧˊ	1200	pack_philosophy	Common philosophical term
+才證	ㄘㄞˊ ㄓㄥˋ	1200	pack_philosophy	Philosophical term indicating attainment
+杵臼誨	ㄔㄨˇ ㄐㄧㄡˋ ㄏㄨㄟˋ	1200	pack_philosophy	阿南達瑪迦哲學術語，可能為誤植
+主祈	ㄓㄨˇ ㄑㄧˊ	1200	pack_philosophy	哲學用語
+阮奇	ㄖㄨㄢˇ ㄑㄧˊ	1200	pack_philosophy	阿南達瑪迦上師
+誠心與虔誠	ㄔㄥˊ ㄒㄧㄣ ㄩˇ ㄑㄧㄢˊ ㄔㄥˊ	1200	pack_philosophy	高頻哲學複合詞
+非塵世	ㄈㄟ ㄔㄣˊ ㄕˋ	1200	pack_philosophy	高頻哲學複合詞
+愈辦愈	ㄩˋ ㄅㄢˋ ㄩˋ	1200	pack_philosophy	表示活動越來越出色
+不變易	ㄅㄨˋ ㄅㄧㄢˋ ㄧˋ	1200	pack_philosophy	描述宇宙本體永恆不變的特性
+時悲	ㄕˊ ㄅㄟ	1200	pack_philosophy	阿南達瑪迦哲學關鍵詞
+取走智	ㄑㄩˇ ㄗㄡˇ ㄓˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的修行概念
+云何夏克	ㄩㄣˊ ㄏㄜˊ ㄒㄧㄚˋ ㄎㄜˋ	1200	pack_philosophy	阿南達瑪迦哲學人物名
+之負	ㄓ ㄈㄨˋ	1200	pack_philosophy	阿南達瑪迦哲學中，'之負' 指的是負面影響力
+之不	ㄓ ㄅㄨˋ	1200	pack_philosophy	阿南達瑪迦哲學中，'之不' 指的是內心不純淨
+媒介之	ㄇㄟˊ ㄐㄧㄝˋ ㄓ	1200	pack_philosophy	阿南達瑪迦哲學中常見的詞彙
+維威卡難陀	ㄨㄟˊ ㄨㄟ ㄎㄚˇ ㄋㄢˊ ㄊㄨㄛˊ	1200	pack_philosophy	阿南達瑪迦哲學人物
+亦非為	ㄧˋ ㄈㄟ ㄨㄟˋ	1200	pack_philosophy	固定搭配，表示否定目的
+潛意識心靈世界	ㄑㄧㄢˊ ㄧˋ ㄕˋ ㄒㄧㄣ ㄌㄧㄥˊ ㄕˋ ㄐㄧㄝˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+此因	ㄘˇ ㄧㄣ	1200	pack_philosophy	因果關係核心概念
+能皆	ㄋㄥˊ ㄐㄧㄝ	1200	pack_philosophy	潛能普遍性描述
+本體聖	ㄅㄣˇ ㄊㄧˇ ㄕㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+之傘	ㄓ ㄙㄢˇ	1200	pack_philosophy	梵文音譯或高頻哲學複合詞
+拿蛇	ㄋㄚˊ ㄕㄜˊ	1200	pack_philosophy	常見哲學範例
+勇士舞裡	ㄩㄥˇ ㄕˋ ㄨˇ ㄌㄧˇ	1200	pack_philosophy	密宗舞蹈場景
+施予恩典	ㄕ ㄩˇ ㄣ ㄉㄧㄢˇ	1200	pack_philosophy	典型密宗修行概念
+攝集	ㄕㄜˋ ㄐㄧˊ	1200	pack_philosophy	心靈攝集
+累劫	ㄌㄟˋ ㄐㄧㄝˊ	1200	pack_philosophy	高頻哲學詞
+將易	ㄐㄧㄤ ㄧˋ	1200	pack_philosophy	高頻哲學複合詞
+取予	ㄑㄩˇ ㄩˇ	1200	pack_philosophy	阿南達瑪迦哲學中常見的雙詞組合
+話虔誠	ㄏㄨㄚˋ ㄑㄧㄢˊ ㄔㄥˊ	1200	pack_philosophy	阿南達瑪迦哲學中常見的修持狀態
+意識之洋	ㄧˋ ㄕˋ ㄓ ㄧㄤˊ	1200	pack_philosophy	高頻哲學詞彙
+誠服皈依	ㄔㄥˊ ㄈㄨˊ ㄍㄨㄟ ㄧ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+至上之舟	ㄓˋ ㄕㄤˋ ㄓ ㄓㄡ	1200	pack_philosophy	阿南達瑪迦哲學比喻
+以理性為	ㄧˇ ㄌㄧˇ ㄒㄧㄥˋ ㄨㄟˋ	1200	pack_philosophy	Core concept in philosophical discourse
+至上之祖	ㄓˋ ㄕㄤˋ ㄓ ㄗㄨˇ	1200	pack_philosophy	Key term in Ananda Marga cosmology
+諸眾	ㄓㄨ ㄓㄨㄥˋ	1200	pack_philosophy	Common term in Buddhist philosophy
+至上的致因	ㄓˋ ㄕㄤˋ ˙ㄉㄜ ㄓˋ ㄧㄣ	1200	pack_philosophy	核心哲學概念
+格之主	ㄍㄜˊ ㄓ ㄓㄨˇ	1200	pack_philosophy	阿南達瑪迦哲學體系中重要概念
+來誨	ㄌㄞˊ ㄏㄨㄟˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的指導方式
+泛宇	ㄈㄢˋ ㄩˇ	1200	pack_philosophy	阿南達瑪迦哲學中重要地點
+時手應高	ㄕˊ ㄕㄡˇ ㄧㄥˋ ㄍㄠ	1200	pack_philosophy	動作指示詞
+向心之道	ㄒㄧㄤˋ ㄒㄧㄣ ㄓ ㄉㄠˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+皆無需	ㄐㄧㄝ ㄨˊ ㄒㄩ	1200	pack_philosophy	強調無需的狀態
+原獲益市語	ㄩㄢˊ ㄏㄨㄛˋ ㄧˋ ㄕˋ ㄩˇ	1200	pack_philosophy	可能為特定哲學術語或人名
+般度	ㄅㄢ ㄉㄨˋ	1200	pack_philosophy	阿南達瑪迦哲學人物
+未知之路	ㄨㄟˋ ㄓ ㄓ ㄌㄨˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+持誦	ㄔˊ ㄙㄨㄥˋ	1200	pack_philosophy	梵文經典中常見的修行方式
+指既	ㄓˇ ㄐㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+梵咒之	ㄈㄢˋ ㄓㄡˋ ㄓ	1200	pack_philosophy	梵咒之為不可分割實體專名
+至靈	ㄓˋ ㄌㄧㄥˊ	1200	pack_philosophy	梵文哲學概念
+德梵咒	ㄉㄜˊ ㄈㄢˋ ㄓㄡˋ	1200	pack_philosophy	梵文音譯
+波動間均	ㄅㄛ ㄉㄨㄥˋ ㄐㄧㄢˋ ㄐㄩㄣ	1200	pack_philosophy	阿南達瑪迦哲學關鍵詞
+種像	ㄓㄨㄥˇ ㄒㄧㄤˋ	1200	pack_philosophy	描述心靈狀態的哲學比喻
+露欣	ㄌㄨˋ ㄒㄧㄣ	1200	pack_philosophy	常見人名
+體尚	ㄊㄧˇ ㄕㄤˋ	1200	pack_philosophy	複合詞
+由梵咒	ㄧㄡˊ ㄈㄢˋ ㄓㄡˋ	1200	pack_philosophy	梵文音譯
+庫拉孔達里尼	ㄎㄨˋ ㄌㄚ ㄎㄨㄥˇ ㄉㄚˊ ㄌㄧˇ ㄋㄧˊ	1200	pack_philosophy	梵文音譯，關鍵概念
+其首	ㄑㄧˊ ㄕㄡˇ	1200	pack_philosophy	Key phrase in philosophical context
+會諦	ㄏㄨㄟˋ ㄉㄧˋ	1200	pack_philosophy	Specific practice term
+此諦	ㄘˇ ㄉㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學關鍵概念
+觀想至上使	ㄍㄨㄢ ㄒㄧㄤˇ ㄓˋ ㄕㄤˋ ㄕˇ	1200	pack_philosophy	阿南達瑪迦修行核心概念
+摯愛之	ㄓˋ ㄞˋ ㄓ	1200	pack_philosophy	阿南達瑪迦哲學情感描述
+心智與靈性	ㄒㄧㄣ ㄓˋ ㄩˇ ㄌㄧㄥˊ ㄒㄧㄥˋ	1200	pack_philosophy	高頻哲學複合詞
+間最	ㄐㄧㄢˋ ㄗㄨㄟˋ	1200	pack_philosophy	哲學比較語
+此謂	ㄘˇ ㄨㄟˋ	1200	pack_philosophy	哲學用語，指「此即為」
+它忘記	ㄊㄚ ㄨㄤˋ ㄐㄧˋ	1200	pack_philosophy	高頻哲學複合詞
+心靈質	ㄒㄧㄣ ㄌㄧㄥˊ ㄓˊ	1200	pack_philosophy	哲學概念，指心靈本質
+解脱	ㄐㄧㄝˇ ㄊㄨㄛ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+修秘	ㄒㄧㄡ ㄅㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學用語
+邦佳浦	ㄅㄤ ㄐㄧㄚ ㄆㄨˇ	1200	pack_philosophy	阿南達瑪迦經典地名
+晨於	ㄔㄣˊ ㄩˊ	1200	pack_philosophy	時間詞
+里昂更	ㄌㄧˇ ㄤˊ ㄍㄥ	1200	pack_philosophy	地理位置
+非智力	ㄈㄟ ㄓˋ ㄌㄧˋ	1200	pack_philosophy	哲學概念
+既聾又啞	ㄐㄧˋ ㄌㄨㄥˊ ㄧㄡˋ ㄧㄚˇ	1200	pack_philosophy	哲學經典中常見描述
+何立	ㄏㄜˊ ㄌㄧˋ	1200	pack_philosophy	Philosophical concept related to establishing a foundation
+介波	ㄐㄧㄝˋ ㄅㄛ	1200	pack_philosophy	阿南達瑪迦哲學術語
+微生元	ㄨㄟˊ ㄕㄥ ㄩㄢˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+使超	ㄕˇ ㄔㄠ	1200	pack_philosophy	阿南達瑪迦哲學術語，指超越自我、達到更高意識層次
+著像	˙ㄓㄜ ㄒㄧㄤˋ	1200	pack_philosophy	阿南達瑪迦哲學術語，指以某種方式呈現或模擬
+類精	ㄌㄟˋ ㄐㄧㄥ	1200	pack_philosophy	哲學術語
+尚未生起	ㄕㄤˋ ㄨㄟˋ ㄕㄥ ㄑㄧˇ	1200	pack_philosophy	描述心境狀態
+輪觀想	ㄌㄨㄣˊ ㄍㄨㄢ ㄒㄧㄤˇ	1200	pack_philosophy	核心阿南達瑪迦修行概念
+後立刻做	ㄏㄡˋ ㄌㄧˋ ㄎㄜˋ ㄗㄨㄛˋ	1200	pack_philosophy	阿南達瑪迦修行指導用語
+後記住古	ㄏㄡˋ ㄐㄧˋ ㄓㄨˋ ㄍㄨˇ	1200	pack_philosophy	阿南達瑪迦修行指導用語
+梵咒持	ㄈㄢˋ ㄓㄡˋ ㄔˊ	1200	pack_philosophy	梵文音譯
+林清志	ㄌㄧㄣˊ ㄑㄧㄥ ㄓˋ	1200	pack_philosophy	人名
+迎進足夠的光線和空氣來豐富智力	ㄧㄥˊ ㄐㄧㄣˋ ㄗㄨˊ ㄍㄡˋ ㄉㄜ˙ ㄍㄨㄤ ㄒㄧㄢˋ ㄏㄢˋ ㄎㄨㄥ ㄑㄧˋ ㄌㄞˊ ㄈㄥ ㄈㄨˋ ㄓˋ ㄌㄧˋ	1200	pack_philosophy	常見哲學修辭句式
+世紀大預言	ㄕˋ ㄐㄧˋ ㄉㄚˋ ㄩˋ ㄧㄢˊ	1200	pack_philosophy	阿南達瑪迦經典專有名詞
+咒數	ㄓㄡˋ ㄕㄨˋ	1200	pack_philosophy	梵咒相關實體
+質知覺板	ㄓˊ ㄓ ㄐㄩㄝˊ ㄅㄢˇ	1200	pack_philosophy	阿南達瑪迦哲學術語
+該虔誠	ㄍㄞ ㄑㄧㄢˊ ㄔㄥˊ	1200	pack_philosophy	固定詞組
+誠服於至	ㄔㄥˊ ㄈㄨˊ ㄩˊ ㄓˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+向至上誠服	ㄒㄧㄤˋ ㄓˋ ㄕㄤˋ ㄔㄥˊ ㄈㄨˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+古魯梵咒	ㄍㄨˇ ㄌㄨˇ ㄈㄢˋ ㄓㄡˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+持念	ㄔˊ ㄋㄧㄢˋ	1200	pack_philosophy	阿南達瑪迦修行中重要的動作
+梵咒及古魯梵咒	ㄈㄢˋ ㄓㄡˋ ㄐㄧˊ ㄍㄨˇ ㄌㄨˇ ㄈㄢˋ ㄓㄡˋ	1200	pack_philosophy	阿南達瑪迦中重要的修行工具
+藥劑著敵視	ㄧㄠˋ ㄐㄧˋ ˙ㄓㄜ ㄉㄧˊ ㄕˋ	1200	pack_philosophy	可能為特定哲學派別用語
+未滿足	ㄨㄟˋ ㄇㄢˇ ㄗㄨˊ	1200	pack_philosophy	高頻哲學狀態描述
+即吾人	ㄐㄧˊ ㄨˊ ㄖㄣˊ	1200	pack_philosophy	阿南達瑪迦哲學中常見的自我指稱
+標即	ㄅㄧㄠ ㄐㄧˊ	1200	pack_philosophy	哲學術語
+夏姆	ㄒㄧㄚˋ ㄇㄨˇ	1200	pack_philosophy	阿南達瑪迦人物
+迪克	ㄉㄧˊ ㄎㄜˋ	1200	pack_philosophy	阿南達瑪迦人物
+視虔誠	ㄕˋ ㄑㄧㄢˊ ㄔㄥˊ	1200	pack_philosophy	阿南達瑪迦核心概念
+知之	ㄓ ㄓ	1200	pack_philosophy	認識、洞察
+靈受	ㄌㄧㄥˊ ㄕㄡˋ	1200	pack_philosophy	心靈承受
+鈍習	ㄉㄨㄣˋ ㄒㄧˊ	1200	pack_philosophy	阿南達瑪迦哲學專有名詞
+集明知未艾	ㄐㄧˊ ㄇㄧㄥˊ ㄓ ㄨㄟˋ ㄞˋ	1200	pack_philosophy	阿南達瑪迦哲學特定術語
+質融匯	ㄓˊ ㄖㄨㄥˊ ㄏㄨㄟˋ	1200	pack_philosophy	阿南達瑪迦哲學術語
+皆備於心	ㄐㄧㄝ ㄅㄟˋ ㄩˊ ㄒㄧㄣ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+隙建	ㄒㄧˋ ㄐㄧㄢˋ	1200	pack_philosophy	修正「縫隙」的建構詞
+海集	ㄏㄞˇ ㄐㄧˊ	1200	pack_philosophy	修正「大海」的建構詞
+界接	ㄐㄧㄝˋ ㄐㄧㄝ	1200	pack_philosophy	修正「世界」的建構詞
+上佚	ㄕㄤˋ ㄧˋ	1200	pack_philosophy	修正「質上」的建構詞
+以精細	ㄧˇ ㄐㄧㄥ ㄒㄧˋ	1200	pack_philosophy	哲學分析方式
+智盡失	ㄓˋ ㄐㄧㄣˋ ㄕ	1200	pack_philosophy	阿南達瑪迦哲學狀態
+色生	ㄙㄜˋ ㄕㄥ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+味觸	ㄨㄟˋ ㄔㄨˋ	1200	pack_philosophy	感官體驗
+諸根	ㄓㄨ ㄍㄣ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+候獲	ㄏㄡˋ ㄏㄨㄛˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的問候語
+心願院	ㄒㄧㄣ ˙ㄩㄢ ㄩㄢˋ	1200	pack_philosophy	阿南達瑪迦哲學中祈願的場所
+間為	ㄐㄧㄢˋ ㄨㄟˋ	1200	pack_philosophy	固定搭配，常見於時間概念
+管持	ㄍㄨㄢˇ ㄔˊ	1200	pack_philosophy	固定搭配，強調持守
+之狡飾	ㄓ ㄐㄧㄠˇ ㄕˋ	1200	pack_philosophy	梵文音譯或哲學複合詞
+齋義埔	ㄓㄞ ㄧˋ ㄅㄨˇ	1200	pack_philosophy	實體專名
+識又	ㄕˋ ㄧㄡˋ	1200	pack_philosophy	常見哲學詞彙組合
+波流化身	ㄅㄛ ㄌㄧㄡˊ ㄏㄨㄚˋ ㄕㄣ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+梵咒作用	ㄈㄢˋ ㄓㄡˋ ㄗㄨㄛˋ ㄩㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學關鍵概念
+歸處	ㄍㄨㄟ ㄔㄨˇ	1200	pack_philosophy	高頻哲學詞
+佳埔	ㄐㄧㄚ ㄅㄨˇ	1200	pack_philosophy	地名
+隊相位	ㄉㄨㄟˋ ㄒㄧㄤˋ ㄨㄟˋ	1200	pack_philosophy	可能為特定哲學派別或學說中的術語
+向亦	ㄒㄧㄤˋ ㄧˋ	1200	pack_philosophy	固定哲學詞組
+會瑜伽	ㄏㄨㄟˋ ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	固定哲學詞彙
+旺納	ㄨㄤˋ ㄋㄚˋ	1200	pack_philosophy	地名/人名
+向祂獻	ㄒㄧㄤˋ ㄊㄚ ㄒㄧㄢˋ	1200	pack_philosophy	梵文音譯或哲學複合詞
+至上靈魂	ㄓˋ ㄕㄤˋ ㄌㄧㄥˊ ㄏㄨㄣˊ	1200	pack_philosophy	梵文音譯或高頻哲學複合詞
+至上召喚	ㄓˋ ㄕㄤˋ ㄓㄠˋ ㄏㄨㄢˋ	1200	pack_philosophy	高頻哲學複合詞
+瓦問	ㄨㄚˇ ㄨㄣˋ	1200	pack_philosophy	梵文音譯
+門托	ㄇㄣˊ ㄊㄨㄛ	1200	pack_philosophy	高頻哲學詞組
+只諸	ㄓˇ ㄓㄨ	1200	pack_philosophy	高頻哲學詞組
+線可	ㄒㄧㄢˋ ㄎㄜˇ	1200	pack_philosophy	可能為梵文音譯或哲學術語
+權限深	ㄑㄩㄢˊ ㄒㄧㄢˋ ㄕㄣ	1200	pack_philosophy	可能為哲學概念的音譯或新造詞
+頓巷京戲	ㄉㄨㄣˋ ㄒㄧㄤˋ ㄐㄧㄥ ㄒㄧˋ	1200	pack_philosophy	暫時標記為實體，待確認是否為特定哲學術語
+中湧現誓願	ㄓㄨㄥ ㄩㄥˇ ㄒㄧㄢˋ ㄕˋ ㄩㄢˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+懲治的進	ㄔㄥˊ ㄓˋ ˙ㄉㄜ ㄐㄧㄣˋ	1200	pack_philosophy	可能為特定哲學用語，需進一步查證
+心繫	ㄒㄧㄣ ㄒㄧˋ	1200	pack_philosophy	心繫於某事
+將證	ㄐㄧㄤ ㄓㄥˋ	1200	pack_philosophy	將來會證悟
+因受	ㄧㄣ ㄕㄡˋ	1200	pack_philosophy	因業力而受苦
+意間	ㄧˋ ㄐㄧㄢˋ	1200	pack_philosophy	哲學語境中常見的詞組
+善念	ㄕㄢˋ ㄋㄧㄢˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+版尚	ㄅㄢˇ ㄕㄤˋ	1200	pack_philosophy	可能指特定哲學狀態或實體
+誠瑜伽	ㄔㄥˊ ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	核心哲學概念
+有序和潔淨	ㄧㄡˇ ㄒㄩˋ ㄏㄢˋ ㄐㄧㄝˊ ㄐㄧㄥˋ	1200	pack_philosophy	common phrase in ethical context
+敢之	ㄍㄢˇ ㄓ	1200	pack_philosophy	哲學語境中常見的表達
+遠呈	ㄩㄢˇ ㄔㄥˊ	1200	pack_philosophy	哲學語境中常見的表達
+質堅	ㄓˊ ㄐㄧㄢ	1200	pack_philosophy	心靈狀態
+僅因	ㄐㄧㄣˇ ㄧㄣ	1200	pack_philosophy	因果關係
+界知	ㄐㄧㄝˋ ㄓ	1200	pack_philosophy	阿南達瑪迦哲學中常見的狀態描述
+醒知	ㄒㄧㄥˇ ㄓ	1200	pack_philosophy	阿南達瑪迦哲學中覺醒狀態的表現
+心智上	ㄒㄧㄣ ㄓˋ ㄕㄤˋ	1200	pack_philosophy	Refers to the realm of mind and intellect
+請祢	ㄑㄧㄥˇ ㄇㄧˊ	1200	pack_philosophy	敬語，常見於宗教經典
+食衣住醫療教育	ㄕˊ ㄧ ㄓㄨˋ ㄧ ㄌㄧㄠˊ ㄐㄧㄠˋ ㄩˋ	1200	pack_philosophy	高頻哲學複合詞
+因就果	ㄧㄣ ㄐㄧㄡˋ ㄍㄨㄛˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+皆適	ㄐㄧㄝ ㄕˋ	1200	pack_philosophy	阿南達瑪迦哲學用語
+可資維繫	ㄎㄜˇ ㄗ ㄨㄟˊ ㄒㄧˋ	1200	pack_philosophy	高頻哲學詞
+屎棋倘佯	ㄕˇ ㄑㄧˊ ㄔㄤˊ ㄧㄤˊ	1200	pack_philosophy	梵文音譯或哲學複合詞
+限之	ㄒㄧㄢˋ ㄓ	1200	pack_philosophy	哲學複合詞
+它湧向至上	ㄊㄚ ㄩㄥˇ ㄒㄧㄤˋ ㄓˋ ㄕㄤˋ	1200	pack_philosophy	哲學複合詞
+即名之	ㄐㄧˊ ㄇㄧㄥˊ ㄓ	1200	pack_philosophy	哲學複合詞
+熔漿與蒸氣	ㄖㄨㄥˊ ㄐㄧㄤ ㄩˇ ㄓㄥ ㄑㄧˋ	1200	pack_philosophy	哲學文本常見詞彙
+精細和擴展	ㄐㄧㄥ ㄒㄧˋ ㄏㄢˋ ㄎㄨㄛˋ ㄓㄢˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+予至上	ㄩˇ ㄓˋ ㄕㄤˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+浴常	ㄩˋ ㄔㄤˊ	1200	pack_philosophy	常為修持習慣
+己獻	ㄐㄧˇ ㄒㄧㄢˋ	1200	pack_philosophy	梵文音譯或高頻哲學複合詞
+曠劫	ㄎㄨㄤˋ ㄐㄧㄝˊ	1200	pack_philosophy	梵文音譯，指漫長的時間循環
+祭火	ㄐㄧˋ ㄏㄨㄛˇ	1200	pack_philosophy	阿南達瑪迦哲學中重要概念
+力沿	ㄌㄧˋ ㄧㄢˊ	1200	pack_philosophy	沿著力量
+且依	ㄑㄧㄝˇ ㄧ	1200	pack_philosophy	依據且
+合因	ㄏㄜˊ ㄧㄣ	1200	pack_philosophy	因合
+鍊即	ㄌㄧㄢˋ ㄐㄧˊ	1200	pack_philosophy	即鍊
+量再	ㄌㄧㄤˋ ㄗㄞˋ	1200	pack_philosophy	再量
+勇者之路	ㄩㄥˇ ㄓㄜˇ ㄓ ㄌㄨˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的修行道路概念
+彙聚	ㄏㄨㄟˋ ㄐㄩˋ	1200	pack_philosophy	阿南達瑪迦哲學中修行積累的概念
+虔誠之流	ㄑㄧㄢˊ ㄔㄥˊ ㄓ ㄌㄧㄡˊ	1200	pack_philosophy	阿南達瑪迦哲學中修行者心態的描述
+勃勃生氣	ㄅㄛˊ ㄅㄛˊ ㄕㄥ ㄑㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學中修行者應有的精神狀態
+覺將	ㄐㄩㄝˊ ㄐㄧㄤ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+力之舞動	ㄌㄧˋ ㄓ ㄨˇ ㄉㄨㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+瑜伽瑜伽	ㄩˊ ㄐㄧㄚ ㄩˊ ㄐㄧㄚ	1200	pack_philosophy	梵文音譯，常見哲學名詞
+便知	ㄅㄧㄢˋ ㄓ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+莫為	ㄇㄛˋ ㄨㄟˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+所惑	ㄙㄨㄛˇ ㄏㄨㄛˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+瑜伽士之	ㄩˊ ㄐㄧㄚ ㄕˋ ㄓ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+何謂瑜伽士	ㄏㄜˊ ㄨㄟˋ ㄩˊ ㄐㄧㄚ ㄕˋ	1200	pack_philosophy	阿南達瑪迦哲學常見問句
+以俱屬	ㄧˇ ㄐㄩˋ ㄕㄨˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+金斯敦	ㄐㄧㄣ ㄙ ㄉㄨㄣ	1200	pack_philosophy	地理實體專名
+道之	ㄉㄠˋ ㄓ	1200	pack_philosophy	固定搭配
+上耽	ㄕㄤˋ ㄉㄢ	1200	pack_philosophy	上耽，指耽溺於事物，不可分割實體專名
+不起座	ㄅㄨˋ ㄑㄧˇ ㄗㄨㄛˋ	1200	pack_philosophy	不起座，指不站起來，不可分割實體專名
+香卡拉	ㄒㄧㄤ ㄎㄚˇ ㄌㄚ	1200	pack_philosophy	阿南達瑪迦哲學重要人物
+因與善	ㄧㄣ ㄩˇ ㄕㄢˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+鬆彈	ㄙㄨㄥ ㄉㄢˋ	1200	pack_philosophy	音樂術語
+成調	ㄔㄥˊ ㄉㄧㄠˋ	1200	pack_philosophy	音樂術語
+則易	ㄗㄜˊ ㄧˋ	1200	pack_philosophy	哲學語境中表示因果關係
+非虔誠	ㄈㄟ ㄑㄧㄢˊ ㄔㄥˊ	1200	pack_philosophy	key concept in religious philosophy
+應道	ㄧㄥˋ ㄉㄠˋ	1200	pack_philosophy	term related to Dharma and spiritual path
+動歸	ㄉㄨㄥˋ ㄍㄨㄟ	1200	pack_philosophy	行動瑜伽概念
+伽之	ㄐㄧㄚ ㄓ	1200	pack_philosophy	梵文音譯
+已失	ㄧˇ ㄕ	1200	pack_philosophy	梵文音譯或哲學用語
+懷氏	ㄏㄨㄞˊ ㄕˋ	1200	pack_philosophy	可能為人名或派別
+威維卡難陀	ㄨㄟ ㄨㄟˊ ㄎㄚˇ ㄋㄢˊ ㄊㄨㄛˊ	1200	pack_philosophy	阿南達瑪迦哲學重要人物
+不變易之	ㄅㄨˋ ㄅㄧㄢˋ ㄧˋ ㄓ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+宇宙一體主義	ㄩˇ ㄓㄡˋ ㄧ ㄊㄧˇ ㄓㄨˇ ㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+虔誠耗竭時	ㄑㄧㄢˊ ㄔㄥˊ ㄏㄠˋ ㄐㄧㄝˊ ㄕˊ	1200	pack_philosophy	阿南達瑪迦哲學狀態描述
+德瓦帕拉	ㄉㄜˊ ㄨㄚˇ ㄆㄚˋ ㄌㄚ	1200	pack_philosophy	阿南達瑪迦哲學經典中之時代名稱
+已起	ㄧˇ ㄑㄧˇ	1200	pack_philosophy	常見哲學語境
+其帶	ㄑㄧˊ ㄉㄞˋ	1200	pack_philosophy	哲學概念，指將思緒融入韻律
+眾神	ㄓㄨㄥˋ ㄕㄣˊ	1200	pack_philosophy	梵文概念
+船上重擔	ㄔㄨㄢˊ ㄕㄤˋ ㄓㄨㄥˋ ㄉㄢˋ	1200	pack_philosophy	船上重擔為阿南達瑪迦哲學中常見的比喻
+渴望靈性	ㄎㄜˇ ㄨㄤˋ ㄌㄧㄥˊ ㄒㄧㄥˋ	1200	pack_philosophy	反映阿南達瑪迦哲學的核心追求
+心靈客體	ㄒㄧㄣ ㄌㄧㄥˊ ㄎㄜˋ ㄊㄧˇ	1200	pack_philosophy	阿南達瑪迦哲學中對心靈目標的描述
+於虔誠	ㄩˊ ㄑㄧㄢˊ ㄔㄥˊ	1200	pack_philosophy	阿南達瑪迦哲學用語
+棄塵	ㄑㄧˋ ㄔㄣˊ	1200	pack_philosophy	阿南達瑪迦哲學用語
+吠陀經中	ㄈㄟˋ ㄊㄨㄛˊ ㄐㄧㄥ ㄓㄨㄥ	1200	pack_philosophy	梵文音譯與哲學專有名詞組合
+何持	ㄏㄜˊ ㄔˊ	1200	pack_philosophy	阿南達瑪迦哲學中常見的語彙組合
+貝蒂亞	ㄅㄟˋ ㄉㄧˋ ㄧㄚˋ	1200	pack_philosophy	專有名詞，阿南達瑪迦人物
+不友	ㄅㄨˋ ㄧㄡˇ	1200	pack_philosophy	哲學用語，指非友善狀態
+靈既	ㄌㄧㄥˊ ㄐㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學中常見的複合詞
+唵聲梵咒	ㄢˇ ㄕㄥ ㄈㄢˋ ㄓㄡˋ	1200	pack_philosophy	高頻哲學複合詞
+唵聲會使	ㄢˇ ㄕㄥ ㄏㄨㄟˋ ㄕˇ	1200	pack_philosophy	阿南達瑪迦經典中常見的梵語音譯
+內視力	ㄋㄟˋ ㄕˋ ㄌㄧˋ	1200	pack_philosophy	視神經導向內在的能力
+讓人們為	ㄖㄤˋ ㄖㄣˊ ㄇㄣˊ ㄨㄟˋ	1200	pack_philosophy	固定搭配，哲學語境
+持念目標	ㄔˊ ㄋㄧㄢˋ ㄇㄨˋ ㄅㄧㄠ	1200	pack_philosophy	阿南達瑪迦哲學用語
+對有	ㄉㄨㄟˋ ㄧㄡˇ	1200	pack_philosophy	常見哲學語句結構
+卡利	ㄎㄚˇ ㄌㄧˋ	1200	pack_philosophy	阿南達瑪迦經典地名
+必招毀滅	ㄅㄧˋ ㄓㄠ ㄏㄨㄟˇ ㄇㄧㄝˋ	1200	pack_philosophy	阿南達瑪迦哲學警示語
+母之	ㄇㄨˇ ㄓ	1200	pack_philosophy	母子關係特定詞
+拉嘎密卡虔誠	ㄌㄚ ㄍㄚ ㄇㄧˋ ㄎㄚˇ ㄑㄧㄢˊ ㄔㄥˊ	1200	pack_philosophy	阿南達瑪迦哲學特定術語
+虔誠始於	ㄑㄧㄢˊ ㄔㄥˊ ㄕˇ ㄩˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+塘污	ㄊㄤˊ ㄨ	1200	pack_philosophy	水塘污泥
+染污	ㄖㄢˇ ㄨ	1200	pack_philosophy	染污
+比錐	ㄅㄧˇ ㄓㄨㄟ	1200	pack_philosophy	比喻尖銳之物
+何境	ㄏㄜˊ ㄐㄧㄥˋ	1200	pack_philosophy	哲學名詞，指人生境界
+至上本體	ㄓˋ ㄕㄤˋ ㄅㄣˇ ㄊㄧˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+卓巴德靈性啟蒙	ㄓㄨㄛˊ ㄅㄚ ㄉㄜˊ ㄌㄧㄥˊ ㄒㄧㄥˋ ㄑㄧˇ ㄇㄥˊ	1200	pack_philosophy	阿南達瑪迦哲學人物及修持概念
+向祂祈求	ㄒㄧㄤˋ ㄊㄚ ㄑㄧˊ ㄑㄧㄡˊ	1200	pack_philosophy	阿南達瑪迦祈禱語式
+季著漢	ㄐㄧˋ ˙ㄓㄜ ㄏㄢˋ	1200	pack_philosophy	疑似梵文音譯或哲學專有名詞
+至上控制主	ㄓˋ ㄕㄤˋ ㄎㄨㄥˋ ㄓˋ ㄓㄨˇ	1200	pack_philosophy	核心概念
+滿咒	ㄇㄢˇ ㄓㄡˋ	1200	pack_philosophy	阿南達瑪迦咒語
+於履	ㄩˊ ㄌㄩˇ	1200	pack_philosophy	阿南達瑪迦修行用語
+德里致	ㄉㄜˊ ㄌㄧˇ ㄓˋ	1200	pack_philosophy	阿南達瑪迦人物/地點
+虔誠是為	ㄑㄧㄢˊ ㄔㄥˊ ㄕˋ ㄨㄟˋ	1200	pack_philosophy	哲學概念組合
+並循	ㄅㄧㄥˋ ㄒㄩㄣˊ	1200	pack_philosophy	阿南達瑪迦哲學中常見的修行指示
+必成悟	ㄅㄧˋ ㄔㄥˊ ㄨˋ	1200	pack_philosophy	阿南達瑪迦哲學中描述修行成果的狀態
+於舒	ㄩˊ ㄕㄨ	1200	pack_philosophy	阿南達瑪迦哲學人物
+化均皆	ㄏㄨㄚˋ ㄐㄩㄣ ㄐㄧㄝ	1200	pack_philosophy	阿南達瑪迦哲學中描述融合狀態的詞
+中就	ㄓㄨㄥ ㄐㄧㄡˋ	1200	pack_philosophy	可能為高頻哲學複合詞
+疑漢	ㄧˊ ㄏㄢˋ	1200	pack_philosophy	可能為梵文音譯或哲學術語
+僅憑	ㄐㄧㄣˇ ㄆㄧㄥˊ	1200	pack_philosophy	表示依靠或僅以某種方式
+比盛	ㄅㄧˇ ㄕㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學中比喻知識的詞彙
+用前	ㄩㄥˋ ㄑㄧㄢˊ	1200	pack_philosophy	常用詞組，表示使用之前
+夜柔吠陀	ㄧㄝˋ ㄖㄡˊ ㄈㄟˋ ㄊㄨㄛˊ	1200	pack_philosophy	梵文經典名
+以柺	ㄧˇ ㄍㄨㄞˇ	1200	pack_philosophy	固定搭配，以柺杖
+以拐	ㄧˇ ㄍㄨㄞˇ	1200	pack_philosophy	固定搭配，以拐杖
+主之	ㄓㄨˇ ㄓ	1200	pack_philosophy	主體關係詞
+遍施予	ㄅㄧㄢˋ ㄕ ㄩˇ	1200	pack_philosophy	恩典施予動作
+遮障	ㄓㄜ ㄓㄤˋ	1200	pack_philosophy	自我感遮蔽
+成錐	ㄔㄥˊ ㄓㄨㄟ	1200	pack_philosophy	梵文音譯或哲學用語
+卡巴	ㄎㄚˇ ㄅㄚ	1200	pack_philosophy	梵文音譯，Akbar
+件能	ㄐㄧㄢˋ ㄋㄥˊ	1200	pack_philosophy	阿南達瑪迦哲學用語
+虔誠意指將	ㄑㄧㄢˊ ㄔㄥˊ ㄧˋ ㄓˇ ㄐㄧㄤ	1200	pack_philosophy	阿南達瑪迦哲學用語
+識意指	ㄕˋ ㄧˋ ㄓˇ	1200	pack_philosophy	哲學概念
+帕瓦蒂	ㄆㄚˋ ㄨㄚˇ ㄉㄧˋ	1200	pack_philosophy	主要女神
+中投	ㄓㄨㄥ ㄊㄡˊ	1200	pack_philosophy	哲學用語，指心靈投射
+宙正	ㄓㄡˋ ㄓㄥˋ	1200	pack_philosophy	宇宙正體，指宇宙本質
+聲即	ㄕㄥ ㄐㄧˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+始之始	ㄕˇ ㄓ ㄕˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+非形式	ㄈㄟ ㄒㄧㄥˊ ㄕˋ	1200	pack_philosophy	哲學概念
+資糧	ㄗ ㄌㄧㄤˊ	1200	pack_philosophy	物質和精神資源
+管擁	ㄍㄨㄢˇ ㄩㄥˇ	1200	pack_philosophy	常見哲學用語，指控制或掌握
+真針	ㄓㄣ ㄓㄣ	1200	pack_philosophy	阿南達瑪迦哲學中可能出現的特殊術語
+埃漢	ㄞ ㄏㄢˋ	1200	pack_philosophy	可能為梵文音譯或專有名詞
+向祂臣服	ㄒㄧㄤˋ ㄊㄚ ㄔㄣˊ ㄈㄨˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+之世	ㄓ ㄕˋ	1200	pack_philosophy	common term in philosophical texts
+話語即梵咒	ㄏㄨㄚˋ ㄩˇ ㄐㄧˊ ㄈㄢˋ ㄓㄡˋ	1200	pack_philosophy	key concept in tantric Buddhism
+假予以	ㄐㄧㄚˇ ㄩˇ ㄧˇ	1200	pack_philosophy	阿南達瑪迦哲學中可能出現的特殊詞彙組合
+不忿怒	ㄅㄨˋ ㄈㄣˋ ㄋㄨˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+梵咒喚醒	ㄈㄢˋ ㄓㄡˋ ㄏㄨㄢˋ ㄒㄧㄥˇ	1200	pack_philosophy	阿南達瑪迦實踐術語
+迪克夏	ㄉㄧˊ ㄎㄜˋ ㄒㄧㄚˋ	1200	pack_philosophy	阿南達瑪迦哲學專有名詞
+維雅提瑞卡	ㄨㄟˊ ㄧㄚˇ ㄊㄧˊ ㄖㄨㄟˋ ㄎㄚˇ	1200	pack_philosophy	阿南達瑪迦哲學人物/實體
+代超	ㄉㄞˋ ㄔㄠ	1200	pack_philosophy	哲學領域常見詞彙組合
+本源裡	ㄅㄣˇ ㄩㄢˊ ㄌㄧˇ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+貝提亞	ㄅㄟˋ ㄊㄧˊ ㄧㄚˋ	1200	pack_philosophy	阿南達瑪迦經典中重要地點
+反向心力	ㄈㄢˇ ㄒㄧㄤˋ ㄒㄧㄣ ㄌㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學專有名詞
+完全臣服	ㄨㄢˊ ㄑㄩㄢˊ ㄔㄣˊ ㄈㄨˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+成世	ㄔㄥˊ ㄕˋ	1200	pack_philosophy	哲學用語，指人間世
+億倍	ㄧˋ ㄅㄟˋ	1200	pack_philosophy	量詞單位
+主義間	ㄓㄨˇ ㄧˋ ㄐㄧㄢˋ	1200	pack_philosophy	哲學派別間的關係
+顆微	ㄎㄜ ㄨㄟˊ	1200	pack_philosophy	哲學文本中常見的複合詞
+音與上帝	ㄧㄣ ㄩˇ ㄕㄤˋ ㄉㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+見極	ㄐㄧㄢˋ ㄐㄧˊ	1200	pack_philosophy	哲學用語
+沙卡	ㄕㄚ ㄎㄚˇ	1200	pack_philosophy	阿南達瑪迦哲學中重要概念
+眉心輪十指	ㄇㄟˊ ㄒㄧㄣ ㄌㄨㄣˊ ㄕˊ ㄓˇ	1200	pack_philosophy	阿南達瑪迦體系中能量中心描述
+皆是至上	ㄐㄧㄝ ㄕˋ ㄓˋ ㄕㄤˋ	1200	pack_philosophy	Core concept in Ananadamarga philosophy
+唵聲之源	ㄢˇ ㄕㄥ ㄓ ㄩㄢˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+美德之道	ㄇㄟˇ ㄉㄜˊ ㄓ ㄉㄠˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+所鼓舞	ㄙㄨㄛˇ ㄍㄨˇ ㄨˇ	1200	pack_philosophy	哲學動詞短語
+即何	ㄐㄧˊ ㄏㄜˊ	1200	pack_philosophy	哲學疑問短語
+頓知	ㄉㄨㄣˋ ㄓ	1200	pack_philosophy	阿南達瑪迦哲學中可能出現的特殊狀態或見解
+虔誠尚	ㄑㄧㄢˊ ㄔㄥˊ ㄕㄤˋ	1200	pack_philosophy	阿南達瑪迦哲學中重要概念
+喜悅之洋	ㄒㄧˇ ㄩㄝˋ ㄓ ㄧㄤˊ	1200	pack_philosophy	阿南達瑪迦哲學中描述的喜悅狀態
+比受	ㄅㄧˇ ㄕㄡˋ	1200	pack_philosophy	比受比喻為接受、承受
+此每	ㄘˇ ㄇㄟˇ	1200	pack_philosophy	此每表示每一個
+負性微	ㄈㄨˋ ㄒㄧㄥˋ ㄨㄟˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+正性微	ㄓㄥˋ ㄒㄧㄥˋ ㄨㄟˊ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+經點	ㄐㄧㄥ ㄉㄧㄢˇ	1200	pack_philosophy	梵文經典音譯
+宙心	ㄓㄡˋ ㄒㄧㄣ	1200	pack_philosophy	宇宙心，阿南達瑪迦哲學核心概念
+靜滯	ㄐㄧㄥˋ ㄓˋ	1200	pack_philosophy	阿南達瑪迦哲學核心概念
+量註	ㄌㄧㄤˋ ㄓㄨˋ	1200	pack_philosophy	量註，指量化或評估某事物的程度或重要性
+巴巴第	ㄅㄚ ㄅㄚ ㄉㄧˋ	1200	pack_philosophy	阿南達瑪迦哲學人物
+啟蒙節曙	ㄑㄧˇ ㄇㄥˊ ㄐㄧㄝˊ ㄕㄨˋ	1200	pack_philosophy	阿南達瑪迦哲學重要節日
+曙光之歌	ㄕㄨˋ ㄍㄨㄤ ㄓ ㄍㄜ	1200	pack_philosophy	阿南達瑪迦儀式音樂
+塔納	ㄊㄚˇ ㄋㄚˋ	1200	pack_philosophy	可能為人物或地點
+盛名唱頌	ㄕㄥˋ ㄇㄧㄥˊ ㄔㄤˋ ㄙㄨㄥˋ	1200	pack_philosophy	阿南達瑪迦哲學用語
+維吉	ㄨㄟˊ ㄐㄧˊ	1200	pack_philosophy	梵文音譯
+正德吳質	ㄓㄥˋ ㄉㄜˊ ㄨˊ ㄓˊ	1200	pack_philosophy	疑似梵文音譯或人名
+聖導哲	ㄕㄥˋ ㄉㄠˇ ㄓㄜˊ	1200	pack_philosophy	高頻哲學複合詞
+審判文件	ㄕㄣˇ ㄆㄢˋ ㄨㄣˊ ㄐㄧㄢˋ	1200	pack_philosophy	法律術語
+非渺	ㄈㄟ ㄇㄧㄠˇ	1200	pack_philosophy	否定渺小狀態
+心智圓融	ㄒㄧㄣ ㄓˋ ㄩㄢˊ ㄖㄨㄥˊ	1200	pack_philosophy	阿南達瑪迦哲學概念
+之鑰	ㄓ ㄧㄠˋ	1200	pack_philosophy	比喻重要性
+瑪蒂密特拉	ㄇㄚˇ ㄉㄧˋ ㄇㄧˋ ㄊㄜˋ ㄌㄚ	1200	pack_philosophy	印度人物名
+維娜帕妮沙卡	ㄨㄟˊ ㄋㄚˋ ㄆㄚˋ ㄋㄧˊ ㄕㄚ ㄎㄚˇ	1200	pack_philosophy	印度人物名
+佳滿坡	ㄐㄧㄚ ㄇㄢˇ ㄆㄛ	1200	pack_philosophy	地名
+李震宇	ㄌㄧˇ ㄓㄣˋ ㄩˇ	1200	pack_philosophy	人名
+楊台基	ㄧㄤˊ ㄊㄞˊ ㄐㄧ	1200	pack_philosophy	人名
+謝茂申	ㄒㄧㄝˋ ㄇㄠˋ ㄕㄣ	1200	pack_philosophy	人名
+邱奕儒	ㄑㄧㄡ ㄧˋ ㄖㄨˊ	1200	pack_philosophy	人名
+杜文仁	ㄉㄨˋ ㄨㄣˊ ㄖㄣˊ	1200	pack_philosophy	哲學人物
+楊麗卿	ㄧㄤˊ ㄌㄧˋ ㄑㄧㄥ	1200	pack_philosophy	阿南達瑪迦出版社人物
+簡義忠	ㄐㄧㄢˇ ㄧˋ ㄓㄨㄥ	1200	pack_philosophy	阿南達瑪迦出版社人物
+國八	ㄍㄨㄛˊ ㄅㄚ	1200	pack_philosophy	民國時期常用表示
+版初	ㄅㄢˇ ㄔㄨ	1200	pack_philosophy	出版物的版本序數

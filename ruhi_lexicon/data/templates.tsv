@@ -1,0 +1,8 @@
+TRIGGER	EXPANSION	DESCRIPTION
+addr	臺北市中正區重慶南路一段 122 號	常用地址範本
+today	%YYYY%年%MM%月%DD%日	今日完整中文日期
+now	%YYYY%-%MM%-%DD% %HH%:%NN%:%SS%	即時標準時間戳記
+letter	敬啟者：\n\t您好！\n\n\t感謝您的來信。祝\n商祺\n%CURSOR%	信件公版 (含縮排與游標定位)
+sign	---\n{Shift+Enter}敬祝　研安\n大十　敬上	結尾簽名檔
+jhmg	中華民國	首碼對應範本 (中民國)
+egzc	一鼓作氣	首碼成語範本

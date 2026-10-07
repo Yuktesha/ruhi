@@ -1,0 +1,75 @@
+# RuhI (如喜) 符號與標點符號對照表 (可自由熱置換修改)
+# 格式：按鍵字符或按鍵組合<TAB>輸出符號<TAB>說明
+# 本檔案支援熱置換修改：任何編輯存檔後，下次敲擊按鍵立即自動生效，無需重啟程式或重新編譯！
+#
+# 【按鍵語法說明】
+# 1. 支援 Ctrl 組合鍵（不分大小寫）：
+#    Ctrl+.   -> 刪節號 ……
+#    Ctrl+,   -> 全形逗號 ，
+#    Ctrl+-   -> 雙破折號 ──
+#    Ctrl+;   -> 全形分號 ；
+#    Ctrl+'   -> 全形頓號 、
+#    Ctrl+/   -> 全形問號 ？
+#    Ctrl+[   -> 開引號 「
+#    Ctrl+]   -> 閉引號 」
+#
+# 2. 支援單鍵與 Shift 鍵：
+#    <        -> Shift + , (開書名號 《)
+#    >        -> Shift + . (閉書名號 》)
+#    ^        -> Shift + 6 (刪節號 ……)
+#    ,        -> 逗號 ，
+#    .        -> 句號 。
+#    -        -> 全形橫線 ─
+#    _        -> Shift + - (全形底線 ＿)
+#
+Ctrl+.	……	刪節號 (自然輸入法標準 Ctrl + .)
+Ctrl+,	，	全形逗號 (Ctrl + ,)
+Ctrl+-	──	雙破折號 (Ctrl + -)
+Ctrl+;	；	全形分號 (Ctrl + ;)
+Ctrl+'	、	全形頓號 (Ctrl + ')
+Ctrl+/	？	全形問號 (Ctrl + /)
+Ctrl+[	「	開單引號 (Ctrl + [)
+Ctrl+]	」	閉單引號 (Ctrl + ])
+<	《	開書名號 (Shift + ,)
+>	》	閉書名號 (Shift + .)
+^	……	刪節號 (Shift + 6)
+,	，	逗號 (單按逗點)
+.	。	句號 (單按句點)
+-	─	全形橫線 (單按減號)
+_	＿	全形底線 (Shift + -)
+;	；	分號 (單按分號)
+:	：	冒號 (Shift + ;)
+'	、	頓號 (單按單引號)
+"	”	右雙引號 (Shift + ')
+[	「	開單引號 (單按左中括號)
+]	」	閉單引號 (單按右中括號)
+{	『	開雙引號 (Shift + [)
+}	』	閉雙引號 (Shift + ])
+/	／	斜線 (單按斜線)
+?	？	問號 (Shift + /)
+!	！	驚嘆號 (Shift + 1)
+(	（	開括弧 (Shift + 9)
+)	）	閉括弧 (Shift + 0)
+\	＼	反斜線 (單按反斜線)
+|	｜	垂直線 (Shift + \)
+~	～	全形波浪號 (Shift + `)
+Ctrl+Shift+[	『	開雙引號 (Ctrl + Shift + [)
+Ctrl+Shift+]	』	閉雙引號 (Ctrl + Shift + ])
+Ctrl+Shift+,	《	開書名號 (Ctrl + Shift + ,)
+Ctrl+Shift+.	》	閉書名號 (Ctrl + Shift + .)
+Ctrl+Shift+-	＿	全形底線 (Ctrl + Shift + -)
+Ctrl+Shift+;	：	全形冒號 (Ctrl + Shift + ;)
+Ctrl+Shift+'	”	全形雙引號 (Ctrl + Shift + ')
+Ctrl+Shift+/	？	全形問號 (Ctrl + Shift + /)
+Ctrl+1	！	全形驚嘆號 (Ctrl + 1)
+Ctrl+\	、	全形頓號 (Ctrl + \)
+Ctrl+`	～	全形波浪號 (Ctrl + `)
+*	＊	全形星號 (Shift + 8)
+#	＃	全形井號 (Shift + 3)
+$	＄	全形錢號 (Shift + 4)
+%	％	全形百分比 (Shift + 5)
+&	＆	全形AND (Shift + 7)
+@	＠	全形小老鼠 (Shift + 2)
+=	＝	全形等號 (單按等號)
++	＋	全形加號 (Shift + =)
+`	·	音界號/間隔號 (單按反引號)

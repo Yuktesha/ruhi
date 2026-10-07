@@ -1,0 +1,51 @@
+# Rust build artifacts
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Binary outputs & libraries
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+*.exp
+*.lib
+*.ilk
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+.pytest_cache/
+venv/
+.env
+
+# Archive & temporary files
+*.zip
+*.7z
+*.rar
+*.tar.gz
+*.tmp
+*.bak
+*.bak_*
+*.raw_backup
+*.old*
+
+# Logs & debug outputs
+*.log
+tsf_debug.log
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# Agent & memory caches
+.codebase-memory/
+.system_generated/
+scratch/
