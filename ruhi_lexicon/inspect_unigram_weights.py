@@ -8,7 +8,8 @@ from collections import defaultdict
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-DATA_DIR = r"C:\ATGprjs\RuhOS\ruhi\ruhi_lexicon\data"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
 
 # Standard Ministry of Education (MOE) Top Frequency Common Characters (Sample of top tier)
 # In Taiwan, MOE 常用國字標準字體表 has 4,808 common characters.

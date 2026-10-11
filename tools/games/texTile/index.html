@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>詞布達意 texTile - 畫布織句與消歧修羅場</title>
+  <link rel="stylesheet" href="textile.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- 頂部導覽列 -->
+  <header>
+    <div class="brand">
+      <h1 class="brand-title">詞布達意 <span class="textile-en">tex<span class="t-upper">T</span>ile</span></h1>
+      <span class="brand-subtitle">化詞不達意為詞布達意 ✦ 如喜與字戀雙向賦能畫布</span>
+    </div>
+
+    <div class="header-actions">
+      <!-- 提交模式切換 -->
+      <div class="mode-selector">
+        <button class="mode-btn active" data-mode="single" title="每題推敲完畢即刻送出鑑賞">即時單審</button>
+        <button class="mode-btn" data-mode="checkpoint" title="每三至五題批次小結審閱">階段小結</button>
+        <button class="mode-btn" data-mode="scroll" title="全卷鋪陳定稿後一次大審">全卷大審</button>
+      </div>
+
+      <!-- 題號進度翻頁 -->
+      <div class="pagination">
+        <button id="btn-prev" class="btn-nav" title="上一題">❮ 前一題</button>
+        <span style="font-size: 14px; font-weight: 600; font-family: var(--font-serif); padding: 0 4px;">
+          <span id="chal-current-num">1</span> / <span id="chal-total-num">10</span>
+        </span>
+        <button id="btn-next" class="btn-nav" title="下一題">後一題 ❯</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主舞台 -->
+  <main class="canvas-container">
+
+    <!-- 題目資訊牌 -->
+    <section class="challenge-card">
+      <div class="challenge-meta">
+        <h2>
+          <span id="chal-title">文膽與唇舌</span>
+          <span id="chal-phonetic" class="badge badge-phonetic">ㄅㄧˇ ㄕㄣˊ ˙ㄇㄜ</span>
+          <span id="chal-cat" class="badge badge-cat">文白對照</span>
+        </h2>
+        <p id="chal-hint" class="challenge-hint">一個是俗語間的較勁攀比，一個是文人書齋裡馳騁的文房三寶。</p>
+      </div>
+    </section>
+
+    <!-- 織布舞台 -->
+    <section class="stage">
+      <div class="stage-instruction">
+        ✦ 拖曳詞塊調換前後序位 ✦ 於縫隙插槽中鍵入連結語句 ✦ 按 Tab 穿梭插槽 ✦ 按 Ctrl+Enter 鑑賞 ✦
+      </div>
+      <div id="weaving-track" class="weaving-track">
+        <!-- 由 JavaScript 動態生成 Slots 與 Tiles -->
+      </div>
+    </section>
+
+    <!-- 宣紙拓印即時渲染預覽 -->
+    <section class="live-preview-box">
+      <div class="preview-label">宣紙拓印 ✦ 成句預覽</div>
+      <div id="rendered-text" class="rendered-text">
+        <!-- 即時渲染文字 -->
+      </div>
+    </section>
+
+    <!-- 操作工具列 -->
+    <section class="action-toolbar">
+      <button id="btn-reset" class="btn-action btn-reset" title="清空插槽">重織清空</button>
+      <button id="btn-prev-inline" class="btn-action btn-prev-inline" style="display: none;" title="回溯上一題捕捉靈感">
+        <span>❮ 前題回溯</span>
+      </button>
+      <button id="btn-reweave" class="btn-action btn-reweave" style="display: none;" title="自動對調詞塊順序，再織一錦">
+        <span>⟲ 順序對調，再織一錦</span>
+      </button>
+      <button id="btn-eval" class="btn-action btn-eval" title="送交 Gemma 鑑賞">
+        <span>織句鑑賞</span>
+        <span>✦</span>
+      </button>
+      <button id="btn-next-inline" class="btn-action btn-next-inline" style="display: none;" title="邁向下一題對決">
+        <span>後題：邁向下一錦 ❯</span>
+      </button>
+    </section>
+
+    <!-- 文心鑑賞評分卡片 (Gemma Critique Card) -->
+    <section id="critique-card" class="critique-card">
+      <div class="critique-header">
+        <div class="score-badge-group">
+          <span id="score-number" class="score-number">92</span>
+          <span style="font-size: 14px; color: var(--ink-muted);">分</span>
+          <div id="verdict-seal" class="verdict-seal">錦心繡口</div>
+        </div>
+        <div style="font-size: 13px; color: var(--ink-muted);">本地 Gemma 文心評鑑</div>
+      </div>
+
+      <div id="critique-body" class="critique-body">
+        文句巧用古今對比，文氣跌宕起伏，前後消歧特徵強烈。
+      </div>
+
+      <div id="critique-quote" class="critique-quote">
+        「古人以筆舌墨開拓天下，現代鍵盤俠又在比什麼誰的鍵程短？」
+      </div>
+
+      <!-- 雙向賦能反饋狀態 -->
+      <div id="commit-status" class="commit-status-box commit-status-success">
+        <span>🏛️</span>
+        <span><strong>雙向賦能成功！</strong> 已自動寫入【如喜輸入法】消歧矩陣，並典藏至【字戀接龍故事庫】！</span>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="textile.js"></script>
+</body>
+</html>

@@ -9,11 +9,15 @@
     "desk_y": 550,
     "max_composition_chars": 30,
     "q_cycle_max": 3,
-    "enable_mixed_english": true,
+    "enable_mixed_english": false,
     "mixed_english_mode": "contextual_stream",
     "mixed_english_min_len": 4,
-    "capslock_switch": "capital_lock",
+    "capslock_switch": "chinese_english",
     "capsule_mode": "mini_capsule",
     "confirm_add_word": true,
-    "confirm_suppress_word": true
+    "confirm_suppress_word": true,
+    "ai_provider": "auto",
+    "gemini_model": "gemini-2.0-flash",
+    "ollama_url": "http://127.0.0.1:11434",
+    "ollama_model": "gemma4:latest"
 }

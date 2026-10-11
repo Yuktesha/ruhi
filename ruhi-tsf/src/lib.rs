@@ -59,7 +59,11 @@ pub unsafe extern "system" fn DllGetClassObject(
 
 #[no_mangle]
 pub unsafe extern "system" fn DllCanUnloadNow() -> HRESULT {
-    S_OK
+    // 鐵律：TSF 輸入法 DLL 若回傳 S_OK，Windows COM / 宿主程序 (如 Explorer.EXE、SearchHost.exe)
+    // 會在 ctfmon 重啟或空閒時透過 CoFreeUnusedLibraries 強制卸載 (FreeLibrary) 本 DLL，
+    // 導致既有視窗鉤子或回呼指針在被調用時發生 0xc0000005 (ruhi_tsf.dll_unloaded) 嚴重崩潰！
+    // 依據 Windows TSF 架構規範，回傳 S_FALSE 阻止隨意卸載，配合 NTFS 重命名熱更新機制達成零崩潰熱重載。
+    S_FALSE
 }
 
 #[no_mangle]

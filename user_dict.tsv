@@ -1,3 +1,2 @@
 # RuhI 使用者自建詞庫 (User Custom Lexicon)
-WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
-如喜	ㄖㄨˊ ㄒㄧˇ	1500	user	Default
+# 格式規範: WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE

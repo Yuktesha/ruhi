@@ -96,6 +96,9 @@ impl Drop for CandidateWindow {
                 nid.uID = TRAY_ICON_ID;
                 let _ = Shell_NotifyIconW(NIM_DELETE, &nid);
             }
+            if !self.hwnd.0.is_null() && IsWindow(self.hwnd).as_bool() {
+                let _ = DestroyWindow(self.hwnd);
+            }
             if let Some(h) = self.tray_mutex {
                 let _ = windows::Win32::Foundation::CloseHandle(h);
             }
@@ -455,18 +458,37 @@ pub fn save_desk_position(x: i32, y: i32) {
 
 pub fn launch_settings() {
     let paths = crate::service::RuhiPaths::resolve();
-    let py_script = paths.sandbox_dir.join("settings_window.py");
-    if !py_script.exists() {
-        return;
-    }
-    let dir_str: Vec<u16> = paths.sandbox_dir.to_string_lossy().encode_utf16().chain(Some(0)).collect();
+    let candidates = [
+        paths.sandbox_dir.join("settings_window.py"),
+        paths.sandbox_dir.join("scripts").join("settings_window.py"),
+        paths.sandbox_dir.parent().map(|p| p.join("dist").join("settings_window.py")).unwrap_or_default(),
+        paths.sandbox_dir.parent().map(|p| p.join("scripts").join("settings_window.py")).unwrap_or_default(),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\dist\\settings_window.py"),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\scripts\\settings_window.py"),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\settings_window.py"),
+    ];
+
+    let py_script = candidates.iter().find(|p| p.exists() && p.is_file()).cloned();
+    let script_path = match py_script {
+        Some(p) => p,
+        None => {
+            logger::log("launch_settings: settings_window.py not found in any candidate path!");
+            return;
+        }
+    };
+    logger::log(&format!("launch_settings: launching {:?}", script_path));
+
+    let work_dir = script_path.parent().unwrap_or(&paths.sandbox_dir);
+    let dir_str: Vec<u16> = work_dir.to_string_lossy().encode_utf16().chain(Some(0)).collect();
 
     let exe_path = if std::path::Path::new("C:\\Python\\pythonw.exe").exists() {
         std::path::PathBuf::from("C:\\Python\\pythonw.exe")
+    } else if std::path::Path::new("C:\\Python\\python.exe").exists() {
+        std::path::PathBuf::from("C:\\Python\\python.exe")
     } else {
         std::path::PathBuf::from("pythonw.exe")
     };
-    let args = format!("\"{}\"", py_script.to_string_lossy());
+    let args = format!("\"{}\"", script_path.to_string_lossy());
 
     let exe_wide: Vec<u16> = exe_path.to_string_lossy().encode_utf16().chain(Some(0)).collect();
     let args_wide: Vec<u16> = args.encode_utf16().chain(Some(0)).collect();
@@ -482,6 +504,76 @@ pub fn launch_settings() {
         );
     }
 }
+
+pub fn show_about_dialog(hwnd: HWND) {
+    let (kb_mode, is_caps) = if let Ok(s) = get_candidate_state().read() {
+        (s.keyboard_mode.to_lowercase(), s.is_caps_on)
+    } else {
+        ("hsu".to_string(), false)
+    };
+
+    let (title, msg) = if is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
+        (
+            "About RuhI",
+            "RuhI Universal Smart IME\nVersion: 1.0.0 (Release)\nFlowing like clouds and water, effortless and joyful."
+        )
+    } else {
+        match kb_mode.as_str() {
+            "japanese" | "kana" | "romaji" => (
+                "RuhI について",
+                "RuhI 如喜スマートIME\nバージョン: 1.0.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+            ),
+            "korean" | "hangul" => (
+                "RuhI 정보",
+                "RuhI 루히 유니버설 스마트 입력기\n버전: 1.0.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+            ),
+            "iast" | "sanskrit" => (
+                "About RuhI (IAST)",
+                "RuhI Universal Smart IME (IAST)\nVersion: 1.0.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
+            ),
+            "thai" => (
+                "เกี่ยวกับ RuhI",
+                "RuhI Universal Smart IME\nเวอร์ชัน: 1.0.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
+            ),
+            // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列等）：
+            _ => (
+                "關於如喜",
+                "RuhI 如喜通用智慧型輸入法\n版本: 1.0.0 (Release)\n如雲行水流自在歡喜。"
+            ),
+        }
+    };
+
+    let title_wide: Vec<u16> = title.encode_utf16().chain(Some(0)).collect();
+    let msg_wide: Vec<u16> = msg.encode_utf16().chain(Some(0)).collect();
+
+    unsafe {
+        let _ = MessageBoxW(
+            hwnd,
+            PCWSTR(msg_wide.as_ptr()),
+            PCWSTR(title_wide.as_ptr()),
+            MB_OK | MB_ICONINFORMATION,
+        );
+    }
+}
+
+fn get_context_menu_labels() -> (&'static str, &'static str) {
+    let (kb_mode, is_caps) = if let Ok(s) = get_candidate_state().read() {
+        (s.keyboard_mode.to_lowercase(), s.is_caps_on)
+    } else {
+        ("hsu".to_string(), false)
+    };
+
+    if is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
+        ("Preferences Center (&S)...", "About RuhI (&A)")
+    } else {
+        match kb_mode.as_str() {
+            "japanese" | "kana" | "romaji" => ("設定センター (&S)...", "RuhI について (&A)"),
+            "korean" | "hangul" => ("환경설정 (&S)...", "RuhI 정보 (&A)"),
+            _ => ("偏好設定中心 (&S)...", "關於 RuhI 如喜 (&A)"),
+        }
+    }
+}
+
 
 unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
     let state = if let Ok(s) = get_candidate_state().read() {
@@ -1041,8 +1133,9 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                             if GetCursorPos(&mut pt).is_ok() {
                                 if let Ok(hmenu) = CreatePopupMenu() {
                                     if !hmenu.0.is_null() {
-                                        let text_settings: Vec<u16> = "偏好設定中心 (&S)...".encode_utf16().chain(Some(0)).collect();
-                                        let text_about: Vec<u16> = "關於 RuhI 如喜 (&A)".encode_utf16().chain(Some(0)).collect();
+                                        let (lbl_settings, lbl_about) = get_context_menu_labels();
+                                        let text_settings: Vec<u16> = lbl_settings.encode_utf16().chain(Some(0)).collect();
+                                        let text_about: Vec<u16> = lbl_about.encode_utf16().chain(Some(0)).collect();
                                         let _ = AppendMenuW(hmenu, MF_STRING, 1001, PCWSTR(text_settings.as_ptr()));
                                         let _ = AppendMenuW(hmenu, MF_SEPARATOR, 0, PCWSTR::null());
                                         let _ = AppendMenuW(hmenu, MF_STRING, 1002, PCWSTR(text_about.as_ptr()));
@@ -1061,9 +1154,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                                         if cmd.0 == 1001 {
                                             launch_settings();
                                         } else if cmd.0 == 1002 {
-                                            let msg: Vec<u16> = "RuhI 如喜通用智慧型輸入法\n版本: 1.0.0 (Release)\n以自然為師，追求輸入之真如境。".encode_utf16().chain(Some(0)).collect();
-                                            let title: Vec<u16> = "關於如喜".encode_utf16().chain(Some(0)).collect();
-                                            let _ = MessageBoxW(hwnd, PCWSTR(msg.as_ptr()), PCWSTR(title.as_ptr()), MB_OK | MB_ICONINFORMATION);
+                                            show_about_dialog(hwnd);
                                         }
                                     }
                                 }
@@ -1080,8 +1171,9 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                 if GetCursorPos(&mut pt).is_ok() {
                     if let Ok(hmenu) = CreatePopupMenu() {
                         if !hmenu.0.is_null() {
-                            let text_settings: Vec<u16> = "偏好設定中心 (&S)...".encode_utf16().chain(Some(0)).collect();
-                            let text_about: Vec<u16> = "關於 RuhI 如喜 (&A)".encode_utf16().chain(Some(0)).collect();
+                            let (lbl_settings, lbl_about) = get_context_menu_labels();
+                            let text_settings: Vec<u16> = lbl_settings.encode_utf16().chain(Some(0)).collect();
+                            let text_about: Vec<u16> = lbl_about.encode_utf16().chain(Some(0)).collect();
                             let _ = AppendMenuW(hmenu, MF_STRING, 1001, PCWSTR(text_settings.as_ptr()));
                             let _ = AppendMenuW(hmenu, MF_SEPARATOR, 0, PCWSTR::null());
                             let _ = AppendMenuW(hmenu, MF_STRING, 1002, PCWSTR(text_about.as_ptr()));
@@ -1100,9 +1192,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                             if cmd.0 == 1001 {
                                 launch_settings();
                             } else if cmd.0 == 1002 {
-                                let msg: Vec<u16> = "RuhI 如喜通用智慧型輸入法\n版本: 1.0.0 (Release)\n以自然為師，追求輸入之真如境。".encode_utf16().chain(Some(0)).collect();
-                                let title: Vec<u16> = "關於如喜".encode_utf16().chain(Some(0)).collect();
-                                let _ = MessageBoxW(hwnd, PCWSTR(msg.as_ptr()), PCWSTR(title.as_ptr()), MB_OK | MB_ICONINFORMATION);
+                                show_about_dialog(hwnd);
                             }
                         }
                     }

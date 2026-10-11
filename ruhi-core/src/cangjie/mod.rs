@@ -373,6 +373,22 @@ impl CangjieEngine {
             "Space" => self.process_key(' '),
             "Return" | "Enter" => self.process_key('\n'),
             "BackSpace" => self.process_key('\x08'),
+            "Shift+BackSpace" | "Shift+backspace" | "Ctrl+BackSpace" | "Ctrl+backspace" => {
+                self.buffer.clear();
+                self.candidates.clear();
+                EngineResponse {
+                    action: "update_preedit".to_string(),
+                    mode: "cangjie".to_string(),
+                    preedit: String::new(),
+                    composed: String::new(),
+                    candidates: Vec::new(),
+                    active_candidate: String::new(),
+                    candidate_idx: 0,
+                    cursor_pos: 0,
+                    q_press_count: 0,
+                    committed_chunk: String::new(),
+                }
+            }
             "Escape" => self.process_key('\x1b'),
             s if s.len() == 1 => {
                 let ch = s.chars().next().unwrap();

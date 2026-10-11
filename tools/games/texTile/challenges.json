@@ -1,0 +1,101 @@
+[
+  {
+    "id": "duel_01",
+    "title": "先機與神仙",
+    "tiles": ["先這樣", "仙這樣"],
+    "phonetic": "ㄒㄧㄢ ㄓㄜˋ ㄧㄤˋ",
+    "category": "音韻雙關",
+    "difficulty": 2,
+    "hint": "一個是日常收尾告辭的口頭禪，一個是神仙灑脫超然的風姿。"
+  },
+  {
+    "id": "duel_02",
+    "title": "文膽與唇舌",
+    "tiles": ["比什麼", "筆舌墨"],
+    "phonetic": "ㄅㄧˇ ㄕㄣˊ ˙ㄇㄜ / ㄅㄧˇ ㄕㄜˊ ㄇㄛˋ",
+    "category": "文白對照",
+    "difficulty": 3,
+    "hint": "一個是俗語間的較勁攀比，一個是文人書齋裡馳騁的文房三寶。"
+  },
+  {
+    "id": "duel_03",
+    "title": "法度與力量",
+    "tiles": ["權力", "權利"],
+    "phonetic": "ㄑㄩㄢˊ ㄌㄧˋ",
+    "category": "法政語境",
+    "difficulty": 2,
+    "hint": "一個是支配統御的強制力量，一個是法律保障的正當利益。"
+  },
+  {
+    "id": "duel_04",
+    "title": "辦公與算籌",
+    "tiles": ["公事", "公式", "攻勢"],
+    "phonetic": "ㄍㄨㄥ ㄕˋ",
+    "category": "三重複音",
+    "difficulty": 3,
+    "hint": "案頭上的公務、黑板上的數學方程式，與戰場球場上的凌厲推進。"
+  },
+  {
+    "id": "duel_05",
+    "title": "肌理與秤量",
+    "tiles": ["皮", "比"],
+    "phonetic": "ㄆㄧˊ / ㄅㄧˇ (破音ㄆㄧˊ)",
+    "category": "破音消歧",
+    "difficulty": 4,
+    "hint": "面皮肌膚與相形見絀的比較。"
+  },
+  {
+    "id": "duel_06",
+    "title": "光陰與機緣",
+    "tiles": ["即時", "及時"],
+    "phonetic": "ㄐㄧˊ ㄕˊ",
+    "category": "時空語境",
+    "difficulty": 2,
+    "hint": "立刻不延遲的當下，與恰逢其時的及時雨。"
+  },
+  {
+    "id": "duel_07",
+    "title": "心念與行為",
+    "tiles": ["作", "做"],
+    "phonetic": "ㄗㄨㄛˋ",
+    "category": "文言通俗",
+    "difficulty": 3,
+    "hint": "創作著述之抽象為『作』，動手造物處事為『做』。"
+  },
+  {
+    "id": "duel_08",
+    "title": "塵埃與唱念",
+    "tiles": ["灰", "戲"],
+    "phonetic": "ㄏㄨㄟ / ㄒㄧˋ (破音ㄏㄨㄟ)",
+    "category": "古音殘留",
+    "difficulty": 4,
+    "hint": "爐中餘燼化為灰，梨園粉墨登場的戲曲。"
+  },
+  {
+    "id": "duel_09",
+    "title": "意象與實物",
+    "tiles": ["景象", "景像"],
+    "phonetic": "ㄐㄧㄥˇ ㄒㄧㄤˋ",
+    "category": "文圖辨析",
+    "difficulty": 3,
+    "hint": "天地自然之氣象宏觀，與光影攝像顯影之微觀圖像。"
+  },
+  {
+    "id": "duel_10",
+    "title": "儀制與神采",
+    "tiles": ["風采", "風彩"],
+    "phonetic": "ㄈㄥ ㄘㄞˇ",
+    "category": "雅俗用字",
+    "difficulty": 2,
+    "hint": "君子卓然不群之風度神采，與繽紛奪目之色彩光華。"
+  },
+  {
+    "id": "duel_11",
+    "title": "巧思與古人",
+    "tiles": ["至於", "摯虞"],
+    "phonetic": "ㄓˋ ㄩˊ",
+    "category": "今古同音",
+    "difficulty": 4,
+    "hint": "現代行文中轉折承接的虛詞，與西晉一代文論名儒。"
+  }
+]

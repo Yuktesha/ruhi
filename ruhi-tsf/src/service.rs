@@ -5,6 +5,74 @@ use windows::Win32::Foundation::*;
 use windows::Win32::UI::TextServices::*;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
+use windows::Win32::System::DataExchange::{OpenClipboard, CloseClipboard, GetClipboardData, SetClipboardData, EmptyClipboard};
+use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+
+#[derive(Clone, Debug)]
+pub struct EditorSnapshot {
+    pub pending: String,
+    pub cursor: usize,
+    pub anchor: Option<usize>,
+    pub syllables: Vec<Option<String>>,
+    pub segments: Vec<(usize, usize, String, String)>,
+}
+
+fn get_clipboard_text() -> Option<String> {
+    unsafe {
+        if OpenClipboard(None).is_err() {
+            return None;
+        }
+        let handle = GetClipboardData(13); // CF_UNICODETEXT = 13
+        let text = if let Ok(h) = handle {
+            if !h.0.is_null() {
+                let ptr = GlobalLock(windows::Win32::Foundation::HGLOBAL(h.0)) as *const u16;
+                if !ptr.is_null() {
+                    let mut len = 0;
+                    while *ptr.add(len) != 0 {
+                        len += 1;
+                    }
+                    let slice = std::slice::from_raw_parts(ptr, len);
+                    let s = String::from_utf16_lossy(slice);
+                    let _ = GlobalUnlock(windows::Win32::Foundation::HGLOBAL(h.0));
+                    Some(s)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let _ = CloseClipboard();
+        text
+    }
+}
+
+fn set_clipboard_text(text: &str) -> bool {
+    let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
+    let byte_len = wide.len() * std::mem::size_of::<u16>();
+    unsafe {
+        let h_global = match GlobalAlloc(GMEM_MOVEABLE, byte_len) {
+            Ok(h) => h,
+            Err(_) => return false,
+        };
+        let ptr = GlobalLock(h_global) as *mut u16;
+        if ptr.is_null() {
+            return false;
+        }
+        std::ptr::copy_nonoverlapping(wide.as_ptr(), ptr, wide.len());
+        let _ = GlobalUnlock(h_global);
+
+        if OpenClipboard(None).is_err() {
+            return false;
+        }
+        let _ = EmptyClipboard();
+        let res = SetClipboardData(13, windows::Win32::Foundation::HANDLE(h_global.0));
+        let _ = CloseClipboard();
+        res.is_ok()
+    }
+}
 
 use ruhi::engine::RuhiEngine;
 use ruhi::lexicon::LexiconManager;
@@ -150,16 +218,22 @@ impl RuhiPaths {
         }.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
 
         // Resolve data directory
-        let data_dir = if dll_dir.join("data").is_dir() {
+        let has_full_lexicon = |dir: &std::path::Path| {
+            dir.join("lexicon_mcbopomofo.tsv").exists() || dir.join("lexicon_moe.tsv").exists()
+        };
+
+        let data_dir = if dll_dir.join("data").is_dir() && has_full_lexicon(&dll_dir.join("data")) {
             dll_dir.join("data")
-        } else if dll_dir.join("ruhi_lexicon").join("data").is_dir() {
+        } else if dll_dir.join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_dir.join("ruhi_lexicon").join("data")) {
             dll_dir.join("ruhi_lexicon").join("data")
-        } else if dll_dir.join("..").join("ruhi_lexicon").join("data").is_dir() {
+        } else if dll_dir.join("..").join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_dir.join("..").join("ruhi_lexicon").join("data")) {
             dll_dir.join("..").join("ruhi_lexicon").join("data")
-        } else if dll_dir.join("..").join("..").join("ruhi_lexicon").join("data").is_dir() {
+        } else if dll_dir.join("..").join("..").join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_dir.join("..").join("..").join("ruhi_lexicon").join("data")) {
             dll_dir.join("..").join("..").join("ruhi_lexicon").join("data")
-        } else if appdata_ruhi.join("data").is_dir() {
+        } else if appdata_ruhi.join("data").is_dir() && has_full_lexicon(&appdata_ruhi.join("data")) {
             appdata_ruhi.join("data")
+        } else if dll_dir.join("data").is_dir() {
+            dll_dir.join("data")
         } else {
             dll_dir.clone()
         };
@@ -173,25 +247,45 @@ impl RuhiPaths {
             dll_dir.join("..").join("..")
         } else {
             let _ = std::fs::create_dir_all(&appdata_ruhi);
-            appdata_ruhi
+            appdata_ruhi.clone()
         };
 
-        let mcbopomofo = data_dir.join("lexicon_mcbopomofo.tsv");
-        let moe = data_dir.join("lexicon_moe.tsv");
-        let domain = data_dir.join("lexicon_domain.tsv");
+        let find_file = |name: &str| {
+            if data_dir.join(name).exists() {
+                data_dir.join(name)
+            } else if dll_dir.join("data").join(name).exists() {
+                dll_dir.join("data").join(name)
+            } else if dll_dir.join("ruhi_lexicon").join("data").join(name).exists() {
+                dll_dir.join("ruhi_lexicon").join("data").join(name)
+            } else if dll_dir.join("..").join("ruhi_lexicon").join("data").join(name).exists() {
+                dll_dir.join("..").join("ruhi_lexicon").join("data").join(name)
+            } else if dll_dir.join("..").join("..").join("ruhi_lexicon").join("data").join(name).exists() {
+                dll_dir.join("..").join("..").join("ruhi_lexicon").join("data").join(name)
+            } else if std::path::Path::new("C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data").join(name).exists() {
+                std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data").join(name)
+            } else if appdata_ruhi.join("data").join(name).exists() {
+                appdata_ruhi.join("data").join(name)
+            } else {
+                data_dir.join(name)
+            }
+        };
+
+        let mcbopomofo = find_file("lexicon_mcbopomofo.tsv");
+        let moe = find_file("lexicon_moe.tsv");
+        let domain = find_file("lexicon_domain.tsv");
         let transitions = if sandbox_dir.join("transitions_user.tsv").exists() {
             sandbox_dir.join("transitions_user.tsv")
         } else {
-            data_dir.join("transitions_user.tsv")
+            find_file("transitions_user.tsv")
         };
-        let symbols = data_dir.join("symbols.tsv");
+        let symbols = find_file("symbols.tsv");
         let config = sandbox_dir.join("config.json");
         let user_dict = sandbox_dir.join("user_dict.tsv");
-        let english = data_dir.join("lexicon_english.tsv");
+        let english = find_file("lexicon_english.tsv");
         let deleted_dict = if sandbox_dir.join("deleted_dict.tsv").exists() {
             sandbox_dir.join("deleted_dict.tsv")
         } else {
-            data_dir.join("deleted_dict.tsv")
+            find_file("deleted_dict.tsv")
         };
         let rules_json = if sandbox_dir.join("user_semantic_rules.json").exists() {
             sandbox_dir.join("user_semantic_rules.json")
@@ -485,6 +579,9 @@ pub struct RuhiTextService {
     pending_segments: Arc<Mutex<Vec<(usize, usize, String, String)>>>,
     // ── 抑制厭惡詞即時過濾集合 ──
     deleted_words: Arc<Mutex<std::collections::HashSet<String>>>,
+    // ── 編輯器復原/重做歷史快照堆疊 (Undo / Redo Stacks) ──
+    undo_stack: Arc<Mutex<Vec<EditorSnapshot>>>,
+    redo_stack: Arc<Mutex<Vec<EditorSnapshot>>>,
 }
 
 impl RuhiTextService {
@@ -556,6 +653,8 @@ impl RuhiTextService {
             pending_syllables: Arc::new(Mutex::new(Vec::new())),
             pending_segments: Arc::new(Mutex::new(Vec::new())),
             deleted_words: Arc::new(Mutex::new(del_words)),
+            undo_stack: Arc::new(Mutex::new(Vec::new())),
+            redo_stack: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -681,6 +780,11 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let is_shift = unsafe { ((GetKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0) || ((GetAsyncKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0) };
             let is_caps_on = unsafe { (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0 };
 
+            // 全域快捷鍵：Ctrl+Alt+R 喚醒語意除錯調教工具
+            if is_ctrl && is_alt && (vk == 0x52 || vk == 0x54) {
+                return Ok(BOOL::from(true));
+            }
+
             if is_alt {
                 return Ok(BOOL::from(false));
             }
@@ -688,19 +792,15 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let has_buffer = {
                 let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
                 let engine = self.engine.lock().unwrap();
-                pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || engine.cangjie.has_buffer()
+                pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer()
             };
 
             if is_ctrl {
-                if has_buffer && (vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32) {
+                if has_buffer {
+                    // 組字行有文字時，全部攔截！防禦外部快捷鍵外洩破壞組字現場
                     return Ok(BOOL::from(true));
                 }
-                if let Some(combo) = map_vk_to_ctrl_combo(vk, is_shift) {
-                    let mut engine = self.engine.lock().unwrap();
-                    if engine.symbols.contains_key(&combo) {
-                        return Ok(BOOL::from(true));
-                    }
-                }
+                // 組字行無文字時，全部放行給宿主應用程式
                 return Ok(BOOL::from(false));
             }
 
@@ -812,6 +912,22 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let is_shift = unsafe { ((GetKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0) || ((GetAsyncKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0) };
             let is_caps_on = unsafe { (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0 };
 
+            // 全域快捷鍵：Ctrl+Alt+R 或 Ctrl+Alt+T 喚起「語意除錯調教工具」
+            if is_ctrl && is_alt && (vk == 0x52 || vk == 0x54) {
+                let paths = RuhiPaths::resolve();
+                let script_path = if paths.sandbox_dir.join("scripts").join("語意除錯調教.ps1").exists() {
+                    paths.sandbox_dir.join("scripts").join("語意除錯調教.ps1")
+                } else if std::path::Path::new("C:\\ATGprjs\\ruhi\\scripts\\語意除錯調教.ps1").exists() {
+                    std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\scripts\\語意除錯調教.ps1")
+                } else {
+                    paths.sandbox_dir.join("語意除錯調教.ps1")
+                };
+                let _ = std::process::Command::new("powershell.exe")
+                    .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", &script_path.to_string_lossy()])
+                    .spawn();
+                return Ok(BOOL::from(true));
+            }
+
             if is_alt {
                 return Ok(BOOL::from(false));
             }
@@ -877,10 +993,94 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let punct_mode = self.config.lock().map(|c| c.punctuation_commit_mode.clone()).unwrap_or_else(|_| "B".to_string());
             let quick_mode = self.config.lock().map(|c| c.candidate_quick_key.clone()).unwrap_or_else(|_| "asdf".to_string());
 
-            // 1. 處理 Ctrl 組合鍵符號 (Ctrl+. ➔ ……)
+            // 1. 處理 Ctrl 組合鍵與編輯器操作 (Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z, Ctrl+Y/R 等)
             if is_ctrl {
-                if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 {
-                    // 放行至第 4 節方向鍵處理常式，執行詞間快進／快退！
+                if !has_buffer {
+                    return Ok(BOOL::from(false));
+                }
+
+                // 1.1 方向鍵與退格鍵放行至後方常式處理 (詞間快進/快退/刪詞)
+                if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 || vk == VK_BACK.0 as u32 {
+                    // 放行至方向鍵或退格鍵處理常式，執行詞間快進／快退或字詞刪除！
+                } else if vk == 0x41 {
+                    // Ctrl+A：全選組字行
+                    let (full_text, _) = self.get_full_display_and_cursor();
+                    let total_chars = full_text.chars().count();
+                    if total_chars > 0 {
+                        *self.sel_anchor.lock().unwrap() = Some(0);
+                        *self.sentence_cursor.lock().unwrap() = total_chars;
+                        self.sync_input_display(ctx)?;
+                    }
+                    return Ok(BOOL::from(true));
+                } else if vk == 0x43 {
+                    // Ctrl+C：複製 / 取消
+                    if let Some((start, end)) = self.get_manual_selection_range() {
+                        let (full, _) = self.get_full_display_and_cursor();
+                        let chars: Vec<char> = full.chars().collect();
+                        if start < end && end <= chars.len() {
+                            let text: String = chars[start..end].iter().collect();
+                            set_clipboard_text(&text);
+                        }
+                    } else {
+                        // 無選取範圍時，依約定作為取消 (Break/Cancel)，全句撤銷清空
+                        self.clear_all_pending();
+                        *self.sentence_cursor.lock().unwrap() = 0;
+                        *self.sel_anchor.lock().unwrap() = None;
+                        self.engine.lock().unwrap().reset_buffer();
+                        self.hide_candidate_window();
+                        self.end_tsf_composition(ctx)?;
+                    }
+                    return Ok(BOOL::from(true));
+                } else if vk == 0x58 {
+                    // Ctrl+X：剪下
+                    if let Some((start, end)) = self.get_manual_selection_range() {
+                        let (full, _) = self.get_full_display_and_cursor();
+                        let chars: Vec<char> = full.chars().collect();
+                        if start < end && end <= chars.len() {
+                            let text: String = chars[start..end].iter().collect();
+                            set_clipboard_text(&text);
+                            self.delete_selection_if_any();
+                            let (after_full, _) = self.get_full_display_and_cursor();
+                            if !after_full.is_empty() {
+                                self.sync_input_display(ctx)?;
+                            } else {
+                                self.hide_candidate_window();
+                                self.end_tsf_composition(ctx)?;
+                            }
+                        }
+                    }
+                    return Ok(BOOL::from(true));
+                } else if vk == 0x56 {
+                    // Ctrl+V：貼上剪貼簿文字
+                    if let Some(text) = get_clipboard_text() {
+                        if !text.is_empty() {
+                            self.delete_selection_if_any();
+                            self.consolidate_engine_to_pending();
+                            let p_chars: Vec<char> = text.chars().collect();
+                            let p_syls: Vec<Option<String>> = vec![None; p_chars.len()];
+                            self.splice_pending_chunk(&p_chars, &p_syls, &[]);
+                            self.sync_input_display(ctx)?;
+                        }
+                    }
+                    return Ok(BOOL::from(true));
+                } else if (vk == 0x5A && is_shift) || vk == 0x59 || vk == 0x52 {
+                    // Ctrl+Shift+Z 或 Ctrl+Y 或 Ctrl+R：重做 Redo
+                    if self.redo() {
+                        self.sync_input_display(ctx)?;
+                    }
+                    return Ok(BOOL::from(true));
+                } else if vk == 0x5A {
+                    // Ctrl+Z：復原 Undo
+                    if self.undo() {
+                        let (full, _) = self.get_full_display_and_cursor();
+                        if !full.is_empty() {
+                            self.sync_input_display(ctx)?;
+                        } else {
+                            self.hide_candidate_window();
+                            self.end_tsf_composition(ctx)?;
+                        }
+                    }
+                    return Ok(BOOL::from(true));
                 } else if let Some(combo) = map_vk_to_ctrl_combo(vk, is_shift) {
                     let mut engine = self.engine.lock().unwrap();
                     if engine.symbols.contains_key(&combo) {
@@ -888,6 +1088,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         let sym = resp.committed_chunk;
                         drop(engine);
 
+                        self.push_undo();
                         let mut pending = self.pending_compose.lock().unwrap();
                         pending.push_str(&sym);
                         let full_text = pending.clone();
@@ -898,9 +1099,11 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         self.sync_input_display(ctx)?;
                         return Ok(BOOL::from(true));
                     }
-                    return Ok(BOOL::from(false));
+                    // 其他無映射之符號快捷鍵，在組字中有文字時全部攔截！
+                    return Ok(BOOL::from(true));
                 } else {
-                    return Ok(BOOL::from(false));
+                    // 【全域防禦】：其餘任何 Ctrl 組合鍵（如 Ctrl+S, Ctrl+W, Ctrl+Q 等），一律攔截吃掉！
+                    return Ok(BOOL::from(true));
                 }
             }
 
@@ -1019,8 +1222,32 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         (chars.len(), chars.len())
                     };
 
-                    let replacement: Vec<char> = chosen.chars().collect();
+                    let rejected: String = if replace_start < replace_end && replace_end <= chars.len() {
+                        chars[replace_start..replace_end].iter().collect()
+                    } else {
+                        String::new()
+                    };
+                    let prev_context: String = if replace_start > 0 {
+                        let p_start = replace_start.saturating_sub(2);
+                        chars[p_start..replace_start].iter().collect()
+                    } else {
+                        String::new()
+                    };
+                    let next_context: String = if replace_end < chars.len() {
+                        let n_end = (replace_end + 2).min(chars.len());
+                        chars[replace_end..n_end].iter().collect()
+                    } else {
+                        String::new()
+                    };
                     let char_syl = self.pending_syllables.lock().unwrap().get(target_idx).cloned().flatten();
+                    let bpm_str = char_syl.clone().unwrap_or_default();
+
+                    if !rejected.is_empty() && rejected != *chosen {
+                        let mut eng = self.engine.lock().unwrap();
+                        eng.record_revision(&bpm_str, &rejected, chosen, &prev_context, &next_context);
+                    }
+
+                    let replacement: Vec<char> = chosen.chars().collect();
                     self.replace_pending_range(replace_start, replace_end, &replacement, char_syl);
                     self.engine.lock().unwrap().reset_buffer();
                     *self.sentence_cursor.lock().unwrap() = replace_start + chosen_len;
@@ -1324,8 +1551,21 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
                 let eng_had_uncommitted = {
                     let mut engine = self.engine.lock().unwrap();
-                    if engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() {
-                        let _ = engine.pop_component();
+                    if engine.cangjie.has_buffer() {
+                        if is_ctrl || is_shift {
+                            let _ = engine.cangjie.process_key_str("Shift+BackSpace");
+                        } else {
+                            let _ = engine.cangjie.process_key('\x08');
+                        }
+                        true
+                    } else if engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || engine.is_latin_mode || !engine.raw_ascii_buffer.is_empty() {
+                        if is_ctrl {
+                            let _ = engine.pop_word();
+                        } else if is_shift {
+                            let _ = engine.pop_syllable();
+                        } else {
+                            let _ = engine.pop_component();
+                        }
                         true
                     } else {
                         false
@@ -1336,8 +1576,36 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     self.consolidate_engine_to_pending();
                     let mut cur = self.sentence_cursor.lock().unwrap();
                     if *cur > 0 {
-                        self.remove_pending_char_at(*cur - 1);
-                        *cur -= 1;
+                        if is_ctrl {
+                            let pending = self.pending_compose.lock().unwrap().clone();
+                            let chars: Vec<char> = pending.chars().collect();
+                            let mut delete_start = *cur;
+                            let prev_idx = *cur - 1;
+                            if prev_idx < chars.len() {
+                                let c = chars[prev_idx];
+                                if c.is_ascii_alphanumeric() {
+                                    while delete_start > 0 && chars[delete_start - 1].is_ascii_alphanumeric() {
+                                        delete_start -= 1;
+                                    }
+                                } else if c.is_whitespace() {
+                                    while delete_start > 0 && chars[delete_start - 1].is_whitespace() {
+                                        delete_start -= 1;
+                                    }
+                                } else {
+                                    delete_start = prev_idx;
+                                }
+                            }
+                            let count_to_delete = *cur - delete_start;
+                            for _ in 0..count_to_delete.max(1) {
+                                if *cur > 0 {
+                                    self.remove_pending_char_at(*cur - 1);
+                                    *cur -= 1;
+                                }
+                            }
+                        } else {
+                            self.remove_pending_char_at(*cur - 1);
+                            *cur -= 1;
+                        }
                     }
                 }
 
@@ -1578,7 +1846,64 @@ impl RuhiTextService_Impl {
         boundaries.iter().copied().find(|&b| b > cur).unwrap_or(total)
     }
 
+    fn take_snapshot(&self) -> EditorSnapshot {
+        EditorSnapshot {
+            pending: self.pending_compose.lock().unwrap().clone(),
+            cursor: *self.sentence_cursor.lock().unwrap(),
+            anchor: *self.sel_anchor.lock().unwrap(),
+            syllables: self.pending_syllables.lock().unwrap().clone(),
+            segments: self.pending_segments.lock().unwrap().clone(),
+        }
+    }
+
+    fn push_undo(&self) {
+        let snap = self.take_snapshot();
+        let mut undo = self.undo_stack.lock().unwrap();
+        undo.push(snap);
+        if undo.len() > 100 {
+            undo.remove(0);
+        }
+        self.redo_stack.lock().unwrap().clear();
+    }
+
+    fn undo(&self) -> bool {
+        let snap_opt = self.undo_stack.lock().unwrap().pop();
+        if let Some(snap) = snap_opt {
+            let current = self.take_snapshot();
+            self.redo_stack.lock().unwrap().push(current);
+
+            *self.pending_compose.lock().unwrap() = snap.pending;
+            *self.sentence_cursor.lock().unwrap() = snap.cursor;
+            *self.sel_anchor.lock().unwrap() = snap.anchor;
+            *self.pending_syllables.lock().unwrap() = snap.syllables;
+            *self.pending_segments.lock().unwrap() = snap.segments;
+            self.engine.lock().unwrap().reset_buffer();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn redo(&self) -> bool {
+        let snap_opt = self.redo_stack.lock().unwrap().pop();
+        if let Some(snap) = snap_opt {
+            let current = self.take_snapshot();
+            self.undo_stack.lock().unwrap().push(current);
+
+            *self.pending_compose.lock().unwrap() = snap.pending;
+            *self.sentence_cursor.lock().unwrap() = snap.cursor;
+            *self.sel_anchor.lock().unwrap() = snap.anchor;
+            *self.pending_syllables.lock().unwrap() = snap.syllables;
+            *self.pending_segments.lock().unwrap() = snap.segments;
+            self.engine.lock().unwrap().reset_buffer();
+            true
+        } else {
+            false
+        }
+    }
+
     fn insert_pending_char(&self, ch: char, syl: Option<String>) {
+        self.push_undo();
         let mut pending = self.pending_compose.lock().unwrap();
         let mut cur = self.sentence_cursor.lock().unwrap();
         let mut chars: Vec<char> = pending.chars().collect();
@@ -1606,6 +1931,7 @@ impl RuhiTextService_Impl {
         if chunk_chars.is_empty() {
             return;
         }
+        self.push_undo();
         let count = chunk_chars.len();
         let mut pending = self.pending_compose.lock().unwrap();
         let mut cur = self.sentence_cursor.lock().unwrap();
@@ -1632,6 +1958,7 @@ impl RuhiTextService_Impl {
     }
 
     fn replace_pending_range(&self, start: usize, end: usize, replacement: &[char], new_syl: Option<String>) {
+        self.push_undo();
         let mut pending = self.pending_compose.lock().unwrap();
         let mut chars: Vec<char> = pending.chars().collect();
         if start <= chars.len() && end <= chars.len() && start <= end {
@@ -1730,6 +2057,7 @@ impl RuhiTextService_Impl {
     }
 
     fn remove_pending_char_at(&self, idx: usize) {
+        self.push_undo();
         let mut pending = self.pending_compose.lock().unwrap();
         let mut chars: Vec<char> = pending.chars().collect();
         if idx < chars.len() {
@@ -2223,7 +2551,13 @@ impl RuhiTextService_Impl {
         self.consolidate_engine_to_pending();
         let (full, _) = self.get_full_display_and_cursor();
         self.pending_compose.lock().unwrap().clear();
-        self.engine.lock().unwrap().reset_buffer();
+        {
+            let mut eng = self.engine.lock().unwrap();
+            if eng.has_pending_revisions() {
+                let _ = eng.auto_synthesize_and_apply_revisions();
+            }
+            eng.reset_buffer();
+        }
         *self.sentence_cursor.lock().unwrap() = 0;
         *self.candidate_selecting.lock().unwrap() = false;
 
@@ -2596,11 +2930,21 @@ impl ITfThreadMgrEventSink_Impl for RuhiTextService_Impl {
 impl ITfCompositionSink_Impl for RuhiTextService_Impl {
     fn OnCompositionTerminated(&self, _ecwrite: u32, _pcomposition: Option<&ITfComposition>) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            *self.composition.lock().unwrap() = None;
-            self.pending_compose.lock().unwrap().clear();
-            self.engine.lock().unwrap().reset_buffer();
-            *self.sentence_cursor.lock().unwrap() = 0;
-            *self.candidate_selecting.lock().unwrap() = false;
+            if let Ok(mut comp) = self.composition.try_lock() {
+                *comp = None;
+            }
+            if let Ok(mut pending) = self.pending_compose.try_lock() {
+                pending.clear();
+            }
+            if let Ok(mut eng) = self.engine.try_lock() {
+                eng.reset_buffer();
+            }
+            if let Ok(mut cur) = self.sentence_cursor.try_lock() {
+                *cur = 0;
+            }
+            if let Ok(mut sel) = self.candidate_selecting.try_lock() {
+                *sel = false;
+            }
             self.hide_candidate_window();
             set_last_caret_pos(0, 0);
             Ok(())

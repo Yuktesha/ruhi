@@ -4,6 +4,8 @@ target/
 Cargo.lock
 
 # Binary outputs & libraries
+dist/
+/data/
 *.exe
 *.dll
 *.so

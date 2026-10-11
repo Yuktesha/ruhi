@@ -35,9 +35,9 @@ def clean_bopomofo(raw_bpm: str) -> str:
     return bpm
 
 def build_tsv():
-    xz_path = "c:/ATGprjs/Yuktesha.github.io/wordchain/dict-revised.json.xz"
-    output_tsv = "c:/ATGprjs/RuhOS/ruhi/ruhi_lexicon/data/lexicon_moe.tsv"
-    core_tsv = "c:/ATGprjs/RuhOS/ruhi/ruhi_lexicon/data/lexicon_core.tsv"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    output_tsv = os.path.join(base_dir, "data", "lexicon_moe.tsv")
+    core_tsv = os.path.join(base_dir, "data", "lexicon_core.tsv")
 
     if not os.path.exists(xz_path):
         print(f"錯誤：找不到萌典檔案 {xz_path}")

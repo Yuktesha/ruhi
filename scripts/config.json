@@ -1,0 +1,13 @@
+{
+    "input_display_mode": "inline_underline",
+    "theme": "system",
+    "font_size": 32,
+    "max_composition_chars": 30,
+    "keyboard_mode": "hsu",
+    "q_cycle_max": 3,
+    "enable_mixed_english": false,
+    "mixed_english_mode": "contextual_stream",
+    "mixed_english_min_len": 4,
+    "capslock_switch": "chinese_english",
+    "capsule_mode": "mini_capsule"
+}

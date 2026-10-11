@@ -43,10 +43,14 @@ impl ITfEditSession_Impl for RuhiEditSession_Impl {
         match &self.action {
             EditSessionAction::UpdateComposition { text, cursor_pos, selection, is_commit } => {
                 let text_wide: Vec<u16> = text.encode_utf16().collect();
-                let mut comp_lock = self.composition_holder.lock().unwrap();
 
                 if *is_commit {
-                    if let Some(comp) = comp_lock.take() {
+                    let comp_to_end = {
+                        let mut comp_lock = self.composition_holder.lock().unwrap();
+                        comp_lock.take()
+                    };
+
+                    if let Some(comp) = comp_to_end {
                         unsafe {
                             if let Ok(range) = comp.GetRange() {
                                 let _ = range.SetText(ec, 0, &text_wide);
@@ -90,27 +94,30 @@ impl ITfEditSession_Impl for RuhiEditSession_Impl {
                     }
                 } else {
                     // 行內組字模式 (inline_underline)
-                    // 1. Ensure active composition exists
-                    if comp_lock.is_none() {
-                        let mut selections = [TF_SELECTION::default(); 1];
-                        let mut fetched = 0u32;
-                        unsafe {
-                            self.context.GetSelection(ec, TF_DEFAULT_SELECTION, &mut selections, &mut fetched)?;
-                        }
-                        if fetched > 0 {
-                            if let Some(range) = &*selections[0].range {
-                                let context_comp: ITfContextComposition = self.context.cast()?;
-                                let comp = unsafe {
-                                    context_comp.StartComposition(ec, range, &self.sink)?
-                                };
-                                *comp_lock = Some(comp);
+                    // 1. Ensure active composition exists (釋放鎖後再執行後續操作，避免回調死鎖)
+                    let active_comp = {
+                        let mut comp_lock = self.composition_holder.lock().unwrap();
+                        if comp_lock.is_none() {
+                            let mut selections = [TF_SELECTION::default(); 1];
+                            let mut fetched = 0u32;
+                            unsafe {
+                                if self.context.GetSelection(ec, TF_DEFAULT_SELECTION, &mut selections, &mut fetched).is_ok() && fetched > 0 {
+                                    if let Some(range) = &*selections[0].range {
+                                        if let Ok(context_comp) = self.context.cast::<ITfContextComposition>() {
+                                            if let Ok(comp) = context_comp.StartComposition(ec, range, &self.sink) {
+                                                *comp_lock = Some(comp);
+                                            }
+                                        }
+                                    }
+                                    std::mem::ManuallyDrop::drop(&mut selections[0].range);
+                                }
                             }
-                            unsafe { std::mem::ManuallyDrop::drop(&mut selections[0].range); }
                         }
-                    }
+                        comp_lock.clone()
+                    };
 
                     // 2. Update text in composition
-                    if let Some(comp) = comp_lock.as_ref() {
+                    if let Some(comp) = active_comp {
                         unsafe {
                             if let Ok(range) = comp.GetRange() {
                                 let _ = range.SetText(ec, 0, &text_wide);
@@ -246,8 +253,8 @@ impl ITfEditSession_Impl for RuhiEditSession_Impl {
             }
             EditSessionAction::ProbeCaret => {
                 // 純只讀探測光標坐標，零副作用，絕不在宿主環境創建空白 Composition
-                let comp_lock = self.composition_holder.lock().unwrap();
-                let probed_range = if let Some(comp) = comp_lock.as_ref() {
+                let comp_opt = self.composition_holder.lock().unwrap().clone();
+                let probed_range = if let Some(comp) = comp_opt.as_ref() {
                     unsafe { comp.GetRange().ok() }
                 } else {
                     let mut selections = [TF_SELECTION::default(); 1];
@@ -299,8 +306,11 @@ impl ITfEditSession_Impl for RuhiEditSession_Impl {
                 }
             }
             EditSessionAction::EndComposition => {
-                let mut comp_lock = self.composition_holder.lock().unwrap();
-                if let Some(comp) = comp_lock.take() {
+                let comp_to_end = {
+                    let mut comp_lock = self.composition_holder.lock().unwrap();
+                    comp_lock.take()
+                };
+                if let Some(comp) = comp_to_end {
                     unsafe {
                         // 結束未完成組字時，必須先將組字區段文字清空，否則 TSF 會直接將未結算的殘留字上屏！
                         if let Ok(range) = comp.GetRange() {

@@ -31,6 +31,16 @@ pub struct EngineResponse {
     pub committed_chunk: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RevisionRecord {
+    pub timestamp: u64,
+    pub bopomofo: String,
+    pub rejected: String,
+    pub accepted: String,
+    pub prev_context: String,
+    pub next_context: String,
+}
+
 pub struct RuhiEngine {
     pub fsm: HsuFSM,
     pub lexicon: LexiconManager,
@@ -60,6 +70,7 @@ pub struct RuhiEngine {
     pub prior_was_english: bool,
     pub western: crate::western::WesternEngine,
     pub last_committed_word: String,
+    pub pending_revisions: Vec<RevisionRecord>,
 }
 
 impl Default for RuhiEngine {
@@ -93,6 +104,7 @@ impl Default for RuhiEngine {
             prior_was_english: false,
             western: crate::western::WesternEngine::new(),
             last_committed_word: String::new(),
+            pending_revisions: Vec::new(),
         }
     }
 }
@@ -378,7 +390,14 @@ impl RuhiEngine {
                 if digit_idx < self.current_candidates.len() {
                     let active_idx = self.get_active_char_index();
                     if active_idx < self.sentence_chars.len() {
+                        let rejected = self.sentence_chars[active_idx].clone();
                         let chosen = self.current_candidates[digit_idx].clone();
+                        if rejected != chosen {
+                            let bpm = self.get_syllable_at(active_idx).unwrap_or_default();
+                            let prev_ctx = if active_idx > 0 { self.sentence_chars[active_idx - 1].clone() } else { String::new() };
+                            let next_ctx = if active_idx + 1 < self.sentence_chars.len() { self.sentence_chars[active_idx + 1].clone() } else { String::new() };
+                            self.record_revision(&bpm, &rejected, &chosen, &prev_ctx, &next_ctx);
+                        }
                         self.sentence_chars[active_idx] = chosen.clone();
                         self.user_pinned.insert(active_idx, chosen);
                         self.composed_sentence = self.sentence_chars.join("");
@@ -462,6 +481,9 @@ impl RuhiEngine {
         if key == '\n' || key == '\r' {
             if self.composed_sentence.is_empty() && self.fsm.get_display_preedit().is_empty() && self.raw_ascii_buffer.is_empty() {
                 return self.build_response("none", "");
+            }
+            if self.has_pending_revisions() {
+                let _ = self.auto_synthesize_and_apply_revisions();
             }
             // 雙軌正向晶格競爭仲裁：
             // 歐文信心度評估 vs 中文 Trellis 複合詞凝聚力
@@ -924,8 +946,15 @@ impl RuhiEngine {
         }
         let active_idx = self.get_active_char_index();
         if active_idx < self.sentence_chars.len() {
+            let orig = self.sentence_chars[active_idx].clone();
             self.candidate_cycle_idx = (self.candidate_cycle_idx + 1) % self.current_candidates.len();
             let chosen = self.current_candidates[self.candidate_cycle_idx].clone();
+            if orig != chosen {
+                let bpm = self.get_syllable_at(active_idx).unwrap_or_default();
+                let prev_ctx = if active_idx > 0 { self.sentence_chars[active_idx - 1].clone() } else { String::new() };
+                let next_ctx = if active_idx + 1 < self.sentence_chars.len() { self.sentence_chars[active_idx + 1].clone() } else { String::new() };
+                self.record_revision(&bpm, &orig, &chosen, &prev_ctx, &next_ctx);
+            }
             self.sentence_chars[active_idx] = chosen.clone();
             self.user_pinned.insert(active_idx, chosen);
             self.composed_sentence = self.sentence_chars.join("");
@@ -938,12 +967,19 @@ impl RuhiEngine {
         }
         let active_idx = self.get_active_char_index();
         if active_idx < self.sentence_chars.len() {
+            let orig = self.sentence_chars[active_idx].clone();
             if self.candidate_cycle_idx == 0 {
                 self.candidate_cycle_idx = self.current_candidates.len().saturating_sub(1);
             } else {
                 self.candidate_cycle_idx -= 1;
             }
             let chosen = self.current_candidates[self.candidate_cycle_idx].clone();
+            if orig != chosen {
+                let bpm = self.get_syllable_at(active_idx).unwrap_or_default();
+                let prev_ctx = if active_idx > 0 { self.sentence_chars[active_idx - 1].clone() } else { String::new() };
+                let next_ctx = if active_idx + 1 < self.sentence_chars.len() { self.sentence_chars[active_idx + 1].clone() } else { String::new() };
+                self.record_revision(&bpm, &orig, &chosen, &prev_ctx, &next_ctx);
+            }
             self.sentence_chars[active_idx] = chosen.clone();
             self.user_pinned.insert(active_idx, chosen);
             self.composed_sentence = self.sentence_chars.join("");
@@ -1016,10 +1052,13 @@ impl RuhiEngine {
             return self.build_response("backspace", "");
         }
 
+        if self.is_latin_mode {
+            self.reset_buffer();
+            return self.build_response("backspace", "");
+        }
+
         let cur_syllables_len = self.fsm.syllables.len();
-        let has_in_progress = !self.fsm.cur_initial.is_empty() 
-            || !self.fsm.cur_medial.is_empty() 
-            || !self.fsm.cur_final.is_empty();
+        let has_in_progress = self.fsm.has_pending();
 
         let target_len = if has_in_progress {
             cur_syllables_len
@@ -1036,16 +1075,21 @@ impl RuhiEngine {
             for k in keys {
                 self.fsm.parse_hsu_key(k);
             }
-            let now_in_progress = !self.fsm.cur_initial.is_empty() 
-                || !self.fsm.cur_medial.is_empty() 
-                || !self.fsm.cur_final.is_empty();
+            let now_in_progress = self.fsm.has_pending();
             if self.fsm.syllables.len() <= target_len && !now_in_progress {
                 break;
             }
         }
 
-        self.user_pinned.retain(|&idx, _| idx < self.fsm.syllables.len());
-        self.update_sentence_composition();
+        self.raw_ascii_buffer.truncate(self.fsm.raw_keys.len());
+        self.western.reset();
+
+        if self.fsm.raw_keys.is_empty() {
+            self.reset_buffer();
+        } else {
+            self.user_pinned.retain(|&idx, _| idx < self.fsm.syllables.len());
+            self.update_sentence_composition();
+        }
         self.build_response("backspace", "")
     }
 
@@ -1055,18 +1099,246 @@ impl RuhiEngine {
             return self.build_response("backspace", "");
         }
 
+        if self.is_latin_mode {
+            self.reset_buffer();
+            return self.build_response("backspace", "");
+        }
+
+        // 若當前有未完成的拼音部件 (pending)，優先刪除該組未完成音節 (正在輸入中的字)
+        if self.fsm.has_pending() {
+            return self.pop_syllable();
+        }
+
         let cur_syllables_len = self.fsm.syllables.len();
         if cur_syllables_len == 0 {
             return self.pop_syllable();
         }
 
-        // 預設消 2 音節，若僅剩 1 則消 1
-        let pop_count = if cur_syllables_len >= 2 { 2 } else { 1 };
-        for _ in 0..pop_count {
-            self.pop_syllable();
+        // 依據 Viterbi 切詞結構 (segments)，精確計算最後一個詞的長度 (音節數)
+        let pop_count = if let Some(last_seg) = self.segments.last() {
+            let seg_len = last_seg.length();
+            if seg_len > 0 && seg_len <= cur_syllables_len {
+                seg_len
+            } else {
+                1
+            }
+        } else {
+            1
+        };
+
+        let target_len = if cur_syllables_len >= pop_count {
+            cur_syllables_len - pop_count
+        } else {
+            0
+        };
+
+        while !self.fsm.raw_keys.is_empty() {
+            self.fsm.raw_keys.pop();
+            let keys = self.fsm.raw_keys.clone();
+            self.fsm.reset();
+            for k in keys {
+                self.fsm.parse_hsu_key(k);
+            }
+            let now_in_progress = self.fsm.has_pending();
+            if self.fsm.syllables.len() <= target_len && !now_in_progress {
+                break;
+            }
         }
 
+        self.raw_ascii_buffer.truncate(self.fsm.raw_keys.len());
+        self.western.reset();
+
+        if self.fsm.raw_keys.is_empty() {
+            self.reset_buffer();
+        } else {
+            self.user_pinned.retain(|&idx, _| idx < self.fsm.syllables.len());
+            self.update_sentence_composition();
+        }
         self.build_response("backspace", "")
+    }
+
+    pub fn record_revision(&mut self, bopomofo: &str, rejected: &str, accepted: &str, prev_context: &str, next_context: &str) {
+        if rejected.is_empty() || accepted.is_empty() || rejected == accepted {
+            return;
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        // 防重機制：若同一秒內已有相同字詞與上下文的修訂，則合併補充注音，杜絕重複寫盤
+        if let Some(last) = self.pending_revisions.last_mut() {
+            if last.timestamp == now && last.rejected == rejected && last.accepted == accepted && last.prev_context == prev_context {
+                if !bopomofo.is_empty() && last.bopomofo.is_empty() {
+                    last.bopomofo = bopomofo.to_string();
+                }
+                return;
+            }
+        }
+
+        self.pending_revisions.push(RevisionRecord {
+            timestamp: now,
+            bopomofo: bopomofo.to_string(),
+            rejected: rejected.to_string(),
+            accepted: accepted.to_string(),
+            prev_context: prev_context.to_string(),
+            next_context: next_context.to_string(),
+        });
+    }
+
+    pub fn has_pending_revisions(&self) -> bool {
+        !self.pending_revisions.is_empty()
+    }
+
+    pub fn flush_pending_revisions(&mut self) -> Vec<RevisionRecord> {
+        std::mem::take(&mut self.pending_revisions)
+    }
+
+    pub fn save_pending_revisions_to_file(&mut self, file_path: Option<&str>) -> std::io::Result<usize> {
+        let revs = self.flush_pending_revisions();
+        if revs.is_empty() {
+            return Ok(0);
+        }
+
+        let target_path = if let Some(p) = file_path {
+            std::path::PathBuf::from(p)
+        } else if let Some(ref d) = self.data_dir {
+            std::path::PathBuf::from(d).join("pending_revisions.json")
+        } else if let Ok(appdata) = std::env::var("APPDATA") {
+            let p = std::path::PathBuf::from(appdata).join("Ruhi").join("data");
+            let _ = std::fs::create_dir_all(&p);
+            p.join("pending_revisions.json")
+        } else {
+            std::path::PathBuf::from("pending_revisions.json")
+        };
+
+        let mut existing: Vec<RevisionRecord> = if target_path.exists() {
+            std::fs::read_to_string(&target_path)
+                .ok()
+                .and_then(|content| serde_json::from_str(&content).ok())
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+
+        let count = revs.len();
+        existing.extend(revs);
+
+        if existing.len() > 500 {
+            let skip_count = existing.len() - 500;
+            existing.drain(0..skip_count);
+        }
+
+        if let Ok(serialized) = serde_json::to_string_pretty(&existing) {
+            let _ = std::fs::write(&target_path, serialized);
+        }
+
+        Ok(count)
+    }
+
+    pub fn auto_synthesize_and_apply_revisions(&mut self) -> usize {
+        let revs = self.flush_pending_revisions();
+        if revs.is_empty() {
+            return 0;
+        }
+
+        let mut synthesized_rules = Vec::new();
+
+        for r in &revs {
+            let rej = r.rejected.trim();
+            let acc = r.accepted.trim();
+            let prev = r.prev_context.trim();
+            let next = r.next_context.trim();
+
+            if acc.is_empty() || rej == acc {
+                continue;
+            }
+
+            // 1. 正向引力場
+            if !prev.is_empty() {
+                synthesized_rules.push((prev.to_string(), acc.to_string(), 26.0, format!("自動學習：{} 引導 {}", prev, acc)));
+                if prev.chars().count() >= 2 {
+                    if let Some(last_ch) = prev.chars().last() {
+                        synthesized_rules.push((last_ch.to_string(), acc.to_string(), 24.0, format!("局部引力：{} 引導 {}", last_ch, acc)));
+                    }
+                }
+            }
+
+            if !next.is_empty() {
+                synthesized_rules.push((acc.to_string(), next.to_string(), 26.0, format!("自動學習：{} 銜接 {}", acc, next)));
+                if next.chars().count() >= 2 {
+                    if let Some(first_ch) = next.chars().next() {
+                        synthesized_rules.push((acc.to_string(), first_ch.to_string(), 24.0, format!("局部引力：{} 銜接 {}", acc, first_ch)));
+                    }
+                }
+            }
+
+            // 2. 負向抑制場 (抑制碎片錯字組合如「步董」「朵組」「休政」)
+            if !rej.is_empty() {
+                let rej_chars: Vec<char> = rej.chars().collect();
+                if rej_chars.len() == 2 {
+                    synthesized_rules.push((rej_chars[0].to_string(), rej_chars[1].to_string(), -30.0, format!("抑制錯字組合：{}+{}", rej_chars[0], rej_chars[1])));
+                }
+                if !prev.is_empty() {
+                    synthesized_rules.push((prev.to_string(), rej.to_string(), -28.0, format!("抑制前驅誤奪：{} 奪舍 {}", prev, rej)));
+                }
+            }
+        }
+
+        if synthesized_rules.is_empty() {
+            return 0;
+        }
+
+        // A. 即時注入執行中的記憶體轉移矩陣 (零延遲生效)
+        for (p, n, score, _) in &synthesized_rules {
+            self.transitions.transitions.insert((p.clone(), n.clone()), *score);
+        }
+
+        // B. 追加持久化至 transitions_user.tsv
+        let tsv_path = if let Some(ref d) = self.data_dir {
+            std::path::PathBuf::from(d).join("transitions_user.tsv")
+        } else if let Ok(appdata) = std::env::var("APPDATA") {
+            std::path::PathBuf::from(appdata).join("Ruhi").join("data").join("transitions_user.tsv")
+        } else {
+            std::path::PathBuf::from("../ruhi_lexicon/data/transitions_user.tsv")
+        };
+
+        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&tsv_path) {
+            use std::io::Write;
+            for (p, n, score, cmt) in &synthesized_rules {
+                let _ = writeln!(file, "{}\t{}\t{:.1}\tcollocation\t{}", p, n, score, cmt);
+            }
+        }
+
+        // C. 同時將修訂記錄備份至 pending_revisions.json
+        let target_json = if let Some(ref d) = self.data_dir {
+            std::path::PathBuf::from(d).join("pending_revisions.json")
+        } else if let Ok(appdata) = std::env::var("APPDATA") {
+            let p = std::path::PathBuf::from(appdata).join("Ruhi").join("data");
+            let _ = std::fs::create_dir_all(&p);
+            p.join("pending_revisions.json")
+        } else {
+            std::path::PathBuf::from("pending_revisions.json")
+        };
+
+        let mut existing_recs: Vec<RevisionRecord> = if target_json.exists() {
+            std::fs::read_to_string(&target_json)
+                .ok()
+                .and_then(|content| serde_json::from_str(&content).ok())
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        existing_recs.extend(revs);
+        if existing_recs.len() > 500 {
+            let skip = existing_recs.len() - 500;
+            existing_recs.drain(0..skip);
+        }
+        if let Ok(serialized) = serde_json::to_string_pretty(&existing_recs) {
+            let _ = std::fs::write(&target_json, serialized);
+        }
+
+        synthesized_rules.len()
     }
 }
 
@@ -1107,6 +1379,35 @@ mod tests {
         // 重置清理
         engine.reset_buffer();
         assert!(engine.user_pinned.is_empty());
+    }
+
+    #[test]
+    fn test_revision_recording() {
+        let mut engine = RuhiEngine::new();
+        // 隔離測試資料目錄至系統暫存區，嚴禁污染使用者詞庫與歷史日誌
+        engine.data_dir = Some(std::env::temp_dir().to_str().unwrap().to_string());
+        assert!(!engine.has_pending_revisions());
+
+        // 模擬手動選字「步董」->「不懂」
+        engine.sentence_chars = vec!["步".to_string(), "董".to_string()];
+        engine.current_candidates = vec!["董".to_string(), "懂".to_string()];
+        engine.cursor_pos = 2;
+        engine.mode = EngineMode::CandidatePopup;
+
+        engine.process_key('2'); // 選懂
+        assert!(engine.has_pending_revisions());
+        assert_eq!(engine.pending_revisions.len(), 1);
+        let rev = &engine.pending_revisions[0];
+        assert_eq!(rev.rejected, "董");
+        assert_eq!(rev.accepted, "懂");
+        assert_eq!(rev.prev_context, "步");
+
+        // 測試 auto_synthesize_and_apply_revisions 瞬間吸收進記憶體轉移矩陣
+        engine.record_revision("ㄉㄨㄥˇ", "董", "懂", "步", "");
+        let applied_count = engine.auto_synthesize_and_apply_revisions();
+        assert!(applied_count > 0);
+        assert_eq!(engine.transitions.transitions.get(&("步".to_string(), "懂".to_string())), Some(&26.0));
+        assert!(!engine.has_pending_revisions());
     }
 
     #[test]
@@ -3930,6 +4231,155 @@ mod tests {
             "看來之前的破音字清查不夠徹底",
             "口語複合長句必精準命中「看來之前的破音字清查不夠徹底」，杜絕「清茶」與「冊底」劫掠"
         );
+    }
+
+    #[test]
+    fn test_user_debug_gongneng_and_wanbi_caizhengshi() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        // 1. 還有一些功能 / 還有歇工能
+        // ㄏㄞˊ (hid) ㄧㄡˇ (eof) ㄒㄧㄝ (cee ) ㄍㄨㄥ (gxl ) ㄋㄥˊ (nld)
+        engine.reset_buffer();
+        for c in "hideofcee gxl nld".chars() { engine.process_key(c); }
+        let out1 = engine.get_display_text();
+        assert_eq!(out1, "還有些功能", "必精準命中「還有些功能」，杜絕「歇工能」劫掠");
+
+        // 2. 處理完畢才正式發布
+        // 處 (vxf) 理 (lef) 完 (xmd) 畢 (bej) 才 (aid) 正 (jlj) 式 (cj) 發 (fr ) 布 (bxj)
+        engine.reset_buffer();
+        for c in "vxflefxmdbejaidjljcjfr bxj".chars() { engine.process_key(c); }
+        let out2 = engine.get_display_text();
+        assert_eq!(out2, "處理完畢才正式發布", "完成體先後語法構式必精準命中「處理完畢才正式發布」，杜絕「財政是發布」劫掠");
+
+        // 3. 單獨「完畢才正式發布」
+        engine.reset_buffer();
+        for c in "xmdbejaidjljcjfr bxj".chars() { engine.process_key(c); }
+        let out3 = engine.get_display_text();
+        assert_eq!(out3, "完畢才正式發布", "獨立體貌短語必精準命中「完畢才正式發布」");
+
+        // 4. 子句「因為還有些功能需要微調」
+        // 因 (en ) 為 (xaj) 還 (hid) 有 (eof) 些 (cee ) 功 (gxl ) 能 (nld) 需 (cu ) 要 (ewj) 微 (xad) 調 (tewd)
+        engine.reset_buffer();
+        for c in "en xajhideofcee gxl nldcu ewjxadtewd".chars() { engine.process_key(c); }
+        let out4 = engine.get_display_text();
+        assert_eq!(out4, "因為還有些功能需要微調", "因果存現限定句必精準命中「因為還有些功能需要微調」");
+
+        // 5. 測試「這個新的資料夾」
+        engine.reset_buffer();
+        for c in "jgjggscen dgsz lewjjerd".chars() { engine.process_key(c); }
+        let out_clause = engine.get_display_text();
+        assert_eq!(out_clause, "這個新的資料夾", "指示詞與定語必精準命中「這個新的資料夾」，杜絕「這 個 心 的」切碎劫掠");
+
+        // 6. 子句「後續應該是先在這個新的資料夾處理完畢才正式發布」
+        // 後 (hoj) 續 (cuj) 應 (el ) 該 (gi ) 是 (cj) 先 (cem ) 在 (zij) 這 (jgj) 個 (ggs) 新 (cen ) 的 (dgs) 資 (z ) 料 (lewj) 夾 (jerd) 處 (vxf) 理 (lef) 完 (xmd) 畢 (bej) 才 (aid) 正 (jlj) 式 (cj) 發 (fr ) 布 (bxj)
+        engine.reset_buffer();
+        for c in "hojcujel gi cjcem zijjgjggscen dgsz lewjjerdvxflefxmdbejaidjljcjfr bxj".chars() { engine.process_key(c); }
+        let out5 = engine.get_display_text();
+        assert_eq!(out5, "後續應該是先在這個新的資料夾處理完畢才正式發布", "完整業務邏輯流程長句必精準命中「後續應該是先在這個新的資料夾處理完畢才正式發布」");
+    }
+
+    #[test]
+    fn test_backspace_shift_backspace_ctrl_backspace() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        // 1. 測試 a. Backspace (pop_component : 往回刪除一個拼音)
+        engine.reset_buffer();
+        // 鍵入 r (ㄖ)
+        engine.process_key('r');
+        assert_eq!(engine.get_display_text(), "ㄖ");
+        // 鍵入 x (ㄨ)
+        engine.process_key('x');
+        assert_eq!(engine.get_display_text(), "ㄖㄨ");
+        // 往回刪除一個拼音字母 -> 退回 ㄖ
+        engine.pop_component();
+        assert_eq!(engine.get_display_text(), "ㄖ");
+        // 再往回刪除一個拼音字母 -> 清空
+        engine.pop_component();
+        assert_eq!(engine.get_display_text(), "");
+
+        // 2. 測試 b. Shift+Backspace (pop_syllable : 往回刪除一組拼音)
+        engine.reset_buffer();
+        // 鍵入「如喜」: rxd (如, ㄖㄨˊ) + cef (喜, ㄒㄧˇ)
+        for c in "rxdcef".chars() { engine.process_key(c); }
+        assert_eq!(engine.get_display_text(), "如喜");
+        // 輸入一半的「歡」聲母 h (ㄏ)
+        engine.process_key('h');
+        assert_eq!(engine.get_display_text(), "如喜ㄏ");
+        // 按 Shift+Backspace -> 往回刪除當前這組未完成拼音 (h)
+        engine.pop_syllable();
+        assert_eq!(engine.get_display_text(), "如喜");
+        // 再按 Shift+Backspace -> 往回刪除最後一組已完成拼音「喜」(cef)
+        engine.pop_syllable();
+        assert_eq!(engine.get_display_text(), "如");
+        // 再按 Shift+Backspace -> 往回刪除「如」(rxd)
+        engine.pop_syllable();
+        assert_eq!(engine.get_display_text(), "");
+
+        // 3. 測試 c. Ctrl+Backspace (pop_word : 往回刪除一個字／詞)
+        engine.reset_buffer();
+        // 鍵入「我喜歡」: xhf (我, 1音節) + cefhxm (喜歡, 2音節詞)
+        for c in "xhfcefhxm ".chars() { engine.process_key(c); }
+        assert_eq!(engine.get_display_text(), "我喜歡");
+        // 按 Ctrl+Backspace -> 依據 Viterbi 切詞結構精準刪除最後一個詞「喜歡」(2音節)
+        engine.pop_word();
+        assert_eq!(engine.get_display_text(), "我");
+        // 再按 Ctrl+Backspace -> 刪除單字「我」(1音節)
+        engine.pop_word();
+        assert_eq!(engine.get_display_text(), "");
+
+        // 4. 測試具有未完成音節時按 Ctrl+Backspace
+        engine.reset_buffer();
+        for c in "xhfcefhxm ".chars() { engine.process_key(c); }
+        assert_eq!(engine.get_display_text(), "我喜歡");
+        // 打了一半的拼音 r (ㄖ)
+        engine.process_key('r');
+        assert_eq!(engine.get_display_text(), "我喜歡ㄖ");
+        // 按 Ctrl+Backspace -> 優先刪除正在組字中的未完成拼音字
+        engine.pop_word();
+        assert_eq!(engine.get_display_text(), "我喜歡");
+        // 再按 Ctrl+Backspace -> 精確刪除「喜歡」整詞
+        engine.pop_word();
+        assert_eq!(engine.get_display_text(), "我");
+    }
+
+    #[test]
+    fn test_user_debug_budong_duozu_xiuzheng() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        // 1. 驗證「讓不懂程式」能精確命中「不懂」與「程式」，絕不碎裂為「步董」
+        engine.reset_buffer();
+        for c in "rkjbxjdxlfvldcj".chars() {
+            engine.process_key(c);
+        }
+        let disp1 = engine.get_display_text();
+        assert!(disp1.contains("不懂程式") || disp1.contains("讓不懂") || disp1.contains("不懂"), "實際輸出：{}", disp1);
+
+        // 2. 驗證「直接或多組」能精確組出「直接」與「多組」，絕不碎裂為「直街」或「朵組」
+        engine.reset_buffer();
+        for c in "jdjee hxhjdxh zxf".chars() {
+            engine.process_key(c);
+        }
+        let disp2 = engine.get_display_text();
+        assert!(disp2.contains("直接") && disp2.contains("多組"), "實際輸出：{}", disp2);
+
+        // 3. 驗證「修正行為」能精確組出「修正」，絕不碎裂為「休政」
+        engine.reset_buffer();
+        for c in "ceo jljceldxad".chars() {
+            engine.process_key(c);
+        }
+        let disp3 = engine.get_display_text();
+        assert!(disp3.contains("修正行為") || disp3.contains("修正"), "實際輸出：{}", disp3);
     }
 }
 

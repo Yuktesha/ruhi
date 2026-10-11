@@ -9,8 +9,9 @@ from collections import defaultdict
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-DATA_DIR = r"C:\ATGprjs\RuhOS\ruhi\ruhi_lexicon\data"
-OCC_PATH = r"C:\ATGprjs\RuhOS\ruhi\_external\McBopomofo\Source\Data\phrase.occ"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+OCC_PATH = os.path.join(BASE_DIR, "..", "_external", "McBopomofo", "Source", "Data", "phrase.occ")
 
 def load_phrase_occ():
     occ = {}

@@ -758,6 +758,146 @@ impl TransitionEngine {
             name: "anti_ren_hui_shatter".to_string(),
         });
 
+        // ── 存現動詞 ➔ 不定量標記「些」(還有些、有些、剩下些、帶有些、留有些) ──
+        let existential_verbs = vec!["有", "還有", "剩下", "帶有", "存有", "保留", "具備"];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(existential_verbs.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::Exact("些".to_string()),
+            bonus: 26.0,
+            name: "existential_verb_xie".to_string(),
+        });
+
+        // ── 限定詞/不定量詞「些」➔ 實詞/名詞 (些功能、些問題、些微、些許、些事情、些細節、些建議、些地方) ──
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("些".to_string()),
+            curr_pattern: WordPattern::ContentWord,
+            bonus: 26.0,
+            name: "specifier_xie_content_word".to_string(),
+        });
+
+        // ── 副詞 ➔ 雙字詞「有些」(還有些、另有些、但有些、卻有些) ──
+        let adv_before_youxie = vec!["還", "另", "且", "並", "但", "卻", "也"];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(adv_before_youxie.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::Exact("有些".to_string()),
+            bonus: 24.0,
+            name: "adv_before_youxie".to_string(),
+        });
+
+        // ── 雙字詞「有些」➔ 複合實詞 (有些功能、有些問題、有些細節、有些建議、有些困難) ──
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("有些".to_string()),
+            curr_pattern: WordPattern::CompoundContentWord,
+            bonus: 25.0,
+            name: "youxie_compound_content".to_string(),
+        });
+
+        // ── 抑制罕見孤立詞「歇工」（非現代台灣常用詞，嚴防「些+工.../些+功能」被切碎劫掠）──
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Any,
+            curr_pattern: WordPattern::Exact("歇工".to_string()),
+            bonus: -32.0,
+            name: "anti_isolated_xiegong_impostor".to_string(),
+        });
+
+        // ── 動作動詞 ➔ 完成體補語「完畢」(處理完畢、準備完畢、確認完畢、測試完畢、安裝完畢、下載完畢、執行完畢、審查完畢、校對完畢) ──
+        let wanbi_verbs = vec![
+            "處理", "準備", "確認", "測試", "點交", "審查", "檢查", "安裝", "下載", "執行",
+            "盤點", "清點", "核對", "校對", "設定", "填寫", "繳納", "回覆", "更新", "修復",
+            "搬遷", "整修", "交接", "點收", "製作", "編譯", "建置", "打包", "排版", "列印",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(wanbi_verbs.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::Exact("完畢".to_string()),
+            bonus: 30.0,
+            name: "action_verb_wanbi_complement".to_string(),
+        });
+
+        // ── 完成/結束體標記 ➔ 先後關聯副詞「才」(完畢才、完成才、結束才、處理完才、做完才、準備好才、考完才、到了才) ──
+        let completion_aspect_markers = vec![
+            "完畢", "完成", "結束", "做完", "弄完", "處理完", "處理完畢", "準備好", "做好",
+            "考完", "看完", "吃完", "到了", "學完", "放學", "畢業", "之後", "過後", "結算",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(completion_aspect_markers.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::Exact("才".to_string()),
+            bonus: 28.0,
+            name: "aspect_completion_cai_sequential".to_string(),
+        });
+
+        // ── 先後副詞「才」➔ 狀語/動態「正式」(才正式發布、才正式上線、才正式開始、才正式啟用、才正式營業) ──
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("才".to_string()),
+            curr_pattern: WordPattern::Exact("正式".to_string()),
+            bonus: 26.0,
+            name: "cai_zhengshi_adv".to_string(),
+        });
+
+        // ── 先後副詞「才」➔ 情態或動作動詞 (才能、才會、才算、才可以、才得以、才開始、才好、才行、才發布、才做) ──
+        let cai_action_modal = vec![
+            "能", "會", "可以", "算", "算作", "得以", "開始", "著手", "進行", "啟用", "發布", "上線",
+            "知道", "明白", "發現", "懂得", "有", "好", "行", "敢", "准", "成",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("才".to_string()),
+            curr_pattern: WordPattern::OneOf(cai_action_modal.into_iter().map(|s| s.to_string()).collect()),
+            bonus: 25.0,
+            name: "cai_modal_or_action".to_string(),
+        });
+
+        // ── 狀語「正式」➔ 動作動詞 (正式發布、正式上線、正式開始、正式啟用、正式營運、正式推出、正式營業、正式發表、正式開工、正式實施、正式上架、正式宣告) ──
+        let zhengshi_actions = vec![
+            "發布", "上線", "開始", "啟用", "運作", "推出", "營業", "營運", "發表", "開工",
+            "實施", "上架", "發售", "公布", "宣告", "簽約", "掛牌", "亮相", "啟動", "交機",
+            "進駐", "招生", "開學", "成立", "動工", "移交", "授權", "出貨", "交車", "定案",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("正式".to_string()),
+            curr_pattern: WordPattern::OneOf(zhengshi_actions.into_iter().map(|s| s.to_string()).collect()),
+            bonus: 28.0,
+            name: "zhengshi_action_verb".to_string(),
+        });
+
+        // ── 狀語「正式」➔ 複合實詞動詞 (通用泛化: 正式 + 2~4字實詞動詞) ──
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("正式".to_string()),
+            curr_pattern: WordPattern::CompoundContentWord,
+            bonus: 22.0,
+            name: "zhengshi_compound_content_action".to_string(),
+        });
+
+        // ── 指示/數量詞 ➔ 定語修飾詞 (這個新的、那個舊的、一個好的、這些新的、那些舊的) ──
+        let demonstrative_specifiers = vec!["這個", "那個", "一個", "每個", "這些", "那些", "某個", "另一個", "整個", "全部"];
+        let common_attributives = vec!["新的", "舊的", "好的", "壞的", "大的", "小的", "真的", "假的", "其他的", "不同的", "重要的"];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(demonstrative_specifiers.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::OneOf(common_attributives.into_iter().map(|s| s.to_string()).collect()),
+            bonus: 28.0,
+            name: "demonstrative_attributive_de".to_string(),
+        });
+
+        // ── 指示代詞「這個/那個」➔ 複合實詞 (這個資料夾、這個功能、這個專案、這個系統、這個問題、這個地方) ──
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec!["這個".to_string(), "那個".to_string()]),
+            curr_pattern: WordPattern::CompoundContentWord,
+            bonus: 22.0,
+            name: "zhege_compound_content".to_string(),
+        });
+
+        // ── 定語標記結尾詞「~的」➔ 複合實詞/名詞 (新的資料夾、舊的檔案、好的方法、大的問題、重要的事情) ──
+        let de_ending_attributives = vec![
+            "新的", "舊的", "好的", "壞的", "大的", "小的", "真的", "假的", "高的", "低的",
+            "多的", "少的", "快的", "慢的", "長的", "短的", "遠的", "近的", "美的", "醜的",
+            "難的", "易的", "貴的", "便宜的", "重要的", "特定的", "唯一的", "所有的", "一般的",
+            "各種的", "不同的", "基本的", "關鍵的", "專門的", "額外的", "內部的", "外部的",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(de_ending_attributives.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::CompoundContentWord,
+            bonus: 26.0,
+            name: "de_ending_compound_noun".to_string(),
+        });
+
         // 量詞 + 實詞（隻貓、個人、條路、部作品、座城市）
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(classifiers.iter().map(|s| s.to_string()).collect()),
