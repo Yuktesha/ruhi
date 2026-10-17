@@ -34,10 +34,17 @@ from tkinter import ttk
 import tkinter.font as tkfont
 
 # 引入 _lib UniversalUI 與 theme_engine
-BASE_DIR = Path(__file__).resolve().parent.parent
-LIB_DIR = Path(r"C:\ATGprjs\_lib")
-if str(LIB_DIR) not in sys.path:
-    sys.path.insert(0, str(LIB_DIR))
+_HERE = Path(__file__).resolve().parent
+BASE_DIR = _HERE if (_HERE / "ruhi-core").exists() or (_HERE / "data").exists() else _HERE.parent
+for _cand_lib in [
+    _HERE / "_lib",
+    _HERE,
+    _HERE.parent / "_lib",
+    _HERE.parent,
+    Path(r"C:\ATGprjs\_lib"),
+]:
+    if _cand_lib.exists() and str(_cand_lib) not in sys.path:
+        sys.path.insert(0, str(_cand_lib))
 
 try:
     from UniversalUI import UniversalApp, showinfo
@@ -848,7 +855,7 @@ class RuhiSettingsApp(UniversalApp if HAS_UNIVERSAL else object):
         self.var_mixed_mode = tk.StringVar(value=self.settings.get("keyboard", {}).get("mixed_english_mode", "contextual_stream"))
 
         ttk.Radiobutton(card_strategy, text="語境串流模式（推薦）", variable=self.var_mixed_mode, value="contextual_stream").pack(anchor=tk.W, padx=(12, 0))
-        self.create_item_subtext(card_strategy, "首詞確認為歐文時開啟串流，放行後續 2~3 字詞；中文模式享有 100% 防護不奪舍。")
+        self.create_item_subtext(card_strategy, "首詞確認為歐文時開啟串流，放行後續 2~3 字詞；中文模式享有 100% 語境防護，杜絕非預期覆寫。")
 
         ttk.Radiobutton(card_strategy, text="保守模式", variable=self.var_mixed_mode, value="conservative").pack(anchor=tk.W, padx=(12, 0))
         self.create_item_subtext(card_strategy, "僅在大寫字母、駝峰命名 (CamelCase) 或特殊標識符時自動放行歐文。")
@@ -885,16 +892,20 @@ class RuhiSettingsApp(UniversalApp if HAS_UNIVERSAL else object):
 
         self.var_colloquial = tk.BooleanVar(value=self.settings["grammar"]["enable_colloquial_biases"])
         ttk.Checkbutton(card_rules, text="生活高頻口語引力校準", variable=self.var_colloquial).pack(anchor=tk.W, pady=2)
-        self.create_item_subtext(card_rules, "校正破音字先驗分佈，杜絕『自燃』、『渴論』、『醮我一生』等罕見假同音字奪舍。")
+        self.create_item_subtext(card_rules, "校正破音字先驗分佈，杜絕『自燃』、『渴論』、『醮我一生』等罕見假同音字語意劫掠。")
 
-        card_hot = ttk.LabelFrame(page, text=" 詞庫熱重載與自建詞維護 ", padding=12)
+        card_hot = ttk.LabelFrame(page, text=" 詞庫主權、熱重載與語意調校工作室 ", padding=12)
         card_hot.pack(fill=tk.X, pady=(0, 10))
 
         self.var_hot_reload = tk.BooleanVar(value=self.settings["grammar"]["enable_hot_reload"])
         ttk.Checkbutton(card_hot, text="使用者自建詞庫熱重載", variable=self.var_hot_reload).pack(anchor=tk.W, pady=2)
         self.create_item_subtext(card_hot, "支援 Ctrl+2 快捷加詞與 TSV 檔案即時熱載入，修改後無須重啟輸入法。")
 
-        self.create_item_subtext(card_hot, "架構鐵律守則：如喜堅守計算語言學語法構式與二階轉移引力，嚴禁單字權重打地鼠，保障長詞凝聚力。")
+        self.create_item_subtext(card_hot, "架構鐵律守則：如喜堅守計算語言學語法構式與二階轉移引力，嚴禁單字權重打地鼠，再也不必望穿秋水等候一個可能永遠不會進步的官方詞庫。")
+
+        row_tuner_btn = ttk.Frame(card_hot)
+        row_tuner_btn.pack(fill=tk.X, pady=(8, 2))
+        ttk.Button(row_tuner_btn, text="🛠️ 啟動語意調校工作室 (Ctrl+Alt+R)", command=self.open_semantic_tuner).pack(side=tk.LEFT, padx=(0, 8))
 
         return page
 
@@ -959,12 +970,11 @@ class RuhiSettingsApp(UniversalApp if HAS_UNIVERSAL else object):
         btn_manage_model = ttk.Button(row_model, text="📥 智慧管理模型", command=self.open_model_installer)
         btn_manage_model.pack(side=tk.LEFT, padx=(0, 10))
 
-        self.create_item_subtext(card_model, "快捷提示：輸入過程中按下快捷鍵 Ctrl+1 即可調用本地 AI 進行全句語意潤飾。")
+        self.create_item_subtext(card_model, "快捷提示：打字時按下 Ctrl+Alt+R 可隨時喚醒語意調校工作室，透過雙向詞網感知與 AI 顧問自動提煉二階語法引力。")
 
-        row_colab = ttk.Frame(card_model)
-        row_colab.pack(fill=tk.X, pady=(6, 2))
-        ttk.Label(row_colab, text="雲端 Colab 算力支援：").pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Label(row_colab, text="🟢 Google Colab CLI 已連線 (957.60 Compute Units)", foreground="#16A34A").pack(side=tk.LEFT)
+        row_tuner_ai = ttk.Frame(card_model)
+        row_tuner_ai.pack(fill=tk.X, pady=(6, 2))
+        ttk.Button(row_tuner_ai, text="🛠️ 開啟語意調校工作室與 AI 顧問", command=self.open_semantic_tuner).pack(side=tk.LEFT)
 
         return page
 
@@ -1039,9 +1049,39 @@ class RuhiSettingsApp(UniversalApp if HAS_UNIVERSAL else object):
                 os.startfile(str(cfg_dir))
 
         ttk.Button(row_btns, text="📁 開啟詞庫資料夾", command=open_data_dir).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(row_btns, text="⚙️ 開啟設定檔資料夾", command=open_config_dir).pack(side=tk.LEFT)
+        ttk.Button(row_btns, text="⚙️ 開啟設定檔資料夾", command=open_config_dir).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(row_btns, text="🛠️ 語意調校工作室", command=self.open_semantic_tuner).pack(side=tk.LEFT)
 
         return page
+
+    def open_semantic_tuner(self):
+        import subprocess
+        here = Path(__file__).resolve().parent
+        ps1_candidates = [
+            here / "語意調校工作室.ps1",
+            here / "scripts" / "語意除錯調校.ps1",
+            here.parent / "語意調校工作室.ps1",
+            here.parent / "scripts" / "語意除錯調校.ps1",
+        ]
+        for ps1 in ps1_candidates:
+            if ps1.exists():
+                subprocess.Popen(
+                    ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ps1)],
+                    cwd=str(ps1.parent)
+                )
+                return
+        py_candidates = [
+            here / "scripts" / "semantic_tuner.py",
+            here / "semantic_tuner.py",
+            here.parent / "scripts" / "semantic_tuner.py",
+        ]
+        for py in py_candidates:
+            if py.exists():
+                subprocess.Popen(
+                    [sys.executable, str(py), "--web"],
+                    cwd=str(py.parent)
+                )
+                return
 
     def setup_zoom_and_scroll_bindings(self):
         self.root.bind_all("<Control-plus>", lambda e: self._zoom(1))

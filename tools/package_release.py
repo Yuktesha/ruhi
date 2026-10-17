@@ -107,11 +107,54 @@ def main():
         if src_f.exists():
             shutil.copy2(src_f, release_dir / f)
 
-    # 複製安裝與啟動腳本
-    for script_name in ["一鍵安裝.ps1", "一鍵解除安裝.ps1", "run_settings.ps1", "hot_reload.ps1"]:
-        src_s = dist_dir / script_name if (dist_dir / script_name).exists() else (root / "scripts" / script_name)
+    # 複製安裝與啟動腳本（根目錄快捷進入點）
+    for script_name in [
+        "一鍵安裝.ps1",
+        "一鍵解除安裝.ps1",
+        "run_settings.ps1",
+        "hot_reload.ps1",
+        "語意調校工作室.ps1",
+        "安裝本地AI純綠推論引擎.ps1",
+        "啟動本地AI服務.ps1",
+        "停止本地AI服務.ps1",
+    ]:
+        src_s = root / script_name if (root / script_name).exists() else (dist_dir / script_name if (dist_dir / script_name).exists() else (root / "scripts" / script_name))
         if src_s.exists():
             shutil.copy2(src_s, release_dir / script_name)
+
+    # 複製獨立內建 _lib 介面與主題引擎庫（確保外部使用者免依賴外部目錄即可完整享受 DWM 深色標題列與 R-UI/UX）
+    src_lib = root / "_lib"
+    if src_lib.exists():
+        dst_lib = release_dir / "_lib"
+        dst_lib.mkdir(parents=True, exist_ok=True)
+        for py_file in src_lib.glob("*.py"):
+            shutil.copy2(py_file, dst_lib / py_file.name)
+        if (src_lib / "ps" / "Ensure-Admin.ps1").exists():
+            (dst_lib / "ps").mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_lib / "ps" / "Ensure-Admin.ps1", dst_lib / "ps" / "Ensure-Admin.ps1")
+
+    # 複製語意調校工作室與跨平台工具集 (scripts/)
+    release_scripts = release_dir / "scripts"
+    release_scripts.mkdir(parents=True, exist_ok=True)
+    src_scripts = root / "scripts"
+    for s_item in [
+        "語意除錯調校.ps1",
+        "semantic_tuner.py",
+        "ai_semantic_consultant.py",
+        "安裝本地AI純綠推論引擎.ps1",
+        "啟動本地AI服務.ps1",
+        "停止本地AI服務.ps1",
+        "一鍵安裝.ps1",
+        "一鍵解除安裝.ps1",
+        "run_settings.ps1",
+        "hot_reload.ps1",
+        "install_linux.sh",
+        "config.json",
+    ]:
+        if (src_scripts / s_item).exists():
+            shutil.copy2(src_scripts / s_item, release_scripts / s_item)
+    if (src_scripts / "web").exists():
+        shutil.copytree(src_scripts / "web", release_scripts / "web", dirs_exist_ok=True)
 
     # 複製文件
     for doc in ["LICENSE", "README.md"]:
@@ -125,7 +168,8 @@ def main():
         "RUHI_LINGUISTIC_ARCHITECTURE_AND_AI_TUNING_SPEC.md",
         "RUHI_MULTILINGUAL_EXPANSION_GUIDE.md",
         "RUHI_MULTILINGUAL_EXPANSION_GUIDE_EN.md",
-        "RUHI_ASIAN_LANGUAGES_EXTENSION_GUIDE.md"
+        "RUHI_ASIAN_LANGUAGES_EXTENSION_GUIDE.md",
+        "RUHI_LINUX_FCITX5_ARCHITECTURE.md",
     ]:
         src_doc = root / "docs" / doc_name
         if src_doc.exists():

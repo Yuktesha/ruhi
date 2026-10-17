@@ -30,35 +30,48 @@ PrivilegesRequired=admin
 CloseApplications=force
 
 [Languages]
-Name: "chinesetraditional"; MessagesFile: "compiler:Languages\ChineseTraditional.isl"
+Name: "chinesetraditional"; MessagesFile: "ChineseTraditional.isl"
+
+#define StageDir "..\dist\RuhI_v" + MyAppVersion + "_Windows_x64"
 
 [Files]
 ; 核心二進位檔
-Source: "..\dist\ruhi_tsf.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
-Source: "..\dist\ruhi.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
+Source: "{#StageDir}\ruhi_tsf.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
+Source: "{#StageDir}\ruhi.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
 
 ; 完整詞庫與轉移引力資料
-Source: "..\dist\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#StageDir}\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; 偏好設定中心與設定檔
-Source: "..\dist\settings_window.py"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\settings_config.json"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\config.json"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\user_dict.tsv"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
+Source: "{#StageDir}\settings_window.py"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\settings_config.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\config.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
+Source: "{#StageDir}\user_dict.tsv"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 
-; 管理與日常熱重載工具
-Source: "..\dist\run_settings.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\hot_reload.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\一鍵安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\一鍵解除安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
+; 管理、語意調校工作室與日常熱重載工具
+Source: "{#StageDir}\run_settings.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\hot_reload.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\一鍵安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\一鍵解除安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\語意調校工作室.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\安裝本地AI純綠推論引擎.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\啟動本地AI服務.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\停止本地AI服務.ps1"; DestDir: "{app}"; Flags: ignoreversion
+
+; 內建介面與主題引擎庫 (_lib)
+Source: "{#StageDir}\_lib\*"; DestDir: "{app}\_lib"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; 語意調校工作室核心引擎與 Web 視覺介面 (scripts)
+Source: "{#StageDir}\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; 專案宣告與文件
-Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
-Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#StageDir}\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
+Source: "{#StageDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\如喜輸入法偏好設定"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\run_settings.ps1"""; WorkingDir: "{app}"
+Name: "{group}\如喜語意調校工作室"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\語意調校工作室.ps1"""; WorkingDir: "{app}"
 Name: "{group}\如喜輸入法熱更新工具"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\hot_reload.ps1"""; WorkingDir: "{app}"
 Name: "{group}\解除安裝如喜輸入法"; Filename: "{uninstallexe}"
 

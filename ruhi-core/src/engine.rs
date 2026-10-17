@@ -3570,7 +3570,7 @@ mod tests {
         // 接續輸入大寫英文字母 'E'
         let resp = engine.process_key('E');
         assert_eq!(resp.committed_chunk, "中英文混打測試", "輸入大寫字母時，先前組好的中文句子必須完整結算上屏");
-        assert_eq!(engine.get_display_text(), "E", "引擎應乾淨開啟歐文模式顯示大寫 'E'，絕不反噬洩漏原始按鍵字串");
+        assert_eq!(engine.get_display_text(), "E", "引擎應乾淨開啟歐文模式顯示大寫 'E'，絕不回溯洩漏原始按鍵字串");
 
         // 測試使用者反饋: xlelxndhxnjdyfagjcjLe
         // ㄧㄥ (el) ㄨㄣˊ (xnd) ㄏㄨㄣˋ (hxnj) ㄉㄚˇ (dyf) ㄘㄜˋ (agj) ㄕˋ (cj)

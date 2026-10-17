@@ -49,12 +49,14 @@ jobs:
         run: |
           choco install innosetup --no-progress
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\ruhi_setup.iss
+          python -c "import hashlib, pathlib; [pathlib.Path(str(p)+'.sha256').write_text(hashlib.sha256(p.read_bytes()).hexdigest() + ' *' + p.name + '\n') for p in pathlib.Path('dist').glob('RuhI_Setup_v*.exe')]"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/RuhI_Setup_v*.exe
+            dist/RuhI_Setup_v*.exe.sha256
             dist/RuhI_v*_Windows_x64.zip
             dist/RuhI_v*_Windows_x64.zip.sha256
           generate_release_notes: true

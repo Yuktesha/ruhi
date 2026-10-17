@@ -551,6 +551,49 @@ pub fn launch_settings() {
     }
 }
 
+pub fn launch_semantic_tuner() {
+    let paths = crate::service::RuhiPaths::resolve();
+    let ps1_candidates = [
+        paths.sandbox_dir.join("scripts").join("語意除錯調校.ps1"),
+        paths.sandbox_dir.join("語意調校工作室.ps1"),
+        paths.sandbox_dir.join("語意除錯調校.ps1"),
+        paths.sandbox_dir.parent().map(|p| p.join("scripts").join("語意除錯調校.ps1")).unwrap_or_default(),
+        paths.sandbox_dir.parent().map(|p| p.join("語意調校工作室.ps1")).unwrap_or_default(),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\scripts\\語意除錯調校.ps1"),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\語意調校工作室.ps1"),
+        paths.sandbox_dir.join("scripts").join("語意除錯調教.ps1"),
+        paths.sandbox_dir.join("語意除錯調教.ps1"),
+    ];
+
+    if let Some(script_path) = ps1_candidates.iter().find(|p| p.exists() && p.is_file()).cloned() {
+        logger::log(&format!("launch_semantic_tuner: launching {:?}", script_path));
+        let _ = std::process::Command::new("powershell.exe")
+            .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", &script_path.to_string_lossy()])
+            .spawn();
+        return;
+    }
+
+    let py_candidates = [
+        paths.sandbox_dir.join("scripts").join("semantic_tuner.py"),
+        paths.sandbox_dir.join("semantic_tuner.py"),
+        paths.sandbox_dir.parent().map(|p| p.join("scripts").join("semantic_tuner.py")).unwrap_or_default(),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\scripts\\semantic_tuner.py"),
+    ];
+
+    if let Some(py_path) = py_candidates.iter().find(|p| p.exists() && p.is_file()).cloned() {
+        let exe_path = if std::path::Path::new("C:\\Python\\python.exe").exists() {
+            "C:\\Python\\python.exe"
+        } else {
+            "python"
+        };
+        let _ = std::process::Command::new(exe_path)
+            .args(&[&py_path.to_string_lossy(), "--web"])
+            .spawn();
+    } else {
+        logger::log("launch_semantic_tuner: semantic_tuner not found in any candidate path!");
+    }
+}
+
 pub fn show_about_dialog(hwnd: HWND) {
     let (kb_mode, is_caps) = if let Ok(s) = get_candidate_state().read() {
         (s.keyboard_mode.to_lowercase(), s.is_caps_on)
@@ -561,30 +604,30 @@ pub fn show_about_dialog(hwnd: HWND) {
     let (title, msg) = if is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
         (
             "About RuhI",
-            "RuhI Universal Smart IME\nVersion: 1.0.0 (Release)\nFlowing like clouds and water, effortless and joyful."
+            "RuhI Universal Smart IME\nVersion: 0.2.0 (Release)\nFlowing like clouds and water, effortless and joyful."
         )
     } else {
         match kb_mode.as_str() {
             "japanese" | "kana" | "romaji" => (
                 "RuhI について",
-                "RuhI 如喜スマートIME\nバージョン: 1.0.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+                "RuhI 如喜スマートIME\nバージョン: 0.2.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
             ),
             "korean" | "hangul" => (
                 "RuhI 정보",
-                "RuhI 루히 유니버설 스마트 입력기\n버전: 1.0.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+                "RuhI 루히 유니버설 스마트 입력기\n버전: 0.2.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
             ),
             "iast" | "sanskrit" => (
                 "About RuhI (IAST)",
-                "RuhI Universal Smart IME (IAST)\nVersion: 1.0.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
+                "RuhI Universal Smart IME (IAST)\nVersion: 0.2.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
             ),
             "thai" => (
                 "เกี่ยวกับ RuhI",
-                "RuhI Universal Smart IME\nเวอร์ชัน: 1.0.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
+                "RuhI Universal Smart IME\nเวอร์ชัน: 0.2.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
             ),
             // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列等）：
             _ => (
                 "關於如喜",
-                "RuhI 如喜通用智慧型輸入法\n版本: 1.0.0 (Release)\n如雲行水流自在歡喜。"
+                "RuhI 如喜通用智慧型輸入法\n版本: 0.2.0 (Release)\n如雲行水流自在歡喜。"
             ),
         }
     };
@@ -602,7 +645,7 @@ pub fn show_about_dialog(hwnd: HWND) {
     }
 }
 
-fn get_context_menu_labels() -> (&'static str, &'static str) {
+fn get_context_menu_labels() -> (&'static str, &'static str, &'static str) {
     let (kb_mode, is_caps) = if let Ok(s) = get_candidate_state().read() {
         (s.keyboard_mode.to_lowercase(), s.is_caps_on)
     } else {
@@ -610,12 +653,12 @@ fn get_context_menu_labels() -> (&'static str, &'static str) {
     };
 
     if is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
-        ("Preferences Center (&S)...", "About RuhI (&A)")
+        ("Preferences Center (&S)...", "Semantic Tuning Studio (&T)...", "About RuhI (&A)")
     } else {
         match kb_mode.as_str() {
-            "japanese" | "kana" | "romaji" => ("設定センター (&S)...", "RuhI について (&A)"),
-            "korean" | "hangul" => ("환경설정 (&S)...", "RuhI 정보 (&A)"),
-            _ => ("偏好設定中心 (&S)...", "關於 RuhI 如喜 (&A)"),
+            "japanese" | "kana" | "romaji" => ("設定センター (&S)...", "意味チューニングスタジオ (&T)...", "RuhI について (&A)"),
+            "korean" | "hangul" => ("환경설정 (&S)...", "의미 튜닝 스튜디오 (&T)...", "RuhI 정보 (&A)"),
+            _ => ("偏好設定中心 (&S)...", "語意調校工作室 (&T)...", "關於 RuhI 如喜 (&A)"),
         }
     }
 }
@@ -1237,9 +1280,11 @@ pub unsafe fn show_mode_switch_menu(hwnd: HWND) {
             let _ = AppendMenuW(hmenu, caps_flags, 2006, PCWSTR(caps_wide.as_ptr()));
 
             let _ = AppendMenuW(hmenu, MF_SEPARATOR, 0, PCWSTR::null());
-            let (lbl_settings, _) = get_context_menu_labels();
+            let (lbl_settings, lbl_tuner, _) = get_context_menu_labels();
             let text_settings: Vec<u16> = lbl_settings.encode_utf16().chain(Some(0)).collect();
+            let text_tuner: Vec<u16> = lbl_tuner.encode_utf16().chain(Some(0)).collect();
             let _ = AppendMenuW(hmenu, MF_STRING, 1001, PCWSTR(text_settings.as_ptr()));
+            let _ = AppendMenuW(hmenu, MF_STRING, 1003, PCWSTR(text_tuner.as_ptr()));
 
             let cmd = TrackPopupMenu(
                 hmenu,
@@ -1279,6 +1324,8 @@ pub unsafe fn show_mode_switch_menu(hwnd: HWND) {
                 let _ = InvalidateRect(hwnd, None, true);
             } else if cmd.0 == 1001 {
                 launch_settings();
+            } else if cmd.0 == 1003 {
+                launch_semantic_tuner();
             }
         }
     }
@@ -1425,10 +1472,12 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                             if GetCursorPos(&mut pt).is_ok() {
                                 if let Ok(hmenu) = CreatePopupMenu() {
                                     if !hmenu.0.is_null() {
-                                        let (lbl_settings, lbl_about) = get_context_menu_labels();
+                                        let (lbl_settings, lbl_tuner, lbl_about) = get_context_menu_labels();
                                         let text_settings: Vec<u16> = lbl_settings.encode_utf16().chain(Some(0)).collect();
+                                        let text_tuner: Vec<u16> = lbl_tuner.encode_utf16().chain(Some(0)).collect();
                                         let text_about: Vec<u16> = lbl_about.encode_utf16().chain(Some(0)).collect();
                                         let _ = AppendMenuW(hmenu, MF_STRING, 1001, PCWSTR(text_settings.as_ptr()));
+                                        let _ = AppendMenuW(hmenu, MF_STRING, 1003, PCWSTR(text_tuner.as_ptr()));
                                         let _ = AppendMenuW(hmenu, MF_SEPARATOR, 0, PCWSTR::null());
                                         let _ = AppendMenuW(hmenu, MF_STRING, 1002, PCWSTR(text_about.as_ptr()));
 
@@ -1445,6 +1494,8 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                                         let _ = DestroyMenu(hmenu);
                                         if cmd.0 == 1001 {
                                             launch_settings();
+                                        } else if cmd.0 == 1003 {
+                                            launch_semantic_tuner();
                                         } else if cmd.0 == 1002 {
                                             show_about_dialog(hwnd);
                                         }
@@ -1463,10 +1514,12 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                 if GetCursorPos(&mut pt).is_ok() {
                     if let Ok(hmenu) = CreatePopupMenu() {
                         if !hmenu.0.is_null() {
-                            let (lbl_settings, lbl_about) = get_context_menu_labels();
+                            let (lbl_settings, lbl_tuner, lbl_about) = get_context_menu_labels();
                             let text_settings: Vec<u16> = lbl_settings.encode_utf16().chain(Some(0)).collect();
+                            let text_tuner: Vec<u16> = lbl_tuner.encode_utf16().chain(Some(0)).collect();
                             let text_about: Vec<u16> = lbl_about.encode_utf16().chain(Some(0)).collect();
                             let _ = AppendMenuW(hmenu, MF_STRING, 1001, PCWSTR(text_settings.as_ptr()));
+                            let _ = AppendMenuW(hmenu, MF_STRING, 1003, PCWSTR(text_tuner.as_ptr()));
                             let _ = AppendMenuW(hmenu, MF_SEPARATOR, 0, PCWSTR::null());
                             let _ = AppendMenuW(hmenu, MF_STRING, 1002, PCWSTR(text_about.as_ptr()));
 
@@ -1483,6 +1536,8 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                             let _ = DestroyMenu(hmenu);
                             if cmd.0 == 1001 {
                                 launch_settings();
+                            } else if cmd.0 == 1003 {
+                                launch_semantic_tuner();
                             } else if cmd.0 == 1002 {
                                 show_about_dialog(hwnd);
                             }

@@ -10,7 +10,7 @@ Phase 1: 本機靜態語意與先驗機率檢驗器 (Local Static Lexical Audito
 
 2. 【維度二：生僻/特權詞 Unigram 虛高離群值檢驗 (Unigram Outliers)】
    - 掃描標記為「字戀詞庫」、「繞口令」、「古典文言」、「佛學」等生僻詞條。
-   - 抓出先驗權重虛高（如 >= 350 或 >= 800）而在現代生活語料中罕見的潛在奪舍者（如「發灰」、「置喙」、「九野」、「諱字」等）。
+   - 抓出先驗權重虛高（如 >= 350 或 >= 800）而在現代生活語料中罕見的潛在語意劫掠者（如「發灰」、「置喙」、「九野」、「諱字」等）。
 
 3. 【維度三：跨詞隙搭橋碰撞掃描 (Cross-Boundary Phonetic Bridge Impostor Scan)】
    - 自動清查 2 字生僻詞 (S1, S2)，當 S1 為常用前驅詞尾音且 S2 為常用後繼詞首音時，可能跨詞隙截斷合法長詞。
@@ -216,7 +216,7 @@ def audit_cross_boundary_bridges(entries, syllable_to_words, transitions):
         ("盲人摸象", "時", "橡實", ("ㄇㄤˊ", "ㄖㄣˊ", "ㄇㄛ", "ㄒㄧㄤˋ"), ("ㄕˊ",), ("ㄒㄧㄤˋ", "ㄕˊ"), "「摸象」+「時」遭植物名「橡實」截斷"),
         ("街巷", "時鐘", "橡實", ("ㄐㄧㄝ", "ㄒㄧㄤˋ"), ("ㄕˊ", "ㄓㄨㄥ"), ("ㄒㄧㄤˋ", "ㄕˊ"), "「街巷」+「時鐘」遭「橡實」搭橋"),
         ("混打", "看板", "打看", ("ㄏㄨㄣˋ", "ㄉㄚˇ"), ("ㄎㄢˋ", "ㄅㄢˇ"), ("ㄉㄚˇ", "ㄎㄢˋ"), "「混打」+「看板」遭方言詞「打看」搭橋"),
-        ("最後", "一句", "依據", ("ㄗㄨㄟˋ", "ㄏㄡˋ"), ("ㄧ", "ㄐㄩˋ"), ("ㄧ", "ㄐㄩˋ"), "「最後」+「一句」遭介詞「依據」奪舍【Backlog 13】"),
+        ("最後", "一句", "依據", ("ㄗㄨㄟˋ", "ㄏㄡˋ"), ("ㄧ", "ㄐㄩˋ"), ("ㄧ", "ㄐㄩˋ"), "「最後」+「一句」遭介詞「依據」語意劫掠【Backlog 13】"),
     ]
     
     results = []
@@ -265,7 +265,7 @@ def generate_markdown_report(benchmarks, auto_inversions, outliers, bridges, out
         f.write(f"- 產生時間：本機自動檢驗\n\n")
         
         f.write("## 1. 同音字/詞權重倒掛清查 (Homophone Priority Inversion)\n\n")
-        f.write("| 序號 | 常用標的 | 競爭奪舍詞 | 注音拼音 | 常用權重 | 奪舍詞權重 | 狀態 | 核心說明 |\n")
+        f.write("| 序號 | 常用標的 | 競爭語意劫掠詞 | 注音拼音 | 常用權重 | 語意劫掠詞權重 | 狀態 | 核心說明 |\n")
         f.write("|:---|:---|:---|:---|:---|:---|:---|:---|\n")
         for i, item in enumerate(benchmarks, 1):
             status = "🚨 **嚴重倒掛**" if item["is_inverted"] else "✅ 安全正常"
@@ -282,7 +282,7 @@ def generate_markdown_report(benchmarks, auto_inversions, outliers, bridges, out
                 
         f.write("\n---\n\n")
         f.write("## 2. 跨詞隙搭橋碰撞清查 (Cross-Boundary Phonetic Bridges)\n\n")
-        f.write("| 前驅詞 | 後繼詞 | 搭橋奪舍詞 | 搭橋音節 | 搭橋詞現行權重 | 語法防護狀態 | 診斷判定 |\n")
+        f.write("| 前驅詞 | 後繼詞 | 搭橋語意劫掠詞 | 搭橋音節 | 搭橋詞現行權重 | 語法防護狀態 | 診斷判定 |\n")
         f.write("|:---|:---|:---|:---|:---|:---|:---|\n")
         for b in bridges:
             guard_status = []

@@ -956,19 +956,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let is_shift = unsafe { ((GetKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0) || ((GetAsyncKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0) };
             let is_caps_on = unsafe { (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0 };
 
-            // 全域快捷鍵：Ctrl+Alt+R 或 Ctrl+Alt+T 喚起「語意除錯調教工具」
+            // 全域快捷鍵：Ctrl+Alt+R 或 Ctrl+Alt+T 喚起「語意除錯調校工作室」
             if is_ctrl && is_alt && (vk == 0x52 || vk == 0x54) {
-                let paths = RuhiPaths::resolve();
-                let script_path = if paths.sandbox_dir.join("scripts").join("語意除錯調教.ps1").exists() {
-                    paths.sandbox_dir.join("scripts").join("語意除錯調教.ps1")
-                } else if std::path::Path::new("C:\\ATGprjs\\ruhi\\scripts\\語意除錯調教.ps1").exists() {
-                    std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\scripts\\語意除錯調教.ps1")
-                } else {
-                    paths.sandbox_dir.join("語意除錯調教.ps1")
-                };
-                let _ = std::process::Command::new("powershell.exe")
-                    .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", &script_path.to_string_lossy()])
-                    .spawn();
+                crate::candidate_window::launch_semantic_tuner();
                 return Ok(BOOL::from(true));
             }
 

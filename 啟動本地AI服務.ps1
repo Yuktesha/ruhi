@@ -25,7 +25,10 @@ foreach ($c in $serverCandidates) {
     }
 }
 
-$modelPath = 'C:\ATGprjs\_models\gemma\gemma-2-2b-it-Q4_K_M.gguf'
+$modelPath = Join-Path $env:LOCALAPPDATA 'RuhI\models\gemma\gemma-2-2b-it-Q4_K_M.gguf'
+if (-not (Test-Path $modelPath) -and (Test-Path 'C:\ATGprjs\_models\gemma\gemma-2-2b-it-Q4_K_M.gguf')) {
+    $modelPath = 'C:\ATGprjs\_models\gemma\gemma-2-2b-it-Q4_K_M.gguf'
+}
 
 if (-not $serverExe) {
     Write-Host '找不到 Llama 引擎 (llama-server.exe)' -ForegroundColor Red
