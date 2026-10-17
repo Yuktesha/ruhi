@@ -42,13 +42,19 @@ jobs:
         run: cargo build --release
         working-directory: ruhi-tsf
 
-      - name: Run Release Packager
+      - name: Run Release Packager (Zip)
         run: python tools/package_release.py
+
+      - name: Build Windows Standard Installer (Inno Setup)
+        run: |
+          choco install innosetup --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\ruhi_setup.iss
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            dist/RuhI_Setup_v*.exe
             dist/RuhI_v*_Windows_x64.zip
             dist/RuhI_v*_Windows_x64.zip.sha256
           generate_release_notes: true
