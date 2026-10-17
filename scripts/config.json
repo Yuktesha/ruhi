@@ -15,7 +15,7 @@
     "font_size": 32,
     "max_composition_chars": 30,
     "keyboard_mode": "hsu",
-    "punctuation_commit_mode": "A",
+    "punctuation_commit_mode": "C",
     "q_cycle_max": 3,
     "enable_mixed_english": false,
     "mixed_english_mode": "contextual_stream",

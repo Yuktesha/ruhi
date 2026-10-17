@@ -21,7 +21,7 @@
     "enable_mixed_english": false,
     "mixed_english_mode": "contextual_stream",
     "mixed_english_min_len": 4,
-    "punctuation_commit_mode": "A",
+    "punctuation_commit_mode": "C",
     "enabled_keyboard_modes": [
       "hsu",
       "japanese"

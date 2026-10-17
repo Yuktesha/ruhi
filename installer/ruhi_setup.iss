@@ -4,7 +4,7 @@
 #define MyAppName "RuhI 如喜通用智慧型輸入法"
 #define MyAppVersion "0.2.0"
 #define MyAppPublisher "RuhOS Community"
-#define MyAppURL "https://github.com/RuhOS/ruhi"
+#define MyAppURL "https://github.com/Yuktesha/ruhi"
 #define MyAppExeName "run_settings.ps1"
 
 [Setup]
