@@ -6,10 +6,11 @@
 > **「通天達地，行雲流水，心手合一。」**  
 > 如喜（RuhI）是一款面向現代 Windows 11、完全採用純 Rust 打造的次世代原生 TSF COM 輸入法底座。
 
+[![Version](https://img.shields.io/badge/version-v0.2.0-purple.svg)]()
 [![Rust](https://img.shields.io/badge/language-Rust%202021-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2011%20%7C%2010%20(64--bit)-blue.svg)]()
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-69%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-92%20passed-brightgreen.svg)]()
 
 </div>
 
@@ -20,19 +21,27 @@
 ### 1. 🦀 純 Rust Windows 11 原生 TSF COM 架構
 * **拋棄古老 C++ 包袱**：全面基於現代 Rust 與官方 `windows-rs` 實現完整的 Windows Text Services Framework (TSF) COM In-Proc 伺服器。
 * **安全、極速、零外洩**：記憶體安全保障，杜絕常年困擾輸入法的焦點卡死與記憶體洩漏；全本地計算，100% 捍衛擊鍵隱私。
+* **全生態 Win32 深入相容**：零 ComCtl32 v6 靜態依賴，自動適配 LibreOffice、命令提示字元 `conhost.exe` 與現代 UWP / AppContainer 應用程式。
 
-### 2. ⚡ 極致許氏雙拼旗艦手感與倉頡五代支援
+### 2. ⚡ 極致許氏雙拼旗艦手感、倉頡與內建日文羅馬字
 * **音節有限狀態機 (FSM)**：針對許氏雙拼配列進行精緻化鍵位建模，實現流暢的長句直出與音節即時切分。
-* **倉頡五代原生支援**：無縫支援倉頡字根輸入，具備數字快速選字與萬國歐文/英文智慧零切換。
+* **倉頡五代原生支援**：無縫支援倉頡字根輸入，具備數字快速選字、`Z` 鍵萬用字元查詢與萬國歐文/英文智慧零切換。
+* **輕量級日文羅馬字引擎 (`JapaneseEngine`)**：免安裝龐大日語輸入法，原生支援 Hepburn / 訓令式羅馬字轉換平假名、片假名與漢字。
+* **正交雙軸切換**：`Caps Lock` 一鍵切換中西模式；`Ctrl+Caps Lock` 或點擊狀態標籤（`半 許` / `半 日`）在自選亞洲模式迴圈循環。
 
-### 3. 🌐 萬國西文與程式碼識別混打 (Contextual Mixed Typing)
-* **工程師與學術寫作福音**：自動識別駝峰命名（`camelCase`）、底線命名（`snake_case`）、PascalCase、英文詞彙與標點排版，中英文切換流暢無感。
+### 3. 🎯 歐亞雙軌上下方向鍵按需預測（零日常打字干擾）
+* **`↓` 下方向鍵**：歐文模式自動展開多語系帶重音變音正字（`naive` ➔ `naïve`、`strasse` ➔ `Straße`）；日文模式展開平片假名與漢字候選。
+* **`↑` 上方向鍵**：注音支援前綴聲母頭碼快打（如 `ㄒㄆㄑㄏ` ➔ `心平氣和`）與上文搭配語境救援（`胸有` ➔ `成竹`）；歐文模式支援長單字補全與 Levenshtein 拼寫模糊救援。
 
 ### 4. 🧠 計算語言學正道：拒絕「單字權重打地鼠」
 * **正統 Viterbi Trellis 圖搜尋**：保留全局多路徑假設，守護合法長詞凝聚力，杜絕貪婪切碎。
-* **Layer 1 漢語語法構式矩陣**：以方位後置詞（Localizers）、關聯副詞、繫詞結構與句式引力為核心，徹底根絕傳統輸入法隨意亂調單字權重導致的系統性崩潰。
+* **Layer 1 漢語語法構式矩陣**：以方位後置詞（Localizers）、關聯副詞、繫詞結構與數詞單位引力為核心，徹底根絕傳統輸入法隨意亂調單字權重導致的系統性崩潰。
 
-### 5. 🔥 1 秒極速免登出熱重載 (Hot Reload)
+### 5. 🛠️ 詞庫主權全面賦權：隨附「語意調校工作室」
+* **再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫**：內建雙向詞網感知與邊界吸附對齊演算法，搭配「黃金語料防回歸驗證（Zero-Regression Golden Check）」。
+* **自主進化，群集共榮**：使用者在本地即可安全修復語意轉移；授權後更可透過 Tailcat 匿名網絡以群集智慧參與共同詞庫進化。
+
+### 6. 🔥 1 秒極速免登出熱重載 (Hot Reload)
 * **革命性開發體驗**：利用 Windows NTFS 檔案系統指標特性，提供獨創的 `hot_reload.ps1`。編譯完成後，一鍵 1 秒內完成鎖定 DLL 替換與 TSF 重新喚醒，**徹底免去登出或重開機的煎熬**！
 
 ---

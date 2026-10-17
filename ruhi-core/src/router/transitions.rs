@@ -45,6 +45,8 @@ pub enum WordPattern {
     ContentWordExcept(Vec<String>),
     /// 匹配名詞性成分（實詞或人稱代詞）
     Nominal,
+    /// 匹配數詞與數值詞元（阿拉伯數字 0-9、小數 3.5、中文數詞 一~十/百/千/萬/億/兆/零/〇/兩/半/幾/數/多，以及 第/約/近/共/計/滿/逾 + 數詞）
+    Numeric,
     /// 匹配任何詞
     Any,
 }
@@ -54,6 +56,56 @@ fn is_rare_impostor(word: &str) -> bool {
 }
 
 impl WordPattern {
+    pub fn is_numeric_token(word: &str) -> bool {
+        let trimmed = word.trim();
+        if trimmed.is_empty() {
+            return false;
+        }
+        // 排除雖由數詞字組成但實為副詞/連詞/熟語之非數量詞元
+        if matches!(
+            trimmed,
+            "萬一" | "一一" | "一再" | "一旦" | "一直" | "一概" | "一向" | "一同" | "一齊"
+                | "一併" | "一味" | "一舉" | "一體" | "一般" | "一樣" | "一致" | "一點"
+                | "一些" | "一下" | "一會" | "十分" | "萬分" | "千萬" | "萬萬" | "百般"
+                | "千方" | "四處" | "八方" | "九州" | "三思" | "二話" | "多少"
+        ) {
+            return false;
+        }
+        // 1. 阿拉伯數字、小數、百分比或帶千分位數值（如 "10", "2026", "3.5", "1,000", "50%"）
+        if trimmed
+            .chars()
+            .last()
+            .map(|c| c.is_ascii_digit() || c == '%')
+            .unwrap_or(false)
+            && trimmed.chars().any(|c| c.is_ascii_digit())
+        {
+            return true;
+        }
+        // 2. 中文數詞與概數/序數詞元（可帶「第、約、近、共、計、滿、逾、達、超」前綴）
+        let mut chars = trimmed.chars().peekable();
+        if let Some(&first) = chars.peek() {
+            if matches!(first, '第' | '約' | '近' | '共' | '計' | '滿' | '逾' | '達' | '超') {
+                chars.next();
+            }
+        }
+        let rest: String = chars.collect();
+        if rest.is_empty() {
+            return false;
+        }
+        // 單字「多」或「數」若單獨出現多為形容詞/動詞，但「十多」、「二十多」、「數十」、「數百」為合法數詞
+        if matches!(rest.as_str(), "多" | "數") {
+            return false;
+        }
+        rest.chars().all(|c| {
+            matches!(
+                c,
+                '零' | '〇' | '一' | '二' | '三' | '四' | '五' | '六' | '七' | '八' | '九'
+                    | '十' | '百' | '千' | '萬' | '億' | '兆' | '兩' | '半' | '幾' | '數'
+                    | '多' | '廿' | '卅' | '.' | '點'
+            )
+        })
+    }
+
     fn matches(&self, word: &str, function_words: &HashSet<String>) -> bool {
         match self {
             WordPattern::Exact(w) => word == w,
@@ -76,34 +128,70 @@ impl WordPattern {
                 (word.chars().count() >= 2 && !function_words.contains(word) && !is_rare_impostor(word) && word.chars().count() <= 4)
                     || matches!(word, "我" | "你" | "妳" | "他" | "她" | "它" | "牠" | "祂" | "我們" | "你們" | "他們" | "人" | "書" | "車" | "貓" | "狗" | "爸" | "媽" | "兄" | "弟" | "姐" | "妹")
             }
+            WordPattern::Numeric => Self::is_numeric_token(word),
             WordPattern::Any => !word.is_empty(),
         }
     }
+}
+
+/// 階層式三元集合槽位構式：[Slot0] → [Slot1] → [Slot2]
+#[derive(Debug, Clone)]
+pub struct TrigramSlotPattern {
+    pub slot0: HashSet<String>,
+    pub slot1: HashSet<String>,
+    pub slot2: HashSet<String>,
+    pub bonus: f64,
+    pub name: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct TransitionEngine {
     /// Layer 1: 語法規則（通配模式）
     pub grammar_rules: Vec<GrammarRule>,
-    /// Layer 2: 二元轉移快取: (prev_word, curr_word) -> bonus_score
+    /// 內建語法規則數量（用於 patterns_user.jsonl 熱重載時保留內建規則、截斷外掛規則）
+    pub builtin_grammar_rule_count: usize,
+    /// Layer 1 雙向倒排索引（加速 40~80 倍，杜絕長句 Trellis 計算卡頓）
+    /// 索引前驅為 Exact / OneOf 的規則：prev_word -> [rule_index, ...]
+    pub rules_by_prev: HashMap<String, Vec<usize>>,
+    /// 索引前驅為通配符、但後繼為 Exact / OneOf 的規則：curr_word -> [rule_index, ...]
+    pub rules_by_curr: HashMap<String, Vec<usize>>,
+    /// 兩端皆為通配符的兜底規則（極罕見）：[rule_index, ...]
+    pub wildcard_rules: Vec<usize>,
+    /// 內建精確二元轉移雜湊表: (prev_word, curr_word) -> bonus_score (O(1) 結構化收斂，不會被 load_tsv 清空)
+    pub builtin_transitions: HashMap<(String, String), f64>,
+    /// Layer 2: 使用者自訂二元轉移快取: (prev_word, curr_word) -> bonus_score
     pub transitions: HashMap<(String, String), f64>,
     /// Layer 3: 離合動賓搭配群
     pub vo_pairs: Vec<VOCollocation>,
+    /// 動態載入之三元階層槽位構式群 (來自 patterns_user.jsonl)
+    pub user_trigram_patterns: Vec<TrigramSlotPattern>,
     /// 功能詞集合（用於 ContentWord 模式的排除判斷）
     pub function_words: HashSet<String>,
-    file_path: Option<PathBuf>,
-    last_modified: Option<SystemTime>,
+    pub file_path: Option<PathBuf>,
+    pub last_modified: Option<SystemTime>,
+    pub patterns_file_path: Option<PathBuf>,
+    pub patterns_last_modified: Option<SystemTime>,
+    pub last_check_instant: Option<std::time::Instant>,
 }
 
 impl Default for TransitionEngine {
     fn default() -> Self {
         let mut engine = Self {
             grammar_rules: Vec::new(),
+            builtin_grammar_rule_count: 0,
+            rules_by_prev: HashMap::new(),
+            rules_by_curr: HashMap::new(),
+            wildcard_rules: Vec::new(),
+            builtin_transitions: HashMap::new(),
             transitions: HashMap::new(),
             vo_pairs: Vec::new(),
+            user_trigram_patterns: Vec::new(),
             function_words: HashSet::new(),
             file_path: None,
             last_modified: None,
+            patterns_file_path: None,
+            patterns_last_modified: None,
+            last_check_instant: None,
         };
         engine.init_builtin_knowledge();
         engine
@@ -148,6 +236,66 @@ impl TransitionEngine {
         }
 
         // ── Layer 1: 語法規則 ──
+
+        // 0. 數詞與度量衡／曆法日期／時間／貨幣／計量單位構式 (Numeric-Unit Classifier Construction):
+        //    [<NUM: 阿拉伯數字 / 小數 / 中文數詞>] ➔ [日期曆法 / 時間時段 / 貨幣金融 / 度量衡 / 通用計量單位]
+        //    一體適用所有數值後接單位（如：2026年10月15日、100元、50坪、37度、500公克、8折、5倍），免除個別上下文單字追蹤。
+        let numeric_unit_classifiers = vec![
+            // (a) 曆法與日期單位 (Date & Calendar Units)
+            "年", "月", "日", "號", "世紀", "年代", "週", "星期", "禮拜", "季", "旬", "載",
+            "年度", "月份", "年份",
+            // (b) 時間與時段單位 (Time & Duration Units)
+            "秒", "秒鐘", "分", "分鐘", "時", "小時", "鐘頭", "點", "點鐘", "點半", "刻", "刻鐘",
+            "天", "個月", "歲", "週歲", "週年", "周年", "輩子", "代", "世",
+            // (c) 貨幣、金融與比例單位 (Currency, Finance & Ratio Units)
+            "元", "塊", "塊錢", "角", "毛", "錢", "萬", "億", "兆", "萬元", "億元", "兆元",
+            "台幣", "新台幣", "美元", "美金", "日圓", "日元", "歐元", "英鎊", "港幣", "人民幣",
+            "韓元", "法郎", "盧比", "披索", "泰銖", "折", "成", "趴", "倍", "番",
+            // (d) 度量衡單位：長度、重量、面積、體積、溫熱、電磁、物理、數位資訊 (Weights & Measures)
+            "公尺", "米", "公分", "厘米", "公釐", "毫米", "微米", "奈米", "公里", "千米", "里",
+            "海里", "浬", "尺", "寸", "丈", "英尺", "呎", "英寸", "吋", "碼", "光年",
+            "公克", "克", "公斤", "千克", "公噸", "噸", "毫克", "微克", "斤", "台斤", "市斤",
+            "兩", "磅", "盎司", "克拉",
+            "坪", "公頃", "公畝", "甲", "平方公尺", "平方米", "平方公里", "平方公分", "平方英尺",
+            "公升", "升", "毫升", "立方公尺", "立方米", "立方公分", "加侖", "品脫", "斗",
+            "度", "攝氏", "華氏", "瓦", "千瓦", "瓩", "伏", "伏特", "安", "安培", "歐姆",
+            "赫", "赫茲", "焦耳", "卡", "大卡", "卡路里", "分貝", "帕", "大氣壓", "馬力",
+            "流明", "燭光", "轉", "幀", "位元", "位元組", "像素", "字", "字元",
+            // (e) 通用個體、容器、篇章與集合計量單位 (General Classifiers)
+            "行", "列", "頁", "篇", "章", "節", "段", "條", "款", "項", "筆", "欄", "格",
+            "個", "位", "名", "人", "次", "回", "下", "遍", "趟", "場", "屆", "期",
+            "級", "等", "層", "樓", "室", "房", "廳", "衛", "戶", "家", "所", "處", "棟",
+            "座", "間", "台", "部", "輛", "架", "艘", "班", "支", "枝", "根", "張", "片",
+            "顆", "粒", "滴", "杯", "碗", "盤", "皿", "瓶", "罐", "盒", "包", "袋", "箱",
+            "籃", "桶", "本", "冊", "卷", "集", "首", "幅", "件", "套", "組", "批", "雙",
+            "對", "副", "串", "束", "朵", "棵", "株", "隻", "頭", "匹", "尾", "群", "種",
+            "類", "樣", "份",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Numeric,
+            curr_pattern: WordPattern::OneOf(
+                numeric_unit_classifiers.into_iter().map(|s| s.to_string()).collect(),
+            ),
+            bonus: 26.0,
+            name: "numeric_unit_classifier".to_string(),
+        });
+
+        // 典型單音節及物/動作動詞 + 體標記或人稱代詞賓語（如：幫了、幫他、洗了、睡個、吃了、看了）
+        // 置於通用 ContentWord 體標記之前，使真正具備動賓/體貌能力的動詞優先於同音黏著名詞語素（如「幫了」優於「邦了」）
+        let core_action_verbs = vec![
+            "幫", "洗", "睡", "吃", "喝", "看", "聽", "說", "讀", "寫", "走", "跑", "跳", "買", "賣",
+            "做", "弄", "搞", "打", "開", "關", "拿", "帶", "送", "找", "問", "教", "救", "追", "推",
+            "拉", "抱", "穿", "脫", "換", "搬", "寄", "付", "借", "還", "欠", "騙", "罵", "誇", "陪",
+        ];
+        let verb_post_elements = vec![
+            "了", "過", "著", "完", "好", "掉", "他", "她", "它", "我", "你", "妳", "我們", "你們", "他們", "個",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(core_action_verbs.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::OneOf(verb_post_elements.into_iter().map(|s| s.to_string()).collect()),
+            bonus: 24.0,
+            name: "action_verb_aspect_or_pronoun".to_string(),
+        });
 
         // 體標記 (Aspect markers): 實詞 + {了/過/著/完/好/掉/起來/出來/下去/下來/上去}
         let aspect_markers = vec![
@@ -457,6 +605,64 @@ impl TransitionEngine {
             curr_pattern: WordPattern::ContentWord,
             bonus: 10.0,
             name: "de_noun".to_string(),
+        });
+
+        // ══════════════════════════════════════════════════════════════════
+        // 🌟 漢語構詞模具引力網：舉一反三的高產偏正構式矩陣 (Schema Matrix)
+        // ══════════════════════════════════════════════════════════════════
+
+        // 1. 介面互動與軟體元件構式 (UI & Interaction Components)
+        // 前綴(動作/功能) + 後綴(載體/容器/控制項): 搜尋框、編輯列、導覽欄、對話窗、設定頁...
+        let ui_action_prefixes = vec![
+            "輸入", "輸出", "搜尋", "尋找", "選取", "選擇", "編輯", "瀏覽",
+            "顯示", "對話", "確認", "設定", "播放", "導覽", "提示", "預覽",
+            "切換", "下載", "上傳", "控制", "排版", "組字", "候選",
+        ];
+        let ui_carrier_suffixes = vec![
+            "框", "欄", "列", "行", "窗", "區", "頁", "座", "鈕", "鍵",
+            "條", "表", "幕", "板", "層", "台", "埠", "端", "項", "值",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(ui_action_prefixes.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::OneOf(ui_carrier_suffixes.into_iter().map(|s| s.to_string()).collect()),
+            bonus: 28.0,
+            name: "ui_interaction_schema".to_string(),
+        });
+
+        // 2. 資料、運算與系統架構構式 (Data, Compute & System Structures)
+        // 實體名詞 + 形態/結構/容器後綴: 資料流、封包段、參數組、快取區、字串值、狀態碼...
+        let data_entity_prefixes = vec![
+            "資料", "數據", "字串", "字元", "位元", "封包", "參數", "快取",
+            "記憶體", "網路", "訊息", "指令", "位址", "節點", "金鑰", "權杖",
+            "狀態", "權限", "程式碼", "程式", "模組", "封裝",
+        ];
+        let data_carrier_suffixes = vec![
+            "庫", "流", "表", "集", "組", "段", "區", "值", "源", "點",
+            "鏈", "列", "陣", "碼", "量", "階", "體", "樹", "圖", "檔",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(data_entity_prefixes.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::OneOf(data_carrier_suffixes.into_iter().map(|s| s.to_string()).collect()),
+            bonus: 28.0,
+            name: "data_structure_schema".to_string(),
+        });
+
+        // 3. 度量、屬性與統計指標構式 (Metrics & Attributes)
+        // 度量維度 + 量化邊界後綴: 品質指標、效能比、頻率線、容量值、權重數、門檻值...
+        let metric_dimension_prefixes = vec![
+            "品質", "效能", "容量", "頻率", "速度", "成本", "風險", "價值",
+            "壓力", "溫度", "時間", "空間", "比例", "極限", "權重", "精度",
+            "維度", "門檻", "負載", "耗損", "頻寬",
+        ];
+        let metric_carrier_suffixes = vec![
+            "值", "率", "比", "量", "度", "數", "階", "級", "線", "點",
+            "幅", "界", "額", "差", "項", "標",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(metric_dimension_prefixes.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::OneOf(metric_carrier_suffixes.into_iter().map(|s| s.to_string()).collect()),
+            bonus: 26.0,
+            name: "metric_attribute_schema".to_string(),
         });
 
         // 結構助詞「地」規範：嚴格恪守「的／地」二分法，做得很清楚，否則寧可全用「的」
@@ -908,8 +1114,14 @@ impl TransitionEngine {
 
         // ── 數量詞/量詞 + 程度副詞修飾結構 (一句很、一個很、這件非常、那隻太) ──
         let degree_advs = vec!["很", "非常", "特別", "十分", "太", "真", "挺", "極為", "超"];
+        let mut numeral_classifier_compounds: Vec<String> = classifiers.iter().map(|s| s.to_string()).collect();
+        for num in &["一", "二", "兩", "三", "四", "五", "幾", "半", "這", "那"] {
+            for cls in &classifiers {
+                numeral_classifier_compounds.push(format!("{}{}", num, cls));
+            }
+        }
         self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::OneOf(classifiers.iter().map(|s| s.to_string()).collect()),
+            prev_pattern: WordPattern::OneOf(numeral_classifier_compounds),
             curr_pattern: WordPattern::OneOf(degree_advs.iter().map(|s| s.to_string()).collect()),
             bonus: 26.0,
             name: "classifier_degree_adv".to_string(),
@@ -1655,6 +1867,20 @@ impl TransitionEngine {
             curr_pattern: WordPattern::OneOf(psych_verbs.into_iter().map(|s| s.to_string()).collect()),
             bonus: 26.0,
             name: "degree_adv_psych_verb".to_string(),
+        });
+
+        // ── 敬語/致謝動詞 ➔ 動賓客體/反饋名詞 (感謝/多謝/謝謝/萬分感謝/非常感謝 ➔ 回覆/回復/協助/支持/指導/解釋/提醒/分享/幫忙/配合/賜教/建議/耐心/告知) ──
+        let gratitude_verbs = vec!["感謝", "多謝", "謝謝", "萬分感謝", "非常感謝", "十分感謝"];
+        let gratitude_objects = vec![
+            "回覆", "回復", "協助", "支持", "指導", "解釋", "提醒", "分享", "幫忙", "配合",
+            "賜教", "建議", "解答", "耐心", "告知", "包容", "體諒", "關照", "照顧", "招待",
+            "反饋", "回饋", "提供", "指教",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(gratitude_verbs.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::OneOf(gratitude_objects.into_iter().map(|s| s.to_string()).collect()),
+            bonus: 30.0,
+            name: "gratitude_verb_object".to_string(),
         });
 
         // 程度副詞 ➔ 助動詞 (真的/太/很/非常/都/也/更/就/才 ➔ 會/能/可以/想/要)
@@ -2841,41 +3067,41 @@ impl TransitionEngine {
 
         // ── Layer 3: 離合動詞 ──
         let vo_list = [
-            ("洗", "澡", 4, 16.0),
-            ("煮", "菜", 4, 16.0),
-            ("吃", "飯", 4, 15.0),
-            ("吃", "晚餐", 4, 16.0),
-            ("吃", "早餐", 4, 16.0),
-            ("吃", "中餐", 4, 16.0),
-            ("吃", "東西", 4, 15.0),
-            ("睡", "覺", 4, 18.0),
-            ("理", "髮", 3, 16.0),
-            ("幫", "忙", 4, 16.0),
-            ("生", "氣", 3, 14.0),
-            ("散", "步", 3, 15.0),
-            ("起", "床", 3, 16.0),
-            ("跑", "步", 3, 14.0),
-            ("唱", "歌", 3, 15.0),
-            ("跳", "舞", 3, 15.0),
-            ("游", "泳", 3, 15.0),
-            ("聊", "天", 3, 15.0),
-            ("開", "會", 3, 14.0),
-            ("放", "假", 3, 15.0),
-            ("發", "燒", 3, 15.0),
-            ("照", "相", 3, 15.0),
-            ("畢", "業", 3, 15.0),
-            ("道", "歉", 3, 15.0),
-            ("敬", "禮", 3, 15.0),
-            ("告", "狀", 3, 15.0),
-            ("上", "課", 3, 14.0),
-            ("下", "課", 3, 14.0),
-            ("上", "班", 3, 14.0),
-            ("下", "班", 3, 14.0),
-            ("見", "面", 3, 15.0),
-            ("打", "仗", 3, 14.0),
-            ("出", "差", 3, 14.0),
-            ("鞠", "躬", 3, 15.0),
-            ("拌", "嘴", 3, 14.0),
+            ("洗", "澡", 5, 30.0),
+            ("煮", "菜", 4, 26.0),
+            ("吃", "飯", 5, 28.0),
+            ("吃", "晚餐", 4, 26.0),
+            ("吃", "早餐", 4, 26.0),
+            ("吃", "中餐", 4, 26.0),
+            ("吃", "東西", 4, 25.0),
+            ("睡", "覺", 5, 32.0),
+            ("理", "髮", 4, 28.0),
+            ("幫", "忙", 5, 30.0),
+            ("生", "氣", 4, 24.0),
+            ("散", "步", 4, 25.0),
+            ("起", "床", 4, 26.0),
+            ("跑", "步", 4, 24.0),
+            ("唱", "歌", 4, 25.0),
+            ("跳", "舞", 4, 25.0),
+            ("游", "泳", 4, 25.0),
+            ("聊", "天", 4, 25.0),
+            ("開", "會", 4, 24.0),
+            ("放", "假", 4, 25.0),
+            ("發", "燒", 4, 25.0),
+            ("照", "相", 4, 25.0),
+            ("畢", "業", 4, 25.0),
+            ("道", "歉", 4, 25.0),
+            ("敬", "禮", 4, 25.0),
+            ("告", "狀", 4, 25.0),
+            ("上", "課", 4, 24.0),
+            ("下", "課", 4, 24.0),
+            ("上", "班", 4, 24.0),
+            ("下", "班", 4, 24.0),
+            ("見", "面", 4, 25.0),
+            ("打", "仗", 4, 24.0),
+            ("出", "差", 4, 24.0),
+            ("鞠", "躬", 4, 25.0),
+            ("拌", "嘴", 4, 24.0),
         ];
         for &(v, o, dist, bonus) in &vo_list {
             self.vo_pairs.push(VOCollocation {
@@ -2885,6 +3111,552 @@ impl TransitionEngine {
                 bonus_score: bonus,
             });
         }
+
+        // ── 結構化收斂之內建精確二元轉移雜湊表 (O(1) Builtin Exact Bigram Index) ──
+        let builtin_exact_pairs: &[(&str, &str, f64)] = &[
+            // 抑制被動標記接非動詞名詞、動詞接石臼、重複連詞
+            ("被", "績效", -45.0),
+            ("被", "網室", -45.0),
+            ("服務", "石臼", -45.0),
+            ("和", "與", -45.0),
+            // 並列連詞「與 ➔ 後項實詞」構式引力與「瘐死」古刑律死因隔離
+            ("與", "愛", 35.0),
+            ("與", "死", 35.0),
+            ("與", "生", 35.0),
+            ("與", "寧靜", 35.0),
+            ("與", "和平", 35.0),
+            ("與", "義務", 35.0),
+            ("與", "肉", 35.0),
+            ("與", "淚", 35.0),
+            ("與", "仇", 35.0),
+            ("與", "美", 35.0),
+            ("死語", "愛", -40.0),
+            ("愛", "瘐死", -50.0),
+            ("生", "瘐死", -50.0),
+            ("死", "瘐死", -50.0),
+            ("怕", "瘐死", -50.0),
+            ("恨", "瘐死", -50.0),
+            ("與", "瘐死", -50.0),
+            ("和", "瘐死", -50.0),
+            // 抑制割裂「密/蜜 + 嗎」
+            ("密", "嗎", -45.0),
+            ("密", "嗎啡", -45.0),
+            ("蜜", "嗎", -45.0),
+            ("蜜", "嗎啡", -45.0),
+            // 抑制古漢代罪犯「赭衣」跨詞隙截斷「使用者一開始」
+            ("使用", "赭衣", -50.0),
+            ("使用者", "赭衣", -50.0),
+            ("使用者", "一開始", 35.0),
+            ("使用者", "一", 35.0),
+            // 抑制軍事生僻詞「劈刺」劫掠「批次」
+            ("支援", "劈刺", -50.0),
+            ("若能", "劈刺", -50.0),
+            ("進行", "劈刺", -50.0),
+            ("劈刺", "轉換", -50.0),
+            ("批次", "轉換", 35.0),
+            ("支援", "批次", 32.0),
+            ("若能", "支援", 32.0),
+            ("若能", "之源", -45.0),
+            ("若能", "之", -45.0),
+            // 動賓固定搭配「沒有 ➔ 興趣」，防名詞後綴「~性」劫掠
+            ("沒有", "興趣", 35.0),
+            ("沒有", "性", -35.0),
+            ("毫無", "性", -35.0),
+            // 時相副詞「已 ➔ 下載」，防「倚下載」
+            ("已", "下載", 35.0),
+            ("倚", "下載", -45.0),
+            // 指示詞修飾班次/班級「這/那/上/下/哪/某/該/每 + 一班」
+            ("這", "一班", 35.0),
+            ("那", "一班", 35.0),
+            ("上", "一班", 35.0),
+            ("下", "一班", 35.0),
+            ("哪", "一班", 35.0),
+            ("某", "一班", 35.0),
+            ("該", "一班", 35.0),
+            ("每", "一班", 35.0),
+            ("這", "一般", -40.0),
+            ("那", "一般", -40.0),
+            ("上", "一般", -40.0),
+            ("下", "一般", -40.0),
+            ("哪", "一般", -40.0),
+            ("某", "一般", -40.0),
+            ("該", "一般", -40.0),
+            ("每", "一般", -40.0),
+            ("這一班", "所謂", 30.0),
+            ("那一班", "所謂", 30.0),
+            ("一般", "所謂", 25.0),
+            ("所謂", "精英", 32.0),
+            ("所謂", "菁英", 32.0),
+            // 科技多重修飾名詞鏈「無損 ➔ 高效 ➔ 壓縮 ➔ 音檔」
+            ("無損", "高效", 35.0),
+            ("無損", "壓縮", 35.0),
+            ("高效", "壓縮", 38.0),
+            ("壓縮", "音檔", 38.0),
+            ("壓縮", "檔案", 38.0),
+            ("壓縮", "圖檔", 38.0),
+            ("無損", "高校", -45.0),
+            ("高效", "高校", -45.0),
+            ("高校", "壓縮", -45.0),
+            ("高校", "音檔", -45.0),
+            // 核心心理與動賓修飾鏈「正常發揮」、「心累」、「速效藥」、「手動加詞」
+            ("正常", "發揮", 35.0),
+            ("正常", "發灰", -50.0),
+            ("我", "心累", 32.0),
+            ("真", "心累", 32.0),
+            ("好", "心累", 32.0),
+            ("心", "累", 30.0),
+            ("心", "類", -35.0),
+            ("速效", "藥", 35.0),
+            ("速效", "要", -35.0),
+            ("不用", "手動", 30.0),
+            ("免", "手動", 30.0),
+            ("無需", "手動", 30.0),
+            ("手動", "加詞", 35.0),
+            ("手", "棟", -50.0),
+            // 軟體專業構式「自建詞庫」與「智慧監測/分析」
+            ("使用者", "自建", 35.0),
+            ("自建", "詞庫", 35.0),
+            ("自建", "檔案", 35.0),
+            ("自建", "規則", 35.0),
+            ("自薦", "詞庫", -50.0),
+            ("一個", "置喙", -45.0),
+            ("這項", "置喙", -45.0),
+            ("該", "置喙", -45.0),
+            ("一個", "智慧", 25.0),
+            ("這項", "智慧", 25.0),
+            ("智慧", "監測", 38.0),
+            ("智慧", "分析", 38.0),
+            ("智慧", "提取", 38.0),
+            ("智慧", "規則", 38.0),
+            ("置喙", "監測", -50.0),
+            ("置喙", "分析", -50.0),
+            ("置喙", "提取", -50.0),
+            // 跨詞隙搭橋碰撞截斷防禦
+            // 1. 「盲人摸象時」vs「盲人摸橡實」
+            ("盲人摸", "橡實", -50.0),
+            ("盲人摸象", "實", -50.0),
+            ("盲人摸象", "時", 32.0),
+            ("摸", "橡實", 32.0),
+            ("敲打", "橡實", 32.0),
+            ("橡實", "的", 26.0),
+            ("照說", "無法", 30.0),
+            ("無法", "相提並論", 35.0),
+            // 2. 「坐一下石頭」vs「坐一下時」防「下石」截斷
+            ("一下", "下石", -50.0),
+            ("坐一", "下石", -50.0),
+            ("坐", "下石", -50.0),
+            ("下石", "頭", -50.0),
+            ("下石", "時", -50.0),
+            ("坐", "一下", 28.0),
+            ("坐一下", "石頭", 30.0),
+            ("坐一下", "時", 32.0),
+            ("一下", "石頭", 28.0),
+            ("一下", "木頭", 28.0),
+            ("石頭", "做", 30.0),
+            ("木頭", "做", 30.0),
+            ("做", "的", 28.0),
+            ("做的", "椅子", 32.0),
+            ("分別", "即使", 28.0),
+            // 3. 「此碑石」vs「悲中之悲」vs「碑中之碑」
+            ("悲中之", "碑石", -50.0),
+            ("悲", "碑石", -50.0),
+            ("此", "碑石", 30.0),
+            ("所載", "悲淒", 30.0),
+            ("悲淒", "慘事", 30.0),
+            ("乃", "悲中之悲", 35.0),
+            ("乃", "碑中之碑", -35.0),
+            ("為", "碑中之碑", 35.0),
+            ("為", "悲中之悲", -35.0),
+            ("此", "卑位", -50.0),
+            ("卑位", "碑中之碑", -50.0),
+            ("卑位", "悲中之悲", -50.0),
+            ("致此碑", "為", 35.0),
+            ("此碑", "為", 35.0),
+            ("致", "此碑", 32.0),
+            // 4. 「混打看板」防「打看」截斷
+            ("混", "打看", -50.0),
+            ("打看", "板", -50.0),
+            ("打看", "看板", -50.0),
+            ("混混", "打看", 32.0),
+            ("混打", "看板", 35.0),
+            ("看板", "上", 28.0),
+            ("歐漢", "大亂鬥", 32.0),
+            // 5. 「街巷時鐘」防「橡實」截斷
+            ("街", "橡實", -50.0),
+            ("橡實", "鐘", -50.0),
+            ("橡實", "時鐘", -50.0),
+            ("街巷", "時鐘", 35.0),
+            ("時鐘", "底下", 32.0),
+            ("前去", "街巷", 28.0),
+            ("打算", "備齊", 30.0),
+            ("備齊", "一盆", 30.0),
+            // 6. 「很久也」防「九野」搭橋截斷
+            ("很", "九野", -50.0),
+            ("九野", "沒", -50.0),
+            ("九野", "也", -50.0),
+            ("很久", "也", 35.0),
+            ("也", "沒關係", 25.0),
+            ("也", "沒", 25.0),
+            ("也", "沒有", 25.0),
+            // 7. 「會自動」防「諱字」、「字棟」截斷
+            ("會", "諱字", -50.0),
+            ("諱字", "棟", -50.0),
+            ("諱字", "動", -50.0),
+            ("字", "棟", -50.0),
+            ("機制", "會", 35.0),
+            ("機制", "會自動", 35.0),
+            ("會", "自動", 35.0),
+            ("會", "自動執行", 35.0),
+            ("自動", "執行", 35.0),
+            ("執行", "嗎", 25.0),
+            ("執行", "呢", 25.0),
+            // 8. 「沒關係」防地名「關西」劫掠
+            ("沒", "關西", -50.0),
+            ("沒", "關係", 35.0),
+            ("關係", "嗎", 25.0),
+            ("關係", "呢", 25.0),
+            ("關係", "呀", 25.0),
+            // 9. 「每告一個段落」防「美告」劫掠與斷詞
+            ("美", "告", -40.0),
+            ("美", "告一段落", -40.0),
+            ("美", "告一個段落", -40.0),
+            ("每", "告", 35.0),
+            ("每", "告一段落", 35.0),
+            ("每", "告一個段落", 35.0),
+            ("告一段落", "就", 30.0),
+            ("告一個段落", "就", 30.0),
+            ("段落", "就", 25.0),
+            // 10. 副檔名與中英混輸搭配
+            ("個", "md", 30.0),
+            ("寫個", "md", 35.0),
+            // 11. 反詰疑問句末「對吧」杜絕「隊吧」劫掠
+            ("隊", "吧", -45.0),
+            ("隊", "ㄅㄚ", -45.0),
+            ("對", "吧", 35.0),
+            ("對", "ㄅㄚ", 35.0),
+            // 12. 狀態與名詞搭配「重疊部份 / 重疊部分」與《論語》成語
+            ("重疊", "部份", 40.0),
+            ("重疊", "部分", 40.0),
+            ("重疊", "不", -40.0),
+            ("不憤", "不啟", 45.0),
+            ("不悱", "不發", 45.0),
+            // 13. 遍指代詞「各 clip 間」
+            ("各", "clip", 35.0),
+            ("clip", "間", 38.0),
+            ("個", "clip", -20.0),
+            // 14. 轉折副詞「其實」正向搭配（移除對現代單字邊界 期+時 之無條件負分）
+            ("其", "時", -45.0),
+            ("其實", "這些", 35.0),
+            // 15. 文言偏正定語構式「...之路」
+            ("自我毀滅", "之路", 40.0),
+            ("毀滅", "之路", 40.0),
+            ("成功", "之路", 40.0),
+            ("希望", "之路", 40.0),
+            ("不歸", "之路", 40.0),
+            ("自我", "之路", 25.0),
+            ("自我毀滅", "支路", -45.0),
+            // 16. 副詞與動態短語「就直接」、「直接揚棄」
+            ("就", "直接", 38.0),
+            ("我們就", "直接", 42.0),
+            ("直接", "揚棄", 40.0),
+            // 17. 動賓及物代詞「揚棄它 / 擁有它 / 看到它」防「塌」劫掠
+            ("揚棄", "它", 40.0),
+            ("放棄", "它", 40.0),
+            ("擁有", "它", 40.0),
+            ("看到", "它", 40.0),
+            ("聽見", "它", 40.0),
+            ("揚棄", "塌", -45.0),
+            ("直接", "塌", -45.0),
+            ("器", "塌", -45.0),
+            // 18. 科技修飾詞構式「智慧型 / 智慧」+ 科技軟硬體名詞
+            ("智慧型", "輸入法", 40.0),
+            ("智慧型", "手機", 40.0),
+            ("智慧型", "裝置", 40.0),
+            ("智慧型", "手錶", 40.0),
+            ("智慧型", "系統", 40.0),
+            ("智慧型", "選字", 40.0),
+            ("智慧型", "選字詞", 40.0),
+            ("智慧型", "電視", 40.0),
+            ("智慧型", "家居", 40.0),
+            ("智慧", "輸入法", 40.0),
+            ("智慧", "手機", 40.0),
+            ("智慧", "裝置", 40.0),
+            ("智慧", "手錶", 40.0),
+            ("智慧", "系統", 40.0),
+            ("智慧", "選字", 40.0),
+            ("智慧", "選字詞", 40.0),
+            ("智慧", "電視", 40.0),
+            ("智慧", "家居", 40.0),
+            ("選字", "正確率", 42.0),
+            ("選字詞", "正確率", 42.0),
+            ("目前", "主攻", 42.0),
+            ("目前", "主公", -45.0),
+            // 19. 典雅成語「殆無疑義」
+            ("殆", "無疑義", 42.0),
+            ("代", "無疑", -45.0),
+            // 20. 時間與動量「立刻再打一次」
+            ("立刻", "再打", 42.0),
+            ("立刻", "再打一次", 42.0),
+            ("再", "打", 38.0),
+            ("粒", "刻", -45.0),
+            // 21. 助動動介與指示結構「將著力於此部分」
+            ("本對話", "將", 38.0),
+            ("我們", "將", 38.0),
+            ("將", "著力", 42.0),
+            ("將", "著力於", 42.0),
+            ("江", "著力", -45.0),
+            ("此", "部分", 40.0),
+            ("此", "部份", 40.0),
+            ("此", "不憤", -45.0),
+            ("此", "不忿", -45.0),
+            // 22. 全稱代詞修飾「有任何」
+            ("有", "任何", 40.0),
+            // 23. 時間副詞「暫時先」與工作定態
+            ("工作", "暫時", 38.0),
+            ("暫時", "先", 40.0),
+            ("這邊", "的", 35.0),
+            ("這裏", "的", 35.0),
+            // 24. 詞庫清零與變化構式
+            ("詞庫", "清零", 38.0),
+            ("清零", "後", 40.0),
+            ("清零", "後的", 40.0),
+            ("有沒有", "變得", 40.0),
+            ("變得", "更", 40.0),
+            ("更", "行雲流水", 38.0),
+            ("行雲流水", "一點", 35.0),
+            // 25. 破音字清查與程度修飾 (不夠徹底)
+            ("破音字", "清查", 40.0),
+            ("清查", "不夠", 38.0),
+            ("不夠", "徹底", 40.0),
+        ];
+
+        for &(p, c, score) in builtin_exact_pairs {
+            *self
+                .builtin_transitions
+                .entry((p.to_string(), c.to_string()))
+                .or_insert(0.0) += score;
+        }
+
+        self.builtin_grammar_rule_count = self.grammar_rules.len();
+        self.rebuild_rule_index();
+    }
+
+    /// 重建語法規則雙向倒排索引（加速 40~80 倍，O(1) 精準規則定位）
+    pub fn rebuild_rule_index(&mut self) {
+        self.rules_by_prev.clear();
+        self.rules_by_curr.clear();
+        self.wildcard_rules.clear();
+
+        for (idx, rule) in self.grammar_rules.iter().enumerate() {
+            let mut indexed_by_prev = false;
+            match &rule.prev_pattern {
+                WordPattern::Exact(w) => {
+                    self.rules_by_prev.entry(w.clone()).or_default().push(idx);
+                    indexed_by_prev = true;
+                }
+                WordPattern::OneOf(words) => {
+                    for w in words {
+                        self.rules_by_prev.entry(w.clone()).or_default().push(idx);
+                    }
+                    indexed_by_prev = true;
+                }
+                _ => {}
+            }
+
+            if !indexed_by_prev {
+                // 前驅為通配符，嘗試按後繼建立索引
+                let mut indexed_by_curr = false;
+                match &rule.curr_pattern {
+                    WordPattern::Exact(w) => {
+                        self.rules_by_curr.entry(w.clone()).or_default().push(idx);
+                        indexed_by_curr = true;
+                    }
+                    WordPattern::OneOf(words) => {
+                        for w in words {
+                            self.rules_by_curr.entry(w.clone()).or_default().push(idx);
+                        }
+                        indexed_by_curr = true;
+                    }
+                    _ => {}
+                }
+
+                if !indexed_by_curr {
+                    // 兩端皆為通配符（極罕見）
+                    self.wildcard_rules.push(idx);
+                }
+            }
+        }
+    }
+
+    fn is_valid_cjk_token(s: &str) -> bool {
+        let trimmed = s.trim();
+        !trimmed.is_empty()
+            && trimmed.chars().all(|c| {
+                ('\u{4e00}'..='\u{9fff}').contains(&c)
+                    || ('\u{3400}'..='\u{4dbf}').contains(&c)
+                    || ('\u{f900}'..='\u{faff}').contains(&c)
+            })
+    }
+
+    /// 從 JSONL 檔案載入 Layer 0 因式分解語意槽位規則（patterns_user.jsonl），並納入雙向倒排索引
+    pub fn load_patterns_jsonl<P: AsRef<Path>>(&mut self, path: P) -> Result<usize, std::io::Error> {
+        fn default_pattern_bonus() -> f64 {
+            28.0
+        }
+
+        #[derive(serde::Deserialize)]
+        struct UserSlotPattern {
+            #[serde(default)]
+            prev_slot: Vec<String>,
+            #[serde(default)]
+            next_slot: Vec<String>,
+            #[serde(default)]
+            slots: Vec<Vec<String>>,
+            #[serde(default)]
+            target: Vec<String>,
+            #[serde(default = "default_pattern_bonus")]
+            bonus: f64,
+            #[serde(default)]
+            name: String,
+            #[serde(default)]
+            pattern_id: String,
+            #[serde(default)]
+            description: String,
+        }
+
+        let p = path.as_ref();
+        let file = File::open(p)?;
+        let reader = BufReader::new(file);
+
+        // 截斷先前載入之外掛槽位規則，100% 保留內建語法規則
+        if self.builtin_grammar_rule_count > 0 && self.grammar_rules.len() > self.builtin_grammar_rule_count {
+            self.grammar_rules.truncate(self.builtin_grammar_rule_count);
+        }
+        self.user_trigram_patterns.clear();
+
+        let mut count = 0;
+        for line_res in reader.lines() {
+            let line = line_res?;
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            if let Ok(pat) = serde_json::from_str::<UserSlotPattern>(trimmed) {
+                if pat.bonus <= 0.0 {
+                    continue;
+                }
+                let safe_bonus = pat.bonus.clamp(15.0, 35.0);
+
+                if pat.slots.len() >= 3 {
+                    let s0: HashSet<String> = pat.slots[0]
+                        .iter()
+                        .map(|w| w.trim().to_string())
+                        .filter(|w| Self::is_valid_cjk_token(w))
+                        .collect();
+                    let s1: HashSet<String> = pat.slots[1]
+                        .iter()
+                        .map(|w| w.trim().to_string())
+                        .filter(|w| Self::is_valid_cjk_token(w))
+                        .collect();
+                    let s2: HashSet<String> = pat.slots[2]
+                        .iter()
+                        .map(|w| w.trim().to_string())
+                        .filter(|w| Self::is_valid_cjk_token(w))
+                        .collect();
+                    if !s0.is_empty() && !s1.is_empty() && !s2.is_empty() {
+                        let label = if !pat.name.is_empty() {
+                            pat.name.clone()
+                        } else if !pat.pattern_id.is_empty() {
+                            pat.pattern_id.clone()
+                        } else if !pat.description.is_empty() {
+                            pat.description.clone()
+                        } else {
+                            format!("trigram_slot_{}", count)
+                        };
+                        self.user_trigram_patterns.push(TrigramSlotPattern {
+                            slot0: s0,
+                            slot1: s1,
+                            slot2: s2,
+                            bonus: safe_bonus,
+                            name: label,
+                        });
+                        count += 1;
+                    }
+                    continue;
+                }
+
+                let (raw_prev, raw_next) = if !pat.prev_slot.is_empty() && !pat.next_slot.is_empty() {
+                    (pat.prev_slot, pat.next_slot)
+                } else if pat.slots.len() == 1 && !pat.target.is_empty() {
+                    (pat.slots[0].clone(), pat.target)
+                } else if pat.slots.len() == 2 && !pat.target.is_empty() {
+                    // 雙槽位笛卡兒展開為前驅組合 + 單槽位後驅
+                    let mut combined = Vec::new();
+                    for s0 in &pat.slots[0] {
+                        for s1 in &pat.slots[1] {
+                            combined.push(format!("{}{}", s0.trim(), s1.trim()));
+                        }
+                    }
+                    for s1 in &pat.slots[1] {
+                        combined.push(s1.trim().to_string());
+                    }
+                    (combined, pat.target)
+                } else if pat.slots.len() == 2 && pat.target.is_empty() {
+                    (pat.slots[0].clone(), pat.slots[1].clone())
+                } else {
+                    continue;
+                };
+
+                if raw_prev.is_empty() || raw_next.is_empty() {
+                    continue;
+                }
+                if !raw_prev.iter().all(|w| Self::is_valid_cjk_token(w))
+                    || !raw_next.iter().all(|w| Self::is_valid_cjk_token(w))
+                {
+                    continue;
+                }
+
+                let prev_clean: Vec<String> = raw_prev.into_iter().map(|w| w.trim().to_string()).collect();
+                let next_clean: Vec<String> = raw_next.into_iter().map(|w| w.trim().to_string()).collect();
+
+                let prev_pattern = if prev_clean.len() == 1 {
+                    WordPattern::Exact(prev_clean.into_iter().next().unwrap())
+                } else {
+                    WordPattern::OneOf(prev_clean)
+                };
+                let curr_pattern = if next_clean.len() == 1 {
+                    WordPattern::Exact(next_clean.into_iter().next().unwrap())
+                } else {
+                    WordPattern::OneOf(next_clean)
+                };
+
+                let label = if !pat.name.is_empty() {
+                    pat.name
+                } else if !pat.pattern_id.is_empty() {
+                    pat.pattern_id
+                } else if !pat.description.is_empty() {
+                    pat.description
+                } else {
+                    format!("slot_{}", count)
+                };
+
+                self.grammar_rules.push(GrammarRule {
+                    prev_pattern,
+                    curr_pattern,
+                    bonus: safe_bonus,
+                    name: format!("user_pattern:{}", label),
+                });
+                count += 1;
+            }
+        }
+
+        self.patterns_file_path = Some(p.to_path_buf());
+        if let Ok(meta) = std::fs::metadata(p) {
+            self.patterns_last_modified = meta.modified().ok();
+        }
+
+        self.rebuild_rule_index();
+        Ok(count)
     }
 
     /// 從 TSV 檔案載入使用者自訂或 Gemma 蒸餾出的動態轉移矩陣
@@ -2892,6 +3664,7 @@ impl TransitionEngine {
         let p = path.as_ref();
         let file = File::open(p)?;
         let reader = BufReader::new(file);
+        self.transitions.clear();
         let mut count = 0;
 
         for line_res in reader.lines() {
@@ -2920,8 +3693,19 @@ impl TransitionEngine {
         Ok(count)
     }
 
-    /// 熱重載檢查
+    /// 熱重載檢查（內建 2000ms 節流機制，同時檢查 transitions_user.tsv 與 patterns_user.jsonl）
     pub fn maybe_reload(&mut self) {
+        if self.file_path.is_none() && self.patterns_file_path.is_none() {
+            return;
+        }
+        let now = std::time::Instant::now();
+        if let Some(last_check) = self.last_check_instant {
+            if now.duration_since(last_check).as_millis() < 2000 {
+                return;
+            }
+        }
+        self.last_check_instant = Some(now);
+
         if let Some(ref path) = self.file_path {
             if let Ok(meta) = std::fs::metadata(path) {
                 if let Ok(mtime) = meta.modified() {
@@ -2936,13 +3720,28 @@ impl TransitionEngine {
                 }
             }
         }
+
+        if let Some(ref path) = self.patterns_file_path {
+            if let Ok(meta) = std::fs::metadata(path) {
+                if let Ok(mtime) = meta.modified() {
+                    let need_reload = match self.patterns_last_modified {
+                        Some(last) => mtime > last,
+                        None => true,
+                    };
+                    if need_reload {
+                        let p = path.clone();
+                        let _ = self.load_patterns_jsonl(p);
+                    }
+                }
+            }
+        }
     }
 
     /// 計算前驅節點轉移至當前節點的語意句法轉移加權分
     ///
     /// 查找順序（優先順序由高到低）:
-    ///   1. 精確二元搭配 (Layer 2 exact match)
-    ///   2. 語法規則通配 (Layer 1 grammar rules)
+    ///   1. 精確二元搭配 (Layer 2 exact match: builtin_transitions + user transitions)
+    ///   2. 語法規則通配與槽位陣列 (Layer 1 & Layer 0 indexed grammar rules)
     pub fn calculate_transition_bonus(
         &mut self,
         prev_word: &str,
@@ -2953,8 +3752,6 @@ impl TransitionEngine {
         self.maybe_reload();
 
         // ── 破音字古音與孤例隔離層 (Archaic & Isolated Polyphonic Isolation Layer) ──
-        // 若當前單字或前驅單字使用的是零複詞古音或成語孤例次要音（如 感 ㄏㄢˋ、庫 ㄕㄜˋ、害 ㄏㄜˊ、色 ㄕㄜˋ、樣 ㄒㄧㄤˋ、句 ㄍㄡˋ、不 ㄈㄡ、得 ㄉㄞˇ、日 ㄇㄧˋ 等）
-        // 立即施加 -45.0 重度語意懲罰，且徹底阻斷所有 Layer 1 / Layer 2 正向語法引力，防止劫掠合法同音字（如 和、設、何、夠、否、歹、密）
         if crate::router::archaic_table::is_archaic_polyphonic(curr_word, curr_bopomofo)
             || crate::router::archaic_table::is_archaic_polyphonic(prev_word, prev_bopomofo)
         {
@@ -2968,13 +3765,33 @@ impl TransitionEngine {
             bonus -= 50.0;
         }
 
-        // Layer 2: 精確二元搭配查表（最高優先 — 使用者自訂或 doc_learning 的精確搭配）
-        if let Some(&score) = self.transitions.get(&(prev_word.to_string(), curr_word.to_string())) {
+        // Layer 2: 精確二元搭配 O(1) 雜湊查表（使用者自訂 transitions + 內建結構化收斂 builtin_transitions）
+        let pair_key = (prev_word.to_string(), curr_word.to_string());
+        if let Some(&score) = self.transitions.get(&pair_key) {
+            bonus += score;
+        }
+        if let Some(&score) = self.builtin_transitions.get(&pair_key) {
             bonus += score;
         }
 
-        // Layer 1: 語法規則通配匹配
-        for rule in &self.grammar_rules {
+        // Layer 1 & Layer 0: 語法規則索引匹配（雙向倒排索引，O(1) 精準定位）
+        let mut candidate_indices: Vec<usize> = Vec::new();
+        if let Some(list) = self.rules_by_prev.get(prev_word) {
+            candidate_indices.extend_from_slice(list);
+        }
+        if let Some(list) = self.rules_by_curr.get(curr_word) {
+            candidate_indices.extend_from_slice(list);
+        }
+        if !self.wildcard_rules.is_empty() {
+            candidate_indices.extend_from_slice(&self.wildcard_rules);
+        }
+
+        // 依照規則原始宣告順序檢查（保持第一條命中的最高優先度特性）
+        candidate_indices.sort_unstable();
+        candidate_indices.dedup();
+
+        for &rule_idx in &candidate_indices {
+            let rule = &self.grammar_rules[rule_idx];
             if rule.prev_pattern.matches(prev_word, &self.function_words)
                 && rule.curr_pattern.matches(curr_word, &self.function_words)
             {
@@ -3003,14 +3820,21 @@ impl TransitionEngine {
                     continue;
                 }
 
-                // 3. 量詞不能直接修飾「狠」、「快」或帶「了」之完成態動詞（如 嚴禁「*句狠」、「*塊哭了」、「*個走了」）
+                // 3. 量詞不能直接修飾「狠」、「快」或帶「了」之完成態動詞
                 if rule.name == "classifier_noun"
-                    && (curr_word == "狠" || curr_word == "快" || (curr_word.ends_with("了") && curr_word.chars().count() >= 2))
+                    && (curr_word == "狠"
+                        || curr_word == "快"
+                        || (curr_word.ends_with("了") && curr_word.chars().count() >= 2)
+                        || (prev_word == "回"
+                            && matches!(
+                                curr_word,
+                                "付" | "覆" | "走" | "來" | "去" | "看" | "買" | "賣" | "說" | "寫"
+                            )))
                 {
                     continue;
                 }
 
-                // 4. 程度副詞修飾單字時，必須為可分級形容詞（嚴禁修飾任意動作動詞或名詞單字，杜絕「*真試」、「*真事」、「*很事」、「*太話」）
+                // 4. 程度副詞修飾單字時，必須為可分級形容詞
                 if rule.name == "degree_adv_content_adj" && curr_word.chars().count() == 1 {
                     let gradable_adjectives = [
                         "好", "大", "小", "多", "少", "快", "慢", "長", "短", "高", "低", "美", "難", "新", "舊",
@@ -3023,17 +3847,56 @@ impl TransitionEngine {
                     }
                 }
 
-                // 5. 時間後置標記「時」不能接在數量詞、指示詞或程度副詞之後（嚴禁「*很多時」、「*一些時」、「*太時」）
+                // 5. 時間後置標記「時」不能接在數量詞、指示詞或程度副詞之後
                 if rule.name == "temporal_event_shi" {
-                    let non_temporal_prev = ["很多", "許多", "不少", "一些", "幾個", "無數", "非常", "太", "特別", "這", "那", "的"];
+                    let non_temporal_prev = [
+                        "很多", "許多", "不少", "一些", "幾個", "無數", "非常", "太", "特別", "這", "那", "的",
+                    ];
                     if non_temporal_prev.contains(&prev_word) {
                         continue;
                     }
                 }
 
-                // 6. 句末疑問助詞「嗎」：作句末語氣助詞時必須讀輕聲 ˙ㄇㄚ 或一聲 ㄇㄚ，絕不可在三聲 ㄇㄚˇ（嗎啡之孤例音）時充當句末助詞劫掠「碼」！
+                // 6. 句末疑問助詞「嗎」：必須讀輕聲 ˙ㄇㄚ 或一聲 ㄇㄚ，排除三聲 ㄇㄚˇ（嗎啡）
                 if rule.name == "sentence_final_particle" && curr_word == "嗎" && curr_bopomofo.contains('ˇ') {
                     continue;
+                }
+
+                // 7. 數詞與單位量詞構式 (numeric_unit_classifier) 之破音字讀音錨定與熟語保護：
+                if rule.name == "numeric_unit_classifier" {
+                    // 保護雙字程度副詞「十分」（當輸入漢字「十」+「分」時，由雙字詞「十分」自然競爭，不拆碎為單字）
+                    if prev_word == "十" && curr_word == "分" {
+                        continue;
+                    }
+                    if !curr_bopomofo.is_empty() {
+                        let polyphonic_unit_invalid = match curr_word {
+                            "度" => !curr_bopomofo.starts_with("ㄉㄨˋ"),
+                            "行" => !curr_bopomofo.starts_with("ㄏㄤˊ"),
+                            "處" => !curr_bopomofo.starts_with("ㄔㄨˋ"),
+                            "間" => !curr_bopomofo.starts_with("ㄐㄧㄢ"),
+                            "種" => !curr_bopomofo.starts_with("ㄓㄨㄥˇ"),
+                            "轉" => !curr_bopomofo.starts_with("ㄓㄨㄢˋ"),
+                            "卷" => !curr_bopomofo.starts_with("ㄐㄩㄢˋ"),
+                            "載" => !curr_bopomofo.starts_with("ㄗㄞˇ"),
+                            "兩" => !curr_bopomofo.starts_with("ㄌㄧㄤˇ"),
+                            "折" => !curr_bopomofo.starts_with("ㄓㄜˊ"),
+                            "成" => !curr_bopomofo.starts_with("ㄔㄥˊ"),
+                            "分" => !curr_bopomofo.starts_with("ㄈㄣ"),
+                            "斗" => !curr_bopomofo.starts_with("ㄉㄡˇ"),
+                            "石" => !curr_bopomofo.starts_with("ㄉㄢˋ") && !curr_bopomofo.starts_with("ㄕˊ"),
+                            _ => false,
+                        };
+                        if polyphonic_unit_invalid {
+                            continue;
+                        }
+                    }
+                    // 若前驅為明確的阿拉伯數字（如 2026年、10月、15日、100元、50坪、37度），額外強化數值單位錨定力
+                    if prev_word.chars().any(|c| c.is_ascii_digit()) {
+                        bonus += 12.0;
+                    }
+                    if matches!(curr_word, "克" | "坪") {
+                        bonus += 6.0;
+                    }
                 }
 
                 bonus += rule.bonus;
@@ -3041,39 +3904,42 @@ impl TransitionEngine {
             }
         }
 
-        // ── 形態學動態規則 1: 派生名詞後綴「~庫」加權 (規則+庫, 資料+庫, 代碼+庫, 模型+庫, 資源+庫, 冷凍+庫) ──
-        // 限制：prev_word 必須為 2~4 字之實詞，避免破壞固有 2 字詞（如 金庫、倉庫、寶庫、書庫）
-        // 關鍵：後綴「~庫」必須讀「ㄎㄨˋ」，絕不可讓罕見破音字「庫 (ㄕㄜˋ)」冒充名詞後綴劫掠！
-        if curr_word == "庫" && curr_bopomofo.contains("ㄎㄨ") && !self.function_words.contains(prev_word) && prev_word.chars().count() >= 2 && prev_word.chars().count() <= 4 {
-            bonus += 16.0;
-        }
-
-        // 抑制罕見孤立單字「庫 (ㄕㄜˋ)」冒充「設/社/射/攝」（教育部詞典古姓氏次要音讀）
-        if curr_word == "庫" && curr_bopomofo.contains("ㄕㄜ") {
-            bonus -= 35.0;
-        }
-
-        // ── 形態學動態規則 2: 派生通用名詞後綴加權 (~化, ~性, ~感, ~度, ~師, ~員, ~器) ──
-        let productive_suffixes = ["化", "性", "感", "度", "師", "員", "器"];
-        if productive_suffixes.contains(&curr_word) && !self.function_words.contains(prev_word) && prev_word.chars().count() >= 2 && prev_word.chars().count() <= 4 {
-            // 關鍵安全防線 1：前驅詞若結尾為「的」或為否定動詞「沒有/不是/不要/不用/完全」，絕不可接名詞後綴（防「*普通的化」、「*沒有性去」）！
-            if prev_word.ends_with("的") || prev_word == "沒有" || prev_word == "不是" || prev_word == "不要" || prev_word == "不用" || prev_word == "完全" {
-                // 不給予名詞後綴加分
+        // ── 形態學與音韻特徵動態守門規則 (Morphological & Phonetic Guards) ──
+        // 1. 派生名詞後綴「~庫 (ㄎㄨˋ)」加權與古姓氏「庫 (ㄕㄜˋ)」隔離
+        if curr_word == "庫" {
+            if curr_bopomofo.contains("ㄎㄨ")
+                && !self.function_words.contains(prev_word)
+                && !WordPattern::is_numeric_token(prev_word)
+                && prev_word.chars().count() >= 2
+                && prev_word.chars().count() <= 4
+            {
+                bonus += 16.0;
+            } else if curr_bopomofo.contains("ㄕㄜ") {
+                bonus -= 35.0;
             }
-            // 關鍵安全防線 2：後綴「~感」必須讀「ㄍㄢˇ」，絕不允許罕見古音「感 (ㄏㄢˋ)」冒充名詞後綴劫掠連詞「和 (ㄏㄢˋ)」！
-            else if curr_word == "感" && !curr_bopomofo.contains("ㄍㄢ") {
+        }
+
+        // 2. 派生通用名詞後綴加權 (~化, ~性, ~感, ~度, ~師, ~員, ~器)
+        if matches!(curr_word, "化" | "性" | "感" | "度" | "師" | "員" | "器")
+            && !self.function_words.contains(prev_word)
+            && !WordPattern::is_numeric_token(prev_word)
+            && prev_word.chars().count() >= 2
+            && prev_word.chars().count() <= 4
+        {
+            if prev_word.ends_with("的")
+                || matches!(prev_word, "沒有" | "不是" | "不要" | "不用" | "完全")
+                || (curr_word == "感" && !curr_bopomofo.contains("ㄍㄢ"))
+            {
                 // 不給予名詞後綴加分
             } else {
                 bonus += 14.0;
             }
         }
-
-        // 抑制罕見孤立古音單字「感 (ㄏㄢˋ)」冒充「和/漢/汗/翰」（荀子通假古音，現代零複詞）
         if curr_word == "感" && curr_bopomofo.contains("ㄏㄢ") {
             bonus -= 45.0;
         }
 
-        // ── 形態學動態規則 3: 疊字後接修飾標記 (AA+的, AA+地, AABB+的, AABB+地) ──
+        // 3. 疊字後接修飾標記 (AA+的, AA+地, AABB+的, AABB+地)
         if (curr_word == "的" || curr_word == "地") && prev_word.chars().count() >= 2 {
             let chars: Vec<char> = prev_word.chars().collect();
             let is_reduplicated = (chars.len() == 2 && chars[0] == chars[1])
@@ -3083,597 +3949,48 @@ impl TransitionEngine {
             }
         }
 
-        // ── 形態學動態規則 4: 修飾語接中心名詞「話」（...的話、普通的話、說的話、真心的話）──
+        // 4. 修飾語接中心名詞「話」與防「的+化」
         if curr_word == "話" && (prev_word == "的" || prev_word.ends_with("的") || prev_word == "普通") {
             bonus += 26.0;
         }
-
-        // 抑制荒謬偏正接後綴「的 + 化」
         if curr_word == "化" && (prev_word == "的" || prev_word.ends_with("的")) {
             bonus -= 40.0;
         }
 
-        // 抑制被動標記接非動詞名詞「被 + 績效/網室」
-        if prev_word == "被" && (curr_word == "績效" || curr_word == "網室") {
-            bonus -= 45.0;
-        }
-
-        // 抑制動詞接石臼「服務 + 石臼」
-        if prev_word == "服務" && curr_word == "石臼" {
-            bonus -= 45.0;
-        }
-
-        // ── 形態學動態規則 5: 比擬後綴「~般」加權 (如 松鼠般, 密碼般, 神仙般, 英雄般, 教科書般) ──
-        if curr_word == "般" && curr_bopomofo.contains("ㄅㄢ") && !self.function_words.contains(prev_word) && prev_word.chars().count() >= 2 && prev_word.chars().count() <= 4 {
+        // 5. 比擬後綴「~般 (ㄅㄢ)」加權
+        if curr_word == "般"
+            && curr_bopomofo.contains("ㄅㄢ")
+            && !self.function_words.contains(prev_word)
+            && prev_word.chars().count() >= 2
+            && prev_word.chars().count() <= 4
+        {
             bonus += 26.0;
         }
 
-        // 抑制重複連詞「和 + 與」（兩個相同語法功能之並列連詞疊架）
-        if prev_word == "和" && curr_word == "與" {
-            bonus -= 45.0;
-        }
-
-        // 並列連詞「與 ➔ 後項實詞」構式引力 (與愛, 與死, 與寧靜, 與和平, 與生, 與肉)
-        // 關鍵語言學原理：加權必須置於「與 ➔ 後項」，絕不可放在「前項 ➔ 與」！
-        // 否則所有結尾為「語」的名詞（如「死語」、「漢語」、「日語」）在獨立輸入時，都會被單鍵「前項 + 與」截斷劫掠！
-        if prev_word == "與" && matches!(curr_word, "愛" | "死" | "生" | "寧靜" | "和平" | "義務" | "肉" | "淚" | "仇" | "美") {
-            bonus += 35.0;
-        }
-        if prev_word == "死語" && curr_word == "愛" {
-            bonus -= 40.0;
-        }
-
-        // 抑制古刑律死因「瘐死」（獄中病死）跨詞隙劫掠「[動詞/名詞] + 與 + 死」
-        if (prev_word == "愛" || prev_word == "生" || prev_word == "死" || prev_word == "怕" || prev_word == "恨") && curr_word == "瘐死" {
-            bonus -= 50.0;
-        }
-        if curr_word == "瘐死" && (prev_word == "與" || prev_word == "和") {
-            bonus -= 50.0;
-        }
-
-        // 抑制割裂「密/蜜 + 嗎」
-        if (prev_word == "密" || prev_word == "蜜") && (curr_word == "嗎" || curr_word == "嗎啡") {
-            bonus -= 45.0;
-        }
-
-        // 抑制古漢代罪犯「赭衣」跨詞隙截斷「使用者一開始」
-        if (prev_word == "使用" || prev_word == "使用者") && curr_word == "赭衣" {
-            bonus -= 50.0;
-        }
-        if curr_word == "赭衣" {
-            bonus -= 40.0;
-        }
-        if prev_word == "使用者" && (curr_word == "一開始" || curr_word == "一") {
-            bonus += 35.0;
-        }
-
-        // 抑制軍事生僻詞「劈刺」劫掠「批次」
-        if (prev_word == "支援" || prev_word == "若能" || prev_word == "進行") && curr_word == "劈刺" {
-            bonus -= 50.0;
-        }
-        if curr_word == "劈刺" && curr_word == "轉換" {
-            bonus -= 50.0;
-        }
-        if prev_word == "批次" && curr_word == "轉換" {
-            bonus += 35.0;
-        }
-        if prev_word == "支援" && curr_word == "批次" {
-            bonus += 32.0;
-        }
-        if prev_word == "若能" && curr_word == "支援" {
-            bonus += 32.0;
-        }
-        if prev_word == "若能" && (curr_word == "之源" || curr_word == "之") {
-            bonus -= 45.0;
-        }
-
-        // 動賓固定搭配「沒有 ➔ 興趣」，防名詞後綴「~性」劫掠
-        if prev_word == "沒有" && curr_word == "興趣" {
-            bonus += 35.0;
-        }
-        if (prev_word == "沒有" || prev_word == "毫無") && curr_word == "性" {
-            bonus -= 35.0;
-        }
-
-        // 時相副詞「已 ➔ 下載」，防「倚下載」
-        if prev_word == "已" && curr_word == "下載" {
-            bonus += 35.0;
-        }
-        if prev_word == "倚" && curr_word == "下載" {
-            bonus -= 45.0;
-        }
-
-        // 指示詞修飾班次/班級「這/那/上/下/哪/某/該 + 一班」
-        let ban_demonstratives = ["這", "那", "上", "下", "哪", "某", "該", "每"];
-        if ban_demonstratives.contains(&prev_word) && curr_word == "一班" {
-            bonus += 35.0;
-        }
-        if ban_demonstratives.contains(&prev_word) && curr_word == "一般" {
-            bonus -= 40.0; // 嚴防「*這一般」劫掠「這一班」！
-        }
-        if (prev_word == "這一班" || prev_word == "那一班") && curr_word == "所謂" {
-            bonus += 30.0;
-        }
-        if prev_word == "一般" && curr_word == "所謂" {
-            bonus += 25.0;
-        }
-        if prev_word == "所謂" && (curr_word == "精英" || curr_word == "菁英") {
-            bonus += 32.0;
-        }
-
-        // 科技多重修飾名詞鏈「無損 ➔ 高效 ➔ 壓縮 ➔ 音檔」，杜絕「高校」、「呀縮」、「姻黨」
-        if prev_word == "無損" && curr_word == "高效" {
-            bonus += 35.0;
-        }
-        if prev_word == "無損" && curr_word == "壓縮" {
-            bonus += 35.0;
-        }
-        if prev_word == "高效" && curr_word == "壓縮" {
-            bonus += 38.0;
-        }
-        if prev_word == "壓縮" && (curr_word == "音檔" || curr_word == "檔案" || curr_word == "圖檔") {
-            bonus += 38.0;
-        }
-        if (prev_word == "無損" || prev_word == "高效") && curr_word == "高校" {
-            bonus -= 45.0; // 杜絕「高校」劫掠「高效」
-        }
-        if prev_word == "高校" && (curr_word == "壓縮" || curr_word == "音檔") {
-            bonus -= 45.0;
-        }
-
-        // 核心心理與動賓修飾鏈「正常發揮」、「心累」、「速效藥」、「手動加詞」
-        if prev_word == "正常" && curr_word == "發揮" {
-            bonus += 35.0;
-        }
-        if prev_word == "正常" && curr_word == "發灰" {
-            bonus -= 50.0; // 杜絕相聲繞口令「發灰」劫掠「正常發揮」
-        }
-        if (prev_word == "我" || prev_word == "真" || prev_word == "好") && curr_word == "心累" {
-            bonus += 32.0;
-        }
-        if prev_word == "心" && curr_word == "累" {
-            bonus += 30.0;
-        }
-        if prev_word == "心" && curr_word == "類" {
-            bonus -= 35.0;
-        }
-        if prev_word == "速效" && curr_word == "藥" {
-            bonus += 35.0;
-        }
-        if prev_word == "速效" && curr_word == "要" {
-            bonus -= 35.0;
-        }
-        if (prev_word == "不用" || prev_word == "免" || prev_word == "無需") && curr_word == "手動" {
-            bonus += 30.0;
-        }
-        if prev_word == "手動" && curr_word == "加詞" {
-            bonus += 35.0;
-        }
-        if prev_word == "手" && curr_word == "棟" {
-            bonus -= 50.0; // 杜絕「手棟」
-        }
-        if curr_word == "家祠" {
-            bonus -= 45.0; // 杜絕古宗族祠堂劫掠「加詞」
-        }
-
-        // 軟體專業構式「自建詞庫」與「智慧監測/分析」
-        if prev_word == "使用者" && curr_word == "自建" {
-            bonus += 35.0;
-        }
-        if prev_word == "自建" && (curr_word == "詞庫" || curr_word == "檔案" || curr_word == "規則") {
-            bonus += 35.0;
-        }
-        if prev_word == "自薦" && curr_word == "詞庫" {
-            bonus -= 50.0; // 杜絕「自薦詞庫」
-        }
-        if (prev_word == "一個" || prev_word == "這項" || prev_word == "該") && curr_word == "置喙" {
-            bonus -= 45.0; // 數量詞不接「置喙」
-        }
-        if (prev_word == "一個" || prev_word == "這項") && curr_word == "智慧" {
-            bonus += 25.0;
-        }
-        if prev_word == "智慧" && (curr_word == "監測" || curr_word == "分析" || curr_word == "提取" || curr_word == "規則") {
-            bonus += 38.0;
-        }
-        if prev_word == "置喙" && (curr_word == "監測" || curr_word == "分析" || curr_word == "提取") {
-            bonus -= 50.0;
-        }
-
-        // ── 跨詞隙搭橋碰撞截斷防禦 (Cross-Boundary Phonetic Bridge Anti-Rules) ──
-        // 1. 「盲人摸象時」vs「盲人摸橡實」
-        if prev_word == "盲人摸" && curr_word == "橡實" {
-            bonus -= 50.0;
-        }
-        if prev_word == "盲人摸象" && curr_word == "實" {
-            bonus -= 50.0;
-        }
-        if prev_word == "盲人摸象" && curr_word == "時" {
-            bonus += 32.0;
-        }
-        if (prev_word == "摸" || prev_word == "敲打") && curr_word == "橡實" {
-            bonus += 32.0;
-        }
-        if prev_word == "橡實" && curr_word == "的" {
-            bonus += 26.0;
-        }
-        if prev_word == "照說" && curr_word == "無法" {
-            bonus += 30.0;
-        }
-        if prev_word == "無法" && curr_word == "相提並論" {
-            bonus += 35.0;
-        }
-
-        // 2. 「坐一下石頭」vs「坐一下時」防「下石」截斷
-        if (prev_word == "一下" || prev_word == "坐一" || prev_word == "坐") && curr_word == "下石" {
-            bonus -= 50.0;
-        }
-        if prev_word == "下石" && (curr_word == "頭" || curr_word == "時") {
-            bonus -= 50.0;
-        }
-        if prev_word == "坐" && curr_word == "一下" {
-            bonus += 28.0;
-        }
-        if prev_word == "坐一下" && curr_word == "石頭" {
-            bonus += 30.0;
-        }
-        if prev_word == "坐一下" && curr_word == "時" {
-            bonus += 32.0;
-        }
-        if prev_word == "一下" && (curr_word == "石頭" || curr_word == "木頭") {
-            bonus += 28.0;
-        }
-        if (prev_word == "石頭" || prev_word == "木頭") && curr_word == "做" {
-            bonus += 30.0;
-        }
-        if prev_word == "做" && curr_word == "的" {
-            bonus += 28.0;
-        }
-        if prev_word == "做的" && curr_word == "椅子" {
-            bonus += 32.0;
-        }
-        if prev_word == "分別" && curr_word == "即使" {
-            bonus += 28.0;
-        }
-
-        // 3. 「此碑石」vs「悲中之悲」vs「碑中之碑」
-        if (prev_word == "悲中之" || prev_word == "悲") && curr_word == "碑石" {
-            bonus -= 50.0;
-        }
-        if prev_word == "此" && curr_word == "碑石" {
-            bonus += 30.0;
-        }
-        if prev_word == "所載" && curr_word == "悲淒" {
-            bonus += 30.0;
-        }
-        if prev_word == "悲淒" && curr_word == "慘事" {
-            bonus += 30.0;
-        }
-        if prev_word == "乃" && curr_word == "悲中之悲" {
-            bonus += 35.0;
-        }
-        if prev_word == "乃" && curr_word == "碑中之碑" {
-            bonus -= 35.0;
-        }
-        if prev_word == "為" && curr_word == "碑中之碑" {
-            bonus += 35.0;
-        }
-        if prev_word == "為" && curr_word == "悲中之悲" {
-            bonus -= 35.0;
-        }
-        if prev_word == "此" && curr_word == "卑位" {
-            bonus -= 50.0;
-        }
-        if prev_word == "卑位" && (curr_word == "碑中之碑" || curr_word == "悲中之悲") {
-            bonus -= 50.0;
-        }
-        if prev_word == "致此碑" && curr_word == "為" {
-            bonus += 35.0;
-        }
-        if prev_word == "此碑" && curr_word == "為" {
-            bonus += 35.0;
-        }
-        if prev_word == "致" && curr_word == "此碑" {
-            bonus += 32.0;
-        }
-
-        // 4. 「混打看板」防「打看」截斷
-        if prev_word == "混" && curr_word == "打看" {
-            bonus -= 50.0;
-        }
-        if prev_word == "打看" && (curr_word == "板" || curr_word == "看板") {
-            bonus -= 50.0;
-        }
-        if prev_word == "混混" && curr_word == "打看" {
-            bonus += 32.0;
-        }
-        if prev_word == "混打" && curr_word == "看板" {
-            bonus += 35.0;
-        }
-        if prev_word == "看板" && curr_word == "上" {
-            bonus += 28.0;
-        }
-        if prev_word == "歐漢" && curr_word == "大亂鬥" {
-            bonus += 32.0;
-        }
-
-        // 5. 「街巷時鐘」防「橡實」截斷
-        if prev_word == "街" && curr_word == "橡實" {
-            bonus -= 50.0;
-        }
-        if prev_word == "橡實" && (curr_word == "鐘" || curr_word == "時鐘") {
-            bonus -= 50.0;
-        }
-        if prev_word == "街巷" && curr_word == "時鐘" {
-            bonus += 35.0;
-        }
-        if prev_word == "時鐘" && curr_word == "底下" {
-            bonus += 32.0;
-        }
-        if prev_word == "前去" && curr_word == "街巷" {
-            bonus += 28.0;
-        }
-        if prev_word == "打算" && curr_word == "備齊" {
-            bonus += 30.0;
-        }
-        if prev_word == "備齊" && curr_word == "一盆" {
-            bonus += 30.0;
-        }
-
-        // 6. 「很久也」防「九野」搭橋截斷
-        if prev_word == "很" && curr_word == "九野" {
-            bonus -= 50.0;
-        }
-        if prev_word == "九野" && (curr_word == "沒" || curr_word == "也") {
-            bonus -= 50.0;
-        }
-        if prev_word == "很久" && curr_word == "也" {
-            bonus += 35.0;
-        }
-        if prev_word == "也" && (curr_word == "沒關係" || curr_word == "沒" || curr_word == "沒有") {
-            bonus += 25.0;
-        }
-
-        // 7. 「會自動」防「諱字」、「字棟」截斷
-        if prev_word == "會" && curr_word == "諱字" {
-            bonus -= 50.0;
-        }
-        if prev_word == "諱字" && (curr_word == "棟" || curr_word == "動") {
-            bonus -= 50.0;
-        }
-        if prev_word == "字" && curr_word == "棟" {
-            bonus -= 50.0;
-        }
-        if prev_word == "機制" && (curr_word == "會" || curr_word == "會自動") {
-            bonus += 35.0;
-        }
-        if prev_word == "會" && (curr_word == "自動" || curr_word == "自動執行") {
-            bonus += 35.0;
-        }
-        if prev_word == "自動" && curr_word == "執行" {
-            bonus += 35.0;
-        }
-        if prev_word == "執行" && (curr_word == "嗎" || curr_word == "呢") {
-            bonus += 25.0;
-        }
-
-        // 8. 「沒關係」防地名「關西」劫掠
-        if prev_word == "沒" && curr_word == "關西" {
-            bonus -= 50.0;
-        }
-        if prev_word == "沒" && curr_word == "關係" {
-            bonus += 35.0;
-        }
-        if prev_word == "關係" && (curr_word == "嗎" || curr_word == "呢" || curr_word == "呀") {
-            bonus += 25.0;
-        }
-
-        // 9. 「每告一個段落」防「美告」劫掠與斷詞
-        if prev_word == "美" && (curr_word == "告" || curr_word == "告一段落" || curr_word == "告一個段落") {
-            bonus -= 40.0;
-        }
-        if prev_word == "每" && (curr_word == "告" || curr_word == "告一段落" || curr_word == "告一個段落") {
-            bonus += 35.0;
-        }
-        if (prev_word == "告一段落" || prev_word == "告一個段落") && curr_word == "就" {
-            bonus += 30.0;
-        }
-        if prev_word == "段落" && curr_word == "就" {
-            bonus += 25.0;
-        }
-
-        // 10. 文件副檔名後置「檔」防政治「黨」劫掠 (aup, aup3, md, txt, doc, pdf, csv, wav, mp3 等)
-        let is_ascii_word = !prev_word.is_empty() && prev_word.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
-        let is_political_abbr = prev_word == "kmt" || prev_word == "dpp" || prev_word == "ccp" || prev_word == "gop";
-        if (is_ascii_word && !is_political_abbr) || prev_word == "圖" || prev_word == "音" || prev_word == "影片" || prev_word == "封存" {
-            if curr_word == "檔" {
-                bonus += 38.0;
-            } else if curr_word == "黨" {
-                bonus -= 45.0;
-            }
-        }
-        if prev_word == "個" && curr_word == "md" {
-            bonus += 30.0;
-        }
-        if prev_word == "寫個" && curr_word == "md" {
-            bonus += 35.0;
-        }
-
-        // 11. 反詰疑問句末「對吧」杜絕「隊吧」劫掠
-        if curr_word == "吧" || curr_word == "ㄅㄚ" {
-            if prev_word == "隊" {
-                bonus -= 45.0; // 名詞「隊」極罕接語氣詞「吧」
-            } else if prev_word == "對" {
-                bonus += 35.0; // 反詰確認語氣
+        // 6. 跨語系副檔名與媒體類別後置「檔」防政治「黨」劫掠
+        if curr_word == "檔" || curr_word == "黨" {
+            let is_ascii_word = !prev_word.is_empty()
+                && prev_word
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+            let is_political_abbr = matches!(prev_word, "kmt" | "dpp" | "ccp" | "gop");
+            if (is_ascii_word && !is_political_abbr) || matches!(prev_word, "圖" | "音" | "影片" | "封存") {
+                if curr_word == "檔" {
+                    bonus += 38.0;
+                } else {
+                    bonus -= 45.0;
+                }
             }
         }
 
-        // 12. 狀態與名詞搭配「重疊部份 / 重疊部分」
-        if prev_word == "重疊" {
-            if curr_word == "部份" || curr_word == "部分" {
-                bonus += 40.0;
-            } else if curr_word == "不" {
-                bonus -= 40.0; // 重疊非正反問動詞，防幾何名詞語意割裂
-            }
-        }
-        // 經典成語語境正向引力（《論語》名句：不憤不啟，不悱不發）
-        if (prev_word == "不憤" && curr_word == "不啟") || (prev_word == "不悱" && curr_word == "不發") {
-            bonus += 45.0;
-        }
-
-        // 13. 遍指代詞「各 clip 間」
-        if prev_word == "各" && curr_word == "clip" {
-            bonus += 35.0;
-        }
-        if prev_word == "clip" && curr_word == "間" {
-            bonus += 38.0;
-        }
-        if prev_word == "個" && curr_word == "clip" {
-            bonus -= 20.0;
-        }
-
-        // 14. 轉折副詞「其實」防單字切碎
-        if (prev_word == "其" || prev_word == "期") && curr_word == "時" {
-            bonus -= 50.0;
-        }
-
-        // 15. 文言偏正定語構式「...之路」(自我毀滅之路、成功之路、希望之路、不歸之路)
-        if curr_word == "之路" {
-            if prev_word == "自我毀滅" || prev_word == "毀滅" || prev_word == "成功" || prev_word == "希望" || prev_word == "不歸" {
-                bonus += 40.0;
-            } else if prev_word == "自我" {
-                bonus += 25.0;
-            }
-        }
-        if prev_word == "自我毀滅" && curr_word == "支路" {
-            bonus -= 45.0; // 交通名詞支路防劫掠
-        }
-
-        // 16. 副詞與動態短語「就直接」、「直接揚棄」
-        if prev_word == "就" && curr_word == "直接" {
-            bonus += 38.0;
-        }
-        if prev_word == "我們就" && curr_word == "直接" {
-            bonus += 42.0;
-        }
-        if prev_word == "直接" && curr_word == "揚棄" {
-            bonus += 40.0;
-        }
-
-        // 17. 動賓及物代詞「揚棄它 / 擁有它 / 看到它」防「塌」劫掠
-        if curr_word == "它" {
-            if prev_word == "揚棄" || prev_word == "放棄" || prev_word == "擁有" || prev_word == "看到" || prev_word == "聽見" {
-                bonus += 40.0;
-            }
-        }
-        if curr_word == "塌" {
-            if prev_word == "揚棄" || prev_word == "直接" || prev_word == "器" {
-                bonus -= 45.0;
-            }
-        }
-
-        // 18. 科技修飾詞構式「智慧型 / 智慧」+ 科技軟硬體名詞（輸入法、手機、裝置、系統、選字、選字詞）
-        // 具備「型」字自然省略相容能力，並驅動「選字/選字詞 ➔ 正確率」評估動態鏈
-        if prev_word == "智慧型" || prev_word == "智慧" {
-            if matches!(curr_word, "輸入法" | "手機" | "裝置" | "手錶" | "系統" | "選字" | "選字詞" | "電視" | "家居") {
-                bonus += 40.0;
-            }
-        }
-        if (prev_word == "選字" || prev_word == "選字詞") && curr_word == "正確率" {
-            bonus += 42.0;
-        }
-        if prev_word == "目前" {
-            if curr_word == "主攻" {
-                bonus += 42.0;
-            } else if curr_word == "主公" {
-                bonus -= 45.0; // 現代語境防主公劫掠主攻
-            }
-        }
-
-        // 19. 典雅成語「殆無疑義」
-        if prev_word == "殆" && curr_word == "無疑義" {
-            bonus += 42.0;
-        }
-        if prev_word == "代" && curr_word == "無疑" {
-            bonus -= 45.0;
-        }
-
-        // 20. 時間與動量「立刻再打一次」
-        if prev_word == "立刻" && (curr_word == "再打" || curr_word == "再打一次") {
-            bonus += 42.0;
-        }
-        if prev_word == "再" && curr_word == "打" {
-            bonus += 38.0;
-        }
-        if prev_word == "粒" && curr_word == "刻" {
-            bonus -= 45.0;
-        }
-
-        // 21. 助動動介與指示結構「將著力於此部分」
-        if (prev_word == "本對話" || prev_word == "我們") && curr_word == "將" {
-            bonus += 38.0;
-        }
-        if prev_word == "將" && (curr_word == "著力" || curr_word == "著力於") {
-            bonus += 42.0;
-        }
-        if prev_word == "江" && curr_word == "著力" {
-            bonus -= 45.0;
-        }
-        if prev_word == "此" {
-            if curr_word == "部分" || curr_word == "部份" {
-                bonus += 40.0;
-            } else if curr_word == "不憤" || curr_word == "不忿" {
-                bonus -= 45.0; // 指示代詞後接名詞部分，防不憤/不忿劫掠
-            }
-        }
-
-        // 22. 全稱代詞修飾與防碎詞「任何 + 名詞」
+        // 7. 全稱代詞「任何」後接凝聚與冷僻古詞（赭衣、家祠）單點防護
         if prev_word == "任何" {
             bonus += 38.0;
         }
-        if prev_word == "有" && curr_word == "任何" {
-            bonus += 40.0;
-        }
-
-        // 23. 時間副詞「暫時先」與工作定態（正向語義搭配）
-        if prev_word == "工作" && curr_word == "暫時" {
-            bonus += 38.0;
-        }
-        if prev_word == "暫時" && curr_word == "先" {
-            bonus += 40.0;
-        }
-        if (prev_word == "這邊" || prev_word == "這裏") && curr_word == "的" {
-            bonus += 35.0;
-        }
-
-        // 24. 詞庫清零與變化構式 (變得更...)
-        if prev_word == "詞庫" && curr_word == "清零" {
-            bonus += 38.0;
-        }
-        if prev_word == "清零" && (curr_word == "後" || curr_word == "後的") {
-            bonus += 40.0;
-        }
-        if prev_word == "有沒有" && curr_word == "變得" {
-            bonus += 40.0;
-        }
-        if prev_word == "變得" && curr_word == "更" {
-            bonus += 40.0;
-        }
-        if prev_word == "更" && curr_word == "行雲流水" {
-            bonus += 38.0;
-        }
-        if prev_word == "行雲流水" && curr_word == "一點" {
-            bonus += 35.0;
-        }
-
-        // 25. 破音字清查與程度修飾 (不夠徹底)
-        if prev_word == "破音字" && curr_word == "清查" {
-            bonus += 40.0;
-        }
-        if prev_word == "清查" && curr_word == "不夠" {
-            bonus += 38.0;
-        }
-        if prev_word == "不夠" && curr_word == "徹底" {
-            bonus += 40.0;
+        if curr_word == "赭衣" {
+            bonus -= 40.0;
+        } else if curr_word == "家祠" {
+            bonus -= 45.0;
         }
 
         bonus
@@ -3693,7 +4010,15 @@ impl TransitionEngine {
                 let lookback_limit = pair.max_distance.min(n);
                 for offset in 1..=lookback_limit {
                     let prev_idx = n - offset;
-                    if prefix_words[prev_idx] == pair.verb {
+                    let w = prefix_words[prev_idx];
+                    let is_verb_match = if w == pair.verb {
+                        true
+                    } else if let Some(rest) = w.strip_prefix(pair.verb.as_str()) {
+                        matches!(rest, "了" | "過" | "著" | "個" | "完")
+                    } else {
+                        false
+                    };
+                    if is_verb_match {
                         if pair.bonus_score > best_vo_bonus {
                             best_vo_bonus = pair.bonus_score;
                         }
@@ -3704,5 +4029,315 @@ impl TransitionEngine {
         }
 
         best_vo_bonus
+    }
+
+    fn is_repeatable_action_verb(w: &str) -> bool {
+        matches!(
+            w,
+            "點擊" | "點選" | "按壓" | "按下" | "執行" | "觸發" | "測試" | "呼叫"
+                | "發送" | "傳送" | "讀取" | "寫入" | "更新" | "輸入" | "輸出" | "搜尋"
+                | "查詢" | "計算" | "連線" | "重試" | "滾動" | "滑動" | "切換" | "載入"
+                | "儲存" | "刷新" | "編譯" | "檢查" | "掃描" | "跳轉" | "移動" | "啟動"
+                | "開啟" | "關閉" | "選取" | "勾選" | "框選" | "圈選" | "拜訪" | "造訪"
+                | "練習" | "嘗試" | "呼吸" | "閃爍" | "震動" | "跳動" | "循環" | "迭代"
+        )
+    }
+
+    fn is_verbal_numeral(w: &str) -> bool {
+        matches!(
+            w,
+            "一" | "二" | "三" | "四" | "五" | "六" | "七" | "八" | "九" | "十"
+                | "兩" | "幾" | "多" | "數" | "百" | "千" | "萬" | "單" | "雙"
+        )
+    }
+
+    fn is_verbal_classifier(w: &str) -> bool {
+        matches!(
+            w,
+            "次" | "回" | "下" | "遍" | "趟" | "番" | "聲" | "步" | "輪" | "筆"
+        )
+    }
+
+    fn is_verbal_qp_word(w: &str) -> bool {
+        let mut chars = w.chars();
+        let first = match chars.next() {
+            Some(c) => c,
+            None => return false,
+        };
+        let last = match chars.last() {
+            Some(c) => c,
+            None => return false,
+        };
+        let first_ok = matches!(
+            first,
+            '一' | '二' | '三' | '四' | '五' | '六' | '七' | '八' | '九' | '十'
+                | '兩' | '幾' | '多' | '數' | '百' | '千' | '萬' | '單' | '雙'
+        );
+        let last_ok = matches!(
+            last,
+            '次' | '回' | '下' | '遍' | '趟' | '番' | '聲' | '步' | '輪' | '筆'
+                | '秒' | '分' | '天' | '年' | '頁' | '行' | '字' | '格' | '點' | '圈' | '層'
+        );
+        first_ok && last_ok
+    }
+
+    fn dag_has_verbal_qp(
+        dag: &HashMap<usize, Vec<super::lattice::LatticeNode>>,
+        end_idx: usize,
+    ) -> bool {
+        if let Some(next_nodes) = dag.get(&end_idx) {
+            for n in next_nodes {
+                if Self::is_verbal_qp_word(&n.word) {
+                    return true;
+                }
+                if Self::is_verbal_numeral(&n.word) {
+                    if let Some(after_num) = dag.get(&n.end_idx) {
+                        if after_num.iter().any(|m| Self::is_verbal_classifier(&m.word)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// 階層式集合槽位構式引擎 (Hierarchical Slot-Set Construction Engine)
+    /// 支援 `[A] → [B] → [({C} → {D})]` 與 `[(A → B)] → [C] → [(D → E)]` 之左向回溯與右向 DAG 預看評估
+    pub fn calculate_hierarchical_construction_bonus(
+        &self,
+        prefix_words: &[&str],
+        curr_word: &str,
+        curr_bopomofo: &str,
+        end_idx: usize,
+        dag: &HashMap<usize, Vec<super::lattice::LatticeNode>>,
+    ) -> f64 {
+        let n = prefix_words.len();
+        let prev_word = if n >= 1 { prefix_words[n - 1] } else { "" };
+        let prev2_word = if n >= 2 { prefix_words[n - 2] } else { "" };
+        let mut bonus = 0.0;
+
+        // ── 構式一：頻率全稱量化 × 動作動量構式 `[每/各/凡/逢] → [動作動詞] → [({一..十, 兩, 幾} → {次, 回, 下, 遍, 趟})]` ──
+        if matches!(prev_word, "每" | "各" | "凡" | "逢" | "每當" | "每次")
+            && Self::dag_has_verbal_qp(dag, end_idx)
+        {
+            if Self::is_repeatable_action_verb(curr_word) {
+                bonus += 32.0;
+            } else if matches!(
+                curr_word,
+                "典籍" | "古籍" | "書籍" | "戶籍" | "國籍" | "學籍" | "史籍" | "祖籍" | "秘笈" | "祕笈"
+            ) {
+                bonus -= 28.0;
+            }
+        }
+        if Self::is_repeatable_action_verb(prev_word) {
+            if Self::is_verbal_qp_word(curr_word) {
+                bonus += 24.0;
+            } else if Self::is_verbal_numeral(curr_word) {
+                if let Some(next_nodes) = dag.get(&end_idx) {
+                    if next_nodes.iter().any(|m| Self::is_verbal_classifier(&m.word)) {
+                        bonus += 20.0;
+                    }
+                }
+            }
+        }
+        if Self::is_repeatable_action_verb(prev2_word) && Self::is_verbal_numeral(prev_word) {
+            if Self::is_verbal_classifier(curr_word) {
+                bonus += 26.0;
+            } else if matches!(curr_word, "刺" | "賜" | "伺" | "祠" | "肆" | "寺" | "嗣") {
+                bonus -= 25.0;
+            }
+        }
+
+        // ── 構式二：介面動作複合詞 × 容器後綴構式 `[({圈, 點, 勾, 框, 篩, 挑, 複, 全, 單, 候} → {選, 取, 列})] → [{框, 欄, 區, 鈕, 鍵, 窗, 頁, 表, 列, 項}]` ──
+        let is_ui_select_root = |w: &str| {
+            matches!(
+                w,
+                "圈" | "點" | "勾" | "框" | "篩" | "挑" | "複" | "全" | "單" | "候" | "反" | "多" | "揀"
+            )
+        };
+        let is_ui_select_act = |w: &str| matches!(w, "選" | "取" | "列");
+        let is_ui_compound_modifier = |w: &str| {
+            matches!(
+                w,
+                "圈選" | "點選" | "勾選" | "框選" | "篩選" | "挑選" | "複選" | "全選" | "單選"
+                    | "候選" | "反選" | "多選" | "選取" | "下拉" | "對話" | "輸入" | "文字"
+                    | "搜尋" | "編輯" | "屬性" | "清單" | "列表" | "預覽" | "提示" | "訊息"
+                    | "警告" | "確認" | "密碼" | "組合" | "工具" | "狀態" | "標題" | "側邊"
+                    | "導覽" | "浮動" | "彈出"
+            )
+        };
+        let is_ui_container_head = |w: &str| {
+            matches!(
+                w,
+                "框" | "欄" | "區" | "鈕" | "鍵" | "窗" | "頁" | "表" | "列" | "項" | "盒" | "格"
+            )
+        };
+
+        // 內層 `({圈,點,勾,框...} → {選,取,列})`
+        if is_ui_select_root(prev_word) && is_ui_select_act(curr_word) {
+            bonus += 28.0;
+        }
+        if let Some(next_nodes) = dag.get(&end_idx) {
+            let next_has_select = next_nodes
+                .iter()
+                .any(|m| is_ui_select_act(&m.word) || m.word == "選框" || m.word == "選取");
+            if next_has_select {
+                if curr_word == "框" && curr_bopomofo.starts_with("ㄎㄨㄤ") {
+                    bonus += 30.0;
+                } else if curr_word == "圈" {
+                    let has_container_after = next_nodes.iter().any(|m| {
+                        m.word == "選框"
+                            || (is_ui_select_act(&m.word)
+                                && dag
+                                    .get(&m.end_idx)
+                                    .map(|k| k.iter().any(|x| is_ui_container_head(&x.word)))
+                                    .unwrap_or(false))
+                    });
+                    if has_container_after {
+                        bonus += 26.0;
+                    }
+                } else if matches!(curr_word, "筐" | "匡" | "哐" | "誆" | "眶") {
+                    bonus -= 28.0;
+                }
+            }
+        }
+
+        // 外層 `[<ActionSelect>] → [{框, 欄, 區, 鈕, 鍵, 窗...}]`
+        let prev_is_ui_modifier = is_ui_compound_modifier(prev_word)
+            || (is_ui_select_root(prev2_word) && is_ui_select_act(prev_word));
+        if prev_is_ui_modifier {
+            if curr_word == "框" && curr_bopomofo.starts_with("ㄎㄨㄤ") {
+                bonus += 34.0;
+            } else if is_ui_container_head(curr_word) && curr_word != "框" {
+                bonus += 26.0;
+            } else if matches!(curr_word, "筐" | "匡" | "哐" | "誆" | "眶" | "誑") {
+                bonus -= 30.0;
+            }
+        }
+
+        // ── 構式三：祈使工具介詞 × 雙音節複合動作構式 `[(請/先/再/改 → 用/以/拿/靠/藉)] → [工具名詞] → [(框/圈/點/勾/拖/拉 → 選/取/曳/動)]` ──
+        let is_tool_noun = |w: &str| {
+            matches!(
+                w,
+                "滑鼠" | "游標" | "鍵盤" | "手指" | "左鍵" | "右鍵" | "中鍵" | "滾輪"
+                    | "觸控板" | "觸控筆" | "手勢" | "熱鍵" | "快捷鍵" | "方向鍵" | "空白鍵"
+            )
+        };
+        if matches!(prev_word, "請" | "先" | "再" | "改" | "可" | "要" | "只")
+            && matches!(curr_word, "用" | "以" | "拿" | "靠" | "藉")
+        {
+            bonus += 22.0;
+        }
+        if matches!(
+            prev_word,
+            "用" | "以" | "拿" | "靠" | "藉" | "請用" | "先用" | "再用" | "改用" | "使用" | "利用" | "透過"
+        ) && is_tool_noun(curr_word)
+        {
+            bonus += 26.0;
+        }
+        if is_tool_noun(prev_word) {
+            if matches!(
+                curr_word,
+                "框選" | "圈選" | "點選" | "勾選" | "選取" | "拖曳" | "拉動" | "點擊" | "雙擊" | "右擊" | "滾動" | "移動" | "標記"
+            ) {
+                bonus += 32.0;
+            } else if (curr_word == "框" && curr_bopomofo.starts_with("ㄎㄨㄤ"))
+                || matches!(curr_word, "圈" | "點" | "勾" | "拖" | "拉")
+            {
+                if let Some(next_nodes) = dag.get(&end_idx) {
+                    if next_nodes
+                        .iter()
+                        .any(|m| matches!(m.word.as_str(), "選" | "取" | "曳" | "動" | "擊"))
+                    {
+                        bonus += 34.0;
+                    }
+                }
+            } else if matches!(curr_word, "筐" | "匡" | "哐" | "誆" | "眶") {
+                bonus -= 32.0;
+            }
+        }
+        if is_tool_noun(prev2_word)
+            && matches!(prev_word, "框" | "圈" | "點" | "勾" | "拖" | "拉")
+            && matches!(curr_word, "選" | "取" | "曳" | "動" | "擊")
+        {
+            bonus += 32.0;
+        }
+
+        // ── 構式四：介詞空間方位複合構式 `[{在, 於, 從, 往, 向, 自}] → [{框, 欄, 區, 窗, 頁, 表}] → [({中, 內, 裡, 外, 上, 下} → {的, 面, 邊, ∅})]` ──
+        let prev_is_loc_prep = matches!(prev_word, "在" | "於" | "從" | "往" | "向" | "自")
+            || prev_word.ends_with('在')
+            || prev_word.ends_with('於')
+            || prev_word.ends_with('從');
+        if prev_is_loc_prep {
+            let dag_has_localizer = dag
+                .get(&end_idx)
+                .map(|ns| {
+                    ns.iter().any(|m| {
+                        m.word.starts_with(['中', '內', '裡', '外', '上', '下', '前', '後', '旁', '間'])
+                    })
+                })
+                .unwrap_or(false);
+            if dag_has_localizer {
+                if (curr_word == "框" && curr_bopomofo.starts_with("ㄎㄨㄤ"))
+                    || matches!(curr_word, "欄" | "區" | "窗" | "頁" | "表" | "列" | "格" | "盒")
+                {
+                    bonus += 32.0;
+                } else if matches!(curr_word, "筐" | "匡" | "哐" | "誆" | "眶") {
+                    bonus -= 30.0;
+                }
+            }
+        }
+
+        // ── 構式五：空間趨向對稱構式 `[({上, 下, 左, 右, 前, 後} → {上, 下, 左, 右, 內, 外, 方, 邊, 側, 面})] → [往/向] → [複合方位]` ──
+        if matches!(curr_word, "往" | "網" | "枉") {
+            let prev_is_spatial = matches!(
+                prev_word,
+                "上" | "下" | "左" | "右" | "前" | "後" | "東" | "西" | "南" | "北" | "內" | "外" | "裡"
+                    | "由上" | "由下" | "由左" | "由右" | "從上" | "從下" | "從左" | "從右"
+                    | "左上" | "左下" | "右上" | "右下" | "上方" | "下方" | "左方" | "右方"
+                    | "前方" | "後方" | "上邊" | "下邊" | "左邊" | "右邊" | "左側" | "右側"
+                    | "上面" | "下面" | "裡面" | "外面"
+            );
+            let next_is_spatial = dag
+                .get(&end_idx)
+                .map(|ns| {
+                    ns.iter().any(|m| {
+                        m.word.starts_with([
+                            '上', '下', '左', '右', '前', '後', '東', '西', '南', '北', '內', '外', '裡', '中',
+                        ])
+                    })
+                })
+                .unwrap_or(false);
+            if prev_is_spatial && next_is_spatial {
+                if curr_word == "往" {
+                    bonus += 32.0;
+                } else {
+                    bonus -= 30.0;
+                }
+            }
+        }
+
+        // ── 動態外掛三元槽位構式 (`patterns_user.jsonl` 中 slots.len() >= 3) ──
+        for pat in &self.user_trigram_patterns {
+            if !prev_word.is_empty() && pat.slot0.contains(prev_word) && pat.slot1.contains(curr_word) {
+                let next_matches = dag
+                    .get(&end_idx)
+                    .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
+                    .unwrap_or(false);
+                if next_matches {
+                    bonus += pat.bonus;
+                }
+            }
+            if !prev2_word.is_empty()
+                && pat.slot0.contains(prev2_word)
+                && pat.slot1.contains(prev_word)
+                && pat.slot2.contains(curr_word)
+            {
+                bonus += pat.bonus * 0.8;
+            }
+        }
+
+        bonus
     }
 }

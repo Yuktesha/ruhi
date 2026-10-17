@@ -2277,7 +2277,6 @@ aup檔	-	1500	音訊專案檔名	Audio_Ext
 殆無疑義	ㄉㄞˋ ㄨˊ ㄧˊ ㄧˋ	1700	典雅成語固定搭配	Idiom_Classics
 無疑義	ㄨˊ ㄧˊ ㄧˋ	1600	法律與典雅短語	Formal_Phrase
 疑義	ㄧˊ ㄧˋ	1500	法律與學術名詞	Domain_General
-殆	ㄉㄞˋ	1200	文言副詞	Classical_Adverb
 立刻	ㄌㄧˋ ㄎㄜˋ	1650	核心時間副詞	Adverb_General
 再打	ㄗㄞˋ ㄉㄚˇ	1500	副詞動詞短語	Phrase_General
 再打一次	ㄗㄞˋ ㄉㄚˇ ㄧˊ ㄘˋ	1650	重複動作短語	Phrase_General
@@ -2346,3 +2345,17 @@ aup檔	-	1500	音訊專案檔名	Audio_Ext
 清查	ㄑㄧㄥ ㄔㄚˊ	1650	現代核心動詞名詞	Domain_General
 徹底	ㄔㄜˋ ㄉㄧˇ	1650	現代核心程度副詞形容詞	Domain_General
 不夠徹底	ㄅㄨˋ ㄍㄡˋ ㄔㄜˋ ㄉㄧˇ	1600	常用固定偏正短語	Phrase_General
+打地鼠	ㄉㄚˇ ㄉㄧˋ ㄕㄨˇ	1600	現象隱喻與慣用動賓短語	Phrase_General
+兩隻手	ㄌㄧㄤˇ ㄓ ㄕㄡˇ	1600	語意調校複合長詞	Layer3_Cohesion:Type I (OOV_COMPOUND_SHATTERED)
+失憶	ㄕ ㄧˋ	1600	語意調校複合長詞	Layer3_Cohesion:Type I (OOV_COMPOUND_SHATTERED)
+框選	ㄎㄨㄤ ㄒㄩㄢˇ	1500	AI語意昇華複合詞	自修訂記錄「匡 ➔ 框」依雙音節原子動詞原則昇華
+置入	ㄓˋ ㄖㄨˋ	1600	現代核心動詞	Domain_General
+想破頭	ㄒㄧㄤˇ ㄆㄛˋ ㄊㄡˊ	1600	語意調校複合長詞	Layer3_Cohesion:Type I (OOV_COMPOUND_SHATTERED)
+台北車站	ㄊㄞˊ ㄅㄟˇ ㄔㄜ ㄓㄢˋ	1550	台灣交通地標	Domain_General
+台灣高鐵	ㄊㄞˊ ㄨㄢ ㄍㄠ ㄊㄧㄝˇ	1550	台灣交通地標	Domain_General
+時間軸	ㄕˊ ㄐㄧㄢ ㄓㄡˊ	1480	語意調校增補詞
+倒推	ㄉㄠˋ ㄊㄨㄟ	1420	語意調校增補詞
+天龍人	ㄊㄧㄢ ㄌㄨㄥˊ ㄖㄣˊ	1450	語意調校增補詞
+純綠	ㄔㄨㄣˊ ㄌㄩˋ	1400	語意調校增補詞
+純綠版	ㄔㄨㄣˊ ㄌㄩˋ ㄅㄢˇ	1420	語意調校增補詞
+錄音檔	ㄌㄨˋ ㄧㄣ ㄉㄤˇ	1450	語意調校增補詞

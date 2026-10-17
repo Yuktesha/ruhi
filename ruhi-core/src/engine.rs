@@ -60,7 +60,10 @@ pub struct RuhiEngine {
     pub data_dir: Option<String>,
     pub user_pinned: std::collections::HashMap<usize, String>,
     pub cangjie: crate::cangjie::CangjieEngine,
+    pub japanese: crate::japanese::JapaneseEngine,
     pub keyboard_mode: String,
+    /// 使用者自選啟用之亞洲輸入法循環清單（供 Ctrl/Shift + Caps Lock 與徽章點擊切換）
+    pub enabled_keyboard_modes: Vec<String>,
     pub segments: Vec<crate::router::LatticeNode>,
     pub enable_mixed_english: bool,
     pub mixed_english_mode: String,
@@ -71,6 +74,10 @@ pub struct RuhiEngine {
     pub western: crate::western::WesternEngine,
     pub last_committed_word: String,
     pub pending_revisions: Vec<RevisionRecord>,
+    /// 手動斷詞點集合（以音節索引為界，任何跨越邊界之多字詞一律禁止生成）
+    pub manual_cuts: std::collections::HashSet<usize>,
+    /// 當前候選窗作用之字元區間 (start_idx, end_idx)，支援單字、多字詞與變長歐文縮寫替換
+    pub candidate_target_range: Option<(usize, usize)>,
 }
 
 impl Default for RuhiEngine {
@@ -94,7 +101,9 @@ impl Default for RuhiEngine {
             data_dir: None,
             user_pinned: std::collections::HashMap::new(),
             cangjie: crate::cangjie::CangjieEngine::new(),
+            japanese: crate::japanese::JapaneseEngine::new(),
             keyboard_mode: "hsu".to_string(),
+            enabled_keyboard_modes: vec!["hsu".to_string(), "japanese".to_string()],
             segments: Vec::new(),
             enable_mixed_english: true,
             mixed_english_mode: "contextual_stream".to_string(),
@@ -105,6 +114,8 @@ impl Default for RuhiEngine {
             western: crate::western::WesternEngine::new(),
             last_committed_word: String::new(),
             pending_revisions: Vec::new(),
+            manual_cuts: std::collections::HashSet::new(),
+            candidate_target_range: None,
         }
     }
 }
@@ -135,6 +146,8 @@ impl RuhiEngine {
             if let Some(path_str) = domain_path.to_str() {
                 let _ = engine.lexicon.load_tsv(path_str, "domain");
             }
+        } else {
+            engine.lexicon.watch_dynamic_file(&domain_path, "domain");
         }
 
         let user_path = p.join("user_dict.tsv");
@@ -142,6 +155,8 @@ impl RuhiEngine {
             if let Some(path_str) = user_path.to_str() {
                 let _ = engine.lexicon.load_tsv(path_str, "user");
             }
+        } else {
+            engine.lexicon.watch_dynamic_file(&user_path, "user");
         }
 
         let trans_path = p.join("transitions_user.tsv");
@@ -149,6 +164,15 @@ impl RuhiEngine {
             if let Some(path_str) = trans_path.to_str() {
                 let _ = engine.transitions.load_tsv(path_str);
             }
+        } else {
+            engine.transitions.file_path = Some(trans_path);
+        }
+
+        let patterns_path = p.join("patterns_user.jsonl");
+        if patterns_path.exists() {
+            let _ = engine.transitions.load_patterns_jsonl(&patterns_path);
+        } else {
+            engine.transitions.patterns_file_path = Some(patterns_path);
         }
         
         let sym_path = p.join("symbols.tsv");
@@ -168,6 +192,11 @@ impl RuhiEngine {
         let cj_path = p.join("cangjie.tsv");
         if cj_path.exists() {
             let _ = engine.cangjie.table.load_tsv(&cj_path);
+        }
+
+        let jp_path = p.join("japanese.tsv");
+        if jp_path.exists() {
+            let _ = engine.japanese.load_tsv(&jp_path);
         }
 
         let en_path = p.join("lexicon_english.tsv");
@@ -229,6 +258,7 @@ impl RuhiEngine {
     pub fn reset_buffer(&mut self) {
         self.fsm.reset();
         self.cangjie.reset();
+        self.japanese.reset();
         self.western.reset();
         self.mode = EngineMode::Normal;
         self.q_press_count = 0;
@@ -242,13 +272,17 @@ impl RuhiEngine {
         self.segments.clear();
         self.raw_ascii_buffer.clear();
         self.is_latin_mode = false;
+        self.manual_cuts.clear();
+        self.candidate_target_range = None;
+        self.lexicon.last_check_instant = None;
+        self.transitions.last_check_instant = None;
     }
 
     pub fn get_display_text(&self) -> String {
         if self.is_latin_mode {
             return self.composed_sentence.clone();
         }
-        if self.fsm.has_pending() {
+        if self.fsm.has_pending() && self.sentence_chars.len() <= self.fsm.syllables.len() {
             let pending_bpmf = if self.fsm.cur_tone == '5' {
                 format!("˙{}{}{}", self.fsm.cur_initial, self.fsm.cur_medial, self.fsm.cur_final)
             } else {
@@ -267,6 +301,7 @@ impl RuhiEngine {
     pub fn move_cursor_left(&mut self) {
         if self.cursor_pos > 0 {
             self.cursor_pos -= 1;
+            self.candidate_target_range = None;
             self.update_active_candidates();
         }
     }
@@ -275,17 +310,20 @@ impl RuhiEngine {
         let total_len = self.get_display_len();
         if self.cursor_pos < total_len {
             self.cursor_pos += 1;
+            self.candidate_target_range = None;
             self.update_active_candidates();
         }
     }
 
     pub fn move_cursor_home(&mut self) {
         self.cursor_pos = 0;
+        self.candidate_target_range = None;
         self.update_active_candidates();
     }
 
     pub fn move_cursor_end(&mut self) {
         self.cursor_pos = self.get_display_len();
+        self.candidate_target_range = None;
         self.update_active_candidates();
     }
 
@@ -294,7 +332,26 @@ impl RuhiEngine {
         if trimmed.is_empty() {
             return;
         }
-        if trimmed.chars().last().map(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-').unwrap_or(false) {
+        let last_ch = match trimmed.chars().last() {
+            Some(c) => c,
+            None => return,
+        };
+        if last_ch.is_ascii_digit() || last_ch == '%' {
+            let mut num_rev = Vec::new();
+            for c in trimmed.chars().rev() {
+                if c.is_ascii_digit() || c == '.' || c == ',' || c == '%' {
+                    num_rev.push(c);
+                } else {
+                    break;
+                }
+            }
+            let num_token: String = num_rev.into_iter().rev().collect();
+            if num_token.chars().any(|c| c.is_ascii_digit()) {
+                self.last_committed_word = num_token;
+                return;
+            }
+        }
+        if last_ch.is_ascii_alphanumeric() || last_ch == '_' || last_ch == '-' {
             let mut ascii_rev = Vec::new();
             for c in trimmed.chars().rev() {
                 if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
@@ -304,10 +361,17 @@ impl RuhiEngine {
                 }
             }
             self.last_committed_word = ascii_rev.into_iter().rev().collect();
+        } else if "，。、！？：；（）「」『』—…～《》〈〉,.!?:;()[]{}\"'".contains(last_ch) {
+            self.last_committed_word.clear();
         } else {
             let chars: Vec<char> = trimmed.chars().collect();
             if chars.len() >= 2 {
-                self.last_committed_word = chars[chars.len() - 2..].iter().collect();
+                let tail2: String = chars[chars.len() - 2..].iter().collect();
+                if tail2.chars().all(|c| !c.is_ascii() && !"，。、！？：；（）「」『』—…～《》〈〉".contains(c)) {
+                    self.last_committed_word = tail2;
+                } else {
+                    self.last_committed_word = last_ch.to_string();
+                }
             } else {
                 self.last_committed_word = chars.iter().collect();
             }
@@ -317,6 +381,22 @@ impl RuhiEngine {
     pub fn set_keyboard_mode(&mut self, mode: &str) {
         self.keyboard_mode = mode.to_string();
         self.reset_buffer();
+    }
+
+    pub fn set_enabled_keyboard_modes(&mut self, modes: Vec<String>) {
+        let valid: Vec<String> = modes
+            .into_iter()
+            .map(|m| match m.trim().to_ascii_lowercase().as_str() {
+                "daikien" => "standard".to_string(),
+                "eten26" => "et26".to_string(),
+                "jp" | "romaji" => "japanese".to_string(),
+                other => other.to_string(),
+            })
+            .filter(|m| !m.is_empty())
+            .collect();
+        if !valid.is_empty() {
+            self.enabled_keyboard_modes = valid;
+        }
     }
 
     pub fn toggle_keyboard_mode(&mut self) -> String {
@@ -329,9 +409,372 @@ impl RuhiEngine {
         self.keyboard_mode.clone()
     }
 
-    pub fn process_key_str(&mut self, key_str: &str) -> EngineResponse {
+    /// 依據 `enabled_keyboard_modes` 自選列表循環切換亞洲輸入法鍵盤方案
+    /// 預設為 `["hsu", "japanese"]`（許氏雙拼 ⇄ 日文羅馬字），使用者可在設定中心自選啟用清單（如排除標準大千與倚天26鍵）
+    pub fn cycle_keyboard_mode(&mut self) -> String {
+        let list = if self.enabled_keyboard_modes.is_empty() {
+            vec!["hsu".to_string(), "japanese".to_string()]
+        } else {
+            self.enabled_keyboard_modes.clone()
+        };
+        let cur_norm = match self.keyboard_mode.as_str() {
+            "daikien" => "standard",
+            "eten26" => "et26",
+            "jp" | "romaji" => "japanese",
+            other => other,
+        };
+        let next_mode = if let Some(pos) = list.iter().position(|m| m == cur_norm) {
+            list[(pos + 1) % list.len()].clone()
+        } else {
+            list[0].clone()
+        };
+        self.keyboard_mode = next_mode;
+        self.reset_buffer();
+        self.keyboard_mode.clone()
+    }
+
+    /// 取得當前亞洲輸入法方案之單字徽章標記（供候選視窗與狀態列顯示）
+    pub fn get_keyboard_mode_badge(&self) -> &'static str {
+        match self.keyboard_mode.as_str() {
+            "standard" | "daikien" => "注",
+            "et26" | "eten26" => "倚",
+            "cangjie" => "倉",
+            "japanese" | "jp" | "romaji" => "日",
+            _ => "許",
+        }
+    }
+
+    /// 觸發 `↓` 下箭頭：同音字／同音詞／歐文重音變體（Allographs & Loanword Diacritics）查詢
+    pub fn open_down_arrow_candidates(&mut self) -> EngineResponse {
+        if matches!(self.keyboard_mode.as_str(), "japanese" | "jp" | "romaji") {
+            let resp = self.japanese.process_key_str("Down");
+            self.composed_sentence = resp.composed.clone();
+            self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+            self.cursor_pos = resp.cursor_pos;
+            self.candidate_target_range = Some((0, self.sentence_chars.len()));
+            self.current_candidates = resp.candidates.clone();
+            self.candidate_cycle_idx = resp.candidate_idx;
+            if !resp.candidates.is_empty() {
+                self.mode = EngineMode::CandidatePopup;
+            }
+            return resp;
+        }
+        if self.fsm.has_pending() && !self.is_latin_mode {
+            self.fsm.commit_current('1');
+            self.update_sentence_composition();
+        }
+        if self.is_latin_mode || (!self.raw_ascii_buffer.is_empty() && self.composed_sentence == self.raw_ascii_buffer) {
+            let active_idx = self.get_active_char_index();
+            let target_ch = self
+                .sentence_chars
+                .get(active_idx)
+                .and_then(|s| s.chars().next());
+            let cands = self.western.lookup_down_arrow_candidates(&self.composed_sentence, target_ch);
+            if !cands.is_empty() {
+                let first_len = cands[0].chars().count();
+                if first_len > 1 && self.sentence_chars.len() > 1 {
+                    self.candidate_target_range = Some((0, self.sentence_chars.len()));
+                } else if active_idx < self.sentence_chars.len() {
+                    self.candidate_target_range = Some((active_idx, active_idx + 1));
+                }
+                self.current_candidates = cands;
+                self.candidate_cycle_idx = 0;
+                self.mode = EngineMode::CandidatePopup;
+                return self.build_response("show_candidate_popup", "");
+            }
+        }
+        self.update_active_candidates();
+        let active_idx = self.get_active_char_index();
+        if active_idx < self.sentence_chars.len() {
+            self.candidate_target_range = Some((active_idx, active_idx + 1));
+        }
+        self.mode = EngineMode::CandidatePopup;
+        self.build_response("show_candidate_popup", "")
+    }
+
+    /// 觸發 `↑` 上箭頭：
+    /// 1. 歐文軌與跨軌縮寫展開／拼字校正救援（如 `tks` ➔ `thanks`, `recieve` ➔ `receive`, `dont` ➔ `don't`）
+    /// 2. 多模式三字詞以上（>= 3 字）頭碼展開（如許氏 `jcdl` ➔ `忠孝東路`、`tbcj` ➔ `台北車站`、`drj` ➔ `砥睿者`；倉頡 `ljdr` ➔ `忠孝東路`）
+    /// 3. 日文羅馬字模式（`japanese`）：日文長句／敬語前綴預測展開（如 `ariga` ➔ `ありがとうございます`、`yoroshi` ➔ `よろしくお願いします`）與跨軌歐文救援
+    /// 4. 亞洲語文軌上下文語意推斷與模糊音／跨聲調救濟（如 `答按` ➔ `答案`, `可能地答案` ➔ `可能的答案`）
+    pub fn open_up_arrow_candidates(&mut self) -> EngineResponse {
+        // 0a. 日文羅馬字模式：日文前綴預測展開 + 跨軌歐文縮寫救援
+        if matches!(self.keyboard_mode.as_str(), "japanese" | "jp" | "romaji") {
+            let raw = self.japanese.raw_romaji.clone();
+            let jp_preds = self.japanese.lookup_up_arrow_predictions();
+            let mut cands = Vec::new();
+            if self.western.has_high_confidence_rescue(&raw) {
+                for w in self.western.lookup_up_arrow_candidates(&raw) {
+                    if !cands.contains(&w) {
+                        cands.push(w);
+                    }
+                }
+                for w in &jp_preds {
+                    if !cands.contains(w) {
+                        cands.push(w.clone());
+                    }
+                }
+            } else {
+                cands.extend(jp_preds);
+                for w in self.western.lookup_up_arrow_candidates(&raw) {
+                    if !cands.contains(&w) {
+                        cands.push(w);
+                    }
+                }
+            }
+            if !cands.is_empty() {
+                let first = cands[0].clone();
+                self.japanese.candidates = cands.clone();
+                self.japanese.candidate_idx = 0;
+                self.composed_sentence = first.clone();
+                self.sentence_chars = first.chars().map(|c| c.to_string()).collect();
+                self.cursor_pos = self.sentence_chars.len();
+                self.candidate_target_range = Some((0, self.sentence_chars.len()));
+                self.current_candidates = cands.clone();
+                self.candidate_cycle_idx = 0;
+                self.mode = EngineMode::CandidatePopup;
+                return EngineResponse {
+                    action: "show_candidate_popup".to_string(),
+                    mode: "candidates".to_string(),
+                    preedit: self.japanese.make_preedit(),
+                    composed: first.clone(),
+                    candidates: cands,
+                    active_candidate: first,
+                    candidate_idx: 0,
+                    cursor_pos: self.cursor_pos,
+                    q_press_count: 0,
+                    committed_chunk: String::new(),
+                };
+            }
+            return self.build_response("none", "");
+        }
+
+        // 0b. 倉頡模式：優先處理跨軌歐文縮寫救援或三字詞以上（>= 3 字）倉頡首碼頭碼展開
         if self.keyboard_mode == "cangjie" {
+            if !self.cangjie.buffer.is_empty() {
+                let buf = self.cangjie.buffer.clone();
+                let mut cands = Vec::new();
+                if self.western.has_high_confidence_rescue(&buf) {
+                    cands.extend(self.western.lookup_up_arrow_candidates(&buf));
+                    for w in self.cangjie.table.lookup_phrase_headcode(&buf, &self.lexicon) {
+                        if !cands.contains(&w) {
+                            cands.push(w);
+                        }
+                    }
+                } else {
+                    cands.extend(self.cangjie.table.lookup_phrase_headcode(&buf, &self.lexicon));
+                    for w in self.western.lookup_up_arrow_candidates(&buf) {
+                        if !cands.contains(&w) {
+                            cands.push(w);
+                        }
+                    }
+                }
+                if !cands.is_empty() {
+                    let first = cands[0].clone();
+                    self.cangjie.candidates = cands.clone();
+                    self.cangjie.candidate_idx = 0;
+                    self.composed_sentence = first.clone();
+                    self.sentence_chars = first.chars().map(|c| c.to_string()).collect();
+                    self.cursor_pos = self.sentence_chars.len();
+                    self.candidate_target_range = Some((0, self.sentence_chars.len()));
+                    self.current_candidates = cands.clone();
+                    self.candidate_cycle_idx = 0;
+                    self.mode = EngineMode::CandidatePopup;
+                    return EngineResponse {
+                        action: "show_candidate_popup".to_string(),
+                        mode: "candidates".to_string(),
+                        preedit: buf,
+                        composed: first.clone(),
+                        candidates: cands,
+                        active_candidate: first,
+                        candidate_idx: 0,
+                        cursor_pos: self.cursor_pos,
+                        q_press_count: 0,
+                        committed_chunk: String::new(),
+                    };
+                }
+            }
+            return self.build_response("none", "");
+        }
+
+        // 1. 檢查三字詞以上（>= 3 字）頭碼展開（當非高信心歐文縮寫如 tks/pls/btw/dont 時，頭碼優先）
+        if self.raw_ascii_buffer.chars().count() >= 3
+            && !self.western.has_high_confidence_rescue(&self.raw_ascii_buffer)
+        {
+            let prev_ctx = if self.last_committed_word.is_empty() {
+                None
+            } else {
+                Some(self.last_committed_word.clone())
+            };
+            let mut hc_cands = self.lexicon.lookup_multi_char_headcode(
+                &self.raw_ascii_buffer,
+                &self.keyboard_mode,
+                prev_ctx.as_deref(),
+                Some(&mut self.transitions),
+            );
+            if !hc_cands.is_empty() {
+                for w in self.western.lookup_up_arrow_candidates(&self.raw_ascii_buffer) {
+                    if !hc_cands.contains(&w) {
+                        hc_cands.push(w);
+                    }
+                }
+                self.is_latin_mode = false;
+                self.fsm.cur_initial.clear();
+                self.fsm.cur_medial.clear();
+                self.fsm.cur_final.clear();
+                self.fsm.cur_tone = '1';
+                if self.sentence_chars.is_empty() {
+                    self.composed_sentence = self.raw_ascii_buffer.clone();
+                    self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+                }
+                self.cursor_pos = self.sentence_chars.len();
+                self.candidate_target_range = Some((0, self.sentence_chars.len()));
+                self.current_candidates = hc_cands;
+                self.candidate_cycle_idx = 0;
+                self.mode = EngineMode::CandidatePopup;
+                return self.build_response("show_candidate_popup", "");
+            }
+        }
+
+        // 2. 檢查歐文模式或跨軌高信心縮寫／拼字救援 (Cross-Track Rescue)
+        if !self.raw_ascii_buffer.is_empty()
+            && (self.is_latin_mode || self.western.has_high_confidence_rescue(&self.raw_ascii_buffer))
+        {
+            let cands = self.western.lookup_up_arrow_candidates(&self.raw_ascii_buffer);
+            if !cands.is_empty() {
+                self.is_latin_mode = true;
+                self.fsm.reset();
+                self.composed_sentence = self.raw_ascii_buffer.clone();
+                self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+                self.cursor_pos = self.sentence_chars.len();
+                self.candidate_target_range = Some((0, self.sentence_chars.len()));
+                self.current_candidates = cands;
+                self.candidate_cycle_idx = 0;
+                self.mode = EngineMode::CandidatePopup;
+                return self.build_response("show_candidate_popup", "");
+            }
+        }
+
+        // 3. 亞洲語文軌：若有未決注音先結算，再執行上下文與模糊音救援
+        if self.fsm.has_pending() && !self.is_latin_mode {
+            self.fsm.commit_current('1');
+            self.update_sentence_composition();
+        }
+        let chars: Vec<char> = self.composed_sentence.chars().collect();
+        if chars.is_empty() {
+            return self.build_response("none", "");
+        }
+        let syls: Vec<Option<String>> = (0..chars.len()).map(|i| self.get_syllable_at(i)).collect();
+        let active_idx = self.get_active_char_index();
+        let (_actual_idx, range, cands) = self.lexicon.lookup_contextual_fuzzy_rescue(
+            &chars,
+            &syls,
+            active_idx,
+            None,
+            &mut self.transitions,
+        );
+        if !cands.is_empty() {
+            self.candidate_target_range = Some(range);
+            self.cursor_pos = range.1;
+            self.current_candidates = cands;
+            self.candidate_cycle_idx = 0;
+            self.mode = EngineMode::CandidatePopup;
+            return self.build_response("show_candidate_popup", "");
+        }
+        self.build_response("none", "")
+    }
+
+    /// 選擇指定索引之候選詞（支援單字、雙字複合詞、三字詞以上頭碼展開及變長歐文縮寫替換）
+    pub fn select_candidate(&mut self, digit_idx: usize) -> Option<String> {
+        if matches!(self.keyboard_mode.as_str(), "japanese" | "jp" | "romaji") && digit_idx < self.japanese.candidates.len() {
+            let chosen = self.japanese.candidates[digit_idx].clone();
+            self.composed_sentence = chosen.clone();
+            self.sentence_chars = chosen.chars().map(|c| c.to_string()).collect();
+            self.cursor_pos = self.sentence_chars.len();
+            self.candidate_cycle_idx = digit_idx;
+            self.japanese.candidate_idx = digit_idx;
+            return Some(chosen);
+        }
+        if self.keyboard_mode == "cangjie" && digit_idx < self.cangjie.candidates.len() {
+            let chosen = self.cangjie.candidates[digit_idx].clone();
+            self.composed_sentence = chosen.clone();
+            self.sentence_chars = chosen.chars().map(|c| c.to_string()).collect();
+            self.cursor_pos = self.sentence_chars.len();
+            self.candidate_cycle_idx = digit_idx;
+            self.cangjie.candidate_idx = digit_idx;
+            return Some(chosen);
+        }
+        if digit_idx >= self.current_candidates.len() || self.sentence_chars.is_empty() {
+            return None;
+        }
+        let chosen = self.current_candidates[digit_idx].clone();
+        let orig_len = self.sentence_chars.len();
+        let (start, end) = self
+            .candidate_target_range
+            .unwrap_or_else(|| {
+                let idx = self.get_active_char_index();
+                (idx, (idx + 1).min(self.sentence_chars.len()))
+            });
+        if start >= end || end > self.sentence_chars.len() {
+            return None;
+        }
+
+        let rejected: String = self.sentence_chars[start..end].join("");
+        if rejected != chosen && !self.is_latin_mode {
+            let bpm = self.get_syllable_at(start).unwrap_or_default();
+            let prev_ctx = if start > 0 { self.sentence_chars[start - 1].clone() } else { String::new() };
+            let next_ctx = if end < self.sentence_chars.len() { self.sentence_chars[end].clone() } else { String::new() };
+            self.record_revision(&bpm, &rejected, &chosen, &prev_ctx, &next_ctx);
+        }
+
+        let chosen_chars: Vec<String> = chosen.chars().map(|c| c.to_string()).collect();
+        let chosen_len = chosen_chars.len();
+        self.sentence_chars.splice(start..end, chosen_chars.clone());
+        if (end - start == chosen_len || (start == 0 && end == orig_len)) && !self.is_latin_mode {
+            for (offset, ch_str) in chosen_chars.into_iter().enumerate() {
+                self.user_pinned.insert(start + offset, ch_str);
+            }
+        }
+        self.composed_sentence = self.sentence_chars.join("");
+        if self.is_latin_mode {
+            self.raw_ascii_buffer = self.composed_sentence.clone();
+        }
+        self.candidate_cycle_idx = digit_idx;
+        self.candidate_target_range = None;
+        self.cursor_pos = (start + chosen_len).min(self.sentence_chars.len());
+        if !self.is_latin_mode {
+            self.update_active_candidates();
+        }
+        Some(chosen)
+    }
+
+    pub fn process_key_str(&mut self, key_str: &str) -> EngineResponse {
+        if matches!(self.keyboard_mode.as_str(), "japanese" | "jp" | "romaji") {
+            if key_str == "Up" || key_str == "up" {
+                return self.open_up_arrow_candidates();
+            }
+            if key_str == "Down" || key_str == "down" {
+                return self.open_down_arrow_candidates();
+            }
+            let resp = self.japanese.process_key_str(key_str);
+            self.composed_sentence = resp.composed.clone();
+            self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+            self.current_candidates = resp.candidates.clone();
+            self.candidate_cycle_idx = resp.candidate_idx;
+            self.cursor_pos = resp.cursor_pos;
+            return resp;
+        }
+        if self.keyboard_mode == "cangjie" {
+            if key_str == "Up" || key_str == "up" {
+                return self.open_up_arrow_candidates();
+            }
             return self.cangjie.process_key_str(key_str);
+        }
+        if key_str == "Down" || key_str == "down" {
+            return self.open_down_arrow_candidates();
+        }
+        if key_str == "Up" || key_str == "up" {
+            return self.open_up_arrow_candidates();
         }
         if key_str == "BackSpace" || key_str == "backspace" || key_str == "\x08" {
             return self.pop_component();
@@ -356,6 +799,15 @@ impl RuhiEngine {
     }
 
     pub fn process_key(&mut self, key: char) -> EngineResponse {
+        if matches!(self.keyboard_mode.as_str(), "japanese" | "jp" | "romaji") {
+            let resp = self.japanese.process_key(key);
+            self.composed_sentence = resp.composed.clone();
+            self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+            self.current_candidates = resp.candidates.clone();
+            self.candidate_cycle_idx = resp.candidate_idx;
+            self.cursor_pos = resp.cursor_pos;
+            return resp;
+        }
         if self.keyboard_mode == "cangjie" {
             return self.cangjie.process_key(key);
         }
@@ -387,28 +839,11 @@ impl RuhiEngine {
             // 僅在明確彈出選字清單時作為候選數字鍵 (1~9)
             if self.mode == EngineMode::CandidatePopup && !self.current_candidates.is_empty() && key != '0' && key != '.' {
                 let digit_idx = (key as usize) - ('1' as usize);
-                if digit_idx < self.current_candidates.len() {
-                    let active_idx = self.get_active_char_index();
-                    if active_idx < self.sentence_chars.len() {
-                        let rejected = self.sentence_chars[active_idx].clone();
-                        let chosen = self.current_candidates[digit_idx].clone();
-                        if rejected != chosen {
-                            let bpm = self.get_syllable_at(active_idx).unwrap_or_default();
-                            let prev_ctx = if active_idx > 0 { self.sentence_chars[active_idx - 1].clone() } else { String::new() };
-                            let next_ctx = if active_idx + 1 < self.sentence_chars.len() { self.sentence_chars[active_idx + 1].clone() } else { String::new() };
-                            self.record_revision(&bpm, &rejected, &chosen, &prev_ctx, &next_ctx);
-                        }
-                        self.sentence_chars[active_idx] = chosen.clone();
-                        self.user_pinned.insert(active_idx, chosen);
-                        self.composed_sentence = self.sentence_chars.join("");
-                        self.candidate_cycle_idx = digit_idx;
-                        if self.cursor_pos < self.sentence_chars.len() {
-                            self.cursor_pos += 1;
-                            self.update_active_candidates();
-                        }
-                        return self.build_response("update_candidate", "");
-                    }
+                if self.select_candidate(digit_idx).is_some() {
+                    return self.build_response("update_candidate", "");
                 }
+            } else if matches!(self.keyboard_mode.as_str(), "standard" | "daikien") && matches!(key, '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '0') {
+                // 標準大千鍵盤：數字鍵為注音聲母／韻母／聲調鍵，交由下方 FSM 解析
             } else {
                 // 一般打字模式：數字與小數點直接納入全句中，絕不擅自竄改前文字詞！
                 if self.fsm.has_pending() {
@@ -420,12 +855,35 @@ impl RuhiEngine {
                 self.composed_sentence.push_str(&digit_str);
                 self.cursor_pos = self.composed_sentence.chars().count();
                 self.fsm.reset();
+                self.raw_ascii_buffer.clear();
+                self.western.reset();
+                let current_composed = self.composed_sentence.clone();
+                self.record_committed(&current_composed);
                 return self.build_response("update_preedit", "");
             }
         }
 
-        // 4. Q 鍵候選輪換與選字窗彈出
-        if (key == 'q' || key == 'Q') && !self.fsm.get_all_syllables().is_empty() {
+        // 4. Q 鍵候選輪換與選字窗彈出（僅許氏雙拼模式，因標準大千與倚天26鍵之 Q 鍵為聲母「ㄆ」）
+        if (key == 'q' || key == 'Q') && self.keyboard_mode == "hsu" && !self.fsm.get_all_syllables().is_empty() {
+            if self.fsm.has_pending() {
+                let pending_bpmf = format!("{}{}{}", self.fsm.cur_initial, self.fsm.cur_medial, self.fsm.cur_final);
+                if pending_bpmf.chars().count() == 1 {
+                    self.fsm.commit_current('1');
+                    let new_idx = self.sentence_chars.len();
+                    self.sentence_chars.push(pending_bpmf.clone());
+                    self.user_pinned.insert(new_idx, pending_bpmf.clone());
+                    self.composed_sentence = self.sentence_chars.join("");
+                    self.cursor_pos = self.sentence_chars.len();
+                    let mut cands = crate::lexicon::LexiconManager::get_hsu_bopomofo_symbols(&pending_bpmf);
+                    for e in self.lexicon.lookup_bopomofo(&pending_bpmf, true) {
+                        if e.word.chars().count() == 1 && !cands.contains(&e.word) {
+                            cands.push(e.word.clone());
+                        }
+                    }
+                    self.current_candidates = cands;
+                    self.candidate_cycle_idx = 0;
+                }
+            }
             self.q_press_count += 1;
             if self.q_press_count >= self.q_popup_threshold {
                 self.mode = EngineMode::CandidatePopup;
@@ -440,8 +898,11 @@ impl RuhiEngine {
             self.q_press_count = 0;
         }
 
-        // 5. 標點符號與自訂符號映射（支援 TSV 熱置換與使用者即時自訂）
-        if let Some(punct) = self.symbols.get_char(key) {
+        // 5. 標點符號與自訂符號映射（支援 TSV 熱置換與使用者即時自訂；排除標準大千之韻母鍵 , . ; / -）
+        let is_standard_bpm_punct = matches!(self.keyboard_mode.as_str(), "standard" | "daikien")
+            && matches!(key, ',' | '.' | ';' | '/' | '-');
+        if !is_standard_bpm_punct {
+            if let Some(punct) = self.symbols.get_char(key) {
             let has_compound = self.has_any_compound_word();
             let raw_len = self.raw_ascii_buffer.len();
             let raw_lower = self.raw_ascii_buffer.to_ascii_lowercase();
@@ -473,8 +934,10 @@ impl RuhiEngine {
 
             let mut committed = base_commit;
             committed.push_str(&punct);
+            self.record_committed(&committed);
             self.reset_buffer();
             return self.build_response("commit_punctuation", &committed);
+            }
         }
 
         // 6. Enter 結算
@@ -532,8 +995,18 @@ impl RuhiEngine {
                 self.prior_was_english = false;
                 self.fsm.get_display_preedit()
             };
+            self.record_committed(&committed);
             self.reset_buffer();
             return self.build_response("commit_enter", &committed);
+        }
+
+        // 6.5 Tab 鍵：手動斷詞切換 (Manual Word Boundary Split / Cut)
+        if key == '\t' {
+            if self.fsm.syllables.len() > 1 && self.cursor_pos > 0 && self.cursor_pos < self.sentence_chars.len() {
+                self.toggle_cut_at_cursor();
+                return self.build_response("update_preedit", "");
+            }
+            return self.build_response("none", "");
         }
 
         // 7. Backspace 退格
@@ -606,6 +1079,7 @@ impl RuhiEngine {
 
                 if is_english_word && !self.raw_ascii_buffer.is_empty() {
                     let committed = format!("{} ", self.raw_ascii_buffer);
+                    self.record_committed(&committed);
                     self.reset_buffer();
                     self.prior_was_english = true;
                     return self.build_response("commit_space", &committed);
@@ -621,9 +1095,11 @@ impl RuhiEngine {
                 let is_still_english_prefix = self.western.lexicon.has_prefix(&next_buf)
                     || crate::western::WesternToken::new(&next_buf).is_code_identifier();
 
-                let prev_is_complete_word = self.western.lexicon.contains(&self.raw_ascii_buffer)
-                    || self.western.score_string(&self.raw_ascii_buffer) >= 0.70
-                    || crate::western::WesternToken::new(&self.raw_ascii_buffer).is_code_identifier();
+                let has_upper = self.raw_ascii_buffer.chars().any(|c| c.is_ascii_uppercase());
+                let prev_is_complete_word = (self.raw_ascii_buffer.len() >= 4 || (has_upper && self.raw_ascii_buffer.len() >= 3))
+                    && (self.western.lexicon.contains(&self.raw_ascii_buffer)
+                        || self.western.score_string(&self.raw_ascii_buffer) >= 0.70
+                        || crate::western::WesternToken::new(&self.raw_ascii_buffer).is_code_identifier());
 
                 if !is_still_english_prefix && prev_is_complete_word && key.is_ascii_lowercase() {
                     let prior_word = self.raw_ascii_buffer.clone();
@@ -634,6 +1110,7 @@ impl RuhiEngine {
                     self.sentence_chars.clear();
                     self.user_pinned.clear();
 
+                    self.record_committed(&prior_word);
                     prefix_commit = prior_word;
                 } else if key.is_ascii_alphanumeric() || matches!(key, '-' | '_' | '.' | '@' | '/' | ':') {
                     self.raw_ascii_buffer.push(key);
@@ -678,6 +1155,7 @@ impl RuhiEngine {
                             self.update_sentence_composition();
                         }
                         let prior_commit = self.composed_sentence.clone();
+                        self.record_committed(&prior_commit);
                         self.composed_sentence.clear();
                         self.sentence_chars.clear();
                         self.user_pinned.clear();
@@ -712,9 +1190,11 @@ impl RuhiEngine {
             }
         }
 
-        if key.is_ascii_alphanumeric() {
+        if key.is_ascii_alphanumeric() || is_standard_bpm_punct {
             self.raw_ascii_buffer.push(key);
-            let _ = self.western.process_key(key);
+            if key.is_ascii_alphanumeric() {
+                let _ = self.western.process_key(key);
+            }
         }
 
         // 8. 許氏 FSM 解析
@@ -723,6 +1203,7 @@ impl RuhiEngine {
             if prefix_commit.is_empty() {
                 prefix_commit = self.composed_sentence.clone();
             }
+            self.record_committed(&prefix_commit);
             self.composed_sentence.clear();
             self.sentence_chars.clear();
             self.user_pinned.clear();
@@ -730,7 +1211,7 @@ impl RuhiEngine {
         }
 
         let prev_syllable_count = self.fsm.syllables.len();
-        let success = self.fsm.parse_hsu_key(key);
+        let success = self.fsm.parse_key_with_layout(key, &self.keyboard_mode);
         if success {
             if self.fsm.syllables.len() > prev_syllable_count {
                 self.prior_was_english = false;
@@ -741,9 +1222,15 @@ impl RuhiEngine {
                 }
             }
 
-            if self.enable_mixed_english && (self.fsm.has_invalid_syllable() || self.fsm.has_invalid_pending()) {
+            let has_invalid_syl = if matches!(self.keyboard_mode.as_str(), "standard" | "daikien") {
+                self.fsm.syllables.iter().any(|s| !s.is_mandarin_valid() && !s.is_pure_initial())
+            } else {
+                self.fsm.has_invalid_syllable()
+            };
+
+            if self.enable_mixed_english && (has_invalid_syl || self.fsm.has_invalid_pending()) {
                 // 若先前已有確立的中文句子（如已完成「完全」），決不連坐摧毀已成立的中文！
-                if !self.composed_sentence.is_empty() && !self.fsm.syllables.is_empty() && !self.fsm.has_invalid_syllable() {
+                if !self.composed_sentence.is_empty() && !self.fsm.syllables.is_empty() && !has_invalid_syl {
                     // 僅當前 pending 音位違規（如打字手民誤鍵），回退最後無效按鍵，不波及整句
                     return self.pop_component();
                 }
@@ -828,11 +1315,21 @@ impl RuhiEngine {
         self.build_response("none", "")
     }
 
-    fn update_sentence_composition(&mut self) {
+    pub fn update_sentence_composition(&mut self) {
         if self.enable_mixed_english && self.is_latin_mode {
             return;
         }
-        let syls = self.fsm.syllables.clone();
+        let is_standard_headcode_stream = matches!(self.keyboard_mode.as_str(), "standard" | "daikien")
+            && self.fsm.syllables.len() >= 2
+            && self.fsm.syllables.iter().all(|s| s.is_pure_initial())
+            && !self.fsm.cur_initial.is_empty()
+            && self.fsm.cur_medial.is_empty()
+            && self.fsm.cur_final.is_empty();
+        let syls = if is_standard_headcode_stream {
+            self.fsm.get_all_syllables()
+        } else {
+            self.fsm.syllables.clone()
+        };
         if syls.is_empty() {
             self.composed_sentence.clear();
             self.sentence_chars.clear();
@@ -841,18 +1338,24 @@ impl RuhiEngine {
             return;
         }
 
-        // 清理超出音節範圍的 pinned 鎖定
+        // 清理超出音節範圍的 pinned 鎖定與 manual_cuts 斷詞點
         self.user_pinned.retain(|&idx, _| idx < syls.len());
+        self.manual_cuts.retain(|&idx, | idx > 0 && idx < syls.len());
 
+        let prior_len = self.sentence_chars.len();
+        let was_at_end = self.cursor_pos >= prior_len;
+
+        self.lexicon.maybe_reload_dynamic_lexicons();
         let dag_builder = LatticeDAG::new(&self.lexicon);
-        let dag = dag_builder.build_dag(&syls, true);
+        let dag = dag_builder.build_dag_with_cuts(&syls, true, &self.manual_cuts);
         let prefix = if !self.last_committed_word.is_empty() {
             Some(self.last_committed_word.as_str())
         } else {
             None
         };
         let (nodes, _) = self.router.solve_best_path_with_prefix(syls.len(), &dag, Some(&mut self.transitions), prefix);
-        let has_real_chinese = nodes.iter().any(|n| n.word.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
+        let has_real_chinese = nodes.iter().any(|n| n.word.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)))
+            || (matches!(self.keyboard_mode.as_str(), "standard" | "daikien") && syls.iter().all(|s| s.is_pure_initial()));
         if self.enable_mixed_english && (!has_real_chinese || nodes.is_empty()) {
             // Viterbi 無法找到任何漢字路徑（全為注音字根 fallback），自動判定為歐文
             self.is_latin_mode = true;
@@ -876,8 +1379,34 @@ impl RuhiEngine {
         }
         self.composed_sentence = self.sentence_chars.join("");
 
-        self.cursor_pos = self.get_display_len();
+        let new_len = self.get_display_len();
+        if was_at_end {
+            self.cursor_pos = new_len;
+        } else {
+            self.cursor_pos = self.cursor_pos.min(new_len);
+        }
         self.update_active_candidates();
+    }
+
+    /// 在指定音節位置切換（Toggle）手動斷詞點
+    /// 回傳 true 表示成功切換（加入或移除），false 表示無效位置（如邊界超出）
+    pub fn toggle_cut_at(&mut self, cut_pos: usize) -> bool {
+        let syl_count = self.fsm.syllables.len();
+        if cut_pos == 0 || cut_pos >= syl_count {
+            return false;
+        }
+        if self.manual_cuts.contains(&cut_pos) {
+            self.manual_cuts.remove(&cut_pos);
+        } else {
+            self.manual_cuts.insert(cut_pos);
+        }
+        self.update_sentence_composition();
+        true
+    }
+
+    /// 在當前游標處切換手動斷詞點
+    pub fn toggle_cut_at_cursor(&mut self) -> bool {
+        self.toggle_cut_at(self.cursor_pos)
     }
 
     pub fn get_segment_at(&self, char_idx: usize) -> Option<&crate::router::LatticeNode> {
@@ -934,8 +1463,35 @@ impl RuhiEngine {
             if entries.is_empty() {
                 entries = self.lexicon.lookup_bopomofo(&bpm, false);
             }
-            self.current_candidates = entries.into_iter().map(|e| e.word.clone()).collect();
+            let mut cands: Vec<String> = entries.into_iter().map(|e| e.word.clone()).collect();
             let cur_char = self.sentence_chars.get(active_idx).cloned().unwrap_or_default();
+            if bpm.chars().count() == 1 {
+                let hsu_syms = crate::lexicon::LexiconManager::get_hsu_bopomofo_symbols(&bpm);
+                let cur_is_bpm = cur_char
+                    .chars()
+                    .next()
+                    .map(|c| ('\u{3105}'..='\u{3129}').contains(&c) || matches!(c, 'ˊ' | 'ˇ' | 'ˋ' | '˙'))
+                    .unwrap_or(false);
+                if cur_is_bpm {
+                    let mut front = hsu_syms;
+                    for w in cands {
+                        if !front.contains(&w) {
+                            front.push(w);
+                        }
+                    }
+                    cands = front;
+                } else {
+                    let insert_pos = cands.len().min(3);
+                    let mut offset = 0;
+                    for sym in hsu_syms {
+                        if !cands.contains(&sym) {
+                            cands.insert(insert_pos + offset, sym);
+                            offset += 1;
+                        }
+                    }
+                }
+            }
+            self.current_candidates = cands;
             self.candidate_cycle_idx = self.current_candidates.iter().position(|w| w == &cur_char).unwrap_or(0);
         }
     }
@@ -995,7 +1551,7 @@ impl RuhiEngine {
             EngineMode::CandidatePopup => "candidates",
         };
 
-        let display_composed = if self.fsm.has_pending() {
+        let display_composed = if self.fsm.has_pending() && self.sentence_chars.len() <= self.fsm.syllables.len() {
             let pending_bpmf = format!("{}{}{}", self.fsm.cur_initial, self.fsm.cur_medial, self.fsm.cur_final);
             format!("{}{}", self.composed_sentence, pending_bpmf)
         } else {
@@ -1036,7 +1592,7 @@ impl RuhiEngine {
             let keys = self.fsm.raw_keys.clone();
             self.fsm.reset();
             for k in keys {
-                self.fsm.parse_hsu_key(k);
+                self.fsm.parse_key_with_layout(k, &self.keyboard_mode);
             }
             self.user_pinned.retain(|&idx, _| idx < self.fsm.syllables.len());
             self.update_sentence_composition();
@@ -1073,7 +1629,7 @@ impl RuhiEngine {
             let keys = self.fsm.raw_keys.clone();
             self.fsm.reset();
             for k in keys {
-                self.fsm.parse_hsu_key(k);
+                self.fsm.parse_key_with_layout(k, &self.keyboard_mode);
             }
             let now_in_progress = self.fsm.has_pending();
             if self.fsm.syllables.len() <= target_len && !now_in_progress {
@@ -1137,7 +1693,7 @@ impl RuhiEngine {
             let keys = self.fsm.raw_keys.clone();
             self.fsm.reset();
             for k in keys {
-                self.fsm.parse_hsu_key(k);
+                self.fsm.parse_key_with_layout(k, &self.keyboard_mode);
             }
             let now_in_progress = self.fsm.has_pending();
             if self.fsm.syllables.len() <= target_len && !now_in_progress {
@@ -1244,43 +1800,45 @@ impl RuhiEngine {
 
         let mut synthesized_rules = Vec::new();
 
+        let is_cjk = |c: char| -> bool {
+            let u = c as u32;
+            (0x4E00..=0x9FFF).contains(&u) || (0x3400..=0x4DBF).contains(&u) || (0xF900..=0xFAFF).contains(&u)
+        };
+
         for r in &revs {
             let rej = r.rejected.trim();
-            let acc = r.accepted.trim();
-            let prev = r.prev_context.trim();
-            let next = r.next_context.trim();
+            let acc: String = r.accepted.trim().chars().filter(|&c| is_cjk(c)).collect();
+            // 僅提取前文末尾之連續純漢字（剔除逗號、句號等標點）
+            let prev: String = r.prev_context.trim().chars().rev().take_while(|&c| is_cjk(c)).collect::<Vec<char>>().into_iter().rev().collect();
+            // 僅提取後文開頭之連續純漢字（剔除逗號、句號等標點）
+            let next: String = r.next_context.trim().chars().take_while(|&c| is_cjk(c)).collect();
 
             if acc.is_empty() || rej == acc {
                 continue;
             }
 
-            // 1. 正向引力場
-            if !prev.is_empty() {
-                synthesized_rules.push((prev.to_string(), acc.to_string(), 26.0, format!("自動學習：{} 引導 {}", prev, acc)));
+            // 嚴格遵行《如喜漢語計算語言學架構白皮書》：僅合成純漢字二階正向轉移引力（零負向抑制，杜絕跨詞邊界誤傷）
+            if !prev.is_empty() && prev != acc {
+                synthesized_rules.push((prev.clone(), acc.clone(), 26.0, format!("自動學習：{} 引導 {}", prev, acc)));
                 if prev.chars().count() >= 2 {
                     if let Some(last_ch) = prev.chars().last() {
-                        synthesized_rules.push((last_ch.to_string(), acc.to_string(), 24.0, format!("局部引力：{} 引導 {}", last_ch, acc)));
+                        let last_s = last_ch.to_string();
+                        if last_s != acc {
+                            synthesized_rules.push((last_s.clone(), acc.clone(), 24.0, format!("局部引力：{} 引導 {}", last_s, acc)));
+                        }
                     }
                 }
             }
 
-            if !next.is_empty() {
-                synthesized_rules.push((acc.to_string(), next.to_string(), 26.0, format!("自動學習：{} 銜接 {}", acc, next)));
+            if !next.is_empty() && next != acc {
+                synthesized_rules.push((acc.clone(), next.clone(), 26.0, format!("自動學習：{} 銜接 {}", acc, next)));
                 if next.chars().count() >= 2 {
                     if let Some(first_ch) = next.chars().next() {
-                        synthesized_rules.push((acc.to_string(), first_ch.to_string(), 24.0, format!("局部引力：{} 銜接 {}", acc, first_ch)));
+                        let first_s = first_ch.to_string();
+                        if first_s != acc {
+                            synthesized_rules.push((acc.clone(), first_s.clone(), 24.0, format!("局部引力：{} 銜接 {}", acc, first_s)));
+                        }
                     }
-                }
-            }
-
-            // 2. 負向抑制場 (抑制碎片錯字組合如「步董」「朵組」「休政」)
-            if !rej.is_empty() {
-                let rej_chars: Vec<char> = rej.chars().collect();
-                if rej_chars.len() == 2 {
-                    synthesized_rules.push((rej_chars[0].to_string(), rej_chars[1].to_string(), -30.0, format!("抑制錯字組合：{}+{}", rej_chars[0], rej_chars[1])));
-                }
-                if !prev.is_empty() {
-                    synthesized_rules.push((prev.to_string(), rej.to_string(), -28.0, format!("抑制前驅誤奪：{} 奪舍 {}", prev, rej)));
                 }
             }
         }
@@ -4381,11 +4939,746 @@ mod tests {
         let disp3 = engine.get_display_text();
         assert!(disp3.contains("修正行為") || disp3.contains("修正"), "實際輸出：{}", disp3);
     }
+
+    #[test]
+    fn test_ganxie_huifu_and_polite_collocation() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        // 驗證「感謝回覆」能精確組出「感謝」與「回覆」，絕不碎裂為「感系回付」或出現注音符號
+        engine.reset_buffer();
+        for c in "gmfceejhxadfxj".chars() {
+            engine.process_key(c);
+        }
+        let disp = engine.get_display_text();
+        assert!(disp == "感謝回覆" || disp == "感謝回復", "實際輸出：{}", disp);
+    }
+
+    #[test]
+    fn test_shuru_lie_and_changju_wanzhengxing() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        // 1. 驗證「輸入列」能精確組出，絕不出現「輸入裂」
+        engine.reset_buffer();
+        for c in "cx rxjleej".chars() {
+            engine.process_key(c);
+        }
+        let disp = engine.get_display_text();
+        assert!(disp == "輸入列", "實際輸出：{}", disp);
+
+        // 2. 驗證長句「是不是就越容易」能精準流暢組出「是不是就」，絕不碎裂為「是不是舊」
+        engine.reset_buffer();
+        for c in "cjbxjcjjeojuej".chars() {
+            engine.process_key(c);
+        }
+        let disp2 = engine.get_display_text();
+        assert!(disp2.contains("是不是就"), "實際輸出：{}", disp2);
+
+        // 3. 驗證 18 字無標點極限長句「不小心在這裡參雜了語意分析除錯的部份」極速流暢無延遲，且精準組出「除錯」
+        // ㄅㄨˋ(bxj) ㄒㄧㄠˇ(cewf) ㄒㄧㄣ(cen ) ㄗㄞˋ(zij) ㄓㄜˋ(jgj) ㄌㄧˇ(lef) ㄘㄢ(am ) ㄗㄚˊ(zrd) ˙ㄌㄜ(ls) ㄩˇ(uf) ㄧˋ(ej) ㄈㄣ(fn ) ㄒㄧ(ce ) ㄔㄨˊ(vxd) ㄘㄨㄛˋ(axhj) ㄉㄜ˙(ds) ㄅㄨˋ(bxj) ㄈㄣˋ(fnj)
+        engine.reset_buffer();
+        let sentence_keys = "bxj cewf cen zij jgj lef am zrd ls uf ej fn ce vxd axhj ds bxj fnj";
+        for c in sentence_keys.chars() {
+            engine.process_key(c);
+        }
+        let disp3 = engine.get_display_text();
+        assert!(disp3.contains("不小心") && (disp3.contains("參雜") || disp3.contains("摻雜")) && disp3.contains("語意分析") && disp3.contains("除錯"), "實際輸出：{}", disp3);
+    }
+
+    #[test]
+    fn test_tab_manual_cut_word_split() {
+        use crate::fsm::HsuSyllable;
+
+        // 1. 驗證 HsuSyllable::from_bopomofo_display 正確還原
+        let test_cases = ["ㄕㄨ", "ㄖㄨˋ", "ㄌㄧㄝˋ", "˙ㄉㄜ", "ㄧˋ", "ㄨㄛˇ", "ㄘㄢ", "ㄗㄚˊ"];
+        for &tc in &test_cases {
+            let s = HsuSyllable::from_bopomofo_display(tc).expect("應該成功解析注音");
+            assert_eq!(s.bopomofo_display(), tc, "注音還原應完全一致");
+        }
+
+        // 2. 驗證 Tab 手動斷詞點（manual_cuts）約束
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        // 輸入「輸入列」三個音節: ㄕㄨ(cx ) ㄖㄨˋ(rxj) ㄌㄧㄝˋ(leej)
+        engine.reset_buffer();
+        for c in "cx rxjleej".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(engine.fsm.syllables.len(), 3);
+
+        // 游標移到「輸入」與「列」之間 (索引 2)，按 Tab 鍵手動斷詞
+        engine.cursor_pos = 2;
+        let resp = engine.process_key('\t');
+        assert_eq!(resp.action, "update_preedit");
+        assert!(engine.manual_cuts.contains(&2), "斷詞點 2 必須被加入 manual_cuts");
+        let disp = engine.get_display_text();
+        assert_eq!(disp, "輸入列", "斷詞後必精準成詞");
+
+        // 再按一次 Tab 鍵，驗證 Toggle 取消手動斷詞
+        let resp2 = engine.process_key('\t');
+        assert_eq!(resp2.action, "update_preedit");
+        assert!(!engine.manual_cuts.contains(&2), "再次按 Tab 必須移除斷詞點 2");
+    }
+
+    #[test]
+    fn test_layer0_patterns_user_jsonl_loading_and_matching() {
+        let mut trans = crate::router::TransitionEngine::new();
+        let temp_dir = std::env::temp_dir();
+        let jsonl_path = temp_dir.join(format!("ruhi_test_patterns_{}.jsonl", std::process::id()));
+
+        let jsonl_content = concat!(
+            "{\"name\": \"ai_slot_rule_1\", \"prev_slot\": [\"雲端\", \"本機\"], \"next_slot\": [\"推理\", \"運算\"], \"bonus\": 28.0}\n",
+            "{\"name\": \"ai_slot_rule_clamped\", \"slots\": [[\"模型\", \"權重\"]], \"target\": [\"收斂\"], \"bonus\": 99.0}\n"
+        );
+        std::fs::write(&jsonl_path, jsonl_content).expect("應成功寫入測試 patterns_user.jsonl");
+
+        let baseline_score = trans.calculate_transition_bonus("雲端", "ㄩㄣˊ ㄉㄨㄢ", "推理", "ㄊㄨㄟ ㄌㄧˇ");
+        let loaded = trans.load_patterns_jsonl(&jsonl_path).expect("應成功載入 patterns_user.jsonl");
+        assert_eq!(loaded, 2, "應成功載入 2 條 AI 歸納槽位規則");
+
+        let score1 = trans.calculate_transition_bonus("雲端", "ㄩㄣˊ ㄉㄨㄢ", "推理", "ㄊㄨㄟ ㄌㄧˇ");
+        assert!(
+            (score1 - (baseline_score + 28.0)).abs() < 1e-6,
+            "載入 patterns_user.jsonl 後應精確獲得 +28.0 加分，實際: {} vs {}",
+            score1,
+            baseline_score
+        );
+
+        // 驗證分數自動鉗制於 [15.0, 35.0] 區間
+        let baseline_clamp = trans.calculate_transition_bonus("權重", "ㄑㄩㄢˊ ㄓㄨㄥˋ", "收斂", "ㄕㄡ ㄌㄧㄢˇ");
+        let score2 = trans.calculate_transition_bonus("權重", "ㄑㄩㄢˊ ㄓㄨㄥˋ", "收斂", "ㄕㄡ ㄌㄧㄢˇ");
+        assert!(
+            score2 >= 35.0 && (score2 - baseline_clamp).abs() < 1e-6,
+            "超高 bonus 99.0 必須被鉗制在 35.0 上限以內，實際: {}",
+            score2
+        );
+
+        let _ = std::fs::remove_file(&jsonl_path);
+    }
+
+    #[test]
+    fn test_layer3_dynamic_lexicon_hot_reload() {
+        let temp_dir = std::env::temp_dir().join(format!("ruhi_test_hotreload_{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let user_dict_path = temp_dir.join("user_dict.tsv");
+
+        // 初始寫入一筆基礎詞條
+        std::fs::write(&user_dict_path, "初始測試\tㄔㄨ ㄕˇ ㄘㄜˋ ㄕˋ\t800\n")
+            .expect("應成功寫入初始 user_dict.tsv");
+
+        let mut engine = RuhiEngine::new_with_data_dir(temp_dir.to_str().unwrap());
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbopomofo");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+
+        // 模擬背景 AI 調校器或自學習模組動態追加新詞「語意調校」(ㄩˇ ㄧˋ ㄊㄧㄠˊ ㄐㄧㄠˋ)
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        std::fs::write(
+            &user_dict_path,
+            "初始測試\tㄔㄨ ㄕˇ ㄘㄜˋ ㄕˋ\t800\n語意調校\tㄩˇ ㄧˋ ㄊㄧㄠˊ ㄐㄧㄠˋ\t880\n",
+        )
+        .expect("應成功更新 user_dict.tsv");
+
+        // reset_buffer 會清除節流計時器，模擬新句輸入時立即感知熱重載
+        engine.reset_buffer();
+        for c in "uf ej tewd jewj".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "語意調校",
+            "Layer 3 動態詞庫熱重載後，無需重啟引擎即可組出新增專有名詞「語意調校」"
+        );
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_layer3_vo_separable_verb_lookback_in_viterbi() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbopomofo");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        // 0. 直接驗證 calculate_vo_lookback_bonus 跨詞隙回溯加分
+        assert!(
+            engine.transitions.calculate_vo_lookback_bonus(&["洗", "了", "一個"], "澡") >= 25.0,
+            "離合詞「洗...澡」跨 3 詞隙應獲得 VO 動賓回溯加分"
+        );
+        assert!(
+            engine.transitions.calculate_vo_lookback_bonus(&["幫", "了", "他", "一", "個"], "忙") >= 25.0,
+            "離合詞「幫...忙」跨 5 詞隙應獲得 VO 動賓回溯加分"
+        );
+        assert!(
+            engine.transitions.calculate_vo_lookback_bonus(&["睡", "個", "好"], "覺") >= 25.0,
+            "離合詞「睡...覺」跨詞隙應獲得 VO 動賓回溯加分"
+        );
+
+        // 1. 洗了一個澡: ㄒㄧˇ(cef) ˙ㄌㄜ(ls) ㄧˊ(ed) ˙ㄍㄜ(ggs) ㄗㄠˇ(zwf)
+        engine.reset_buffer();
+        for c in "ceflsedggszwf".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "洗了一個澡",
+            "離合詞構式必精準組出「洗了一個澡」，杜絕「早/棗」同音干擾"
+        );
+
+        // 2. 幫了他一個忙: ㄅㄤ(bk ) ˙ㄌㄜ(ls) ㄊㄚ(tr ) ㄧˊ(ed) ˙ㄍㄜ(ggs) ㄇㄤˊ(mkd)
+        engine.reset_buffer();
+        for c in "bk lstr edggsmkd".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "幫了他一個忙",
+            "離合詞構式必精準組出「幫了他一個忙」，杜絕「盲/茫」同音干擾"
+        );
+
+        // 3. 睡個好覺: ㄕㄨㄟˋ(cxaj) ˙ㄍㄜ(ggs) ㄏㄠˇ(hwf) ㄐㄧㄠˋ(jewj)
+        engine.reset_buffer();
+        for c in "cxajggshwfjewj".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "睡個好覺",
+            "離合詞構式必精準組出「睡個好覺」，杜絕「好叫/好教」干擾"
+        );
+    }
+
+    #[test]
+    fn test_indexed_transitions_zero_regression() {
+        let mut trans = crate::router::TransitionEngine::new();
+        let _ = trans.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        // 驗證收斂至 builtin_transitions 雜湊表後，在 load_tsv 熱重載後依然 100% 生效且具備 O(1) 查找能力
+        assert!(
+            trans.calculate_transition_bonus("正常", "ㄓㄥˋ ㄔㄤˊ", "發揮", "ㄈㄚ ㄏㄨㄟ") >= 30.0,
+            "內建二元轉移「正常 -> 發揮」必須在 load_tsv 後完整保留"
+        );
+        assert!(
+            trans.calculate_transition_bonus("傷敵", "ㄕㄤ ㄉㄧˊ", "五百", "ㄨˇ ㄅㄞˇ") >= 30.0,
+            "內建對稱構式轉移「傷敵 -> 五百」必須在 O(1) 雜湊表中精準命中"
+        );
+        assert!(
+            trans.calculate_transition_bonus("自毀", "ㄗˋ ㄏㄨㄟˇ", "三千", "ㄙㄢ ㄑㄧㄢ") >= 30.0,
+            "內建對稱構式轉移「自毀 -> 三千」必須在 O(1) 雜湊表中精準命中"
+        );
+        assert!(
+            trans.calculate_transition_bonus("輸入", "ㄕㄨ ㄖㄨˋ", "列", "ㄌㄧㄝˋ") >= 25.0,
+            "內建二元轉移「輸入 -> 列」必須精準命中"
+        );
+        assert!(
+            trans.calculate_transition_bonus("正常", "ㄓㄥˋ ㄔㄤˊ", "發灰", "ㄈㄚ ㄏㄨㄟ") < 0.0,
+            "內建邊界抑制「正常 -> 發灰」必須維持合理負向抑制"
+        );
+    }
+
+    #[test]
+    fn test_hierarchical_slot_set_constructions() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbopomofo");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        // 1. [每] -> [點擊] -> [({一..十} -> {次, 回, 下})]: ㄇㄟˇ(maf) ㄉㄧㄢˇ(demf) ㄐㄧˊ(jed) ㄧ(e ) ㄘˋ(aj)
+        engine.reset_buffer();
+        for c in "mafdemfjede aj".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "每點擊一次",
+            "階層式構式 `[每] -> [點擊] -> [(一 -> 次)]` 必精準組出「每點擊一次」，杜絕「每典籍一次」"
+        );
+
+        // 2. [({圈, 點, 勾, 框} -> {選, 取})] -> [{框, 欄, 區, 鈕}]: ㄑㄩㄢ(vum ) ㄒㄩㄢˇ(cumf) ㄎㄨㄤ(kxk )
+        engine.reset_buffer();
+        for c in "vum cumfkxk ".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "圈選框",
+            "階層式構式 `[((圈/點/勾/框) -> (選/取))] -> [(框/欄)]` 無需將三字死背入庫，即可組出「圈選框」"
+        );
+
+        // 3. [(請 -> 用)] -> [滑鼠] -> [(框 -> 選)]: ㄑㄧㄥˇ(velf) ㄩㄥˋ(ulj) ㄏㄨㄚˊ(hxyd) ㄕㄨˇ(cxf) ㄎㄨㄤ(kxk ) ㄒㄩㄢˇ(cumf)
+        engine.reset_buffer();
+        for c in "velfuljhxydcxfkxk cumf".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "請用滑鼠框選",
+            "階層式構式 `[(請 -> 用)] -> [滑鼠] -> [(框 -> 選)]` 必精準組出「請用滑鼠框選」，杜絕「筐選/匡選」"
+        );
+
+        // 4. [{在, 於, 從}] -> [{框, 欄, 區}] -> [({中, 內, 裡})]: ㄗㄞˋ(zij) ㄎㄨㄤ(kxk ) ㄓㄨㄥ(jxl )
+        engine.reset_buffer();
+        for c in "zijkxk jxl ".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "在框中",
+            "階層式空間構式必精準組出「在框中」，杜絕「在筐中」"
+        );
+    }
+
+    #[test]
+    fn test_standalone_bopomofo_symbol_cycling() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbopomofo");
+
+        // 1. 許氏單鍵 'j' 預設顯示 ㄓ，直接按 'q' 立即切換為雙生注音符號 ㄐ（「機」的子音）
+        engine.reset_buffer();
+        engine.process_key('j');
+        assert_eq!(engine.get_display_text(), "ㄓ");
+        engine.process_key('q');
+        assert_eq!(
+            engine.get_display_text(),
+            "ㄐ",
+            "許氏鍵盤按 j 再按 q 必能直接打出「機」的子音注音符號「ㄐ」"
+        );
+
+        // 2. 許氏單鍵 'v' (ㄔ/ㄑ) 按 'q' 立即切換為 ㄑ
+        engine.reset_buffer();
+        engine.process_key('v');
+        assert_eq!(engine.get_display_text(), "ㄔ");
+        engine.process_key('q');
+        assert_eq!(
+            engine.get_display_text(),
+            "ㄑ",
+            "許氏鍵盤按 v 再按 q 必能直接打出注音符號「ㄑ」"
+        );
+
+        // 3. 許氏單鍵 'c' (ㄕ/ㄒ) 按 'q' 立即切換為 ㄒ
+        engine.reset_buffer();
+        engine.process_key('c');
+        assert_eq!(engine.get_display_text(), "ㄕ");
+        engine.process_key('q');
+        assert_eq!(
+            engine.get_display_text(),
+            "ㄒ",
+            "許氏鍵盤按 c 再按 q 必能直接打出注音符號「ㄒ」"
+        );
+    }
+
+    #[test]
+    fn test_entity_smart_decomposition_names_and_companies() {
+        let temp_dir = std::env::temp_dir().join(format!("ruhi_test_decomp_{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let user_dict_path = temp_dir.join("user_dict.tsv");
+
+        // 寫入完整人名「吳玟蓉」、「曹大十」、「歐陽娜娜」與公司全稱「如喜科技有限公司」
+        std::fs::write(
+            &user_dict_path,
+            "吳玟蓉\tㄨˊ ㄨㄣˊ ㄖㄨㄥˊ\t800\n曹大十\tㄘㄠˊ ㄉㄚˋ ㄕˊ\t800\n歐陽娜娜\tㄡ ㄧㄤˊ ㄋㄚˋ ㄋㄚˋ\t850\n如喜科技有限公司\tㄖㄨˊ ㄒㄧˇ ㄎㄜ ㄐㄧˋ ㄧㄡˇ ㄒㄧㄢˋ ㄍㄨㄥ ㄙ\t880\n",
+        )
+        .expect("應成功寫入測試 user_dict.tsv");
+
+        let mut engine = RuhiEngine::new_with_data_dir(temp_dir.to_str().unwrap());
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbopomofo");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv(user_dict_path.to_str().unwrap(), "user");
+
+        // 1. 略過姓氏「吳」，單打「玟蓉」(ㄨㄣˊ ㄖㄨㄥˊ: xnd rxld)
+        engine.reset_buffer();
+        for c in "xndrxld".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "玟蓉",
+            "記入「吳玟蓉」後，略過姓氏單打 ㄨㄣˊ ㄖㄨㄥˊ 必正確組出「玟蓉」"
+        );
+
+        // 2. 略過姓氏「曹」，單打「大十」(ㄉㄚˋ ㄕˊ: drj cd)
+        engine.reset_buffer();
+        for c in "drjcd".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "大十",
+            "記入「曹大十」後，略過姓氏單打 ㄉㄚˋ ㄕˊ 必正確組出「大十」"
+        );
+
+        // 3. 略過複姓「歐陽」，單打「娜娜」(ㄋㄚˋ ㄋㄚˋ: nrj nrj)
+        engine.reset_buffer();
+        for c in "nrjnrj".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "娜娜",
+            "記入「歐陽娜娜」後，略過複姓單打 ㄋㄚˋ ㄋㄚˋ 必正確組出「娜娜」"
+        );
+
+        // 4. 略過公司後綴「科技有限公司」，單打核心名稱「如喜」(ㄖㄨˊ ㄒㄧˇ: rxd cef) 與「如喜科技」(rxd cef kg jej)
+        engine.reset_buffer();
+        for c in "rxdcef".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "如喜",
+            "記入「如喜科技有限公司」後，單打 ㄖㄨˊ ㄒㄧˇ 必正確組出核心字號「如喜」"
+        );
+
+        engine.reset_buffer();
+        for c in "rxdcefkg jej".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "如喜科技",
+            "記入「如喜科技有限公司」後，單打 ㄖㄨˊ ㄒㄧˇ ㄎㄜ ㄐㄧˋ 必正確組出「如喜科技」"
+        );
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_numeric_date_currency_measure_time_units() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbopomofo");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        let type_mixed = |eng: &mut RuhiEngine, seq: &str| -> String {
+            eng.reset_buffer();
+            eng.last_committed_word.clear();
+            let mut committed = String::new();
+            for ch in seq.chars() {
+                let resp = eng.process_key(ch);
+                if !resp.committed_chunk.is_empty() {
+                    committed.push_str(&resp.committed_chunk);
+                }
+            }
+            committed.push_str(&eng.get_display_text());
+            committed
+        };
+
+        // 1. 曆法日期：在10月15日 (zij=在, 10, uej=月, 15, rj=日)、待10月15日、2026年10月15日 (nmd=年)
+        assert_eq!(
+            type_mixed(&mut engine, "zij10uej15rj"),
+            "在10月15日",
+            "輸入『在10月15日』時，數字 10 後接 ㄩㄝˋ 必命中『月』（杜絕『越』），15 後接 ㄖˋ 必命中『日』"
+        );
+        engine.reset_buffer();
+        engine.record_committed("待10");
+        for ch in "uej".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "月",
+            "前文為『待10』時，輸入 ㄩㄝˋ 必由數詞單位構式直接鎖定『月』（無需『待➔月』跨數字偽規則）"
+        );
+        assert_eq!(
+            type_mixed(&mut engine, "2026nemd10uej15rj"),
+            "2026年10月15日",
+            "輸入『2026年10月15日』必 100% 精準命中曆法年月日單位"
+        );
+
+        // 2. 貨幣與比例單位：100元 (umd=元)、8折 (jgd=折)、5倍 (baj=倍)
+        assert_eq!(
+            type_mixed(&mut engine, "100umd"),
+            "100元",
+            "數字後接 ㄩㄢˊ 必命中貨幣單位『元』"
+        );
+        assert_eq!(
+            type_mixed(&mut engine, "8jgd"),
+            "8折",
+            "數字後接 ㄓㄜˊ 必命中折扣單位『折』"
+        );
+        assert_eq!(
+            type_mixed(&mut engine, "5baj"),
+            "5倍",
+            "數字後接 ㄅㄟˋ 必命中倍數單位『倍』"
+        );
+
+        // 3. 度量衡與時間單位：50坪 (peld=坪)、37度 (dxj=度)、500克 (kgj=克)、30秒 (mlf=秒)
+        assert_eq!(
+            type_mixed(&mut engine, "50peld"),
+            "50坪",
+            "數字後接 ㄆㄧㄥˊ 必命中面積單位『坪』而非『瓶』"
+        );
+        assert_eq!(
+            type_mixed(&mut engine, "37dxj"),
+            "37度",
+            "數字後接 ㄉㄨˋ 必命中溫度/角度單位『度』而非『渡/肚』"
+        );
+        assert_eq!(
+            type_mixed(&mut engine, "500kgj"),
+            "500克",
+            "數字後接 ㄎㄜˋ 必命中重量單位『克』而非『課/客』"
+        );
+        assert_eq!(
+            type_mixed(&mut engine, "30mewf"),
+            "30秒",
+            "數字後接 ㄇㄧㄠˇ 必命中時間單位『秒』"
+        );
+    }
+
+    #[test]
+    fn test_dual_track_arrow_lookup_and_contextual_rescue() {
+        let mut engine = RuhiEngine::new();
+
+        // 1. 歐文軌 ↓ 下箭頭：cafe ➔ café 外來語重音變體與單字母變音符號
+        engine.reset_buffer();
+        engine.is_latin_mode = true;
+        for ch in "cafe".chars() {
+            engine.process_key(ch);
+        }
+        let down_resp = engine.open_down_arrow_candidates();
+        assert!(
+            down_resp.candidates.contains(&"café".to_string()),
+            "cafe 按下箭頭必包含重音變體 café，實際：{:?}",
+            down_resp.candidates
+        );
+        engine.process_key('1');
+        assert_eq!(engine.composed_sentence, "café");
+
+        // 2. 跨軌 ↑ 上箭頭救援：在許氏雙拼模式下直接輸入 tks 按 ↑ 展開為 thanks
+        engine.reset_buffer();
+        for ch in "tks".chars() {
+            engine.process_key(ch);
+        }
+        let up_tks = engine.open_up_arrow_candidates();
+        assert!(!up_tks.candidates.is_empty());
+        assert_eq!(
+            up_tks.candidates[0], "thanks",
+            "在許氏模式下輸入 tks 按上箭頭必跨軌救援展開為 thanks，實際：{:?}",
+            up_tks.candidates
+        );
+        engine.process_key('1');
+        assert_eq!(engine.composed_sentence, "thanks");
+
+        // 3. 亞洲軌 ↑ 上箭頭跨聲調／模糊複合詞救援：「答按」➔「答案」
+        engine.reset_buffer();
+        engine.sentence_chars = vec!["答".to_string(), "按".to_string()];
+        engine.composed_sentence = "答按".to_string();
+        engine.cursor_pos = 2;
+        let up_daan = engine.open_up_arrow_candidates();
+        assert!(!up_daan.candidates.is_empty());
+        assert_eq!(
+            up_daan.candidates[0], "答案",
+            "輸入『答按』按上箭頭必由跨聲調複合詞救援首位命中『答案』，實際：{:?}",
+            up_daan.candidates
+        );
+        engine.process_key('1');
+        assert_eq!(engine.composed_sentence, "答案");
+
+        // 4. 亞洲軌 ↑ 上箭頭上下文語法助詞推斷：「可能地答案」➔「可能的答案」
+        engine.reset_buffer();
+        engine.sentence_chars = vec![
+            "可".to_string(),
+            "能".to_string(),
+            "地".to_string(),
+            "答".to_string(),
+            "案".to_string(),
+        ];
+        engine.composed_sentence = "可能地答案".to_string();
+        engine.cursor_pos = 5; // 即使游標在句尾，按 ↑ 亦能智慧定位句中助詞「地」並首推「的」
+        let up_particle = engine.open_up_arrow_candidates();
+        assert!(!up_particle.candidates.is_empty());
+        assert_eq!(
+            up_particle.candidates[0], "的",
+            "『可能地答案』按上箭頭必由上下文語法推斷首推『的』，實際：{:?}",
+            up_particle.candidates
+        );
+        engine.process_key('1');
+        assert_eq!(engine.composed_sentence, "可能的答案");
+
+        // 5. 亞洲輸入法自選循環切換（預設 ["hsu", "japanese"]，亦支援全選 ["hsu", "standard", "et26", "cangjie", "japanese"]）
+        assert_eq!(engine.get_keyboard_mode_badge(), "許");
+        assert_eq!(engine.cycle_keyboard_mode(), "japanese");
+        assert_eq!(engine.get_keyboard_mode_badge(), "日");
+        assert_eq!(engine.cycle_keyboard_mode(), "hsu");
+        assert_eq!(engine.get_keyboard_mode_badge(), "許");
+
+        engine.set_enabled_keyboard_modes(vec![
+            "hsu".to_string(),
+            "standard".to_string(),
+            "et26".to_string(),
+            "cangjie".to_string(),
+            "japanese".to_string(),
+        ]);
+        assert_eq!(engine.cycle_keyboard_mode(), "standard");
+        assert_eq!(engine.get_keyboard_mode_badge(), "注");
+        assert_eq!(engine.cycle_keyboard_mode(), "et26");
+        assert_eq!(engine.get_keyboard_mode_badge(), "倚");
+        assert_eq!(engine.cycle_keyboard_mode(), "cangjie");
+        assert_eq!(engine.get_keyboard_mode_badge(), "倉");
+        assert_eq!(engine.cycle_keyboard_mode(), "japanese");
+        assert_eq!(engine.get_keyboard_mode_badge(), "日");
+        assert_eq!(engine.cycle_keyboard_mode(), "hsu");
+        assert_eq!(engine.get_keyboard_mode_badge(), "許");
+    }
+
+    #[test]
+    fn test_multi_mode_headcode_expansion_ge_3_chars() {
+        use crate::lexicon::LexiconEntry;
+        let mut engine = RuhiEngine::new();
+        engine.lexicon.add_entry(LexiconEntry::new("忠孝東路", "ㄓㄨㄥ ㄒㄧㄠˋ ㄉㄨㄥ ㄌㄨˋ", 1500, "domain", ""));
+        engine.lexicon.add_entry(LexiconEntry::new("台北車站", "ㄊㄞˊ ㄅㄟˇ ㄔㄜ ㄓㄢˋ", 1550, "domain", ""));
+        engine.lexicon.add_entry(LexiconEntry::new("流連忘返", "ㄌㄧㄡˊ ㄌㄧㄢˊ ㄨㄤˋ ㄈㄢˇ", 1500, "core", ""));
+        engine.lexicon.add_entry(LexiconEntry::new("一石二鳥", "ㄧ ㄕˊ ㄦˋ ㄋㄧㄠˇ", 1500, "core", ""));
+        engine.lexicon.add_entry(LexiconEntry::new("砥睿者", "ㄉㄧˇ ㄖㄨㄟˋ ㄓㄜˇ", 1600, "domain", ""));
+        engine.lexicon.add_entry(LexiconEntry::new("邏霸式", "ㄌㄨㄛˊ ㄅㄚˋ ㄕˋ", 1600, "domain", ""));
+        engine.lexicon.add_entry(LexiconEntry::new("自串珠鍊", "ㄗˋ ㄔㄨㄢˋ ㄓㄨ ㄌㄧㄢˋ", 1600, "domain", ""));
+        engine.lexicon.add_entry(LexiconEntry::new("中華民國", "ㄓㄨㄥ ㄏㄨㄚˊ ㄇㄧㄣˊ ㄍㄨㄛˊ", 1600, "core", ""));
+
+        // 1. 許氏雙拼 3~4 字頭碼展開：jcdl ➔ 忠孝東路、tbvj ➔ 台北車站、tbcj ➔ 台北市長、llxf ➔ 流連忘返、ecln ➔ 一石二鳥、zvjl ➔ 自串珠鍊、drj ➔ 砥睿者、lbc ➔ 邏霸式
+        for &(hc, expected) in &[
+            ("jcdl", "忠孝東路"),
+            ("tbvj", "台北車站"),
+            ("tbcj", "台北市長"),
+            ("llxf", "流連忘返"),
+            ("ecln", "一石二鳥"),
+            ("zvjl", "自串珠鍊"),
+            ("jhmg", "中華民國"),
+            ("drj", "砥睿者"),
+            ("lbc", "邏霸式"),
+        ] {
+            engine.reset_buffer();
+            for ch in hc.chars() {
+                engine.process_key(ch);
+            }
+            let up = engine.open_up_arrow_candidates();
+            assert!(
+                up.candidates.contains(&expected.to_string()),
+                "許氏頭碼 `{}` 按上箭頭必包含 `{}`，實際：{:?}",
+                hc,
+                expected,
+                up.candidates
+            );
+            let idx = up.candidates.iter().position(|w| w == expected).unwrap();
+            engine.select_candidate(idx);
+            assert_eq!(engine.composed_sentence, expected);
+        }
+
+        // 2. 黃金門檻驗證（>= 3 字詞）：2 鍵絕不執行二字詞通用頭碼展開，保護許氏雙拼免遭二字頭碼碰撞污染
+        let two_char_hc = engine.lexicon.lookup_multi_char_headcode("tb", "hsu", None, None);
+        assert!(
+            two_char_hc.is_empty(),
+            "2 碼輸入 `tb` 絕不可觸發二字詞通用頭碼展開，實際：{:?}",
+            two_char_hc
+        );
+
+        // 3. 標準大千（standard）：純聲母連打 >= 3 碼自動組詞與上箭頭頭碼展開
+        engine.set_keyboard_mode("standard");
+        for &(keys, expected) in &[
+            ("5v2x", "忠孝東路"), // ㄓㄒㄉㄌ
+            ("w1t5", "台北車站"), // ㄊㄅㄔㄓ
+            ("2b5", "砥睿者"),   // ㄉㄖㄓ
+        ] {
+            engine.reset_buffer();
+            for ch in keys.chars() {
+                engine.process_key(ch);
+            }
+            assert_eq!(
+                engine.composed_sentence, expected,
+                "標準大千純聲母頭碼 `{}` 應自動組出 `{}`，實際：`{}`",
+                keys, expected, engine.composed_sentence
+            );
+        }
+
+        // 4. 倚天 26 鍵（et26）：>= 3 碼上箭頭頭碼展開 (忠孝東路 ㄓㄒㄉㄌ -> j x d l)
+        engine.set_keyboard_mode("et26");
+        engine.reset_buffer();
+        for ch in "jxdl".chars() {
+            engine.process_key(ch);
+        }
+        let et_up = engine.open_up_arrow_candidates();
+        assert!(
+            et_up.candidates.contains(&"忠孝東路".to_string()),
+            "倚天26鍵頭碼 `jxdl` 按上箭頭必包含 `忠孝東路`，實際：{:?}",
+            et_up.candidates
+        );
+
+        // 5. 倉頡模式（cangjie）：>= 3 字倉頡首碼頭碼展開 (ljdr -> 忠孝東路, iljy -> 台北車站, ltrw -> 中華民國)
+        engine.set_keyboard_mode("cangjie");
+        for &(cj_hc, expected) in &[
+            ("ljdr", "忠孝東路"),
+            ("iljy", "台北車站"),
+            ("ltrw", "中華民國"),
+        ] {
+            engine.reset_buffer();
+            for ch in cj_hc.chars() {
+                engine.process_key(ch);
+            }
+            let cj_up = engine.process_key_str("Up");
+            assert!(
+                cj_up.candidates.contains(&expected.to_string()),
+                "倉頡首碼頭碼 `{}` 按上箭頭必包含 `{}`，實際：{:?}",
+                cj_hc,
+                expected,
+                cj_up.candidates
+            );
+        }
+    }
+
+    #[test]
+    fn test_customizable_mode_cycle_and_japanese_engine() {
+        let mut engine = RuhiEngine::new();
+        // 使用者設定只留下許氏鍵盤與日文羅馬字，排除標準大千與倚天26鍵
+        engine.set_enabled_keyboard_modes(vec!["hsu".to_string(), "japanese".to_string()]);
+        assert_eq!(engine.keyboard_mode, "hsu");
+        assert_eq!(engine.get_keyboard_mode_badge(), "許");
+
+        // Ctrl/Shift + Caps Lock 切換至日文模式
+        assert_eq!(engine.cycle_keyboard_mode(), "japanese");
+        assert_eq!(engine.get_keyboard_mode_badge(), "日");
+
+        // 測試日文連打：watashihanihongogasuki -> 私は日本語が好き
+        for ch in "watashihanihongogasuki".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.composed_sentence, "私は日本語が好き");
+
+        // 測試 ↓ 下箭頭切換平假名／片假名／漢字
+        engine.reset_buffer();
+        for ch in "ko-hi-".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.composed_sentence, "コーヒー");
+        let down = engine.process_key_str("Down");
+        assert!(down.candidates.contains(&"コーヒー".to_string()));
+        assert!(down.candidates.contains(&"こーひー".to_string()));
+
+        // 測試 ↑ 上箭頭長句敬語預測：yoroshi -> よろしくお願いします
+        engine.reset_buffer();
+        for ch in "yoroshi".chars() {
+            engine.process_key(ch);
+        }
+        let up = engine.process_key_str("Up");
+        assert!(
+            up.candidates.contains(&"よろしくお願いします".to_string()),
+            "yoroshi 按上箭頭應預測展開『よろしくお願いします』，實際：{:?}",
+            up.candidates
+        );
+        let idx = up.candidates.iter().position(|w| w == "よろしくお願いします").unwrap();
+        engine.select_candidate(idx);
+        assert_eq!(engine.composed_sentence, "よろしくお願いします");
+
+        // 再次切換必直接回到許氏雙拼，絕不經過 standard / et26
+        assert_eq!(engine.cycle_keyboard_mode(), "hsu");
+        assert_eq!(engine.get_keyboard_mode_badge(), "許");
+    }
 }
-
-
-
-
-
-
-

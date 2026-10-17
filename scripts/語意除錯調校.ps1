@@ -1,12 +1,12 @@
 ﻿<#
 .SYNOPSIS
-    如喜輸入法 (RuhI) - 語意除錯與自適應調教工作室進入點 (具備環境自檢與一鍵修復)
+    如喜輸入法 (RuhI) - 語意除錯與自適應調校工作室進入點 (具備環境自檢與一鍵修復)
 .DESCRIPTION
-    啟動如喜輸入法語意調教工具，支援：
+    啟動如喜輸入法語意調校工具，支援：
     1. 環境條件自動偵測：智慧探測 Python 3，過濾微軟商店假替身
     2. 遇缺智慧引導：無 Python 時提供 Windows winget 一鍵自動靜默安裝
     3. 現代化 Web HTML 親和視覺介面 (預設自動彈出瀏覽器)
-    4. 雙句差分比對 (手動輸入錯誤句與更正句調教)
+    4. 雙句差分比對 (手動輸入錯誤句與更正句調校)
     5. 一鍵自適應同步 (讀取輸入座修訂記錄，化一切於無形)
     6. 黃金語料防回歸驗證 (Zero-Regression Golden Check)
 #>
@@ -22,7 +22,7 @@ param(
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::InputEncoding = [System.Text.Encoding]::UTF8
-$Host.UI.RawUI.WindowTitle = '如喜輸入法語意調教工作室 (Ruhi Semantic Tuning Studio)'
+$Host.UI.RawUI.WindowTitle = '如喜輸入法語意調校工作室 (Ruhi Semantic Tuning Studio)'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $TunerScript = Join-Path $ScriptDir 'semantic_tuner.py'
@@ -83,11 +83,11 @@ foreach ($cand in $Candidates) {
 if (-not $ValidPython) {
     Write-Host ''
     Write-Host '========================================================================' -ForegroundColor Cyan
-    Write-Host '  如喜輸入法 (RuhI) · 語意調教工作室 - 系統環境健全度診斷' -ForegroundColor Yellow
+    Write-Host '  如喜輸入法 (RuhI) · 語意調校工作室 - 系統環境健全度診斷' -ForegroundColor Yellow
     Write-Host '========================================================================' -ForegroundColor Cyan
     Write-Host ''
     Write-Host '【診斷報告】偵測到目前 Windows 系統尚未安裝 Python 3 執行環境。' -ForegroundColor Red
-    Write-Host '語意調教工作室之後端語言學分析模組需要 Python 3 作為輕量支援。' -ForegroundColor Gray
+    Write-Host '語意調校工作室之後端語言學分析模組需要 Python 3 作為輕量支援。' -ForegroundColor Gray
     Write-Host ''
     Write-Host '為您提供以下一鍵解決方案：' -ForegroundColor White
     Write-Host '  [1] 一鍵自動安裝 (透過 Windows 內建 winget 自動下載安裝 Python 3.11)' -ForegroundColor Green
@@ -108,7 +108,7 @@ if (-not $ValidPython) {
             # 重新檢查
             if (Test-PythonExe 'python') {
                 $ValidPython = 'python'
-                Write-Host '✅ Python 安裝成功！即將啟動語意調教工作室...' -ForegroundColor Green
+                Write-Host '✅ Python 安裝成功！即將啟動語意調校工作室...' -ForegroundColor Green
                 Start-Sleep -Seconds 2
             } else {
                 Write-Host '安裝已觸發，請在安裝完成後重新啟動本腳本！' -ForegroundColor Yellow
@@ -129,6 +129,20 @@ if (-not $ValidPython) {
         exit
     } else {
         exit
+    }
+}
+
+# ── 2.5 智慧偵測並連帶喚醒本機純綠 AI 引擎 (零手動負擔) ──
+$LocalAiScript = Join-Path $ScriptDir '啟動本地AI服務.ps1'
+if (Test-Path $LocalAiScript) {
+    $runningLlama = Get-Process -Name 'llama-server' -ErrorAction SilentlyContinue
+    if (-not $runningLlama) {
+        Write-Host '偵測到本機純綠 AI 引擎 (Llama + Gemma 2) 尚未運行，正在自動連帶喚醒...' -ForegroundColor Cyan
+        try {
+            & $LocalAiScript
+        } catch {
+            Write-Host "本機 AI 引擎啟動提示：$_" -ForegroundColor DarkGray
+        }
     }
 }
 

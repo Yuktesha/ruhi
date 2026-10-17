@@ -7,12 +7,14 @@ pub mod router;
 pub mod templates;
 pub mod symbols;
 pub mod cangjie;
+pub mod japanese;
 pub mod western;
 pub mod engine;
 
 pub use engine::{EngineResponse, RuhiEngine};
 pub use symbols::SymbolsManager;
 pub use cangjie::CangjieEngine;
+pub use japanese::JapaneseEngine;
 pub use western::WesternEngine;
 
 use std::ffi::{CStr, CString};

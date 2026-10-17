@@ -14,12 +14,14 @@ pub struct CangjieEntry {
 
 pub struct CangjieTable {
     pub map: HashMap<String, Vec<CangjieEntry>>,
+    pub char_head_map: HashMap<char, Vec<char>>,
 }
 
 impl Default for CangjieTable {
     fn default() -> Self {
         let mut table = Self {
             map: HashMap::new(),
+            char_head_map: HashMap::new(),
         };
         table.load_builtin_defaults();
         table
@@ -29,6 +31,56 @@ impl Default for CangjieTable {
 impl CangjieTable {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    fn record_char_head(&mut self, code: &str, hanzi: &str) {
+        if hanzi.chars().count() == 1 {
+            if let (Some(ch), Some(first_code)) = (hanzi.chars().next(), code.chars().next()) {
+                let first_lower = first_code.to_ascii_lowercase();
+                let heads = self.char_head_map.entry(ch).or_default();
+                if !heads.contains(&first_lower) {
+                    heads.push(first_lower);
+                }
+            }
+        }
+    }
+
+    /// 查詢倉頡多字詞頭碼（至少 3 字詞以上）：比對詞庫中每個漢字之倉頡首碼是否吻合 `headcode`
+    pub fn lookup_phrase_headcode(
+        &self,
+        headcode: &str,
+        lexicon: &crate::lexicon::LexiconManager,
+    ) -> Vec<String> {
+        let code_chars: Vec<char> = headcode.trim().to_ascii_lowercase().chars().collect();
+        let target_len = code_chars.len();
+        if target_len < 3 || !code_chars.iter().all(|c| c.is_ascii_lowercase()) {
+            return Vec::new();
+        }
+
+        let mut scored: Vec<(String, u32)> = Vec::new();
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        for entry in &lexicon.entries {
+            if entry.word.chars().count() != target_len {
+                continue;
+            }
+            let matched = entry
+                .word
+                .chars()
+                .zip(code_chars.iter())
+                .all(|(ch, &expected_head)| {
+                    self.char_head_map
+                        .get(&ch)
+                        .map(|heads| heads.contains(&expected_head))
+                        .unwrap_or(false)
+                });
+            if matched && seen.insert(entry.word.clone()) {
+                scored.push((entry.word.clone(), entry.weight));
+            }
+        }
+
+        scored.sort_by(|a, b| b.1.cmp(&a.1));
+        scored.into_iter().take(27).map(|(w, _)| w).collect()
     }
 
     /// 依字母查倉頡 24 基本字根名稱
@@ -97,6 +149,7 @@ impl CangjieTable {
                     1000
                 };
 
+                self.record_char_head(&code, &hanzi);
                 let entries = self.map.entry(code).or_default();
                 // 避免重複加入相同漢字
                 if !entries.iter().any(|e| e.hanzi == hanzi) {
@@ -142,14 +195,40 @@ impl CangjieTable {
             ("tc", "尊", 1100),
             ("g", "一", 800),
             ("git", "弇", 500),
+            // 常見多字地標與成語首碼字根支援
+            ("lmp", "忠", 1100),
+            ("jknd", "孝", 1100),
+            ("dw", "東", 1200),
+            ("rmher", "路", 1200),
+            ("ir", "台", 1200),
+            ("lmp", "北", 1200),
+            ("jwj", "車", 1200),
+            ("ytr", "站", 1100),
+            ("tmtj", "華", 1100),
+            ("rvp", "民", 1200),
+            ("wirm", "國", 1300),
+            ("eyiu", "流", 1100),
+            ("yjj", "連", 1100),
+            ("yp", "忘", 1100),
+            ("yhe", "返", 1100),
+            // 倉頡／速成（首尾碼）與字形重碼消歧代表字例
+            ("wg", "理", 1300), ("wg", "裡", 1200), ("wg", "里", 1150),
+            ("mmu", "頑", 1150), ("mmu", "元", 1100),
+            ("to", "越", 1200), ("to", "月", 1150),
+            ("it", "渡", 1180), ("it", "度", 1150),
+            ("gm", "瓶", 1180), ("gm", "坪", 1150),
+            ("yr", "言", 1250), ("yr", "訁", 400),
         ];
 
         for (code, hanzi, weight) in defaults {
+            self.record_char_head(code, hanzi);
             let entries = self.map.entry(code.to_string()).or_default();
-            entries.push(CangjieEntry {
-                hanzi: hanzi.to_string(),
-                weight,
-            });
+            if !entries.iter().any(|e| e.hanzi == hanzi) {
+                entries.push(CangjieEntry {
+                    hanzi: hanzi.to_string(),
+                    weight,
+                });
+            }
         }
     }
 }

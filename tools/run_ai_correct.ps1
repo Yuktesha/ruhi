@@ -1,4 +1,5 @@
-﻿﻿param(
+﻿# Ruhi AI Correction Tool
+param(
     [string]$Text = '',
     [string]$Backend = 'auto',
     [switch]$Simulate,

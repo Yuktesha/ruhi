@@ -40,6 +40,18 @@ impl<'a> LatticeDAG<'a> {
     }
 
     pub fn build_dag(&self, syllables: &[HsuSyllable], exact_tone: bool) -> HashMap<usize, Vec<LatticeNode>> {
+        let empty_cuts = std::collections::HashSet::new();
+        self.build_dag_with_cuts(syllables, exact_tone, &empty_cuts)
+    }
+
+    /// 構建詞網格圖，並嚴格遵循手動斷詞點（Manual Cuts）約束
+    /// 任何跨越斷詞點（即 i < cut && cut < j）的多字詞一律禁止生成，達成強制斷詞效果
+    pub fn build_dag_with_cuts(
+        &self,
+        syllables: &[HsuSyllable],
+        exact_tone: bool,
+        cut_points: &std::collections::HashSet<usize>,
+    ) -> HashMap<usize, Vec<LatticeNode>> {
         let n = syllables.len();
         let mut dag: HashMap<usize, Vec<LatticeNode>> = HashMap::new();
         for i in 0..n {
@@ -51,6 +63,12 @@ impl<'a> LatticeDAG<'a> {
         for i in 0..n {
             for length in 1..=std::cmp::min(max_word_len, n - i) {
                 let j = i + length;
+
+                // 核心斷詞約束：若詞區間 (i..j) 跨越了任何手動斷詞點（即存在 c 使得 i < c && c < j），嚴禁成詞！
+                if length > 1 && cut_points.iter().any(|&c| i < c && c < j) {
+                    continue;
+                }
+
                 let sub_syls = &syllables[i..j];
 
                 let bpm_str: String = sub_syls.iter()
@@ -69,6 +87,19 @@ impl<'a> LatticeDAG<'a> {
                             let discounted_weight = (entry.weight / 2).max(10);
                             let node = LatticeNode::new(i, j, &entry.word, discounted_weight, &entry.bopomofo);
                             dag.get_mut(&i).unwrap().push(node);
+                        }
+                    } else if length >= 3
+                        && sub_syls.iter().all(|s| s.tone == '1' && s.bopomofo_display().chars().count() == 1)
+                        && sub_syls.iter().any(|s| s.is_pure_initial())
+                    {
+                        // ── 三字詞以上（>= 3 字）注音頭碼自動組詞（如標準大千 ㄓㄒㄉㄌ ➔ 忠孝東路、ㄊㄅㄔㄓ ➔ 台北車站、ㄉㄖㄓ ➔ 砥睿者）──
+                        let bpm_hc: String = sub_syls.iter().map(|s| s.bopomofo_display()).collect();
+                        let hc_entries = self.lexicon.lookup_headcode(&bpm_hc);
+                        for entry in hc_entries {
+                            if entry.word.chars().count() == length {
+                                let node = LatticeNode::new(i, j, &entry.word, entry.weight, &entry.bopomofo);
+                                dag.get_mut(&i).unwrap().push(node);
+                            }
                         }
                     }
                 } else {

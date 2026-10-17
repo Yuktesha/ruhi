@@ -34,6 +34,11 @@ impl HsuSyllable {
         self.initial.is_empty() && self.medial.is_empty() && self.final_part.is_empty()
     }
 
+    /// 判斷是否為未帶介音、韻母且一聲之純聲母音節（供標準大千／頭碼輸入模式判定）
+    pub fn is_pure_initial(&self) -> bool {
+        !self.initial.is_empty() && self.medial.is_empty() && self.final_part.is_empty() && self.tone == '1'
+    }
+
     /// 檢驗該音節是否為符合現代漢語規範之合法基礎音節（嚴格抵禦如「ㄊㄛ」、「ㄅㄡ」等非漢語音節劫掠）
     pub fn is_mandarin_valid(&self) -> bool {
         let base = format!("{}{}{}", self.initial, self.medial, self.final_part);
@@ -41,6 +46,73 @@ impl HsuSyllable {
             return false;
         }
         crate::fsm::mandarin_syllables::is_valid_mandarin_syllable(&base)
+    }
+
+    /// 從標準注音顯示字串（如「ㄕㄨ」、「ㄖㄨˋ」、「ㄌㄧㄝˋ」、「˙ㄉㄜ」）還原解析出 HsuSyllable
+    pub fn from_bopomofo_display(bpm: &str) -> Option<Self> {
+        let trimmed = bpm.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+
+        let mut tone = '1';
+        let mut text = trimmed;
+
+        if text.starts_with('˙') {
+            tone = '5';
+            text = &text['˙'.len_utf8()..];
+        } else if text.ends_with('ˊ') {
+            tone = '2';
+            text = &text[..text.len() - 'ˊ'.len_utf8()];
+        } else if text.ends_with('ˇ') {
+            tone = '3';
+            text = &text[..text.len() - 'ˇ'.len_utf8()];
+        } else if text.ends_with('ˋ') {
+            tone = '4';
+            text = &text[..text.len() - 'ˋ'.len_utf8()];
+        }
+
+        let chars: Vec<char> = text.chars().collect();
+        if chars.is_empty() {
+            return None;
+        }
+
+        let is_initial = |c: char| matches!(c, 'ㄅ'..='ㄙ');
+        let is_medial = |c: char| matches!(c, 'ㄧ' | 'ㄨ' | 'ㄩ');
+
+        let mut init = String::new();
+        let mut med = String::new();
+        let mut fin = String::new();
+
+        let mut idx = 0;
+        if idx < chars.len() && is_initial(chars[idx]) {
+            init.push(chars[idx]);
+            idx += 1;
+        }
+        if idx < chars.len() && is_medial(chars[idx]) {
+            if idx + 1 < chars.len() {
+                med.push(chars[idx]);
+                idx += 1;
+            } else if init.is_empty() {
+                med.push(chars[idx]);
+                idx += 1;
+            } else {
+                // 具有聲母且後面無其他韻母，若為 ㄧ/ㄨ/ㄩ，許氏視為介母
+                med.push(chars[idx]);
+                idx += 1;
+            }
+        }
+        while idx < chars.len() {
+            fin.push(chars[idx]);
+            idx += 1;
+        }
+
+        Some(Self {
+            initial: init,
+            medial: med,
+            final_part: fin,
+            tone,
+        })
     }
 }
 
@@ -52,6 +124,7 @@ pub struct HsuFSM {
     pub cur_medial: String,
     pub cur_final: String,
     pub cur_tone: char,
+    pub is_standard_layout: bool,
 }
 
 impl HsuFSM {
@@ -69,6 +142,7 @@ impl HsuFSM {
         self.cur_medial.clear();
         self.cur_final.clear();
         self.cur_tone = '1';
+        self.is_standard_layout = false;
     }
 
     pub fn has_pending(&self) -> bool {
@@ -128,6 +202,140 @@ impl HsuFSM {
 
     fn find_tone(k: char) -> Option<char> {
         TONE_KEYS.iter().find(|&&(c, _)| c == k).map(|&(_, t)| t)
+    }
+
+    pub fn parse_key_with_layout(&mut self, key: char, layout: &str) -> bool {
+        self.is_standard_layout = matches!(layout, "standard" | "daikien");
+        match layout {
+            "standard" | "daikien" => self.parse_standard_key(key),
+            "et26" | "eten26" => self.parse_et26_key(key),
+            _ => self.parse_hsu_key(key),
+        }
+    }
+
+    pub fn parse_standard_key(&mut self, key: char) -> bool {
+        self.is_standard_layout = true;
+        let k = key.to_ascii_lowercase();
+        let tone = match k {
+            ' ' => Some('1'),
+            '6' => Some('2'),
+            '3' => Some('3'),
+            '4' => Some('4'),
+            '7' => Some('5'),
+            _ => None,
+        };
+        if let Some(t) = tone {
+            if self.has_pending() {
+                self.commit_current(t);
+                self.raw_keys.push(k);
+                return true;
+            }
+            return false;
+        }
+        let init = match k {
+            '1' => Some("ㄅ"), 'q' => Some("ㄆ"), 'a' => Some("ㄇ"), 'z' => Some("ㄈ"),
+            '2' => Some("ㄉ"), 'w' => Some("ㄊ"), 's' => Some("ㄋ"), 'x' => Some("ㄌ"),
+            'e' => Some("ㄍ"), 'd' => Some("ㄎ"), 'c' => Some("ㄏ"),
+            'r' => Some("ㄐ"), 'f' => Some("ㄑ"), 'v' => Some("ㄒ"),
+            '5' => Some("ㄓ"), 't' => Some("ㄔ"), 'g' => Some("ㄕ"), 'b' => Some("ㄖ"),
+            'y' => Some("ㄗ"), 'h' => Some("ㄘ"), 'n' => Some("ㄙ"),
+            _ => None,
+        };
+        let med = match k {
+            'u' => Some("ㄧ"), 'j' => Some("ㄨ"), 'm' => Some("ㄩ"),
+            _ => None,
+        };
+        let fin = match k {
+            '8' => Some("ㄚ"), 'i' => Some("ㄛ"), 'k' => Some("ㄜ"), ',' => Some("ㄝ"),
+            '9' => Some("ㄞ"), 'o' => Some("ㄟ"), 'l' => Some("ㄠ"), '.' => Some("ㄡ"),
+            '0' => Some("ㄢ"), 'p' => Some("ㄣ"), ';' => Some("ㄤ"), '/' => Some("ㄥ"),
+            '-' => Some("ㄦ"),
+            _ => None,
+        };
+        if let Some(iv) = init {
+            if !self.cur_initial.is_empty() || !self.cur_medial.is_empty() || !self.cur_final.is_empty() {
+                self.commit_current('1');
+            }
+            self.cur_initial = iv.to_string();
+            self.raw_keys.push(k);
+            return true;
+        }
+        if let Some(mv) = med {
+            if !self.cur_medial.is_empty() || !self.cur_final.is_empty() {
+                self.commit_current('1');
+            }
+            self.cur_medial = mv.to_string();
+            self.raw_keys.push(k);
+            return true;
+        }
+        if let Some(fv) = fin {
+            if !self.cur_final.is_empty() || (fv == "ㄦ" && (!self.cur_initial.is_empty() || !self.cur_medial.is_empty())) {
+                self.commit_current('1');
+            }
+            self.cur_final = fv.to_string();
+            self.raw_keys.push(k);
+            return true;
+        }
+        false
+    }
+
+    pub fn parse_et26_key(&mut self, key: char) -> bool {
+        let k = key.to_ascii_lowercase();
+        if self.has_pending() {
+            let tone = match k {
+                ' ' => Some('1'),
+                'f' if !self.cur_final.is_empty() || !self.cur_medial.is_empty() => Some('2'),
+                'd' if !self.cur_final.is_empty() || !self.cur_medial.is_empty() => Some('3'),
+                'j' if !self.cur_final.is_empty() || !self.cur_medial.is_empty() => Some('4'),
+                'k' if !self.cur_final.is_empty() || !self.cur_medial.is_empty() => Some('5'),
+                _ => None,
+            };
+            if let Some(t) = tone {
+                self.commit_current(t);
+                self.raw_keys.push(k);
+                return true;
+            }
+        }
+        if !self.has_pending() {
+            let init = match k {
+                'b' => Some("ㄅ"), 'p' => Some("ㄆ"), 'm' => Some("ㄇ"), 'f' => Some("ㄈ"),
+                'd' => Some("ㄉ"), 't' => Some("ㄊ"), 'n' => Some("ㄋ"), 'l' => Some("ㄌ"),
+                'v' => Some("ㄍ"), 'k' => Some("ㄎ"), 'h' => Some("ㄏ"),
+                'g' => Some("ㄐ"), 'c' => Some("ㄑ"), 'x' => Some("ㄒ"),
+                'j' => Some("ㄓ"), 'q' => Some("ㄔ"), 'w' => Some("ㄕ"), 'r' => Some("ㄖ"),
+                'z' => Some("ㄗ"), 'a' => Some("ㄘ"), 's' => Some("ㄙ"),
+                _ => None,
+            };
+            if let Some(iv) = init {
+                self.cur_initial = iv.to_string();
+                self.raw_keys.push(k);
+                return true;
+            }
+        }
+        let med = match k {
+            'e' => Some("ㄧ"), 'u' => Some("ㄨ"), 'i' if self.cur_medial.is_empty() => Some("ㄩ"),
+            _ => None,
+        };
+        if let Some(mv) = med {
+            if self.cur_final.is_empty() {
+                self.cur_medial = mv.to_string();
+                self.raw_keys.push(k);
+                return true;
+            }
+        }
+        let fin = match k {
+            'a' => Some("ㄚ"), 'o' => Some("ㄛ"), 'r' => Some("ㄜ"), 'w' => Some("ㄝ"),
+            'i' => Some("ㄞ"), 'q' => Some("ㄟ"), 'z' => Some("ㄠ"), 'x' => Some("ㄡ"),
+            'm' => Some("ㄢ"), 'n' => Some("ㄣ"), 't' => Some("ㄤ"), 'l' => Some("ㄥ"),
+            'h' => Some("ㄦ"),
+            _ => None,
+        };
+        if let Some(fv) = fin {
+            self.cur_final = fv.to_string();
+            self.raw_keys.push(k);
+            return true;
+        }
+        false
     }
 
     pub fn parse_hsu_key(&mut self, key: char) -> bool {
@@ -313,12 +521,21 @@ impl HsuFSM {
 
     pub fn commit_current(&mut self, tone: char) {
         let final_tone = if self.cur_tone != '1' { self.cur_tone } else { tone };
-        let syl = Self::normalize_syllable(
-            self.cur_initial.clone(),
-            self.cur_medial.clone(),
-            self.cur_final.clone(),
-            final_tone,
-        );
+        let syl = if self.is_standard_layout {
+            HsuSyllable::new(
+                &self.cur_initial,
+                &self.cur_medial,
+                &self.cur_final,
+                final_tone,
+            )
+        } else {
+            Self::normalize_syllable(
+                self.cur_initial.clone(),
+                self.cur_medial.clone(),
+                self.cur_final.clone(),
+                final_tone,
+            )
+        };
         self.syllables.push(syl);
         self.cur_initial.clear();
         self.cur_medial.clear();
@@ -342,12 +559,21 @@ impl HsuFSM {
     pub fn get_all_syllables(&self) -> Vec<HsuSyllable> {
         let mut res = self.syllables.clone();
         if self.has_pending() {
-            let syl = Self::normalize_syllable(
-                self.cur_initial.clone(),
-                self.cur_medial.clone(),
-                self.cur_final.clone(),
-                self.cur_tone,
-            );
+            let syl = if self.is_standard_layout {
+                HsuSyllable::new(
+                    &self.cur_initial,
+                    &self.cur_medial,
+                    &self.cur_final,
+                    self.cur_tone,
+                )
+            } else {
+                Self::normalize_syllable(
+                    self.cur_initial.clone(),
+                    self.cur_medial.clone(),
+                    self.cur_final.clone(),
+                    self.cur_tone,
+                )
+            };
             res.push(syl);
         }
         res

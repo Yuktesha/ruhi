@@ -6,6 +6,8 @@ Cargo.lock
 # Binary outputs & libraries
 dist/
 /data/
+scripts/data/
+scripts/user_dict.tsv
 *.exe
 *.dll
 *.so

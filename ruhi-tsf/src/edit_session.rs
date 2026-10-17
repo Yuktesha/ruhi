@@ -169,6 +169,30 @@ impl ITfEditSession_Impl for RuhiEditSession_Impl {
                                         let mut s2 = 0i32;
                                         let _ = caret_range.ShiftEnd(ec, (u16_end - u16_start) as i32, &mut s2, std::ptr::null());
 
+                                        // 為選取範圍覆寫 TSF TF_ATTR_TARGET_CONVERTED 高亮顯示屬性（確保 LibreOffice Writer 行內預編輯呈現鮮明藍底白字標記）
+                                        static ATOM_RUHI_SEL_ATTR: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+                                        let mut sel_atom = ATOM_RUHI_SEL_ATTR.load(std::sync::atomic::Ordering::Relaxed);
+                                        if sel_atom == 0 {
+                                            if let Ok(cat_mgr) = windows::Win32::System::Com::CoCreateInstance::<_, ITfCategoryMgr>(
+                                                &CLSID_TF_CategoryMgr,
+                                                None,
+                                                windows::Win32::System::Com::CLSCTX_INPROC_SERVER,
+                                            ) {
+                                                if let Ok(a) = cat_mgr.RegisterGUID(&crate::guid::GUID_RUHI_SELECTION_DISPLAY_ATTR) {
+                                                    sel_atom = a;
+                                                    ATOM_RUHI_SEL_ATTR.store(sel_atom, std::sync::atomic::Ordering::Relaxed);
+                                                }
+                                            }
+                                        }
+                                        if sel_atom != 0 {
+                                            if let Ok(prop) = self.context.GetProperty(&crate::guid::GUID_PROP_ATTRIBUTE) {
+                                                if let Ok(sel_attr_range) = caret_range.Clone() {
+                                                    let var = windows_core::VARIANT::from(sel_atom as i32);
+                                                    let _ = prop.SetValue(ec, &sel_attr_range, &var);
+                                                }
+                                            }
+                                        }
+
                                         // 利用 TSF 標準 ITfContextView 取得當前應用程式的光標螢幕坐標
                                         if let Ok(view) = self.context.GetActiveView() {
                                             if let Ok(probe_range) = caret_range.Clone() {
@@ -275,31 +299,43 @@ impl ITfEditSession_Impl for RuhiEditSession_Impl {
                         let mut rc = windows::Win32::Foundation::RECT::default();
                         let mut f_clipped = windows::Win32::Foundation::BOOL(0);
                         let mut probed = false;
-                        if let Ok(probe_range) = unsafe { range.Clone() } {
-                            let mut s = 0i32;
-                            let _ = unsafe { probe_range.ShiftEnd(ec, 1, &mut s, std::ptr::null()) };
-                            if s > 0 && unsafe { view.GetTextExt(ec, &probe_range, &mut rc, &mut f_clipped) }.is_ok() {
-                                if rc.left != 0 || rc.top != 0 || rc.bottom != 0 {
-                                    crate::service::set_last_caret_pos(rc.left, rc.bottom + 4);
-                                    probed = true;
+
+                        // 1. 優先直接探測當前 Selection Range（微軟 TSF 標準：Collapsed Range 會直接返回實體 Caret 像素矩形！）
+                        // 這能精確捕捉空行、換行、滑鼠隨處點擊的即時座標，絕不因向左移位而跳回上一行！
+                        if unsafe { view.GetTextExt(ec, &range, &mut rc, &mut f_clipped) }.is_ok() {
+                            if rc.left != 0 || rc.top != 0 || rc.bottom != 0 {
+                                crate::logger::log(&format!("ProbeCaret direct range TextExt: ({}, {})", rc.left, rc.bottom + 4));
+                                crate::service::set_last_caret_pos(rc.left, rc.bottom + 4);
+                                probed = true;
+                            }
+                        }
+
+                        // 2. 備援：若直接探測無果，嘗試向後延伸 1 字元
+                        if !probed {
+                            if let Ok(probe_range) = unsafe { range.Clone() } {
+                                let mut s = 0i32;
+                                let _ = unsafe { probe_range.ShiftEnd(ec, 1, &mut s, std::ptr::null()) };
+                                if s > 0 && unsafe { view.GetTextExt(ec, &probe_range, &mut rc, &mut f_clipped) }.is_ok() {
+                                    if rc.left != 0 || rc.top != 0 || rc.bottom != 0 {
+                                        crate::logger::log(&format!("ProbeCaret ShiftEnd TextExt: ({}, {})", rc.left, rc.bottom + 4));
+                                        crate::service::set_last_caret_pos(rc.left, rc.bottom + 4);
+                                        probed = true;
+                                    }
                                 }
                             }
                         }
+
+                        // 3. 備援：若仍無果，嘗試向前延伸 1 字元
                         if !probed {
                             if let Ok(probe_range) = unsafe { range.Clone() } {
                                 let mut s = 0i32;
                                 let _ = unsafe { probe_range.ShiftStart(ec, -1, &mut s, std::ptr::null()) };
                                 if s != 0 && unsafe { view.GetTextExt(ec, &probe_range, &mut rc, &mut f_clipped) }.is_ok() {
                                     if rc.left != 0 || rc.top != 0 || rc.bottom != 0 {
+                                        crate::logger::log(&format!("ProbeCaret ShiftStart TextExt: ({}, {})", rc.right, rc.bottom + 4));
                                         crate::service::set_last_caret_pos(rc.right, rc.bottom + 4);
-                                        probed = true;
                                     }
                                 }
-                            }
-                        }
-                        if !probed && unsafe { view.GetTextExt(ec, &range, &mut rc, &mut f_clipped) }.is_ok() {
-                            if rc.left != 0 || rc.top != 0 || rc.bottom != 0 {
-                                crate::service::set_last_caret_pos(rc.left, rc.bottom + 4);
                             }
                         }
                     }

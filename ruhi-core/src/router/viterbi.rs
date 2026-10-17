@@ -83,14 +83,58 @@ impl ViterbiRouter {
                     for (prev_idx, prev_state) in trellis[i].iter().enumerate() {
                         let trans_bonus = if let Some(ref mut engine) = transitions {
                             if !prev_state.node.word.is_empty() {
-                                engine.calculate_transition_bonus(
+                                let mut b = engine.calculate_transition_bonus(
                                     &prev_state.node.word,
                                     &prev_state.node.bopomofo,
                                     &node.word,
                                     &node.bopomofo,
-                                )
+                                );
+
+                                // Layer 3: 沿 trellis 的 prev_boundary 與 prev_state_idx 往前輕量回溯最多 4~5 個前驅詞（栈上固定緩衝陣列，零 Heap 配置）
+                                let mut lookback_buf: [&str; 5] = [""; 5];
+                                let mut lb_count = 0;
+                                lookback_buf[4 - lb_count] = prev_state.node.word.as_str();
+                                lb_count += 1;
+
+                                let mut cur_b = prev_state.prev_boundary;
+                                let mut cur_s = prev_state.prev_state_idx;
+                                while lb_count < 5 && cur_b > 0 {
+                                    let st = &trellis[cur_b][cur_s];
+                                    if !st.node.word.is_empty() {
+                                        lookback_buf[4 - lb_count] = st.node.word.as_str();
+                                        lb_count += 1;
+                                    }
+                                    if st.prev_boundary == cur_b && st.prev_state_idx == cur_s {
+                                        break;
+                                    }
+                                    cur_b = st.prev_boundary;
+                                    cur_s = st.prev_state_idx;
+                                }
+                                if lb_count < 5 && cur_b == 0 && !trellis[0].is_empty() {
+                                    let st0 = &trellis[0][0];
+                                    if !st0.node.word.is_empty() {
+                                        lookback_buf[4 - lb_count] = st0.node.word.as_str();
+                                        lb_count += 1;
+                                    }
+                                }
+                                let lookback_slice = &lookback_buf[5 - lb_count..5];
+                                b += engine.calculate_vo_lookback_bonus(lookback_slice, &node.word);
+                                b += engine.calculate_hierarchical_construction_bonus(
+                                    lookback_slice,
+                                    &node.word,
+                                    &node.bopomofo,
+                                    j,
+                                    dag,
+                                );
+                                b
                             } else {
-                                0.0
+                                engine.calculate_hierarchical_construction_bonus(
+                                    &[],
+                                    &node.word,
+                                    &node.bopomofo,
+                                    j,
+                                    dag,
+                                )
                             }
                         } else {
                             0.0
@@ -124,7 +168,7 @@ impl ViterbiRouter {
                 }
             }
 
-            // 束搜尋剪枝 (Beam Search Pruning)：保留每一邊界最高分前 32 個狀態，確保效能與內存安全
+            // 束搜尋剪枝 (Beam Search Pruning)：保留每一邊界最高分前 32 個狀態，確保效能與記憶體安全
             if trellis[i + 1].len() > 32 {
                 trellis[i + 1].sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
                 trellis[i + 1].truncate(32);

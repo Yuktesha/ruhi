@@ -172094,3 +172094,6 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 蚠	ㄈㄣˊ	100	mcbpmf_char	base
 馩	ㄈㄣˊ	100	mcbpmf_char	base
 覅	ㄈㄧㄠˋ	100	mcbpmf_char	base
+輸入列	ㄕㄨ ㄖㄨˋ ㄌㄧㄝˋ	520	mcbpmf	occ=500
+輸入座	ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ	550	mcbpmf	occ=600
+輸入框	ㄕㄨ ㄖㄨˋ ㄎㄨㄤ	520	mcbpmf	occ=500

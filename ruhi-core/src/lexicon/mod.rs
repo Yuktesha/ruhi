@@ -1,3 +1,3 @@
 pub mod manager;
 
-pub use manager::{LexiconEntry, LexiconManager};
+pub use manager::{LexiconEntry, LexiconManager, WatchedLexiconFile};

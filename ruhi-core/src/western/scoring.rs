@@ -167,6 +167,242 @@ impl WesternConfidenceScorer {
             _ => vec![text.to_string()],
         }
     }
+
+    /// 歐文多語系（英／法／西／德）上下文語法同音詞與重音符消歧器
+    /// (Contextual Homophone, Confusable & Diacritic Disambiguator)
+    /// 地位等同於華語的「的／得／地」、「在／再」二階構式消歧：
+    /// 依據前驅詞 (`prev_token`) 與後繼詞 (`next_token`) 推導最適合的語法詞形。
+    pub fn rank_contextual_confusables(
+        &self,
+        prev_token: &str,
+        token: &str,
+        next_token: &str,
+    ) -> Vec<(String, f64, &'static str)> {
+        let p = prev_token.trim().to_ascii_lowercase();
+        let t = token.trim().to_ascii_lowercase();
+        let n = next_token.trim().to_ascii_lowercase();
+        let mut results: Vec<(String, f64, &'static str)> = Vec::new();
+
+        match t.as_str() {
+            // 1. 英文三元同音構式：their / there / they're
+            "their" | "there" | "they're" | "theyre" | "thier" => {
+                let is_existential_or_locative = matches!(
+                    n.as_str(),
+                    "is" | "are" | "was" | "were" | "has" | "have" | "will" | "can" | "could"
+                        | "should" | "would" | "may" | "might" | "seems" | "appears"
+                ) || (n.is_empty() && matches!(
+                    p.as_str(),
+                    "in" | "over" | "up" | "down" | "out" | "go" | "went" | "stay" | "from" | "right"
+                ));
+                let is_contraction_they_are = (n.len() > 4 && n.ends_with("ing"))
+                    || matches!(
+                        n.as_str(),
+                        "a" | "an" | "the" | "not" | "so" | "very" | "too" | "quite" | "still"
+                            | "already" | "always" | "never" | "right" | "wrong" | "ready"
+                            | "here" | "there" | "happy" | "sure" | "able" | "welcome"
+                    );
+                if is_existential_or_locative {
+                    results.push(("there".to_string(), 96.0, "Existential/Locative Construction [there + be / prep + there]"));
+                    results.push(("their".to_string(), 70.0, "Possessive Determiner"));
+                    results.push(("they're".to_string(), 68.0, "Subject-Copula Contraction"));
+                } else if is_contraction_they_are {
+                    results.push(("they're".to_string(), 96.0, "Subject-Copula Contraction [they're + V-ing/Adj/Art]"));
+                    results.push(("their".to_string(), 70.0, "Possessive Determiner"));
+                    results.push(("there".to_string(), 68.0, "Existential/Locative Adverb"));
+                } else {
+                    results.push(("their".to_string(), 95.0, "Possessive Determiner Construction [their + Noun]"));
+                    results.push(("there".to_string(), 72.0, "Existential/Locative Adverb"));
+                    results.push(("they're".to_string(), 70.0, "Subject-Copula Contraction"));
+                }
+            }
+
+            // 2. 英文雙元同音構式：your / you're
+            "your" | "you're" | "youre" => {
+                let is_contraction_you_are = (n.len() > 4 && n.ends_with("ing"))
+                    || matches!(
+                        n.as_str(),
+                        "welcome" | "right" | "wrong" | "sure" | "ready" | "not" | "so" | "very"
+                            | "too" | "quite" | "still" | "already" | "always" | "never" | "a"
+                            | "an" | "the" | "here" | "there" | "invited" | "done" | "good" | "great"
+                    );
+                if is_contraction_you_are {
+                    results.push(("you're".to_string(), 96.0, "Subject-Copula Contraction [you're + Adj/V-ing/Art]"));
+                    results.push(("your".to_string(), 70.0, "Possessive Determiner"));
+                } else {
+                    results.push(("your".to_string(), 95.0, "Possessive Determiner Construction [your + Noun]"));
+                    results.push(("you're".to_string(), 70.0, "Subject-Copula Contraction"));
+                }
+            }
+
+            // 3. 英文雙元同音構式：its / it's
+            "its" | "it's" | "its'" => {
+                let is_contraction_it_is = (n.len() > 4 && n.ends_with("ing"))
+                    || matches!(
+                        n.as_str(),
+                        "a" | "an" | "the" | "not" | "so" | "very" | "too" | "quite" | "still"
+                            | "already" | "always" | "never" | "been" | "gone" | "done" | "time"
+                            | "ok" | "okay" | "fine" | "great" | "good" | "bad" | "hard" | "easy"
+                            | "important" | "necessary" | "clear" | "true" | "false" | "only" | "just"
+                    );
+                if is_contraction_it_is {
+                    results.push(("it's".to_string(), 96.0, "Pronoun-Copula Contraction [it's + Art/Adj/Adv/V-ing]"));
+                    results.push(("its".to_string(), 70.0, "Possessive Determiner"));
+                } else {
+                    results.push(("its".to_string(), 95.0, "Possessive Determiner Construction [its + Noun/own]"));
+                    results.push(("it's".to_string(), 70.0, "Pronoun-Copula Contraction"));
+                }
+            }
+
+            // 4. 英文比較級連詞 vs 時間副詞：than / then
+            "than" | "then" => {
+                let is_comparative_prev = matches!(
+                    p.as_str(),
+                    "more" | "less" | "better" | "worse" | "faster" | "slower" | "higher" | "lower"
+                        | "larger" | "smaller" | "bigger" | "greater" | "older" | "younger"
+                        | "easier" | "harder" | "sooner" | "later" | "rather" | "other" | "different"
+                ) || (p.len() > 4
+                    && p.ends_with("er")
+                    && !matches!(p.as_str(), "under" | "over" | "after" | "never" | "ever" | "water" | "paper" | "order" | "power" | "number" | "member" | "server" | "folder" | "buffer" | "router"));
+                if is_comparative_prev {
+                    results.push(("than".to_string(), 96.0, "Comparative Subordinator Construction [Comparative + than]"));
+                    results.push(("then".to_string(), 68.0, "Temporal Adverb"));
+                } else {
+                    results.push(("then".to_string(), 94.0, "Temporal Sequence Adverb Construction [then]"));
+                    results.push(("than".to_string(), 72.0, "Comparative Subordinator"));
+                }
+            }
+
+            // 5. 英文及物動詞 vs 名詞：affect / effect
+            "affect" | "effect" => {
+                let is_verb_ctx = matches!(
+                    p.as_str(),
+                    "will" | "would" | "can" | "could" | "may" | "might" | "should" | "must"
+                        | "does" | "did" | "do" | "not" | "don't" | "doesn't" | "didn't" | "won't"
+                        | "to" | "directly" | "adversely" | "negatively" | "positively" | "significantly"
+                );
+                let is_noun_ctx = matches!(
+                    p.as_str(),
+                    "the" | "an" | "this" | "that" | "no" | "any" | "some" | "side" | "positive"
+                        | "negative" | "ripple" | "net" | "direct" | "in" | "into" | "take" | "takes" | "took"
+                );
+                if is_verb_ctx && !is_noun_ctx {
+                    results.push(("affect".to_string(), 96.0, "Transitive Verb Construction [Modal/Aux/to + affect]"));
+                    results.push(("effect".to_string(), 70.0, "Noun"));
+                } else if is_noun_ctx {
+                    results.push(("effect".to_string(), 96.0, "Nominal Head Construction [Det/Adj/Prep + effect]"));
+                    results.push(("affect".to_string(), 70.0, "Verb"));
+                } else {
+                    results.push((t.clone(), 85.0, "Lexical Default"));
+                }
+            }
+
+            // 6. 英文介詞/不定式標記 vs 程度副詞：to / too
+            "to" | "too" => {
+                let is_degree_too = matches!(
+                    n.as_str(),
+                    "much" | "many" | "late" | "early" | "long" | "short" | "far" | "fast" | "slow"
+                        | "high" | "low" | "big" | "small" | "hard" | "easy" | "old" | "young"
+                        | "bad" | "good" | "expensive" | "difficult" | "complex" | "tired" | "busy"
+                ) || (p == "me" && n.is_empty());
+                if is_degree_too {
+                    results.push(("too".to_string(), 96.0, "Degree/Additive Adverb Construction [too + Adj/Quantifier]"));
+                    results.push(("to".to_string(), 70.0, "Preposition / Infinitive Marker"));
+                } else {
+                    results.push(("to".to_string(), 94.0, "Preposition / Infinitive Marker [to + V/NP]"));
+                    results.push(("too".to_string(), 70.0, "Degree Adverb"));
+                }
+            }
+
+            // 7. 法文語法重音消歧：a (助動詞 avoir) vs à (介詞)
+            "a" | "à" => {
+                let is_french_prep_a = matches!(
+                    n.as_str(),
+                    "la" | "le" | "les" | "un" | "une" | "paris" | "temps" | "partir" | "côté"
+                        | "cote" | "cause" | "travers" | "nouveau" | "bientôt" | "bientot" | "demain"
+                        | "tout" | "tous" | "toutes"
+                ) || matches!(p.as_str(), "jusqu'" | "grâce" | "grace" | "quant");
+                let is_french_aux_a = matches!(p.as_str(), "il" | "elle" | "on" | "qui");
+                if is_french_prep_a {
+                    results.push(("à".to_string(), 96.0, "French Preposition Construction [à + la/le/NP]"));
+                    results.push(("a".to_string(), 70.0, "Auxiliary / Article"));
+                } else if is_french_aux_a {
+                    results.push(("a".to_string(), 95.0, "French Auxiliary Verb Construction [il/elle/on + a]"));
+                    results.push(("à".to_string(), 70.0, "French Preposition"));
+                }
+            }
+
+            // 8. 法文語法重音消歧：ou (或) vs où (哪裡/何時)
+            "ou" | "où" => {
+                let is_french_where = matches!(
+                    p.as_str(),
+                    "là" | "la" | "par" | "dans" | "moment" | "époque" | "epoque" | "cas" | "pays"
+                        | "ville" | "jour" | "endroit" | "monde"
+                ) || matches!(n.as_str(), "es" | "est" | "sont" | "vas" | "allez" | "il" | "elle" | "tu" | "vous");
+                if is_french_where {
+                    results.push(("où".to_string(), 96.0, "French Relative/Interrogative Locative Pronoun [où]"));
+                    results.push(("ou".to_string(), 72.0, "French Disjunctive Conjunction"));
+                } else {
+                    results.push(("ou".to_string(), 92.0, "French Disjunctive Conjunction [A ou B]"));
+                    results.push(("où".to_string(), 75.0, "French Locative Pronoun"));
+                }
+            }
+
+            // 9. 法文語法重音消歧：sur (在...上) vs sûr (確定的，如 bien sûr)
+            "sur" | "sûr" => {
+                if matches!(p.as_str(), "bien" | "tout" | "très" | "tres" | "plus" | "moins" | "être" | "etre" | "est" | "suis") {
+                    results.push(("sûr".to_string(), 96.0, "French Predicative Adjective Construction [bien/très + sûr]"));
+                    results.push(("sur".to_string(), 70.0, "French Preposition"));
+                } else {
+                    results.push(("sur".to_string(), 94.0, "French Preposition [sur + Det/NP]"));
+                    results.push(("sûr".to_string(), 70.0, "French Adjective"));
+                }
+            }
+
+            // 10. 西班牙文語法重音消歧：tu (你的) vs tú (你)、el (定冠詞) vs él (他)、mas (但) vs más (更)
+            "tu" | "tú" => {
+                if matches!(
+                    n.as_str(),
+                    "eres" | "estás" | "estas" | "tienes" | "puedes" | "quieres" | "sabes" | "vas" | "haces" | "dices"
+                ) {
+                    results.push(("tú".to_string(), 96.0, "Spanish Subject Pronoun Construction [tú + Verb]"));
+                    results.push(("tu".to_string(), 70.0, "Spanish Possessive Determiner"));
+                } else {
+                    results.push(("tu".to_string(), 94.0, "Spanish Possessive Determiner [tu + Noun]"));
+                    results.push(("tú".to_string(), 72.0, "Spanish Subject Pronoun"));
+                }
+            }
+            "el" | "él" => {
+                if matches!(
+                    p.as_str(),
+                    "para" | "por" | "con" | "sin" | "contra" | "sobre" | "entre" | "hacia" | "según" | "segun"
+                ) {
+                    results.push(("él".to_string(), 96.0, "Spanish Prepositional Pronoun Construction [Prep + él]"));
+                    results.push(("el".to_string(), 70.0, "Spanish Definite Article"));
+                } else {
+                    results.push(("el".to_string(), 94.0, "Spanish Definite Article [el + Noun]"));
+                    results.push(("él".to_string(), 70.0, "Spanish Personal Pronoun"));
+                }
+            }
+            "mas" | "más" => {
+                if matches!(
+                    n.as_str(),
+                    "tarde" | "bien" | "grande" | "importante" | "rápido" | "rapido" | "fácil"
+                        | "facil" | "allá" | "alla" | "menos" | "tiempo" | "gente" | "dinero"
+                        | "veces" | "que" | "de"
+                ) || matches!(p.as_str(), "mucho" | "nada" | "algo" | "poco" | "uno" | "vez")
+                {
+                    results.push(("más".to_string(), 96.0, "Spanish Comparative/Quantitative Adverb [más + Adj/Adv/que]"));
+                    results.push(("mas".to_string(), 68.0, "Spanish Adversative Conjunction"));
+                } else {
+                    results.push(("más".to_string(), 90.0, "Spanish Quantitative Adverb"));
+                    results.push(("mas".to_string(), 75.0, "Spanish Conjunction"));
+                }
+            }
+            _ => {}
+        }
+
+        results
+    }
 }
 
 #[cfg(test)]
@@ -204,5 +440,62 @@ mod tests {
         assert!(scorer.score_token("celd", &lex) <= 0.05, "celd (形) 絕不可被評為英文");
         assert!(scorer.score_token("vld", &lex) <= 0.05, "vld (成) 絕不可被評為英文");
         assert!(scorer.score_token("jjj", &lex) <= 0.02, "連續重複子音絕不可被評為英文");
+    }
+
+    #[test]
+    fn test_western_contextual_confusables_disambiguation() {
+        let scorer = WesternConfidenceScorer::new();
+
+        // 1. 英文 their / there / they're
+        let r_there = scorer.rank_contextual_confusables("", "their", "are");
+        assert_eq!(r_there[0].0, "there", "後接 are 必消歧為存現構式 there");
+
+        let r_theyre = scorer.rank_contextual_confusables("", "there", "working");
+        assert_eq!(r_theyre[0].0, "they're", "後接進行分詞 working 必消歧為縮寫構式 they're");
+
+        let r_their = scorer.rank_contextual_confusables("in", "they're", "house");
+        assert_eq!(r_their[0].0, "their", "後接名詞 house 必消歧為所有格限定詞 their");
+
+        // 2. 英文 your / you're 與 its / it's
+        let r_youre = scorer.rank_contextual_confusables("", "your", "welcome");
+        assert_eq!(r_youre[0].0, "you're");
+
+        let r_its_contr = scorer.rank_contextual_confusables("", "its", "important");
+        assert_eq!(r_its_contr[0].0, "it's");
+
+        let r_its_poss = scorer.rank_contextual_confusables("in", "it's", "own");
+        assert_eq!(r_its_poss[0].0, "its");
+
+        // 3. 英文 than / then 與 affect / effect 與 to / too
+        let r_than = scorer.rank_contextual_confusables("faster", "then", "before");
+        assert_eq!(r_than[0].0, "than");
+
+        let r_affect = scorer.rank_contextual_confusables("will", "effect", "the");
+        assert_eq!(r_affect[0].0, "affect");
+
+        let r_effect = scorer.rank_contextual_confusables("positive", "affect", "on");
+        assert_eq!(r_effect[0].0, "effect");
+
+        let r_too = scorer.rank_contextual_confusables("is", "to", "late");
+        assert_eq!(r_too[0].0, "too");
+
+        // 4. 法文 a / à, ou / où, sur / sûr 與西班牙文 tu / tú, el / él, mas / más
+        let r_fr_a = scorer.rank_contextual_confusables("aller", "a", "paris");
+        assert_eq!(r_fr_a[0].0, "à");
+
+        let r_fr_ou = scorer.rank_contextual_confusables("moment", "ou", "il");
+        assert_eq!(r_fr_ou[0].0, "où");
+
+        let r_fr_sur = scorer.rank_contextual_confusables("bien", "sur", "");
+        assert_eq!(r_fr_sur[0].0, "sûr");
+
+        let r_es_tu = scorer.rank_contextual_confusables("", "tu", "eres");
+        assert_eq!(r_es_tu[0].0, "tú");
+
+        let r_es_el = scorer.rank_contextual_confusables("para", "el", "");
+        assert_eq!(r_es_el[0].0, "él");
+
+        let r_es_mas = scorer.rank_contextual_confusables("mucho", "mas", "importante");
+        assert_eq!(r_es_mas[0].0, "más");
     }
 }

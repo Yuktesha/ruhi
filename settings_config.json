@@ -6,9 +6,10 @@
     "show_bopomofo": true,
     "zoom_level": 1,
     "geometry": "1391x1360+577+0",
-    "input_display_mode": "inline_underline",
+    "input_display_mode": "smart_auto",
     "max_composition_chars": 30,
-    "capsule_mode": "mini_capsule"
+    "capsule_mode": "mini_capsule",
+    "sidebar_width": 280
   },
   "keyboard": {
     "layout": "hsu",
@@ -19,7 +20,12 @@
     "q_cycle_max": 3,
     "enable_mixed_english": false,
     "mixed_english_mode": "contextual_stream",
-    "mixed_english_min_len": 4
+    "mixed_english_min_len": 4,
+    "punctuation_commit_mode": "A",
+    "enabled_keyboard_modes": [
+      "hsu",
+      "japanese"
+    ]
   },
   "grammar": {
     "enable_all_eight_phases": true,

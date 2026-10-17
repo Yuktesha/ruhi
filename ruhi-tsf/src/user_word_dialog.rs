@@ -38,19 +38,39 @@ pub fn show_confirm_dialog(
     let mut radio_id = 0;
     let mut verif_checked = BOOL::from(false);
 
-    let hr = unsafe {
-        TaskDialogIndirect(
-            &config,
-            Some(&mut button_id),
-            Some(&mut radio_id),
-            Some(&mut verif_checked),
-        )
+    // 動態載入 TaskDialogIndirect（防禦宿主環境如 conhost.exe、LibreOffice 等僅載入 ComCtl32 v5.82 導致進入點缺失！）
+    type PfnTaskDialogIndirect = unsafe extern "system" fn(
+        *const TASKDIALOGCONFIG,
+        *mut i32,
+        *mut i32,
+        *mut BOOL,
+    ) -> HRESULT;
+
+    let pfn: Option<PfnTaskDialogIndirect> = unsafe {
+        use windows::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
+        use windows::core::s;
+        let h_mod = GetModuleHandleA(s!("comctl32.dll")).unwrap_or_default();
+        if !h_mod.is_invalid() {
+            GetProcAddress(h_mod, s!("TaskDialogIndirect")).map(|f| std::mem::transmute(f))
+        } else {
+            None
+        }
     };
 
-    if hr.is_ok() {
-        let confirmed = button_id == IDYES.0;
-        let do_not_ask = verif_checked.as_bool();
-        return (confirmed, do_not_ask);
+    if let Some(task_dialog_indirect) = pfn {
+        let hr = unsafe {
+            task_dialog_indirect(
+                &config,
+                &mut button_id,
+                &mut radio_id,
+                &mut verif_checked,
+            )
+        };
+        if hr.is_ok() {
+            let confirmed = button_id == IDYES.0;
+            let do_not_ask = verif_checked.as_bool();
+            return (confirmed, do_not_ask);
+        }
     }
 
     // 備援：若宿主環境未載入 ComCtl32 v6，退回標準 MessageBoxW
@@ -182,8 +202,26 @@ pub fn add_user_word_entry(
         }
     }
 
-    // 2. 寫入 user_dict.tsv
-    let entry_line = format!("{}\t{}\t{}\tuser\tTSF-Selection\n", word, bpmf, weight);
+    // 2. 寫入 user_dict.tsv（含人名「姓＋名」與公司全稱「主名稱＋附加名」智慧拆分衍生詞條）
+    let (sub_entries, sub_transitions) =
+        ruhi::lexicon::LexiconManager::decompose_entity_subentries(word, bpmf, weight);
+
+    let mut existing_user_words = HashSet::new();
+    if user_dict_file.exists() {
+        if let Ok(f_read) = File::open(&user_dict_file) {
+            for l_res in BufReader::new(f_read).lines() {
+                if let Ok(l) = l_res {
+                    if let Some(w) = l.split('\t').next() {
+                        let wt = w.trim();
+                        if !wt.is_empty() && !wt.starts_with('#') {
+                            existing_user_words.insert(wt.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let mut file = match OpenOptions::new().create(true).append(true).open(&user_dict_file) {
         Ok(f) => f,
         Err(e) => {
@@ -192,9 +230,21 @@ pub fn add_user_word_entry(
         }
     };
 
+    let entry_line = format!("{}\t{}\t{}\tuser\tTSF-Selection\n", word, bpmf, weight);
     if let Err(e) = file.write_all(entry_line.as_bytes()) {
         logger::log(&format!("Failed to write entry to user_dict: {:?}", e));
         return false;
+    }
+
+    for sub in &sub_entries {
+        if !existing_user_words.contains(&sub.word) && sub.word != word {
+            let sub_line = format!(
+                "{}\t{}\t{}\tuser\t{}\n",
+                sub.word, sub.bopomofo, sub.weight, sub.note
+            );
+            let _ = file.write_all(sub_line.as_bytes());
+            existing_user_words.insert(sub.word.clone());
+        }
     }
 
     // 3. 寫入二階語意引力場 transitions_user.tsv（並清除既有的負向抑制屏蔽）
@@ -219,17 +269,28 @@ pub fn add_user_word_entry(
         }
     }
 
-    if let Some(prev) = prev_word {
-        if !prev.is_empty() {
-            let today = chrono_like_today();
-            let trans_line = format!("{}\t{}\t32.0\tuser_attractor\t{}\n", prev, word, today);
-            if let Ok(mut t_file) = OpenOptions::new().create(true).append(true).open(&paths.transitions) {
+    let today = chrono_like_today();
+    if let Ok(mut t_file) = OpenOptions::new().create(true).append(true).open(&paths.transitions) {
+        if let Some(prev) = prev_word {
+            if !prev.is_empty() {
+                let trans_line = format!("{}\t{}\t32.0\tuser_attractor\t{}\n", prev, word, today);
                 let _ = t_file.write_all(trans_line.as_bytes());
             }
         }
+        for (p, c, b) in &sub_transitions {
+            let trans_line = format!("{}\t{}\t{:.1}\tentity_decomp\t{}\n", p, c, b, today);
+            let _ = t_file.write_all(trans_line.as_bytes());
+        }
     }
 
-    logger::log(&format!("Added user word: [{}] ({}) wt={} with attractor prev={:?}", word, bpmf, weight, prev_word));
+    logger::log(&format!(
+        "Added user word: [{}] ({}) wt={} with attractor prev={:?}, sub_entries={}",
+        word,
+        bpmf,
+        weight,
+        prev_word,
+        sub_entries.len()
+    ));
     true
 }
 

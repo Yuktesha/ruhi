@@ -1,0 +1,54 @@
+name: Ruhi Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-release:
+    name: Build & Package Windows Release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install pefile
+
+      - name: Run Core Tests
+        run: cargo test --release
+        working-directory: ruhi-core
+
+      - name: Run Python Tuner Tests
+        run: python -m unittest discover -s tests -p "test_semantic_tuner.py" -v
+
+      - name: Build ruhi-core Release
+        run: cargo build --release
+        working-directory: ruhi-core
+
+      - name: Build ruhi-tsf Release
+        run: cargo build --release
+        working-directory: ruhi-tsf
+
+      - name: Run Release Packager
+        run: python tools/package_release.py
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/RuhI_v*_Windows_x64.zip
+            dist/RuhI_v*_Windows_x64.zip.sha256
+          generate_release_notes: true

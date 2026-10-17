@@ -4,25 +4,30 @@
 pub mod table;
 
 use crate::engine::EngineResponse;
+use crate::router::transitions::TransitionEngine;
 use std::path::Path;
 use table::CangjieTable;
 
 pub struct CangjieEngine {
     pub table: CangjieTable,
+    pub transitions: TransitionEngine,
     pub buffer: String,
     pub is_english_forced: bool,
     pub candidates: Vec<String>,
     pub candidate_idx: usize,
+    pub last_committed_word: String,
 }
 
 impl Default for CangjieEngine {
     fn default() -> Self {
         Self {
             table: CangjieTable::new(),
+            transitions: TransitionEngine::new(),
             buffer: String::new(),
             is_english_forced: false,
             candidates: Vec::new(),
             candidate_idx: 0,
+            last_committed_word: String::new(),
         }
     }
 }
@@ -49,8 +54,61 @@ impl CangjieEngine {
         !self.buffer.is_empty()
     }
 
-    /// 重新計算當前輸入緩衝區的候選列表與狀態
+    /// 記錄已上屏之字詞或數字脈絡，供字形重碼（倉頡、速成、大易、行列）進行上下文智慧消歧
+    pub fn record_committed(&mut self, text: &str) {
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        // 若連續單鍵輸入阿拉伯數字或小數點（如先按 '1' 再按 '0'），自動累加成完整數值詞元 "10"
+        if trimmed.len() == 1
+            && trimmed.chars().all(|c| c.is_ascii_digit() || c == '.' || c == '%')
+            && !self.last_committed_word.is_empty()
+            && self
+                .last_committed_word
+                .chars()
+                .all(|c| c.is_ascii_digit() || c == '.' || c == ',')
+        {
+            self.last_committed_word.push_str(trimmed);
+            return;
+        }
+
+        let chars: Vec<char> = trimmed.chars().collect();
+        if let Some(&last_ch) = chars.last() {
+            if matches!(
+                last_ch,
+                '，' | '。' | '！' | '？' | '；' | '：' | '、' | ',' | '.' | '!' | '?' | ';' | ':' | '\n'
+            ) {
+                self.last_committed_word.clear();
+                return;
+            }
+            if last_ch.is_ascii_digit() || last_ch == '%' {
+                let mut start_idx = chars.len() - 1;
+                while start_idx > 0 {
+                    let prev_c = chars[start_idx - 1];
+                    if prev_c.is_ascii_digit() || prev_c == '.' || prev_c == ',' {
+                        start_idx -= 1;
+                    } else {
+                        break;
+                    }
+                }
+                self.last_committed_word = chars[start_idx..].iter().collect();
+                return;
+            }
+        }
+        self.last_committed_word = trimmed.to_string();
+    }
+
+    /// 重新計算當前輸入緩衝區的候選列表與狀態（對重碼字套用後端語法構式與二階轉移消歧）
     fn update_candidates(&mut self) {
+        self.update_candidates_with_lexicon(None);
+    }
+
+    /// 支援傳入外部詞庫與內建轉移引擎，對倉頡／速成／大易／行列之重碼候選進行上下文智慧排序
+    pub fn update_candidates_with_lexicon(
+        &mut self,
+        lexicon: Option<&crate::lexicon::LexiconManager>,
+    ) {
         self.candidates.clear();
         self.candidate_idx = 0;
 
@@ -66,11 +124,62 @@ impl CangjieEngine {
             return;
         }
 
-        // 倉頡查詢 (1~5 碼全小寫)
+        // 倉頡／字形碼表查詢 (1~5 碼全小寫)
         let code = self.buffer.to_ascii_lowercase();
         if let Some(entries) = self.table.lookup(&code) {
-            for entry in entries {
-                self.candidates.push(entry.hanzi.clone());
+            if entries.len() <= 1 || self.last_committed_word.is_empty() {
+                for entry in entries {
+                    self.candidates.push(entry.hanzi.clone());
+                }
+            } else {
+                // 當該字形碼存在 2 個以上重碼字且具備前文脈絡時，啟動共用 TransitionEngine 語意消歧：
+                // 唯一碼 100% 維持確定性直出；重碼組則依「靜態字頻基準 + 語法構式/二階轉移 + 詞庫雙字凝聚力」智慧排序
+                let prev = self.last_committed_word.as_str();
+                let prev_tail: String = prev
+                    .chars()
+                    .rev()
+                    .take(1)
+                    .collect::<Vec<char>>()
+                    .into_iter()
+                    .rev()
+                    .collect();
+
+                let mut scored: Vec<(usize, String, f64)> = entries
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, entry)| {
+                        let base_score = (entry.weight as f64) / 25.0;
+                        let mut trans_bonus =
+                            self.transitions.calculate_transition_bonus(prev, "", &entry.hanzi, "");
+                        if trans_bonus == 0.0 && !prev_tail.is_empty() && prev_tail != prev {
+                            trans_bonus = self
+                                .transitions
+                                .calculate_transition_bonus(&prev_tail, "", &entry.hanzi, "");
+                        }
+                        let mut lex_bonus = 0.0;
+                        if let Some(lex) = lexicon {
+                            let cand_word = format!("{}{}", prev, entry.hanzi);
+                            let tail_word = format!("{}{}", prev_tail, entry.hanzi);
+                            if lex
+                                .entries
+                                .iter()
+                                .any(|e| e.word == cand_word || (!prev_tail.is_empty() && e.word == tail_word))
+                            {
+                                lex_bonus = 28.0;
+                            }
+                        }
+                        (idx, entry.hanzi.clone(), base_score + trans_bonus + lex_bonus)
+                    })
+                    .collect();
+
+                scored.sort_by(|a, b| {
+                    b.2.partial_cmp(&a.2)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| a.0.cmp(&b.0))
+                });
+                for (_, hanzi, _) in scored {
+                    self.candidates.push(hanzi);
+                }
             }
             // 英文免切換候選：在末尾自動附帶原始英文字串
             if !self.candidates.contains(&self.buffer) {
@@ -129,6 +238,7 @@ impl CangjieEngine {
                     self.buffer.clone()
                 };
 
+                self.record_committed(&commit_text);
                 self.reset();
                 EngineResponse {
                     action: "commit".to_string(),
@@ -147,6 +257,7 @@ impl CangjieEngine {
             // 2. Enter 鍵 (\n 或 \r) —— 零切換英文直通！
             '\n' | '\r' => {
                 if self.buffer.is_empty() {
+                    self.last_committed_word.clear();
                     return EngineResponse {
                         action: "pass".to_string(),
                         mode: "cangjie".to_string(),
@@ -163,6 +274,7 @@ impl CangjieEngine {
 
                 // Enter 鍵絕對鐵律：直通提交原始輸入字串（英文、變數名、命令等）
                 let raw_str = self.buffer.clone();
+                self.record_committed(&raw_str);
                 self.reset();
                 EngineResponse {
                     action: "commit".to_string(),
@@ -251,6 +363,7 @@ impl CangjieEngine {
                 let digit_idx = (ch as u8 - b'1') as usize;
                 if digit_idx < self.candidates.len() {
                     let commit_text = self.candidates[digit_idx].clone();
+                    self.record_committed(&commit_text);
                     self.reset();
                     EngineResponse {
                         action: "commit".to_string(),
@@ -276,7 +389,7 @@ impl CangjieEngine {
                         candidates: self.candidates.clone(),
                         active_candidate: active,
                         candidate_idx: 0,
-                        cursor_pos: self.buffer.len(),
+                        cursor_pos: 0,
                         q_press_count: 0,
                         committed_chunk: String::new(),
                     }
@@ -307,9 +420,11 @@ impl CangjieEngine {
                 }
             }
 
-            // 7. 其他按鍵（標點符號、底線等）
+            // 7. 其他按鍵（阿拉伯數字直通、標點符號、底線等）
             _ => {
                 if self.buffer.is_empty() {
+                    let s = ch.to_string();
+                    self.record_committed(&s);
                     EngineResponse {
                         action: "pass".to_string(),
                         mode: "cangjie".to_string(),
@@ -320,7 +435,7 @@ impl CangjieEngine {
                         candidate_idx: 0,
                         cursor_pos: 0,
                         q_press_count: 0,
-                        committed_chunk: ch.to_string(),
+                        committed_chunk: s,
                     }
                 } else {
                     // 若當前有組字，底線或特定符號視為英文識別（例如 snake_case）
@@ -342,12 +457,14 @@ impl CangjieEngine {
                             committed_chunk: String::new(),
                         }
                     } else {
-                        // 遇到標點符號，先自動提交第一候選，再放行符號
+                        // 遇到標點符號或數字，先自動提交第一候選，再放行該字元並記錄脈絡
                         let commit_text = if !self.candidates.is_empty() {
                             self.candidates[0].clone()
                         } else {
                             self.buffer.clone()
                         };
+                        let full_committed = format!("{}{}", commit_text, ch);
+                        self.record_committed(&full_committed);
                         self.reset();
                         EngineResponse {
                             action: "commit".to_string(),
@@ -359,7 +476,7 @@ impl CangjieEngine {
                             candidate_idx: 0,
                             cursor_pos: 0,
                             q_press_count: 0,
-                            committed_chunk: format!("{}{}", commit_text, ch),
+                            committed_chunk: full_committed,
                         }
                     }
                 }
@@ -525,5 +642,64 @@ mod tests {
         let r_esc = engine.process_key('\x1b');
         assert_eq!(r_esc.action, "reset");
         assert!(!engine.has_buffer());
+    }
+
+    #[test]
+    fn test_cangjie_and_sucheng_contextual_disambiguation() {
+        let mut engine = CangjieEngine::new();
+
+        // 1. 無前文時，重碼字依靜態字頻排序（例如 "wg" 預設第 1 候選為「理」，"mmu" 預設為「頑」，"gm" 預設為「瓶」）
+        engine.process_key('w');
+        let r_no_ctx = engine.process_key('g');
+        assert_eq!(r_no_ctx.candidates[0], "理");
+        engine.process_key('\x1b');
+
+        // 2. 前文為處所名詞「硬碟」時，方位後置詞構式自動將重碼字「裡」提升至第 1 候選（免按數字鍵選字）
+        engine.record_committed("硬碟");
+        engine.process_key('w');
+        let r_loc = engine.process_key('g');
+        assert_eq!(
+            r_loc.candidates[0],
+            "裡",
+            "字形重碼在處所名詞『硬碟』後必由方位構式自動將『裡』排上第 1 順位"
+        );
+        let commit_loc = engine.process_key(' ');
+        assert_eq!(commit_loc.committed_chunk, "裡");
+
+        // 3. 前文連續輸入數字 '1', '0', '0' 後，數詞單位構式自動將重碼字「元」(mmu)、「坪」(gm)、「度」(it)、「月」(to) 排上第 1 順位
+        engine.process_key('1');
+        engine.process_key('0');
+        engine.process_key('0');
+        assert_eq!(engine.last_committed_word, "100");
+        engine.process_key('m');
+        engine.process_key('m');
+        let r_cur = engine.process_key('u');
+        assert_eq!(
+            r_cur.candidates[0],
+            "元",
+            "數字 100 後字形重碼必由數詞單位構式自動將『元』排上第 1 順位（勝過『頑』）"
+        );
+        engine.process_key(' ');
+
+        engine.process_key('5');
+        engine.process_key('0');
+        engine.process_key('g');
+        let r_area = engine.process_key('m');
+        assert_eq!(
+            r_area.candidates[0],
+            "坪",
+            "數字 50 後字形重碼必自動將面積單位『坪』排上第 1 順位（勝過『瓶』）"
+        );
+        engine.process_key(' ');
+
+        engine.process_key('3');
+        engine.process_key('7');
+        engine.process_key('i');
+        let r_temp = engine.process_key('t');
+        assert_eq!(
+            r_temp.candidates[0],
+            "度",
+            "數字 37 後字形重碼必自動將溫度單位『度』排上第 1 順位（勝過『渡』）"
+        );
     }
 }

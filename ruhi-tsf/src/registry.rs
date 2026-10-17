@@ -5,7 +5,7 @@ use windows::Win32::System::Com::*;
 use windows::Win32::System::LibraryLoader::GetModuleFileNameW;
 use windows::Win32::System::Registry::*;
 use windows::Win32::UI::TextServices::{
-    CLSID_TF_CategoryMgr, CLSID_TF_InputProcessorProfiles, ITfCategoryMgr, ITfInputProcessorProfiles,
+    CLSID_TF_CategoryMgr, CLSID_TF_InputProcessorProfiles, ITfCategoryMgr, ITfInputProcessorProfiles, ITfInputProcessorProfileMgr,
 };
 
 use crate::guid::*;
@@ -148,6 +148,34 @@ pub unsafe fn register_server(hinstance: HMODULE) -> Result<()> {
             &GUID_RUHI_PROFILE,
             true,
         );
+
+        // 現代 Windows 8 / 10 / 11 ProfileMgr 註冊（核心：綁定 HKL 替代佈局 0x04040404 以完全支援 LibreOffice 等 Win32 應用程式！）
+        if let Ok(mgr) = profiles.cast::<ITfInputProcessorProfileMgr>() {
+            use windows::Win32::UI::Input::KeyboardAndMouse::HKL;
+            let hkl_sub = HKL(0 as _);
+            let desc_slice = if !desc_zh_u16.is_empty() && desc_zh_u16.last() == Some(&0) {
+                &desc_zh_u16[..desc_zh_u16.len() - 1]
+            } else {
+                &desc_zh_u16[..]
+            };
+            let icon_slice = if !icon_u16.is_empty() && icon_u16.last() == Some(&0) {
+                &icon_u16[..icon_u16.len() - 1]
+            } else {
+                &icon_u16[..]
+            };
+            let _ = mgr.RegisterProfile(
+                &CLSID_RUHI_TEXT_SERVICE,
+                LANG_CHINESE_TRADITIONAL,
+                &GUID_RUHI_PROFILE,
+                desc_slice,
+                icon_slice,
+                0,
+                hkl_sub,
+                0,
+                BOOL::from(true),
+                0,
+            );
+        }
     }
 
     let cat_mgr: Result<ITfCategoryMgr> = CoCreateInstance(
@@ -198,7 +226,7 @@ pub unsafe fn register_server(hinstance: HMODULE) -> Result<()> {
             &CLSID_RUHI_TEXT_SERVICE,
         );
 
-        // 註冊組字底線顯示屬性 (Display Attribute)
+        // 註冊組字底線與選取高亮顯示屬性 (Display Attributes)
         let desc_display_attr: Vec<u16> = "RuhI Display Attribute".encode_utf16().chain(Some(0)).collect();
         let _ = cat_mgr.RegisterGUIDDescription(&CLSID_RUHI_TEXT_SERVICE, &GUID_RUHI_DISPLAY_ATTR, &desc_display_attr);
         let _ = cat_mgr.RegisterCategory(
@@ -206,6 +234,50 @@ pub unsafe fn register_server(hinstance: HMODULE) -> Result<()> {
             &GUID_TFCAT_DISPLAYATTRIBUTEPROPERTY,
             &GUID_RUHI_DISPLAY_ATTR,
         );
+
+        let desc_sel_attr: Vec<u16> = "RuhI Selection Display Attribute".encode_utf16().chain(Some(0)).collect();
+        let _ = cat_mgr.RegisterGUIDDescription(&CLSID_RUHI_TEXT_SERVICE, &GUID_RUHI_SELECTION_DISPLAY_ATTR, &desc_sel_attr);
+        let _ = cat_mgr.RegisterCategory(
+            &CLSID_RUHI_TEXT_SERVICE,
+            &GUID_TFCAT_DISPLAYATTRIBUTEPROPERTY,
+            &GUID_RUHI_SELECTION_DISPLAY_ATTR,
+        );
+    }
+
+    // 4. 確保 HKCU\Software\Microsoft\CTF\Assemblies 關聯如喜為繁體中文預設 TIP (徹底根除 LibreOffice 等 Win32 應用程式切換問題)
+    let asm_path: Vec<u16> = "Software\\Microsoft\\CTF\\Assemblies\\0x00000404\\{34745C63-B2F0-4784-8B67-5E12C8701A31}".encode_utf16().chain(Some(0)).collect();
+    let mut asm_key = HKEY::default();
+    if RegCreateKeyW(HKEY_CURRENT_USER, PCWSTR(asm_path.as_ptr()), &mut asm_key).is_ok() {
+        let clsid_val: Vec<u16> = clsid_str.encode_utf16().chain(Some(0)).collect();
+        let prof_str = format!("{{{:?}}}", GUID_RUHI_PROFILE);
+        let prof_val: Vec<u16> = prof_str.encode_utf16().chain(Some(0)).collect();
+        let def_name: Vec<u16> = "Default".encode_utf16().chain(Some(0)).collect();
+        let prof_name: Vec<u16> = "Profile".encode_utf16().chain(Some(0)).collect();
+        let kl_name: Vec<u16> = "KeyboardLayout".encode_utf16().chain(Some(0)).collect();
+        let kl_val: u32 = 0x04040404;
+
+        let _ = RegSetValueExW(asm_key, PCWSTR(def_name.as_ptr()), 0, REG_SZ, Some(std::slice::from_raw_parts(clsid_val.as_ptr() as *const u8, clsid_val.len() * 2)));
+        let _ = RegSetValueExW(asm_key, PCWSTR(prof_name.as_ptr()), 0, REG_SZ, Some(std::slice::from_raw_parts(prof_val.as_ptr() as *const u8, prof_val.len() * 2)));
+        let _ = RegSetValueExW(asm_key, PCWSTR(kl_name.as_ptr()), 0, REG_DWORD, Some(std::slice::from_raw_parts(&kl_val as *const u32 as *const u8, 4)));
+        let _ = RegCloseKey(asm_key);
+    }
+
+    // 5. 確保 HKCU\Software\Microsoft\CTF\SortOrder\AssemblyItem 也寫入有效 KeyboardLayout 0x04040404
+    let sort_path: Vec<u16> = "Software\\Microsoft\\CTF\\SortOrder\\AssemblyItem\\0x00000404\\{34745C63-B2F0-4784-8B67-5E12C8701A31}\\00000000".encode_utf16().chain(Some(0)).collect();
+    let mut sort_key = HKEY::default();
+    if RegCreateKeyW(HKEY_CURRENT_USER, PCWSTR(sort_path.as_ptr()), &mut sort_key).is_ok() {
+        let clsid_val: Vec<u16> = clsid_str.encode_utf16().chain(Some(0)).collect();
+        let prof_str = format!("{{{:?}}}", GUID_RUHI_PROFILE);
+        let prof_val: Vec<u16> = prof_str.encode_utf16().chain(Some(0)).collect();
+        let clsid_name: Vec<u16> = "CLSID".encode_utf16().chain(Some(0)).collect();
+        let prof_name: Vec<u16> = "Profile".encode_utf16().chain(Some(0)).collect();
+        let kl_name: Vec<u16> = "KeyboardLayout".encode_utf16().chain(Some(0)).collect();
+        let kl_val: u32 = 0x04040404;
+
+        let _ = RegSetValueExW(sort_key, PCWSTR(clsid_name.as_ptr()), 0, REG_SZ, Some(std::slice::from_raw_parts(clsid_val.as_ptr() as *const u8, clsid_val.len() * 2)));
+        let _ = RegSetValueExW(sort_key, PCWSTR(prof_name.as_ptr()), 0, REG_SZ, Some(std::slice::from_raw_parts(prof_val.as_ptr() as *const u8, prof_val.len() * 2)));
+        let _ = RegSetValueExW(sort_key, PCWSTR(kl_name.as_ptr()), 0, REG_DWORD, Some(std::slice::from_raw_parts(&kl_val as *const u32 as *const u8, 4)));
+        let _ = RegCloseKey(sort_key);
     }
 
     Ok(())

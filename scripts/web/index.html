@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>如喜輸入法 (RuhI) · 語意調教工作室</title>
+  <title>如喜輸入法 (RuhI) · 語意調校工作室</title>
   <style>
     /* ── rud() 詞塊流式自適應排版與 UniversalUI 設計系統 ── */
     :root {
@@ -218,67 +218,182 @@
       border-left: 4px solid var(--accent-green) !important;
     }
 
-    /* ── 縱向上下對照字元流樣式 ── */
-    .vertical-diff-container {
+    /* ── 詞界流動對照與互動調校樣式 (Lexical Boundary Stream) ── */
+    .lexical-boundary-panel {
       display: flex;
       flex-direction: column;
       gap: 10px;
       background: var(--bg-input);
-      padding: 16px;
+      padding: 12px 14px;
       border-radius: var(--radius-md);
       border: 1px solid var(--border-color);
-      overflow-x: auto;
+      transition: all 0.2s ease;
     }
 
-    .char-column-stream {
+    .boundary-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .boundary-row-label {
+      font-size: 0.76rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      min-width: 68px;
+      justify-content: center;
+    }
+
+    .boundary-tokens-stream {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+
+    /* 單一詞塊膠囊 (Word Token Chip) */
+    .token-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      position: relative;
+      transition: all 0.15s ease;
+      user-select: none;
+      line-height: 1.35;
+    }
+
+    .token-chip.token-same {
+      background: rgba(255, 255, 255, 0.05);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .token-chip.token-err {
+      background: rgba(248, 113, 113, 0.18);
+      color: var(--accent-red);
+      border: 1px solid rgba(248, 113, 113, 0.45);
+      box-shadow: 0 0 6px rgba(248, 113, 113, 0.15);
+    }
+
+    .token-chip.token-cor {
+      background: rgba(74, 222, 128, 0.18);
+      color: var(--accent-green);
+      border: 1px solid rgba(74, 222, 128, 0.45);
+      box-shadow: 0 0 6px rgba(74, 222, 128, 0.15);
+    }
+
+    /* 詞內字元切分縫隙 (Split Slit) */
+    .split-slit {
+      width: 6px;
+      height: 16px;
+      margin: 0 1px;
+      cursor: col-resize;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 2px;
+      transition: all 0.15s ease;
+      opacity: 0.25;
+      background: transparent;
+      position: relative;
+    }
+
+    .split-slit:hover {
+      opacity: 1;
+      background: var(--accent-yellow);
+      box-shadow: 0 0 5px var(--accent-yellow);
+    }
+
+    .split-slit:hover::after {
+      content: '✂';
+      position: absolute;
+      top: -14px;
+      font-size: 0.7rem;
+      color: var(--accent-yellow);
+      font-weight: normal;
+    }
+
+    /* 相鄰詞塊合併接縫鈕 (Merge Seam Button) */
+    .merge-seam {
+      width: 14px;
+      height: 24px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      position: relative;
+      opacity: 0.35;
+      transition: all 0.15s ease;
+    }
+
+    .merge-seam-bar {
+      width: 2px;
+      height: 14px;
+      background: var(--border-color);
+      border-radius: 1px;
+      transition: all 0.15s ease;
+    }
+
+    .merge-seam:hover {
+      opacity: 1;
+    }
+
+    .merge-seam:hover .merge-seam-bar {
+      background: var(--accent-cyan);
+      height: 20px;
+      width: 3px;
+      box-shadow: 0 0 6px var(--accent-cyan);
+    }
+
+    .merge-seam:hover::after {
+      content: '🔗';
+      position: absolute;
+      top: -14px;
+      font-size: 0.68rem;
+    }
+
+    /* 詞界輔助提示與按鈕 */
+    .btn-token-reset {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      border-radius: 4px;
+      padding: 3px 7px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-token-reset:hover {
+      color: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .boundary-hint {
+      font-size: 0.78rem;
+      color: var(--text-muted);
       display: flex;
       align-items: center;
       gap: 6px;
-      overflow-x: auto;
-      padding-bottom: 6px;
-    }
-
-    .char-column {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      min-width: 32px;
-      flex-shrink: 0;
-    }
-
-    .char-box {
-      width: 32px;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      border-radius: 6px;
-      font-size: 1.05rem;
-    }
-
-    .char-box.err {
-      background: rgba(248, 113, 113, 0.2);
-      color: var(--accent-red);
-      border: 1px solid rgba(248, 113, 113, 0.45);
-    }
-
-    .char-box.cor {
-      background: rgba(74, 222, 128, 0.2);
-      color: var(--accent-green);
-      border: 1px solid rgba(74, 222, 128, 0.45);
-    }
-
-    .char-box.same {
-      background: rgba(255, 255, 255, 0.04);
-      color: #cbd5e1;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .char-arrow {
-      font-size: 0.8rem;
-      color: var(--accent-cyan);
+      padding-top: 4px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.08);
+      line-height: 1.4;
     }
 
     /* ── 按鈕系統 ── */
@@ -546,6 +661,60 @@
       border-radius: 50%;
       background: var(--accent-green);
     }
+
+    /* ── AI 策略引導精靈樣式 ── */
+    .wizard-card-option {
+      background: var(--bg-main);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .wizard-card-option:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .wizard-card-option.selected {
+      border-color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.08);
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.15);
+    }
+
+    .wizard-option-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .wizard-option-title {
+      font-weight: 700;
+      font-size: 1rem;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .wizard-badge {
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-weight: 600;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      line-height: 1.35;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -555,38 +724,82 @@
     <div class="header-inner">
       <div class="brand-title">
         <span>如喜輸入法 (RuhI)</span>
-        <span class="brand-badge">語意調教工作室</span>
+        <span class="brand-badge">語意調校工作室</span>
       </div>
 
       <nav class="nav-tabs">
-        <button class="tab-btn active char-element" onclick="switchTab('tab-tuner')">🎯 雙句調教實驗室</button>
+        <button class="tab-btn active char-element" onclick="switchTab('tab-tuner')">🎯 雙句調校實驗室</button>
         <button class="tab-btn char-element" onclick="switchTab('tab-corpus')">📚 專業文獻引力萃取</button>
         <button class="tab-btn char-element" onclick="switchTab('tab-silent')">🌱 默默進化日誌</button>
         <button class="tab-btn char-element" onclick="switchTab('tab-benchmark')">🏆 黃金語料檢查</button>
         <button class="tab-btn char-element" onclick="switchTab('tab-tailcat')">📡 Tailcat 廣播審計</button>
       </nav>
 
-      <button class="ai-badge char-element" id="aiStatusBtn" onclick="openAiModal()">
-        <span class="status-dot" id="aiStatusDot"></span>
-        <span id="aiStatusText">🤖 AI 顧問探測中...</span>
-      </button>
+      <div class="word-group">
+        <button class="btn btn-secondary char-element" id="btnOpenWizard" onclick="openAiWizardModal()" style="font-size: 0.85rem; padding: 6px 14px; border-color: rgba(56, 189, 248, 0.4); color: var(--accent-cyan);">
+          🧙 AI 策略精靈
+        </button>
+        <button class="ai-badge char-element" id="aiStatusBtn" onclick="openAiModal()">
+          <span class="status-dot" id="aiStatusDot"></span>
+          <span id="aiStatusText">🤖 AI 顧問探測中...</span>
+        </button>
+      </div>
     </div>
   </header>
 
   <main class="section-paragraph">
 
-    <!-- 分頁 1: 雙句調教實驗室 -->
+    <!-- 本地備案巡檢升級橫幅 (純綠 Llama / Google Gemma 最新版) -->
+    <div id="localModelRecommendationBanner" style="display: none; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 4px; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <div style="display: flex; flex-direction: column; gap: 4px; max-width: 680px;">
+        <div style="font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; gap: 8px;">
+          <span>💡 本地 AI 備案升級建議</span>
+          <span class="wizard-badge" style="background: rgba(56, 189, 248, 0.2); color: var(--accent-cyan);">純綠開源 / Google Gemma 最新版</span>
+        </div>
+        <div id="localModelRecommendationText" style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">
+          偵測到本地備援有更佳選擇。
+        </div>
+      </div>
+      <div class="word-group" style="flex-wrap: wrap;">
+        <button class="btn btn-primary" id="btnLaunchGreenInstaller" onclick="launchGreenInstaller()" style="font-size: 0.82rem; padding: 6px 14px; background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%); border: none;">
+          ⚡ 一鍵啟動純綠安裝精靈
+        </button>
+        <button class="btn btn-secondary" id="btnCopyOllamaCmd" onclick="copyOllamaPullCmd()" style="font-size: 0.82rem; padding: 6px 12px; color: var(--accent-cyan); border-color: rgba(56, 189, 248, 0.4);">
+          📋 複製安裝腳本指令
+        </button>
+        <button class="btn btn-secondary" onclick="dismissLocalModelPrompt(true)" style="font-size: 0.82rem; padding: 6px 12px; color: var(--accent-yellow); border-color: rgba(251, 191, 36, 0.3);">
+          不再提醒
+        </button>
+        <button class="btn btn-secondary" onclick="dismissLocalModelPrompt(false)" style="font-size: 0.82rem; padding: 6px 10px;">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- 分頁 1: 雙句調校實驗室 -->
     <div id="tab-tuner" class="tab-content active">
       <div class="card">
         <div class="card-title">
-          <span>🎯 雙句差分直覺調教</span>
+          <span>🎯 雙句對照與轉移調校</span>
         </div>
         <div class="card-subtitle">
-          出生在 Windows 95 以後的使用者友善介面：直接貼上輸入法組錯的句子與您期望的正確句子，系統將自動進行計算語言學差分對齊，提煉二階轉移引力場，並立即無感熱重載！
+          輸入候選異常語句與期望正確語句，系統自動分析前後文脈絡並建立二階轉移規則，即時套用至輸入法引擎。
+        </div>
+
+        <!-- 尚未執行 AI 策略精靈之引導提醒橫幅 -->
+        <div id="wizardNotCompletedBanner" style="display: none; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.35); border-radius: var(--radius-md); padding: 12px 16px; margin-top: 4px; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div style="font-size: 0.88rem; color: var(--accent-yellow); line-height: 1.4;">
+            💡 <strong>提示：尚未完成「🧙 AI 策略精靈」設定</strong>。目前處於純本地啟發式模式。建議先開啟精靈，選擇 Google Gemini 遠端分析師或本地 Gemma 離線模型。
+          </div>
+          <button class="btn btn-secondary" onclick="openAiWizardModal()" style="font-size: 0.82rem; padding: 5px 12px; color: var(--accent-yellow); border-color: rgba(251, 191, 36, 0.4);">
+            🧙 立即開啟精靈
+          </button>
         </div>
 
         <div class="row-sentence" style="margin-top: 4px;">
           <span class="char-element" style="font-size: 0.85rem; color: var(--text-muted);">快速填入測試案例：</span>
+          <button class="btn-pill" onclick="fillExample('或許微軟新注音模噬臍時才是相容性最好的選擇', '或許微軟新注音模式其實才是相容性最好的選擇')">模噬臍時 ➔ 模式其實</button>
+          <button class="btn-pill" onclick="fillExample('如喜固定輸入座最大的好處是可以固定輸入行的文字大小，不過載標點符號之前如果太長，就會有卡頓現象。', '如喜固定輸入座最大的好處是可以固定輸入行的文字大小，不過在標點符號之前如果太長，就會有卡頓現象。')">不過載 ➔ 不過在 (過載交錯劫掠)</button>
           <button class="btn-pill" onclick="fillExample('讓步董程式開發的使用者們', '讓不懂程式開發的使用者們')">讓步董 ➔ 讓不懂</button>
           <button class="btn-pill" onclick="fillExample('直街或朵組', '直接或多組')">朵組 ➔ 多組</button>
           <button class="btn-pill" onclick="fillExample('使用者在輸入座中的休政行為', '使用者在輸入座中的修正行為')">休政 ➔ 修正</button>
@@ -594,42 +807,42 @@
           <button class="btn-pill" onclick="fillExample('完比財政是發布', '完畢才正式發布')">完比財政是 ➔ 完畢才正式</button>
         </div>
 
-        <!-- 上下直觀對照輸入區 -->
-        <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 10px;">
-          <div class="form-group">
-            <label for="errInput" style="display: flex; justify-content: space-between;">
-              <span>❌ 錯誤句（輸入法組錯或選錯的句子）：</span>
-              <span style="font-size: 0.8rem; color: var(--accent-red);">【上排：原始錯誤】</span>
-            </label>
-            <input type="text" id="errInput" class="input-error-sent" placeholder="例如：讓步董程式開發的使用者們" oninput="updateLiveVerticalDiff()">
+        <!-- 文字檔批次匯入工具列與瀏覽紀錄切換區 -->
+        <div class="row-sentence" style="margin-top: 8px; padding: 10px 14px; background: rgba(56, 189, 248, 0.05); border: 1px dashed rgba(56, 189, 248, 0.35); border-radius: var(--radius-md); justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; transition: all 0.2s ease;" id="fileImportZone">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1.15rem;">📄</span>
+            <div style="display: flex; flex-direction: column;">
+              <span style="font-size: 0.88rem; font-weight: 600; color: #fff;">支援文字檔批次匯入對照句 (.txt)</span>
+              <span style="font-size: 0.78rem; color: var(--text-muted);">支援上下行成對（有無空行均可自動對齊）、或單行箭頭分隔；亦可直接拖曳檔案至此</span>
+            </div>
           </div>
-
-          <div class="form-group">
-            <label for="corInput" style="display: flex; justify-content: space-between;">
-              <span>✅ 正確句（心中期望組出的標準中文句子）：</span>
-              <span style="font-size: 0.8rem; color: var(--accent-green);">【下排：標準中文】</span>
-            </label>
-            <input type="text" id="corInput" class="input-correct-sent" placeholder="例如：讓不懂程式開發的使用者們" oninput="updateLiveVerticalDiff()">
+          <div class="word-group" style="flex-wrap: wrap; align-items: center; gap: 8px;">
+            <input type="file" id="pairFileInput" accept=".txt,text/plain" style="display: none;" onchange="handleFileSelected(event)">
+            <button class="btn btn-secondary" style="font-size: 0.82rem; padding: 6px 12px; color: var(--accent-cyan); border-color: rgba(56, 189, 248, 0.45); font-weight: 600;" onclick="document.getElementById('pairFileInput').click()">
+              📂 瀏覽本機文字檔 (.txt)
+            </button>
+            <div id="recentFilesHistoryBar" class="word-group" style="flex-wrap: wrap; align-items: center; gap: 6px;"></div>
           </div>
         </div>
 
-        <!-- 上下字元精確垂直對位投影 -->
-        <div id="liveVerticalDiffContainer" class="vertical-diff-container" style="display: none;">
-          <div class="row-sentence" style="justify-content: space-between;">
-            <span class="char-element" style="font-size: 0.85rem; font-weight: 600; color: var(--accent-cyan);">📐 上下字元精確垂直對位投影 (Vertical Alignment Inspector)</span>
-            <span class="char-element" style="font-size: 0.8rem; color: var(--text-muted);">上排為錯字 · 下排為正字 · 縱向一一對齊</span>
-          </div>
-          <div class="char-column-stream" id="charColumnStream"></div>
+        <!-- 上下直觀對照輸入區（動態多組批次） -->
+        <div id="sentencePairsContainer" style="display: flex; flex-direction: column; gap: 14px; margin-top: 10px;"></div>
+
+        <!-- 增加一組對照句按鈕 -->
+        <div class="row-sentence" style="margin-top: 4px;">
+          <button class="btn btn-secondary" style="border-style: dashed; border-color: var(--accent-cyan); color: var(--accent-cyan); width: 100%; justify-content: center; padding: 10px;" onclick="addNewSentencePair()">
+            <span>➕ 增加一組對照句（批次多句蒐集）</span>
+          </button>
         </div>
 
         <div class="row-sentence" style="margin-top: 8px;">
-          <button class="btn btn-primary" onclick="analyzeAndTune()">
-            <span>✨ 開始語意分析與即時注入</span>
+          <button id="btnBatchTune" class="btn btn-primary" onclick="analyzeAndTune()">
+            <span>✨ 開始批次 AI 語意診斷與即時注入 (1 組)</span>
           </button>
           <button class="btn btn-secondary" style="border-color: rgba(192, 132, 252, 0.4); color: var(--accent-purple);" onclick="runAiDiagnosis()">
-            <span>🤖 呼叫 AI 深度句法診斷</span>
+            <span>🤖 重新執行批次 AI 診斷</span>
           </button>
-          <button class="btn btn-secondary" onclick="clearInputs()">清空輸入</button>
+          <button class="btn btn-secondary" onclick="clearAllPairs()">清空全部</button>
         </div>
       </div>
 
@@ -711,14 +924,34 @@
           化一切於無形：當您在任何視窗打字、手動選字修正時，如喜輸入法已在按下 Enter 結算的當下瞬間，於背景默默提煉二階轉移規則並寫入詞庫記憶體，無需任何額外手動操作！
         </div>
 
-        <div class="row-sentence" style="justify-content: space-between;">
-          <div class="word-group">
-            <span class="char-element" id="syncStatus">目前修訂狀態：已全數自動同步</span>
+        <div class="row-sentence" style="justify-content: space-between; gap: 10px;">
+          <div class="word-group" style="flex-wrap: wrap;">
+            <button class="btn btn-primary" id="btnSublimate" onclick="sublimateRevisions()" style="background: linear-gradient(135deg, #a855f7 0%, #3b82f6 100%); border: none; box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);">
+              <span>🤖 啟動 AI 深度昇華（洗滌打地鼠暫存）</span>
+            </button>
+            <span class="char-element" id="syncStatus" style="font-size: 0.88rem; color: var(--text-muted);">目前修訂狀態：載入中...</span>
           </div>
           <div class="word-group">
             <button class="btn btn-secondary" onclick="loadRevisionsLog()">🔄 重新載入日誌</button>
             <button class="btn btn-secondary" style="color: var(--accent-red); border-color: rgba(248, 113, 113, 0.3);" onclick="clearRevisionsLog()">🧹 清空日誌記錄</button>
           </div>
+        </div>
+
+        <!-- 昇華成果與語意資產展示區 -->
+        <div id="sublimationResultCard" class="card" style="display: none; background: rgba(168, 85, 247, 0.06); border: 1px solid rgba(168, 85, 247, 0.3); margin-top: 10px;">
+          <div class="card-title" style="color: var(--accent-purple);">
+            <span>✨ AI 語意昇華成果報告（已洗滌單字權重臨時修正）</span>
+          </div>
+          <div id="sublimationSummaryText" style="font-size: 0.9rem; color: #fff; line-height: 1.5;"></div>
+
+          <div style="font-weight: 600; color: var(--accent-purple); font-size: 0.95rem; margin-top: 6px;">🧬 已提煉之階層式集合槽位構式 (Hierarchical Slot-Set Constructions · Layer 0/1)：</div>
+          <div id="sublimatedConstructionsList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+
+          <div style="font-weight: 600; color: var(--accent-cyan); font-size: 0.95rem; margin-top: 10px;">🏷️ 已沉澱入正規詞庫之雙字原子實詞資產 (Lexicon Domain Terms · Layer 3)：</div>
+          <div id="sublimatedWordsList" class="row-sentence" style="gap: 8px;"></div>
+
+          <div style="font-weight: 600; color: var(--accent-green); font-size: 0.95rem; margin-top: 10px;">⚡ 已注入之二階正向轉移引力場 (Transitions User Rules · Layer 2)：</div>
+          <div id="sublimatedRulesList" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
 
         <div style="overflow-x: auto; margin-top: 8px;">
@@ -790,6 +1023,212 @@
 
   </main>
 
+  <!-- 首次啟用 AI 意願引導精靈彈窗 -->
+  <div id="aiWizardModal" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 780px; width: 92%; max-height: 90vh; overflow-y: auto; padding: 26px 30px;">
+      <div class="modal-title">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span>🧙 如喜語意調校 · AI 策略引導精靈</span>
+          <span class="wizard-badge" style="background: rgba(56, 189, 248, 0.2); color: var(--accent-cyan); border: 1px solid rgba(56, 189, 248, 0.3);">首次啟用引導</span>
+        </div>
+        <button class="modal-close" onclick="closeAiWizardModal()">&times;</button>
+      </div>
+
+      <div style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.6;">
+        如喜輸入法採用前後文二階轉移架構，精確分析字詞搭配並避免選字干擾。系統提供大型語言模型句法診斷與詞庫維護機制，請選擇適合您使用情境的分析策略：
+      </div>
+
+      <!-- 三大策略選擇卡片 -->
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 4px;">
+        
+        <!-- 方案 1: 遠端 AI 優先，本地 AI 備用 -->
+        <div class="wizard-card-option selected" id="optRemoteFirst" onclick="selectWizardStrategy('remote_first')">
+          <div class="wizard-option-header">
+            <div class="wizard-option-title">
+              <span>🚀 1. 遠端 AI 優先，本地 AI 備用</span>
+            </div>
+            <span class="wizard-badge" style="background: rgba(74, 222, 128, 0.2); color: var(--accent-green); border: 1px solid rgba(74, 222, 128, 0.4);">推薦首選 · Google 官方免費</span>
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+            連網狀態下首選連接 Google Gemini 旗艦模型（官方提供個人每天 1,500 次永久免費額度，毫秒級完成二階搭配診斷）；若離線或斷網則自動無縫切換本機離線模型備援。
+          </div>
+          
+          <!-- 展開子設定 -->
+          <div id="wizardRemoteFields" style="margin-top: 8px; display: flex; flex-direction: column; gap: 10px; background: rgba(0, 0, 0, 0.25); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);" onclick="event.stopPropagation()">
+            <div class="form-group" style="margin-bottom: 2px;">
+              <label for="wizardRemoteProviderSelect" style="font-size: 0.82rem; font-weight: 600;">選擇遠端 AI 服務來源：</label>
+              <select id="wizardRemoteProviderSelect" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;" onchange="onWizardRemoteProviderChange()">
+                <option value="gemini">🇬 Google Gemini (官方永久免費 1,500 次/日 · 推薦首選)</option>
+                <option value="openai">🤖 OpenAI (自備 ChatGPT API Key · GPT-4o / GPT-4o-mini)</option>
+                <option value="claude">🧠 Anthropic Claude (自備 Claude API Key · Claude 3.5 Sonnet)</option>
+                <option value="custom">🔌 自訂 OpenAI 相容服務 (如 OpenRouter / 本地 vLLM)</option>
+              </select>
+            </div>
+
+            <!-- Gemini 子區塊 -->
+            <div id="wizardGeminiSub" style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div style="font-size: 0.8rem; color: var(--accent-green);">
+                   <strong>Google 官方免費額度</strong>：免信用卡、免付費！
+                </div>
+                <button type="button" class="btn btn-primary" style="font-size: 0.8rem; padding: 5px 12px; background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%); border: none;" onclick="quickAuthGemini(event)">
+                  ⚡ 授權一鍵直接完成 (自動偵測/喚起)
+                </button>
+              </div>
+              <div class="form-group">
+                <label for="wizardGeminiApiKey" style="display: flex; justify-content: space-between; font-size: 0.82rem;">
+                  <span>Google Gemini API Key：</span>
+                  <span class="word-group">
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--accent-cyan); text-decoration: underline; font-size: 0.78rem;">
+                      前往領取金鑰 ↗
+                    </a>
+                    <button type="button" class="btn-pill" style="color: var(--accent-cyan); font-size: 0.75rem;" onclick="pasteWizardApiKey(event, 'wizardGeminiApiKey')">📋 剪貼簿貼上</button>
+                  </span>
+                </label>
+                <input type="password" id="wizardGeminiApiKey" placeholder="點擊上方一鍵授權，或將複製的金鑰貼在此處 (AIzaSy...)">
+              </div>
+              <div class="form-group">
+                <label for="wizardGeminiModel" style="font-size: 0.82rem;">Gemini 模型型號：</label>
+                <select id="wizardGeminiModel" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
+                  <option value="gemini-2.5-flash">Google Gemini 2.5 Flash (極速最新旗艦 · 推薦)</option>
+                  <option value="gemini-2.0-flash">Google Gemini 2.0 Flash (穩定成熟款)</option>
+                  <option value="gemini-2.5-pro">Google Gemini 2.5 Pro (深度長文推理)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- OpenAI 子區塊 -->
+            <div id="wizardOpenAiSub" style="display: none; flex-direction: column; gap: 10px;">
+              <div class="form-group">
+                <label for="wizardOpenAiApiKey" style="display: flex; justify-content: space-between; font-size: 0.82rem;">
+                  <span>OpenAI API Key：</span>
+                  <span class="word-group">
+                    <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--accent-cyan); text-decoration: underline; font-size: 0.78rem;">
+                      取得金鑰 ↗
+                    </a>
+                    <button type="button" class="btn-pill" style="color: var(--accent-cyan); font-size: 0.75rem;" onclick="pasteWizardApiKey(event, 'wizardOpenAiApiKey')">📋 剪貼簿貼上</button>
+                  </span>
+                </label>
+                <input type="password" id="wizardOpenAiApiKey" placeholder="sk-proj-...">
+              </div>
+              <div class="form-group">
+                <label for="wizardOpenAiModel" style="font-size: 0.82rem;">OpenAI 模型型號：</label>
+                <select id="wizardOpenAiModel" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
+                  <option value="gpt-4o-mini">GPT-4o-mini (極速省流 · 推薦)</option>
+                  <option value="gpt-4o">GPT-4o (全功能旗艦)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Claude 子區塊 -->
+            <div id="wizardClaudeSub" style="display: none; flex-direction: column; gap: 10px;">
+              <div class="form-group">
+                <label for="wizardClaudeApiKey" style="display: flex; justify-content: space-between; font-size: 0.82rem;">
+                  <span>Anthropic Claude API Key：</span>
+                  <span class="word-group">
+                    <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color: var(--accent-purple); text-decoration: underline; font-size: 0.78rem;">
+                      取得金鑰 ↗
+                    </a>
+                    <button type="button" class="btn-pill" style="color: var(--accent-purple); font-size: 0.75rem;" onclick="pasteWizardApiKey(event, 'wizardClaudeApiKey')">📋 剪貼簿貼上</button>
+                  </span>
+                </label>
+                <input type="password" id="wizardClaudeApiKey" placeholder="sk-ant-...">
+              </div>
+              <div class="form-group">
+                <label for="wizardClaudeModel" style="font-size: 0.82rem;">Claude 模型型號：</label>
+                <select id="wizardClaudeModel" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
+                  <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (句法分析王者 · 推薦)</option>
+                  <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (極速輕量)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Custom 子區塊 -->
+            <div id="wizardCustomSub" style="display: none; flex-direction: column; gap: 10px;">
+              <div class="form-group">
+                <label for="wizardCustomBaseUrl" style="font-size: 0.82rem;">API 服務端點 Base URL：</label>
+                <input type="text" id="wizardCustomBaseUrl" placeholder="例如：https://openrouter.ai/api/v1">
+              </div>
+              <div class="form-group">
+                <label for="wizardCustomApiKey" style="display: flex; justify-content: space-between; font-size: 0.82rem;">
+                  <span>API Key (選填)：</span>
+                  <button type="button" class="btn-pill" style="color: var(--accent-cyan); font-size: 0.75rem;" onclick="pasteWizardApiKey(event, 'wizardCustomApiKey')">📋 剪貼簿貼上</button>
+                </label>
+                <input type="password" id="wizardCustomApiKey" placeholder="免密鑰端點可留空">
+              </div>
+              <div class="form-group">
+                <label for="wizardCustomModel" style="font-size: 0.82rem;">模型名稱 (Model ID)：</label>
+                <input type="text" id="wizardCustomModel" placeholder="例如：google/gemma-2-9b-it">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 方案 2: 純本地 AI 語意分析 -->
+        <div class="wizard-card-option" id="optLocalOnly" onclick="selectWizardStrategy('local_only')">
+          <div class="wizard-option-header">
+            <div class="wizard-option-title">
+              <span>🛡️ 2. 純本地 AI 語意分析，資料不外送</span>
+            </div>
+            <span class="wizard-badge" style="background: rgba(192, 132, 252, 0.2); color: var(--accent-purple); border: 1px solid rgba(192, 132, 252, 0.4);">極致隱私 · 純綠離線推論</span>
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+            全程於本機顯示卡或 CPU 運算推論（由純綠版 llama.cpp 播放器驅動 Google Gemma 4 或開源 Llama 模型），零商業廣告與訂閱誘餌，資料絕不外送雲端，完全隔離保障隱私。
+          </div>
+
+          <!-- 展開子設定 -->
+          <div id="wizardLocalFields" style="margin-top: 8px; display: none; flex-direction: column; gap: 10px; background: rgba(0, 0, 0, 0.25); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.8rem; color: var(--accent-yellow);">
+              🛡️ 使用本機顯示卡運算 100% 完全免費且純綠無污染，優先推薦純綠版 <strong>llama.cpp / llama-server</strong> 驅動 <strong>Google Gemma 4 / Gemma 2</strong>。
+            </div>
+            <div class="form-group">
+              <label for="wizardOllamaModelSelect" style="display: flex; justify-content: space-between; font-size: 0.82rem;">
+                <span>本機已安裝模型：</span>
+                <span id="wizardOllamaHint" style="color: var(--accent-cyan);">掃描中...</span>
+              </label>
+              <select id="wizardOllamaModelSelect" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;"></select>
+            </div>
+            <div id="wizardOllamaServiceCard" style="display: none; padding: 8px 12px; border-radius: 6px; font-size: 0.82rem; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.3);">
+              <span id="wizardOllamaServiceMsg" style="color: var(--accent-yellow);"></span>
+              <button class="btn btn-primary" style="margin-top: 6px; font-size: 0.8rem; padding: 4px 10px;" onclick="startLocalOllamaInWizard(event)">⚡ 一鍵喚醒本機純綠推論服務</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 方案 3: 單字權重手動調整 (傳統模式) -->
+        <div class="wizard-card-option" id="optLegacy" onclick="selectWizardStrategy('legacy')">
+          <div class="wizard-option-header">
+            <div class="wizard-option-title">
+              <span>🪵 3. 單字權重手動調整 (傳統模式)</span>
+            </div>
+            <span class="wizard-badge" style="background: rgba(239, 68, 68, 0.2); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.4);">傳統差分 · 存在全域污染風險</span>
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+            不啟用任何大型語言模型，僅依賴傳統詞庫正向最大匹配 (FMM) 與字串差分演算法進行簡單文字比對與單字偏置。
+          </div>
+
+          <!-- 潛在永久污染嚴重警告 -->
+          <div style="margin-top: 8px; background: rgba(239, 68, 68, 0.08); border-left: 3px solid var(--accent-red); padding: 12px 14px; border-radius: 6px; font-size: 0.82rem; color: #fca5a5; line-height: 1.5;">
+            <strong>⚠️ 潛在的全域語意污染風險說明：</strong><br>
+            • <strong>全域連鎖劫掠災難 (Global Unigram Hijacking)</strong>：若為修復特定句子而強行調高單字基礎權重 (Global Unigram Prior)，容易在其他正常上下文中產生副作用（例如為修「理」而干擾「硬碟裡」）。<br>
+            • <strong>過度抑制邊界錯誤 (Boundary Over-Suppression)</strong>：採用粗暴的負向字詞過濾規則，可能干擾合法的無詞界跨詞連寫長句。<br>
+            • <strong>複合長詞凝聚力缺失 (Loss of Lexical Cohesion)</strong>：文化或領域新名詞若未沉澱為正規詞庫，演算法在拆分多音字/破音字時將失去定位錨點。<br>
+            <em>若選擇此模式，系統將僅使用單字偏置，長期累積可能使詞庫產生非預期偏差。</em>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 底部操作列 -->
+      <div class="row-sentence" style="justify-content: flex-end; gap: 10px; margin-top: 8px;">
+        <button class="btn btn-secondary" onclick="closeAiWizardModal()">關閉</button>
+        <button class="btn btn-primary" onclick="confirmSaveWizardStrategy()" style="background: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%); border: none;">
+          💾 確認並儲存 AI 策略（下次自動套用）
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- AI 顧問設定彈窗 -->
   <div id="aiModal" class="modal-backdrop">
     <div class="modal-card">
@@ -807,8 +1246,11 @@
         <select id="aiProviderSelect" class="form-select" onchange="toggleAiProviderFields()">
           <option value="auto">🌟 智慧自動探測 (優先連網 Google 官方免費額度 · 100% 免費開箱即用)</option>
           <option value="gemini">🇬 Google Gemini API (官方永久免費 · 免信用卡 · 每天 1,500 次呼叫)</option>
+          <option value="openai">🤖 OpenAI (自備 ChatGPT API Key · GPT-4o / GPT-4o-mini)</option>
+          <option value="claude">🧠 Anthropic Claude (自備 Claude API Key · Claude 3.5 Sonnet)</option>
+          <option value="custom">🔌 自訂相容服務 (自備 OpenAI 相容 API · 如 OpenRouter / 本地 vLLM)</option>
+          <option value="ollama">🎒 本地推論播放器 (Ollama · 驅動 Google Gemma 2 / 本機顯示卡運算)</option>
           <option value="disabled">🌱 純本機自足引擎 (零設定 · 零聯網 · 100% Rust 本地圖論運算)</option>
-          <option value="ollama">🎒 本地離線備援 (極端無網備用 · 本機顯卡運算 · 零訂閱費)</option>
         </select>
       </div>
 
@@ -822,7 +1264,7 @@
         <div class="form-group">
           <label for="geminiApiKey" style="display: flex; justify-content: space-between; align-items: center;">
             <span>Google Gemini API Key：</span>
-            <button type="button" class="btn-pill" style="color: var(--accent-cyan); border-color: rgba(56, 189, 248, 0.3); font-size: 0.78rem;" onclick="pasteApiKeyFromClipboard()">
+            <button type="button" class="btn-pill" style="color: var(--accent-cyan); border-color: rgba(56, 189, 248, 0.3); font-size: 0.78rem;" onclick="pasteApiKeyFromClipboard('geminiApiKey')">
               📋 從剪貼簿快速貼上
             </button>
           </label>
@@ -831,10 +1273,86 @@
         <div class="form-group">
           <label for="geminiModelSelect">Gemini 模型型號：</label>
           <select id="geminiModelSelect" class="form-select">
-            <option value="gemini-2.0-flash">Gemini 2.0 Flash (極速次世代旗艦 · 推薦)</option>
-            <option value="gemini-1.5-flash">Gemini 1.5 Flash (穩定成熟款)</option>
-            <option value="gemini-1.5-pro">Gemini 1.5 Pro (深度長文推理)</option>
+            <option value="gemini-2.5-flash">Google Gemini 2.5 Flash (極速最新旗艦 · 推薦)</option>
+            <option value="gemini-2.0-flash">Google Gemini 2.0 Flash (穩定成熟款)</option>
+            <option value="gemini-2.5-pro">Google Gemini 2.5 Pro (深度長文推理)</option>
           </select>
+        </div>
+      </div>
+
+      <!-- OpenAI 設定欄位 -->
+      <div id="openaiFields" style="display: none; flex-direction: column; gap: 10px;">
+        <div style="font-size: 0.82rem; color: var(--accent-cyan); background: rgba(56, 189, 248, 0.08); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.2); line-height: 1.4;">
+          🔑 <strong>自備 OpenAI 訂閱帳戶</strong>：使用您自己的 OpenAI API Key。<br>
+          <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--accent-cyan); text-decoration: underline; font-weight: 600; display: inline-block; margin-top: 4px;">
+            👉 點此前往 OpenAI 平台取得 API Key
+          </a>
+        </div>
+        <div class="form-group">
+          <label for="openaiApiKey" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>OpenAI API Key：</span>
+            <button type="button" class="btn-pill" style="color: var(--accent-cyan); border-color: rgba(56, 189, 248, 0.3); font-size: 0.78rem;" onclick="pasteApiKeyFromClipboard('openaiApiKey')">
+              📋 從剪貼簿快速貼上
+            </button>
+          </label>
+          <input type="password" id="openaiApiKey" class="input-correct-sent" placeholder="sk-proj-...">
+        </div>
+        <div class="form-group">
+          <label for="openaiModelSelect">OpenAI 模型型號：</label>
+          <select id="openaiModelSelect" class="form-select">
+            <option value="gpt-4o-mini">GPT-4o-mini (極速省流 · 推薦)</option>
+            <option value="gpt-4o">GPT-4o (全功能旗艦)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Anthropic Claude 設定欄位 -->
+      <div id="claudeFields" style="display: none; flex-direction: column; gap: 10px;">
+        <div style="font-size: 0.82rem; color: #c084fc; background: rgba(192, 132, 252, 0.08); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(192, 132, 252, 0.2); line-height: 1.4;">
+          🧠 <strong>自備 Anthropic Claude 帳戶</strong>：使用您自己的 Claude API Key。<br>
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color: var(--accent-purple); text-decoration: underline; font-weight: 600; display: inline-block; margin-top: 4px;">
+            👉 點此前往 Anthropic 主控台取得 API Key
+          </a>
+        </div>
+        <div class="form-group">
+          <label for="claudeApiKey" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Anthropic Claude API Key：</span>
+            <button type="button" class="btn-pill" style="color: var(--accent-purple); border-color: rgba(192, 132, 252, 0.3); font-size: 0.78rem;" onclick="pasteApiKeyFromClipboard('claudeApiKey')">
+              📋 從剪貼簿快速貼上
+            </button>
+          </label>
+          <input type="password" id="claudeApiKey" class="input-correct-sent" placeholder="sk-ant-...">
+        </div>
+        <div class="form-group">
+          <label for="claudeModelSelect">Claude 模型型號：</label>
+          <select id="claudeModelSelect" class="form-select">
+            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (句法分析王者 · 推薦)</option>
+            <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (極速輕量)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 自訂 OpenAI 相容服務端點 -->
+      <div id="customFields" style="display: none; flex-direction: column; gap: 10px;">
+        <div style="font-size: 0.82rem; color: var(--accent-cyan); background: rgba(56, 189, 248, 0.08); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.2); line-height: 1.4;">
+          🔌 <strong>自訂 OpenAI 相容服務端點</strong>：適用於 OpenRouter、LM Studio、vLLM 或私人中繼站。
+        </div>
+        <div class="form-group">
+          <label for="customBaseUrl">API 服務端點 Base URL：</label>
+          <input type="text" id="customBaseUrl" class="input-correct-sent" placeholder="例如：https://openrouter.ai/api/v1">
+        </div>
+        <div class="form-group">
+          <label for="customApiKey" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>API Key (選填)：</span>
+            <button type="button" class="btn-pill" style="color: var(--accent-cyan); border-color: rgba(56, 189, 248, 0.3); font-size: 0.78rem;" onclick="pasteApiKeyFromClipboard('customApiKey')">
+              📋 從剪貼簿快速貼上
+            </button>
+          </label>
+          <input type="password" id="customApiKey" class="input-correct-sent" placeholder="填入 API Key，若為本地免密鑰端點可留空">
+        </div>
+        <div class="form-group">
+          <label for="customModel">模型名稱 (Model ID)：</label>
+          <input type="text" id="customModel" class="input-correct-sent" placeholder="例如：google/gemma-2-9b-it 或 mistralai/mistral-large">
         </div>
       </div>
 
@@ -884,9 +1402,14 @@
 
       <div id="aiTestResult" style="display: none; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem;"></div>
 
-      <div class="row-sentence" style="justify-content: flex-end; margin-top: 8px;">
-        <button class="btn btn-secondary" onclick="closeAiModal()">取消</button>
-        <button class="btn btn-primary" onclick="saveAiSettings()">💾 儲存並驗證連線</button>
+      <div class="row-sentence" style="justify-content: space-between; margin-top: 8px; flex-wrap: wrap; gap: 8px;">
+        <button class="btn btn-secondary" onclick="restoreLocalModelPrompt()" style="font-size: 0.8rem; border-color: rgba(56, 189, 248, 0.3); color: var(--accent-cyan);">
+          🔄 恢復本地備案升級巡檢
+        </button>
+        <div class="word-group">
+          <button class="btn btn-secondary" onclick="closeAiModal()">取消</button>
+          <button class="btn btn-primary" onclick="saveAiSettings()">💾 儲存並驗證連線</button>
+        </div>
       </div>
     </div>
   </div>
@@ -916,107 +1439,885 @@
       setTimeout(() => { t.style.display = 'none'; }, 3000);
     }
 
+    let isWizardCompleted = false;
+
+    // ── 動態多組對照句批次管理與詞界互動狀態 ──
+    let sentencePairs = [
+      { id: 1, error: '', correct: '', manual_error: false, manual_correct: false, error_tokens: null, correct_tokens: null }
+    ];
+    let nextPairId = 2;
+
+    // ── 字元層級 SequenceMatcher / LCS 差分演算（用於標記詞塊相異/相同狀態） ──
+    function computeDiffRanges(s1, s2) {
+      const m = s1.length, n = s2.length;
+      if (m === 0 && n === 0) return { diff1: new Set(), diff2: new Set() };
+      
+      const dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1));
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+          if (s1[i] === s2[j]) {
+            dp[i + 1][j + 1] = dp[i][j] + 1;
+          } else {
+            dp[i + 1][j + 1] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+          }
+        }
+      }
+      
+      const diff1 = new Set();
+      const diff2 = new Set();
+      let i = m, j = n;
+      while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && s1[i - 1] === s2[j - 1]) {
+          i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+          diff2.add(j - 1);
+          j--;
+        } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+          diff1.add(i - 1);
+          i--;
+        }
+      }
+      return { diff1, diff2 };
+    }
+
+    // ── 快速本地預覽分詞（嚴禁盲目每 2 字機械切塊，於後端 DAG 分詞回應前維持自然字詞邊界） ──
+    const LOCAL_CORE_WORDS = new Set([
+      "新注音", "標點符號", "使用者", "看起來", "打地鼠", "分階段", "現階段", "第一階段",
+      "工程", "專業", "不懂", "不會", "不能", "不要", "不過", "依據", "階段", "成果", "謝謝",
+      "模式", "其實", "才是", "相容性", "最好", "選擇", "程式", "開發", "完畢", "正式", "發布",
+      "目前", "如喜", "固定", "輸入", "最大", "好處", "可以", "文字", "大小", "之前", "如果",
+      "太長", "就會", "卡頓", "現象", "野生", "哲學家", "自我", "介紹", "十八個", "自己",
+      "我們", "你們", "他們", "她們", "這個", "那個", "沒有", "反應", "結果", "組織", "錯誤", "句子", "介面"
+    ]);
+    function quickTokenize(text) {
+      if (!text) return [];
+      const tokens = [];
+      let i = 0;
+      const n = text.length;
+      while (i < n) {
+        const ch = text[i];
+        const code = ch.charCodeAt(0);
+        const isCjk = (code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3400 && code <= 0x4DBF);
+        if (isCjk) {
+          let matched = null;
+          for (let l = Math.min(4, n - i); l >= 2; l--) {
+            const sub = text.slice(i, i + l);
+            if (LOCAL_CORE_WORDS.has(sub)) {
+              matched = sub;
+              break;
+            }
+          }
+          if (matched) {
+            tokens.push(matched);
+            i += matched.length;
+          } else {
+            tokens.push(ch);
+            i += 1;
+          }
+        } else if (/[0-9]/.test(ch)) {
+          let j = i + 1;
+          while (j < n && /[0-9]/.test(text[j])) j++;
+          tokens.push(text.slice(i, j));
+          i = j;
+        } else if (/[a-zA-Z]/.test(ch)) {
+          let j = i + 1;
+          while (j < n && /[a-zA-Z]/.test(text[j])) j++;
+          tokens.push(text.slice(i, j));
+          i = j;
+        } else {
+          tokens.push(ch);
+          i += 1;
+        }
+      }
+      return tokens;
+    }
+
+    const PRONOUN_CHARS_JS = new Set(Array.from("我你您他她它咱"));
+    const PRONOUN_RIGHT_CLITICS_JS = new Set(Array.from("不沒很都也還就要會能想在再先去來有是把被讓給對跟和向的了過著嗎呢吧"));
+    const PRONOUN_LEFT_CLITICS_JS = new Set(Array.from("給請讓叫替幫跟對向從把被為由比在的了"));
+
+    function refineSingleTokenStream(rawTokens) {
+      if (!Array.isArray(rawTokens) || rawTokens.length === 0) return [];
+      // 1. 拆解跨句法成分的代詞/介詞黏連偽詞（例如舊版記憶體伺服器可能回傳「我不」、「給我」）
+      const step1 = [];
+      for (const tok of rawTokens) {
+        if (tok && tok.length === 2) {
+          const c0 = tok[0], c1 = tok[1];
+          if ((PRONOUN_CHARS_JS.has(c0) && PRONOUN_RIGHT_CLITICS_JS.has(c1)) ||
+              (PRONOUN_LEFT_CLITICS_JS.has(c0) && PRONOUN_CHARS_JS.has(c1))) {
+            step1.push(c0, c1);
+            continue;
+          }
+        }
+        step1.push(tok);
+      }
+      // 2. 重組被偽詞拆散的核心複合詞（如「不 + 懂 ➔ 不懂」、「分 + 階段 ➔ 分階段」）
+      const step2 = [];
+      let i = 0;
+      while (i < step1.length) {
+        if (i + 1 < step1.length) {
+          const merged2 = step1[i] + step1[i + 1];
+          if (LOCAL_CORE_WORDS.has(merged2)) {
+            step2.push(merged2);
+            i += 2;
+            continue;
+          }
+        }
+        step2.push(step1[i]);
+        i += 1;
+      }
+      return step2;
+    }
+
+    function refineLexicalTokensPair(errText, corText, rawErrTokens, rawCorTokens) {
+      const corTokens = refineSingleTokenStream(rawCorTokens);
+      let errTokens = refineSingleTokenStream(rawErrTokens);
+      if (!errText || !corText || errText.length !== corText.length) {
+        return { errTokens, corTokens };
+      }
+      // 對齊等長句對中與正確句多字詞（如「不懂」、「依據」）同位置之錯誤句單字碎片（如「步 + 懂 ➔ 步懂」）
+      const corSpans = [];
+      let pos = 0;
+      for (const t of corTokens) {
+        corSpans.push({ tok: t, s: pos, e: pos + t.length });
+        pos += t.length;
+      }
+      const errSpans = [];
+      pos = 0;
+      for (const t of errTokens) {
+        errSpans.push({ tok: t, s: pos, e: pos + t.length });
+        pos += t.length;
+      }
+      const errStartSet = new Set(errSpans.map(x => x.s));
+      const errEndSet = new Set(errSpans.map(x => x.e));
+      const forcedMap = new Map();
+      for (const cs of corSpans) {
+        if (cs.e - cs.s >= 2 && errText.slice(cs.s, cs.e) !== corText.slice(cs.s, cs.e)) {
+          if (errStartSet.has(cs.s) && errEndSet.has(cs.e)) {
+            forcedMap.set(cs.s, cs.e);
+          }
+        }
+      }
+      if (forcedMap.size > 0) {
+        const aligned = [];
+        let idx = 0;
+        while (idx < errSpans.length) {
+          const item = errSpans[idx];
+          if (forcedMap.has(item.s)) {
+            const targetE = forcedMap.get(item.s);
+            while (idx < errSpans.length && errSpans[idx].e < targetE) idx++;
+            if (idx < errSpans.length && errSpans[idx].e === targetE) {
+              aligned.push(errText.slice(item.s, targetE));
+              idx++;
+              continue;
+            }
+          }
+          aligned.push(item.tok);
+          idx++;
+        }
+        errTokens = aligned;
+      }
+      return { errTokens, corTokens };
+    }
+
+    // ── 後端詞庫有向無環圖動態規劃 (DAG DP) 與雙向對照分詞非同步請求 ──
+    function fetchTokensForPair(pair) {
+      if (!pair) return;
+      if (pair._tokenizeTimer) {
+        clearTimeout(pair._tokenizeTimer);
+      }
+      pair._tokenizeTimer = setTimeout(async () => {
+        try {
+          const payload = {
+            error: pair.error || '',
+            correct: pair.correct || ''
+          };
+          const res = await fetch('/api/tune/tokenize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (data.status === 'ok') {
+            const refined = refineLexicalTokensPair(
+              pair.error || '',
+              pair.correct || '',
+              data.error_tokens || [],
+              data.correct_tokens || []
+            );
+            if (!pair.manual_error && refined.errTokens.length > 0) {
+              pair.error_tokens = refined.errTokens;
+              pair._backend_error_tokenized = true;
+            }
+            if (!pair.manual_correct && refined.corTokens.length > 0) {
+              pair.correct_tokens = refined.corTokens;
+              pair._backend_correct_tokenized = true;
+            }
+            updateBoundaryStreams(pair);
+          }
+        } catch (e) {
+          console.warn('自動詞界分詞失敗，保留本地分詞：', e);
+        }
+      }, 60);
+    }
+
+    // ── 詞界流局部 DOM 無感更新 ──
+    function updateBoundaryStreams(pair) {
+      const errStream = document.getElementById(`errorTokensStream_${pair.id}`);
+      const corStream = document.getElementById(`correctTokensStream_${pair.id}`);
+      if (errStream) errStream.innerHTML = renderPairBoundaryStream(pair, 'error');
+      if (corStream) corStream.innerHTML = renderPairBoundaryStream(pair, 'correct');
+    }
+
+    // ── 渲染單一對照句的詞界流（含詞內切分與詞間合併互動點） ──
+    function renderPairBoundaryStream(pair, field) {
+      const text = pair[field] || '';
+      if (!text) {
+        return `<span style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">（尚未輸入文字）</span>`;
+      }
+
+      const tokKey = field + '_tokens';
+      if (!pair[tokKey] || pair[tokKey].join('') !== text) {
+        pair[tokKey] = quickTokenize(text);
+      }
+      const tokens = pair[tokKey];
+
+      // 計算差異高亮索引集合
+      const diffs = computeDiffRanges(pair.error || '', pair.correct || '');
+      const diffIndices = (field === 'error') ? diffs.diff1 : diffs.diff2;
+
+      let charOffset = 0;
+      let html = '';
+
+      tokens.forEach((tok, tIdx) => {
+        const tokLen = tok.length;
+        let isDifferent = false;
+        for (let c = 0; c < tokLen; c++) {
+          if (diffIndices.has(charOffset + c)) {
+            isDifferent = true;
+            break;
+          }
+        }
+
+        const typeClass = isDifferent ? (field === 'error' ? 'token-err' : 'token-cor') : 'token-same';
+
+        // 渲染詞塊內字元與字元間切分縫隙 (split-slit)
+        let tokInner = '';
+        for (let c = 0; c < tokLen; c++) {
+          tokInner += `<span class="char-unit">${escapeHtml(tok[c])}</span>`;
+          if (c < tokLen - 1) {
+            tokInner += `<span class="split-slit" title="點擊於此處切分詞界（${escapeHtml(tok.slice(0, c + 1))} | ${escapeHtml(tok.slice(c + 1))}）" onclick="event.stopPropagation(); splitToken(${pair.id}, '${field}', ${tIdx}, ${c + 1})"></span>`;
+          }
+        }
+
+        html += `<span class="token-chip ${typeClass}" title="詞塊：${escapeHtml(tok)}${isDifferent ? '（包含差異）' : ''}">${tokInner}</span>`;
+
+        // 渲染詞塊與相鄰詞塊之間的合併接縫 (merge-seam)
+        if (tIdx < tokens.length - 1) {
+          html += `<button type="button" class="merge-seam" title="點擊合併相鄰詞塊（${escapeHtml(tok)} + ${escapeHtml(tokens[tIdx + 1])}）" onclick="event.stopPropagation(); mergeTokens(${pair.id}, '${field}', ${tIdx})"><div class="merge-seam-bar"></div></button>`;
+        }
+
+        charOffset += tokLen;
+      });
+
+      return html;
+    }
+
+    // ── 詞界互動操作：詞內切分 (Split) ──
+    function splitToken(pairId, field, tokenIdx, charIdx) {
+      const pair = sentencePairs.find(p => p.id === pairId);
+      if (!pair) return;
+      const tokKey = field + '_tokens';
+      const tokens = pair[tokKey] || quickTokenize(pair[field]);
+      if (tokenIdx < 0 || tokenIdx >= tokens.length) return;
+      const tok = tokens[tokenIdx];
+      if (charIdx <= 0 || charIdx >= tok.length) return;
+
+      const left = tok.slice(0, charIdx);
+      const right = tok.slice(charIdx);
+      tokens.splice(tokenIdx, 1, left, right);
+      pair[tokKey] = tokens;
+      pair['manual_' + field] = true;
+
+      updateBoundaryStreams(pair);
+    }
+
+    // ── 詞界互動操作：相鄰合併 (Merge) ──
+    function mergeTokens(pairId, field, tokenIdx) {
+      const pair = sentencePairs.find(p => p.id === pairId);
+      if (!pair) return;
+      const tokKey = field + '_tokens';
+      const tokens = pair[tokKey] || quickTokenize(pair[field]);
+      if (tokenIdx < 0 || tokenIdx >= tokens.length - 1) return;
+
+      const merged = tokens[tokenIdx] + tokens[tokenIdx + 1];
+      tokens.splice(tokenIdx, 2, merged);
+      pair[tokKey] = tokens;
+      pair['manual_' + field] = true;
+
+      updateBoundaryStreams(pair);
+    }
+
+    // ── 詞界重設：還原至詞庫預設分詞 ──
+    function resetPairTokens(pairId) {
+      const pair = sentencePairs.find(p => p.id === pairId);
+      if (!pair) return;
+      pair.manual_error = false;
+      pair.manual_correct = false;
+      pair.error_tokens = null;
+      pair.correct_tokens = null;
+      fetchTokensForPair(pair);
+      const idx = sentencePairs.findIndex(p => p.id === pairId) + 1;
+      showToast(`🔄 已重設對照句 #${idx} 的詞界為詞庫預設`);
+    }
+
+    // ── 完整渲染對照句清單 ──
+    function renderSentencePairs() {
+      const container = document.getElementById('sentencePairsContainer');
+      if (!container) return;
+      container.innerHTML = sentencePairs.map((p, idx) => `
+        <div class="card" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div class="row-sentence" style="justify-content: space-between;">
+            <span class="char-element" style="background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); font-weight: 600; padding: 2px 10px; border-radius: 4px; font-size: 0.85rem;">
+              對照句 #${idx + 1}
+            </span>
+            ${sentencePairs.length > 1 ? `
+              <button class="btn-pill" style="color: var(--accent-red); border-color: rgba(248, 113, 113, 0.3); font-size: 0.8rem; padding: 2px 10px;" onclick="removeSentencePair(${p.id})">
+                ✕ 移除此組
+              </button>
+            ` : ''}
+          </div>
+          <div class="form-group">
+            <label style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+              <span>❌ 錯誤句（輸入法組錯或選錯的句子）：</span>
+              <span style="font-size: 0.78rem; color: var(--accent-red);">【原始錯誤】</span>
+            </label>
+            <input type="text" class="input-error-sent" value="${escapeHtml(p.error)}" placeholder="例如：目前看起來都再打的數。" oninput="updatePairInput(${p.id}, 'error', this.value)">
+          </div>
+          <div class="form-group">
+            <label style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+              <span>✅ 正確句（心中期望組出的標準中文句子）：</span>
+              <span style="font-size: 0.78rem; color: var(--accent-green);">【標準中文】</span>
+            </label>
+            <input type="text" class="input-correct-sent" value="${escapeHtml(p.correct)}" placeholder="例如：目前看起來都在打地鼠。" oninput="updatePairInput(${p.id}, 'correct', this.value)">
+          </div>
+          <div id="diffContainer_${p.id}" class="lexical-boundary-panel" style="${(p.error && p.correct) ? 'display: flex;' : 'display: none;'}">
+            <div class="row-sentence" style="justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <span style="font-size: 0.82rem; font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; gap: 6px;">
+                <span>🧩 語意詞界辨識與自適應流 (Lexical Token Stream)</span>
+              </span>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn-token-reset" onclick="resetPairTokens(${p.id})">
+                  🔄 重設詞界
+                </button>
+              </div>
+            </div>
+
+            <!-- 錯誤句詞界列 -->
+            <div class="boundary-row">
+              <span class="boundary-row-label" style="background: rgba(248, 113, 113, 0.15); color: var(--accent-red);">❌ 錯誤詞界</span>
+              <div class="boundary-tokens-stream" id="errorTokensStream_${p.id}">
+                ${renderPairBoundaryStream(p, 'error')}
+              </div>
+            </div>
+
+            <!-- 正確句詞界列 -->
+            <div class="boundary-row">
+              <span class="boundary-row-label" style="background: rgba(74, 222, 128, 0.15); color: var(--accent-green);">✅ 正確詞界</span>
+              <div class="boundary-tokens-stream" id="correctTokensStream_${p.id}">
+                ${renderPairBoundaryStream(p, 'correct')}
+              </div>
+            </div>
+
+            <div class="boundary-hint">
+              <span>💡 詞界微調操作指引：滑鼠懸停於詞塊文字間點擊【✂ 切分】可拆詞；懸停於相鄰詞塊接縫處點擊【🔗 合併】可合詞，即時引導計算語言學對齊！</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      updateBatchButtonText();
+    }
+
+    function updatePairInput(id, field, val) {
+      const pair = sentencePairs.find(p => p.id === id);
+      if (pair) {
+        pair[field] = val;
+        const tokKey = field + '_tokens';
+        const manKey = 'manual_' + field;
+        if (!pair[tokKey] || pair[tokKey].join('') !== val) {
+          pair[manKey] = false;
+          pair['_backend_' + field + '_tokenized'] = false;
+          pair[tokKey] = quickTokenize(val);
+          fetchTokensForPair(pair);
+        }
+        const diffCont = document.getElementById(`diffContainer_${id}`);
+        if (diffCont) {
+          if (pair.error && pair.correct) {
+            diffCont.style.display = 'flex';
+            updateBoundaryStreams(pair);
+          } else {
+            diffCont.style.display = 'none';
+          }
+        }
+      }
+      updateBatchButtonText();
+    }
+
+    function updateBatchButtonText() {
+      const btn = document.getElementById('btnBatchTune');
+      if (btn) {
+        const count = sentencePairs.filter(p => p.error.trim() || p.correct.trim()).length || 1;
+        btn.querySelector('span').innerText = `✨ 開始批次 AI 語意診斷與即時注入 (${count} 組)`;
+      }
+    }
+
+    function addNewSentencePair(err = '', cor = '') {
+      const item = { id: nextPairId++, error: err, correct: cor, manual_error: false, manual_correct: false, error_tokens: null, correct_tokens: null };
+      sentencePairs.push(item);
+      renderSentencePairs();
+      if (err || cor) fetchTokensForPair(item);
+    }
+
+    function removeSentencePair(id) {
+      if (sentencePairs.length <= 1) return;
+      sentencePairs = sentencePairs.filter(p => p.id !== id);
+      renderSentencePairs();
+    }
+
+    function clearAllPairs() {
+      sentencePairs = [{ id: 1, error: '', correct: '', manual_error: false, manual_correct: false, error_tokens: null, correct_tokens: null }];
+      nextPairId = 2;
+      currentActiveFileName = '';
+      renderRecentFilesHistory();
+      renderSentencePairs();
+      const resCard = document.getElementById('tuneResultCard');
+      if (resCard) resCard.style.display = 'none';
+    }
+
     function fillExample(err, cor) {
-      document.getElementById('errInput').value = err;
-      document.getElementById('corInput').value = cor;
-      updateLiveVerticalDiff();
+      const last = sentencePairs[sentencePairs.length - 1];
+      let target;
+      if (!last.error.trim() && !last.correct.trim()) {
+        last.error = err;
+        last.correct = cor;
+        last.manual_error = false;
+        last.manual_correct = false;
+        last.error_tokens = null;
+        last.correct_tokens = null;
+        target = last;
+      } else {
+        target = { id: nextPairId++, error: err, correct: cor, manual_error: false, manual_correct: false, error_tokens: null, correct_tokens: null };
+        sentencePairs.push(target);
+      }
+      renderSentencePairs();
+      fetchTokensForPair(target);
     }
 
-    function clearInputs() {
-      document.getElementById('errInput').value = '';
-      document.getElementById('corInput').value = '';
-      document.getElementById('tuneResultCard').style.display = 'none';
-      document.getElementById('liveVerticalDiffContainer').style.display = 'none';
+    // ── 文字檔匯入解析與檔案拖曳支援 ──
+    function parseTextToPairs(text) {
+      if (!text) return [];
+      const rawLines = text.split(/\r?\n/);
+      const lines = rawLines.map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('#'));
+      if (lines.length === 0) return [];
+
+      // 檢查是否每行都有固定分隔符（如 '➔', '->', '\t'）
+      let delim = null;
+      for (const cand of ['➔', '->', '\t']) {
+        if (lines.every(l => l.includes(cand))) {
+          delim = cand;
+          break;
+        }
+      }
+
+      if (delim) {
+        return lines.map(l => {
+          const parts = l.split(delim);
+          return { error: parts[0].trim(), correct: (parts[1] || '').trim() };
+        });
+      }
+
+      // 上下兩兩成對（自動忽略空行與注釋）
+      const pairs = [];
+      for (let i = 0; i < lines.length; i += 2) {
+        const err = lines[i];
+        const cor = (i + 1 < lines.length) ? lines[i + 1] : '';
+        pairs.push({ error: err, correct: cor });
+      }
+      return pairs;
     }
 
-    function updateLiveVerticalDiff() {
-      const err = document.getElementById('errInput').value;
-      const cor = document.getElementById('corInput').value;
-      const container = document.getElementById('liveVerticalDiffContainer');
-      const stream = document.getElementById('charColumnStream');
+    const RECENT_FILES_STORAGE_KEY = 'ruhi_studio_recent_txt_files_v2';
+    const LEGACY_RECENT_FILES_KEY = 'ruhi_studio_recent_txt_files_v1';
+    let currentActiveFileName = '';
 
-      if (!err && !cor) {
-        container.style.display = 'none';
+    function getRecentFilesHistory() {
+      try {
+        let raw = localStorage.getItem(RECENT_FILES_STORAGE_KEY);
+        if (!raw) {
+          // 自動遷移舊版瀏覽紀錄並徹底剝除舊版錯誤快取的 pairs 句子內容，只保留檔名與路徑指標
+          const legacyRaw = localStorage.getItem(LEGACY_RECENT_FILES_KEY);
+          if (legacyRaw) {
+            const legacyParsed = JSON.parse(legacyRaw);
+            if (Array.isArray(legacyParsed)) {
+              const cleaned = legacyParsed
+                .filter(x => x && x.file_name)
+                .map(x => ({
+                  file_name: x.file_name,
+                  file_path: x.file_path || '',
+                  count: x.count || (Array.isArray(x.pairs) ? x.pairs.length : 0),
+                  updated_at: x.updated_at || Date.now()
+                }));
+              localStorage.setItem(RECENT_FILES_STORAGE_KEY, JSON.stringify(cleaned));
+              localStorage.removeItem(LEGACY_RECENT_FILES_KEY);
+              return cleaned;
+            }
+          }
+          return [];
+        }
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        // 確保絕對不殘留靜態 pairs 快取
+        return parsed.map(x => ({
+          file_name: x.file_name,
+          file_path: x.file_path || '',
+          count: x.count || 0,
+          updated_at: x.updated_at || 0
+        }));
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveRecentFileToHistory(fileName, filePath, count) {
+      if (!fileName) return;
+      const existingList = getRecentFilesHistory();
+      const prev = existingList.find(item => item.file_name === fileName);
+      const resolvedPath = filePath || (prev ? prev.file_path : '') || '';
+      const list = existingList.filter(item => item.file_name !== fileName);
+      list.unshift({
+        file_name: fileName,
+        file_path: resolvedPath,
+        count: typeof count === 'number' ? count : (prev ? prev.count : 0),
+        updated_at: Date.now()
+      });
+      const trimmed = list.slice(0, 8);
+      try {
+        localStorage.setItem(RECENT_FILES_STORAGE_KEY, JSON.stringify(trimmed));
+      } catch (e) {
+        console.warn('儲存瀏覽紀錄失敗', e);
+      }
+      renderRecentFilesHistory();
+    }
+
+    function removeRecentFileFromHistory(fileName, event) {
+      if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+      const list = getRecentFilesHistory().filter(item => item.file_name !== fileName);
+      try {
+        localStorage.setItem(RECENT_FILES_STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {}
+      if (currentActiveFileName === fileName) {
+        currentActiveFileName = '';
+      }
+      renderRecentFilesHistory();
+    }
+
+    function renderRecentFilesHistory() {
+      const bar = document.getElementById('recentFilesHistoryBar');
+      if (!bar) return;
+      const list = getRecentFilesHistory();
+      if (list.length === 0) {
+        bar.innerHTML = `<span style="font-size: 0.78rem; color: var(--text-muted);">（尚無瀏覽紀錄）</span>`;
         return;
       }
 
-      container.style.display = 'flex';
-      const maxLen = Math.max(err.length, cor.length);
-      let html = '';
+      bar.innerHTML = `<span style="font-size: 0.78rem; color: var(--text-muted); margin-left: 2px;">瀏覽紀錄：</span>` +
+        list.map((item, idx) => {
+          const isActive = (currentActiveFileName === item.file_name);
+          const borderStyle = isActive
+            ? 'border-color: var(--accent-cyan); background: rgba(56, 189, 248, 0.2); color: #fff; font-weight: 600;'
+            : 'border-color: rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.04); color: var(--text-main);';
+          const countLabel = item.count ? ` (${item.count})` : '';
+          const titleTip = item.file_path
+            ? `點擊即時從硬碟重新讀取最新內容：${item.file_path}`
+            : `點擊即時從硬碟重新讀取最新內容：${item.file_name}`;
+          return `
+            <span class="btn-pill" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; padding: 4px 10px; cursor: pointer; ${borderStyle}" title="${escapeHtml(titleTip)}" onclick="switchToRecentFile(${idx})">
+              <span>📄 ${escapeHtml(item.file_name)}</span>
+              <span style="font-size: 0.72rem; opacity: 0.75;">${countLabel}</span>
+              <span title="從瀏覽紀錄移除" style="font-size: 0.75rem; opacity: 0.55; padding: 0 2px; border-radius: 3px;" onmouseover="this.style.opacity='1'; this.style.color='var(--accent-red)';" onmouseout="this.style.opacity='0.55'; this.style.color='inherit';" onclick="removeRecentFileFromHistory('${escapeHtml(item.file_name)}', event)">✕</span>
+            </span>
+          `;
+        }).join('');
+    }
 
-      for (let i = 0; i < maxLen; i++) {
-        const cErr = err[i] || ' ';
-        const cCor = cor[i] || ' ';
-        const isSame = cErr === cCor;
+    async function switchToRecentFile(index) {
+      const list = getRecentFilesHistory();
+      const item = list[index];
+      if (!item) return;
 
-        html += `
-          <div class="char-column">
-            <div class="char-box ${isSame ? 'same' : 'err'}">${cErr}</div>
-            <div class="char-arrow">${isSame ? '·' : '↓'}</div>
-            <div class="char-box ${isSame ? 'same' : 'cor'}">${cCor}</div>
-          </div>
-        `;
+      // 100% 向後端即時讀取本機硬碟最新內容（根據完整路徑或檔名自動解析），絕不使用舊內容快取
+      try {
+        const res = await fetch('/api/tune/load_file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path: item.file_path || '',
+            file_name: item.file_name || ''
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'ok' && Array.isArray(data.pairs) && data.pairs.length > 0) {
+          handleImportedPairs(data.pairs, data.file_name || item.file_name, data.file_path || item.file_path || '');
+          return;
+        }
+        showToast(`⚠️ ${data.message || '無法讀取該檔案，請確認檔案是否存在於桌面或原路徑。'}`);
+      } catch (e) {
+        console.warn('重新讀取本機檔案失敗：', e);
+        showToast('⚠️ 無法從硬碟讀取該檔案，請點擊「📂 瀏覽本機文字檔」重新選取。');
       }
-      stream.innerHTML = html;
+    }
+
+    function handleImportedPairs(newPairs, sourceName = '', sourcePath = '') {
+      if (!newPairs || newPairs.length === 0) {
+        showToast('⚠️ 未在檔案中偵測到有效的對照句！');
+        return;
+      }
+
+      // 直接切換為該檔案最新讀取之對照句，不彈出干擾視窗
+      sentencePairs = newPairs.map((p, idx) => {
+        const item = { id: idx + 1, error: p.error, correct: p.correct, manual_error: false, manual_correct: false, error_tokens: null, correct_tokens: null };
+        fetchTokensForPair(item);
+        return item;
+      });
+      nextPairId = sentencePairs.length + 1;
+
+      if (sourceName) {
+        currentActiveFileName = sourceName;
+        saveRecentFileToHistory(sourceName, sourcePath, newPairs.length);
+      } else {
+        renderRecentFilesHistory();
+      }
+
+      renderSentencePairs();
+      const nameNotice = sourceName ? `【${sourceName}】` : '';
+      showToast(`🎉 已即時載入 ${nameNotice}最新內容（共 ${newPairs.length} 組對照句）！`);
+    }
+
+    function handleFileSelected(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      readAndImportFile(file);
+      event.target.value = '';
+    }
+
+    async function readAndImportFile(file) {
+      // 優先請後端定位該檔名之本機實體路徑並直接自硬碟讀取，確保瀏覽紀錄綁定真實路徑
+      try {
+        const res = await fetch('/api/tune/load_file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: '', file_name: file.name })
+        });
+        const data = await res.json();
+        if (data.status === 'ok' && Array.isArray(data.pairs) && data.pairs.length > 0) {
+          handleImportedPairs(data.pairs, data.file_name || file.name, data.file_path || '');
+          return;
+        }
+      } catch (e) {}
+
+      // 若檔案位於非預設搜尋目錄，由 FileReader 讀取當下檔案內容，但瀏覽紀錄僅存檔名不存舊內容
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        const pairs = parseTextToPairs(text);
+        handleImportedPairs(pairs, file.name, '');
+      };
+      reader.onerror = () => {
+        showToast('⚠️ 讀取文字檔失敗！');
+      };
+      reader.readAsText(file, 'utf-8');
+    }
+
+    async function checkPreloadOnStartup() {
+      renderRecentFilesHistory();
+      try {
+        const res = await fetch('/api/tune/preload');
+        const data = await res.json();
+        if (data.status === 'ok') {
+          // 將後端發現的本機對照檔（如桌面「語意分析261014.txt」、「語意分析.txt」）同步綁定真實路徑至瀏覽紀錄（僅存路徑與筆數指標，不存靜態內容）
+          if (Array.isArray(data.recent_files)) {
+            const existing = getRecentFilesHistory();
+            let changed = false;
+            data.recent_files.forEach(rf => {
+              if (rf.file_name) {
+                const foundIdx = existing.findIndex(x => x.file_name === rf.file_name);
+                if (foundIdx === -1) {
+                  existing.push({
+                    file_name: rf.file_name,
+                    file_path: rf.file_path || '',
+                    count: rf.count || 0,
+                    updated_at: Date.now()
+                  });
+                  changed = true;
+                } else {
+                  existing[foundIdx].file_path = rf.file_path || existing[foundIdx].file_path;
+                  existing[foundIdx].count = rf.count || existing[foundIdx].count;
+                  changed = true;
+                }
+              }
+            });
+            if (changed) {
+              try {
+                localStorage.setItem(RECENT_FILES_STORAGE_KEY, JSON.stringify(existing.slice(0, 8)));
+              } catch (e) {}
+            }
+          }
+          renderRecentFilesHistory();
+
+          if (data.has_preload && data.pairs && data.pairs.length > 0) {
+            handleImportedPairs(data.pairs, data.file_name || data.file_path, data.file_path || '');
+          }
+        }
+      } catch (e) {
+        console.error('預載檢查失敗', e);
+      }
+    }
+
+
+    function initFileDropZone() {
+      const zone = document.getElementById('fileImportZone');
+      if (!zone) return;
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        zone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          zone.style.borderColor = 'var(--accent-cyan)';
+          zone.style.background = 'rgba(56, 189, 248, 0.15)';
+        }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        zone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          zone.style.borderColor = 'rgba(56, 189, 248, 0.35)';
+          zone.style.background = 'rgba(56, 189, 248, 0.05)';
+        }, false);
+      });
+
+      zone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files && files.length > 0) {
+          readAndImportFile(files[0]);
+        }
+      }, false);
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     async function analyzeAndTune() {
-      const err = document.getElementById('errInput').value.trim();
-      const cor = document.getElementById('corInput').value.trim();
-      if (!err || !cor) {
-        alert('請先輸入錯誤句與正確句！');
+      const activePairs = sentencePairs.filter(p => p.error.trim() && p.correct.trim());
+      if (activePairs.length === 0) {
+        alert('請至少填寫一組完整的錯誤句與正確句！');
         return;
       }
 
+      if (!isWizardCompleted) {
+        const proceed = confirm('提示：您尚未完成「🧙 AI 策略精靈」設定，建議先指定語意分析師模式（如 Google Gemini 或本機離線 Gemma 模型）。\n\n是否立即開啟策略精靈完成設定？\n（點擊「確定」開啟精靈；點擊「取消」將以純本地啟發式規則繼續調校）');
+        if (proceed) {
+          openAiWizardModal();
+          return;
+        }
+      }
+
       try {
+        const payload = {
+          pairs: activePairs.map(p => ({
+            error: p.error.trim(),
+            correct: p.correct.trim(),
+            error_tokens: ((p.manual_error || p._backend_error_tokenized) && p.error_tokens && p.error_tokens.join('') === p.error.trim()) ? p.error_tokens : null,
+            correct_tokens: ((p.manual_correct || p._backend_correct_tokenized) && p.correct_tokens && p.correct_tokens.join('') === p.correct.trim()) ? p.correct_tokens : null
+          }))
+        };
+
         const res = await fetch('/api/tune', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: err, correct: cor })
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
 
         // 呈現差分
         const diffBox = document.getElementById('diffPreview');
         diffBox.innerHTML = `
-          <div class="row-sentence">
-            <span class="char-element" style="color: var(--text-muted);">差分對齊結果：</span>
-            ${data.diffs.map(d => `
-              <span class="word-group">
-                <span class="tag-rejected">${d.rejected || '（空）'}</span>
-                <span>➔</span>
-                <span class="tag-accepted">${d.accepted || '（空）'}</span>
-                <span style="font-size: 0.8rem; color: var(--text-muted);">(前文: ${d.prev_ctx || '無'}, 後文: ${d.next_ctx || '無'})</span>
-              </span>
+          <div class="row-sentence" style="margin-bottom: 8px;">
+            <span class="char-element" style="color: var(--accent-cyan); font-weight: 600;">📊 雙向詞網對齊總覽（共 ${activePairs.length} 組對照句）：</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${(data.diffs || []).map((d, i) => `
+              <div class="row-sentence" style="background: rgba(255, 255, 255, 0.03); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08); justify-content: space-between;">
+                <span class="word-group">
+                  <span class="tag-rejected">${d.rejected || '（空）'}</span>
+                  <span>➔</span>
+                  <span class="tag-accepted">${d.accepted || '（空）'}</span>
+                  ${d.accepted_tokens && d.accepted_tokens.length > 1 ? `<span style="font-size: 0.78rem; color: var(--accent-cyan); font-weight: 600;">[詞網: ${d.accepted_tokens.join(' + ')}]</span>` : ''}
+                </span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">(前驅: ${d.prev_ctx || '無'}, 後繼: ${d.next_ctx || '無'})</span>
+              </div>
             `).join('')}
           </div>
-          ${(data.linguistic_analyses || []).map(la => `
-            <div style="background: rgba(56, 189, 248, 0.08); border-left: 3px solid var(--accent-cyan); padding: 12px; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
-              <div style="font-weight: 600; font-size: 0.9rem; color: var(--accent-cyan);">🧠 計算語言學構式分析：${la.construction}</div>
-              <div style="font-size: 0.85rem; color: var(--text-main);">${la.safety_note}</div>
-              <div style="font-size: 0.8rem; color: var(--text-muted);">運作機制：${la.mechanism}</div>
+          ${(data.diffs || []).filter(d => d.warning).map(d => `
+            <div style="background: rgba(251, 191, 36, 0.12); border-left: 3px solid var(--accent-yellow); padding: 10px 14px; border-radius: 6px; color: var(--accent-yellow); font-size: 0.88rem; font-weight: 500; margin-top: 8px;">
+              ${d.warning}
             </div>
           `).join('')}
         `;
 
         // 呈現提煉規則
         const rulesList = document.getElementById('rulesList');
-        rulesList.innerHTML = data.rules.map(r => `
-          <div class="rule-item">
-            <div class="word-group">
-              <span class="char-element" style="font-weight: 600; color: #fff;">${r.prev}</span>
-              <span class="char-element" style="color: var(--accent-cyan);">➔</span>
-              <span class="char-element" style="font-weight: 600; color: var(--accent-green);">${r.next}</span>
+        if (!data.rules || data.rules.length === 0) {
+          rulesList.innerHTML = `
+            <div style="padding: 12px; border-radius: 6px; background: rgba(255, 255, 255, 0.03); color: var(--text-muted); font-size: 0.88rem; text-align: center;">
+              🛡️ 本次未注入任何新規則（觸發標準詞保護，或已存在於知識庫中，防止全域過度擬合）。
             </div>
-            <div class="word-group">
-              <span class="badge-score ${r.score > 0 ? 'badge-pos' : 'badge-neg'}">${r.score > 0 ? '+' : ''}${r.score}</span>
-              <span class="char-element" style="font-size: 0.8rem; color: var(--text-muted);">${r.comment}</span>
+          `;
+        } else {
+          rulesList.innerHTML = `
+            <div style="font-size: 0.9rem; font-weight: 600; color: #fff; margin-top: 6px;">
+              ⚡ 批次提煉並注入之二階正向引力規則（共 ${data.rules.length} 條，已去重）：
             </div>
-          </div>
-        `).join('');
+            ${data.rules.map(r => `
+              <div class="rule-item">
+                <div class="word-group">
+                  <span class="char-element" style="font-weight: 600; color: #fff;">${r.prev}</span>
+                  <span class="char-element" style="color: var(--accent-cyan);">➔</span>
+                  <span class="char-element" style="font-weight: 600; color: var(--accent-green);">${r.next}</span>
+                </div>
+                <div class="word-group">
+                  <span class="badge-score ${r.score > 0 ? 'badge-pos' : 'badge-neg'}">${r.score > 0 ? '+' : ''}${r.score}</span>
+                  <span class="char-element" style="font-size: 0.8rem; color: var(--text-muted);">${r.comment}</span>
+                </div>
+              </div>
+            `).join('')}
+          `;
+        }
 
         document.getElementById('tuneResultCard').style.display = 'flex';
-        showToast(`✅ 成功提煉並注入 ${data.added_count} 條語意規則，輸入法記憶體即時生效！`);
+        // 批次自動呼叫 AI 深度句法診斷！
+        runAiDiagnosis();
+        if (data.added_count > 0) {
+          showToast(`✅ 批次調校成功：已套用 ${data.added_count} 條二階轉移規則！`);
+        } else {
+          showToast(`🛡️ 批次分析完成：已啟動詞典安全防護，零污染！`);
+        }
       } catch (e) {
         alert('連線失敗：' + e);
       }
@@ -1035,18 +2336,106 @@
         tbody.innerHTML = data.slice().reverse().map(r => {
           const dateStr = new Date(r.timestamp * 1000).toLocaleString('zh-TW');
           const bpmfStr = r.bopomofo ? `<span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: normal; margin-left: 4px;">(${r.bopomofo})</span>` : '';
+          const isSublimated = r.sublimated;
           return `
             <tr>
               <td style="font-size: 0.85rem; color: var(--text-muted);">${dateStr}</td>
               <td><span class="tag-rejected">${r.rejected}</span></td>
               <td><span class="tag-accepted">${r.accepted}</span>${bpmfStr}</td>
               <td style="font-size: 0.85rem; color: var(--text-muted);">${r.prev_context || '—'} [字] ${r.next_context || '—'}</td>
-              <td><span style="color: var(--accent-green); font-size: 0.85rem;">● 已自適應吸收</span></td>
+              <td>
+                ${isSublimated ? 
+                  '<span style="color: var(--accent-purple); font-size: 0.85rem; font-weight: 600;">✨ 已AI昇華為正規語意資產</span>' : 
+                  '<span style="color: var(--accent-yellow); font-size: 0.85rem;">⏳ 暫存手動校正狀態（待昇華）</span>'}
+              </td>
             </tr>
           `;
         }).join('');
       } catch (e) {
         tbody.innerHTML = `<tr><td colspan="5" style="color: var(--accent-red);">讀取失敗：${e}</td></tr>`;
+      }
+    }
+
+    async function sublimateRevisions() {
+      const btn = document.getElementById('btnSublimate');
+      const origText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span>🤖 AI 正在深度昇華與洗滌暫存修正...</span>';
+
+      const resCard = document.getElementById('sublimationResultCard');
+      const sumText = document.getElementById('sublimationSummaryText');
+      const constructionsList = document.getElementById('sublimatedConstructionsList');
+      const wordsList = document.getElementById('sublimatedWordsList');
+      const rulesList = document.getElementById('sublimatedRulesList');
+
+      try {
+        const res = await fetch('/api/revisions/sublimate', { method: 'POST' });
+        const data = await res.json();
+
+        resCard.style.display = 'flex';
+        const cCount = (data.constructions || []).length;
+        sumText.innerHTML = `<strong>${data.explanation || '昇華完成！'}</strong>（處理 ${data.records_count} 筆原始記錄，提煉 ${cCount} 條階層槽位構式，沉澱 ${data.sublimated_words_count} 個雙字原子詞，注入 ${data.sublimated_rules_count} 條新增二階正向引力）`;
+
+        const constructions = data.constructions || [];
+        if (constructionsList) {
+          if (constructions.length > 0) {
+            constructionsList.innerHTML = constructions.map(c => `
+              <div class="rule-item" style="border-left-color: var(--accent-purple); background: rgba(168, 85, 247, 0.08); flex-direction: column; align-items: flex-start; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; flex-wrap: wrap; gap: 8px;">
+                  <code style="font-size: 0.92rem; font-weight: 700; color: #e9d5ff; background: rgba(0, 0, 0, 0.35); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(192, 132, 252, 0.35);">${escapeHtml(c.formula || '')}</code>
+                  <div class="word-group">
+                    <span class="badge-score badge-pos">+${c.score || 30.0}</span>
+                    <span style="font-size: 0.78rem; color: var(--accent-cyan); font-weight: 600;">${escapeHtml(c.name || '')}</span>
+                  </div>
+                </div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
+                  ${escapeHtml(c.explanation || '')}
+                </div>
+              </div>
+            `).join('');
+          } else {
+            constructionsList.innerHTML = '<span style="font-size: 0.85rem; color: var(--text-muted);">本次無新增階層槽位構式</span>';
+          }
+        }
+
+        const words = data.words || [];
+        if (words.length > 0) {
+          wordsList.innerHTML = words.map(w => `
+            <span class="btn-pill" style="border-color: rgba(56, 189, 248, 0.4); color: var(--accent-cyan); font-weight: 600;">
+              ✨ ${w.word} <span style="font-size: 0.75rem; opacity: 0.7;">(+${w.weight || 1500})</span>
+            </span>
+          `).join('');
+        } else {
+          wordsList.innerHTML = '<span style="font-size: 0.85rem; color: var(--text-muted);">無新雙字原子詞需沉澱（已由階層槽位構式與二階轉移完整覆蓋）</span>';
+        }
+
+        const rules = data.rules || [];
+        if (rules.length > 0) {
+          rulesList.innerHTML = rules.map(r => `
+            <div class="rule-item">
+              <div class="word-group">
+                <span class="char-element" style="font-weight: 600; color: #fff;">${r.prev}</span>
+                <span class="char-element" style="color: var(--accent-green);">➔</span>
+                <span class="char-element" style="font-weight: 600; color: var(--accent-green);">${r.next}</span>
+              </div>
+              <div class="word-group">
+                <span class="badge-score badge-pos">+${r.score}</span>
+                <span class="char-element" style="font-size: 0.8rem; color: var(--text-muted);">${r.comment || 'AI 昇華引力'}</span>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          rulesList.innerHTML = '<span style="font-size: 0.85rem; color: var(--text-muted);">無新二階規則需注入</span>';
+        }
+
+        document.getElementById('syncStatus').innerText = '目前修訂狀態：✨ 已全數昇華為正規語意資產（臨時修正已徹底洗滌）';
+        showToast('🎉 AI 深度昇華成功！已將暫存手動記錄洗滌昇華為正規二階語意資產！');
+        await loadRevisionsLog();
+      } catch (err) {
+        alert('昇華過程發生錯誤：' + err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origText;
       }
     }
 
@@ -1105,21 +2494,22 @@
     let currentExtractedRules = [];
 
     // ── AI 顧問控制與設定 ──
-    async function pasteApiKeyFromClipboard() {
+    async function pasteApiKeyFromClipboard(inputId = 'geminiApiKey') {
       try {
         const text = await navigator.clipboard.readText();
-        if (text && text.trim().length > 10) {
-          const keyInput = document.getElementById('geminiApiKey');
-          keyInput.value = text.trim();
+        if (text && text.trim().length > 5) {
+          const keyInput = document.getElementById(inputId);
+          if (keyInput) keyInput.value = text.trim();
           showToast('📋 已從剪貼簿貼上 API Key！正在驗證連線...');
           await saveAiSettings();
         } else {
-          alert('剪貼簿中未偵測到有效的 API Key。請先在 Google AI Studio 點擊 Copy Key 後再試！');
+          alert('剪貼簿中未偵測到有效的 API Key。');
         }
       } catch (err) {
-        const manual = prompt('請在此處貼上您的 Google Gemini API Key：');
+        const manual = prompt('請在此處貼上您的 API Key：');
         if (manual && manual.trim()) {
-          document.getElementById('geminiApiKey').value = manual.trim();
+          const keyInput = document.getElementById(inputId);
+          if (keyInput) keyInput.value = manual.trim();
           showToast('📋 已填入 API Key！正在驗證連線...');
           await saveAiSettings();
         }
@@ -1139,20 +2529,33 @@
     function toggleAiProviderFields() {
       const p = document.getElementById('aiProviderSelect').value;
       const gemini = document.getElementById('geminiFields');
+      const openai = document.getElementById('openaiFields');
+      const claude = document.getElementById('claudeFields');
+      const custom = document.getElementById('customFields');
       const ollama = document.getElementById('ollamaFields');
+
+      if (gemini) gemini.style.display = 'none';
+      if (openai) openai.style.display = 'none';
+      if (claude) claude.style.display = 'none';
+      if (custom) custom.style.display = 'none';
+      if (ollama) ollama.style.display = 'none';
+
       if (p === 'gemini') {
-        gemini.style.display = 'flex';
-        ollama.style.display = 'none';
+        if (gemini) gemini.style.display = 'flex';
+      } else if (p === 'openai') {
+        if (openai) openai.style.display = 'flex';
+      } else if (p === 'claude') {
+        if (claude) claude.style.display = 'flex';
+      } else if (p === 'custom') {
+        if (custom) custom.style.display = 'flex';
       } else if (p === 'ollama') {
-        gemini.style.display = 'none';
-        ollama.style.display = 'flex';
+        if (ollama) ollama.style.display = 'flex';
       } else if (p === 'disabled') {
-        gemini.style.display = 'none';
-        ollama.style.display = 'none';
+        // none
       } else {
         // auto
-        gemini.style.display = 'flex';
-        ollama.style.display = 'flex';
+        if (gemini) gemini.style.display = 'flex';
+        if (ollama) ollama.style.display = 'flex';
       }
     }
 
@@ -1270,23 +2673,47 @@
         const data = await res.json();
         const p = data.provider || 'none';
 
-        if (p === 'gemini') {
+        if (typeof data.wizard_completed !== 'undefined') {
+          isWizardCompleted = !!data.wizard_completed;
+          const banner = document.getElementById('wizardNotCompletedBanner');
+          if (banner) {
+            banner.style.display = isWizardCompleted ? 'none' : 'flex';
+          }
+        }
+
+        if (!isWizardCompleted) {
+          dot.style.background = 'var(--accent-yellow)';
+          text.innerText = `🧙 尚未設定 AI 策略精靈（點擊設定）`;
+        } else if (data.status === 'error') {
+          dot.style.background = 'var(--accent-red)';
+          const errDetail = data.message ? (data.message.length > 20 ? data.message.substring(0, 20) + '...' : data.message) : '連線異常';
+          text.innerText = `🔴 AI 異常 (${errDetail})`;
+        } else if (p === 'gemini') {
           dot.style.background = 'var(--accent-green)';
           text.innerText = `🟢 Google Gemini (${data.model || 'Flash'})`;
+        } else if (p === 'openai') {
+          dot.style.background = 'var(--accent-cyan)';
+          text.innerText = `🟢 OpenAI (${data.model || 'GPT-4o-mini'})`;
+        } else if (p === 'claude') {
+          dot.style.background = '#c084fc';
+          text.innerText = `🟢 Anthropic Claude (${data.model || 'Claude 3.5'})`;
+        } else if (p === 'custom') {
+          dot.style.background = 'var(--accent-purple)';
+          text.innerText = `🟢 自訂相容服務 (${data.model || 'Custom'})`;
         } else if (p === 'gemini_free_ready' || data.status === 'gemini_free_ready') {
           dot.style.background = 'var(--accent-green)';
           text.innerText = `🎁 點此啟用 Google 官方免費 AI 金鑰`;
         } else if (p === 'ollama') {
           if (data.is_running) {
             dot.style.background = 'var(--accent-cyan)';
-            text.innerText = `🔵 本地離線模型 (${data.model || 'Gemma'})`;
+            text.innerText = `🔵 本機離線模型 (${data.model || 'Gemma'})`;
           } else {
             dot.style.background = 'var(--accent-yellow)';
-            text.innerText = `🟡 本地離線模型 (服務尚未啟動)`;
+            text.innerText = `🟡 本機離線模型 (服務尚未啟動)`;
           }
         } else if (p === 'disabled') {
           dot.style.background = 'var(--text-muted)';
-          text.innerText = `⚪ AI 顧問已停用 (純核心自足)`;
+          text.innerText = `⚪ 純核心自足 (不啟用 AI)`;
         } else {
           dot.style.background = 'var(--accent-yellow)';
           text.innerText = `🟡 核心自足 (未接 AI 服務)`;
@@ -1321,8 +2748,12 @@
         // 填入 modal 預設值
         if (data.config) {
           document.getElementById('aiProviderSelect').value = data.config.ai_provider || 'auto';
-          document.getElementById('geminiModelSelect').value = data.config.gemini_model || 'gemini-1.5-flash';
+          document.getElementById('geminiModelSelect').value = data.config.gemini_model || 'gemini-2.5-flash';
           document.getElementById('ollamaUrl').value = data.config.ollama_url || 'http://127.0.0.1:11434';
+          if (document.getElementById('openaiModelSelect')) document.getElementById('openaiModelSelect').value = data.config.openai_model || 'gpt-4o-mini';
+          if (document.getElementById('claudeModelSelect')) document.getElementById('claudeModelSelect').value = data.config.claude_model || 'claude-3-5-sonnet-20241022';
+          if (document.getElementById('customBaseUrl')) document.getElementById('customBaseUrl').value = data.config.custom_base_url || 'https://api.openai.com/v1';
+          if (document.getElementById('customModel')) document.getElementById('customModel').value = data.config.custom_model || '';
           toggleAiProviderFields();
         }
       } catch (e) {
@@ -1336,6 +2767,13 @@
       const gemini_api_key = document.getElementById('geminiApiKey').value.trim();
       const gemini_model = document.getElementById('geminiModelSelect').value;
       const ollama_url = document.getElementById('ollamaUrl').value.trim();
+      const openai_api_key = document.getElementById('openaiApiKey') ? document.getElementById('openaiApiKey').value.trim() : '';
+      const openai_model = document.getElementById('openaiModelSelect') ? document.getElementById('openaiModelSelect').value : 'gpt-4o-mini';
+      const claude_api_key = document.getElementById('claudeApiKey') ? document.getElementById('claudeApiKey').value.trim() : '';
+      const claude_model = document.getElementById('claudeModelSelect') ? document.getElementById('claudeModelSelect').value : 'claude-3-5-sonnet-20241022';
+      const custom_base_url = document.getElementById('customBaseUrl') ? document.getElementById('customBaseUrl').value.trim() : '';
+      const custom_api_key = document.getElementById('customApiKey') ? document.getElementById('customApiKey').value.trim() : '';
+      const custom_model = document.getElementById('customModel') ? document.getElementById('customModel').value.trim() : '';
 
       let ollama_model = document.getElementById('ollamaModelSelect').value;
       if (ollama_model === '__custom__') {
@@ -1357,7 +2795,14 @@
             gemini_api_key,
             gemini_model,
             ollama_url,
-            ollama_model
+            ollama_model,
+            openai_api_key,
+            openai_model,
+            claude_api_key,
+            claude_model,
+            custom_base_url,
+            custom_api_key,
+            custom_model
           })
         });
         const data = await res.json();
@@ -1384,32 +2829,48 @@
       }
     }
 
-    // ── AI 深度句法診斷 ──
+    // ── AI 深度句法診斷（支援批次） ──
     async function runAiDiagnosis() {
-      const err = document.getElementById('errInput').value.trim();
-      const cor = document.getElementById('corInput').value.trim();
-      if (!err || !cor) {
-        alert('請先輸入錯誤句與正確句！');
+      const activePairs = sentencePairs.filter(p => p.error.trim() && p.correct.trim());
+      if (activePairs.length === 0) {
+        alert('請先輸入至少一組錯誤句與正確句！');
         return;
+      }
+
+      if (!isWizardCompleted) {
+        const proceed = confirm('提示：您尚未完成「🧙 AI 策略精靈」設定，系統無法呼叫大型語言模型進行深度句法診斷。\n\n是否立即開啟策略精靈完成設定？');
+        if (proceed) {
+          openAiWizardModal();
+          return;
+        }
       }
 
       const diagBox = document.getElementById('aiDiagnosisBox');
       diagBox.style.display = 'flex';
       diagBox.style.flexDirection = 'column';
-      diagBox.style.gap = '8px';
+      diagBox.style.gap = '10px';
       diagBox.style.background = 'rgba(192, 132, 252, 0.08)';
       diagBox.style.borderLeft = '3px solid var(--accent-purple)';
       diagBox.style.padding = '14px';
       diagBox.style.borderRadius = '8px';
       diagBox.style.marginTop = '10px';
-      diagBox.innerHTML = '<div style="color: var(--accent-purple);">🤖 正在連線 AI 智囊進行深度語法構式解構與單字防奪舍證明...</div>';
+      diagBox.innerHTML = `<div style="color: var(--accent-purple);">🤖 正在進行批次 AI 深度語言學句法解構與單字防劫掠審計 (共 ${activePairs.length} 組)...</div>`;
       document.getElementById('tuneResultCard').style.display = 'flex';
 
       try {
+        const payload = {
+          pairs: activePairs.map(p => ({
+            error: p.error.trim(),
+            correct: p.correct.trim(),
+            error_tokens: (p.error_tokens && p.error_tokens.join('') === p.error.trim()) ? p.error_tokens : null,
+            correct_tokens: (p.correct_tokens && p.correct_tokens.join('') === p.correct.trim()) ? p.correct_tokens : null
+          }))
+        };
+
         const res = await fetch('/api/ai/diagnose', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: err, correct: cor })
+          body: JSON.stringify(payload)
         });
         const d = await res.json();
 
@@ -1418,31 +2879,73 @@
           return;
         }
 
-        const syn = d.syntactic_analysis || {};
-        diagBox.innerHTML = `
-          <div style="font-weight: 700; font-size: 1rem; color: var(--accent-purple); display: flex; align-items: center; gap: 8px;">
-            <span>🤖 AI 深度計算語言學診斷報告</span>
-            <span style="font-size: 0.75rem; padding: 2px 8px; border-radius: 9999px; background: rgba(192, 132, 252, 0.2); color: var(--accent-purple);">${syn.register || '標準中文'}</span>
-          </div>
-          <div style="font-size: 0.9rem; color: #fff;">
-            <strong>【構式類型】：</strong>${syn.construction_name || '二元搭配構式'}
-          </div>
-          <div style="font-size: 0.85rem; color: var(--text-main);">
-            <strong>【根本語病因】：</strong>${syn.root_cause || '缺乏二階引力導致 Viterbi 演算法優先採用貪婪單字解算'}
-          </div>
-          <div style="font-size: 0.85rem; color: var(--text-main);">
-            <strong>【成分與詞性】：</strong>${syn.pos_breakdown || '實詞與虛詞之組合關係'}
-          </div>
-          <div style="font-size: 0.85rem; color: var(--accent-green); background: rgba(74, 222, 128, 0.08); padding: 8px; border-radius: 6px;">
-            <strong>🛡️ 【單字安全獨立性證明】：</strong>${d.unigram_safety_proof || '嚴格依循二階轉移，絕不更動單字全域先驗權重，杜絕奪舍。'}
-          </div>
-          ${d.generalized_pattern ? `
-            <div style="font-size: 0.8rem; color: var(--text-muted);">
-              <strong>【泛化構式樣式】：</strong><code>${d.generalized_pattern}</code>
+        if (d.is_batch && d.batch_data) {
+          const bd = d.batch_data;
+          let itemsHtml = (bd.item_diagnostics || []).map(item => `
+            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(192, 132, 252, 0.2); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-weight: 600; font-size: 0.9rem; color: var(--accent-cyan); display: flex; justify-content: space-between;">
+                <span>【對照組 #${item.index}】${escapeHtml(item.error)} ➔ ${escapeHtml(item.correct)}</span>
+                <span style="font-size: 0.75rem; color: var(--accent-purple);">${item.construction_name}</span>
+              </div>
+              <div style="font-size: 0.85rem; color: var(--text-main);"><strong>【病灶解密】：</strong>${item.root_cause}</div>
+              <div style="font-size: 0.82rem; color: var(--text-muted);"><strong>【語法成分】：</strong>${item.pos_breakdown}</div>
+              <div style="font-size: 0.82rem; color: var(--accent-green);"><strong>🛡️ 【安全證明】：</strong>${item.unigram_safety_proof}</div>
             </div>
-          ` : ''}
-        `;
-        showToast('✨ AI 深度語言學診斷完成！');
+          `).join('');
+
+          diagBox.innerHTML = `
+            <div style="font-weight: 700; font-size: 1rem; color: var(--accent-purple); display: flex; align-items: center; justify-content: space-between;">
+              <span>🤖 AI 批次計算語言學深度診斷報告 (共 ${activePairs.length} 組)</span>
+              <span style="font-size: 0.75rem; padding: 2px 8px; border-radius: 9999px; background: rgba(192, 132, 252, 0.2); color: var(--accent-purple);">批次深度模式</span>
+            </div>
+            <div style="font-size: 0.9rem; color: #fff;">
+              <strong>【批次總評】：</strong>${bd.batch_summary || '多句批次分析完成'}
+            </div>
+            ${bd.recommended_lexicon_words && bd.recommended_lexicon_words.length > 0 ? `
+              <div style="font-size: 0.85rem; color: var(--accent-yellow); background: rgba(251, 191, 36, 0.1); padding: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+                <div><strong>💡 【詞庫增補建議】：</strong>建議納入長詞避免單字切碎：<code>${bd.recommended_lexicon_words.join(', ')}</code></div>
+                <span style="font-size: 0.75rem; color: var(--accent-green); font-weight: 600;">● 已自動收錄</span>
+              </div>
+            ` : ''}
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+              ${itemsHtml}
+            </div>
+          `;
+        } else {
+          // 單組格式
+          const single = d.single || d;
+          const syn = single.syntactic_analysis || {};
+          diagBox.innerHTML = `
+            <div style="font-weight: 700; font-size: 1rem; color: var(--accent-purple); display: flex; align-items: center; gap: 8px;">
+              <span>🤖 AI 深度計算語言學診斷報告</span>
+              <span style="font-size: 0.75rem; padding: 2px 8px; border-radius: 9999px; background: rgba(192, 132, 252, 0.2); color: var(--accent-purple);">${syn.register || '標準中文'}</span>
+            </div>
+            <div style="font-size: 0.9rem; color: #fff;">
+              <strong>【構式類型】：</strong>${syn.construction_name || '二元搭配構式'}
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-main);">
+              <strong>【根本語病因】：</strong>${syn.root_cause || '缺乏二階引力導致 Viterbi 演算法優先採用貪婪單字解算'}
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-main);">
+              <strong>【成分與詞性】：</strong>${syn.pos_breakdown || '實詞與虛詞之組合關係'}
+            </div>
+            <div style="font-size: 0.85rem; color: var(--accent-green); background: rgba(74, 222, 128, 0.08); padding: 8px; border-radius: 6px;">
+              <strong>🛡️ 【單字安全獨立性證明】：</strong>${single.unigram_safety_proof || '嚴格依循二階轉移，絕不更動單字全域先驗權重，杜絕劫掠。'}
+            </div>
+            ${single.recommended_lexicon_words && single.recommended_lexicon_words.length > 0 ? `
+              <div style="font-size: 0.85rem; color: var(--accent-yellow); background: rgba(251, 191, 36, 0.1); padding: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+                <div><strong>💡 【詞庫增補建議】：</strong>建議納入長詞避免單字切碎：<code>${single.recommended_lexicon_words.join(', ')}</code></div>
+                <span style="font-size: 0.75rem; color: var(--accent-green); font-weight: 600;">● 已自動收錄</span>
+              </div>
+            ` : ''}
+            ${single.provider_note ? `
+              <div style="font-size: 0.78rem; color: var(--text-muted); padding-top: 4px; border-top: 1px dashed rgba(255,255,255,0.1);">
+                ${single.provider_note}
+              </div>
+            ` : ''}
+          `;
+        }
+        showToast('✨ 批次 AI 深度語言學診斷完成！');
       } catch (e) {
         diagBox.innerHTML = `<div style="color: var(--accent-red);">連線失敗：${e}（請確認是否有設定 Gemini API Key 或啟動本地 Ollama）</div>`;
       }
@@ -1493,6 +2996,7 @@
 
         // 呈現 Terms
         const terms = data.terms || [];
+        window.currentExtractedTerms = terms;
         termsStream.innerHTML = terms.map(t => `
           <span class="btn-pill" style="border-color: rgba(56, 189, 248, 0.3); color: var(--accent-cyan);">
             <strong>${t.word}</strong> <span style="font-size: 0.75rem; opacity: 0.7;">(${t.category || domain})</span>
@@ -1523,8 +3027,9 @@
     }
 
     async function importExtractedRules() {
-      if (!currentExtractedRules || currentExtractedRules.length === 0) {
-        alert('目前無可匯入之引力規則！');
+      const termsToImport = window.currentExtractedTerms || [];
+      if ((!currentExtractedRules || currentExtractedRules.length === 0) && termsToImport.length === 0) {
+        alert('目前無可匯入之領域詞彙或引力規則！');
         return;
       }
 
@@ -1532,10 +3037,10 @@
         const res = await fetch('/api/ai/import_extracted', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transitions: currentExtractedRules })
+          body: JSON.stringify({ terms: termsToImport, transitions: currentExtractedRules || [] })
         });
         const data = await res.json();
-        showToast(`✅ 成功將 ${data.added_count} 條領域規則注入詞庫並即時熱重載！`);
+        showToast(`✅ 成功將 ${data.words_added_count || 0} 個領域專詞與 ${data.added_count || 0} 條引力規則注入詞庫並即時熱重載！`);
       } catch (e) {
         alert('匯入失敗：' + e);
       }
@@ -1582,10 +3087,389 @@
       }
     }
 
+    // ── AI 策略引導精靈互動邏輯 ──
+    let currentWizardStrategy = 'remote_first';
+
+    function selectWizardStrategy(strat) {
+      currentWizardStrategy = strat;
+      const opts = ['optRemoteFirst', 'optLocalOnly', 'optLegacy'];
+      opts.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('selected');
+      });
+
+      const remoteFields = document.getElementById('wizardRemoteFields');
+      const localFields = document.getElementById('wizardLocalFields');
+
+      if (strat === 'remote_first') {
+        const rEl = document.getElementById('optRemoteFirst');
+        if (rEl) rEl.classList.add('selected');
+        if (remoteFields) remoteFields.style.display = 'flex';
+        if (localFields) localFields.style.display = 'none';
+      } else if (strat === 'local_only') {
+        const lEl = document.getElementById('optLocalOnly');
+        if (lEl) lEl.classList.add('selected');
+        if (remoteFields) remoteFields.style.display = 'none';
+        if (localFields) localFields.style.display = 'flex';
+      } else if (strat === 'legacy') {
+        const legEl = document.getElementById('optLegacy');
+        if (legEl) legEl.classList.add('selected');
+        if (remoteFields) remoteFields.style.display = 'none';
+        if (localFields) localFields.style.display = 'none';
+      }
+    }
+
+    function onWizardRemoteProviderChange() {
+      const p = document.getElementById('wizardRemoteProviderSelect').value;
+      const g = document.getElementById('wizardGeminiSub');
+      const o = document.getElementById('wizardOpenAiSub');
+      const c = document.getElementById('wizardClaudeSub');
+      const cu = document.getElementById('wizardCustomSub');
+
+      if (g) g.style.display = p === 'gemini' ? 'flex' : 'none';
+      if (o) o.style.display = p === 'openai' ? 'flex' : 'none';
+      if (c) c.style.display = p === 'claude' ? 'flex' : 'none';
+      if (cu) cu.style.display = p === 'custom' ? 'flex' : 'none';
+    }
+
+    async function openAiWizardModal() {
+      const modal = document.getElementById('aiWizardModal');
+      modal.style.display = 'flex';
+
+      try {
+        const res = await fetch('/api/ai/wizard_status');
+        const data = await res.json();
+
+        // 預設選中策略
+        const strat = data.ai_strategy || (data.has_internet ? 'remote_first' : 'local_only');
+        selectWizardStrategy(strat);
+
+        if (data.config) {
+          if (data.config.ai_provider && ['gemini', 'openai', 'claude', 'custom'].includes(data.config.ai_provider)) {
+            const pSel = document.getElementById('wizardRemoteProviderSelect');
+            if (pSel) {
+              pSel.value = data.config.ai_provider;
+              onWizardRemoteProviderChange();
+            }
+          }
+          if (data.config.gemini_model) {
+            const gSel = document.getElementById('wizardGeminiModel');
+            if (gSel) gSel.value = data.config.gemini_model;
+          }
+          if (data.config.openai_model) {
+            const oSel = document.getElementById('wizardOpenAiModel');
+            if (oSel) oSel.value = data.config.openai_model;
+          }
+          if (data.config.claude_model) {
+            const cSel = document.getElementById('wizardClaudeModel');
+            if (cSel) cSel.value = data.config.claude_model;
+          }
+          if (data.config.custom_base_url) {
+            const cuUrl = document.getElementById('wizardCustomBaseUrl');
+            if (cuUrl) cuUrl.value = data.config.custom_base_url;
+          }
+          if (data.config.custom_model) {
+            const cuModel = document.getElementById('wizardCustomModel');
+            if (cuModel) cuModel.value = data.config.custom_model;
+          }
+        }
+
+        // Ollama 模型列表
+        const oSelect = document.getElementById('wizardOllamaModelSelect');
+        const oHint = document.getElementById('wizardOllamaHint');
+        const models = data.offline_models || [];
+        if (oSelect) {
+          oSelect.innerHTML = '';
+          if (models.length > 0) {
+            if (oHint) oHint.innerText = `偵測到 ${models.length} 個本機模型`;
+            models.forEach(m => {
+              const opt = document.createElement('option');
+              opt.value = m;
+              opt.innerText = m;
+              oSelect.appendChild(opt);
+            });
+          } else {
+            if (oHint) oHint.innerText = '未掃描到本機模型';
+            oSelect.innerHTML = '<option value="gemma2">gemma2 (預設)</option>';
+          }
+        }
+
+        const oCard = document.getElementById('wizardOllamaServiceCard');
+        const oMsg = document.getElementById('wizardOllamaServiceMsg');
+        if (oCard) {
+          if (data.ollama_running) {
+            oCard.style.display = 'none';
+          } else {
+            oCard.style.display = 'block';
+            if (oMsg) oMsg.innerText = data.ollama_installed ? '⚠️ 本機 Ollama 尚未啟動' : '未偵測到本機 Ollama 服務';
+          }
+        }
+      } catch (e) {
+        console.error('讀取精靈狀態失敗', e);
+      }
+    }
+
+    function closeAiWizardModal() {
+      document.getElementById('aiWizardModal').style.display = 'none';
+    }
+
+    async function pasteWizardApiKey(event, inputId = 'wizardGeminiApiKey') {
+      if (event) event.stopPropagation();
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text && text.trim().length > 5) {
+          const el = document.getElementById(inputId);
+          if (el) el.value = text.trim();
+          showToast('📋 已從剪貼簿貼上 API Key！');
+        } else {
+          alert('剪貼簿中未偵測到有效的 API Key。');
+        }
+      } catch (err) {
+        const manual = prompt('請在此處貼上您的 API Key：');
+        if (manual && manual.trim()) {
+          const el = document.getElementById(inputId);
+          if (el) el.value = manual.trim();
+          showToast('📋 已填入 API Key！');
+        }
+      }
+    }
+
+    async function startLocalOllamaInWizard(event) {
+      if (event) event.stopPropagation();
+      try {
+        showToast('正在喚醒本機 Ollama 服務...');
+        const res = await fetch('/api/ai/start_ollama', { method: 'POST' });
+        const data = await res.json();
+        if (data.connected) {
+          showToast('⚡ 本機 Ollama 服務啟動成功！');
+          const oCard = document.getElementById('wizardOllamaServiceCard');
+          if (oCard) oCard.style.display = 'none';
+        } else {
+          alert('喚醒 Ollama 失敗，請手動確認安裝或背景常駐狀態。');
+        }
+      } catch (e) {
+        alert('啟動呼叫異常：' + e);
+      }
+    }
+
+    async function confirmSaveWizardStrategy() {
+      const remoteProvSel = document.getElementById('wizardRemoteProviderSelect');
+      const remote_provider = remoteProvSel ? remoteProvSel.value : 'gemini';
+
+      const gKeyInput = document.getElementById('wizardGeminiApiKey');
+      const gModelInput = document.getElementById('wizardGeminiModel');
+      const oModelInput = document.getElementById('wizardOllamaModelSelect');
+
+      const openAiKey = document.getElementById('wizardOpenAiApiKey');
+      const openAiModel = document.getElementById('wizardOpenAiModel');
+      const claudeKey = document.getElementById('wizardClaudeApiKey');
+      const claudeModel = document.getElementById('wizardClaudeModel');
+      const customUrl = document.getElementById('wizardCustomBaseUrl');
+      const customKey = document.getElementById('wizardCustomApiKey');
+      const customModel = document.getElementById('wizardCustomModel');
+
+      const payload = {
+        strategy: currentWizardStrategy,
+        remote_provider: remote_provider,
+        gemini_api_key: gKeyInput ? gKeyInput.value.trim() : '',
+        gemini_model: gModelInput ? gModelInput.value : 'gemini-2.5-flash',
+        ollama_model: oModelInput ? oModelInput.value : '',
+        openai_api_key: openAiKey ? openAiKey.value.trim() : '',
+        openai_model: openAiModel ? openAiModel.value : 'gpt-4o-mini',
+        claude_api_key: claudeKey ? claudeKey.value.trim() : '',
+        claude_model: claudeModel ? claudeModel.value : 'claude-3-5-sonnet-20241022',
+        custom_base_url: customUrl ? customUrl.value.trim() : '',
+        custom_api_key: customKey ? customKey.value.trim() : '',
+        custom_model: customModel ? customModel.value.trim() : ''
+      };
+
+      try {
+        const res = await fetch('/api/ai/wizard_save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        closeAiWizardModal();
+        isWizardCompleted = true;
+        const banner = document.getElementById('wizardNotCompletedBanner');
+        if (banner) banner.style.display = 'none';
+
+        let stratName = '遠端 AI 優先';
+        if (currentWizardStrategy === 'local_only') stratName = '純本地 AI 語意分析';
+        else if (currentWizardStrategy === 'legacy') stratName = '單字權重手動調整';
+
+        showToast(`🎉 策略已成功儲存：【${stratName}】！`);
+        await loadAiStatus();
+      } catch (e) {
+        alert('儲存精靈策略失敗：' + e);
+      }
+    }
+
+    // ── 授權一鍵直接完成與剪貼簿智慧監聽 ──
+    let clipboardWatcherActive = false;
+
+    async function quickAuthGemini(event) {
+      if (event) event.stopPropagation();
+      try {
+        showToast('⚡ 正在探測本機環境金鑰或喚起授權頁面...');
+        const res = await fetch('/api/ai/quick_auth_gemini', { method: 'POST' });
+        const data = await res.json();
+
+        if (data.found_local) {
+          const keyInput = document.getElementById('wizardGeminiApiKey');
+          if (keyInput) keyInput.value = data.key_masked || '******';
+          showToast(`🎉 ${data.message}`);
+          await confirmSaveWizardStrategy();
+        } else {
+          showToast('已開啟 Google AI Studio！點擊 Copy Key 切回本視窗將自動識別！');
+          startClipboardKeyWatcher();
+        }
+      } catch (e) {
+        alert('一鍵授權呼叫異常：' + e);
+      }
+    }
+
+    function startClipboardKeyWatcher() {
+      if (clipboardWatcherActive) return;
+      clipboardWatcherActive = true;
+
+      const onFocusCheck = async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text && text.trim().startsWith('AIzaSy') && text.trim().length >= 25) {
+            const keyInput = document.getElementById('wizardGeminiApiKey');
+            if (keyInput) {
+              keyInput.value = text.trim();
+              showToast('✨ 已自動偵測並帶入 Google AI Studio 金鑰！正在儲存...');
+              window.removeEventListener('focus', onFocusCheck);
+              clipboardWatcherActive = false;
+              await confirmSaveWizardStrategy();
+            }
+          }
+        } catch (_) {}
+      };
+
+      window.addEventListener('focus', onFocusCheck);
+      // 30 秒超時自動移除監聽
+      setTimeout(() => {
+        window.removeEventListener('focus', onFocusCheck);
+        clipboardWatcherActive = false;
+      }, 30000);
+    }
+
+    // ── 本地純綠備案模型巡檢與推薦提示 ──
+    let currentPullCommand = 'powershell.exe -ExecutionPolicy Bypass -File .\\scripts\\安裝本地AI純綠推論引擎.ps1';
+
+    async function checkLocalModelRecommendations() {
+      try {
+        const res = await fetch('/api/ai/local_recommendations');
+        const data = await res.json();
+
+        const banner = document.getElementById('localModelRecommendationBanner');
+        const textEl = document.getElementById('localModelRecommendationText');
+
+        if (data.need_prompt && !data.skip_prompt) {
+          currentPullCommand = 'powershell.exe -ExecutionPolicy Bypass -File .\\scripts\\安裝本地AI純綠推論引擎.ps1';
+          textEl.innerHTML = `
+            ${data.reason || '推薦建置本機離線備援引擎。'}<br>
+            <strong>推薦配置：</strong>純綠開源 Llama 播放器 (llama.cpp) · Google Gemma 2 旗艦模型 · 零商業廣告與訂閱
+          `;
+          banner.style.display = 'flex';
+        } else {
+          banner.style.display = 'none';
+        }
+      } catch (e) {
+        console.error('本地備案巡檢異常', e);
+      }
+    }
+
+    async function launchGreenInstaller() {
+      try {
+        const res = await fetch('/api/ai/install_green_engine', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          showToast('⚡ 已在桌面喚起 PowerShell 純綠推論引擎安裝精靈視窗！');
+        } else {
+          alert('啟動失敗：' + (data.error || '未知錯誤'));
+        }
+      } catch (e) {
+        alert('呼叫端點失敗：' + e);
+      }
+    }
+
+    function copyOllamaPullCmd() {
+      navigator.clipboard.writeText(currentPullCommand).then(() => {
+        showToast(`📋 已複製指令：【${currentPullCommand}】！在終端機貼上執行即可自動建置。`);
+      }).catch(() => {
+        prompt('請複製以下純綠安裝指令：', currentPullCommand);
+      });
+    }
+
+    async function dismissLocalModelPrompt(neverAgain) {
+      document.getElementById('localModelRecommendationBanner').style.display = 'none';
+      if (neverAgain) {
+        try {
+          await fetch('/api/ai/set_prompt_preference', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ skip_prompt: true })
+          });
+          showToast('已設定不再提醒。您可隨時在 AI 設定中重新開啟巡檢。');
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
+    async function restoreLocalModelPrompt() {
+      try {
+        await fetch('/api/ai/set_prompt_preference', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ skip_prompt: false })
+        });
+        showToast('已恢復本地備案升級巡檢！');
+        checkLocalModelRecommendations();
+      } catch (e) {
+        alert('恢復巡檢失敗：' + e);
+      }
+    }
+
+    async function checkWizardOnStartup() {
+      try {
+        const res = await fetch('/api/ai/wizard_status');
+        const data = await res.json();
+        isWizardCompleted = !!data.wizard_completed;
+        const banner = document.getElementById('wizardNotCompletedBanner');
+        if (banner) {
+          banner.style.display = isWizardCompleted ? 'none' : 'flex';
+        }
+
+        if (!data.wizard_completed) {
+          setTimeout(() => {
+            openAiWizardModal();
+          }, 350);
+        } else {
+          // 閒置 1 秒後非同步巡檢本地備案
+          setTimeout(() => {
+            checkLocalModelRecommendations();
+          }, 1200);
+        }
+      } catch (e) {
+        console.error('精靈啟動檢查失敗', e);
+      }
+    }
+
     // 預設載入
     window.addEventListener('DOMContentLoaded', () => {
+      renderSentencePairs();
+      initFileDropZone();
+      checkPreloadOnStartup();
       loadRevisionsLog();
       loadAiStatus();
+      checkWizardOnStartup();
     });
   </script>
 </body>

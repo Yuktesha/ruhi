@@ -61,6 +61,32 @@ pub const EMBEDDED_CORE_ENGLISH_WORDS: &[(&str, f32)] = &[
     ("by", 95.0), ("id", 90.0), ("return", 90.0), ("hi", 92.0), ("ok", 95.0),
     ("hey", 90.0), ("bye", 90.0), ("china", 90.0), ("chinese", 90.0),
     ("taiwan", 90.0), ("english", 90.0), ("mix", 88.0), ("typing", 88.0), ("type", 88.0),
+    // 常見日常交際、商務、工程與高頻校正詞彙
+    ("thanks", 94.0), ("thank", 93.0), ("please", 93.0), ("sorry", 90.0), ("welcome", 90.0),
+    ("hello", 92.0), ("morning", 88.0), ("evening", 86.0), ("night", 88.0), ("today", 90.0),
+    ("tomorrow", 89.0), ("yesterday", 88.0), ("again", 89.0), ("always", 89.0), ("often", 86.0),
+    ("before", 90.0), ("until", 89.0), ("since", 89.0), ("while", 90.0), ("where", 90.0),
+    ("which", 92.0), ("every", 89.0), ("each", 89.0), ("both", 88.0), ("another", 88.0),
+    ("between", 89.0), ("through", 89.0), ("without", 89.0), ("within", 88.0), ("against", 87.0),
+    ("receive", 88.0), ("separate", 86.0), ("believe", 89.0), ("achieve", 86.0), ("friend", 89.0),
+    ("weird", 84.0), ("definitely", 87.0), ("necessary", 87.0), ("occurred", 85.0), ("accommodate", 82.0),
+    ("environment", 88.0), ("government", 88.0), ("management", 87.0), ("department", 86.0), ("development", 88.0),
+    ("document", 88.0), ("documentation", 86.0), ("repository", 86.0), ("database", 88.0), ("interface", 88.0),
+    ("application", 89.0), ("information", 90.0), ("configuration", 87.0), ("performance", 88.0), ("implementation", 87.0),
+    ("computer", 89.0), ("language", 89.0), ("algorithm", 88.0), ("architecture", 88.0), ("technology", 88.0),
+    ("parameter", 86.0), ("variable", 86.0), ("argument", 86.0), ("message", 89.0), ("request", 88.0),
+    ("response", 88.0), ("service", 89.0), ("directory", 86.0), ("package", 87.0), ("library", 87.0),
+    ("option", 87.0), ("maximum", 86.0), ("minimum", 86.0), ("average", 86.0), ("standard", 88.0),
+    ("previous", 87.0), ("current", 88.0), ("temporary", 85.0), ("synchronize", 84.0), ("asynchronous", 84.0),
+    ("authentication", 85.0), ("international", 87.0), ("question", 89.0), ("answer", 89.0), ("problem", 89.0),
+    ("solution", 88.0), ("example", 89.0), ("different", 89.0), ("important", 90.0), ("available", 88.0),
+    // 常見歐文外來語無重音基礎形（支援 ↓ 鍵轉換為標準變音字詞）
+    ("cafe", 86.0), ("resume", 87.0), ("naive", 84.0), ("facade", 82.0), ("cliche", 82.0),
+    ("fiance", 82.0), ("fiancee", 82.0), ("touche", 80.0), ("voila", 82.0), ("deja", 82.0),
+    ("entree", 80.0), ("protege", 80.0), ("soiree", 80.0), ("creme", 80.0), ("brulee", 80.0),
+    ("jalapeno", 80.0), ("pinata", 80.0), ("senor", 80.0), ("senorita", 80.0), ("uber", 85.0),
+    ("expose", 84.0), ("matinee", 80.0), ("puree", 80.0), ("saute", 80.0), ("coupe", 80.0),
+    ("decor", 82.0), ("garcon", 80.0), ("souffle", 80.0),
 ];
 
 #[derive(Debug, Clone)]
@@ -142,6 +168,144 @@ impl WesternLexicon {
 
     pub fn is_empty(&self) -> bool {
         self.words.is_empty()
+    }
+
+    /// 前綴補全查詢：找出以 `prefix` 開頭的高權重單字（依權重與詞頻降序排列）
+    pub fn lookup_prefix(&self, prefix: &str, limit: usize) -> Vec<String> {
+        let pfx_lower = prefix.to_ascii_lowercase();
+        if pfx_lower.is_empty() || limit == 0 {
+            return Vec::new();
+        }
+        let mut matched: Vec<(&String, u32, f32)> = self
+            .words
+            .iter()
+            .filter_map(|(w, &(freq, weight))| {
+                if w.len() > pfx_lower.len() && w.starts_with(&pfx_lower) && weight >= 45.0 {
+                    Some((w, freq, weight))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        matched.sort_by(|a, b| {
+            b.2.partial_cmp(&a.2)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| b.1.cmp(&a.1))
+                .then_with(|| a.0.len().cmp(&b.0.len()))
+        });
+
+        matched.into_iter().take(limit).map(|(w, _, _)| w.clone()).collect()
+    }
+
+    /// 計算 Damerau-Levenshtein 編輯距離（含相鄰字元互換容錯，如 teh->the, recieve->receive）
+    pub fn damerau_levenshtein(a: &[char], b: &[char]) -> usize {
+        let m = a.len();
+        let n = b.len();
+        if m == 0 {
+            return n;
+        }
+        if n == 0 {
+            return m;
+        }
+        let mut dp = vec![vec![0usize; n + 1]; m + 1];
+        for i in 0..=m {
+            dp[i][0] = i;
+        }
+        for j in 0..=n {
+            dp[0][j] = j;
+        }
+        for i in 1..=m {
+            for j in 1..=n {
+                let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
+                let mut val = (dp[i - 1][j] + 1)
+                    .min(dp[i][j - 1] + 1)
+                    .min(dp[i - 1][j - 1] + cost);
+                if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
+                    val = val.min(dp[i - 2][j - 2] + 1);
+                }
+                dp[i][j] = val;
+            }
+        }
+        dp[m][n]
+    }
+
+    /// 檢查 `sub` 是否為 `word` 的有序子序列（用於子音骨架還原，如 tks -> thanks, cmptr -> computer）
+    fn is_ordered_subsequence(sub: &[char], word: &[char]) -> bool {
+        if sub.is_empty() || sub.len() >= word.len() {
+            return false;
+        }
+        if sub[0] != word[0] {
+            return false;
+        }
+        let mut s_idx = 0;
+        for &ch in word {
+            if ch == sub[s_idx] {
+                s_idx += 1;
+                if s_idx == sub.len() {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// 子音骨架與拼字容錯檢索（供 ↑ 上箭頭智慧校正使用）
+    pub fn lookup_skeleton_and_fuzzy(&self, token: &str, limit: usize) -> Vec<String> {
+        let t_lower = token.to_ascii_lowercase();
+        let t_chars: Vec<char> = t_lower.chars().collect();
+        let t_len = t_chars.len();
+        if t_len < 2 || limit == 0 {
+            return Vec::new();
+        }
+
+        let first_ch = t_chars[0];
+        let last_ch = t_chars[t_len - 1];
+        let mut scored: Vec<(String, f32)> = Vec::new();
+
+        for (w, &(_freq, weight)) in &self.words {
+            if weight < 55.0 || w == &t_lower {
+                continue;
+            }
+            let w_chars: Vec<char> = w.chars().collect();
+            let w_len = w_chars.len();
+            if w_len < 2 {
+                continue;
+            }
+
+            // 1. 子音骨架有序子序列匹配 (如 tks -> thanks, pls -> please, cmptr -> computer)
+            if (2..=6).contains(&t_len)
+                && w_chars[0] == first_ch
+                && w_len > t_len
+                && w_len <= t_len + 5
+                && Self::is_ordered_subsequence(&t_chars, &w_chars)
+            {
+                let ends_same = w_chars[w_len - 1] == last_ch;
+                let len_penalty = (w_len - t_len) as f32 * 4.0;
+                let skel_score = 220.0 + weight + if ends_same { 45.0 } else { 0.0 } - len_penalty;
+                scored.push((w.clone(), skel_score));
+                continue;
+            }
+
+            // 2. Damerau-Levenshtein 編輯距離拼字校正 (如 teh -> the, recieve -> receive, seperate -> separate)
+            let len_diff = (w_len as isize - t_len as isize).unsigned_abs();
+            if len_diff <= 1 && t_len >= 3 {
+                // 限制首字母相同、或首二字母互換 (如 teh / hte)
+                let same_start = w_chars[0] == first_ch
+                    || (t_len >= 2 && w_len >= 2 && w_chars[0] == t_chars[1] && w_chars[1] == t_chars[0]);
+                if same_start {
+                    let dist = Self::damerau_levenshtein(&t_chars, &w_chars);
+                    if dist == 1 {
+                        scored.push((w.clone(), 300.0 + weight));
+                    } else if dist == 2 && t_len >= 5 && w_chars[0] == first_ch && w_chars[w_len - 1] == last_ch {
+                        scored.push((w.clone(), 180.0 + weight));
+                    }
+                }
+            }
+        }
+
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scored.into_iter().take(limit).map(|(w, _)| w).collect()
     }
 
     /// 從 TSV 檔案（word \t freq \t weight）熱載入或補充外部歐文字典
