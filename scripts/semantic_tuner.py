@@ -2405,6 +2405,13 @@ def start_web_studio(tuner: SemanticTuner, port: int = 8765, preloaded_file: str
             # 靜默記錄，保持主控台乾淨
             pass
 
+        def handle_one_request(self):
+            try:
+                super().handle_one_request()
+            except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError, TimeoutError):
+                # 瀏覽器重新整理、切換分頁或提前中斷連線 (WinError 10053 / 10054) 屬正常現象，靜默略過
+                pass
+
         def do_GET(self):
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path
@@ -3108,13 +3115,22 @@ def start_web_studio(tuner: SemanticTuner, port: int = 8765, preloaded_file: str
     print(f"本地伺服器位址：{colorize(server_url, Colors.BOLD + Colors.YELLOW)}")
     print("正在以系統預設瀏覽器喚起前台操作視窗... (按 Ctrl+C 可關閉伺服器)")
 
+    class QuietThreadingHTTPServer(ThreadingHTTPServer):
+        daemon_threads = True
+
+        def handle_error(self, request, client_address):
+            exc = sys.exc_info()[1]
+            if isinstance(exc, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError, TimeoutError)):
+                return
+            super().handle_error(request, client_address)
+
     try:
-        httpd = ThreadingHTTPServer(('127.0.0.1', port), StudioHTTPHandler)
+        httpd = QuietThreadingHTTPServer(('127.0.0.1', port), StudioHTTPHandler)
     except OSError:
         # 若 port 8765 被佔用，自動嘗試遞增 port
         port += 1
         server_url = f"http://127.0.0.1:{port}"
-        httpd = ThreadingHTTPServer(('127.0.0.1', port), StudioHTTPHandler)
+        httpd = QuietThreadingHTTPServer(('127.0.0.1', port), StudioHTTPHandler)
 
     # 在本機前台喚醒系統預設瀏覽器
     if open_browser:

@@ -281,7 +281,7 @@ class AISemanticConsultant:
             "recommended_models": RECOMMENDED_LOCAL_MODELS,
             "best_recommendation": recommended,
             "ollama_installed": ollama_status.get("installed", False),
-            "ollama_running": self.probe_ollama()
+            "ollama_running": True if has_local_llama else self.probe_ollama()
         }
 
     def set_local_model_prompt_preference(self, skip_prompt: bool) -> bool:
@@ -813,7 +813,7 @@ class AISemanticConsultant:
         url = self.config.get("ollama_url", "http://127.0.0.1:11434").rstrip("/") + "/api/tags"
         try:
             req = urllib.request.Request(url, method="GET")
-            with urllib.request.urlopen(req, timeout=1.5) as resp:
+            with urllib.request.urlopen(req, timeout=0.35) as resp:
                 if resp.status == 200:
                     return True
         except Exception:
@@ -825,7 +825,7 @@ class AISemanticConsultant:
         url = "http://127.0.0.1:8080/v1/models"
         try:
             req = urllib.request.Request(url, method="GET")
-            with urllib.request.urlopen(req, timeout=1.0) as resp:
+            with urllib.request.urlopen(req, timeout=0.35) as resp:
                 if resp.status == 200:
                     return True
         except Exception:
