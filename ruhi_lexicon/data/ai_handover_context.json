@@ -1,7 +1,7 @@
 {
   "active_provider": "gemini",
   "auto_delivered": true,
-  "delivered_at": "2026-10-19T20:43:34.604460800+08:00",
+  "delivered_at": "2026-10-19T21:07:18.886350300+08:00",
   "json_output_schema": {
     "bonus": 28.0,
     "exclude_pairs": [
@@ -45,9 +45,9 @@
     "patterns_user_jsonl": {
       "array_2d_correspondences": 17,
       "array_collision_audit": {
-        "harmless_non_existent_readings_count": 1608,
-        "naturally_harmless_rate": "98.46%",
-        "suppressed_by_exclude_array_count": 27,
+        "harmless_non_existent_readings_count": 1612,
+        "naturally_harmless_rate": "98.37%",
+        "suppressed_by_exclude_array_count": 29,
         "suppressed_collisions": [
           {
             "competing_real_words": [
@@ -358,6 +358,30 @@
           },
           {
             "competing_real_words": [
+              "耆德"
+            ],
+            "pair": [
+              "騎",
+              "得"
+            ],
+            "pattern_id": "v_dao_bao_satiation_3d_array",
+            "reading": "ㄑㄧˊ ㄉㄜˊ",
+            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
+          },
+          {
+            "competing_real_words": [
+              "獨得"
+            ],
+            "pair": [
+              "讀",
+              "得"
+            ],
+            "pattern_id": "v_dao_bao_satiation_3d_array",
+            "reading": "ㄉㄨˊ ㄉㄜˊ",
+            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
+          },
+          {
+            "competing_real_words": [
               "孝道",
               "笑道"
             ],
@@ -384,15 +408,15 @@
           }
         ],
         "theoretical_principle": "陣列展開同音對衝定理：展開後的不理性組合 (a, b)，只要其注音串 R(a)+R(b) 在真實詞庫中沒有對應的同音實詞 W，使用者根本不會打出該注音串，對解碼器干擾為 0%；唯有少數（約 <1%）與真實詞彙同音對衝之二元對，方透過 exclude_pairs（對衝抑制陣列）精準抵銷二元加權。",
-        "total_expanded_pairs": 1755,
-        "total_homophone_collisions": 27,
+        "total_expanded_pairs": 1779,
+        "total_homophone_collisions": 29,
         "unsuppressed_active_collisions_count": 0,
         "unsuppressed_collisions": [],
-        "valid_lexicon_compounds_count": 120
+        "valid_lexicon_compounds_count": 138
       },
       "multi_slot_3d_to_5d_chains": 19,
       "path": "C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data\\patterns_user.jsonl",
-      "total_indexed_slot_tokens": 967,
+      "total_indexed_slot_tokens": 980,
       "total_patterns": 36
     },
     "transitions_user_tsv": {

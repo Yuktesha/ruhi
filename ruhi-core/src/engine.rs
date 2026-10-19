@@ -6202,7 +6202,7 @@ mod tests {
             ("cueddyjejjemjpmd", "學大易鍵盤"),
             ("xhfdgss kwfje bnfckjbefjewjpem cekjxndzjcelds kwfldfa ufen s kwf", "我的思考基本上比較偏向文字型思考而非語音思考"),
             ("befjewjpem cekjufen celds kwf", "比較偏向語音型思考"),
-            // ── 10. 「[V × 到 × 飽]」極量飽足結果補語陣列構式驗證 ──
+            // ── 10. 「[V × ({到, 得}?) × 飽]」極量與可能飽足補語可選中綴陣列構式驗證 ──
             ("kmjdwjbwf", "看到飽"),
             ("v dwjbwf", "吃到飽"),
             ("hg dwjbwf", "喝到飽"),
@@ -6210,6 +6210,10 @@ mod tests {
             ("xmddwjbwf", "玩到飽"),
             ("cxajdwjbwf", "睡到飽"),
             ("uljdwjbwf", "用到飽"),
+            ("v dgsbwf", "吃得飽"),
+            ("cxajdgsbwf", "睡得飽"),
+            ("v bwf", "吃飽"),
+            ("cxajbwf", "睡飽"),
             ("kmjbwflgs", "看飽了"),
             // ── 11. 陣列展開同音對衝抑制（exclude_pairs）保護真實詞彙不被劫掠為「沒何/這鍵/個相/個試」 ──
             ("madhgd", "媒合"),

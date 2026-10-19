@@ -4071,42 +4071,40 @@ impl TransitionEngine {
             });
         }
 
-        // 17. 極量與飽足結果補語陣列構式：{看, 吃, 喝, 聽, 玩, 睡, 坐, 唱, 騎, 用, 讀, 買...} × {到} × {飽} 與 {V} × {飽} × {了, 沒, 嗎}
-        let satiation_v_dao_compounds: Vec<String> = [
+        // 17. 極量與飽足結果補語陣列構式：[V × ({到, 得}?) × {飽}]（涵蓋 V+到+飽、V+得+飽、V+飽）
+        let satiation_v_dao_de_compounds: Vec<String> = [
             "看到", "吃到", "喝到", "聽到", "玩到", "睡到", "坐到", "唱到", "騎到", "用到",
             "讀到", "買到", "逛到", "泡到", "聊到", "笑到", "氣到", "學到", "寫到", "打到",
-            "充到", "領到", "拿到", "看到", "爽到", "賺到",
+            "充到", "領到", "拿到", "爽到", "賺到",
+            "看得", "吃得", "喝得", "聽得", "玩得", "睡得", "坐得", "唱得", "騎得", "用得",
+            "讀得", "買得",
         ].iter().map(|s| s.to_string()).collect();
         let satiation_verbs_single: Vec<String> = [
             "看", "吃", "喝", "聽", "玩", "睡", "坐", "唱", "騎", "用", "讀", "買", "逛",
             "泡", "聊", "笑", "氣", "學", "寫", "打", "充", "領", "拿", "灌", "餵", "塞",
         ].iter().map(|s| s.to_string()).collect();
         self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::OneOf(satiation_v_dao_compounds.clone()),
+            prev_pattern: WordPattern::OneOf(satiation_v_dao_de_compounds.clone()),
             curr_pattern: WordPattern::Exact("飽".to_string()),
             bonus: 34.0,
-            name: "satiation_v_dao_bao_compound_array".to_string(),
+            name: "satiation_v_dao_de_bao_compound_array".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::OneOf(satiation_v_dao_compounds),
+            prev_pattern: WordPattern::OneOf(satiation_v_dao_de_compounds),
             curr_pattern: WordPattern::OneOf(vec![
                 "保".to_string(), "寶".to_string(), "堡".to_string(), "葆".to_string(),
             ]),
             bonus: -35.0,
-            name: "anti_satiation_v_dao_bao_impostor".to_string(),
+            name: "anti_satiation_v_dao_de_bao_impostor".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(satiation_verbs_single.clone()),
-            curr_pattern: WordPattern::Exact("到".to_string()),
+            curr_pattern: WordPattern::OneOf(vec!["到".to_string(), "得".to_string()]),
             bonus: 26.0,
-            name: "satiation_verb_dao_array".to_string(),
+            name: "satiation_verb_dao_de_array".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::OneOf(vec![
-                "看".to_string(), "吃".to_string(), "喝".to_string(), "聽".to_string(),
-                "玩".to_string(), "睡".to_string(), "氣".to_string(), "灌".to_string(),
-                "餵".to_string(), "塞".to_string(),
-            ]),
+            prev_pattern: WordPattern::OneOf(satiation_verbs_single),
             curr_pattern: WordPattern::Exact("飽".to_string()),
             bonus: 30.0,
             name: "satiation_verb_bao_direct_array".to_string(),
