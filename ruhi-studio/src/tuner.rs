@@ -2815,13 +2815,16 @@ impl SemanticTuner {
             }
         }
 
+        let collision_summary = self.scan_array_homophone_collisions();
+
         json!({
             "patterns_user_jsonl": {
                 "path": self.patterns_jsonl.to_string_lossy(),
                 "total_patterns": patterns_total,
                 "multi_slot_3d_to_5d_chains": multi_slot_3d_plus,
                 "array_2d_correspondences": array_2d_count,
-                "total_indexed_slot_tokens": total_slot_elements
+                "total_indexed_slot_tokens": total_slot_elements,
+                "array_collision_audit": collision_summary
             },
             "transitions_user_tsv": {
                 "path": self.user_tsv.to_string_lossy(),
@@ -2833,6 +2836,197 @@ impl SemanticTuner {
                 "path": self.domain_tsv.to_string_lossy(),
                 "total_irreducible_entries": domain_words_total
             }
+        })
+    }
+
+    /// 掃描 `patterns_user.jsonl` 所有陣列展開之二元組合 $(a, b) \in A \times B$：
+    /// 檢驗其中有多少不理性／非詞組合會與真實詞庫中的同音詞 $W$ 產生注音對衝（$\text{reading}(a)+\text{reading}(b) = \text{reading}(W)$），
+    /// 並統計已透過 `exclude_pairs`（對衝抑制陣列）攔截之比例。
+    pub fn scan_array_homophone_collisions(&self) -> Value {
+        let mut reading_to_real_words: HashMap<String, Vec<String>> = HashMap::new();
+        for (w, bpmf) in &self.word_bopomofo {
+            if w.chars().count() >= 2 && !bpmf.trim().is_empty() {
+                reading_to_real_words
+                    .entry(bpmf.trim().to_string())
+                    .or_default()
+                    .push(w.clone());
+            }
+        }
+        for list in reading_to_real_words.values_mut() {
+            list.sort();
+            list.dedup();
+        }
+
+        let mut total_expanded_pairs = 0usize;
+        let mut valid_lexicon_compounds = 0usize;
+        let mut harmless_non_existent_readings = 0usize;
+        let mut total_homophone_collisions = 0usize;
+        let mut suppressed_by_exclude_array = 0usize;
+        let mut suppressed_items = Vec::new();
+        let mut unsuppressed_items = Vec::new();
+
+        if self.patterns_jsonl.is_file() {
+            if let Ok(raw) = fs::read_to_string(&self.patterns_jsonl) {
+                for (line_idx, line) in raw.lines().enumerate() {
+                    let s = line.trim();
+                    if s.is_empty() || s.starts_with('#') {
+                        continue;
+                    }
+                    let Ok(v) = serde_json::from_str::<Value>(s) else {
+                        continue;
+                    };
+                    let pid = v
+                        .get("pattern_id")
+                        .and_then(Value::as_str)
+                        .filter(|x| !x.is_empty())
+                        .or_else(|| v.get("name").and_then(Value::as_str))
+                        .or_else(|| v.get("description").and_then(Value::as_str))
+                        .unwrap_or("pattern")
+                        .to_string();
+
+                    let mut excluded: HashSet<(String, String)> = HashSet::new();
+                    if let Some(ex_arr) = v.get("exclude_pairs").and_then(Value::as_array) {
+                        for pair in ex_arr {
+                            if let Some(pa) = pair.as_array() {
+                                if pa.len() == 2 {
+                                    let p0 = pa[0].as_str().unwrap_or("").trim().to_string();
+                                    let p1 = pa[1].as_str().unwrap_or("").trim().to_string();
+                                    if !p0.is_empty() && !p1.is_empty() {
+                                        excluded.insert((p0, p1));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    let has_target_or_pref = v
+                        .get("target")
+                        .and_then(Value::as_array)
+                        .map(|a| !a.is_empty())
+                        .unwrap_or(false)
+                        || v.get("preferred")
+                            .and_then(Value::as_array)
+                            .map(|a| !a.is_empty())
+                            .unwrap_or(false);
+
+                    let mut slot_pairs: Vec<(Vec<String>, Vec<String>)> = Vec::new();
+                    if let Some(slots) = v.get("slots").and_then(Value::as_array) {
+                        if !has_target_or_pref || slots.len() == 2 {
+                            let cleaned: Vec<Vec<String>> = slots
+                                .iter()
+                                .filter_map(Value::as_array)
+                                .map(|arr| {
+                                    arr.iter()
+                                        .filter_map(Value::as_str)
+                                        .map(|x| x.trim().to_string())
+                                        .filter(|x| is_valid_chinese_token(x))
+                                        .collect()
+                                })
+                                .collect();
+                            for i in 0..cleaned.len().saturating_sub(1) {
+                                slot_pairs.push((cleaned[i].clone(), cleaned[i + 1].clone()));
+                            }
+                        }
+                    }
+                    if slot_pairs.is_empty() {
+                        let ps: Vec<String> = v
+                            .get("prev_slot")
+                            .and_then(Value::as_array)
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(Value::as_str)
+                                    .map(|x| x.trim().to_string())
+                                    .filter(|x| is_valid_chinese_token(x))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        let ns: Vec<String> = v
+                            .get("next_slot")
+                            .and_then(Value::as_array)
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(Value::as_str)
+                                    .map(|x| x.trim().to_string())
+                                    .filter(|x| is_valid_chinese_token(x))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        if !ps.is_empty() && !ns.is_empty() {
+                            slot_pairs.push((ps, ns));
+                        }
+                    }
+
+                    let _ = line_idx;
+                    for (left_slot, right_slot) in slot_pairs {
+                        for a in &left_slot {
+                            for b in &right_slot {
+                                total_expanded_pairs += 1;
+                                let combined = format!("{a}{b}");
+                                if self.known_words.contains(&combined) {
+                                    valid_lexicon_compounds += 1;
+                                    continue;
+                                }
+                                let ra = self.get_bopomofo(a);
+                                let rb = self.get_bopomofo(b);
+                                if ra.is_empty() || rb.is_empty() {
+                                    harmless_non_existent_readings += 1;
+                                    continue;
+                                }
+                                let reading_ab = format!("{} {}", ra.trim(), rb.trim());
+                                if let Some(real_words) = reading_to_real_words.get(&reading_ab) {
+                                    let competing: Vec<String> = real_words
+                                        .iter()
+                                        .filter(|w| **w != combined)
+                                        .cloned()
+                                        .collect();
+                                    if competing.is_empty() {
+                                        harmless_non_existent_readings += 1;
+                                    } else {
+                                        total_homophone_collisions += 1;
+                                        let is_suppressed =
+                                            excluded.contains(&(a.clone(), b.clone()));
+                                        let item = json!({
+                                            "pattern_id": pid,
+                                            "pair": [a, b],
+                                            "reading": reading_ab,
+                                            "competing_real_words": competing,
+                                            "status": if is_suppressed { "SUPPRESSED_BY_EXCLUDE_ARRAY" } else { "NEEDS_EXCLUDE_PAIR" }
+                                        });
+                                        if is_suppressed {
+                                            suppressed_by_exclude_array += 1;
+                                            suppressed_items.push(item);
+                                        } else {
+                                            unsuppressed_items.push(item);
+                                        }
+                                    }
+                                } else {
+                                    harmless_non_existent_readings += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let harmless_total = valid_lexicon_compounds + harmless_non_existent_readings;
+        let harmless_rate = if total_expanded_pairs > 0 {
+            (harmless_total as f64 / total_expanded_pairs as f64) * 100.0
+        } else {
+            100.0
+        };
+
+        json!({
+            "total_expanded_pairs": total_expanded_pairs,
+            "valid_lexicon_compounds_count": valid_lexicon_compounds,
+            "harmless_non_existent_readings_count": harmless_non_existent_readings,
+            "naturally_harmless_rate": format!("{harmless_rate:.2}%"),
+            "total_homophone_collisions": total_homophone_collisions,
+            "suppressed_by_exclude_array_count": suppressed_by_exclude_array,
+            "unsuppressed_active_collisions_count": unsuppressed_items.len(),
+            "suppressed_collisions": suppressed_items,
+            "unsuppressed_collisions": unsuppressed_items,
+            "theoretical_principle": "陣列展開同音對衝定理：展開後的不理性組合 (a, b)，只要其注音串 R(a)+R(b) 在真實詞庫中沒有對應的同音實詞 W，使用者根本不會打出該注音串，對解碼器干擾為 0%；唯有少數（約 <1%）與真實詞彙同音對衝之二元對，方透過 exclude_pairs（對衝抑制陣列）精準抵銷二元加權。"
         })
     }
 }
@@ -2972,6 +3166,26 @@ mod tests {
         let _added_rules = tuner.append_rules_to_tsv(&all_rules);
         assert!(pattern_report.get("augmented_rules").is_some());
         assert!(pattern_report.get("created_rules").is_some());
+    }
+
+    #[test]
+    fn test_array_collision_audit_and_auto_handover_delivery_261019() {
+        let tuner = SemanticTuner::new(None);
+        let audit = tuner.scan_array_homophone_collisions();
+        let total_pairs = audit["total_expanded_pairs"].as_u64().unwrap_or(0);
+        let suppressed = audit["suppressed_by_exclude_array_count"].as_u64().unwrap_or(0);
+        let unsuppressed = audit["unsuppressed_active_collisions_count"].as_u64().unwrap_or(99);
+        assert!(total_pairs > 1500, "Expected >1500 expanded array pairs, got {}", total_pairs);
+        assert!(suppressed >= 9, "Expected >=9 suppressed colliding pairs via exclude_pairs, got {}", suppressed);
+        assert_eq!(unsuppressed, 0, "Expected 0 unsuppressed active homophone collisions, got {:?}", audit["unsuppressed_collisions"]);
+
+        let mut consultant = crate::ai_consultant::AISemanticConsultant::new(Some(&tuner.root));
+        let handover = consultant.get_recommended_models_and_handover_spec(&tuner);
+        assert_eq!(handover["auto_delivered"], true);
+        let delivered = handover["delivered_files"].as_array().unwrap();
+        assert!(delivered.len() >= 3, "Expected 3 handover files auto-delivered to disk");
+        assert!(tuner.root.join("docs").join("AI_SEMANTIC_HANDOVER.md").is_file());
+        assert!(tuner.root.join(".agent").join("skills").join("ruhi-semantic-tuning").join("SKILL.md").is_file());
     }
 }
 

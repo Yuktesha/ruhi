@@ -6134,6 +6134,7 @@ mod tests {
         let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
         let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
         let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+        let _ = engine.transitions.load_patterns_jsonl("../ruhi_lexicon/data/patterns_user.jsonl");
 
         let cases = [
             // ── 0. 使用者本輪實戰回報之兩大錯字句 ──
@@ -6197,8 +6198,24 @@ mod tests {
             ("bxjhmddmjufsxhfeofgx laj.", "不含蛋與所有菇類。"),
             ("vedcd xhfzijcueddyjejcxl rxjfyfj vemden xajcofceefcx cenjdgsgxm cej", "其實我在學大易輸入法之前因為手寫書信的關係"),
             ("zijcuedak jeedcxl rxjfyfj vemd", "在學倉頡輸入法之前"),
+            ("gifuljcufcjjemjpmd", "改用許氏鍵盤"),
+            ("cueddyjejjemjpmd", "學大易鍵盤"),
             ("xhfdgss kwfje bnfckjbefjewjpem cekjxndzjcelds kwfldfa ufen s kwf", "我的思考基本上比較偏向文字型思考而非語音思考"),
             ("befjewjpem cekjufen celds kwf", "比較偏向語音型思考"),
+            // ── 10. 「[V × 到 × 飽]」極量飽足結果補語陣列構式驗證 ──
+            ("kmjdwjbwf", "看到飽"),
+            ("v dwjbwf", "吃到飽"),
+            ("hg dwjbwf", "喝到飽"),
+            ("tel dwjbwf", "聽到飽"),
+            ("xmddwjbwf", "玩到飽"),
+            ("cxajdwjbwf", "睡到飽"),
+            ("uljdwjbwf", "用到飽"),
+            ("kmjbwflgs", "看飽了"),
+            // ── 11. 陣列展開同音對衝抑制（exclude_pairs）保護真實詞彙不被劫掠為「沒何/這鍵/個相/個試」 ──
+            ("madhgd", "媒合"),
+            ("jgjjemjcj", "這件事"),
+            ("ggjcekjgxl nld", "各項功能"),
+            ("ggjcjggjekj", "各式各樣"),
         ];
 
         for (keys, expected) in cases {

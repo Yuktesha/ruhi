@@ -242,6 +242,11 @@ fn handle_get(
         return send_json_response(stream, 200, &inv);
     }
 
+    if path == "/api/rules/collisions" {
+        let col = guard.tuner.scan_array_homophone_collisions();
+        return send_json_response(stream, 200, &col);
+    }
+
     if path == "/api/tune/preload" {
         let recent = guard.tuner.scan_recent_txt_files();
         let preload_target = guard.preloaded_file.clone();
@@ -591,7 +596,15 @@ fn handle_post(
         );
         let mut test_res = guard.consultant.test_connection();
         let eff = guard.consultant.get_effective_provider();
+        let StudioServerState {
+            ref tuner,
+            ref mut consultant,
+            ..
+        } = *guard;
+        let handover = consultant.get_recommended_models_and_handover_spec(tuner);
         test_res["provider"] = json!(eff);
+        test_res["auto_delivered"] = json!(true);
+        test_res["delivered_files"] = handover["delivered_files"].clone();
         return send_json_response(stream, 200, &test_res);
     }
 
@@ -665,8 +678,16 @@ fn handle_post(
             custom_model,
         );
         let mut test_res = guard.consultant.test_connection();
+        let StudioServerState {
+            ref tuner,
+            ref mut consultant,
+            ..
+        } = *guard;
+        let handover = consultant.get_recommended_models_and_handover_spec(tuner);
         test_res["status"] = json!(if ok { "ok" } else { "error" });
         test_res["strategy"] = json!(strategy);
+        test_res["auto_delivered"] = json!(true);
+        test_res["delivered_files"] = handover["delivered_files"].clone();
         return send_json_response(stream, 200, &test_res);
     }
 

@@ -4054,6 +4054,71 @@ impl TransitionEngine {
             bonus: -45.0,
             name: "anti_yi_xiashi_impostor".to_string(),
         });
+        // 對衝抑制陣列（Suppression Array）：抵銷展開後與真實詞彙（分布、何不、是個、各部、各項、各式）同音對衝之二元組合
+        for (p, n) in [
+            ("分", "不"),
+            ("合", "不"),
+            ("試", "個"),
+            ("個", "步"),
+            ("個", "相"),
+            ("個", "試"),
+        ] {
+            self.grammar_rules.push(GrammarRule {
+                prev_pattern: WordPattern::Exact(p.to_string()),
+                curr_pattern: WordPattern::Exact(n.to_string()),
+                bonus: -28.0,
+                name: format!("builtin_exclude_pair:{}->{}", p, n),
+            });
+        }
+
+        // 17. 極量與飽足結果補語陣列構式：{看, 吃, 喝, 聽, 玩, 睡, 坐, 唱, 騎, 用, 讀, 買...} × {到} × {飽} 與 {V} × {飽} × {了, 沒, 嗎}
+        let satiation_v_dao_compounds: Vec<String> = [
+            "看到", "吃到", "喝到", "聽到", "玩到", "睡到", "坐到", "唱到", "騎到", "用到",
+            "讀到", "買到", "逛到", "泡到", "聊到", "笑到", "氣到", "學到", "寫到", "打到",
+            "充到", "領到", "拿到", "看到", "爽到", "賺到",
+        ].iter().map(|s| s.to_string()).collect();
+        let satiation_verbs_single: Vec<String> = [
+            "看", "吃", "喝", "聽", "玩", "睡", "坐", "唱", "騎", "用", "讀", "買", "逛",
+            "泡", "聊", "笑", "氣", "學", "寫", "打", "充", "領", "拿", "灌", "餵", "塞",
+        ].iter().map(|s| s.to_string()).collect();
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(satiation_v_dao_compounds.clone()),
+            curr_pattern: WordPattern::Exact("飽".to_string()),
+            bonus: 34.0,
+            name: "satiation_v_dao_bao_compound_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(satiation_v_dao_compounds),
+            curr_pattern: WordPattern::OneOf(vec![
+                "保".to_string(), "寶".to_string(), "堡".to_string(), "葆".to_string(),
+            ]),
+            bonus: -35.0,
+            name: "anti_satiation_v_dao_bao_impostor".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(satiation_verbs_single.clone()),
+            curr_pattern: WordPattern::Exact("到".to_string()),
+            bonus: 26.0,
+            name: "satiation_verb_dao_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "看".to_string(), "吃".to_string(), "喝".to_string(), "聽".to_string(),
+                "玩".to_string(), "睡".to_string(), "氣".to_string(), "灌".to_string(),
+                "餵".to_string(), "塞".to_string(),
+            ]),
+            curr_pattern: WordPattern::Exact("飽".to_string()),
+            bonus: 30.0,
+            name: "satiation_verb_bao_direct_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("飽".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "了".to_string(), "沒".to_string(), "嗎".to_string(), "足".to_string(),
+            ]),
+            bonus: 28.0,
+            name: "satiation_bao_aspect_particle_array".to_string(),
+        });
     }
 
     /// 重建語法規則雙向倒排索引（加速 40~80 倍，O(1) 精準規則定位）
@@ -4133,6 +4198,8 @@ impl TransitionEngine {
             target: Vec<String>,
             #[serde(default)]
             preferred: Vec<String>,
+            #[serde(default)]
+            exclude_pairs: Vec<Vec<String>>,
             #[serde(default = "default_pattern_bonus")]
             bonus: f64,
             #[serde(default)]
@@ -4175,6 +4242,22 @@ impl TransitionEngine {
                     format!("slot_{}", count)
                 };
 
+                // 載入對衝抑制陣列（exclude_pairs）：當陣列展開之特定二元對 (p, n) 與真實詞彙同音對衝時，自動注入反向抵銷規則
+                for pair in &pat.exclude_pairs {
+                    if pair.len() == 2
+                        && Self::is_valid_cjk_token(&pair[0])
+                        && Self::is_valid_cjk_token(&pair[1])
+                    {
+                        self.grammar_rules.push(GrammarRule {
+                            prev_pattern: WordPattern::Exact(pair[0].trim().to_string()),
+                            curr_pattern: WordPattern::Exact(pair[1].trim().to_string()),
+                            bonus: -safe_bonus,
+                            name: format!("user_exclude_pair:{}:{}->{}", label, pair[0].trim(), pair[1].trim()),
+                        });
+                    }
+                }
+
+                let mut chain_registered_first_pair = false;
                 if pat.slots.len() >= 3 {
                     let s0: HashSet<String> = pat.slots[0]
                         .iter()
@@ -4218,6 +4301,9 @@ impl TransitionEngine {
                             let left = &cleaned_slots[i];
                             let right = &cleaned_slots[i + 1];
                             if !left.is_empty() && !right.is_empty() {
+                                if i == 0 && pat.prev_slot == pat.slots[0] && pat.next_slot == pat.slots[1] {
+                                    chain_registered_first_pair = true;
+                                }
                                 self.grammar_rules.push(GrammarRule {
                                     prev_pattern: if left.len() == 1 {
                                         WordPattern::Exact(left[0].clone())
@@ -4254,7 +4340,7 @@ impl TransitionEngine {
                             }
                         }
                     }
-                    if pat.prev_slot.is_empty() || pat.next_slot.is_empty() {
+                    if pat.prev_slot.is_empty() || pat.next_slot.is_empty() || chain_registered_first_pair {
                         continue;
                     }
                 }

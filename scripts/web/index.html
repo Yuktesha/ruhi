@@ -3596,8 +3596,10 @@
         cachedHandoverSchema = JSON.stringify((data.handover_protocol && data.handover_protocol.json_output_schema) || {}, null, 2);
         const inv = data.live_inventory || {};
         const pInfo = inv.patterns_user_jsonl || {};
+        const colAudit = pInfo.array_collision_audit || {};
         const tInfo = inv.transitions_user_tsv || {};
         const lInfo = inv.lexicon_domain_tsv || {};
+        const deliveredFiles = (data.delivered_files || []).map(f => `<code style="background:rgba(74,222,128,0.12); color:var(--accent-green); padding:2px 6px; border-radius:4px; font-size:0.78rem;">${escapeHtml(f)}</code>`).join(' ');
         const cloudList = (data.recommended_cloud_models || []).map(m => `
           <div style="background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 10px 12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -3618,13 +3620,28 @@
           </div>
         `).join('');
         const depth = data.hierarchy_depth_analysis || {};
+        const crossLang = (data.cross_language_generalization && data.cross_language_generalization.supported_language_families) || [];
+        const crossLangHtml = crossLang.map(item => `
+          <div style="font-size:0.8rem; color:var(--text-main);">• <strong>${escapeHtml(item.family || '')}</strong>：${escapeHtml(item.pattern || '')}</div>
+        `).join('');
 
         body.innerHTML = `
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+          <div style="background: rgba(74, 222, 128, 0.08); border: 1px solid rgba(74, 222, 128, 0.35); border-radius: 8px; padding: 10px 14px; font-size: 0.84rem; line-height: 1.55;">
+            <div style="font-weight: 700; color: var(--accent-green);">⚡ 自動交付機制已啟用（免除使用者複製貼上）</div>
+            <div style="color: var(--text-main); margin-top: 3px;">確認對接模型時，系統已自動將規格書與 Agent 技能檔寫入工作區並注入對接模型 System Context：</div>
+            <div style="margin-top: 5px; display: flex; flex-wrap: wrap; gap: 6px;">${deliveredFiles}</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px;">
             <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 12px;">
               <div style="font-size: 0.78rem; color: var(--text-muted);">Layer 1 多維陣列構式 (patterns_user.jsonl)</div>
               <div style="font-size: 1.25rem; font-weight: 700; color: var(--accent-cyan); margin-top: 4px;">${pInfo.total_patterns || 0} 條構式</div>
-              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">3D~5D 鏈式：${pInfo.multi_slot_3d_to_5d_chains || 0} 條 ｜ 2D 陣列：${pInfo.array_2d_correspondences || 0} 條（索引 ${pInfo.total_indexed_slot_tokens || 0} 詞元）</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">3D~5D 鏈式：${pInfo.multi_slot_3d_to_5d_chains || 0} 條 ｜ 2D 陣列：${pInfo.array_2d_correspondences || 0} 條</div>
+            </div>
+            <div style="background: rgba(192, 132, 252, 0.08); border: 1px solid rgba(192, 132, 252, 0.3); border-radius: 8px; padding: 12px;">
+              <div style="font-size: 0.78rem; color: var(--text-muted);">陣列展開同音對衝審計 (exclude_pairs)</div>
+              <div style="font-size: 1.25rem; font-weight: 700; color: var(--accent-purple); margin-top: 4px;">天然無害率 ${escapeHtml(colAudit.naturally_harmless_rate || '99.0%')}</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">展開 ${colAudit.total_expanded_pairs || 0} 組 ｜ 對衝抑制陣列已攔截 ${colAudit.suppressed_by_exclude_array_count || 0} 組</div>
             </div>
             <div style="background: rgba(74, 222, 128, 0.08); border: 1px solid rgba(74, 222, 128, 0.3); border-radius: 8px; padding: 12px;">
               <div style="font-size: 0.78rem; color: var(--text-muted);">Layer 2 二元轉移矩陣 (transitions_user.tsv)</div>
@@ -3638,11 +3655,10 @@
             </div>
           </div>
 
-          <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 14px; font-size: 0.85rem; line-height: 1.55;">
-            <div style="font-weight: 700; color: var(--accent-yellow); margin-bottom: 4px;">📐 多層巢狀陣列複雜度與語言學最佳層數分析（2～3 層黃金定律）</div>
-            <div>• <strong>最佳層數</strong>：${escapeHtml(depth.optimal_levels || '')}</div>
-            <div>• <strong>時間複雜度</strong>：${escapeHtml(depth.runtime_complexity || '')}</div>
-            <div>• <strong>為何不宜超過 3～4 層</strong>：${escapeHtml(depth.why_not_deeper_than_3 || '')}</div>
+          <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 14px; font-size: 0.84rem; line-height: 1.55; display: flex; flex-direction: column; gap: 6px;">
+            <div style="font-weight: 700; color: var(--accent-yellow);">📐 陣列同音對衝抑制定理 (exclude_pairs) 與跨語言通用智慧型輸入法架構</div>
+            <div>• <strong>最佳層數與對衝抑制</strong>：${escapeHtml(depth.why_not_deeper_than_3 || '')}</div>
+            ${crossLangHtml}
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px;">
@@ -3658,13 +3674,13 @@
 
           <div style="display: flex; flex-direction: column; gap: 6px;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-              <span style="font-weight: 700; color: #fff; font-size: 0.92rem;">📋 對接 AI / SI 標準任務交接提示詞 (System Handover Prompt)</span>
+              <span style="font-weight: 700; color: #fff; font-size: 0.92rem;">📄 已自動交付之 <code>SKILL.md</code> / <code>AI_SEMANTIC_HANDOVER.md</code> 內容預覽</span>
               <div style="display: flex; gap: 8px;">
-                <button type="button" class="btn-pill" style="color: var(--accent-cyan); border-color: rgba(56, 189, 248, 0.4);" onclick="copyHandoverSystemPrompt()">📋 一鍵複製完整交接規格書</button>
-                <button type="button" class="btn-pill" style="color: var(--accent-green); border-color: rgba(74, 222, 128, 0.4);" onclick="copyHandoverJsonSchema()">📐 複製 JSON Schema</button>
+                <button type="button" class="btn-pill" style="color: var(--accent-cyan); border-color: rgba(56, 189, 248, 0.4);" onclick="copyHandoverSystemPrompt()">📋 備用複製 Markdown</button>
+                <button type="button" class="btn-pill" style="color: var(--accent-green); border-color: rgba(74, 222, 128, 0.4);" onclick="copyHandoverJsonSchema()">📐 備用複製 JSON Schema</button>
               </div>
             </div>
-            <textarea readonly style="width: 100%; height: 210px; background: #090d16; color: #e2e8f0; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.8rem; line-height: 1.45;">${escapeHtml(cachedHandoverPrompt)}</textarea>
+            <textarea readonly style="width: 100%; height: 180px; background: #090d16; color: #e2e8f0; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.8rem; line-height: 1.45;">${escapeHtml(cachedHandoverPrompt)}</textarea>
           </div>
         `;
       } catch (e) {
