@@ -171,6 +171,8 @@ pub struct TransitionEngine {
     pub vo_pairs: Vec<VOCollocation>,
     /// 動態載入之三元階層槽位構式群 (來自 patterns_user.jsonl)
     pub user_trigram_patterns: Vec<TrigramSlotPattern>,
+    /// 對衝抑制陣列集合 (Type C exclude_pairs)：於 O(1) 查找時直接攔截與真實詞同音對衝之二元陣列展開對
+    pub excluded_pairs: HashSet<(String, String)>,
     /// 功能詞集合（用於 ContentWord 模式的排除判斷）
     pub function_words: HashSet<String>,
     pub file_path: Option<PathBuf>,
@@ -192,6 +194,7 @@ impl Default for TransitionEngine {
             transitions: HashMap::new(),
             vo_pairs: Vec::new(),
             user_trigram_patterns: Vec::new(),
+            excluded_pairs: HashSet::new(),
             function_words: HashSet::new(),
             file_path: None,
             last_modified: None,
@@ -4057,18 +4060,14 @@ impl TransitionEngine {
         // 對衝抑制陣列（Suppression Array）：抵銷展開後與真實詞彙（分布、何不、是個、各部、各項、各式）同音對衝之二元組合
         for (p, n) in [
             ("分", "不"),
+            ("分", "不起"),
             ("合", "不"),
             ("試", "個"),
             ("個", "步"),
             ("個", "相"),
             ("個", "試"),
         ] {
-            self.grammar_rules.push(GrammarRule {
-                prev_pattern: WordPattern::Exact(p.to_string()),
-                curr_pattern: WordPattern::Exact(n.to_string()),
-                bonus: -28.0,
-                name: format!("builtin_exclude_pair:{}->{}", p, n),
-            });
+            self.excluded_pairs.insert((p.to_string(), n.to_string()));
         }
 
         // 17. 極量與飽足結果補語陣列構式：[V × ({到, 得}?) × {飽}]（涵蓋 V+到+飽、V+得+飽、V+飽）
@@ -4116,6 +4115,221 @@ impl TransitionEngine {
             ]),
             bonus: 28.0,
             name: "satiation_bao_aspect_particle_array".to_string(),
+        });
+
+        // 18. 同音詞彙對衝之「語法環境雙向分流 (Syntactic Slot Bifurcation)」規則組：
+        //     當陣列展開對 (a, b) 與詞庫同音詞 W 皆為真實語句合法用法時（如「他馬騎得很好吧」vs.「才不是什麼耆德老人呢」），
+        //     絕不單向盲目抑制，而是依據左向論元／限定語槽位與右向補語／中心名詞槽位進行雙向精準分流。
+
+        // (18a) 「騎 + 得」vs.「耆德」雙向語境分流：
+        let mount_vehicles: Vec<String> = [
+            "馬", "車", "單車", "腳踏車", "機車", "摩托車", "鐵馬", "重機", "駿馬", "白馬",
+        ].iter().map(|s| s.to_string()).collect();
+        let qide_determiners: Vec<String> = [
+            "什麼", "不是什麼", "並非", "一代", "鄉里", "堪稱", "尊為", "這位", "那位",
+        ].iter().map(|s| s.to_string()).collect();
+        let qide_elder_nouns: Vec<String> = [
+            "老人", "長者", "老者", "老人家", "宿儒", "碩望", "賢達", "前輩", "耆老", "風範",
+        ].iter().map(|s| s.to_string()).collect();
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(mount_vehicles.clone()),
+            curr_pattern: WordPattern::Exact("騎".to_string()),
+            bonus: 30.0,
+            name: "bifurcation_mount_patient_qi2_verb".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(mount_vehicles),
+            curr_pattern: WordPattern::OneOf(vec!["耆德".to_string(), "其".to_string(), "奇".to_string(), "棋".to_string()]),
+            bonus: -40.0,
+            name: "anti_archaic_qide_after_mount_vehicle".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("耆德".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "很".to_string(), "很好".to_string(), "很快".to_string(), "很穩".to_string(),
+                "非常".to_string(), "太".to_string(), "真".to_string(), "超".to_string(),
+                "好".to_string(), "快".to_string(), "穩".to_string(), "順".to_string(),
+                "飽".to_string(), "不錯".to_string(),
+            ]),
+            bonus: -42.0,
+            name: "anti_archaic_qide_before_degree_complement".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(qide_determiners),
+            curr_pattern: WordPattern::Exact("耆德".to_string()),
+            bonus: 34.0,
+            name: "bifurcation_determiner_archaic_qide".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("耆德".to_string()),
+            curr_pattern: WordPattern::OneOf(qide_elder_nouns.clone()),
+            bonus: 35.0,
+            name: "bifurcation_archaic_qide_elder_head".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("得".to_string()),
+            curr_pattern: WordPattern::OneOf(qide_elder_nouns),
+            bonus: -38.0,
+            name: "anti_complement_de_before_elder_noun".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec!["什麼".to_string(), "不是什麼".to_string()]),
+            curr_pattern: WordPattern::Exact("騎".to_string()),
+            bonus: -32.0,
+            name: "anti_shenme_qi2_before_elder".to_string(),
+        });
+
+        // (18b) 「對不對／雖然根本只是個年輕人／才不是什麼」長句結構凝聚與防跨界假詞：
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("對".to_string()),
+            curr_pattern: WordPattern::Exact("不對".to_string()),
+            bonus: 32.0,
+            name: "a_not_a_dui_budui".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("對簿".to_string()),
+            curr_pattern: WordPattern::Exact("對".to_string()),
+            bonus: -45.0,
+            name: "anti_duibu_dui_impostor".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("雖然".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "根本".to_string(), "只是".to_string(), "還是".to_string(), "已經".to_string(),
+            ]),
+            bonus: 28.0,
+            name: "suiran_genben_collocation".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("根本".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "只是".to_string(), "不是".to_string(), "沒".to_string(), "沒有".to_string(),
+                "不".to_string(), "不會".to_string(), "不能".to_string(), "就是".to_string(),
+            ]),
+            bonus: 28.0,
+            name: "genben_zhishi_negation".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("根本".to_string()),
+            curr_pattern: WordPattern::Exact("指示".to_string()),
+            bonus: -38.0,
+            name: "anti_genben_zhishi_directive".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("只是".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "個".to_string(), "一個".to_string(), "一名".to_string(), "一位".to_string(),
+            ]),
+            bonus: 28.0,
+            name: "zhishi_ge_indefinite_classifier".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec!["個".to_string(), "一個".to_string()]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "年輕人".to_string(), "老人".to_string(), "孩子".to_string(), "小孩".to_string(),
+                "新手".to_string(), "外行人".to_string(), "普通人".to_string(), "一般人".to_string(),
+            ]),
+            bonus: 28.0,
+            name: "ge_human_role_noun".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("才".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "不是".to_string(), "不會".to_string(), "不要".to_string(), "不能".to_string(),
+            ]),
+            bonus: 28.0,
+            name: "cai2_bushi_emphatic_negation".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("不是".to_string()),
+            curr_pattern: WordPattern::Exact("什麼".to_string()),
+            bonus: 28.0,
+            name: "bushi_shenme_rhetorical_negation".to_string(),
+        });
+
+        // (18c) 其他雙向同音構式分流（獨步 vs 讀不、獨得 vs 讀得、走步 vs 走不、故步 vs 顧不、孝道 vs 笑到、全速 vs 全素）：
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("獨步".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "全球".to_string(), "天下".to_string(), "武林".to_string(), "業界".to_string(),
+                "亞洲".to_string(), "世界".to_string(), "古今".to_string(), "當代".to_string(),
+            ]),
+            bonus: 34.0,
+            name: "bifurcation_dubu_domain_noun".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("獨步".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "懂".to_string(), "完".to_string(), "通".to_string(), "下".to_string(), "出".to_string(),
+            ]),
+            bonus: -38.0,
+            name: "anti_dubu_before_potential_complement".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("獨得".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "頭獎".to_string(), "大獎".to_string(), "首獎".to_string(), "獎金".to_string(),
+                "冠軍".to_string(), "金牌".to_string(), "第一".to_string(),
+            ]),
+            bonus: 34.0,
+            name: "bifurcation_dude_prize_noun".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("獨得".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "懂".to_string(), "完".to_string(), "好".to_string(), "快".to_string(), "飽".to_string(), "很".to_string(),
+            ]),
+            bonus: -38.0,
+            name: "anti_dude_before_complement".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("故步".to_string()),
+            curr_pattern: WordPattern::Exact("自封".to_string()),
+            bonus: 35.0,
+            name: "bifurcation_gubu_zifeng".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("故步".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "上".to_string(), "得".to_string(), "了".to_string(), "到".to_string(),
+            ]),
+            bonus: -38.0,
+            name: "anti_gubu_before_potential_complement".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("孝道".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "飽".to_string(), "肚子痛".to_string(), "流淚".to_string(), "飆淚".to_string(), "翻".to_string(),
+            ]),
+            bonus: -40.0,
+            name: "anti_xiaodao_before_satiation_complement".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "盡".to_string(), "恪守".to_string(), "發揚".to_string(), "弘揚".to_string(),
+                "講求".to_string(), "傳統".to_string(), "實踐".to_string(), "違背".to_string(),
+            ]),
+            curr_pattern: WordPattern::Exact("孝道".to_string()),
+            bonus: 34.0,
+            name: "bifurcation_verb_xiaodao_noun".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("全速".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "前進".to_string(), "衝刺".to_string(), "行駛".to_string(), "運轉".to_string(),
+                "推進".to_string(), "奔馳".to_string(), "飛馳".to_string(),
+            ]),
+            bonus: 34.0,
+            name: "bifurcation_quansu_motion_verb".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("全速".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "項目".to_string(), "選項".to_string(), "餐點".to_string(), "飲食".to_string(),
+                "料理".to_string(), "便當".to_string(), "餐廳".to_string(),
+            ]),
+            bonus: -40.0,
+            name: "anti_quansu_before_dietary_noun".to_string(),
         });
     }
 
@@ -4198,6 +4412,9 @@ impl TransitionEngine {
             preferred: Vec<String>,
             #[serde(default)]
             exclude_pairs: Vec<Vec<String>>,
+            #[serde(default)]
+            #[allow(dead_code)]
+            bifurcation_pairs: Vec<serde_json::Value>,
             #[serde(default = "default_pattern_bonus")]
             bonus: f64,
             #[serde(default)]
@@ -4230,28 +4447,23 @@ impl TransitionEngine {
                     continue;
                 }
                 let safe_bonus = pat.bonus.clamp(15.0, 35.0);
-                let label = if !pat.name.is_empty() {
-                    pat.name.clone()
-                } else if !pat.pattern_id.is_empty() {
+                let label = if !pat.pattern_id.is_empty() {
                     pat.pattern_id.clone()
+                } else if !pat.name.is_empty() {
+                    pat.name.clone()
                 } else if !pat.description.is_empty() {
                     pat.description.clone()
                 } else {
                     format!("slot_{}", count)
                 };
 
-                // 載入對衝抑制陣列（exclude_pairs）：當陣列展開之特定二元對 (p, n) 與真實詞彙同音對衝時，自動注入反向抵銷規則
+                // 載入對衝抑制陣列（exclude_pairs）：當陣列展開之特定二元對 (p, n) 與真實詞彙同音對衝時，於 O(1) 查找直接攔截該二元展開
                 for pair in &pat.exclude_pairs {
                     if pair.len() == 2
                         && Self::is_valid_cjk_token(&pair[0])
                         && Self::is_valid_cjk_token(&pair[1])
                     {
-                        self.grammar_rules.push(GrammarRule {
-                            prev_pattern: WordPattern::Exact(pair[0].trim().to_string()),
-                            curr_pattern: WordPattern::Exact(pair[1].trim().to_string()),
-                            bonus: -safe_bonus,
-                            name: format!("user_exclude_pair:{}:{}->{}", label, pair[0].trim(), pair[1].trim()),
-                        });
+                        self.excluded_pairs.insert((pair[0].trim().to_string(), pair[1].trim().to_string()));
                     }
                 }
 
@@ -4549,6 +4761,17 @@ impl TransitionEngine {
             if rule.prev_pattern.matches(prev_word, &self.function_words)
                 && rule.curr_pattern.matches(curr_word, &self.function_words)
             {
+                if rule.bonus > 0.0
+                    && (rule.name.starts_with("user_chain:")
+                        || rule.name.starts_with("user_pattern:")
+                        || rule.name.starts_with("potential_")
+                        || rule.name.starts_with("vo_"))
+                    && self
+                        .excluded_pairs
+                        .contains(&(prev_word.to_string(), curr_word.to_string()))
+                {
+                    continue;
+                }
                 // ── 讀音錨定檢查 (Phonetic Anchoring Guards) ──
                 // 0. 通用破音虛詞「形音義一體」讀音門檻（防止次要破音如 的(ㄉㄧˋ/ㄉㄧˊ)、會(ㄎㄨㄞˋ/ㄏㄨㄟˇ)、要(ㄧㄠ)、沒(ㄇㄛˋ)、更(ㄍㄥ/ㄐㄧㄥ)、被(ㄆㄧ)、從(ㄘㄨㄥ/ㄗㄨㄥˋ)、與(ㄩˋ)、幾(ㄐㄧ)、句(ㄍㄡ)、那(ㄋㄚˇ)、都(ㄉㄨ)、還(ㄏㄨㄢˊ)、種(ㄓㄨㄥˋ) 冒領語法構式加分）
                 if rule.bonus > 0.0 {
@@ -4580,6 +4803,7 @@ impl TransitionEngine {
                             "處" => bpm.starts_with("ㄔㄨˇ") && (rname.contains("classifier") || rname.contains("localizer")),
                             "著" => (bpm.starts_with("ㄓㄨ") || bpm.starts_with("ㄓㄠ")) && rname.contains("aspect"),
                             "了" => bpm.starts_with("ㄌㄧㄠ") && rname.contains("aspect"),
+                            "分" => bpm.starts_with("ㄈㄣˋ") && (rname.contains("potential") || rname.contains("vo_") || rname.contains("user_")),
                             _ => false,
                         }
                     };

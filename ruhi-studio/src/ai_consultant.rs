@@ -1117,40 +1117,46 @@ impl AISemanticConsultant {
         let local_models = recommended_local_models();
 
         let handover_markdown = format!(
-r#"# 如喜輸入法 (RuhI) · 語意調校工作室 AI / SI 自動交付任務規格書 (Handover Specification v2.7)
+r#"# 如喜輸入法 (RuhI) · 語意調校工作室 AI / SI 自動交付任務規格書 (Handover Specification v2.8)
 
 > **自動交付狀態**：本文件由 `ruhi-studio` 於確認對接模型（目前對接引擎：`{}`）時自動生成並交付至工作區，無須使用者手動複製貼上。
 
-您現在接手的是 **如喜輸入法 (RuhI — 如雲行水流自在歡喜)** 的計算語言學語意調校工程。請嚴格遵循以下三層架構規範、陣列同音對衝抑制定理 (`exclude_pairs`) 與五大標準作業程序 (SOP) 接續工作，確保零回歸完成目標。
+您現在接手的是 **如喜輸入法 (RuhI — 如雲行水流自在歡喜)** 的計算語言學語意調校工程。請嚴格遵循以下三層架構規範、**同音對衝四維度辨析與三路分流定理 (`Type A / Type B / Type C`)** 與五大標準作業程序 (SOP) 接續工作，確保零回歸完成目標。
 
 ## 一、三層語意知識庫與陣列同音對衝即時狀態 (Live Knowledge & Collision Inventory)
 1. **Layer 1 多維槽位陣列與句法構式 (`ruhi_lexicon/data/patterns_user.jsonl`)**：
    - 目前共 `{}` 條構式規則（含 `{}` 條 3D~5D 多槽位鏈式陣列、`{}` 條 2D 二維笛卡兒積陣列，共索引 `{}` 個槽位詞元）。
-   - **陣列展開同音對衝實證審計**：展開之相鄰二元組合共 `{}` 組，天然無害率達 **`{}`**（含真實詞庫複合詞 `{}` 組、無同音實詞對應之無害組合 `{}` 組）；僅 `{}` 組與真實詞彙同音對衝，其中 `{}` 組已透過 `exclude_pairs`（對衝抑制陣列）精準抵銷。
+   - **陣列展開同音對衝實證審計與三路分流**：展開之相鄰二元組合共 `{}` 組，天然無害率達 **`{}`**（含真實詞庫複合詞 `{}` 組、無同音實詞對應之無害組合 `{}` 組）；對於 `{}` 組與真實詞彙同音對衝之邊界，系統不採盲目單向抑制，而是依四維度特徵分為三路處置：
+     - **Type A（保留現代高頻構式、古語限定語境，`KEEP_MODERN_ARRAY_OVER_ARCHAIC`）**：共 `{}` 組（如 `說不` vs. 古語 `說部`、`做不` vs. `坐簿`、`得見` vs. `得間`），保留現代構式陣列暢通。
+     - **Type B（語法環境雙向分流，`RESOLVED_BY_SYNTACTIC_BIFURCATION` / `bifurcation_pairs`）**：共 `{}` 組（如 `騎得` vs. `耆德`、`笑到` vs. `孝道`、`讀不` vs. `獨步`、`讀得` vs. `獨得`、`顧不` vs. `故步`、`全素` vs. `全速`），依左右槽位論元與中心語實現雙向精準共存（如「他馬騎得很好吧？…才不是什麼耆德老人呢。」）。
+     - **Type C（對衝抑制陣列，`SUPPRESSED_BY_EXCLUDE_ARRAY` / `exclude_pairs`）**：共 `{}` 組（如 `這×鍵` vs. `這件`、`個×相` vs. `各項`、`分×不` vs. `分布`、`在×極` vs. `在即`），二元展開無意義，抑制其單獨觸發，僅在完整三元構式時發火。
 2. **Layer 2 二元語意轉移矩陣 (`ruhi_lexicon/data/transitions_user.tsv`)**：
    - 目前共 `{}` 條精確二元轉移（正向搭配引力 `{}` 條、負向防跨界劫掠抑制 `{}` 條）。
    - 分值規範：正向搭配固定於 `[+20.0, +35.0]`，負向防劫掠固定於 `[-25.0, -45.0]`。
 3. **Layer 3 領域核心詞根庫 (`ruhi_lexicon/data/lexicon_domain.tsv`)**：
    - 目前共 `{}` 筆不可再分之原子詞根（如 `大易`、`許氏`、`嘸蝦米`、`瑜伽`、`五辛`、`完工`）。
 
-## 二、階層式陣列深度與「同音對衝抑制陣列 (`exclude_pairs`)」定理
+## 二、同音詞彙對衝之「四維度辨析」與「三路分流 (`Type A / B / C`)」定理
 - **槽位集合因式分解 ($O(1)$ 查找)**：
   - 嚴禁將 `A_array × B_array` 平面展開塞入詞庫。透過雙向雜湊倒排索引 (`rules_by_prev` / `rules_by_curr`)，Viterbi 單步查找恆為 $O(1)$。
-- **陣列展開同音對衝定理 (Array Expansion Homophone Collision Theorem)**：
-  - 陣列展開後的不理性組合 $(a, b) \in A \times B$，只要其注音讀音串 $R(a)+R(b)$ 在真實詞庫中**沒有真實的同音組合存在**，使用者根本不會沒事打出該注音串，因此對系統產生 **0% 干擾**。
-  - 唯有當 $R(a)+R(b) = R(W)$（與真實詞彙 $W$ 同音對衝，例如 `這 × 鍵` 對衝 `這件`、`在 × 極` 對衝 `在即`、`分 × 不` 對衝 `分布`、`個 × 相` 對衝 `各項`）時，才會在該規則中加入 `"exclude_pairs": [["這", "鍵"], ["在", "極"]]` 對衝抑制陣列，精準抵銷二元分數，僅在完整三元構式時觸發。
+- **當陣列展開組合 $(a, b) \in A \times B$ 與詞庫真實詞彙 $W$ 同音對衝 ($R(a)+R(b)=R(W)$) 時，依四個語言學維度分辨並分流**：
+  1. **維度一：語體與詞頻梯度（Register & Prior Gradient）** ➔ 若競爭詞 $W$ 為極低頻罕見古語（`weight <= 220`，如 `說部`、`坐簿`、`得間`），而陣列組合為現代日常高頻構式（`說不`、`做不`、`得見`），歸入 **Type A**：不列入 `exclude_pairs`，保留現代陣列暢通。
+  2. **維度二：前驅論元槽位（Left Argument / Determiner Slot $S_{{i-1}}$）與維度三：後繼補語／中心語槽位（Right Complement / Head-Noun Slot $S_{{i+1}}$）** ➔ 若陣列組合 $(a, b)$ 與真實詞 $W$ 均為真實可用語彙（或具特定修辭語境，如動補構式 `騎得` vs. 尊稱古雅詞 `耆德`、動補 `笑到` vs. 名詞 `孝道`、可能補語 `讀不` vs. 成語 `獨步`），歸入 **Type B (`bifurcation_pairs`)**：
+     - 左接受事論元 `[馬, 車, 單車, 腳踏車, 機車]` 或右接程度補語 `[很, 很好, 快, 穩, 飽]` ➔ 導向動補構式 **`騎 + 得`**（「他馬騎得很好吧」、「騎得飽」）。
+     - 左接否定／限定詞 `[什麼, 不是什麼, 並非, 一代, 鄉里, 堪稱]` 或右接人物中心語 `[老人, 長者, 老者, 宿儒, 賢達, 前輩]` ➔ 導向定語名詞 **`耆德`**（「才不是什麼耆德老人呢」）。
+  3. **維度四：語義組合合理性與跨詞界假象（Compositional Plausibility）** ➔ 若二元組合 $(a, b)$ 單獨出現時語義不通或純屬三元構式之局部殘片（如 `這×鍵` 對衝 `這件`、`個×相` 對衝 `各項`、`分×不` 對衝 `分布`），歸入 **Type C (`exclude_pairs`)**：抑制二元單獨觸發，僅在三元槽位完整滿足時啟動。
 
 ## 三、跨語言通用智慧型輸入法推論架構 (Universal Cross-Language Paradigm)
 索緒爾 (Saussure) 與雅各布森 (Jakobson) 確立人類一切自然語言皆由「**聚合軸 (Paradigmatic Axis = 槽位陣列 Slot Array)** × **組合軸 (Syntagmatic Axis = 序列乘積 Sequence $\times$)**」交織而成：
-1. **漢語／台語／客語／粵語（孤立語／分析語）**：`[範疇修飾陣列] × [核心詞根陣列] × [補語/體標記陣列]`（如 `{{看, 吃, 喝, 聽, 玩, 睡, 用}} × {{到}} × {{飽}}`）。
+1. **漢語／台語／客語／粵語（孤立語／分析語）**：`[範疇修飾陣列] × ([介接助詞陣列 {{到, 得}}]) × [補語/體標記陣列]`（如 `[V] × ({{到, 得}}) × [飽]` 支援 optional_slots）。
 2. **日語假名轉漢字（黏著語 Kana-to-Kanji）**：`[名詞語意場陣列] × [格助詞陣列 {{が, を, に, で, へ}}] × [用言謂語陣列]`（消除同音異義漢字如 `科学/化学`、`見る/診る/観る` 之轉換歧義）。
 3. **韓語／越南語／印歐屈折語**：`[詞幹陣列] × [詞尾／助詞／介詞陣列] × [受事／補語陣列]`。
-4. **字形碼與音形混合輸入法（行列 30、大易、倉頡、嘸蝦米）**：在簡碼、萬用字元 (`*`/`?`) 或盲打連打時，透過同一套 Layer 1 語意陣列與 `exclude_pairs` 自動完成重碼消歧。
+4. **字形碼與音形混合輸入法（行列 30、大易、倉頡、嘸蝦米）**：在簡碼、萬用字元 (`*`/`?`) 或盲打連打時，透過同一套 Layer 1 語意陣列與三路同音分流自動完成重碼消歧。
 
 ## 四、三大絕對禁令與接續工作五大標準作業程序 (5-Step SOP)
 1. **嚴禁單字權重打地鼠 (No Unigram Weight Whack-a-Mole)**：絕對禁止手動調整單字先驗權重。
 2. **嚴禁笛卡兒積平面化塞詞庫 (No Cartesian Lexicon Flattening)**：一律以 `patterns_user.jsonl` 陣列對應表達。
-3. **步驟 1～5**：(1) BiMM+LCS 差異孤島定位 ➔ (2) 舉一反三全詞庫同構掃描 ➔ (3) 陣列因式分解 `A_array × B_array` ➔ (4) 執行 `/api/rules/collisions` 檢查同音對衝並寫入 `exclude_pairs` ➔ (5) 執行 `/api/benchmark` 與 `cargo test --lib` 驗證零回歸。"#,
+3. **步驟 1～5**：(1) BiMM+LCS 差異孤島定位 ➔ (2) 舉一反三全詞庫同構掃描 ➔ (3) 陣列因式分解 `A_array × B_array` ➔ (4) 執行 `/api/rules/collisions` 執行四維度同音對衝審計，依 Type A（保留）、Type B（`bifurcation_pairs` 雙向槽位分流）、Type C（`exclude_pairs` 抑制）處置 ➔ (5) 執行 `/api/benchmark` 與 `cargo test --lib` 驗證零回歸。"#,
             active_provider,
             inventory["patterns_user_jsonl"]["total_patterns"].as_u64().unwrap_or(0),
             inventory["patterns_user_jsonl"]["multi_slot_3d_to_5d_chains"].as_u64().unwrap_or(0),
@@ -1161,7 +1167,9 @@ r#"# 如喜輸入法 (RuhI) · 語意調校工作室 AI / SI 自動交付任務�
             collision_audit["valid_lexicon_compounds_count"].as_u64().unwrap_or(0),
             collision_audit["harmless_non_existent_readings_count"].as_u64().unwrap_or(0),
             collision_audit["total_homophone_collisions"].as_u64().unwrap_or(0),
-            collision_audit["suppressed_by_exclude_array_count"].as_u64().unwrap_or(0),
+            collision_audit["type_a_archaic_keep_array_count"].as_u64().unwrap_or(0),
+            collision_audit["type_b_syntactic_bifurcation_count"].as_u64().unwrap_or(0),
+            collision_audit["type_c_suppressed_by_exclude_array_count"].as_u64().unwrap_or(0),
             inventory["transitions_user_tsv"]["total_bigram_rules"].as_u64().unwrap_or(0),
             inventory["transitions_user_tsv"]["positive_collocations"].as_u64().unwrap_or(0),
             inventory["transitions_user_tsv"]["negative_anti_hijack_rules"].as_u64().unwrap_or(0),
@@ -1171,7 +1179,7 @@ r#"# 如喜輸入法 (RuhI) · 語意調校工作室 AI / SI 自動交付任務�
         let skill_markdown = format!(
 r#"---
 name: ruhi-semantic-tuning
-description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、舉一反三同構擴充與同音對衝抑制 (exclude_pairs) 標準作業技能。當對接 AI/SI 模型執行輸入法選字修正、語意陣列建構或跨語言構式擴充時自動載入。
+description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、舉一反三同構擴充與同音對衝四維度三路分流 (Type A 保留 / Type B bifurcation_pairs 雙向分流 / Type C exclude_pairs 抑制) 標準作業技能。當對接 AI/SI 模型執行輸入法選字修正、語意陣列建構或跨語言構式擴充時自動載入。
 ---
 
 {}
@@ -1204,7 +1212,7 @@ description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、�
         }
 
         let context_payload = json!({
-            "version": "RUHI_AI_SI_HANDOVER_V2.7",
+            "version": "RUHI_AI_SI_HANDOVER_V2.8",
             "auto_delivered": true,
             "active_provider": active_provider,
             "delivered_at": chrono::Local::now().to_rfc3339(),
@@ -1212,12 +1220,13 @@ description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、�
             "json_output_schema": {
                 "pattern_id": "string (英文蛇形命名，如 v_dao_bao_satiation_3d_array)",
                 "name": "string (繁體中文台灣資訊科學與語言學術語名稱)",
-                "formula": "string (陣列表示式，如 [{看, 吃, 喝, 聽, 玩, 睡, 用}] × [{到}] × [{飽}])",
+                "formula": "string (陣列表示式，如 [V] × ({到, 得}) × [飽])",
                 "prev_slot": ["純漢字前驅詞元陣列"],
                 "next_slot": ["純漢字後繼詞元陣列"],
-                "slots": [["第1槽位詞元陣列"], ["第2槽位詞元陣列"], ["第3槽位詞元陣列(可選)"]],
+                "slots": [["第1槽位詞元陣列"], ["第2槽位詞元陣列(可選)"], ["第3槽位詞元陣列"]],
                 "optional_slots": [2],
-                "exclude_pairs": [["對衝前字", "對衝後字"]],
+                "bifurcation_pairs": [["雙向語法分流前字(如騎)", "雙向語法分流後字(如得)"]],
+                "exclude_pairs": [["單向抑制前字(如這)", "單向抑制後字(如鍵)"]],
                 "bonus": 28.0,
                 "suppress": ["需抑制之跨界同音假詞"]
             }
@@ -1237,22 +1246,22 @@ description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、�
             "recommended_local_models": local_models,
             "live_inventory": inventory,
             "hierarchy_depth_analysis": {
-                "optimal_levels": "2 至 3 層 (Level 1: A×B 構詞陣列, Level 2: [A×B]×[C×D] 短語構式陣列, Level 3: 子句邊界錨定 + exclude_pairs 對衝抑制陣列)",
+                "optimal_levels": "2 至 3 層 (Level 1: A×B 構詞陣列, Level 2: [A×B]×[C×D] 短語構式陣列, Level 3: 子句邊界錨定 + Type A/B/C 三路同音對衝分流)",
                 "runtime_complexity": "O(1) 雙向雜湊槽位查找（嚴禁平面展開為 O(N^k) 詞庫詞條）",
-                "why_not_deeper_than_3": "陣列展開後的不理性組合只要在詞庫中無真實同音詞，使用者絕不會打出（天然無害率 >99%）；少數與真實詞同音對衝之二元對透過 exclude_pairs 精準抵銷，兼具最高覆蓋率與零副作用。"
+                "why_not_deeper_than_3": "陣列展開後的不理性組合只要在詞庫中無真實同音詞，使用者絕不會打出（天然無害率 >99%）；少數與真實詞同音對衝之二元對透過 Type A（保留現代構式）、Type B（bifurcation_pairs 左右語法槽位雙向分流）與 Type C（exclude_pairs 抑制）精準處置，兼具最高覆蓋率與零副作用。"
             },
             "cross_language_generalization": {
                 "is_universal_paradigm": true,
                 "linguistic_foundation": "索緒爾 (Saussure) 聚合軸 (Paradigmatic Slot Array) × 組合軸 (Syntagmatic Sequence ×) 與 Goldberg 構式語法 (Construction Grammar)",
                 "supported_language_families": [
-                    {"family": "漢藏語系（華語／台語／客語／粵語）", "pattern": "[修飾/副詞陣列] × [核心述語陣列] × [補語/體標記陣列]（如 {看,吃,喝,聽,玩,睡,用}×{到}×{飽}）"},
+                    {"family": "漢藏語系（華語／台語／客語／粵語）", "pattern": "[修飾/副詞陣列] × ([介接助詞陣列]) × [補語/體標記陣列]（如 [V]×({到,得})×[飽]）"},
                     {"family": "日韓黏著語系（日語假名轉漢字 Kana-to-Kanji／韓語）", "pattern": "[名詞語意場陣列] × [助詞陣列 {が,を,に,で}] × [動詞陣列]（消除同音漢字如 科学/化学、見る/診る 歧義）"},
                     {"family": "印歐屈折與分析語系（英／法／德／西／印地／梵語）", "pattern": "[動詞/介詞陣列] × [冠詞/格標記陣列] × [受事名詞陣列]（智慧預測與滑行輸入消歧）"},
                     {"family": "字形碼與音形混合輸入法（行列30／大易／倉頡／嘸蝦米）", "pattern": "簡碼、萬用字元 (* / ?) 與盲打連打之重碼候選，直接共用同一套 Layer 1 語意陣列完成免選字消歧"}
                 ]
             },
             "handover_protocol": {
-                "version": "RUHI_AI_SI_HANDOVER_V2.7",
+                "version": "RUHI_AI_SI_HANDOVER_V2.8",
                 "delivery_mode": "AUTOMATIC_FILE_AND_SKILL_DELIVERY",
                 "delivered_files": delivered_files,
                 "system_prompt": handover_markdown,
@@ -1260,7 +1269,7 @@ description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、�
                     "1. 句對齊與跨詞界劫掠定位：透過 BiMM + LCS 找出錯誤句中之跨界假詞與碎裂邊界。",
                     "2. 舉一反三同構詞族掃描：掃描全詞庫具相同尾音/首音或派生後綴之同類詞群。",
                     "3. 陣列因式分解 (A_array × B_array)：將同構單點規則收斂為 2D/3D 槽位陣列，優先擴充既有 pattern_id。",
-                    "4. 同音對衝掃描與抑制陣列 (exclude_pairs)：查詢陣列展開是否對衝真實詞彙，若有則寫入 exclude_pairs 精準抵銷。",
+                    "4. 同音對衝四維度審計與三路分流：依 Type A（保留現代高頻構式）、Type B（bifurcation_pairs 左右語法槽位雙向分流，如「騎得」與「耆德」）、Type C（exclude_pairs 單向抑制）精準處置。",
                     "5. 黃金基準迴歸驗證：執行 /api/benchmark 與 cargo test 確認 100% 通過且無副作用。"
                 ],
                 "json_output_schema": context_payload["json_output_schema"]

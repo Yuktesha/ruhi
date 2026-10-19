@@ -1,16 +1,22 @@
 {
   "active_provider": "gemini",
   "auto_delivered": true,
-  "delivered_at": "2026-10-19T21:07:18.886350300+08:00",
+  "delivered_at": "2026-10-19T22:05:21.656919900+08:00",
   "json_output_schema": {
+    "bifurcation_pairs": [
+      [
+        "雙向語法分流前字(如騎)",
+        "雙向語法分流後字(如得)"
+      ]
+    ],
     "bonus": 28.0,
     "exclude_pairs": [
       [
-        "對衝前字",
-        "對衝後字"
+        "單向抑制前字(如這)",
+        "單向抑制後字(如鍵)"
       ]
     ],
-    "formula": "string (陣列表示式，如 [{看, 吃, 喝, 聽, 玩, 睡, 用}] × [{到}] × [{飽}])",
+    "formula": "string (陣列表示式，如 [V] × ({到, 得}) × [飽])",
     "name": "string (繁體中文台灣資訊科學與語言學術語名稱)",
     "next_slot": [
       "純漢字後繼詞元陣列"
@@ -27,10 +33,10 @@
         "第1槽位詞元陣列"
       ],
       [
-        "第2槽位詞元陣列"
+        "第2槽位詞元陣列(可選)"
       ],
       [
-        "第3槽位詞元陣列(可選)"
+        "第3槽位詞元陣列"
       ]
     ],
     "suppress": [
@@ -45,15 +51,16 @@
     "patterns_user_jsonl": {
       "array_2d_correspondences": 17,
       "array_collision_audit": {
-        "harmless_non_existent_readings_count": 1612,
-        "naturally_harmless_rate": "98.37%",
-        "suppressed_by_exclude_array_count": 29,
+        "harmless_non_existent_readings_count": 1629,
+        "naturally_harmless_rate": "98.39%",
+        "suppressed_by_exclude_array_count": 12,
         "suppressed_collisions": [
           {
             "competing_real_words": [
               "拘急",
               "狙擊"
             ],
+            "max_competitor_weight": 305,
             "pair": [
               "居",
               "極"
@@ -68,6 +75,7 @@
               "在籍",
               "載籍"
             ],
+            "max_competitor_weight": 385,
             "pair": [
               "在",
               "極"
@@ -80,6 +88,7 @@
             "competing_real_words": [
               "難得"
             ],
+            "max_competitor_weight": 515,
             "pair": [
               "男",
               "得"
@@ -90,32 +99,9 @@
           },
           {
             "competing_real_words": [
-              "女德"
-            ],
-            "pair": [
-              "女",
-              "得"
-            ],
-            "pattern_id": "rhetorical_degree_complement",
-            "reading": "ㄋㄩˇ ㄉㄜˊ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "抬得"
-            ],
-            "pair": [
-              "台",
-              "得"
-            ],
-            "pattern_id": "rhetorical_degree_complement",
-            "reading": "ㄊㄞˊ ㄉㄜˊ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
               "相框"
             ],
+            "max_competitor_weight": 180,
             "pair": [
               "向",
               "框"
@@ -128,6 +114,7 @@
             "competing_real_words": [
               "這籃"
             ],
+            "max_competitor_weight": 100,
             "pair": [
               "這",
               "欄"
@@ -140,6 +127,7 @@
             "competing_real_words": [
               "這件"
             ],
+            "max_competitor_weight": 545,
             "pair": [
               "這",
               "鍵"
@@ -152,6 +140,7 @@
             "competing_real_words": [
               "該建"
             ],
+            "max_competitor_weight": 278,
             "pair": [
               "該",
               "鍵"
@@ -165,6 +154,7 @@
               "納諫",
               "那件"
             ],
+            "max_competitor_weight": 345,
             "pair": [
               "那",
               "鍵"
@@ -175,82 +165,11 @@
           },
           {
             "competing_real_words": [
-              "芳蘭"
-            ],
-            "pair": [
-              "方",
-              "欄"
-            ],
-            "pattern_id": "[{此, 這, 該, 那, 外, 邊, 方}] → [{框, 欄, 區, 鈕, 鍵, 窗}]",
-            "reading": "ㄈㄤ ㄌㄢˊ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "坊曲"
-            ],
-            "pair": [
-              "方",
-              "區"
-            ],
-            "pattern_id": "[{此, 這, 該, 那, 外, 邊, 方}] → [{框, 欄, 區, 鈕, 鍵, 窗}]",
-            "reading": "ㄈㄤ ㄑㄩ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "芳鑒"
-            ],
-            "pair": [
-              "方",
-              "鍵"
-            ],
-            "pattern_id": "[{此, 這, 該, 那, 外, 邊, 方}] → [{框, 欄, 區, 鈕, 鍵, 窗}]",
-            "reading": "ㄈㄤ ㄐㄧㄢˋ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "獨得"
-            ],
-            "pair": [
-              "讀",
-              "得"
-            ],
-            "pattern_id": "potential_complement_3d_array",
-            "reading": "ㄉㄨˊ ㄉㄜˊ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "獨步"
-            ],
-            "pair": [
-              "讀",
-              "不"
-            ],
-            "pattern_id": "potential_complement_3d_array",
-            "reading": "ㄉㄨˊ ㄅㄨˋ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "說部"
-            ],
-            "pair": [
-              "說",
-              "不"
-            ],
-            "pattern_id": "potential_complement_3d_array",
-            "reading": "ㄕㄨㄛ ㄅㄨˋ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
               "分佈",
               "分布",
               "分部"
             ],
+            "max_competitor_weight": 496,
             "pair": [
               "分",
               "不"
@@ -261,21 +180,10 @@
           },
           {
             "competing_real_words": [
-              "坐簿"
-            ],
-            "pair": [
-              "做",
-              "不"
-            ],
-            "pattern_id": "potential_complement_3d_array",
-            "reading": "ㄗㄨㄛˋ ㄅㄨˋ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
               "河埠",
               "褐布"
             ],
+            "max_competitor_weight": 180,
             "pair": [
               "合",
               "不"
@@ -286,56 +194,9 @@
           },
           {
             "competing_real_words": [
-              "走步"
-            ],
-            "pair": [
-              "走",
-              "不"
-            ],
-            "pattern_id": "potential_complement_3d_array",
-            "reading": "ㄗㄡˇ ㄅㄨˋ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "故步"
-            ],
-            "pair": [
-              "顧",
-              "不"
-            ],
-            "pattern_id": "potential_complement_3d_array",
-            "reading": "ㄍㄨˋ ㄅㄨˋ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "得間"
-            ],
-            "pair": [
-              "得",
-              "見"
-            ],
-            "pattern_id": "potential_complement_3d_array",
-            "reading": "ㄉㄜˊ ㄐㄧㄢˋ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "不保"
-            ],
-            "pair": [
-              "不",
-              "飽"
-            ],
-            "pattern_id": "potential_complement_3d_array",
-            "reading": "ㄅㄨˋ ㄅㄠˇ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
               "坐一下"
             ],
+            "max_competitor_weight": 1250,
             "pair": [
               "做",
               "一下"
@@ -346,58 +207,10 @@
           },
           {
             "competing_real_words": [
-              "全速"
-            ],
-            "pair": [
-              "全",
-              "素"
-            ],
-            "pattern_id": "dietary_root_su_suffix_array",
-            "reading": "ㄑㄩㄢˊ ㄙㄨˋ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "耆德"
-            ],
-            "pair": [
-              "騎",
-              "得"
-            ],
-            "pattern_id": "v_dao_bao_satiation_3d_array",
-            "reading": "ㄑㄧˊ ㄉㄜˊ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "獨得"
-            ],
-            "pair": [
-              "讀",
-              "得"
-            ],
-            "pattern_id": "v_dao_bao_satiation_3d_array",
-            "reading": "ㄉㄨˊ ㄉㄜˊ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
-              "孝道",
-              "笑道"
-            ],
-            "pair": [
-              "笑",
-              "到"
-            ],
-            "pattern_id": "v_dao_bao_satiation_3d_array",
-            "reading": "ㄒㄧㄠˋ ㄉㄠˋ",
-            "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
-          },
-          {
-            "competing_real_words": [
               "沖到",
               "衝到"
             ],
+            "max_competitor_weight": 379,
             "pair": [
               "充",
               "到"
@@ -407,24 +220,253 @@
             "status": "SUPPRESSED_BY_EXCLUDE_ARRAY"
           }
         ],
-        "theoretical_principle": "陣列展開同音對衝定理：展開後的不理性組合 (a, b)，只要其注音串 R(a)+R(b) 在真實詞庫中沒有對應的同音實詞 W，使用者根本不會打出該注音串，對解碼器干擾為 0%；唯有少數（約 <1%）與真實詞彙同音對衝之二元對，方透過 exclude_pairs（對衝抑制陣列）精準抵銷二元加權。",
-        "total_expanded_pairs": 1779,
+        "theoretical_principle": "陣列展開同音對衝四維分流定理：(1) 無同音實詞對應之展開組合（>98%）使用者絕不會打出，天然 0% 干擾；(2) 對衝詞為罕見古語（weight<=220，如 說部/坐簿/得間/芳蘭）時，保留現代高頻陣列（Type A）；(3) 雙方皆為真實語句合法用法（如『他馬騎得很好吧』vs.『才不是什麼耆德老人呢』、『讀不懂』vs.『獨步全球』、『笑到飽』vs.『恪守孝道』）時，透過 bifurcation_pairs 與左右句法槽位進行語法環境雙向分流（Type B）；(4) 陣列展開本身為跨界假組合且對衝高頻現代實詞（如 這鍵/這件、個相/各項、分不/分布）時，方透過 exclude_pairs 對衝抑制陣列抵銷孤立二元分數（Type C）。",
+        "total_expanded_pairs": 1796,
         "total_homophone_collisions": 29,
+        "type_a_archaic_items": [
+          {
+            "competing_real_words": [
+              "女德"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "女",
+              "得"
+            ],
+            "pattern_id": "rhetorical_degree_complement",
+            "reading": "ㄋㄩˇ ㄉㄜˊ",
+            "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
+          },
+          {
+            "competing_real_words": [
+              "抬得"
+            ],
+            "max_competitor_weight": 193,
+            "pair": [
+              "台",
+              "得"
+            ],
+            "pattern_id": "rhetorical_degree_complement",
+            "reading": "ㄊㄞˊ ㄉㄜˊ",
+            "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
+          },
+          {
+            "competing_real_words": [
+              "芳蘭"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "方",
+              "欄"
+            ],
+            "pattern_id": "[{此, 這, 該, 那, 外, 邊, 方}] → [{框, 欄, 區, 鈕, 鍵, 窗}]",
+            "reading": "ㄈㄤ ㄌㄢˊ",
+            "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
+          },
+          {
+            "competing_real_words": [
+              "坊曲"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "方",
+              "區"
+            ],
+            "pattern_id": "[{此, 這, 該, 那, 外, 邊, 方}] → [{框, 欄, 區, 鈕, 鍵, 窗}]",
+            "reading": "ㄈㄤ ㄑㄩ",
+            "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
+          },
+          {
+            "competing_real_words": [
+              "芳鑒"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "方",
+              "鍵"
+            ],
+            "pattern_id": "[{此, 這, 該, 那, 外, 邊, 方}] → [{框, 欄, 區, 鈕, 鍵, 窗}]",
+            "reading": "ㄈㄤ ㄐㄧㄢˋ",
+            "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
+          },
+          {
+            "competing_real_words": [
+              "說部"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "說",
+              "不"
+            ],
+            "pattern_id": "potential_complement_3d_array",
+            "reading": "ㄕㄨㄛ ㄅㄨˋ",
+            "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
+          },
+          {
+            "competing_real_words": [
+              "坐簿"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "做",
+              "不"
+            ],
+            "pattern_id": "potential_complement_3d_array",
+            "reading": "ㄗㄨㄛˋ ㄅㄨˋ",
+            "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
+          },
+          {
+            "competing_real_words": [
+              "得間"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "得",
+              "見"
+            ],
+            "pattern_id": "potential_complement_3d_array",
+            "reading": "ㄉㄜˊ ㄐㄧㄢˋ",
+            "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
+          },
+          {
+            "competing_real_words": [
+              "不保"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "不",
+              "飽"
+            ],
+            "pattern_id": "potential_complement_3d_array",
+            "reading": "ㄅㄨˋ ㄅㄠˇ",
+            "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
+          }
+        ],
+        "type_a_archaic_keep_array_count": 9,
+        "type_b_bifurcation_items": [
+          {
+            "competing_real_words": [
+              "獨得"
+            ],
+            "max_competitor_weight": 267,
+            "pair": [
+              "讀",
+              "得"
+            ],
+            "pattern_id": "potential_complement_3d_array",
+            "reading": "ㄉㄨˊ ㄉㄜˊ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          },
+          {
+            "competing_real_words": [
+              "獨步"
+            ],
+            "max_competitor_weight": 273,
+            "pair": [
+              "讀",
+              "不"
+            ],
+            "pattern_id": "potential_complement_3d_array",
+            "reading": "ㄉㄨˊ ㄅㄨˋ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          },
+          {
+            "competing_real_words": [
+              "走步"
+            ],
+            "max_competitor_weight": 240,
+            "pair": [
+              "走",
+              "不"
+            ],
+            "pattern_id": "potential_complement_3d_array",
+            "reading": "ㄗㄡˇ ㄅㄨˋ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          },
+          {
+            "competing_real_words": [
+              "故步"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "顧",
+              "不"
+            ],
+            "pattern_id": "potential_complement_3d_array",
+            "reading": "ㄍㄨˋ ㄅㄨˋ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          },
+          {
+            "competing_real_words": [
+              "全速"
+            ],
+            "max_competitor_weight": 231,
+            "pair": [
+              "全",
+              "素"
+            ],
+            "pattern_id": "dietary_root_su_suffix_array",
+            "reading": "ㄑㄩㄢˊ ㄙㄨˋ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          },
+          {
+            "competing_real_words": [
+              "耆德"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "騎",
+              "得"
+            ],
+            "pattern_id": "v_dao_bao_satiation_3d_array",
+            "reading": "ㄑㄧˊ ㄉㄜˊ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          },
+          {
+            "competing_real_words": [
+              "獨得"
+            ],
+            "max_competitor_weight": 267,
+            "pair": [
+              "讀",
+              "得"
+            ],
+            "pattern_id": "v_dao_bao_satiation_3d_array",
+            "reading": "ㄉㄨˊ ㄉㄜˊ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          },
+          {
+            "competing_real_words": [
+              "孝道",
+              "笑道"
+            ],
+            "max_competitor_weight": 343,
+            "pair": [
+              "笑",
+              "到"
+            ],
+            "pattern_id": "v_dao_bao_satiation_3d_array",
+            "reading": "ㄒㄧㄠˋ ㄉㄠˋ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          }
+        ],
+        "type_b_syntactic_bifurcation_count": 8,
+        "type_c_suppressed_by_exclude_array_count": 12,
         "unsuppressed_active_collisions_count": 0,
         "unsuppressed_collisions": [],
         "valid_lexicon_compounds_count": 138
       },
-      "multi_slot_3d_to_5d_chains": 19,
+      "multi_slot_3d_to_5d_chains": 20,
       "path": "C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data\\patterns_user.jsonl",
-      "total_indexed_slot_tokens": 980,
-      "total_patterns": 36
+      "total_indexed_slot_tokens": 1009,
+      "total_patterns": 37
     },
     "transitions_user_tsv": {
       "negative_anti_hijack_rules": 1011,
       "path": "C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data\\transitions_user.tsv",
-      "positive_collocations": 15798,
-      "total_bigram_rules": 16809
+      "positive_collocations": 15797,
+      "total_bigram_rules": 16808
     }
   },
-  "version": "RUHI_AI_SI_HANDOVER_V2.7"
+  "version": "RUHI_AI_SI_HANDOVER_V2.8"
 }

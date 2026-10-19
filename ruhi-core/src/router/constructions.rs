@@ -640,9 +640,96 @@ impl TransitionEngine {
             }
         }
 
+        // ── 構式十三：正反疑問對稱構式 `[X] → [不] → [X]`（限定合法單音節謂詞，如：對不對、好不好、是不是、行不行、快不快）──
+        let is_valid_a_not_a_pred = |w: &str| {
+            matches!(
+                w,
+                "對" | "好" | "是" | "會" | "能" | "行" | "要" | "去" | "來"
+                    | "懂" | "快" | "慢" | "多" | "少" | "大" | "小" | "真"
+                    | "假" | "甜" | "辣" | "貴" | "遠" | "近" | "像" | "敢"
+                    | "肯" | "該" | "算" | "信" | "愛" | "想" | "看" | "吃"
+            )
+        };
+        if curr_word == "不" && is_valid_a_not_a_pred(prev_word) {
+            let next_repeats_prev = dag
+                .get(&end_idx)
+                .map(|ns| ns.iter().any(|m| m.word == prev_word))
+                .unwrap_or(false);
+            if next_repeats_prev {
+                bonus += 16.0;
+            }
+        }
+        if prev_word == "不" && prev2_word == curr_word && is_valid_a_not_a_pred(curr_word) {
+            bonus += 20.0;
+        }
+
+        // ── 構式十四：同音詞彙與動補構式之語法槽位雙向分流（如：`[馬/車] → [騎] → [得] → [很好]` vs. `[什麼/一代] → [耆德] → [老人/長者]`）──
+        if curr_word == "耆德" {
+            let has_left_determiner = prefix_words.iter().rev().take(3).any(|&w| {
+                matches!(
+                    w,
+                    "什麼" | "不是" | "並非" | "一代" | "鄉里" | "堪稱" | "尊為" | "這位" | "那位"
+                )
+            });
+            let next_is_elder_noun = dag
+                .get(&end_idx)
+                .map(|ns| {
+                    ns.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "老人" | "長者" | "老者" | "老人家" | "宿儒" | "碩望" | "賢達" | "前輩" | "耆老" | "風範"
+                        )
+                    })
+                })
+                .unwrap_or(false);
+            let has_left_mount = prefix_words.iter().rev().take(3).any(|&w| {
+                matches!(
+                    w,
+                    "馬" | "車" | "單車" | "腳踏車" | "機車" | "摩托車" | "鐵馬" | "重機"
+                )
+            });
+            let next_is_degree = dag
+                .get(&end_idx)
+                .map(|ns| {
+                    ns.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "很" | "很好" | "很快" | "很穩" | "非常" | "太" | "真" | "超" | "好" | "快" | "穩" | "順" | "飽"
+                        )
+                    })
+                })
+                .unwrap_or(false);
+            if has_left_determiner && next_is_elder_noun {
+                bonus += 42.0;
+            } else if next_is_elder_noun {
+                bonus += 34.0;
+            } else if has_left_mount || next_is_degree {
+                bonus -= 42.0;
+            }
+        }
+        if curr_word == "騎" {
+            let has_left_mount = matches!(
+                prev_word,
+                "馬" | "車" | "單車" | "腳踏車" | "機車" | "摩托車" | "鐵馬" | "重機"
+            );
+            let next_has_de = dag
+                .get(&end_idx)
+                .map(|ns| ns.iter().any(|m| matches!(m.word.as_str(), "得" | "到" | "飽")))
+                .unwrap_or(false);
+            if has_left_mount && next_has_de {
+                bonus += 34.0;
+            }
+        }
+
         // ── 動態外掛三元槽位構式 (`patterns_user.jsonl` 中 slots.len() >= 3) ──
         for pat in &self.user_trigram_patterns {
-            if !prev_word.is_empty() && pat.slot0.contains(prev_word) && pat.slot1.contains(curr_word) {
+            if !prev_word.is_empty()
+                && pat.slot0.contains(prev_word)
+                && pat.slot1.contains(curr_word)
+                && !self
+                    .excluded_pairs
+                    .contains(&(prev_word.to_string(), curr_word.to_string()))
+            {
                 let next_matches = dag
                     .get(&end_idx)
                     .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
@@ -654,9 +741,43 @@ impl TransitionEngine {
             if !prev2_word.is_empty()
                 && pat.slot0.contains(prev2_word)
                 && pat.slot1.contains(prev_word)
-                && pat.slot2.contains(curr_word)
+                && !self
+                    .excluded_pairs
+                    .contains(&(prev2_word.to_string(), prev_word.to_string()))
+                && !self
+                    .excluded_pairs
+                    .contains(&(prev_word.to_string(), curr_word.to_string()))
             {
-                bonus += pat.bonus * 0.8;
+                if pat.slot2.contains(curr_word) {
+                    bonus += pat.bonus;
+                } else if pat.name == "v_dao_bao_satiation_3d_array"
+                    && matches!(curr_word, "保" | "寶" | "堡" | "葆")
+                {
+                    bonus -= pat.bonus;
+                }
+            }
+            // 當 slot0 + slot1 在詞庫中已凝聚為雙字詞（如「笑到」、「看到」、「吃到」）時，與後繼 slot2（如「飽」）共同構成完整三元構式
+            if curr_word.chars().count() == 2 {
+                let mut chars = curr_word.chars();
+                let c0 = chars.next().unwrap().to_string();
+                let c1 = chars.next().unwrap().to_string();
+                if pat.slot0.contains(&c0) && pat.slot1.contains(&c1) {
+                    let next_matches = dag
+                        .get(&end_idx)
+                        .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
+                        .unwrap_or(false);
+                    if next_matches {
+                        bonus += pat.bonus;
+                    }
+                }
+            }
+            if prev_word.chars().count() == 2 && pat.slot2.contains(curr_word) {
+                let mut chars = prev_word.chars();
+                let p0 = chars.next().unwrap().to_string();
+                let p1 = chars.next().unwrap().to_string();
+                if pat.slot0.contains(&p0) && pat.slot1.contains(&p1) {
+                    bonus += pat.bonus;
+                }
             }
         }
 

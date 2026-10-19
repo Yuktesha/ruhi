@@ -4075,7 +4075,7 @@ mod tests {
 
     #[test]
     fn test_polyphonic_recalibration() {
-        let mut engine = RuhiEngine::new();
+        let mut engine = RuhiEngine::default();
         let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
         let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
         let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
@@ -6220,6 +6220,21 @@ mod tests {
             ("jgjjemjcj", "這件事"),
             ("ggjcekjgxl nld", "各項功能"),
             ("ggjcjggjekj", "各式各樣"),
+            // ── 12. 同音詞彙對衝之「語法環境雙向分流 (Syntactic Slot Bifurcation)」：
+            //        同一長句內雙向分辨「騎得 (`veddgd`/`veddgs`)」與「耆德 (`veddgd`)」，以及「笑到/孝道」、「讀不/獨步」、「全素/全速」 ──
+            ("ty myfveddgdhnfhwfbys", "他馬騎得很好吧"),
+            ("ty myfveddgshnfhwfbys", "他馬騎得很好吧"),
+            ("aidbxjcjcndmgsveddgdlwfrndngs.", "才不是什麼耆德老人呢。"),
+            ("ty myfveddgdhnfhwfbys?dxajbxjdxaj,sxa rmdgn bnfjfcjggsnemdvel rnd,aidbxjcjcndmgsveddgdlwfrndngs.", "他馬騎得很好吧？對不對，雖然根本只是個年輕人，才不是什麼耆德老人呢。"),
+            ("ty myfveddgshnfhwfbys?dxajbxjdxaj,sxa rmdgn bnfjfcjggsnemdvel rnd,aidbxjcjcndmgsveddgdlwfrndngs.", "他馬騎得很好吧？對不對，雖然根本只是個年輕人，才不是什麼耆德老人呢。"),
+            ("veddgsbwf", "騎得飽"),
+            ("veddgdbwf", "騎得飽"),
+            ("cewjdwjbwf", "笑到飽"),
+            ("kgjcofcewjdwj", "恪守孝道"),
+            ("dxdbxjdxlf", "讀不懂"),
+            ("dxdbxjvumdveod", "獨步全球"),
+            ("vumdsxjam demf", "全素餐點"),
+            ("vumdsxjvemdjenj", "全速前進"),
         ];
 
         for (keys, expected) in cases {
