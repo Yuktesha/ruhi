@@ -61,7 +61,7 @@ def verify_pe_imports(dll_path: Path):
 
 def main():
     root = Path(__file__).resolve().parent.parent
-    version = "0.2.0"
+    version = "0.3.0"
     pkg_name = f"RuhI_v{version}_Windows_x64"
     dist_dir = root / "dist"
     release_dir = dist_dir / pkg_name
@@ -73,6 +73,11 @@ def main():
     # 1. 來源路徑檢查
     tsf_dll = root / "ruhi-tsf" / "target" / "release" / "ruhi_tsf.dll"
     core_dll = root / "ruhi-core" / "target" / "release" / "ruhi.dll"
+    studio_exe_candidates = [
+        root / "ruhi-studio" / "target" / "release" / "ruhi-studio.exe",
+        root / "ruhi-studio.exe",
+    ]
+    studio_exe = next((p for p in studio_exe_candidates if p.exists()), None)
 
     if not tsf_dll.exists():
         raise FileNotFoundError(f"找不到發布版 DLL: {tsf_dll}，請先執行 cargo build --release！")
@@ -87,9 +92,12 @@ def main():
         shutil.rmtree(release_dir)
     release_dir.mkdir(parents=True, exist_ok=True)
 
-    # 複製核心二進位檔
+    # 複製核心二進位檔 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi-studio.exe)
     shutil.copy2(tsf_dll, release_dir / "ruhi_tsf.dll")
     shutil.copy2(core_dll, release_dir / "ruhi.dll")
+    if studio_exe:
+        shutil.copy2(studio_exe, release_dir / "ruhi-studio.exe")
+        shutil.copy2(studio_exe, root / "ruhi-studio.exe")
 
     # 複製詞庫與語意轉移檔
     release_data = release_dir / "data"
@@ -102,7 +110,7 @@ def main():
             shutil.copytree(item, release_data / item.name, dirs_exist_ok=True)
 
     # 複製偏好設定與設定檔
-    for f in ["settings_window.py", "settings_config.json", "config.json", "user_dict.tsv"]:
+    for f in ["settings_config.json", "config.json", "user_dict.tsv"]:
         src_f = dist_dir / f if (dist_dir / f).exists() else (root / f)
         if src_f.exists():
             shutil.copy2(src_f, release_dir / f)
@@ -139,8 +147,6 @@ def main():
     src_scripts = root / "scripts"
     for s_item in [
         "語意除錯調校.ps1",
-        "semantic_tuner.py",
-        "ai_semantic_consultant.py",
         "安裝本地AI純綠推論引擎.ps1",
         "啟動本地AI服務.ps1",
         "停止本地AI服務.ps1",
@@ -156,6 +162,13 @@ def main():
     if (src_scripts / "web").exists():
         shutil.copytree(src_scripts / "web", release_scripts / "web", dirs_exist_ok=True)
 
+    # 複製 AI / SI 語意對接自動交接協定與 SKILL
+    src_skill = root / ".agent" / "skills" / "ruhi-semantic-tuning" / "SKILL.md"
+    if src_skill.exists():
+        dst_skill_dir = release_dir / ".agent" / "skills" / "ruhi-semantic-tuning"
+        dst_skill_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_skill, dst_skill_dir / "SKILL.md")
+
     # 複製文件
     for doc in ["LICENSE", "README.md"]:
         if (root / doc).exists():
@@ -164,6 +177,7 @@ def main():
     docs_dir = release_dir / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
     for doc_name in [
+        "AI_SEMANTIC_HANDOVER.md",
         "TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC.md",
         "RUHI_LINGUISTIC_ARCHITECTURE_AND_AI_TUNING_SPEC.md",
         "RUHI_MULTILINGUAL_EXPANSION_GUIDE.md",

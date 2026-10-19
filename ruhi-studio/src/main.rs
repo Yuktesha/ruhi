@@ -784,10 +784,10 @@ impl RuhiStudioApp {
                     self.shell.toasts.info(exp.to_string());
                 }
 
-                if ui.button("🏆 執行 20 組黃金基準驗證").clicked() {
+                if ui.button("🏆 執行 30 組黃金基準驗證").clicked() {
                     let res = self.tuner.verify_golden_benchmark();
                     let passed = res.get("passed").and_then(Value::as_i64).unwrap_or(0);
-                    let total = res.get("total").and_then(Value::as_i64).unwrap_or(20);
+                    let total = res.get("total").and_then(Value::as_i64).unwrap_or(30);
                     let rate = res.get("pass_rate").and_then(Value::as_str).unwrap_or("100%");
                     self.benchmark_summary =
                         format!("黃金基準測試通過率：{passed}/{total} ({rate})");
@@ -904,7 +904,7 @@ impl RuhiStudioApp {
             ui.add_space(6.0);
             ui.label(
                 egui::RichText::new(
-                    "核心版本：RuhI v0.2.0 (100% Pure Rust — ruhi-core + ruhi-tsf + ruhi-studio + atg_lib)",
+                    "核心版本：RuhI v0.3.0 (100% Pure Rust — ruhi-core + ruhi-tsf + ruhi-studio + atg_lib)",
                 )
                 .strong(),
             );

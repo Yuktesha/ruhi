@@ -1,6 +1,6 @@
 [package]
 name = "ruhi-studio"
-version = "1.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["A Solid GUI Studio (龜鋼A工作室)"]
 description = "RuhI（如喜）輸入法 — 原生 Rust 現代化偏好設定與神經符號語意調校工作室"

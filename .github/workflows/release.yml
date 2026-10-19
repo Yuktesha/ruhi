@@ -31,8 +31,9 @@ jobs:
         run: cargo test --release
         working-directory: ruhi-core
 
-      - name: Run Python Tuner Tests
-        run: python -m unittest discover -s tests -p "test_semantic_tuner.py" -v
+      - name: Run Studio & Tuner Tests
+        run: cargo test
+        working-directory: ruhi-studio
 
       - name: Build ruhi-core Release
         run: cargo build --release
@@ -41,6 +42,10 @@ jobs:
       - name: Build ruhi-tsf Release
         run: cargo build --release
         working-directory: ruhi-tsf
+
+      - name: Build ruhi-studio Release
+        run: cargo build --release
+        working-directory: ruhi-studio
 
       - name: Run Release Packager (Zip)
         run: python tools/package_release.py

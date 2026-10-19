@@ -2,10 +2,10 @@
 ; 符合 Windows 10 / 11 64 位元純 TSF 與 Win32 全生態相容性規範 (TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC)
 
 #define MyAppName "RuhI 如喜通用智慧型輸入法"
-#define MyAppVersion "0.2.0"
+#define MyAppVersion "0.3.0"
 #define MyAppPublisher "RuhOS Community"
 #define MyAppURL "https://github.com/Yuktesha/ruhi"
-#define MyAppExeName "run_settings.ps1"
+#define MyAppExeName "ruhi-studio.exe"
 
 [Setup]
 AppId={{E0B7F8C1-1823-42D8-99B1-5E8A719D3F10}
@@ -35,15 +35,15 @@ Name: "chinesetraditional"; MessagesFile: "ChineseTraditional.isl"
 #define StageDir "..\dist\RuhI_v" + MyAppVersion + "_Windows_x64"
 
 [Files]
-; 核心二進位檔
+; 核心二進位檔 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi-studio.exe)
 Source: "{#StageDir}\ruhi_tsf.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
 Source: "{#StageDir}\ruhi.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
+Source: "{#StageDir}\ruhi-studio.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 ; 完整詞庫與轉移引力資料
 Source: "{#StageDir}\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; 偏好設定中心與設定檔
-Source: "{#StageDir}\settings_window.py"; DestDir: "{app}"; Flags: ignoreversion
+; 偏好設定中心設定檔與使用者詞庫
 Source: "{#StageDir}\settings_config.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\config.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 Source: "{#StageDir}\user_dict.tsv"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
@@ -61,8 +61,11 @@ Source: "{#StageDir}\停止本地AI服務.ps1"; DestDir: "{app}"; Flags: ignorev
 ; 內建介面與主題引擎庫 (_lib)
 Source: "{#StageDir}\_lib\*"; DestDir: "{app}\_lib"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; 語意調校工作室核心引擎與 Web 視覺介面 (scripts)
+; 語意調校工作室腳本與 Web 視覺介面 (scripts)
 Source: "{#StageDir}\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; AI / SI 自動交接 SKILL 規範 (.agent)
+Source: "{#StageDir}\.agent\*"; DestDir: "{app}\.agent"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; 專案宣告與文件
 Source: "{#StageDir}\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
@@ -70,8 +73,8 @@ Source: "{#StageDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\如喜輸入法偏好設定"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\run_settings.ps1"""; WorkingDir: "{app}"
-Name: "{group}\如喜語意調校工作室"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\語意調校工作室.ps1"""; WorkingDir: "{app}"
+Name: "{group}\如喜輸入法偏好設定"; Filename: "{app}\ruhi-studio.exe"; WorkingDir: "{app}"
+Name: "{group}\如喜語意調校工作室"; Filename: "{app}\ruhi-studio.exe"; Parameters: "--tuner"; WorkingDir: "{app}"
 Name: "{group}\如喜輸入法熱更新工具"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\hot_reload.ps1"""; WorkingDir: "{app}"
 Name: "{group}\解除安裝如喜輸入法"; Filename: "{uninstallexe}"
 
