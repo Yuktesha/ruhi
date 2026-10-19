@@ -154,6 +154,27 @@ try {
             }
         }
     }
+
+    # (d) 同步單一真實詞庫來源 (ruhi_lexicon\data) 至專案內所有執行期與測試用 data 目錄
+    $canonicalDataDir = Join-Path $rootDir "ruhi_lexicon\data"
+    $workspaceDataTargets = @(
+        (Join-Path $rootDir "data"),
+        (Join-Path $rootDir "scripts\data"),
+        (Join-Path $rootDir "dist\data"),
+        (Join-Path $rootDir "dist\RuhI_v0.2.0_Windows_x64\data")
+    )
+    if (Test-Path $canonicalDataDir) {
+        foreach ($wTarget in $workspaceDataTargets) {
+            if (Test-Path $wTarget) {
+                Get-ChildItem -Path $canonicalDataDir -File -Include "*.tsv", "*.jsonl", "*.json" -ErrorAction SilentlyContinue | ForEach-Object {
+                    $destWFile = Join-Path $wTarget $_.Name
+                    if ((-not (Test-Path $destWFile)) -or ($_.LastWriteTime -gt (Get-Item $destWFile).LastWriteTime)) {
+                        Copy-Item $_.FullName -Destination $destWFile -Force -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+        }
+    }
 } finally {
     # 鐵律：無論熱替換成功或失敗，100% 必須保證重啟文字服務框架
     Start-Process "ctfmon.exe"

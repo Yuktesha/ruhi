@@ -1,0 +1,39 @@
+[package]
+name = "ruhi-studio"
+version = "1.2.0"
+edition = "2021"
+authors = ["A Solid GUI Studio (龜鋼A工作室)"]
+description = "RuhI（如喜）輸入法 — 原生 Rust 現代化偏好設定與神經符號語意調校工作室"
+license = "Proprietary"
+
+[[bin]]
+name = "ruhi-studio"
+path = "src/main.rs"
+
+[lib]
+name = "ruhi_studio"
+path = "src/lib.rs"
+
+[dependencies]
+atg_lib = { path = "C:/ATGprjs/_lib_rs" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2.0"
+log = "0.4"
+dirs = "5.0"
+egui = "0.31"
+eframe = { version = "0.31", default-features = false, features = ["glow", "wgpu", "default_fonts", "persistence"] }
+egui_extras = { version = "0.31", features = ["all_loaders"] }
+rfd = "0.15"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_System_Power",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }

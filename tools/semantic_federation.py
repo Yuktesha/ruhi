@@ -236,3 +236,47 @@ class SemanticFederationManager:
         self._save_staging()
 
         return (synced_count, f"已成功透過 Tailcat 向去中心化社群增益 {synced_count} 筆純語法規則")
+
+    def pull_community_rules_with_etag(self, raw_url: str, timeout: float = 5.0) -> Tuple[bool, str]:
+        """
+        透過 GitHub Raw / Gist CDN 拉取社群語意槽位規則（A 方案新手零門檻匿名讀取）：
+        - 自動夾帶本地快取之 HTTP `If-None-Match: <ETag>` 標頭；
+        - 若遠端無變更，GitHub Fastly CDN 直接回傳 `HTTP 304 Not Modified`（0 Bytes 負載，不消耗 API 配額）；
+        - 僅在 `HTTP 200 OK` 時下載差異 JSONL 並更新本地 ETag 快取。
+        """
+        import urllib.request
+        import urllib.error
+
+        etag_cache_file = os.path.join(self.data_dir, ".tailcat_etag_cache.json")
+        etag_map = {}
+        if os.path.exists(etag_cache_file):
+            try:
+                with open(etag_cache_file, "r", encoding="utf-8") as f:
+                    etag_map = json.load(f)
+            except Exception:
+                etag_map = {}
+
+        req = urllib.request.Request(raw_url, headers={"User-Agent": "RuhI-Tailcat-Sync/0.2"})
+        cached_etag = etag_map.get(raw_url)
+        if cached_etag:
+            req.add_header("If-None-Match", cached_etag)
+
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                new_etag = resp.headers.get("ETag")
+                body = resp.read().decode("utf-8", errors="replace")
+                if new_etag:
+                    etag_map[raw_url] = new_etag
+                    try:
+                        with open(etag_cache_file, "w", encoding="utf-8") as f:
+                            json.dump(etag_map, f, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
+                return (True, body)
+        except urllib.error.HTTPError as e:
+            if e.code == 304:
+                return (False, "HTTP 304 Not Modified（CDN 快取命中，零流量消耗）")
+            return (False, f"HTTP {e.code}: {e.reason}")
+        except Exception as e:
+            return (False, f"網路連線略過: {e}")
+

@@ -46,6 +46,9 @@ pub struct CandidateState {
     pub gear_rect: RECT,
     pub mode_rect: RECT,
     pub max_composition_chars: usize,
+    pub enable_array30_coach: bool,
+    pub array30_coach_hint: String,
+    pub is_array30_live_preview: bool,
 }
 
 static IS_DRAGGING: AtomicBool = AtomicBool::new(false);
@@ -84,6 +87,9 @@ fn get_candidate_state() -> &'static RwLock<CandidateState> {
             gear_rect: RECT::default(),
             mode_rect: RECT::default(),
             max_composition_chars: 30,
+            enable_array30_coach: false,
+            array30_coach_hint: String::new(),
+            is_array30_live_preview: false,
         })
     })
 }
@@ -228,6 +234,7 @@ impl CandidateWindow {
             state.fixed_x = cfg.desk_x;
             state.fixed_y = cfg.desk_y;
             state.max_composition_chars = cfg.max_composition_chars;
+            state.enable_array30_coach = cfg.enable_array30_coach;
             if cfg.theme == "dark" {
                 state.is_dark_theme = true;
             } else if cfg.theme == "light" {
@@ -250,7 +257,14 @@ impl CandidateWindow {
         }
     }
 
-    /// 顯示如喜輸入座 (RuhI Floating Input Desk) — 完全復刻如喜沙盒三層拓撲
+    pub fn set_coach_hint(&mut self, hint: &str, is_array30_live_preview: bool) {
+        if let Ok(mut state) = get_candidate_state().write() {
+            state.array30_coach_hint = hint.to_string();
+            state.is_array30_live_preview = is_array30_live_preview;
+        }
+    }
+
+    /// 顯示如喜輸入座 (RuhI Floating Input Desk) — 完全復刻如喜沙盒三層拓撲並支援行列 30 教練列
     pub fn show_desk(
         &mut self,
         comp_text: &str,
@@ -266,7 +280,7 @@ impl CandidateWindow {
         caret_x: i32,
         caret_y: i32,
     ) {
-        let (dpi_scale, mode, font_size, fixed_x, fixed_y, max_chars) = {
+        let (dpi_scale, mode, font_size, fixed_x, fixed_y, max_chars, coach_hint, is_ar30_preview) = {
             if let Ok(mut state) = get_candidate_state().write() {
                 state.composition_text = comp_text.to_string();
                 state.cursor_pos = cursor_pos;
@@ -279,33 +293,54 @@ impl CandidateWindow {
                 state.selection_range = selection_range;
                 state.is_caps_on = is_caps_on;
                 state.is_candidates_only = false;
-                (state.dpi_scale, state.input_display_mode.clone(), state.font_size, state.fixed_x, state.fixed_y, state.max_composition_chars)
+                (
+                    state.dpi_scale,
+                    state.input_display_mode.clone(),
+                    state.font_size,
+                    state.fixed_x,
+                    state.fixed_y,
+                    state.max_composition_chars,
+                    state.array30_coach_hint.clone(),
+                    state.is_array30_live_preview,
+                )
             } else {
-                (1.0, "floating_follow".to_string(), 32.0, 350, 550, 30)
+                (1.0, "floating_follow".to_string(), 32.0, 350, 550, 30, String::new(), false)
             }
         };
 
+        let show_cand_bar = (is_cand_sel || is_ar30_preview) && !candidates.is_empty();
+        let page_sz = if is_ar30_preview && !is_cand_sel { 10 } else { 9 };
         let font_h = font_size * 0.9 * dpi_scale;
         let char_count = comp_text.chars().count().max(6);
         let comp_w = (40.0 * dpi_scale) + (char_count as f32 * font_h * 1.05);
-        let cur_page = selected / 9;
-        let page_items_count = candidates.iter().skip(cur_page * 9).take(9).count();
-        let cand_w = if is_cand_sel && !candidates.is_empty() {
-            (page_items_count.max(5) as f32 * 82.0 * dpi_scale) + (60.0 * dpi_scale)
+        let cur_page = selected / page_sz;
+        let page_items_count = candidates.iter().skip(cur_page * page_sz).take(page_sz).count();
+        let cand_w = if show_cand_bar {
+            (page_items_count.max(5) as f32 * 76.0 * dpi_scale) + (60.0 * dpi_scale)
+        } else {
+            0.0
+        };
+        let coach_w = if !coach_hint.is_empty() {
+            (coach_hint.chars().count() as f32 * 13.5 * dpi_scale) + (48.0 * dpi_scale)
         } else {
             0.0
         };
 
-        let max_w_limit = ((max_chars.max(15) as f32 * font_h * 1.1) + 120.0 * dpi_scale).max(960.0 * dpi_scale);
-        let width = comp_w.max(cand_w).clamp(420.0 * dpi_scale, max_w_limit) as i32;
+        let max_w_limit = ((max_chars.max(15) as f32 * font_h * 1.1) + 120.0 * dpi_scale).max(1040.0 * dpi_scale);
+        let width = comp_w.max(cand_w).max(coach_w).clamp(420.0 * dpi_scale, max_w_limit) as i32;
         let row1_h = (font_h + 20.0 * dpi_scale) as i32; // 組字行高度
-        let row2_h = if is_cand_sel && !candidates.is_empty() {
+        let row2_h = if show_cand_bar {
             (38.0 * dpi_scale) as i32 // 候選欄高度
         } else {
             0
         };
+        let row_coach_h = if !coach_hint.is_empty() {
+            (28.0 * dpi_scale) as i32 // 行列 30 即時反查教練列高度
+        } else {
+            0
+        };
         let row3_h = (26.0 * dpi_scale) as i32; // 底部狀態列高度
-        let height = row1_h + row2_h + row3_h + (16.0 * dpi_scale) as i32;
+        let height = row1_h + row2_h + row_coach_h + row3_h + (16.0 * dpi_scale) as i32;
 
         let (screen_l, screen_t, screen_r, screen_b) = Self::get_monitor_work_area(caret_x, caret_y);
         let min_x = screen_l + 8;
@@ -353,54 +388,82 @@ impl CandidateWindow {
         }
     }
 
-    /// 微軟新注音游標跟隨模式：僅在選字時彈出微軟新注音輕巧候選浮窗
+    /// 微軟新注音游標跟隨模式：僅在選字或開啟行列教練提示時彈出輕巧候選浮窗
     pub fn show_candidates_only(&mut self, candidates: &[String], selected: usize, x: i32, y: i32) {
-        if candidates.is_empty() {
+        let (dpi_scale, font_size, orientation, coach_hint, is_ar30_preview, is_cand_sel) = if let Ok(s) = get_candidate_state().read() {
+            (
+                s.dpi_scale,
+                s.font_size,
+                s.orientation.clone(),
+                s.array30_coach_hint.clone(),
+                s.is_array30_live_preview,
+                s.is_cand_selecting,
+            )
+        } else {
+            (1.0, 32.0, "horizontal".to_string(), String::new(), false, false)
+        };
+
+        if candidates.is_empty() && coach_hint.is_empty() {
             self.hide();
             return;
         }
 
-        let (dpi_scale, font_size, orientation) = if let Ok(s) = get_candidate_state().read() {
-            (s.dpi_scale, s.font_size, s.orientation.clone())
+        let coach_w = if !coach_hint.is_empty() {
+            (coach_hint.chars().count() as f32 * 13.5 * dpi_scale) + (36.0 * dpi_scale)
         } else {
-            (1.0, 32.0, "horizontal".to_string())
+            0.0
+        };
+        let coach_h = if !coach_hint.is_empty() {
+            (28.0 * dpi_scale) as i32
+        } else {
+            0
         };
 
-        let cur_page = selected / 9;
-        let page_start = cur_page * 9;
-        let page_end = (page_start + 9).min(candidates.len());
-        let page_candidates = &candidates[page_start..page_end];
+        let page_sz = if is_ar30_preview && !is_cand_sel { 10 } else { 9 };
+        let cur_page = selected / page_sz;
+        let page_start = cur_page * page_sz;
+        let page_end = (page_start + page_sz).min(candidates.len());
+        let page_candidates = if page_start < candidates.len() {
+            &candidates[page_start..page_end]
+        } else {
+            &[]
+        };
         let display_count = page_candidates.len();
 
         let item_font_h = (font_size * 0.7 * dpi_scale).clamp(16.0 * dpi_scale, 28.0 * dpi_scale);
 
-        let (width, height) = if orientation == "vertical" {
+        let (width, height) = if display_count == 0 {
+            // 純行列 30 即時反查教練浮動小卡（微軟新注音底線模式下打字時即時浮現）
+            let w = (coach_w.max(260.0 * dpi_scale).min(1040.0 * dpi_scale)) as i32;
+            let h = (32.0 * dpi_scale) as i32;
+            (w, h)
+        } else if orientation == "vertical" {
             // 直向微軟新注音候選窗
             let max_char_count = page_candidates.iter().map(|c| c.chars().count()).max().unwrap_or(2);
             let num_col_w = 32.0 * dpi_scale;
             let cand_col_w = (max_char_count as f32 * item_font_h * 1.15).max(60.0 * dpi_scale);
             let pad_x = 12.0 * dpi_scale;
-            let w = ((pad_x * 2.0 + num_col_w + cand_col_w).max(160.0 * dpi_scale).min(500.0 * dpi_scale)) as i32;
+            let w = ((pad_x * 2.0 + num_col_w + cand_col_w).max(coach_w).max(160.0 * dpi_scale).min(960.0 * dpi_scale)) as i32;
 
             let item_h = (item_font_h + 12.0 * dpi_scale) as i32;
             let pad_y = (8.0 * dpi_scale) as i32;
-            let has_more_pages = candidates.len() > 9;
+            let has_more_pages = candidates.len() > page_sz;
             let footer_h = if has_more_pages { (24.0 * dpi_scale) as i32 } else { 0 };
-            let h = pad_y * 2 + (display_count as i32 * item_h) + footer_h;
+            let h = pad_y * 2 + (display_count as i32 * item_h) + footer_h + coach_h;
             (w, h)
         } else {
-            // 橫向微軟新注音候選窗（單行精巧流式卡片，無任何組字空行與狀態條）
+            // 橫向微軟新注音候選窗（單行精巧流式卡片）
             let mut total_w = 20.0 * dpi_scale;
             for c in page_candidates {
                 let char_cnt = c.chars().count();
                 let item_w = (24.0 * dpi_scale) + (char_cnt as f32 * item_font_h * 1.1) + (16.0 * dpi_scale);
                 total_w += item_w;
             }
-            if candidates.len() > 9 {
+            if candidates.len() > page_sz {
                 total_w += 65.0 * dpi_scale; // 頁碼指示空間
             }
-            let w = (total_w.max(220.0 * dpi_scale).min(1100.0 * dpi_scale)) as i32;
-            let h = (item_font_h + 20.0 * dpi_scale) as i32;
+            let w = (total_w.max(coach_w).max(220.0 * dpi_scale).min(1100.0 * dpi_scale)) as i32;
+            let h = (item_font_h + 20.0 * dpi_scale) as i32 + coach_h;
             (w, h)
         };
 
@@ -423,7 +486,6 @@ impl CandidateWindow {
             state.candidates = candidates.to_vec();
             state.selected_index = selected;
             state.page_offset = page_start;
-            state.is_cand_selecting = true;
             state.is_candidates_only = true;
             state.composition_text.clear();
         }
@@ -448,6 +510,16 @@ impl CandidateWindow {
     pub fn set_selected(&mut self, index: usize) {
         if let Ok(mut state) = get_candidate_state().write() {
             state.selected_index = index;
+        }
+        unsafe {
+            let _ = InvalidateRect(self.hwnd, None, true);
+        }
+    }
+
+    pub fn set_selected_with_coach(&mut self, index: usize, coach_hint: &str) {
+        if let Ok(mut state) = get_candidate_state().write() {
+            state.selected_index = index;
+            state.array30_coach_hint = coach_hint.to_string();
         }
         unsafe {
             let _ = InvalidateRect(self.hwnd, None, true);
@@ -504,6 +576,35 @@ pub fn save_desk_position(x: i32, y: i32) {
 
 pub fn launch_settings() {
     let paths = crate::service::RuhiPaths::resolve();
+    let rust_candidates = [
+        paths.sandbox_dir.join("ruhi-studio.exe"),
+        paths.sandbox_dir.join("scripts").join("ruhi-studio.exe"),
+        paths.sandbox_dir.join("dist").join("ruhi-studio.exe"),
+        paths.sandbox_dir.join("ruhi-studio").join("target").join("release").join("ruhi-studio.exe"),
+        paths.sandbox_dir.parent().map(|p| p.join("ruhi-studio.exe")).unwrap_or_default(),
+        paths.sandbox_dir.parent().map(|p| p.join("dist").join("ruhi-studio.exe")).unwrap_or_default(),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\ruhi-studio.exe"),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\dist\\ruhi-studio.exe"),
+    ];
+
+    if let Some(rust_exe) = rust_candidates.iter().find(|p| p.exists() && p.is_file()).cloned() {
+        logger::log(&format!("launch_settings: launching native Rust {:?}", rust_exe));
+        let work_dir = rust_exe.parent().unwrap_or(&paths.sandbox_dir);
+        let dir_wide: Vec<u16> = work_dir.to_string_lossy().encode_utf16().chain(Some(0)).collect();
+        let exe_wide: Vec<u16> = rust_exe.to_string_lossy().encode_utf16().chain(Some(0)).collect();
+        unsafe {
+            let _ = ShellExecuteW(
+                None,
+                windows_core::w!("open"),
+                windows_core::PCWSTR(exe_wide.as_ptr()),
+                windows_core::PCWSTR::null(),
+                windows_core::PCWSTR(dir_wide.as_ptr()),
+                SW_SHOW,
+            );
+        }
+        return;
+    }
+
     let candidates = [
         paths.sandbox_dir.join("settings_window.py"),
         paths.sandbox_dir.join("scripts").join("settings_window.py"),
@@ -518,7 +619,7 @@ pub fn launch_settings() {
     let script_path = match py_script {
         Some(p) => p,
         None => {
-            logger::log("launch_settings: settings_window.py not found in any candidate path!");
+            logger::log("launch_settings: ruhi-studio.exe / settings_window.py not found in any candidate path!");
             return;
         }
     };
@@ -604,30 +705,30 @@ pub fn show_about_dialog(hwnd: HWND) {
     let (title, msg) = if is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
         (
             "About RuhI",
-            "RuhI Universal Smart IME\nVersion: 0.2.0 (Release)\nFlowing like clouds and water, effortless and joyful."
+            "RuhI — Responsive Universal Human Input\nVersion: 0.2.0 (Release)\nFlowing like clouds and water, effortless and joyful."
         )
     } else {
         match kb_mode.as_str() {
             "japanese" | "kana" | "romaji" => (
                 "RuhI について",
-                "RuhI 如喜スマートIME\nバージョン: 0.2.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.2.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
             ),
             "korean" | "hangul" => (
                 "RuhI 정보",
-                "RuhI 루히 유니버설 스마트 입력기\n버전: 0.2.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.2.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
             ),
             "iast" | "sanskrit" => (
                 "About RuhI (IAST)",
-                "RuhI Universal Smart IME (IAST)\nVersion: 0.2.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
+                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.2.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
             ),
             "thai" => (
                 "เกี่ยวกับ RuhI",
-                "RuhI Universal Smart IME\nเวอร์ชัน: 0.2.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
+                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.2.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
             ),
             // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列等）：
             _ => (
                 "關於如喜",
-                "RuhI 如喜通用智慧型輸入法\n版本: 0.2.0 (Release)\n如雲行水流自在歡喜。"
+                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.2.0 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
             ),
         }
     };
@@ -734,10 +835,14 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
     // 判斷渲染模式：凡微軟新注音模式或 show_candidates_only，一律以極致微軟新注音輕巧候選卡片呈現
     if state.is_candidates_only || state.input_display_mode == "inline_underline" {
-        let cur_page = state.selected_index / 9;
-        let page_start = cur_page * 9;
-        let page_end = (page_start + 9).min(state.candidates.len());
-        let total_pages = (state.candidates.len() + 8) / 9;
+        let has_coach = !state.array30_coach_hint.is_empty();
+        let coach_h = if has_coach { (28.0 * state.dpi_scale) as i32 } else { 0 };
+        let use_ar30_num_keys = state.is_array30_live_preview && !state.is_cand_selecting;
+        let page_sz = if use_ar30_num_keys { 10 } else { 9 };
+        let cur_page = state.selected_index / page_sz;
+        let page_start = cur_page * page_sz;
+        let page_end = (page_start + page_sz).min(state.candidates.len());
+        let total_pages = (state.candidates.len() + page_sz - 1) / page_sz.max(1);
         let asdf_keys = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
 
         let item_font_h = (state.font_size * 0.7 * state.dpi_scale).clamp(16.0 * state.dpi_scale, 28.0 * state.dpi_scale);
@@ -754,7 +859,32 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         );
         let old_font = SelectObject(mem_dc, font);
 
-        if state.orientation == "vertical" {
+        if state.candidates.is_empty() && has_coach {
+            // 純行列 30 即時反查教練浮動小卡
+            let coach_font_h = -(15.0 * state.dpi_scale).round() as i32;
+            let coach_font = CreateFontW(
+                coach_font_h, 0, 0, 0,
+                FW_NORMAL.0 as i32, 0, 0, 0,
+                DEFAULT_CHARSET.0 as u32,
+                OUT_DEFAULT_PRECIS.0 as u32,
+                CLIP_DEFAULT_PRECIS.0 as u32,
+                CLEARTYPE_QUALITY.0 as u32,
+                DEFAULT_PITCH.0 as u32,
+                PCWSTR(font_name.as_ptr()),
+            );
+            let old_cf = SelectObject(mem_dc, coach_font);
+            SetTextColor(mem_dc, accent_commit);
+            let mut coach_wide: Vec<u16> = state.array30_coach_hint.encode_utf16().chain(Some(0)).collect();
+            let mut coach_rect = RECT {
+                left: (10.0 * state.dpi_scale) as i32,
+                top: 2,
+                right: width - (10.0 * state.dpi_scale) as i32,
+                bottom: height - 2,
+            };
+            DrawTextW(mem_dc, &mut coach_wide, &mut coach_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            SelectObject(mem_dc, old_cf);
+            let _ = DeleteObject(coach_font);
+        } else if state.orientation == "vertical" {
             // ── 直向微軟新注音候選清單 ──
             let pad_x = (10.0 * state.dpi_scale) as i32;
             let pad_y = (8.0 * state.dpi_scale) as i32;
@@ -780,7 +910,9 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 }
 
                 let idx = i - page_start;
-                let key_label = if state.quick_key_mode == "asdf" {
+                let key_label = if use_ar30_num_keys {
+                    if idx == 9 { "0".to_string() } else { (idx + 1).to_string() }
+                } else if state.quick_key_mode == "asdf" {
                     if idx < asdf_keys.len() { asdf_keys[idx].to_string() } else { " ".to_string() }
                 } else {
                     (idx + 1).to_string()
@@ -812,7 +944,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
             // 底部翻頁提示
             if total_pages > 1 {
-                let footer_y = height - (20.0 * state.dpi_scale) as i32;
+                let footer_y = height - coach_h - (20.0 * state.dpi_scale) as i32;
                 let sep_rect = RECT { left: 8, top: footer_y - 2, right: width - 8, bottom: footer_y - 1 };
                 let sep_brush = CreateSolidBrush(border_color);
                 FillRect(mem_dc, &sep_rect, sep_brush);
@@ -825,14 +957,14 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                     left: pad_x,
                     top: footer_y,
                     right: width - pad_x,
-                    bottom: height - 2,
+                    bottom: height - coach_h - 2,
                 };
                 DrawTextW(mem_dc, &mut page_wide, &mut page_rect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
             }
         } else {
             // ── 橫向微軟新注音候選卡片（單行精巧流式排列）──
             let pad_y = (6.0 * state.dpi_scale) as i32;
-            let item_h = height - pad_y * 2;
+            let item_h = (height - coach_h) - pad_y * 2;
             let mut cur_x = (10.0 * state.dpi_scale) as i32;
 
             for i in page_start..page_end {
@@ -853,7 +985,9 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                     let _ = DeleteObject(sel_brush);
                 }
 
-                let key_label = if state.quick_key_mode == "asdf" {
+                let key_label = if use_ar30_num_keys {
+                    if idx == 9 { "0".to_string() } else { (idx + 1).to_string() }
+                } else if state.quick_key_mode == "asdf" {
                     if idx < asdf_keys.len() { asdf_keys[idx].to_string() } else { " ".to_string() }
                 } else {
                     (idx + 1).to_string()
@@ -898,6 +1032,38 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 };
                 DrawTextW(mem_dc, &mut page_wide, &mut page_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             }
+        }
+
+        if !state.candidates.is_empty() && has_coach {
+            let coach_top = height - coach_h;
+            let sep_rect = RECT { left: 8, top: coach_top, right: width - 8, bottom: coach_top + 1 };
+            let sep_brush = CreateSolidBrush(border_color);
+            FillRect(mem_dc, &sep_rect, sep_brush);
+            let _ = DeleteObject(sep_brush);
+
+            let coach_font_h = -(14.5 * state.dpi_scale).round() as i32;
+            let coach_font = CreateFontW(
+                coach_font_h, 0, 0, 0,
+                FW_NORMAL.0 as i32, 0, 0, 0,
+                DEFAULT_CHARSET.0 as u32,
+                OUT_DEFAULT_PRECIS.0 as u32,
+                CLIP_DEFAULT_PRECIS.0 as u32,
+                CLEARTYPE_QUALITY.0 as u32,
+                DEFAULT_PITCH.0 as u32,
+                PCWSTR(font_name.as_ptr()),
+            );
+            let old_cf = SelectObject(mem_dc, coach_font);
+            SetTextColor(mem_dc, accent_commit);
+            let mut coach_wide: Vec<u16> = state.array30_coach_hint.encode_utf16().chain(Some(0)).collect();
+            let mut coach_rect = RECT {
+                left: (10.0 * state.dpi_scale) as i32,
+                top: coach_top + 2,
+                right: width - (10.0 * state.dpi_scale) as i32,
+                bottom: height - 2,
+            };
+            DrawTextW(mem_dc, &mut coach_wide, &mut coach_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            SelectObject(mem_dc, old_cf);
+            let _ = DeleteObject(coach_font);
         }
 
         SelectObject(mem_dc, old_font);
@@ -1015,8 +1181,12 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
         cur_y = comp_rect.bottom + (4.0 * state.dpi_scale) as i32;
 
-        // 2. 候選欄 (Candidate Panel) — 底色 bg_cand，白字大字體 (ink_primary)，支援 PgUp/PgDn 多頁翻頁
-        if state.is_cand_selecting && !state.candidates.is_empty() {
+        // 2. 候選欄 (Candidate Panel) — 底色 bg_cand，白字大字體 (ink_primary)，支援 PgUp/PgDn 多頁翻頁與行列 30 即時簡碼預覽
+        let show_cand_panel = (state.is_cand_selecting || state.is_array30_live_preview) && !state.candidates.is_empty();
+        let use_ar30_num_keys = state.is_array30_live_preview && !state.is_cand_selecting;
+        let page_sz = if use_ar30_num_keys { 10 } else { 9 };
+
+        if show_cand_panel {
             let cand_card_h = (38.0 * state.dpi_scale) as i32;
             let cand_rect = RECT {
                 left: pad_x,
@@ -1046,17 +1216,19 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             let asdf_keys = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
             let mut cand_x = cand_rect.left + (12.0 * state.dpi_scale) as i32;
 
-            let cur_page = state.selected_index / 9;
-            let start_idx = cur_page * 9;
+            let cur_page = state.selected_index / page_sz;
+            let start_idx = cur_page * page_sz;
             let page_cands: Vec<(usize, &String)> = state.candidates.iter()
                 .skip(start_idx)
-                .take(9)
+                .take(page_sz)
                 .enumerate()
                 .collect();
 
             for (page_offset, cand) in page_cands {
                 let actual_idx = start_idx + page_offset;
-                let key_label = if state.quick_key_mode == "asdf" {
+                let key_label = if use_ar30_num_keys {
+                    if page_offset == 9 { "0".to_string() } else { (page_offset + 1).to_string() }
+                } else if state.quick_key_mode == "asdf" {
                     if page_offset < asdf_keys.len() { asdf_keys[page_offset].to_string() } else { " ".to_string() }
                 } else {
                     (page_offset + 1).to_string()
@@ -1067,7 +1239,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 let mut sz_item = SIZE::default();
                 let _ = GetTextExtentPoint32W(mem_dc, &item_wide, &mut sz_item);
 
-                let is_sel = actual_idx == state.selected_index;
+                let is_sel = actual_idx == state.selected_index && state.is_cand_selecting;
                 let item_bg = RECT {
                     left: cand_x - 4,
                     top: cand_rect.top + (4.0 * state.dpi_scale) as i32,
@@ -1090,7 +1262,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 r.left += 4;
                 DrawTextW(mem_dc, &mut w, &mut r, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
-                cand_x += sz_item.cx + (18.0 * state.dpi_scale) as i32;
+                cand_x += sz_item.cx + (16.0 * state.dpi_scale) as i32;
             }
 
             SelectObject(mem_dc, old_f2);
@@ -1099,7 +1271,49 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             cur_y = cand_rect.bottom + (4.0 * state.dpi_scale) as i32;
         }
 
-        // 3. 狀態列 (Status Bar) — 底色 bg_main，純文字極簡排版 (左：狀態，右：半 許)
+        // 2.5 「許氏注音 ➔ 行列 30 即時反查教練列」或「行列拆碼座標列」
+        if !state.array30_coach_hint.is_empty() {
+            let coach_card_h = (24.0 * state.dpi_scale) as i32;
+            let coach_rect = RECT {
+                left: pad_x,
+                top: cur_y,
+                right: width - pad_x,
+                bottom: cur_y + coach_card_h,
+            };
+
+            let coach_bg = CreateSolidBrush(bg_cand);
+            FillRect(mem_dc, &coach_rect, coach_bg);
+            let _ = DeleteObject(coach_bg);
+            FrameRect(mem_dc, &coach_rect, border_brush);
+
+            let coach_font_h = -(14.5 * state.dpi_scale).round() as i32;
+            let coach_font = CreateFontW(
+                coach_font_h, 0, 0, 0,
+                FW_NORMAL.0 as i32, 0, 0, 0,
+                DEFAULT_CHARSET.0 as u32,
+                OUT_DEFAULT_PRECIS.0 as u32,
+                CLIP_DEFAULT_PRECIS.0 as u32,
+                CLEARTYPE_QUALITY.0 as u32,
+                DEFAULT_PITCH.0 as u32,
+                PCWSTR(font_name.as_ptr()),
+            );
+            let old_fc = SelectObject(mem_dc, coach_font);
+            SetTextColor(mem_dc, accent_commit);
+            let mut coach_wide: Vec<u16> = state.array30_coach_hint.encode_utf16().chain(Some(0)).collect();
+            let mut coach_text_rect = RECT {
+                left: coach_rect.left + (10.0 * state.dpi_scale) as i32,
+                top: coach_rect.top,
+                right: coach_rect.right - (8.0 * state.dpi_scale) as i32,
+                bottom: coach_rect.bottom,
+            };
+            DrawTextW(mem_dc, &mut coach_wide, &mut coach_text_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            SelectObject(mem_dc, old_fc);
+            let _ = DeleteObject(coach_font);
+
+            cur_y = coach_rect.bottom + (4.0 * state.dpi_scale) as i32;
+        }
+
+        // 3. 狀態列 (Status Bar) — 底色 bg_main，純文字極簡排版 (左：狀態，右：半 許/行)
         let status_h = (24.0 * state.dpi_scale) as i32;
         let status_rect = RECT {
             left: pad_x + (4.0 * state.dpi_scale) as i32,
@@ -1124,8 +1338,8 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         // 左側：淡墨色狀態提示（支援多頁翻頁狀態提示）
         SetTextColor(mem_dc, ink_muted);
         let total_cands = state.candidates.len();
-        let total_pages = if total_cands > 0 { (total_cands + 8) / 9 } else { 1 };
-        let cur_page = (state.selected_index / 9) + 1;
+        let total_pages = if total_cands > 0 { (total_cands + page_sz - 1) / page_sz } else { 1 };
+        let cur_page = (state.selected_index / page_sz) + 1;
 
         let st_label = if state.selection_range.1 > state.selection_range.0 {
             "如喜輸入座  [已標記範圍 · Enter 加詞 / Shift+Enter 刪詞]".to_string()
@@ -1152,13 +1366,14 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         let mut gear_r = gear_rect;
         DrawTextW(mem_dc, &mut gear_text, &mut gear_r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
-        // 右側：純文字大號「半   許 / 日 / 倉 / 注 / 倚 / 拼」或「半   英」(副墨色，大氣乾淨，支援滑鼠點擊切換輸入法)
+        // 右側：純文字大號「半   許 / 日 / 倉 / 行 / 注 / 倚 / 拼」或「半   英」(副墨色，大氣乾淨，支援滑鼠點擊切換輸入法)
         SetTextColor(mem_dc, ink_secondary);
         let kb_indicator = match state.keyboard_mode.to_lowercase().as_str() {
             "hsu" => "許",
             "japanese" | "jp" | "romaji" | "kana" => "日",
             "standard" | "daikien" | "dachen" | "bopomofo" => "注",
             "cangjie" => "倉",
+            "array30" | "ar30" => "行",
             "et26" | "eten26" => "倚",
             "et41" => "41",
             "pinyin" => "拼",
@@ -1247,6 +1462,7 @@ pub unsafe fn show_mode_switch_menu(hwnd: HWND) {
                 (2001, "hsu", "許氏雙拼注音 (許)\tCtrl/Shift + CapsLock"),
                 (2005, "japanese", "日文羅馬字輸入 (日)\tCtrl/Shift + CapsLock"),
                 (2004, "cangjie", "倉頡輸入法 (倉)\tCtrl/Shift + CapsLock"),
+                (2007, "array30", "行列 30 輸入法 (行)\tCtrl/Shift + CapsLock"),
                 (2002, "standard", "標準大千注音 (注)\tCtrl/Shift + CapsLock"),
                 (2003, "et26", "倚天 26 鍵注音 (倚)\tCtrl/Shift + CapsLock"),
             ];
@@ -1255,6 +1471,7 @@ pub unsafe fn show_mode_switch_menu(hwnd: HWND) {
                     cur_kb == mode_code
                     || (mode_code == "standard" && cur_kb == "daikien")
                     || (mode_code == "et26" && cur_kb == "eten26")
+                    || (mode_code == "array30" && cur_kb == "ar30")
                     || (mode_code == "japanese" && (cur_kb == "jp" || cur_kb == "romaji" || cur_kb == "kana"))
                 );
                 let is_enabled_in_loop = enabled_modes.is_empty()
@@ -1263,6 +1480,7 @@ pub unsafe fn show_mode_switch_menu(hwnd: HWND) {
                         m_low == mode_code
                             || (mode_code == "standard" && m_low == "daikien")
                             || (mode_code == "et26" && m_low == "eten26")
+                            || (mode_code == "array30" && m_low == "ar30")
                             || (mode_code == "japanese" && (m_low == "jp" || m_low == "romaji" || m_low == "kana"))
                     });
                 if !is_enabled_in_loop && !is_active {
@@ -1303,6 +1521,7 @@ pub unsafe fn show_mode_switch_menu(hwnd: HWND) {
                 2003 => Some("et26"),
                 2004 => Some("cangjie"),
                 2005 => Some("japanese"),
+                2007 => Some("array30"),
                 _ => None,
             };
             if let Some(m) = chosen_mode {

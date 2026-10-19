@@ -110,19 +110,52 @@ impl<'a> LatticeDAG<'a> {
                 }
 
                 // ── 形態學動態構式: AABB 疊字生成 (如 實實際際、老老實實、乾乾淨淨、神神秘秘、密密實實) ──
+                // 原則：
+                // 1. 若詞庫中已存在該音節之真實 AABB 四字成語（如「彎彎曲曲」），優先強化該真實成語之權重，
+                //    絕不將其他同音二字名詞（如「灣區」）虛構為「灣灣區區」反過來壓過真實成語！
+                // 2. 若詞庫中尚無對應 AABB 四字詞，才由二字詞動態合成，且排除行政區劃／機構場所等不可疊字之名詞後綴。
                 if length == 4 && sub_syls[0] == sub_syls[1] && sub_syls[2] == sub_syls[3] {
                     let s1_bpm = sub_syls[0].bopomofo_display();
                     let s2_bpm = sub_syls[2].bopomofo_display();
                     let base_bpm = format!("{} {}", s1_bpm, s2_bpm);
                     let base_words = self.lexicon.lookup_bopomofo(&base_bpm, exact_tone);
+
+                    let has_attested_aabb = dag.get(&i).unwrap().iter().any(|node| {
+                        if node.length() == 4 {
+                            let nc: Vec<char> = node.word.chars().collect();
+                            nc.len() == 4 && nc[0] == nc[1] && nc[2] == nc[3]
+                        } else {
+                            false
+                        }
+                    });
+
                     for bw in base_words {
                         let chars: Vec<char> = bw.word.chars().collect();
                         if chars.len() == 2 {
                             let aabb_word = format!("{}{}{}{}", chars[0], chars[0], chars[1], chars[1]);
-                            if !dag.get(&i).unwrap().iter().any(|node| node.word == aabb_word && node.length() == 4) {
-                                let aabb_weight = bw.weight.saturating_add(150);
-                                let aabb_bpm = bpm_str.clone();
-                                dag.get_mut(&i).unwrap().push(LatticeNode::new(i, j, &aabb_word, aabb_weight, &aabb_bpm));
+                            let aabb_weight = bw.weight.saturating_add(150);
+                            if let Some(existing_node) = dag
+                                .get_mut(&i)
+                                .unwrap()
+                                .iter_mut()
+                                .find(|node| node.word == aabb_word && node.length() == 4)
+                            {
+                                if aabb_weight > existing_node.weight {
+                                    existing_node.weight = aabb_weight;
+                                }
+                            } else if !has_attested_aabb {
+                                let non_reduplicable_suffix = matches!(
+                                    chars[1],
+                                    '區' | '市' | '縣' | '省' | '國' | '局' | '部' | '處' | '院'
+                                        | '會' | '館' | '站' | '廠' | '店' | '長' | '員' | '師'
+                                        | '生' | '學' | '法' | '業'
+                                );
+                                if !non_reduplicable_suffix {
+                                    let aabb_bpm = bpm_str.clone();
+                                    dag.get_mut(&i)
+                                        .unwrap()
+                                        .push(LatticeNode::new(i, j, &aabb_word, aabb_weight, &aabb_bpm));
+                                }
                             }
                         }
                     }

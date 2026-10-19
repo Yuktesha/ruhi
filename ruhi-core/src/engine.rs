@@ -60,10 +60,13 @@ pub struct RuhiEngine {
     pub data_dir: Option<String>,
     pub user_pinned: std::collections::HashMap<usize, String>,
     pub cangjie: crate::cangjie::CangjieEngine,
+    pub array30: crate::array30::Array30Engine,
     pub japanese: crate::japanese::JapaneseEngine,
     pub keyboard_mode: String,
     /// 使用者自選啟用之亞洲輸入法循環清單（供 Ctrl/Shift + Caps Lock 與徽章點擊切換）
     pub enabled_keyboard_modes: Vec<String>,
+    /// 是否啟用「許氏注音 ➔ 行列 30」即時反查教練提示
+    pub enable_array30_coach: bool,
     pub segments: Vec<crate::router::LatticeNode>,
     pub enable_mixed_english: bool,
     pub mixed_english_mode: String,
@@ -101,9 +104,11 @@ impl Default for RuhiEngine {
             data_dir: None,
             user_pinned: std::collections::HashMap::new(),
             cangjie: crate::cangjie::CangjieEngine::new(),
+            array30: crate::array30::Array30Engine::new(),
             japanese: crate::japanese::JapaneseEngine::new(),
             keyboard_mode: "hsu".to_string(),
             enabled_keyboard_modes: vec!["hsu".to_string(), "japanese".to_string()],
+            enable_array30_coach: false,
             segments: Vec::new(),
             enable_mixed_english: true,
             mixed_english_mode: "contextual_stream".to_string(),
@@ -194,6 +199,11 @@ impl RuhiEngine {
             let _ = engine.cangjie.table.load_tsv(&cj_path);
         }
 
+        let ar30_path = p.join("array30.tsv");
+        if ar30_path.exists() {
+            let _ = engine.array30.table.load_tsv(&ar30_path);
+        }
+
         let jp_path = p.join("japanese.tsv");
         if jp_path.exists() {
             let _ = engine.japanese.load_tsv(&jp_path);
@@ -258,6 +268,7 @@ impl RuhiEngine {
     pub fn reset_buffer(&mut self) {
         self.fsm.reset();
         self.cangjie.reset();
+        self.array30.reset();
         self.japanese.reset();
         self.western.reset();
         self.mode = EngineMode::Normal;
@@ -390,6 +401,7 @@ impl RuhiEngine {
                 "daikien" => "standard".to_string(),
                 "eten26" => "et26".to_string(),
                 "jp" | "romaji" => "japanese".to_string(),
+                "ar30" => "array30".to_string(),
                 other => other.to_string(),
             })
             .filter(|m| !m.is_empty())
@@ -400,7 +412,7 @@ impl RuhiEngine {
     }
 
     pub fn toggle_keyboard_mode(&mut self) -> String {
-        if self.keyboard_mode == "cangjie" {
+        if self.keyboard_mode == "cangjie" || self.keyboard_mode == "array30" {
             self.keyboard_mode = "hsu".to_string();
         } else {
             self.keyboard_mode = "cangjie".to_string();
@@ -421,6 +433,7 @@ impl RuhiEngine {
             "daikien" => "standard",
             "eten26" => "et26",
             "jp" | "romaji" => "japanese",
+            "ar30" => "array30",
             other => other,
         };
         let next_mode = if let Some(pos) = list.iter().position(|m| m == cur_norm) {
@@ -439,9 +452,65 @@ impl RuhiEngine {
             "standard" | "daikien" => "注",
             "et26" | "eten26" => "倚",
             "cangjie" => "倉",
+            "array30" | "ar30" => "行",
             "japanese" | "jp" | "romaji" => "日",
             _ => "許",
         }
+    }
+
+    /// 為指定文字產生「許氏注音 ➔ 行列 30 即時反查教練」提示字串
+    pub fn format_array30_coach_for_text(&self, text: &str) -> String {
+        self.array30.table.format_text_coach(text)
+    }
+
+    /// 取得當前引擎狀態下的「許氏注音 ➔ 行列 30 即時反查教練」提示：
+    /// - 若處於選字模式 (`CandidatePopup`) 且有高亮候選詞，針對當前高亮候選詞反查行列 30 筆形座標與拆碼
+    /// - 若處於一般組字模式且組字區非空，針對游標所在字與組字句反查行列 30 筆形座標與拆碼
+    /// - 若組字區已上屏清空，針對剛上屏之 `last_committed_word` 提供反查提示
+    pub fn get_array30_coach_hint(&self) -> String {
+        if !self.enable_array30_coach {
+            return String::new();
+        }
+        if matches!(
+            self.keyboard_mode.as_str(),
+            "array30" | "ar30" | "cangjie" | "japanese" | "jp" | "romaji"
+        ) {
+            return String::new();
+        }
+        if self.mode == EngineMode::CandidatePopup && !self.current_candidates.is_empty() {
+            let idx = self
+                .candidate_cycle_idx
+                .min(self.current_candidates.len().saturating_sub(1));
+            if let Some(cand) = self.current_candidates.get(idx) {
+                let hint = self.array30.table.format_text_coach(cand);
+                if !hint.is_empty() {
+                    return format!("🎯 行列教練：{}", hint);
+                }
+            }
+        }
+        if !self.composed_sentence.is_empty() && !self.is_latin_mode {
+            let active_idx = self.get_active_char_index();
+            if let Some(ch_str) = self.sentence_chars.get(active_idx) {
+                if let Some(ch) = ch_str.chars().next() {
+                    if self.sentence_chars.len() == 1 {
+                        if let Some(h) = self.array30.table.format_char_coach(ch) {
+                            return format!("🎯 行列教練：{}", h);
+                        }
+                    }
+                }
+            }
+            let hint = self.array30.table.format_text_coach(&self.composed_sentence);
+            if !hint.is_empty() {
+                return format!("🎯 行列教練：{}", hint);
+            }
+        }
+        if !self.last_committed_word.is_empty() {
+            let hint = self.array30.table.format_text_coach(&self.last_committed_word);
+            if !hint.is_empty() {
+                return format!("🎯 行列教練：{}", hint);
+            }
+        }
+        String::new()
     }
 
     /// 觸發 `↓` 下箭頭：同音字／同音詞／歐文重音變體（Allographs & Loanword Diacritics）查詢
@@ -597,6 +666,54 @@ impl RuhiEngine {
             return self.build_response("none", "");
         }
 
+        // 0c. 行列 30 模式：優先處理跨軌歐文縮寫救援或多字詞行列首碼頭碼展開
+        if matches!(self.keyboard_mode.as_str(), "array30" | "ar30") {
+            if !self.array30.buffer.is_empty() {
+                let buf = self.array30.buffer.clone();
+                let mut cands = Vec::new();
+                if self.western.has_high_confidence_rescue(&buf) {
+                    cands.extend(self.western.lookup_up_arrow_candidates(&buf));
+                    for w in self.array30.table.lookup_phrase_headcode(&buf, &self.lexicon) {
+                        if !cands.contains(&w) {
+                            cands.push(w);
+                        }
+                    }
+                } else {
+                    cands.extend(self.array30.table.lookup_phrase_headcode(&buf, &self.lexicon));
+                    for w in self.western.lookup_up_arrow_candidates(&buf) {
+                        if !cands.contains(&w) {
+                            cands.push(w);
+                        }
+                    }
+                }
+                if !cands.is_empty() {
+                    let first = cands[0].clone();
+                    self.array30.candidates = cands.clone();
+                    self.array30.candidate_idx = 0;
+                    self.composed_sentence = first.clone();
+                    self.sentence_chars = first.chars().map(|c| c.to_string()).collect();
+                    self.cursor_pos = self.sentence_chars.len();
+                    self.candidate_target_range = Some((0, self.sentence_chars.len()));
+                    self.current_candidates = cands.clone();
+                    self.candidate_cycle_idx = 0;
+                    self.mode = EngineMode::CandidatePopup;
+                    return EngineResponse {
+                        action: "show_candidate_popup".to_string(),
+                        mode: "candidates".to_string(),
+                        preedit: self.array30.make_preedit(),
+                        composed: first.clone(),
+                        candidates: cands,
+                        active_candidate: first,
+                        candidate_idx: 0,
+                        cursor_pos: self.cursor_pos,
+                        q_press_count: 0,
+                        committed_chunk: String::new(),
+                    };
+                }
+            }
+            return self.build_response("none", "");
+        }
+
         // 1. 檢查三字詞以上（>= 3 字）頭碼展開（當非高信心歐文縮寫如 tks/pls/btw/dont 時，頭碼優先）
         if self.raw_ascii_buffer.chars().count() >= 3
             && !self.western.has_high_confidence_rescue(&self.raw_ascii_buffer)
@@ -704,6 +821,15 @@ impl RuhiEngine {
             self.cangjie.candidate_idx = digit_idx;
             return Some(chosen);
         }
+        if matches!(self.keyboard_mode.as_str(), "array30" | "ar30") && digit_idx < self.array30.candidates.len() {
+            let chosen = self.array30.candidates[digit_idx].clone();
+            self.composed_sentence = chosen.clone();
+            self.sentence_chars = chosen.chars().map(|c| c.to_string()).collect();
+            self.cursor_pos = self.sentence_chars.len();
+            self.candidate_cycle_idx = digit_idx;
+            self.array30.candidate_idx = digit_idx;
+            return Some(chosen);
+        }
         if digit_idx >= self.current_candidates.len() || self.sentence_chars.is_empty() {
             return None;
         }
@@ -770,6 +896,18 @@ impl RuhiEngine {
             }
             return self.cangjie.process_key_str(key_str);
         }
+        if matches!(self.keyboard_mode.as_str(), "array30" | "ar30") {
+            if key_str == "Up" || key_str == "up" {
+                return self.open_up_arrow_candidates();
+            }
+            let resp = self.array30.process_key_str(key_str);
+            self.composed_sentence = resp.composed.clone();
+            self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+            self.current_candidates = resp.candidates.clone();
+            self.candidate_cycle_idx = resp.candidate_idx;
+            self.cursor_pos = resp.cursor_pos;
+            return resp;
+        }
         if key_str == "Down" || key_str == "down" {
             return self.open_down_arrow_candidates();
         }
@@ -786,6 +924,10 @@ impl RuhiEngine {
             return self.pop_word();
         }
         if let Some(punct) = self.symbols.get(key_str) {
+            if self.fsm.has_pending() && !self.is_latin_mode {
+                self.fsm.commit_current('1');
+                self.update_sentence_composition();
+            }
             let mut committed = self.composed_sentence.clone();
             committed.push_str(&punct);
             self.reset_buffer();
@@ -810,6 +952,15 @@ impl RuhiEngine {
         }
         if self.keyboard_mode == "cangjie" {
             return self.cangjie.process_key(key);
+        }
+        if matches!(self.keyboard_mode.as_str(), "array30" | "ar30") {
+            let resp = self.array30.process_key_with_lexicon(key, Some(&self.lexicon));
+            self.composed_sentence = resp.composed.clone();
+            self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+            self.current_candidates = resp.candidates.clone();
+            self.candidate_cycle_idx = resp.candidate_idx;
+            self.cursor_pos = resp.cursor_pos;
+            return resp;
         }
         // 1. 波浪號 `~` ➔ 專業詞庫切換
         if key == '~' {
@@ -926,6 +1077,10 @@ impl RuhiEngine {
                 self.prior_was_english = true;
                 self.raw_ascii_buffer.clone()
             } else {
+                if self.fsm.has_pending() && !self.is_latin_mode {
+                    self.fsm.commit_current('1');
+                    self.update_sentence_composition();
+                }
                 if !self.composed_sentence.is_empty() {
                     self.prior_was_english = false;
                 }
@@ -1340,7 +1495,7 @@ impl RuhiEngine {
 
         // 清理超出音節範圍的 pinned 鎖定與 manual_cuts 斷詞點
         self.user_pinned.retain(|&idx, _| idx < syls.len());
-        self.manual_cuts.retain(|&idx, | idx > 0 && idx < syls.len());
+        self.manual_cuts.retain(|&idx| idx > 0 && idx < syls.len());
 
         let prior_len = self.sentence_chars.len();
         let was_at_end = self.cursor_pos >= prior_len;
@@ -1805,41 +1960,47 @@ impl RuhiEngine {
             (0x4E00..=0x9FFF).contains(&u) || (0x3400..=0x4DBF).contains(&u) || (0xF900..=0xFAFF).contains(&u)
         };
 
+        // 收集同批次所有被使用者否定之錯別字詞，嚴禁將同批次尚未訂正之錯別字上下文寫入轉移矩陣（防「視覺 ➔ 每感」、「但董 ➔ 視覺」等污染）
+        let rejected_set: std::collections::HashSet<String> = revs
+            .iter()
+            .map(|r| r.rejected.trim().chars().filter(|&c| is_cjk(c)).collect::<String>())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        let is_valid_context_word = |w: &str, lex: &crate::lexicon::manager::LexiconManager| -> bool {
+            if w.is_empty() || rejected_set.contains(w) {
+                return false;
+            }
+            // 若上下文包含已被否定的多字錯詞片段，亦拒絕學習
+            if rejected_set.iter().any(|rej| rej.chars().count() >= 2 && w.contains(rej.as_str())) {
+                return false;
+            }
+            // 多字上下文必須為詞庫合法詞條，杜絕「是參」、「參束」、「下啦」、「每感」等斷裂錯字被誤認為合法搭配
+            if w.chars().count() >= 2 && !lex.word_index.contains_key(w) {
+                return false;
+            }
+            true
+        };
+
         for r in &revs {
-            let rej = r.rejected.trim();
+            let rej: String = r.rejected.trim().chars().filter(|&c| is_cjk(c)).collect();
             let acc: String = r.accepted.trim().chars().filter(|&c| is_cjk(c)).collect();
             // 僅提取前文末尾之連續純漢字（剔除逗號、句號等標點）
             let prev: String = r.prev_context.trim().chars().rev().take_while(|&c| is_cjk(c)).collect::<Vec<char>>().into_iter().rev().collect();
             // 僅提取後文開頭之連續純漢字（剔除逗號、句號等標點）
             let next: String = r.next_context.trim().chars().take_while(|&c| is_cjk(c)).collect();
 
-            if acc.is_empty() || rej == acc {
+            if acc.is_empty() || rej == acc || !is_valid_context_word(&acc, &self.lexicon) {
                 continue;
             }
 
-            // 嚴格遵行《如喜漢語計算語言學架構白皮書》：僅合成純漢字二階正向轉移引力（零負向抑制，杜絕跨詞邊界誤傷）
-            if !prev.is_empty() && prev != acc {
+            // 嚴格遵行《如喜漢語計算語言學架構白皮書》：僅在前後文為詞庫合法詞彙時合成二階正向轉移，且廢除機械切尾字/首字之「局部引力」（防「視覺 ➔ 每」、「拉 ➔ 是參」、「式 ➔ 參束」污染）
+            if is_valid_context_word(&prev, &self.lexicon) && prev != acc {
                 synthesized_rules.push((prev.clone(), acc.clone(), 26.0, format!("自動學習：{} 引導 {}", prev, acc)));
-                if prev.chars().count() >= 2 {
-                    if let Some(last_ch) = prev.chars().last() {
-                        let last_s = last_ch.to_string();
-                        if last_s != acc {
-                            synthesized_rules.push((last_s.clone(), acc.clone(), 24.0, format!("局部引力：{} 引導 {}", last_s, acc)));
-                        }
-                    }
-                }
             }
 
-            if !next.is_empty() && next != acc {
+            if is_valid_context_word(&next, &self.lexicon) && next != acc {
                 synthesized_rules.push((acc.clone(), next.clone(), 26.0, format!("自動學習：{} 銜接 {}", acc, next)));
-                if next.chars().count() >= 2 {
-                    if let Some(first_ch) = next.chars().next() {
-                        let first_s = first_ch.to_string();
-                        if first_s != acc {
-                            synthesized_rules.push((acc.clone(), first_s.clone(), 24.0, format!("局部引力：{} 銜接 {}", acc, first_s)));
-                        }
-                    }
-                }
             }
         }
 
@@ -2670,6 +2831,72 @@ mod tests {
         let toggled = engine.toggle_keyboard_mode();
         assert_eq!(toggled, "hsu");
         assert_eq!(engine.keyboard_mode, "hsu");
+    }
+
+    #[test]
+    fn test_ruhi_engine_array30_mode_and_hsu_coach() {
+        let mut engine = RuhiEngine::new();
+        engine.set_keyboard_mode("array30");
+        assert_eq!(engine.keyboard_mode, "array30");
+        assert_eq!(engine.get_keyboard_mode_badge(), "行");
+
+        // 1. 行列 30 標準全碼：".aad" + 空白鍵 ➔ 上屏「行」（座標顯示 "9v 1- 1- 3-"）
+        for c in ".aad".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(engine.array30.make_preedit(), "9v 1- 1- 3-");
+        let r_hang = engine.process_key(' ');
+        assert_eq!(r_hang.action, "commit");
+        assert_eq!(r_hang.committed_chunk, "行");
+
+        // 2. 行列 30 CJK Ext-A 檢核基準字：輸入 "fai" (4- 1- 8^)，候選清單必包含「苹」與 Ext-A 首字「㐀」
+        engine.process_key('f');
+        engine.process_key('a');
+        let r_fai = engine.process_key('i');
+        assert!(
+            r_fai.candidates.contains(&"㐀".to_string()),
+            "輸入 fai 候選清單應包含 CJK Ext-A 首字『㐀』，實際：{:?}",
+            r_fai.candidates
+        );
+        let r_ext_a = engine.process_key(' ');
+        assert_eq!(r_ext_a.committed_chunk, "苹");
+
+        // 3. 一級簡碼與特別碼："." + "3" ➔ 「行」；"ak" + 空白鍵 ➔ 「大」；"pc" + 空白鍵 ➔ 「是」
+        engine.process_key('.');
+        let r_s1 = engine.process_key('3');
+        assert_eq!(r_s1.committed_chunk, "行");
+
+        engine.process_key('a');
+        engine.process_key('k');
+        let r_ak = engine.process_key(' ');
+        assert_eq!(r_ak.committed_chunk, "大");
+
+        engine.process_key('p');
+        engine.process_key('c');
+        let r_pc = engine.process_key(' ');
+        assert_eq!(r_pc.committed_chunk, "是");
+
+        // 4. W 鍵符號表："w1" 免空白鍵展開標點符號，按 "1" 上屏「，」
+        engine.process_key('w');
+        let r_w1 = engine.process_key('1');
+        assert_eq!(r_w1.action, "compose");
+        assert_eq!(r_w1.candidates[0], "，");
+        let r_w1_pick = engine.process_key('1');
+        assert_eq!(r_w1_pick.committed_chunk, "，");
+
+        // 5. 切換回許氏注音模式並開啟「許氏注音 ➔ 行列 30 即時反查教練」
+        engine.set_keyboard_mode("hsu");
+        engine.enable_array30_coach = true;
+        for c in "dyj".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(engine.get_display_text(), "大");
+        let coach_hint = engine.get_array30_coach_hint();
+        assert!(
+            coach_hint.contains("18=Z") && coach_hint.contains("AK"),
+            "許氏注音打『大』時，行列教練提示應包含筆形座標 18=Z 與特別碼 AK，實際：{}",
+            coach_hint
+        );
     }
 
     #[test]
@@ -5681,4 +5908,315 @@ mod tests {
         assert_eq!(engine.cycle_keyboard_mode(), "hsu");
         assert_eq!(engine.get_keyboard_mode_badge(), "許");
     }
+
+    #[test]
+    fn test_interrogative_degree_adv_duo_vs_classifier_duo() {
+        use crate::lexicon::LexiconEntry;
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbopomofo");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        // 驗證 lexicon_mcbopomofo.tsv 已徹底清除「朵 (ㄉㄨㄛ)」一聲異讀污染
+        let duo1_entries = engine.lexicon.lookup_bopomofo("ㄉㄨㄛ", true);
+        assert!(
+            !duo1_entries.iter().any(|e| e.word == "朵"),
+            "一聲『ㄉㄨㄛ』詞庫嚴禁混入三聲量詞『朵』"
+        );
+
+        // 即使刻意在記憶體注入「朵 (ㄉㄨㄛ)」模擬極端異讀或模糊音情境，
+        // Layer 1 疑問程度副詞構式與量詞數詞門檻亦必須確保「到底有多厲害呢」、「有多神奇」100% 選中「多」
+        engine.lexicon.add_entry(LexiconEntry::new("朵", "ㄉㄨㄛ", 539, "mcbopomofo", ""));
+
+        // 1. 到底有多厲害呢: ㄉㄠˋ(dwj) ㄉㄧˇ(def) ㄧㄡˇ(eof) ㄉㄨㄛ(dxh ) ㄌㄧˋ(lej) ㄏㄞˋ(hij) ˙ㄋㄜ(ngs)
+        engine.reset_buffer();
+        for c in "dwjdefeofdxh lejhijngs".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "到底有多厲害呢",
+            "『到底有多厲害呢』嚴禁被量詞『朵』搶佔，實際：{}",
+            engine.get_display_text()
+        );
+
+        // 2. 這個輸入法有多神奇: ㄓㄜˋ(jgj) ˙ㄍㄜ(ggs) ㄕㄨ(cx ) ㄖㄨˋ(rxj) ㄈㄚˇ(frf) ㄧㄡˇ(eof) ㄉㄨㄛ(dxh ) ㄕㄣˊ(cnd) ㄑㄧˊ(ved)
+        engine.reset_buffer();
+        for c in "jgjggscx rxjfrfeofdxh cndved".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "這個輸入法有多神奇",
+            "『這個輸入法有多神奇』嚴禁被量詞『朵』搶佔，實際：{}",
+            engine.get_display_text()
+        );
+
+        // 3. 驗證具備數詞前綴時（一朵花: ㄧ(e ) ㄉㄨㄛˇ(dxhf) ㄏㄨㄚ(hxy )），量詞「朵」正常運作
+        engine.reset_buffer();
+        for c in "e dxhfhxy ".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(engine.get_display_text(), "一朵花");
+
+        // 4. 驗證詞庫正音清洗與破音虛詞讀音錨定：
+        // (a) 三聲 ㄋㄚˇ ㄅㄣˇ ㄕㄨ (nrfbnfcx ) 必輸出「哪本書」而非「那本書」
+        engine.reset_buffer();
+        for c in "nrfbnfcx ".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "哪本書",
+            "三聲『ㄋㄚˇ ㄅㄣˇ ㄕㄨ』必輸出『哪本書』，嚴禁被四聲指示詞『那』搶佔"
+        );
+
+        // (b) 四聲 ㄉㄧˋ：輸入「悄悄地」ㄑㄧㄠˇ(vewf) ㄑㄧㄠˇ(vewf) ㄉㄧˋ(dej) 必輸出「悄悄地」而非「悄悄的」
+        engine.reset_buffer();
+        for c in "vewfvewfdej".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(
+            engine.get_display_text(),
+            "悄悄地",
+            "明確輸入四聲『ㄉㄧˋ』時必輸出狀語『悄悄地』，嚴禁被破音『的(ㄉㄧˋ)』搶佔"
+        );
+    }
+
+    #[test]
+    fn test_separable_vo_resilience_and_aabb_wanwanququ() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbopomofo");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        let cases = [
+            // 1. 洗澡: ㄒㄧˇ(cef) ㄗㄠˇ(zwf)
+            ("cefzwf", "洗澡"),
+            // 2. 洗了一個澡: ㄒㄧˇ(cef) ˙ㄌㄜ(lgs) ㄧˊ(ed)/ㄧ(e ) ˙ㄍㄜ(ggs) ㄗㄠˇ(zwf)
+            ("ceflgsedggszwf", "洗了一個澡"),
+            ("ceflgse ggszwf", "洗了一個澡"),
+            // 3. 洗了一個昏天暗地日月無光的澡:
+            //    ㄒㄧˇ(cef) ˙ㄌㄜ(lgs) ㄧˊ(ed) ˙ㄍㄜ(ggs) ㄏㄨㄣ(hxn ) ㄊㄧㄢ(tem ) ㄢˋ(mj) ㄉㄧˋ(dej)
+            //    ㄖˋ(rj) ㄩㄝˋ(uej) ㄨˊ(xd) ㄍㄨㄤ(gxk ) ˙ㄉㄜ(dgs) ㄗㄠˇ(zwf)
+            ("ceflgsedggshxn tem mjdejrjuejxdgxk dgszwf", "洗了一個昏天暗地日月無光的澡"),
+            ("ceflgse ggshxn tem mjdejrjuejxdgxk dgszwf", "洗了一個昏天暗地日月無光的澡"),
+            // 4. 走路: ㄗㄡˇ(zof) ㄌㄨˋ(lxj)
+            ("zoflxj", "走路"),
+            // 5. 走了一趟路: ㄗㄡˇ(zof) ˙ㄌㄜ(lgs) ㄧˊ(ed)/ㄧ(e ) ㄊㄤˋ(tkj) ㄌㄨˋ(lxj)
+            ("zoflgsedtkjlxj", "走了一趟路"),
+            ("zoflgse tkjlxj", "走了一趟路"),
+            // 6. 走了一趟彎彎曲曲的路:
+            //    ㄗㄡˇ(zof) ˙ㄌㄜ(lgs) ㄧˊ(ed) ㄊㄤˋ(tkj) ㄨㄢ(xm ) ㄨㄢ(xm ) ㄑㄩ(vu ) ㄑㄩ(vu ) ˙ㄉㄜ(dgs) ㄌㄨˋ(lxj)
+            ("zoflgsedtkjxm xm vu vu dgslxj", "走了一趟彎彎曲曲的路"),
+            ("zoflgse tkjxm xm vu vu dgslxj", "走了一趟彎彎曲曲的路"),
+            // 7. 走了一趟峰迴路轉的遠路:
+            //    ㄗㄡˇ(zof) ˙ㄌㄜ(lgs) ㄧˊ(ed) ㄊㄤˋ(tkj) ㄈㄥ(fl ) ㄏㄨㄟˊ(hxad) ㄌㄨˋ(lxj) ㄓㄨㄢˇ(jxmf) ˙ㄉㄜ(dgs) ㄩㄢˇ(umf) ㄌㄨˋ(lxj)
+            ("zoflgsedtkjfl hxadlxjjxmfdgsumflxj", "走了一趟峰迴路轉的遠路"),
+            ("zoflgse tkjfl hxadlxjjxmfdgsumflxj", "走了一趟峰迴路轉的遠路"),
+        ];
+
+        for (keys, expected) in cases {
+            engine.reset_buffer();
+            for c in keys.chars() {
+                engine.process_key(c);
+            }
+            let actual = engine.get_display_text();
+            assert_eq!(
+                actual, expected,
+                "離合詞與 AABB 重疊詞韌性測試失敗（輸入 `{}`）：預期『{}』，實際『{}』",
+                keys, expected, actual
+            );
+        }
+    }
+
+    #[test]
+    fn test_user_reported_vo_and_homophone_cases_261019() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbopomofo");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        let cases = [
+            // 1. 離合詞（ㄌㄧˊ=led, ㄏㄜˊ=hgd, ㄘˊ=ad，嚴禁被「離合辭」搶佔）
+            ("ledhgdad", "離合詞"),
+            // 2. 打了一個錯字 / 打了一個晚上的字（ㄘㄨㄛˋ=axhj, ㄗˋ=zj，嚴禁出「自」）
+            ("dyflgsedggsaxhjzj", "打了一個錯字"),
+            ("dyflgse ggsaxhjzj", "打了一個錯字"),
+            ("dyflgsedggsxmfckjdgszj", "打了一個晚上的字"),
+            ("dyflgse ggsxmfckjdgszj", "打了一個晚上的字"),
+            // 3. 請再清查還有哪些應該被照顧的離合詞（ㄑㄧㄥˇ=velf, ㄑㄧㄥ=vel , ㄔㄚˊ=vyd, ㄒㄧㄝ=cee ，三聲「ㄋㄚˇ=nyf」嚴禁出「那」，「離合詞」嚴禁出「辭」）
+            ("velfzijvel vydhideofnyfcee el gibajjwjgxjdgsledhgdad", "請再清查還有哪些應該被照顧的離合詞"),
+            // 4. 沒道理我打三聲還出那（ㄨㄛˇ=xhf, ㄙㄢ=sm , ㄕㄥ=cl , ㄔㄨ=vx ，嚴禁出「三升還出納」）
+            ("maddwjlefxhfdyfsm cl hidvx nyj", "沒道理我打三聲還出那"),
+            // 5. 不過似乎沒有收羅得十分齊全（ㄍㄨㄛˋ=gxhj, ㄕㄡ=co , ㄌㄨㄛˊ=lxhd, ㄕˊ=cd，補語「得」嚴禁被「的」搶佔）
+            ("bxjgxhjsjhx madeofco lxhddgscdfn vedvumd", "不過似乎沒有收羅得十分齊全"),
+            // 6. 現在好像又不厲害了（「又」嚴禁被「右」搶佔）
+            ("cemjzijhwfcekjeojbxjlejhijlgs", "現在好像又不厲害了"),
+            ("cemjzijhwfcekjeojbxdlejhijlgs", "現在好像又不厲害了"),
+            // 7. 多麼美好（ㄉㄨㄛ=dxh ，嚴禁被拆碎為「多麼每郝」）
+            ("dxh mgsmafhwf", "多麼美好"),
+            // 8. 跑出來秀一下（ㄔㄨ=vx ，嚴禁被古詞「繡衣」搶佔為「跑出來繡衣下」）
+            ("pwfvx lidceoje ceyj", "跑出來秀一下"),
+            ("pwfvx lidceojedceyj", "跑出來秀一下"),
+            // 9. 每次改個什麼都要查半天（ㄘˋ=aj, ㄕㄣˊ=cnd, ㄔㄚˊ=vyd，嚴禁出「茶半天」）
+            ("mafajgifggscndmgsdo ewjvydbmjtem ", "每次改個什麼都要查半天"),
+            // 10. 沒幫上什麼忙（ㄕㄤˋ=ckj, ㄕㄣˊ=cnd，嚴禁出「眉幫上什麼忙」）
+            ("madbk ckjcndmgsmkd", "沒幫上什麼忙"),
+        ];
+
+        for (keys, expected) in cases {
+            engine.reset_buffer();
+            for c in keys.chars() {
+                engine.process_key(c);
+            }
+            let actual = engine.get_display_text();
+            assert_eq!(
+                actual, expected,
+                "261019 實戰離合詞與同音消歧測試失敗（輸入 `{}`）：預期『{}』，實際『{}』",
+                keys, expected, actual
+            );
+        }
+    }
+
+    #[test]
+    fn test_contrastive_conjunction_yu_and_homophone_cases_261019_b() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbopomofo");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        let cases = [
+            // 1. 對比並列連詞「[X] 與 [Y]」構式（徹底杜絕同字重複與跨界「*雨/*語/*羽」劫持）
+            ("zijufzij", "再與在"),
+            ("bxdzijufbxdzij", "不再與不在"),
+            ("bxjzijufbxjzij", "不再與不在"),
+            ("dgsufdgd", "的與得"),
+            ("dgsufdgs", "的與得"),
+            ("dkfufdkf", "黨與檔"),
+            ("dmjufdmj", "但與淡"),
+            ("vkdufvkd", "長與常"),
+            ("jeojufjeoj", "就與救"),
+            ("jeojhwfufjeojhwf", "就好與救好"),
+            ("adufad", "詞與辭"),
+            // 2. 「明明但應該更常用到吧」與「這樣就好」（防「淡」搶「但」、「更長」搶「更常」、「救好」搶「就好」）
+            ("meldmelddmjel gigljvkduljdwjbys", "明明但應該更常用到吧"),
+            ("jgjekjjeojhwf", "這樣就好"),
+            // 3. 「與應該算是一種特殊連接詞」（防「特殊」拆碎為「特書」）
+            ("ufel gi sxmjcje jxlftgjcx lemdjee ad", "與應該算是一種特殊連接詞"),
+            ("ufel gi sxmjcjejjxlftgjcx lemdjee ad", "與應該算是一種特殊連接詞"),
+            // 4. 「目前還沒真正開始發揮作用」（防「開始」拆碎為「開使」）
+            ("mxjvemdhidmadjn jljki cffy hxa zxhjulj", "目前還沒真正開始發揮作用"),
+        ];
+
+        for (keys, expected) in cases {
+            engine.reset_buffer();
+            for c in keys.chars() {
+                engine.process_key(c);
+            }
+            let actual = engine.get_display_text();
+            assert_eq!(
+                actual, expected,
+                "261019_b 對比並列構式與反拆碎測試失敗（輸入 `{}`）：預期『{}』，實際『{}』",
+                keys, expected, actual
+            );
+        }
+    }
+
+    #[test]
+    fn test_eight_homophone_pairs_in_contrasting_sentences_261019() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbopomofo");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+
+        let cases = [
+            // ── 0. 使用者本輪實戰回報之兩大錯字句 ──
+            // (a) 「是要請您對與這個字的語意規則加以分析」（防「試藥」搶佔「是要」）
+            ("cjewjvelfnenddxajufjgjggszjdgsufejgxa zgdjey effn ce ", "是要請您對與這個字的語意規則加以分析"),
+            // (b) 「但會不會對系統造成負擔」與「照理說這方案對於新手比較友善吧」（防「旦會不匯兌」搶佔「但會不會對」）
+            ("dmjhxajbxdhxajdxajcejtxlfzwjvldfxjdm ", "但會不會對系統造成負擔"),
+            ("dmjhxajbxjhxajdxajcejtxlfzwjvldfxjdm ", "但會不會對系統造成負擔"),
+            ("jwjlefcxh jgjfk mjdxajudcen cofbefjewjeofcmjbys", "照理說這方案對於新手比較友善吧"),
+
+            // ── 1. 「再 vs 在」與「不再 vs 不在」不同語境雙向精準出現 ──
+            ("velfzijcjedaj", "請再試一次"),
+            ("zijcejtxlfjxl unjzxhj", "在系統中運作"),
+            ("bxdzijvxlddwjfxjjgd", "不再重蹈覆轍"),
+            ("bxjzijvxlddwjfxjjgd", "不再重蹈覆轍"),
+            ("bxdzijmelddm lefmemj", "不在名單裡面"),
+            ("bxjzijmelddm lefmemj", "不在名單裡面"),
+
+            // ── 2. 「的 vs 得」不同語境雙向精準出現（含單字與雙字 V+的/V+得）──
+            ("ceefdgsfa vkdjel aif", "寫得非常精彩"),
+            ("ceefdgdfa vkdjel aif", "寫得非常精彩"),
+            ("jgjceefdgsjn vel vxf", "這寫得真清楚"),
+            ("jgjceefdgsxndjk ", "這寫的文章"),
+
+            // ── 3. 「黨 vs 檔」不同語境雙向精準出現 ──
+            ("velfcem axnddkf", "請先存檔"),
+            ("zijeefjljdkf", "在野政黨"),
+
+            // ── 4. 「但 vs 淡」不同語境雙向精準出現 ──
+            ("xajdwjhnfdmj", "味道很淡"),
+            ("dmjty hxajbxdhxajdxajcejtxlfzwjvldfxjdm ", "但他會不會對系統造成負擔"),
+
+            // ── 5. 「長 vs 常」不同語境雙向精準出現（維度形容詞 vs 頻率副詞）──
+            ("jgjtewdcm lxjgljvkd", "這條山路更長"),
+            ("jgjggsadgljvkduljdwj", "這個詞更常用到"),
+
+            // ── 6. 「就 vs 救」與「就好 vs 救好」不同語境雙向精準出現 ──
+            ("nyjjeojsxmjlgs", "那就算了"),
+            ("byfrndjeojhxadlid", "把人救回來"),
+            ("jgjekjjeojhwf", "這樣就好"),
+            ("e cl byfbeljhxmjjeojhwflgs", "醫生把病患救好了"),
+
+            // ── 7. 「詞 vs 辭」不同語境雙向精準出現 ──
+            ("cen zl adkxj", "新增詞庫"),
+            ("ty jueddeljadjdlgs", "他決定辭職了"),
+
+            // ── 8. 「與 vs 語 vs 雨」五維語法語境精準分流 ──
+            ("leflxnjufcdjemj", "理論與實踐"),
+            ("ufafmjxdgxm ", "與此案無關"),
+            ("xijmemjceyjdyjuf", "外面下大雨"),
+            ("zjrmddgsgxhduf", "自然的國語"),
+
+            // ── 9. 「都完工了。」與 261019 語意分析四句及「舉一反三」同構擴展完整驗證 ──
+            ("do xmdgxl lgs.", "都完工了。"),
+            ("do xmdgxl ls.", "都完工了。"),
+            ("do xmdgxl lgs", "都完工了"),
+            ("do xmdgxl ls", "都完工了"),
+            ("do xmdvldlgs.", "都完成了。"),
+            ("do co gxl lgs.", "都收工了。"),
+            ("leljjemjejsxjcd fn lajzijzl jey udjey sxjcekjmxj", "另建議素食分類再增加瑜伽素項目"),
+            ("bxjhmddmjufsxhfeofgx laj.", "不含蛋與所有菇類。"),
+            ("vedcd xhfzijcueddyjejcxl rxjfyfj vemden xajcofceefcx cenjdgsgxm cej", "其實我在學大易輸入法之前因為手寫書信的關係"),
+            ("zijcuedak jeedcxl rxjfyfj vemd", "在學倉頡輸入法之前"),
+            ("xhfdgss kwfje bnfckjbefjewjpem cekjxndzjcelds kwfldfa ufen s kwf", "我的思考基本上比較偏向文字型思考而非語音思考"),
+            ("befjewjpem cekjufen celds kwf", "比較偏向語音型思考"),
+        ];
+
+        for (keys, expected) in cases {
+            engine.reset_buffer();
+            let mut actual = String::new();
+            for c in keys.chars() {
+                let res = engine.process_key(c);
+                if !res.committed_chunk.is_empty() {
+                    actual.push_str(&res.committed_chunk);
+                }
+            }
+            actual.push_str(&engine.get_display_text());
+            assert_eq!(
+                actual, expected,
+                "261019 八大同音字組雙向對比語句測試失敗（輸入 `{}`）：預期『{}』，實際『{}』",
+                keys, expected, actual
+            );
+        }
+    }
 }
+

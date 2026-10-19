@@ -1,31 +1,33 @@
 {
   "appearance": {
+    "input_display_mode": "smart_auto",
     "orientation": "horizontal",
     "font_size": 32,
+    "max_composition_chars": 30,
     "theme": "system",
     "show_bopomofo": true,
-    "zoom_level": 1,
-    "geometry": "1391x1360+577+0",
-    "input_display_mode": "smart_auto",
-    "max_composition_chars": 30,
     "capsule_mode": "mini_capsule",
+    "zoom_level": 0,
+    "geometry": "1391x1360+577+0",
     "sidebar_width": 280
   },
   "keyboard": {
     "layout": "hsu",
+    "enabled_keyboard_modes": [
+      "hsu",
+      "array30",
+      "japanese"
+    ],
     "space_behavior": "space_only",
     "capslock_switch": "chinese_english",
     "candidate_keys": "123456789",
     "backspace_mode": "component",
-    "q_cycle_max": 3,
     "enable_mixed_english": false,
     "mixed_english_mode": "contextual_stream",
     "mixed_english_min_len": 4,
     "punctuation_commit_mode": "A",
-    "enabled_keyboard_modes": [
-      "hsu",
-      "japanese"
-    ]
+    "q_cycle_max": 3,
+    "enable_array30_coach": false
   },
   "grammar": {
     "enable_all_eight_phases": true,

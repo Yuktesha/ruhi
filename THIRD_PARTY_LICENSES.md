@@ -54,7 +54,15 @@
 
 ---
 
-## 4. Rust 開源生態依賴組件 (Rust Ecosystem Crates)
+## 4. 行列 30 輸入法標準開源碼表與規格 (Array 30 Input Method Specification & Tables)
+
+* **使用範圍**：`ruhi_lexicon/data/array30.tsv`（涵蓋完整字碼、一二級簡碼、特別碼與 `W` / `HG` 符號表）及「許氏注音 ➔ 行列 30 即時反查教練」字根座標映射。
+* **發明人與授權來源**：行列科技 **廖明德先生**（行列輸入法發明人）公開無償授權釋出之《行列 30 輸入法 Porting 規格書》與標準對照碼表；並致謝 **葉光哲先生（老刀 / gontera）** 持續維護與校訂之開源專案 [https://github.com/gontera/array30](https://github.com/gontera/array30)（v2026 版）。
+* **授權說明**：廖明德先生自發明行列輸入法 30 鍵版初始即實施無償開放授權路線，公開提供各作業系統與第三方輸入法軟體開發者自由植入與使用。
+
+---
+
+## 5. Rust 開源生態依賴組件 (Rust Ecosystem Crates)
 
 本專案使用 Cargo 所建置之第三方 Rust 核心函式庫均依其原本之 MIT / Apache-2.0 雙授權條款遵循：
 

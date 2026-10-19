@@ -1251,12 +1251,12 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 就好好	ㄐㄧㄡˋ ㄏㄠˇ ㄏㄠˇ	1900	phrase	副詞短語
 放鬆	ㄈㄤˋ ㄙㄨㄥ	1950	verb	高頻動詞
 一下	ㄧ ㄒㄧㄚˋ	1950	measure	高頻時量詞
-被	ㄅㄟˋ	2000	preposition	被動式核心介詞(防背/倍)
+被	ㄅㄟˋ	764	preposition	被動式核心介詞(防背/倍)
 被大家	ㄅㄟˋ ㄉㄚˋ ㄐㄧㄚ	1950	phrase	被動短語
-把	ㄅㄚˇ	2000	preposition	處置式核心介詞(防拔/八)
+把	ㄅㄚˇ	756	preposition	處置式核心介詞(防拔/八)
 做好	ㄗㄨㄛˋ ㄏㄠˇ	1950	verb_complement	動補短語(做好，防作好)
 寫完	ㄒㄧㄝˇ ㄨㄢˊ	1950	verb_complement	動補短語(寫完，防血完)
-寫	ㄒㄧㄝˇ	1950	verb	高頻動詞(防血)
+寫	ㄒㄧㄝˇ	711	verb	高頻動詞(防血)
 打掃	ㄉㄚˇ ㄙㄠˇ	1950	verb	高頻動詞
 乾淨	ㄍㄢ ㄐㄧㄥˋ	1950	adjective	高頻形容詞
 放回	ㄈㄤˋ ㄏㄨㄟˊ	1900	verb_complement	趨向動補
@@ -1287,7 +1287,7 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 好消息	ㄏㄠˇ ㄒㄧㄠ ㄒㄧˊ	1950	noun_phrase	正體名詞短語
 好消息	ㄏㄠˇ ㄒㄧㄠ ˙ㄒㄧ	1950	noun_phrase	名詞短語(輕聲讀)
 全力以赴	ㄑㄩㄢˊ ㄌㄧˋ ㄧˇ ㄈㄨˋ	2000	idiom	高頻成語
-當	ㄉㄤ	1950	preposition	時間介詞
+當	ㄉㄤ	801	preposition	時間介詞
 灑下	ㄙㄚˇ ㄒㄧㄚˋ	1900	verb_complement	動補短語
 自然	ㄗˋ ㄖㄢˊ	2000	common_noun	高頻名詞/輸入法名稱(防自燃)
 結論	ㄐㄧㄝˊ ㄌㄨㄣˋ	1950	noun_abstract	高頻抽象名詞(防渴論)
@@ -1299,7 +1299,7 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 往下	ㄨㄤˇ ㄒㄧㄚˋ	1900	phrase	趨向短語
 專業	ㄓㄨㄢ ㄧㄝˋ	1950	noun_abstract	名詞/形容詞
 表現	ㄅㄧㄠˇ ㄒㄧㄢˋ	1950	noun_abstract	高頻抽象名詞
-跟	ㄍㄣ	1950	preposition	介詞/連詞(防根)
+跟	ㄍㄣ	746	preposition	介詞/連詞(防根)
 需要	ㄒㄩ ㄧㄠˋ	1950	verb_auxiliary	高頻助動詞
 利用	ㄌㄧˋ ㄩㄥˋ	1950	verb	高頻動詞
 依據	ㄧ ㄐㄩˋ	850	preposition	介詞
@@ -1308,14 +1308,14 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 已有	ㄧˇ ㄧㄡˇ	1950	phrase	完成短語(防以有)
 已有的	ㄧˇ ㄧㄡˇ ˙ㄉㄜ	1950	phrase	完成偏正短語(防以有的)
 叫他	ㄐㄧㄠˋ ㄊㄚ	1950	pivotal_phrase	兼語短語(防教他)
-叫	ㄐㄧㄠˋ	1950	verb_pivotal	兼語致使動詞(防教/窖)
+叫	ㄐㄧㄠˋ	685	verb_pivotal	兼語致使動詞(防教/窖)
 快來	ㄎㄨㄞˋ ㄌㄞˊ	1950	verb_complement	動詞短語
 讓他	ㄖㄤˋ ㄊㄚ	1950	pivotal_phrase	兼語短語
 進來	ㄐㄧㄣˋ ㄌㄞˊ	1950	verb_direction	趨向動詞(防近來)
 使人	ㄕˇ ㄖㄣˊ	1950	pivotal_phrase	兼語短語(防矢人)
-使	ㄕˇ	2000	verb_causative	致使動詞(防矢/始)
+使	ㄕˇ	770	verb_causative	致使動詞(防矢/始)
 催他	ㄘㄨㄟ ㄊㄚ	1950	pivotal_phrase	兼語短語(防摧他)
-催	ㄘㄨㄟ	1950	verb_causative	致使動詞(防摧)
+催	ㄘㄨㄟ	508	verb_causative	致使動詞(防摧)
 快走	ㄎㄨㄞˋ ㄗㄡˇ	1950	verb_phrase	動詞短語(防塊走)
 借書	ㄐㄧㄝˋ ㄕㄨ	1950	verb_object	動賓短語(防戒書)
 找朋友	ㄓㄠˇ ㄆㄥˊ ㄧㄡˇ	1950	verb_object	動賓短語(防爪朋友)
@@ -1388,15 +1388,14 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 開源	ㄎㄞ ㄩㄢˊ	1700	法律智慧財產與軟體架構 + 生醫臨床與演算法統計	Gemma_Adversarial
 盲測	ㄇㄤˊ ㄘㄜˋ	1700	法律智慧財產與軟體架構 + 生醫臨床與演算法統計	Gemma_Adversarial
 偽陽性	ㄨㄟˋ ㄧㄤˊ ㄒㄧㄥˋ	1700	法律智慧財產與軟體架構 + 生醫臨床與演算法統計	Gemma_Adversarial
-版型與	ㄅㄢˇ ㄒㄧㄥˊ ㄩˇ	1800	時尚創意 x 組織引領	Gemma_Adversarial
 音訊設備	ㄧㄣ ㄒㄩㄣˋ ㄕㄜˋ ㄅㄟˋ	2000	聲學硬體	Audio_Domain
 設備	ㄕㄜˋ ㄅㄟˋ	1700	現代通用名詞	Domain_General
-能	ㄋㄥˊ	1800	高頻情態動詞	Domain_General
+能	ㄋㄥˊ	839	高頻情態動詞	Domain_General
 數年	ㄕㄨˋ ㄋㄧㄢˊ	1800	時態數量詞	Domain_General
 歷經數年	ㄌㄧˋ ㄐㄧㄥ ㄕㄨˋ ㄋㄧㄢˊ	2000	典籍時態詞	Domain_General
 精確	ㄐㄧㄥ ㄑㄩㄝˋ	1800	科學精準副詞	Domain_General
 精確計算	ㄐㄧㄥ ㄑㄩㄝˋ ㄐㄧˋ ㄙㄨㄢˋ	2000	科學統計詞組	Domain_General
-需	ㄒㄩ	1600	高頻情態動詞	Domain_General
+需	ㄒㄩ	727	高頻情態動詞	Domain_General
 工法	ㄍㄨㄥ ㄈㄚˇ	1800	建築工法	Architecture
 木作工法	ㄇㄨˋ ㄗㄨㄛˋ ㄍㄨㄥ ㄈㄚˇ	2000	傳統建築工法	Architecture
 屋架	ㄨ ㄐㄧㄚˋ	1800	建築結構	Architecture
@@ -1416,27 +1415,16 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 憲法法益衡平	ㄒㄧㄢˋ ㄈㄚˇ ㄈㄚˇ ㄧˋ ㄏㄥˊ ㄆㄧㄥˊ	2200	憲政裁判	Law
 版型和剪裁	ㄅㄢˇ ㄒㄧㄥˊ ㄏㄢˋ ㄐㄧㄢˇ ㄘㄞˊ	1800	跨專業混合語境	Gemma_Adversarial
 詮釋而非	ㄑㄩㄢˊ ㄕˋ ㄦˊ ㄈㄟ	1800	跨專業混合語境	Gemma_Adversarial
-批次間	ㄆㄧ ㄘˋ ㄐㄧㄢˋ	1800	跨專業混合語境	Gemma_Adversarial
-查至關重	ㄔㄚˊ ㄓˋ ㄍㄨㄢ ㄓㄨㄥˋ	1800	跨專業混合語境	Gemma_Adversarial
 原始	ㄩㄢˊ ㄕˇ	1800	跨專業混合語境	Gemma_Adversarial
-域比較	ㄩˋ ㄅㄧˇ ㄐㄧㄠˋ	1800	跨專業混合語境	Gemma_Adversarial
 從而	ㄗㄨㄥˋ ㄦˊ	1800	跨專業混合語境	Gemma_Adversarial
 非線	ㄈㄟ ㄒㄧㄢˋ	1800	跨專業混合語境	Gemma_Adversarial
 工藝	ㄍㄨㄥ ㄧˋ	1800	跨專業混合語境	Gemma_Adversarial
 精細	ㄐㄧㄥ ㄒㄧˋ	1800	跨專業混合語境	Gemma_Adversarial
-化與	ㄏㄨㄚˋ ㄩˇ	1800	跨專業混合語境	Gemma_Adversarial
-於梁柱間	ㄩˊ ㄌㄧㄤˊ ㄓㄨˋ ㄐㄧㄢˋ	1800	跨專業混合語境	Gemma_Adversarial
 剪力	ㄐㄧㄢˇ ㄌㄧˋ	1800	跨專業混合語境	Gemma_Adversarial
 製程	ㄓˋ ㄔㄥˊ	1800	跨專業混合語境	Gemma_Adversarial
-入以	ㄖㄨˋ ㄧˇ	1800	跨專業混合語境	Gemma_Adversarial
 極微	ㄐㄧˊ ㄨㄟˊ	1800	跨專業混合語境	Gemma_Adversarial
 茶葉	ㄔㄚˊ ㄧㄝˋ	1800	跨專業混合語境	Gemma_Adversarial
-度與	ㄉㄨˋ ㄩˇ	1800	跨專業混合語境	Gemma_Adversarial
-美呈現其	ㄇㄟˇ ㄔㄥˊ ㄒㄧㄢˋ ㄑㄧˊ	1800	跨專業混合語境	Gemma_Adversarial
-將這	ㄐㄧㄤ ㄓㄜˋ	1800	跨專業混合語境	Gemma_Adversarial
 使其	ㄕˇ ㄑㄧˊ	1800	跨專業混合語境	Gemma_Adversarial
-的數位	˙ㄉㄜ ㄕㄨˋ ㄨㄟˋ	1800	跨專業混合語境	Gemma_Adversarial
-構與模	ㄍㄡˋ ㄩˇ ㄇㄛˊ	1800	跨專業混合語境	Gemma_Adversarial
 辨證	ㄅㄧㄢˋ ㄓㄥˋ	1800	跨專業混合語境	Gemma_Adversarial
 邏霸式	ㄌㄨㄛˊ ㄅㄚˋ ㄕˋ	1900	資訊工程雅譯	Robust_Taiwan
 邏霸	ㄌㄨㄛˊ ㄅㄚˋ	1800	資訊工程雅譯	Robust_Taiwan
@@ -1448,7 +1436,7 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 界限	ㄐㄧㄝˋ ㄒㄧㄢˋ	1800	法律邊界	Law
 聲學	ㄕㄥ ㄒㄩㄝˊ	1800	物理音訊學門	Audio_Physics
 聲學共振	ㄕㄥ ㄒㄩㄝˊ ㄍㄨㄥˋ ㄓㄣˋ	2200	聲學工程名詞	Audio_Physics
-與	ㄩˇ	1800	高頻連詞	Domain_General
+與	ㄩˇ	820	高頻連詞	Domain_General
 也很	ㄧㄝˇ ㄏㄣˇ	2000	日常高頻常用詞	Common
 也算	ㄧㄝˇ ㄙㄨㄢˋ	1800	日常高頻常用詞	Common
 非關	ㄈㄟ ㄍㄨㄢ	1800	哲學語意論述與轉折詞組	Discourse_Logic
@@ -1827,16 +1815,16 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 已經	ㄧˇ ㄐㄧㄥ	2000	核心時間副詞	Already
 有意義	ㄧㄡˇ ㄧˋ ㄧˋ	980	常用詞	Gemma2_Crucible
 有意義的	ㄧㄡˇ ㄧˋ ㄧˋ ˙ㄉㄜ	980	常用詞	Gemma2_Crucible
-嘿	˙ㄏㄟ	1500	感嘆詞	Hey_Interjection
-嘿	ㄏㄟ˙	1500	感嘆詞	Hey_Interjection
+嘿	˙ㄏㄟ	820	感嘆詞	Hey_Interjection
+嘿	ㄏㄟ˙	820	感嘆詞	Hey_Interjection
 嘿	ㄏㄟ	200	感嘆詞	Hey_Interjection(一聲次要)
 黑	ㄏㄟ	900	常用字	Hei_Black(一聲首選)
 黑	˙ㄏㄟ	300	字	Hei_Char
-嗨	˙ㄏㄞ	1500	感嘆詞	Hi_Interjection
-哈	˙ㄏㄚ	1500	感嘆詞	Ha_Interjection
-呵	˙ㄏㄜ	1500	感嘆詞	He_Interjection
-哼	˙ㄏㄥ	1500	感嘆詞	Heng_Interjection
-欸	˙ㄟ	1500	感嘆詞	Ei_Interjection
+嗨	˙ㄏㄞ	820	感嘆詞	Hi_Interjection
+哈	˙ㄏㄚ	820	感嘆詞	Ha_Interjection
+呵	˙ㄏㄜ	820	感嘆詞	He_Interjection
+哼	˙ㄏㄥ	820	感嘆詞	Heng_Interjection
+欸	˙ㄟ	820	感嘆詞	Ei_Interjection
 感謝	ㄍㄢˇ ㄒㄧㄝˋ	1600	社交敬語動詞	Thanks
 謝謝	ㄒㄧㄝˋ ㄒㄧㄝˋ	1600	社交敬語動詞	Thank_You
 謝謝	ㄒㄧㄝˋ ˙ㄒㄧㄝ	1600	社交敬語動詞	Thank_You(輕聲)
@@ -1860,19 +1848,19 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 開發出	ㄎㄞ ㄈㄚ ㄔㄨ	1600	verb_complement	動補複合動詞
 其他	ㄑㄧˊ ㄊㄚ	1800	pronoun	核心代詞
 曬網	ㄕㄞˋ ㄨㄤˇ	1600	phrase	動賓短語
-曬	ㄕㄞˋ	1500	verb	高頻動詞(正體曬)
+曬	ㄕㄞˋ	472	verb	高頻動詞(正體曬)
 三天捕魚五天曬網	ㄙㄢ ㄊㄧㄢ ㄅㄨˇ ㄩˊ ㄨˇ ㄊㄧㄢ ㄕㄞˋ ㄨㄤˇ	1900	idiom	俗語構式
 三天打魚兩天曬網	ㄙㄢ ㄊㄧㄢ ㄉㄚˇ ㄩˊ ㄌㄧㄤˇ ㄊㄧㄢ ㄕㄞˋ ㄨㄤˇ	1900	idiom	俗語構式
-畫	ㄏㄨㄚˋ	1500	verb	核心繪畫動詞
+畫	ㄏㄨㄚˋ	741	verb	核心繪畫動詞
 畫三筆	ㄏㄨㄚˋ ㄙㄢ ㄅㄧˇ	1700	phrase	動量短語
 塗兩筆	ㄊㄨˊ ㄌㄧㄤˇ ㄅㄧˇ	1700	phrase	動量短語
 一筆	ㄧ ㄅㄧˇ	1600	measure_verbal	動量詞
 兩筆	ㄌㄧㄤˇ ㄅㄧˇ	1600	measure_verbal	動量詞
 三筆	ㄙㄢ ㄅㄧˇ	1600	measure_verbal	動量詞
 幾筆	ㄐㄧˇ ㄅㄧˇ	1600	measure_verbal	動量詞
-躺	ㄊㄤˇ	1600	verb	核心身體動詞
+躺	ㄊㄤˇ	507	verb	核心身體動詞
 躺三天	ㄊㄤˇ ㄙㄢ ㄊㄧㄢ	1700	phrase	動時量短語
-吐	ㄊㄨˋ	1600	verb	核心生理動詞(四聲吐)
+吐	ㄊㄨˋ	511	verb	核心生理動詞(四聲吐)
 一口	ㄧ ㄎㄡˇ	1600	measure_verbal	動量詞
 兩口	ㄌㄧㄤˇ ㄎㄡˇ	1600	measure_verbal	動量詞
 吃兩口	ㄔ ㄌㄧㄤˇ ㄎㄡˇ	1700	phrase	動量短語
@@ -1960,7 +1948,7 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 麻煩	ㄇㄚˊ ㄈㄢˊ	1800	noun_adjective	常用詞彙
 直接	ㄓˊ ㄐㄧㄝ	1850	adverb	現代高頻方式副詞
 我直接	ㄨㄛˇ ㄓˊ ㄐㄧㄝ	1900	phrase	代詞副詞構式
-按	ㄢˋ	1600	verb	高頻動作動詞
+按	ㄢˋ	630	verb	高頻動作動詞
 按一下	ㄢˋ ㄧ ㄒㄧㄚˋ	1850	verb_measure	動詞動量詞
 按兩下	ㄢˋ ㄌㄧㄤˇ ㄒㄧㄚˋ	1850	verb_measure	動詞動量詞
 點一下	ㄉㄧㄢˇ ㄧ ㄒㄧㄚˋ	1850	verb_measure	動詞動量詞
@@ -1971,7 +1959,7 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 按兩下搞定了	ㄢˋ ㄌㄧㄤˇ ㄒㄧㄚˋ ㄍㄠˇ ㄉㄧㄥˋ ㄌㄜ˙	1950	phrase	高頻口語熟語(後置調)
 我直接按兩下搞定了	ㄨㄛˇ ㄓˊ ㄐㄧㄝ ㄢˋ ㄌㄧㄤˇ ㄒㄧㄚˋ ㄍㄠˇ ㄉㄧㄥˋ ˙ㄌㄜ	1950	sentence	高頻句構
 我直接按兩下搞定了	ㄨㄛˇ ㄓˊ ㄐㄧㄝ ㄢˋ ㄌㄧㄤˇ ㄒㄧㄚˋ ㄍㄠˇ ㄉㄧㄥˋ ㄌㄜ˙	1950	sentence	高頻句構(後置調)
-踩	ㄘㄞˇ	1600	verb	動作動詞
+踩	ㄘㄞˇ	484	verb	動作動詞
 踩坑	ㄘㄞˇ ㄎㄥ	1850	verb_noun	技術俗語
 踩雷	ㄘㄞˇ ㄌㄟˊ	1850	verb_noun	現代俗語
 踩地雷	ㄘㄞˇ ㄉㄧˋ ㄌㄟˊ	1850	verb_noun	現代俗語
@@ -2359,3 +2347,58 @@ aup檔	-	1500	音訊專案檔名	Audio_Ext
 純綠	ㄔㄨㄣˊ ㄌㄩˋ	1400	語意調校增補詞
 純綠版	ㄔㄨㄣˊ ㄌㄩˋ ㄅㄢˇ	1420	語意調校增補詞
 錄音檔	ㄌㄨˋ ㄧㄣ ㄉㄤˇ	1450	語意調校增補詞
+離合詞	ㄌㄧˊ ㄏㄜˊ ㄘˊ	850	linguistics	語言學核心術語
+一聲	ㄧˋ ㄕㄥ	680	phonetics	聲調術語與動量詞(變調)
+二聲	ㄦˋ ㄕㄥ	650	phonetics	聲調術語
+三聲	ㄙㄢ ㄕㄥ	650	phonetics	聲調術語
+四聲	ㄙˋ ㄕㄥ	650	phonetics	聲調術語
+輕聲	ㄑㄧㄥ ㄕㄥ	650	phonetics	聲調術語
+一下	ㄧˊ ㄒㄧㄚˋ	1950	measure	高頻時量詞(變調)
+一個	ㄧˊ ˙ㄍㄜ	1800	measure	高頻數量詞(變調輕聲)
+一個	ㄧˊ ㄍㄜˋ	1800	measure	高頻數量詞(變調四聲)
+一趟	ㄧˊ ㄊㄤˋ	1650	measure	高頻動量詞(變調)
+秀一下	ㄒㄧㄡˋ ㄧ ㄒㄧㄚˋ	1850	verb_momentum	抑制繡衣搶字
+秀一下	ㄒㄧㄡˋ ㄧˊ ㄒㄧㄚˋ	1850	verb_momentum	抑制繡衣搶字(變調)
+查一下	ㄔㄚˊ ㄧˊ ㄒㄧㄚˋ	1850	verb_momentum	常用動量短語(變調)
+看一下	ㄎㄢˋ ㄧˊ ㄒㄧㄚˋ	1850	verb_momentum	常用動量短語(變調)
+等一下	ㄉㄥˇ ㄧˊ ㄒㄧㄚˋ	1900	verb_momentum	超高頻動量短語(變調)
+試一下	ㄕˋ ㄧˊ ㄒㄧㄚˋ	1850	verb_momentum	常用動量短語(變調)
+想一下	ㄒㄧㄤˇ ㄧˊ ㄒㄧㄚˋ	1850	verb_momentum	常用動量短語(變調)
+問一下	ㄨㄣˋ ㄧˊ ㄒㄧㄚˋ	1850	verb_momentum	常用動量短語(變調)
+實裝	ㄕˊ ㄓㄨㄤ	1550	domain	軟體功能實裝與導入部署
+更常	ㄍㄥˋ ㄔㄤˊ	680	adverb	比較頻率副詞(常用於更常用到/更常見)
+就好	ㄐㄧㄡˋ ㄏㄠˇ	720	adverb	條件結果副詞(高頻詞組保護)
+救好	ㄐㄧㄡˋ ㄏㄠˇ	120	verb_complement	動補對比詞(低先驗頻率，支援「就好與救好」對比)
+是要	ㄕˋ ㄧㄠˋ	680	core_compound	高頻焦點助動複合詞
+更長	ㄍㄥˋ ㄔㄤˊ	420	core_compound	比較級空間時間維度複合詞
+很常	ㄏㄣˇ ㄔㄤˊ	420	core_compound	高頻程度頻率副詞複合詞
+生僻詞	ㄕㄥ ㄆㄧˋ ㄘˊ	650	linguistics	語言學常用詞彙
+冷僻詞	ㄌㄥˇ ㄆㄧˋ ㄘˊ	650	linguistics	語言學常用詞彙
+重蹈覆轍	ㄔㄨㄥˊ ㄉㄠˋ ㄈㄨˋ ㄓㄜˊ	350	idiom	四字成語(台灣口語讀音)
+此案	ㄘˇ ㄢˋ	520	core_compound	公文與法律常用指示名詞
+瑜伽素	ㄩˊ ㄐㄧㄚ ㄙㄨˋ	680	domain	飲食分類專有名詞(不含蛋奶與五辛之素食)
+菇類	ㄍㄨ ㄌㄟˋ	620	domain	常見食材分類複合詞
+大易	ㄉㄚˋ ㄧˋ	680	domain	台灣經典字形輸入法專有名詞
+大易輸入法	ㄉㄚˋ ㄧˋ ㄕㄨ ㄖㄨˋ ㄈㄚˇ	750	domain	台灣經典字形輸入法專有名詞
+文字型	ㄨㄣˊ ㄗˋ ㄒㄧㄥˊ	650	domain	認知思考型態複合詞
+語音型	ㄩˇ ㄧㄣ ㄒㄧㄥˊ	620	domain	認知思考型態複合詞
+視覺型	ㄕˋ ㄐㄩㄝˊ ㄒㄧㄥˊ	620	domain	認知思考型態複合詞
+而非	ㄦˊ ㄈㄟ	680	conjunction	高頻對比否定連詞
+完工	ㄨㄢˊ ㄍㄨㄥ	650	core_compound	高頻動補完成複合詞
+全素	ㄑㄩㄢˊ ㄙㄨˋ	1600	舉一反三飲食分類專名
+蛋奶素	ㄉㄢˋ ㄋㄞˇ ㄙㄨˋ	1600	舉一反三飲食分類專名
+五辛素	ㄨˇ ㄒㄧㄣ ㄙㄨˋ	1600	舉一反三飲食分類專名
+植物素	ㄓˊ ㄨˋ ㄙㄨˋ	1600	舉一反三飲食分類專名
+純素	ㄔㄨㄣˊ ㄙㄨˋ	1600	舉一反三飲食分類專名
+奶素	ㄋㄞˇ ㄙㄨˋ	1600	舉一反三飲食分類專名
+蛋素	ㄉㄢˋ ㄙㄨˋ	1600	舉一反三飲食分類專名
+蛋類	ㄉㄢˋ ㄌㄟˋ	1550	舉一反三生物與食材類別詞
+聽覺型	ㄊㄧㄥ ㄐㄩㄝˊ ㄒㄧㄥˊ	1580	舉一反三派生屬性複合詞
+圖像型	ㄊㄨˊ ㄒㄧㄤˋ ㄒㄧㄥˊ	1580	舉一反三派生屬性複合詞
+邏輯型	ㄌㄨㄛˊ ㄐㄧˊ ㄒㄧㄥˊ	1580	舉一反三派生屬性複合詞
+直覺型	ㄓˊ ㄐㄩㄝˊ ㄒㄧㄥˊ	1580	舉一反三派生屬性複合詞
+分析型	ㄈㄣ ㄒㄧ ㄒㄧㄥˊ	1580	舉一反三派生屬性複合詞
+記憶型	ㄐㄧˋ ㄧˋ ㄒㄧㄥˊ	1580	舉一反三派生屬性複合詞
+思考型	ㄙ ㄎㄠˇ ㄒㄧㄥˊ	1580	舉一反三派生屬性複合詞
+概念型	ㄍㄞˋ ㄋㄧㄢˋ ㄒㄧㄥˊ	1580	舉一反三派生屬性複合詞
+經驗型	ㄐㄧㄥ ㄧㄢˋ ㄒㄧㄥˊ	1580	舉一反三派生屬性複合詞

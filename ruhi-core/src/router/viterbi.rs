@@ -77,8 +77,10 @@ impl ViterbiRouter {
                     };
                     let self_score = syllable_score + freq_score + length_bonus;
 
+                    let is_coord_conj = matches!(node.word.as_str(), "與" | "和" | "或");
                     let mut best_incoming_score = -f64::INFINITY;
                     let mut best_prev_idx = 0;
+                    let mut coord_candidates: Vec<(f64, usize)> = Vec::new();
 
                     for (prev_idx, prev_state) in trellis[i].iter().enumerate() {
                         let trans_bonus = if let Some(ref mut engine) = transitions {
@@ -90,18 +92,19 @@ impl ViterbiRouter {
                                     &node.bopomofo,
                                 );
 
-                                // Layer 3: 沿 trellis 的 prev_boundary 與 prev_state_idx 往前輕量回溯最多 4~5 個前驅詞（栈上固定緩衝陣列，零 Heap 配置）
-                                let mut lookback_buf: [&str; 5] = [""; 5];
+                                // Layer 3: 沿 trellis 的 prev_boundary 與 prev_state_idx 往前輕量回溯最多 12 個前驅詞（棧上固定緩衝陣列，零 Heap 配置）
+                                const MAX_LOOKBACK: usize = 12;
+                                let mut lookback_buf: [&str; MAX_LOOKBACK] = [""; MAX_LOOKBACK];
                                 let mut lb_count = 0;
-                                lookback_buf[4 - lb_count] = prev_state.node.word.as_str();
+                                lookback_buf[MAX_LOOKBACK - 1 - lb_count] = prev_state.node.word.as_str();
                                 lb_count += 1;
 
                                 let mut cur_b = prev_state.prev_boundary;
                                 let mut cur_s = prev_state.prev_state_idx;
-                                while lb_count < 5 && cur_b > 0 {
+                                while lb_count < MAX_LOOKBACK && cur_b > 0 {
                                     let st = &trellis[cur_b][cur_s];
                                     if !st.node.word.is_empty() {
-                                        lookback_buf[4 - lb_count] = st.node.word.as_str();
+                                        lookback_buf[MAX_LOOKBACK - 1 - lb_count] = st.node.word.as_str();
                                         lb_count += 1;
                                     }
                                     if st.prev_boundary == cur_b && st.prev_state_idx == cur_s {
@@ -110,14 +113,14 @@ impl ViterbiRouter {
                                     cur_b = st.prev_boundary;
                                     cur_s = st.prev_state_idx;
                                 }
-                                if lb_count < 5 && cur_b == 0 && !trellis[0].is_empty() {
+                                if lb_count < MAX_LOOKBACK && cur_b == 0 && !trellis[0].is_empty() {
                                     let st0 = &trellis[0][0];
                                     if !st0.node.word.is_empty() {
-                                        lookback_buf[4 - lb_count] = st0.node.word.as_str();
+                                        lookback_buf[MAX_LOOKBACK - 1 - lb_count] = st0.node.word.as_str();
                                         lb_count += 1;
                                     }
                                 }
-                                let lookback_slice = &lookback_buf[5 - lb_count..5];
+                                let lookback_slice = &lookback_buf[MAX_LOOKBACK - lb_count..MAX_LOOKBACK];
                                 b += engine.calculate_vo_lookback_bonus(lookback_slice, &node.word);
                                 b += engine.calculate_hierarchical_construction_bonus(
                                     lookback_slice,
@@ -126,6 +129,10 @@ impl ViterbiRouter {
                                     j,
                                     dag,
                                 );
+                                if node.word == "與" {
+                                    // 打破 X 與 Y 詞頻加法交換律對稱：使高頻正字 X 優先置於「與」之前（[高頻 X] 與 [次頻對比字 Y]）
+                                    b += 0.05 * (std::cmp::max(1, prev_state.node.weight) as f64).ln();
+                                }
                                 b
                             } else {
                                 engine.calculate_hierarchical_construction_bonus(
@@ -141,13 +148,26 @@ impl ViterbiRouter {
                         };
 
                         let total = prev_state.score + trans_bonus + self_score;
+                        if is_coord_conj && total > -f64::INFINITY {
+                            coord_candidates.push((total, prev_idx));
+                        }
                         if total > best_incoming_score {
                             best_incoming_score = total;
                             best_prev_idx = prev_idx;
                         }
                     }
 
-                    if best_incoming_score > -f64::INFINITY {
+                    if is_coord_conj && !coord_candidates.is_empty() {
+                        coord_candidates.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+                        for (score, prev_idx) in coord_candidates.into_iter().take(4) {
+                            trellis[j].push(TrellisState {
+                                node: node.clone(),
+                                score,
+                                prev_boundary: i,
+                                prev_state_idx: prev_idx,
+                            });
+                        }
+                    } else if best_incoming_score > -f64::INFINITY {
                         // 若同一邊界已有相同字詞，保留最高分前驅路徑
                         if let Some(existing) = trellis[j].iter_mut().find(|s| s.node.word == node.word) {
                             if best_incoming_score > existing.score {

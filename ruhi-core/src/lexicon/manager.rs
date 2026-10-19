@@ -46,6 +46,36 @@ impl LexiconEntry {
             .join(" ")
     }
 
+    /// 將含「不 (ㄅㄨˊ)」或「一 (ㄧˊ / ㄧˋ)」連讀變調之複詞注音，還原為本調注音（如「不再 ㄅㄨˊ ㄗㄞˋ」➔「ㄅㄨˋ ㄗㄞˋ」、「一開始 ㄧˋ ㄎㄞ ㄕˇ」➔「ㄧ ㄎㄞ ㄕˇ」）
+    pub fn citation_sandhi_bpm(word: &str, norm_bpm: &str) -> Option<String> {
+        let chars: Vec<char> = word.chars().collect();
+        if chars.len() < 2 {
+            return None;
+        }
+        let syls: Vec<&str> = norm_bpm.split_whitespace().collect();
+        if chars.len() != syls.len() {
+            return None;
+        }
+        let mut changed = false;
+        let mut out_syls: Vec<String> = Vec::with_capacity(syls.len());
+        for (ch, &syl) in chars.iter().zip(syls.iter()) {
+            if *ch == '不' && syl == "ㄅㄨˊ" {
+                out_syls.push("ㄅㄨˋ".to_string());
+                changed = true;
+            } else if *ch == '一' && (syl == "ㄧˊ" || syl == "ㄧˋ") {
+                out_syls.push("ㄧ".to_string());
+                changed = true;
+            } else {
+                out_syls.push(syl.to_string());
+            }
+        }
+        if changed {
+            Some(out_syls.join(" "))
+        } else {
+            None
+        }
+    }
+
     pub fn extract_headcode(bpm: &str) -> String {
         let initial_map: HashMap<char, char> = [
             ('ㄅ', 'b'), ('ㄆ', 'p'), ('ㄇ', 'm'), ('ㄈ', 'f'),
@@ -367,44 +397,185 @@ impl LexiconManager {
 
 fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
     let clean_bpm = bpm.replace('˙', "");
-    matches!((word, clean_bpm.as_str()),
-        ("尾", "ㄧˇ") |      // 尾巴只讀 ㄨㄟˇ，絕不讀 ㄧˇ 劫掠「以/已」
-        ("會", "ㄏㄨㄟˇ") |   // 會只讀 ㄏㄨㄟˋ 或 ㄎㄨㄞˋ，絕不讀 ㄏㄨㄟˇ 劫掠「毀/悔」
-        ("𣇫", _) |          // 罕見字
-        ("篼", _) |          // 篼只在竹篼，防劫掠「都」
-        ("荊婦", _) |        // 杜絕「尾荊婦」
-        ("時後", _) |        // 杜絕破壞「時候」
-        ("字擠", _) |        // 杜絕破壞「自己」
-        ("慧覺", _) |        // 杜絕破壞「會覺/會覺得」
-        ("姻黨", _) |        // 古代外戚朋黨，杜絕劫掠現代資訊詞「音檔」
-        ("內外姻黨", _) |
-        ("赭衣", _) |        // 漢代刑徒囚衣，杜絕劫掠「~者一~」邊界
-        ("瘐死", _) |        // 古代獄死冷僻詞，杜絕劫掠「~與死~」邊界
-        ("劈刺", _) |        // 刺槍軍事古語，杜絕劫掠現代資訊詞「批次」
-        ("家祠", _)         // 古代宗族祠堂冷僻詞，杜絕劫掠現代詞「加詞」
+    matches!(
+        (word, clean_bpm.as_str()),
+        ("尾", "ㄧˇ")
+            | ("會", "ㄏㄨㄟˇ")
+            | ("𣇫", _)
+            | ("篼", _)
+            | ("荊婦", _)
+            | ("時後", _)
+            | ("字擠", _)
+            | ("慧覺", _)
+            | ("姻黨", _)
+            | ("內外姻黨", _)
+            | ("赭衣", _)
+            | ("繡衣", _)
+            | ("瘐死", _)
+            | ("劈刺", _)
+            | ("家祠", _)
+            | ("常語", _)
+            | ("彈雨", _)
+            | ("旦會", _)
+            | ("試晬", _)
+            | ("啖蔗", _)
+            | ("市語", _)
+            | ("傴兜", _)
+            | ("鵲語", _)
+            | ("确瘠", _)
+            | ("在疚", _)
+            | ("不擬", _)
+            | ("野狠", _)
+            | ("野語", _)
+            | ("卻纔", _)
+            | ("版型與", _)
+            | ("批次間", _)
+            | ("查至關重", _)
+            | ("域比較", _)
+            | ("化與", _)
+            | ("於梁柱間", _)
+            | ("入以", _)
+            | ("度與", _)
+            | ("美呈現其", _)
+            | ("將這", _)
+            | ("的數位", _)
+            | ("構與模", _)
+            | ("開駛", _)
+            | ("簡釋", _)
+            | ("衣胞", _)
+            | ("遺業", _)
+            | ("縊死", _)
+            | ("熠燿", _)
+            | ("丁丁", "ㄓㄥ ㄓㄥ")
+            | ("大家", "ㄉㄚˋ ㄍㄨ")
+            | ("公車", "ㄍㄨㄥ ㄐㄩ")
+            | ("它們", "ㄊㄨㄛ ㄇㄣ")
+            | ("她們", "ㄊㄨㄛ ㄇㄣ")
+            | ("他們", "ㄊㄨㄛ ㄇㄣ")
+            | ("傾家", "ㄎㄥ ㄐㄧㄚ")
+            | ("啞啞", "ㄜˋ ㄜˋ")
+            | ("張說", "ㄓㄤ ㄩㄝˋ")
+            | ("宋朝", "ㄙㄨㄥˋ ㄓㄠ")
+            | ("姊姊", "ㄗˇ ㄗ")
+            | ("姊夫", "ㄗˇ ㄈㄨ")
+            | ("家姊", "ㄐㄧㄚ ㄗˇ")
+            | ("堂姊", "ㄊㄤˊ ㄗˇ")
+            | ("上色", "ㄕㄤˋ ㄕㄞˇ")
+            | ("咳血", "ㄎㄚˇ ㄒㄧㄝˇ")
+            | ("咳痰", "ㄎㄚˇ ㄊㄢˊ")
+            | ("噁心", "ㄨˋ ㄒㄧㄣ")
+            | ("底", "˙ㄉㄜ")
+            | ("底", "ㄉㄜ˙")
     )
 }
 
-    pub fn add_entry(&mut self, entry: LexiconEntry) {
+    pub fn add_entry(&mut self, mut entry: LexiconEntry) {
         if Self::is_archaic_polyphone(&entry.word, &entry.bopomofo) {
             return;
+        }
+
+        let char_count = entry.word.chars().count();
+        let is_pure_cjk = char_count >= 2
+            && entry
+                .word
+                .chars()
+                .all(|c| ('\u{4e00}'..='\u{9fff}').contains(&c));
+        if is_pure_cjk && char_count != entry.bopomofo.split_whitespace().count() {
+            // 過濾字數與音節數不符之兒化合音異常詞條（如 3 字詞僅標 2 音節）
+            return;
+        }
+
+        let norm_bpm = LexiconEntry::normalize_bpm(&entry.bopomofo);
+        let incoming_cit = LexiconEntry::citation_sandhi_bpm(&entry.word, &norm_bpm);
+        let incoming_is_moe = matches!(
+            entry.category.as_str(),
+            "core"
+                | "core_compound"
+                | "common"
+                | "modern"
+                | "classic"
+                | "archaic"
+                | "rare"
+                | "saying"
+                | "twister"
+                | "char"
+                | "word2"
+                | "word3"
+                | "word4"
+                | "moe"
+                | "idiom"
+        );
+
+        // 去重合併：若同一 (詞彙, 正規化注音或本調變調對應注音) 已存在，直接於原節點更新權重，杜絕重複產生 LatticeNode 拖慢 Viterbi
+        let mut matched_existing_idx: Option<usize> = None;
+        let mut has_mcb_other_reading = false;
+        if let Some(indices) = self.word_index.get(&entry.word) {
+            for &existing_idx in indices {
+                let existing = &self.entries[existing_idx];
+                if existing.category.starts_with("mcb") {
+                    has_mcb_other_reading = true;
+                }
+                let existing_norm = LexiconEntry::normalize_bpm(&existing.bopomofo);
+                let existing_cit = LexiconEntry::citation_sandhi_bpm(&existing.word, &existing_norm);
+                let bpm_matches = existing.bopomofo == entry.bopomofo
+                    || existing_norm == norm_bpm
+                    || existing_cit.as_deref() == Some(norm_bpm.as_str())
+                    || incoming_cit.as_deref() == Some(existing_norm.as_str())
+                    || (existing_cit.is_some() && existing_cit == incoming_cit);
+                if bpm_matches {
+                    matched_existing_idx = Some(existing_idx);
+                    break;
+                }
+            }
+        }
+
+        if let Some(existing_idx) = matched_existing_idx {
+            let existing_is_mcb = self.entries[existing_idx].category.starts_with("mcb");
+            // 若已有小麥真實語料庫權重（無論單字或複詞），均不被萌典合成齊頭權重（如 word2=420, core=800, char）覆蓋
+            if !(existing_is_mcb && incoming_is_moe) {
+                if entry.weight > self.entries[existing_idx].weight {
+                    self.entries[existing_idx].weight = entry.weight;
+                }
+            }
+            // 確保本調與變調注音皆能索引至同一節點（如 ㄅㄨˋ ㄗㄞˋ 與 ㄅㄨˊ ㄗㄞˋ 共享「不再 591」）
+            let list = self.bopomofo_index.entry(norm_bpm.clone()).or_default();
+            if !list.contains(&existing_idx) {
+                list.push(existing_idx);
+            }
+            if let Some(cit_bpm) = incoming_cit {
+                let cit_list = self.bopomofo_index.entry(cit_bpm).or_default();
+                if !cit_list.contains(&existing_idx) {
+                    cit_list.push(existing_idx);
+                }
+            }
+            return;
+        }
+
+        // 若萌典複詞因字面與小麥同形而誤獲 420 齊頭權重，但讀音實為小麥未收錄之生僻古音/又音，自動降回冷僻詞基礎權重 80
+        if incoming_is_moe && has_mcb_other_reading && char_count >= 2 && entry.weight >= 400 {
+            entry.weight = 80;
         }
 
         let idx = self.entries.len();
         let notone = LexiconEntry::strip_tones(&entry.bopomofo);
         let headcode = entry.headcode.clone();
-        let norm_bpm = LexiconEntry::normalize_bpm(&entry.bopomofo);
 
         self.word_index.entry(entry.word.clone()).or_default().push(idx);
         self.bopomofo_index.entry(entry.bopomofo.clone()).or_default().push(idx);
         if norm_bpm != entry.bopomofo {
             self.bopomofo_index.entry(norm_bpm).or_default().push(idx);
         }
+        if let Some(cit_bpm) = incoming_cit {
+            let cit_list = self.bopomofo_index.entry(cit_bpm).or_default();
+            if !cit_list.contains(&idx) {
+                cit_list.push(idx);
+            }
+        }
         self.notone_index.entry(notone).or_default().push(idx);
         if !headcode.is_empty() {
             self.headcode_index.entry(headcode).or_default().push(idx);
         }
-        if entry.word.chars().count() >= 3 {
+        if char_count >= 3 {
             let bpm_hc = LexiconEntry::extract_bpm_headcode(&entry.bopomofo);
             if bpm_hc.chars().count() >= 3 {
                 self.headcode_index.entry(bpm_hc).or_default().push(idx);

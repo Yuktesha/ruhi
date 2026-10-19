@@ -138,6 +138,8 @@ pub struct RuhiConfig {
     pub confirm_add_word: bool,
     #[serde(default = "default_confirm_suppress_word")]
     pub confirm_suppress_word: bool,
+    #[serde(default)]
+    pub enable_array30_coach: bool,
 }
 
 impl Default for RuhiConfig {
@@ -163,6 +165,7 @@ impl Default for RuhiConfig {
             capsule_mode: default_capsule_mode(),
             confirm_add_word: default_confirm_add_word(),
             confirm_suppress_word: default_confirm_suppress_word(),
+            enable_array30_coach: false,
         }
     }
 }
@@ -200,6 +203,7 @@ pub struct RuhiPaths {
     pub symbols: std::path::PathBuf,
     pub config: std::path::PathBuf,
     pub english: std::path::PathBuf,
+    pub array30: std::path::PathBuf,
     pub deleted_dict: std::path::PathBuf,
     pub rules_json: std::path::PathBuf,
 }
@@ -293,6 +297,7 @@ impl RuhiPaths {
         let config = sandbox_dir.join("config.json");
         let user_dict = sandbox_dir.join("user_dict.tsv");
         let english = find_file("lexicon_english.tsv");
+        let array30 = find_file("array30.tsv");
         let deleted_dict = if sandbox_dir.join("deleted_dict.tsv").exists() {
             sandbox_dir.join("deleted_dict.tsv")
         } else {
@@ -315,6 +320,7 @@ impl RuhiPaths {
             symbols,
             config,
             english,
+            array30,
             deleted_dict,
             rules_json,
         }
@@ -622,6 +628,7 @@ impl RuhiTextService {
         engine.enable_mixed_english = config.enable_mixed_english;
         engine.mixed_english_mode = config.mixed_english_mode.clone();
         engine.mixed_english_min_len = config.mixed_english_min_len;
+        engine.enable_array30_coach = config.enable_array30_coach;
         let shared_lex = get_shared_lexicon(&paths);
         engine.lexicon = (*shared_lex).clone();
 
@@ -639,6 +646,9 @@ impl RuhiTextService {
             if let Some(p_str) = paths.english.to_str() {
                 let _ = engine.western.load_tsv(p_str);
             }
+        }
+        if paths.array30.exists() && engine.array30.table.reverse_lookup('㐀').is_none() {
+            let _ = engine.array30.table.load_tsv(&paths.array30);
         }
 
         logger::log(&format!("RuhiTextService::new() initialized with data_dir={:?}, punct_mode={}, quick_key={}",
@@ -776,11 +786,15 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                             let _ = eng.western.load_tsv(p_str);
                         }
                     }
+                    if paths.array30.exists() && eng.array30.table.reverse_lookup('㐀').is_none() {
+                        let _ = eng.array30.table.load_tsv(&paths.array30);
+                    }
                 }
                 let new_cfg = load_ruhi_config(&paths);
                 if let Ok(mut eng) = self.engine.lock() {
                     eng.keyboard_mode = new_cfg.keyboard_mode.clone();
                     eng.set_enabled_keyboard_modes(new_cfg.enabled_keyboard_modes.clone());
+                    eng.enable_array30_coach = new_cfg.enable_array30_coach;
                 }
                 if let Ok(mut cw_guard) = self.candidate_window.lock() {
                     if let Some(cw) = cw_guard.as_mut() {
@@ -819,11 +833,11 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let has_buffer = {
                 let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
                 let engine = self.engine.lock().unwrap();
-                pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.japanese.has_buffer()
+                pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer()
             };
 
             // Caps Lock 鍵處理：
-            // 1. Ctrl + Caps Lock / Shift + Caps Lock ➔ 循環切換自選啟用之亞洲輸入法 (如 許 ⇄ 日)
+            // 1. Ctrl + Caps Lock / Shift + Caps Lock ➔ 循環切換自選啟用之亞洲輸入法 (如 許 ⇄ 日 ⇄ 行)
             // 2. 單獨按下 Caps Lock ➔ 放行給系統切換歐文/英數直通模式 LED 狀態，組字串絕不中斷也不送出！
             if vk == VK_CAPITAL.0 as u32 {
                 if SUPPRESS_SYNTHETIC_CAPS.load(std::sync::atomic::Ordering::SeqCst) {
@@ -984,7 +998,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let has_buffer = {
                 let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
                 let engine = self.engine.lock().unwrap();
-                pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.japanese.has_buffer()
+                pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer()
             };
 
             // 當完全沒有組字緩衝區時，Backspace、Delete、Enter、Space、Tab、方向鍵等一律直接放行給目標視窗！
@@ -1189,11 +1203,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         *sel = (*sel + 1) % cands_len;
                         let new_idx = *sel;
                         drop(sel);
-                        if let Ok(mut cw_guard) = self.candidate_window.lock() {
-                            if let Some(cw) = cw_guard.as_mut() {
-                                cw.set_selected(new_idx);
-                            }
-                        }
+                        self.update_candidate_selection_ui(new_idx, &cands);
                     }
                     return Ok(BOOL::from(true));
                 }
@@ -1205,11 +1215,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         *sel = if *sel == 0 { cands_len - 1 } else { *sel - 1 };
                         let new_idx = *sel;
                         drop(sel);
-                        if let Ok(mut cw_guard) = self.candidate_window.lock() {
-                            if let Some(cw) = cw_guard.as_mut() {
-                                cw.set_selected(new_idx);
-                            }
-                        }
+                        self.update_candidate_selection_ui(new_idx, &cands);
                     }
                     return Ok(BOOL::from(true));
                 }
@@ -1224,11 +1230,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         *sel = (next_page * 9).min(cands_len - 1);
                         let new_idx = *sel;
                         drop(sel);
-                        if let Ok(mut cw_guard) = self.candidate_window.lock() {
-                            if let Some(cw) = cw_guard.as_mut() {
-                                cw.set_selected(new_idx);
-                            }
-                        }
+                        self.update_candidate_selection_ui(new_idx, &cands);
                     }
                     return Ok(BOOL::from(true));
                 }
@@ -1243,11 +1245,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         *sel = (prev_page * 9).min(cands_len - 1);
                         let new_idx = *sel;
                         drop(sel);
-                        if let Ok(mut cw_guard) = self.candidate_window.lock() {
-                            if let Some(cw) = cw_guard.as_mut() {
-                                cw.set_selected(new_idx);
-                            }
-                        }
+                        self.update_candidate_selection_ui(new_idx, &cands);
                     }
                     return Ok(BOOL::from(true));
                 }
@@ -1348,13 +1346,17 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
             // 2.5 空白鍵在無未決注音聲調時的處理 (例如先前輸入了「1.」或已確認詞句)
             // 絕不可將未處理的空白鍵外洩至目標視窗，必須納入組字緩衝區！
-            // 但若引擎處於歐文模式，放行交由 engine 結算歐文單字！
+            // 但若引擎處於歐文模式或形碼／日文組字中，放行交由 engine 結算！
             if vk == VK_SPACE.0 as u32 && has_buffer {
-                let (has_pending_fsm, is_latin) = {
+                let (has_pending_fsm, is_latin, has_shape_buf) = {
                     let engine = self.engine.lock().unwrap();
-                    (engine.fsm.has_pending(), engine.is_latin_mode)
+                    (
+                        engine.fsm.has_pending(),
+                        engine.is_latin_mode,
+                        engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer(),
+                    )
                 };
-                if !has_pending_fsm && !is_latin {
+                if !has_pending_fsm && !is_latin && !has_shape_buf {
                     // 當已完成全部音節組字（無未決注音部件）時，空白鍵結算確認送出整句！
                     self.commit_current_composition(ctx)?;
                     return Ok(BOOL::from(true));
@@ -1642,6 +1644,22 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         return self.handle_add_user_word(ctx, start, end);
                     }
                 }
+                let ar30_passthrough = {
+                    let mut engine = self.engine.lock().unwrap();
+                    if engine.array30.has_buffer() {
+                        let resp = engine.process_key('\n');
+                        Some(resp.committed_chunk)
+                    } else {
+                        None
+                    }
+                };
+                if let Some(chunk) = ar30_passthrough {
+                    if !chunk.is_empty() {
+                        let c_chars: Vec<char> = chunk.chars().collect();
+                        let c_syls: Vec<Option<String>> = vec![None; c_chars.len()];
+                        self.splice_pending_chunk(&c_chars, &c_syls, &[]);
+                    }
+                }
                 self.commit_current_composition(ctx)?;
                 return Ok(BOOL::from(true));
             }
@@ -1670,6 +1688,15 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                             let _ = engine.cangjie.process_key_str("Shift+BackSpace");
                         } else {
                             let _ = engine.cangjie.process_key('\x08');
+                        }
+                        true
+                    } else if engine.array30.has_buffer() {
+                        if is_ctrl || is_shift {
+                            let _ = engine.array30.process_key_str("Shift+BackSpace");
+                            engine.composed_sentence.clear();
+                            engine.cursor_pos = 0;
+                        } else {
+                            let _ = engine.process_key('\x08');
                         }
                         true
                     } else if engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || engine.is_latin_mode || !engine.raw_ascii_buffer.is_empty() {
@@ -1770,7 +1797,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 let is_cand_sel_now = *self.candidate_selecting.lock().unwrap();
                 let has_engine_preedit = {
                     let engine = self.engine.lock().unwrap();
-                    engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || engine.cangjie.has_buffer() || engine.japanese.has_buffer()
+                    engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer()
                 };
                 let has_pending = !self.pending_compose.lock().unwrap().is_empty();
 
@@ -1784,7 +1811,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     self.hide_candidate_window();
                     self.sync_input_display(ctx)?;
                 } else if has_engine_preedit {
-                    // Level 3：清除引擎中的未決注音（保留已組的 pending 文字）
+                    // Level 3：清除引擎中的未決注音/字根（保留已組的 pending 文字）
                     self.engine.lock().unwrap().reset_buffer();
                     if has_pending {
                         self.sync_input_display(ctx)?;
@@ -1805,19 +1832,38 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 return Ok(BOOL::from(true));
             }
 
-            // 8. 許氏注音與標點符號輸入處理
+            // 8. 許氏注音、倉頡、行列 30 與標點符號輸入處理
             let char_opt = map_vk_to_char(vk, is_shift);
             if let Some(ch) = char_opt {
                 self.delete_selection_if_any();
                 let (is_punct, should_consolidate_before_digit) = {
                     let mut engine = self.engine.lock().unwrap();
-                    let punct = engine.symbols.get_char(ch).is_some();
+                    let is_ar30 = matches!(engine.keyboard_mode.as_str(), "array30" | "ar30");
+                    let is_ar30_key = is_ar30 && (matches!(ch, ',' | '.' | ';' | '/') || (engine.array30.has_buffer() && matches!(ch, '?' | '*' | '_' | '-')));
+                    let is_standard_bpm_punct = matches!(engine.keyboard_mode.as_str(), "standard" | "daikien")
+                        && matches!(ch, ',' | '.' | ';' | '/' | '-');
+                    let punct = !is_ar30_key && !is_standard_bpm_punct && engine.symbols.get_char(ch).is_some();
+                    let raw_lower = engine.raw_ascii_buffer.to_ascii_lowercase();
+                    let is_en_punct_token = engine.enable_mixed_english
+                        && engine.mixed_english_mode != "disabled"
+                        && (engine.is_latin_mode
+                            || (!engine.has_any_compound_word()
+                                && engine.raw_ascii_buffer.len() >= 3
+                                && engine.western.lexicon.contains(&raw_lower)));
+                    let punct_consolidate = punct
+                        && !is_en_punct_token
+                        && !engine.is_latin_mode
+                        && !engine.cangjie.has_buffer()
+                        && !engine.array30.has_buffer()
+                        && !engine.japanese.has_buffer()
+                        && engine.fsm.has_pending();
                     let digit_consolidate = ch.is_ascii_digit()
                         && !engine.is_latin_mode
                         && !engine.cangjie.has_buffer()
+                        && !engine.array30.has_buffer()
                         && !engine.japanese.has_buffer()
                         && (!engine.fsm.syllables.is_empty() || engine.fsm.has_pending());
-                    if digit_consolidate && engine.fsm.has_pending() {
+                    if (punct_consolidate || digit_consolidate) && engine.fsm.has_pending() {
                         engine.fsm.commit_current('1');
                         engine.update_sentence_composition();
                     }
@@ -1865,6 +1911,11 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                             self.hide_candidate_window();
                         }
                     } else if action.starts_with("commit") {
+                        if !committed_chunk.is_empty() {
+                            if let Ok(mut eng) = self.engine.lock() {
+                                eng.record_committed(&committed_chunk);
+                            }
+                        }
                         let c_chars: Vec<char> = committed_chunk.chars().collect();
                         let c_syls: Vec<Option<String>> = vec![None; c_chars.len()];
                         self.splice_pending_chunk(&c_chars, &c_syls, &[]);
@@ -2240,6 +2291,8 @@ impl RuhiTextService_Impl {
                 engine.japanese.raw_romaji.clone()
             } else if !engine.cangjie.buffer.is_empty() {
                 engine.cangjie.buffer.clone()
+            } else if !engine.array30.buffer.is_empty() {
+                engine.array30.buffer.clone()
             } else {
                 engine.raw_ascii_buffer.clone()
             };
@@ -2702,6 +2755,26 @@ impl RuhiTextService_Impl {
             }
         }
 
+        // 0.5 行列 30 模式 (`array30`)：若游標位於剛組出的單字上，優先提供同碼重碼字，再補充同音字
+        if matches!(engine.keyboard_mode.as_str(), "array30" | "ar30") && manual_range.is_none() {
+            if let Some((raw_start, raw_end, ref raw_ascii)) = *self.last_raw_ascii.lock().unwrap() {
+                if target_idx >= raw_start && target_idx < raw_end && raw_end <= chars.len() {
+                    let mut ar_cands = engine.array30.table.lookup_compose_candidates(raw_ascii, 20);
+                    let homo_cands = engine.lexicon.lookup_char_candidates_with_bpm(chars[target_idx], None);
+                    for hc in homo_cands {
+                        if !ar_cands.contains(&hc) {
+                            ar_cands.push(hc);
+                        }
+                    }
+                    let del_words = self.deleted_words.lock().unwrap();
+                    ar_cands.retain(|c| !del_words.contains(c));
+                    if !ar_cands.is_empty() {
+                        return (raw_start, (raw_start, raw_end), ar_cands);
+                    }
+                }
+            }
+        }
+
         if let Some((start, end)) = manual_range {
             // 使用者主動 Shift 選取區間：提供該多字詞或單字的同音詞/字，或歐文重音變體
             let target_word: String = chars[start..end].iter().collect();
@@ -3043,6 +3116,8 @@ impl RuhiTextService_Impl {
             if word.chars().count() >= 3 && !high_conf_en {
                 if kb_mode == "cangjie" {
                     cands.extend(engine.cangjie.table.lookup_phrase_headcode(&word, &engine.lexicon));
+                } else if matches!(kb_mode.as_str(), "array30" | "ar30") {
+                    cands.extend(engine.array30.table.lookup_phrase_headcode(&word, &engine.lexicon));
                 } else {
                     let RuhiEngine { ref lexicon, ref mut transitions, .. } = *engine;
                     cands.extend(lexicon.lookup_multi_char_headcode(
@@ -3062,6 +3137,8 @@ impl RuhiTextService_Impl {
                 if word.chars().count() >= 3 {
                     let extra_hc = if kb_mode == "cangjie" {
                         engine.cangjie.table.lookup_phrase_headcode(&word, &engine.lexicon)
+                    } else if matches!(kb_mode.as_str(), "array30" | "ar30") {
+                        engine.array30.table.lookup_phrase_headcode(&word, &engine.lexicon)
                     } else {
                         let RuhiEngine { ref lexicon, ref mut transitions, .. } = *engine;
                         lexicon.lookup_multi_char_headcode(
@@ -3083,7 +3160,7 @@ impl RuhiTextService_Impl {
         }
 
         // 3. 跨軌救援與多字詞頭碼展開（Cross-Track Rescue & Headcode Expansion）：
-        // 若使用者在許氏／大千／倉頡模式下輸入頭碼（如 jcdl 被組為「者ㄌ」）或誤打英文縮寫（如 tks），檢查其對應之 raw_ascii
+        // 若使用者在許氏／大千／倉頡／行列 30 模式下輸入頭碼（如 jcdl 被組為「者ㄌ」）或誤打英文縮寫（如 tks），檢查其對應之 raw_ascii
         let mut cross_track_cands: Option<(usize, usize, Vec<String>)> = None;
         if let Some((raw_start, raw_end, ref raw_ascii)) = *self.last_raw_ascii.lock().unwrap() {
             if target_idx >= raw_start && target_idx < raw_end && raw_end <= chars.len() {
@@ -3100,6 +3177,8 @@ impl RuhiTextService_Impl {
                 if clean_ascii.chars().count() >= 3 && !engine.western.has_high_confidence_rescue(&clean_ascii) {
                     let mut hc_cands = if kb_mode == "cangjie" {
                         engine.cangjie.table.lookup_phrase_headcode(&clean_ascii, &engine.lexicon)
+                    } else if matches!(kb_mode.as_str(), "array30" | "ar30") {
+                        engine.array30.table.lookup_phrase_headcode(&clean_ascii, &engine.lexicon)
                     } else {
                         let RuhiEngine { ref lexicon, ref mut transitions, .. } = *engine;
                         lexicon.lookup_multi_char_headcode(
@@ -3223,6 +3302,89 @@ impl RuhiTextService_Impl {
         }
     }
 
+    /// 候選字選取中（上下方向鍵／PageUp／PageDown）更新高亮與即時行列 30 反查教練提示
+    fn update_candidate_selection_ui(&self, new_idx: usize, cands: &[String]) {
+        let coach_hint = {
+            let engine = self.engine.lock().unwrap();
+            if (engine.enable_array30_coach || matches!(engine.keyboard_mode.as_str(), "array30" | "ar30")) && new_idx < cands.len() {
+                engine.format_array30_coach_for_text(&cands[new_idx])
+            } else {
+                String::new()
+            }
+        };
+        if let Ok(mut cw_guard) = self.candidate_window.lock() {
+            if let Some(cw) = cw_guard.as_mut() {
+                if !coach_hint.is_empty() {
+                    cw.set_selected_with_coach(new_idx, &coach_hint);
+                } else {
+                    cw.set_selected(new_idx);
+                }
+            }
+        }
+    }
+
+    /// 計算目前輸入狀態下的「許氏注音 ➔ 行列 30 即時反查教練提示」與行列 30 即時簡碼／符號預覽列
+    fn compute_coach_hint_and_preview(
+        &self,
+        full_text: &str,
+        cur_pos: usize,
+        is_cand_sel: bool,
+        cands: &[String],
+        sel_idx: usize,
+        sel_range: Option<(usize, usize)>,
+    ) -> (String, bool, Vec<String>) {
+        let engine = self.engine.lock().unwrap();
+        let is_ar30_mode = matches!(engine.keyboard_mode.as_str(), "array30" | "ar30");
+
+        // 1. 行列 30 正在拆碼中：回傳即時 10 格一二級簡碼／符號／萬用字元預覽列與拆碼提示
+        if is_ar30_mode && engine.array30.has_buffer() {
+            let live_cands = engine.array30.candidates.clone();
+            let is_live_preview = !is_cand_sel && !live_cands.is_empty();
+            let hint = engine.get_array30_coach_hint();
+            let display_cands = if is_cand_sel { cands.to_vec() } else { live_cands };
+            return (hint, is_live_preview, display_cands);
+        }
+
+        if !engine.enable_array30_coach && !is_ar30_mode {
+            return (String::new(), false, cands.to_vec());
+        }
+
+        // 2. 若正在開啟候選窗選字，優先顯示當前高亮候選詞／字之行列 30 筆形座標與拆碼
+        if is_cand_sel && sel_idx < cands.len() {
+            let hint = engine.format_array30_coach_for_text(&cands[sel_idx]);
+            return (hint, false, cands.to_vec());
+        }
+
+        // 3. 若有 Shift+方向鍵選取範圍，優先顯示選取範圍之行列 30 拆碼
+        let chars: Vec<char> = full_text.chars().collect();
+        if let Some((start, end)) = sel_range {
+            if start < end && end <= chars.len() {
+                let slice: String = chars[start..end].iter().collect();
+                let hint = engine.format_array30_coach_for_text(&slice);
+                if !hint.is_empty() {
+                    return (hint, false, cands.to_vec());
+                }
+            }
+        }
+
+        // 4. 一般許氏注音／長句輸入中：顯示游標鄰近（最多 4 個漢字）之行列 30 筆形座標與按鍵拆碼
+        if !chars.is_empty() {
+            let window_str: String = if chars.len() <= 4 {
+                full_text.to_string()
+            } else {
+                let end_pos = cur_pos.min(chars.len()).max(1);
+                let start_pos = end_pos.saturating_sub(4);
+                chars[start_pos..end_pos].iter().collect()
+            };
+            let hint = engine.format_array30_coach_for_text(&window_str);
+            if !hint.is_empty() {
+                return (hint, false, cands.to_vec());
+            }
+        }
+
+        (engine.get_array30_coach_hint(), false, cands.to_vec())
+    }
+
     /// 刪除選取範圍（移植自沙盒 _delete_selection）
     /// 回傳 true 表示有選取且已刪除，false 表示無選取
     fn delete_selection_if_any(&self) -> bool {
@@ -3294,6 +3456,7 @@ impl RuhiTextService_Impl {
                             eng.enable_mixed_english = new_cfg.enable_mixed_english;
                             eng.mixed_english_mode = new_cfg.mixed_english_mode.clone();
                             eng.mixed_english_min_len = new_cfg.mixed_english_min_len;
+                            eng.enable_array30_coach = new_cfg.enable_array30_coach;
                         }
                         if let Ok(mut cw_guard) = self.candidate_window.lock() {
                             if let Some(cw) = cw_guard.as_mut() {
@@ -3351,7 +3514,7 @@ impl RuhiTextService_Impl {
         let has_buffer = {
             let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
             let engine = self.engine.lock().unwrap();
-            pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || engine.cangjie.has_buffer() || engine.japanese.has_buffer()
+            pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer()
         };
 
         if !has_buffer {
@@ -3389,20 +3552,25 @@ impl RuhiTextService_Impl {
             let engine = self.engine.lock().unwrap();
             if engine.fsm.has_pending() {
                 format!("{}{}{}", engine.fsm.cur_initial, engine.fsm.cur_medial, engine.fsm.cur_final)
+            } else if engine.array30.has_buffer() {
+                engine.array30.make_preedit()
             } else {
                 String::new()
             }
         };
 
         let sel_range = self.get_manual_selection_range();
+        let (coach_hint, is_ar30_live_preview, display_cands) =
+            self.compute_coach_hint_and_preview(&full_text, cur_pos, is_cand_sel, &cands, sel_idx, sel_range);
 
         if input_mode == "inline_underline" {
             self.update_tsf_composition(ctx, &full_text, cur_pos, sel_range, false)?;
             if let Ok(mut cw_guard) = self.candidate_window.lock() {
                 if let Some(cw) = cw_guard.as_mut() {
-                    if is_cand_sel && !cands.is_empty() {
+                    cw.set_coach_hint(&coach_hint, is_ar30_live_preview);
+                    if (is_cand_sel || is_ar30_live_preview) && !display_cands.is_empty() {
                         let (cx, cy) = Self::get_caret_screen_pos();
-                        cw.show_candidates_only(&cands, sel_idx, cx, cy);
+                        cw.show_candidates_only(&display_cands, sel_idx, cx, cy);
                     } else if let Some(sel_pair) = sel_range {
                         let (cx, cy) = Self::get_caret_screen_pos();
                         let is_caps_on = unsafe { (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0 };
@@ -3411,7 +3579,7 @@ impl RuhiTextService_Impl {
                             &full_text,
                             cur_pos,
                             &pending_syl,
-                            &cands,
+                            &display_cands,
                             sel_idx,
                             is_cand_sel,
                             target_idx,
@@ -3421,6 +3589,9 @@ impl RuhiTextService_Impl {
                             cx,
                             cy,
                         );
+                    } else if !coach_hint.is_empty() {
+                        let (cx, cy) = Self::get_caret_screen_pos();
+                        cw.show_candidates_only(&[], 0, cx, cy);
                     } else {
                         cw.hide();
                     }
@@ -3451,7 +3622,8 @@ impl RuhiTextService_Impl {
 
             if let Ok(mut cw_guard) = self.candidate_window.lock() {
                 if let Some(cw) = cw_guard.as_mut() {
-                    cw.show_desk(&full_text, cur_pos, &pending_syl, &cands, sel_idx, is_cand_sel, target_idx, target_range, sel_range_pair, is_caps_on, cx, cy);
+                    cw.set_coach_hint(&coach_hint, is_ar30_live_preview);
+                    cw.show_desk(&full_text, cur_pos, &pending_syl, &display_cands, sel_idx, is_cand_sel, target_idx, target_range, sel_range_pair, is_caps_on, cx, cy);
                 }
             }
         }

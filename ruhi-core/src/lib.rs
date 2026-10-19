@@ -7,6 +7,7 @@ pub mod router;
 pub mod templates;
 pub mod symbols;
 pub mod cangjie;
+pub mod array30;
 pub mod japanese;
 pub mod western;
 pub mod engine;
@@ -14,6 +15,7 @@ pub mod engine;
 pub use engine::{EngineResponse, RuhiEngine};
 pub use symbols::SymbolsManager;
 pub use cangjie::CangjieEngine;
+pub use array30::Array30Engine;
 pub use japanese::JapaneseEngine;
 pub use western::WesternEngine;
 
@@ -121,6 +123,26 @@ pub extern "C" fn ruhi_engine_load_cangjie_tsv(engine: *mut RuhiEngine, path_cst
         if let Ok(path_str) = c_str.to_str() {
             let p = std::path::Path::new(path_str);
             match engine_ref.cangjie.table.load_tsv(p) {
+                Ok(count) => count as i32,
+                Err(_) => -2,
+            }
+        } else {
+            -3
+        }
+    })).unwrap_or(-99)
+}
+
+#[no_mangle]
+pub extern "C" fn ruhi_engine_load_array30_tsv(engine: *mut RuhiEngine, path_cstr: *const c_char) -> i32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if engine.is_null() || path_cstr.is_null() {
+            return -1;
+        }
+        let engine_ref = unsafe { &mut *engine };
+        let c_str = unsafe { CStr::from_ptr(path_cstr) };
+        if let Ok(path_str) = c_str.to_str() {
+            let p = std::path::Path::new(path_str);
+            match engine_ref.array30.table.load_tsv(p) {
                 Ok(count) => count as i32,
                 Err(_) => -2,
             }

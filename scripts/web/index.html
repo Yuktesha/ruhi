@@ -798,6 +798,7 @@
 
         <div class="row-sentence" style="margin-top: 4px;">
           <span class="char-element" style="font-size: 0.85rem; color: var(--text-muted);">快速填入測試案例：</span>
+          <button class="btn-pill" onclick="fillExample('兜完攻了。', '都完工了。')">兜完攻了 ➔ 都完工了 (完成態構式)</button>
           <button class="btn-pill" onclick="fillExample('或許微軟新注音模噬臍時才是相容性最好的選擇', '或許微軟新注音模式其實才是相容性最好的選擇')">模噬臍時 ➔ 模式其實</button>
           <button class="btn-pill" onclick="fillExample('如喜固定輸入座最大的好處是可以固定輸入行的文字大小，不過載標點符號之前如果太長，就會有卡頓現象。', '如喜固定輸入座最大的好處是可以固定輸入行的文字大小，不過在標點符號之前如果太長，就會有卡頓現象。')">不過載 ➔ 不過在 (過載交錯劫掠)</button>
           <button class="btn-pill" onclick="fillExample('讓步董程式開發的使用者們', '讓不懂程式開發的使用者們')">讓步董 ➔ 讓不懂</button>
@@ -2255,22 +2256,38 @@
         });
         const data = await res.json();
 
-        // 呈現差分
+        // 呈現差分、六大語病分類與跨界假詞劫掠警報
         const diffBox = document.getElementById('diffPreview');
         diffBox.innerHTML = `
-          <div class="row-sentence" style="margin-bottom: 8px;">
-            <span class="char-element" style="color: var(--accent-cyan); font-weight: 600;">📊 雙向詞網對齊總覽（共 ${activePairs.length} 組對照句）：</span>
+          <div class="row-sentence" style="margin-bottom: 8px; justify-content: space-between;">
+            <span class="char-element" style="color: var(--accent-cyan); font-weight: 700;">📊 1. 雙向詞網對齊、六大病灶分類與跨界劫掠檢測（共 ${activePairs.length} 組對照句 / ${(data.diffs || []).length} 處語意孤島）：</span>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; flex-direction: column; gap: 10px;">
             ${(data.diffs || []).map((d, i) => `
-              <div class="row-sentence" style="background: rgba(255, 255, 255, 0.03); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08); justify-content: space-between;">
-                <span class="word-group">
-                  <span class="tag-rejected">${d.rejected || '（空）'}</span>
-                  <span>➔</span>
-                  <span class="tag-accepted">${d.accepted || '（空）'}</span>
-                  ${d.accepted_tokens && d.accepted_tokens.length > 1 ? `<span style="font-size: 0.78rem; color: var(--accent-cyan); font-weight: 600;">[詞網: ${d.accepted_tokens.join(' + ')}]</span>` : ''}
-                </span>
-                <span style="font-size: 0.8rem; color: var(--text-muted);">(前驅: ${d.prev_ctx || '無'}, 後繼: ${d.next_ctx || '無'})</span>
+              <div style="background: rgba(255, 255, 255, 0.03); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.09); display: flex; flex-direction: column; gap: 6px;">
+                <div class="row-sentence" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                  <span class="word-group" style="flex-wrap: wrap;">
+                    <span class="tag-rejected">${escapeHtml(d.rejected || '（空）')}</span>
+                    <span>➔</span>
+                    <span class="tag-accepted">${escapeHtml(d.accepted || '（空）')}</span>
+                    ${d.bopomofo ? `<span style="font-size: 0.76rem; color: var(--text-muted);">(${escapeHtml(d.bopomofo)})</span>` : ''}
+                    ${d.accepted_tokens && d.accepted_tokens.length > 1 ? `<span style="font-size: 0.78rem; color: var(--accent-cyan); font-weight: 600; background: rgba(56, 189, 248, 0.12); padding: 2px 8px; border-radius: 4px;">[詞網切分: ${d.accepted_tokens.map(escapeHtml).join(' + ')}]</span>` : ''}
+                  </span>
+                  <span style="font-size: 0.8rem; color: var(--text-muted);">
+                    (前驅: <strong style="color: #fff;">${escapeHtml(d.prev_ctx || d.prev_ascii || d.prev_num || '句首/標點')}</strong>, 後繼: <strong style="color: #fff;">${escapeHtml(d.next_ctx || d.next_ascii || d.next_num || '句尾/標點')}</strong>)
+                  </span>
+                </div>
+                ${d.error_taxonomy ? `
+                  <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.8rem;">
+                    <span style="background: rgba(192, 132, 252, 0.16); color: var(--accent-purple); padding: 2px 8px; border-radius: 4px; font-weight: 600;">🔬 ${escapeHtml(d.error_taxonomy)}</span>
+                    ${d.layer_strategy ? `<span style="color: var(--text-muted);">🛠️ 解法架構：${escapeHtml(d.layer_strategy)}</span>` : ''}
+                  </div>
+                ` : ''}
+                ${d.overlapping_hijack && d.overlapping_hijack.mechanism ? `
+                  <div style="background: rgba(248, 113, 113, 0.1); border-left: 3px solid var(--accent-red); padding: 6px 10px; border-radius: 4px; font-size: 0.8rem; color: #fca5a5;">
+                    <strong>🚨 跨詞界交錯假詞劫掠警報：</strong>${escapeHtml(d.overlapping_hijack.mechanism)}
+                  </div>
+                ` : ''}
               </div>
             `).join('')}
           </div>
@@ -2281,42 +2298,140 @@
           `).join('')}
         `;
 
-        // 呈現提煉規則
+        // 呈現四層計算語言學資產（舉一反三全詞庫同構掃描 + Layer 1 階層槽位構式 + Layer 3 複合專名 + Layer 2 二階轉移）
         const rulesList = document.getElementById('rulesList');
-        if (!data.rules || data.rules.length === 0) {
-          rulesList.innerHTML = `
+        const analogicalFamilies = data.analogical_families || [];
+        const augmentedRules = data.augmented_rules || [];
+        const createdRules = data.created_rules || [];
+        const constructions = data.constructions || [];
+        const addedWords = data.added_words || [];
+        const rules = data.rules || [];
+
+        let multiLayerHtml = '';
+
+        // 舉一反三：全詞庫同構掃描與既有規則補充／新規則創建報告
+        if (analogicalFamilies.length > 0 || augmentedRules.length > 0 || createdRules.length > 0) {
+          multiLayerHtml += `
+            <div style="margin-top: 8px; padding: 12px 14px; border-radius: 8px; background: rgba(251, 191, 36, 0.07); border: 1px solid rgba(251, 191, 36, 0.35); display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 0.92rem; font-weight: 700; color: var(--accent-yellow); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                <span>🔄 舉一反三 · 全詞庫同構掃描與規則庫維護（共掃描 ${analogicalFamilies.length} 大同構詞族 / 擴充既有規則 ${data.patterns_updated_count || augmentedRules.length} 條 / 創建新規則 ${data.patterns_created_count || createdRules.length} 條）：</span>
+                <span style="font-size: 0.75rem; background: rgba(251, 191, 36, 0.2); padding: 2px 8px; border-radius: 9999px;">找出病根 · 掃描同類 · 補充與創建規則</span>
+              </div>
+              ${augmentedRules.length > 0 ? `
+                <div style="background: rgba(74, 222, 128, 0.08); border-left: 3px solid var(--accent-green); padding: 8px 12px; border-radius: 6px; font-size: 0.82rem; color: var(--accent-green);">
+                  <strong>🔧 已自動補充 patterns_user.jsonl 既有語意規則：</strong>
+                  ${augmentedRules.map(ar => `【${escapeHtml(ar.name || ar.pattern_id)}】新增槽位成員：<code>${(ar.added_members || []).map(escapeHtml).join('、')}</code>`).join(' ； ')}
+                </div>
+              ` : ''}
+              ${analogicalFamilies.map(fam => `
+                <div style="background: rgba(0, 0, 0, 0.25); padding: 10px 12px; border-radius: 6px; border-left: 3px solid var(--accent-yellow); display: flex; flex-direction: column; gap: 4px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                    <span style="font-weight: 600; color: #fff; font-size: 0.88rem;">🔍 ${escapeHtml(fam.family_name || '')}</span>
+                    <span style="font-size: 0.76rem; color: var(--accent-yellow);">觸發來源：${escapeHtml(fam.trigger || '')}</span>
+                  </div>
+                  <div style="font-size: 0.82rem; color: var(--text-main);"><strong>【結構病根】：</strong>${escapeHtml(fam.vulnerability_mechanism || '')}</div>
+                  ${fam.scanned_siblings && fam.scanned_siblings.length > 0 ? `
+                    <div style="font-size: 0.8rem; color: var(--accent-cyan);">
+                      <strong>【全詞庫掃描納管之同構詞族】：</strong><code>${fam.scanned_siblings.map(escapeHtml).join('、')}</code>
+                    </div>
+                  ` : ''}
+                  <div style="font-size: 0.8rem; color: var(--accent-green);"><strong>【規則補充與創建】：</strong>${escapeHtml(fam.action || '')}</div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+
+        // Layer 1: 階層式集合槽位構式 (patterns_user.jsonl)
+        if (constructions.length > 0) {
+          multiLayerHtml += `
+            <div style="margin-top: 8px; padding: 12px 14px; border-radius: 8px; background: rgba(168, 85, 247, 0.07); border: 1px solid rgba(168, 85, 247, 0.3); display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 0.92rem; font-weight: 700; color: var(--accent-purple); display: flex; justify-content: space-between; align-items: center;">
+                <span>🧬 2. Layer 1 階層式集合槽位構式（共 ${constructions.length} 組，已同步寫入 patterns_user.jsonl）：</span>
+                <span style="font-size: 0.75rem; background: rgba(168, 85, 247, 0.2); padding: 2px 8px; border-radius: 9999px;">一處調校 · 同類構式全面免疫</span>
+              </div>
+              ${constructions.map(c => `
+                <div style="background: rgba(0, 0, 0, 0.25); padding: 10px 12px; border-radius: 6px; border-left: 3px solid var(--accent-purple); display: flex; flex-direction: column; gap: 4px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                    <span style="font-weight: 600; color: #fff; font-size: 0.88rem;">${escapeHtml(c.name || c.pattern_id || '階層槽位構式')}</span>
+                    <span class="badge-score badge-pos">+${c.bonus || 30} 構式加成</span>
+                  </div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.83rem; color: var(--accent-cyan); background: rgba(56, 189, 248, 0.08); padding: 6px 10px; border-radius: 4px;">
+                    ${escapeHtml(c.formula || '')}
+                  </div>
+                  ${c.suppress && c.suppress.length > 0 ? `
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">
+                      🛡️ 槽位抑制假詞與同音干擾：<code style="color: var(--accent-red);">${c.suppress.map(escapeHtml).join('、')}</code>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+
+        // Layer 3: 複合實詞與專名拆解入庫 (lexicon_domain.tsv)
+        if (addedWords.length > 0) {
+          multiLayerHtml += `
+            <div style="margin-top: 8px; padding: 12px 14px; border-radius: 8px; background: rgba(56, 189, 248, 0.07); border: 1px solid rgba(56, 189, 248, 0.3); display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 0.92rem; font-weight: 700; color: var(--accent-cyan); display: flex; justify-content: space-between; align-items: center;">
+                <span>🏷️ 3. Layer 3 複合實詞與專名自動拆解入庫（共 ${addedWords.length} 詞，已同步寫入 lexicon_domain.tsv）：</span>
+                <span style="font-size: 0.75rem; background: rgba(56, 189, 248, 0.2); padding: 2px 8px; border-radius: 9999px;">防止長詞碎裂與假詞跨界</span>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                ${addedWords.map(w => `
+                  <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 6px; padding: 6px 10px; display: flex; flex-direction: column; gap: 2px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <strong style="color: #fff; font-size: 0.9rem;">${escapeHtml(w.word || w)}</strong>
+                      ${w.bopomofo ? `<span style="font-size: 0.75rem; color: var(--accent-cyan);">[${escapeHtml(w.bopomofo)}]</span>` : ''}
+                      <span style="font-size: 0.72rem; color: var(--accent-green); background: rgba(74, 222, 128, 0.12); padding: 1px 6px; border-radius: 4px;">權重 ${w.weight || 1550}</span>
+                    </div>
+                    ${w.reason ? `<div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(w.reason)}</div>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+
+        // Layer 2: 二階正向語法轉移規則 (transitions_user.tsv)
+        if (rules.length === 0 && constructions.length === 0 && addedWords.length === 0) {
+          multiLayerHtml += `
             <div style="padding: 12px; border-radius: 6px; background: rgba(255, 255, 255, 0.03); color: var(--text-muted); font-size: 0.88rem; text-align: center;">
               🛡️ 本次未注入任何新規則（觸發標準詞保護，或已存在於知識庫中，防止全域過度擬合）。
             </div>
           `;
-        } else {
-          rulesList.innerHTML = `
-            <div style="font-size: 0.9rem; font-weight: 600; color: #fff; margin-top: 6px;">
-              ⚡ 批次提煉並注入之二階正向引力規則（共 ${data.rules.length} 條，已去重）：
+        } else if (rules.length > 0) {
+          multiLayerHtml += `
+            <div style="font-size: 0.92rem; font-weight: 700; color: var(--accent-green); margin-top: 8px;">
+              ⚡ 4. Layer 2 批次提煉並注入之二階正向語境引力場（共 ${rules.length} 條，已寫入 transitions_user.tsv）：
             </div>
-            ${data.rules.map(r => `
+            ${rules.map(r => `
               <div class="rule-item">
                 <div class="word-group">
-                  <span class="char-element" style="font-weight: 600; color: #fff;">${r.prev}</span>
+                  <span class="char-element" style="font-weight: 600; color: #fff;">${escapeHtml(r.prev)}</span>
                   <span class="char-element" style="color: var(--accent-cyan);">➔</span>
-                  <span class="char-element" style="font-weight: 600; color: var(--accent-green);">${r.next}</span>
+                  <span class="char-element" style="font-weight: 600; color: var(--accent-green);">${escapeHtml(r.next)}</span>
+                  ${r.kind === 'construction' ? `<span style="font-size: 0.72rem; background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); padding: 1px 6px; border-radius: 4px;">構式骨幹</span>` : ''}
                 </div>
                 <div class="word-group">
                   <span class="badge-score ${r.score > 0 ? 'badge-pos' : 'badge-neg'}">${r.score > 0 ? '+' : ''}${r.score}</span>
-                  <span class="char-element" style="font-size: 0.8rem; color: var(--text-muted);">${r.comment}</span>
+                  <span class="char-element" style="font-size: 0.8rem; color: var(--text-muted);">${escapeHtml(r.comment || '')}</span>
                 </div>
               </div>
             `).join('')}
           `;
         }
 
+        rulesList.innerHTML = multiLayerHtml;
+
         document.getElementById('tuneResultCard').style.display = 'flex';
         // 批次自動呼叫 AI 深度句法診斷！
         runAiDiagnosis();
-        if (data.added_count > 0) {
-          showToast(`✅ 批次調校成功：已套用 ${data.added_count} 條二階轉移規則！`);
+        if ((data.added_count || 0) > 0 || (data.patterns_added_count || 0) > 0 || (data.words_added_count || 0) > 0) {
+          showToast(`✅ 多層次調校完成：新增 ${data.patterns_added_count || 0} 組構式、${data.words_added_count || 0} 個專名複合詞、${data.added_count || 0} 條二階轉移！`);
         } else {
-          showToast(`🛡️ 批次分析完成：已啟動詞典安全防護，零污染！`);
+          showToast(`🛡️ 多層次分析完成：知識庫已涵蓋所有構式、專名與二階轉移！`);
         }
       } catch (e) {
         alert('連線失敗：' + e);

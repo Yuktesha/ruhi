@@ -89,6 +89,26 @@ def calc_weight(word, count=None):
     log_ratio = math.log(count + 1) / math.log(max_freq + 1)
     return min(max_weight, max(min_weight, int(log_ratio * 900 + 100)))
 
+# === 4.5 載入台灣教育部萌典基準 (lexicon_moe.tsv) 作為正音與破音主次排序權威 ===
+MOE_PATH = os.path.join(BASE, "ruhi_lexicon", "data", "lexicon_moe.tsv")
+moe_chars = {}
+if os.path.exists(MOE_PATH):
+    with open(MOE_PATH, "r", encoding="utf-8") as mf:
+        for line in mf:
+            if not line.strip() or line.startswith("#") or line.startswith("WORD\t"):
+                continue
+            parts = line.rstrip("\r\n").split("\t")
+            if len(parts) >= 3 and parts[2].lstrip("-").isdigit():
+                mw, mbpm, mwt = parts[0], parts[1].strip(), int(parts[2])
+                if mbpm.endswith("˙"):
+                    mbpm = "˙" + mbpm[:-1]
+                if len(mw) == 1:
+                    moe_chars.setdefault(mw, {})[mbpm] = max(mwt, moe_chars.get(mw, {}).get(mbpm, 0))
+
+def norm_neutral(bpm):
+    bpm = bpm.strip()
+    return ("˙" + bpm[:-1]) if bpm.endswith("˙") else bpm
+
 # === 5. 輸出 TSV ===
 print(f"輸出至 {OUTPUT} ...")
 os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
@@ -102,27 +122,42 @@ with open(OUTPUT, "w", encoding="utf-8", newline="\n") as out:
     for word, bpmf_list in mappings.items():
         occ = freq.get(word, 0)
         w = calc_weight(word, occ)
-        # 多音字：第一個讀音權重最高，後續遞減
         for i, bpmf in enumerate(bpmf_list):
             key = f"{word}\t{bpmf}"
             if key in seen:
                 continue
             seen.add(key)
-            adj_w = max(1, w - i * 50)  # 後續讀音降權
+            adj_w = max(1, w - i * 50)
             note = f"occ={occ}" if occ > 0 else ""
             out.write(f"{word}\t{bpmf}\t{adj_w}\tmcbpmf\t{note}\n")
             total += 1
 
-    # 5b. 單字 (補充未在多字詞中出現的)
+    # 5b. 單字：以教育部 lexicon_moe.tsv 過濾非標準異讀，並依 MOE 主次讀音高低決定權重與上限
     for char, bpmf_list in single_chars.items():
         occ = freq.get(char, 0)
         w = calc_weight(char, occ)
-        for i, bpmf in enumerate(bpmf_list):
+        moe_d = moe_chars.get(char)
+        if moe_d:
+            valid_bpmfs = [
+                b for b in bpmf_list
+                if norm_neutral(b) in moe_d or (char, b) in (("麼", "ㄇㄛ˙"), ("兒", "ㄦ"))
+            ]
+            valid_bpmfs.sort(key=lambda b: moe_d.get(norm_neutral(b), 300), reverse=True)
+            max_moe = max(moe_d.values())
+        else:
+            valid_bpmfs = bpmf_list
+            max_moe = 0
+
+        for i, bpmf in enumerate(valid_bpmfs):
             key = f"{char}\t{bpmf}"
             if key in seen:
                 continue
             seen.add(key)
             adj_w = max(1, w - i * 30)
+            if moe_d:
+                moe_wt = moe_d.get(norm_neutral(bpmf), adj_w)
+                if moe_wt <= 285 and max_moe >= 640 and adj_w > moe_wt:
+                    adj_w = moe_wt
             note = f"occ={occ}" if occ > 0 else "base"
             out.write(f"{char}\t{bpmf}\t{adj_w}\tmcbpmf_char\t{note}\n")
             total += 1

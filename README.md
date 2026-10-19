@@ -1,14 +1,14 @@
 <div align="center">
 
 # 🌸 如喜（RuhI）通用智慧型輸入法
-### Universal Smart Input Method Substrate — Written in Pure Rust
+### Responsive Universal Human Input — Written in 100% Pure Rust
 
-> **「通天達地，行雲流水，心手合一。」**  
-> 如喜（RuhI）是一款面向現代 Windows 11、完全採用純 Rust 打造的次世代原生 TSF COM 輸入法底座。
+> **「如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。」**  
+> **RuhI**（**R**esponsive **U**niversal **H**uman **I**nput，梵語字根 *Ruh / Rūhi* 意為「萌芽、生長、向上攀升」），是一款面向 Windows 10/11 與 Linux、完全採用純 Rust 打造的次世代自適應通用人本輸入法與語意調校系統。
 
 [![Version](https://img.shields.io/badge/version-v0.2.0-purple.svg)]()
 [![Rust](https://img.shields.io/badge/language-Rust%202021-orange.svg)](https://www.rust-lang.org/)
-[![Platform](https://img.shields.io/badge/platform-Windows%2011%20%7C%2010%20(64--bit)-blue.svg)]()
+[![Platform](https://img.shields.io/badge/platform-Windows%2011%2F10%20%7C%20Linux%20(Fcitx5)-blue.svg)]()
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-92%20passed-brightgreen.svg)]()
 
@@ -63,11 +63,11 @@ flowchart TD
         Western["西文與程式碼 Identifier 判別器"]
     end
 
-    subgraph LexiconSubsystem["詞庫子系統 (ruhi_lexicon)"]
-        MOE["教育部國語辭典標準資料 (lexicon_moe.tsv)"]
-        McB["小麥注音長詞與詞頻資料 (lexicon_mcbopomofo.tsv)"]
+    subgraph LexiconSubsystem["如喜單一真實來源詞庫子系統 (ruhi_lexicon)"]
+        CoreLex["如喜統合核心詞庫<br/>(消化自小麥注音實證詞頻與教育部辭典詞條)"]
+        DomainLex["領域與高頻構式複合詞庫 (lexicon_domain.tsv)"]
         CJ["倉頡五代字根碼表 (cangjie.tsv)"]
-        Transitions["語意轉移引力表 (transitions_user.tsv)"]
+        Transitions["語意轉移與槽位構式表 (transitions_user.tsv / patterns_user.jsonl)"]
     end
 
     COM <--> CoreEngine
@@ -141,7 +141,10 @@ cd ..
 
 ---
 
-## 📜 開源授權與鳴謝 (License & Acknowledgements)
+## 📜 開源授權、詞庫統合與來源鳴謝 (License, Unified Lexicon & Acknowledgements)
 
 * 本專案本體程式碼以 [Apache License 2.0](LICENSE) 條款開源發布。
-* 詞庫與資料集整合了 **小麥注音 (McBopomofo)**（MIT License）及 **中華民國教育部公開語文資料集**（OGDL 1.0），詳見 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)。
+* **如喜單一真實來源詞庫（Single Source of Truth）**：如喜已將多源開源語料徹底清洗、正音並消化為內部統一權重尺度的自有詞庫，不再於執行期讓不同來源之合成權重與實證語料頻率相互衝突。
+* **上游語料來源致謝与授權聲明**：
+  * **OpenVanilla / 小麥注音 (McBopomofo)**（[MIT License](https://github.com/openvanilla/McBopomofo)）：提供現代繁體中文常用詞彙與語料庫對數詞頻實證基底。
+  * **g0v 零時政府萌典 (Moedict) 與中華民國教育部《重編國語辭典修訂本》**（CC0 / CC BY-ND 3.0 TW / 政府資料開放授權條款 OGDL 1.0）：提供標準台灣正體字形、成語典故與審訂讀音參考，詳見 [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES)。
