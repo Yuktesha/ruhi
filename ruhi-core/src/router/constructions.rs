@@ -721,6 +721,50 @@ impl TransitionEngine {
             }
         }
 
+        // ── 構式十四(b)：「孝道」vs.「笑 + 到 + 飽」之論元選擇限制與詞法包攝消歧（如：「他因為恪守孝道飽受抨擊，根本被笑到飽」）──
+        let is_bao_subsumed_at = |boundary: usize| -> bool {
+            dag.get(&boundary)
+                .map(|ns| {
+                    ns.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "飽受" | "飽經" | "飽嘗" | "飽嚐" | "飽含" | "飽覽" | "飽讀"
+                        )
+                    })
+                })
+                .unwrap_or(false)
+        };
+        let has_left_normative_verb = prefix_words.iter().rev().take(3).any(|&w| {
+            matches!(
+                w,
+                "恪守" | "謹守" | "奉行" | "秉持" | "實踐" | "發揚" | "弘揚" | "講求" | "重視" | "違背" | "固守" | "盡"
+            )
+        });
+        let has_left_passive_marker = prefix_words.iter().rev().take(2).any(|&w| {
+            matches!(w, "被" | "讓人" | "被人" | "給人" | "害他" | "害我")
+        });
+
+        if curr_word == "孝道" {
+            let next_is_baoshou = is_bao_subsumed_at(end_idx);
+            let next_is_standalone_bao = !next_is_baoshou
+                && dag
+                    .get(&end_idx)
+                    .map(|ns| ns.iter().any(|m| m.word == "飽"))
+                    .unwrap_or(false);
+            if has_left_normative_verb || next_is_baoshou {
+                bonus += 42.0;
+            } else if has_left_passive_marker || next_is_standalone_bao {
+                bonus -= 45.0;
+            }
+        }
+        if curr_word == "笑" {
+            if has_left_normative_verb {
+                bonus -= 42.0;
+            } else if has_left_passive_marker {
+                bonus += 34.0;
+            }
+        }
+
         // ── 動態外掛三元槽位構式 (`patterns_user.jsonl` 中 slots.len() >= 3) ──
         for pat in &self.user_trigram_patterns {
             if !prev_word.is_empty()
@@ -730,10 +774,12 @@ impl TransitionEngine {
                     .excluded_pairs
                     .contains(&(prev_word.to_string(), curr_word.to_string()))
             {
-                let next_matches = dag
-                    .get(&end_idx)
-                    .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
-                    .unwrap_or(false);
+                let next_subsumed = pat.name == "v_dao_bao_satiation_3d_array" && is_bao_subsumed_at(end_idx);
+                let next_matches = !next_subsumed
+                    && dag
+                        .get(&end_idx)
+                        .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
+                        .unwrap_or(false);
                 if next_matches {
                     bonus += pat.bonus;
                 }
@@ -748,12 +794,18 @@ impl TransitionEngine {
                     .excluded_pairs
                     .contains(&(prev_word.to_string(), curr_word.to_string()))
             {
-                if pat.slot2.contains(curr_word) {
-                    bonus += pat.bonus;
-                } else if pat.name == "v_dao_bao_satiation_3d_array"
-                    && matches!(curr_word, "保" | "寶" | "堡" | "葆")
-                {
-                    bonus -= pat.bonus;
+                let curr_subsumed = pat.name == "v_dao_bao_satiation_3d_array"
+                    && curr_word == "飽"
+                    && end_idx >= 1
+                    && is_bao_subsumed_at(end_idx - 1);
+                if !curr_subsumed {
+                    if pat.slot2.contains(curr_word) {
+                        bonus += pat.bonus;
+                    } else if pat.name == "v_dao_bao_satiation_3d_array"
+                        && matches!(curr_word, "保" | "寶" | "堡" | "葆")
+                    {
+                        bonus -= pat.bonus;
+                    }
                 }
             }
             // 當 slot0 + slot1 在詞庫中已凝聚為雙字詞（如「笑到」、「看到」、「吃到」）時，與後繼 slot2（如「飽」）共同構成完整三元構式
@@ -762,10 +814,12 @@ impl TransitionEngine {
                 let c0 = chars.next().unwrap().to_string();
                 let c1 = chars.next().unwrap().to_string();
                 if pat.slot0.contains(&c0) && pat.slot1.contains(&c1) {
-                    let next_matches = dag
-                        .get(&end_idx)
-                        .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
-                        .unwrap_or(false);
+                    let next_subsumed = pat.name == "v_dao_bao_satiation_3d_array" && is_bao_subsumed_at(end_idx);
+                    let next_matches = !next_subsumed
+                        && dag
+                            .get(&end_idx)
+                            .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
+                            .unwrap_or(false);
                     if next_matches {
                         bonus += pat.bonus;
                     }
@@ -775,7 +829,11 @@ impl TransitionEngine {
                 let mut chars = prev_word.chars();
                 let p0 = chars.next().unwrap().to_string();
                 let p1 = chars.next().unwrap().to_string();
-                if pat.slot0.contains(&p0) && pat.slot1.contains(&p1) {
+                let curr_subsumed = pat.name == "v_dao_bao_satiation_3d_array"
+                    && curr_word == "飽"
+                    && end_idx >= 1
+                    && is_bao_subsumed_at(end_idx - 1);
+                if !curr_subsumed && pat.slot0.contains(&p0) && pat.slot1.contains(&p1) {
                     bonus += pat.bonus;
                 }
             }

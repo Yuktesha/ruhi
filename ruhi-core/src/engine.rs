@@ -6231,6 +6231,8 @@ mod tests {
             ("veddgdbwf", "騎得飽"),
             ("cewjdwjbwf", "笑到飽"),
             ("kgjcofcewjdwj", "恪守孝道"),
+            ("ty en xajkgjcofcewjdwjbwfcojpl jed,gn bnfbajcewjdwjbwf,jgjhideoftem lekdmys?", "他因為恪守孝道飽受抨擊，根本被笑到飽，這還有天良嗎？"),
+            ("ty en xadkgjcofcewjdwjbwfcojpl jed,gn bnfbajcewjdwjbwf,jgjhideoftem lekdmy ?", "他因為恪守孝道飽受抨擊，根本被笑到飽，這還有天良嗎？"),
             ("dxdbxjdxlf", "讀不懂"),
             ("dxdbxjvumdveod", "獨步全球"),
             ("vumdsxjam demf", "全素餐點"),

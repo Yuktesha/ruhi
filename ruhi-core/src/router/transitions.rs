@@ -4306,12 +4306,100 @@ impl TransitionEngine {
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vec![
-                "盡".to_string(), "恪守".to_string(), "發揚".to_string(), "弘揚".to_string(),
-                "講求".to_string(), "傳統".to_string(), "實踐".to_string(), "違背".to_string(),
+                "因為".to_string(), "由於".to_string(), "他".to_string(), "一向".to_string(),
+                "始終".to_string(), "堅持".to_string(), "嚴格".to_string(), "總是".to_string(),
             ]),
-            curr_pattern: WordPattern::Exact("孝道".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "恪守".to_string(), "謹守".to_string(), "奉行".to_string(), "秉持".to_string(), "固守".to_string(),
+            ]),
+            bonus: 34.0,
+            name: "causal_subject_normative_verb_keshou".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "盡".to_string(), "恪守".to_string(), "謹守".to_string(), "奉行".to_string(),
+                "秉持".to_string(), "發揚".to_string(), "弘揚".to_string(), "講求".to_string(),
+                "傳統".to_string(), "實踐".to_string(), "違背".to_string(), "固守".to_string(),
+            ]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "孝道".to_string(), "本分".to_string(), "原則".to_string(), "禮教".to_string(),
+                "規矩".to_string(), "道德".to_string(), "承諾".to_string(),
+            ]),
             bonus: 34.0,
             name: "bifurcation_verb_xiaodao_noun".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "孝道".to_string(), "原則".to_string(), "傳統".to_string(), "本分".to_string(),
+                "禮教".to_string(), "道德".to_string(),
+            ]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "飽受".to_string(), "備受".to_string(), "深受".to_string(), "遭受".to_string(), "蒙受".to_string(),
+            ]),
+            bonus: 34.0,
+            name: "ethics_noun_experiencer_verb_baoshou".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "飽受".to_string(), "備受".to_string(), "深受".to_string(), "遭受".to_string(),
+                "蒙受".to_string(), "飽經".to_string(), "飽嘗".to_string(),
+            ]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "抨擊".to_string(), "批評".to_string(), "折磨".to_string(), "煎熬".to_string(),
+                "委屈".to_string(), "苦難".to_string(), "質疑".to_string(), "責難".to_string(),
+                "非議".to_string(), "嘲笑".to_string(), "譏諷".to_string(), "壓力".to_string(), "爭議".to_string(),
+            ]),
+            bonus: 32.0,
+            name: "baoshou_adversity_noun_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "根本".to_string(), "簡直".to_string(), "完全".to_string(),
+            ]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "被".to_string(), "讓人".to_string(), "被人".to_string(),
+            ]),
+            bonus: 28.0,
+            name: "emphatic_adv_passive_bei".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "被".to_string(), "讓人".to_string(), "被人".to_string(), "給人".to_string(),
+            ]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "笑".to_string(), "罵".to_string(), "電".to_string(), "酸".to_string(),
+                "虧".to_string(), "嗆".to_string(), "虐".to_string(), "揍".to_string(), "打".to_string(),
+            ]),
+            bonus: 28.0,
+            name: "passive_bei_action_verb_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "被".to_string(), "讓人".to_string(), "被人".to_string(),
+            ]),
+            curr_pattern: WordPattern::Exact("孝道".to_string()),
+            bonus: -42.0,
+            name: "anti_passive_bei_xiaodao_noun".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "這".to_string(), "那".to_string(), "難道".to_string(), "到底".to_string(),
+            ]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "還有".to_string(), "有沒有".to_string(), "哪有".to_string(),
+            ]),
+            bonus: 28.0,
+            name: "rhetorical_dem_haiyou".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "還有".to_string(), "沒有".to_string(), "沒".to_string(), "喪盡".to_string(), "泯滅".to_string(),
+            ]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "天良".to_string(), "天理".to_string(), "良心".to_string(), "王法".to_string(), "人性".to_string(),
+            ]),
+            bonus: 32.0,
+            name: "haiyou_tianliang_conscience_noun".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("全速".to_string()),
