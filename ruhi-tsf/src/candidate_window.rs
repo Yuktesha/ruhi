@@ -575,6 +575,9 @@ pub fn save_desk_position(x: i32, y: i32) {
 }
 
 pub fn launch_settings() {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
     let paths = crate::service::RuhiPaths::resolve();
     let rust_candidates = [
         paths.sandbox_dir.join("ruhi-studio.exe"),
@@ -583,116 +586,55 @@ pub fn launch_settings() {
         paths.sandbox_dir.join("ruhi-studio").join("target").join("release").join("ruhi-studio.exe"),
         paths.sandbox_dir.parent().map(|p| p.join("ruhi-studio.exe")).unwrap_or_default(),
         paths.sandbox_dir.parent().map(|p| p.join("dist").join("ruhi-studio.exe")).unwrap_or_default(),
+        paths.sandbox_dir.parent().map(|p| p.join("ruhi-studio").join("target").join("release").join("ruhi-studio.exe")).unwrap_or_default(),
         std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\ruhi-studio.exe"),
         std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\dist\\ruhi-studio.exe"),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\ruhi-studio\\target\\release\\ruhi-studio.exe"),
     ];
 
     if let Some(rust_exe) = rust_candidates.iter().find(|p| p.exists() && p.is_file()).cloned() {
         logger::log(&format!("launch_settings: launching native Rust {:?}", rust_exe));
         let work_dir = rust_exe.parent().unwrap_or(&paths.sandbox_dir);
-        let dir_wide: Vec<u16> = work_dir.to_string_lossy().encode_utf16().chain(Some(0)).collect();
-        let exe_wide: Vec<u16> = rust_exe.to_string_lossy().encode_utf16().chain(Some(0)).collect();
-        unsafe {
-            let _ = ShellExecuteW(
-                None,
-                windows_core::w!("open"),
-                windows_core::PCWSTR(exe_wide.as_ptr()),
-                windows_core::PCWSTR::null(),
-                windows_core::PCWSTR(dir_wide.as_ptr()),
-                SW_SHOW,
-            );
-        }
+        let _ = std::process::Command::new(&rust_exe)
+            .current_dir(work_dir)
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn();
         return;
     }
 
-    let candidates = [
-        paths.sandbox_dir.join("settings_window.py"),
-        paths.sandbox_dir.join("scripts").join("settings_window.py"),
-        paths.sandbox_dir.parent().map(|p| p.join("dist").join("settings_window.py")).unwrap_or_default(),
-        paths.sandbox_dir.parent().map(|p| p.join("scripts").join("settings_window.py")).unwrap_or_default(),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\dist\\settings_window.py"),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\scripts\\settings_window.py"),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\settings_window.py"),
-    ];
-
-    let py_script = candidates.iter().find(|p| p.exists() && p.is_file()).cloned();
-    let script_path = match py_script {
-        Some(p) => p,
-        None => {
-            logger::log("launch_settings: ruhi-studio.exe / settings_window.py not found in any candidate path!");
-            return;
-        }
-    };
-    logger::log(&format!("launch_settings: launching {:?}", script_path));
-
-    let work_dir = script_path.parent().unwrap_or(&paths.sandbox_dir);
-    let dir_str: Vec<u16> = work_dir.to_string_lossy().encode_utf16().chain(Some(0)).collect();
-
-    let exe_path = if std::path::Path::new("C:\\Python\\pythonw.exe").exists() {
-        std::path::PathBuf::from("C:\\Python\\pythonw.exe")
-    } else if std::path::Path::new("C:\\Python\\python.exe").exists() {
-        std::path::PathBuf::from("C:\\Python\\python.exe")
-    } else {
-        std::path::PathBuf::from("pythonw.exe")
-    };
-    let args = format!("\"{}\"", script_path.to_string_lossy());
-
-    let exe_wide: Vec<u16> = exe_path.to_string_lossy().encode_utf16().chain(Some(0)).collect();
-    let args_wide: Vec<u16> = args.encode_utf16().chain(Some(0)).collect();
-
-    unsafe {
-        let _ = ShellExecuteW(
-            None,
-            windows_core::w!("open"),
-            windows_core::PCWSTR(exe_wide.as_ptr()),
-            windows_core::PCWSTR(args_wide.as_ptr()),
-            windows_core::PCWSTR(dir_str.as_ptr()),
-            SW_SHOW,
-        );
-    }
+    logger::log("launch_settings: ruhi-studio.exe not found in any candidate path!");
 }
 
 pub fn launch_semantic_tuner() {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
     let paths = crate::service::RuhiPaths::resolve();
-    let ps1_candidates = [
-        paths.sandbox_dir.join("scripts").join("語意除錯調校.ps1"),
-        paths.sandbox_dir.join("語意調校工作室.ps1"),
-        paths.sandbox_dir.join("語意除錯調校.ps1"),
-        paths.sandbox_dir.parent().map(|p| p.join("scripts").join("語意除錯調校.ps1")).unwrap_or_default(),
-        paths.sandbox_dir.parent().map(|p| p.join("語意調校工作室.ps1")).unwrap_or_default(),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\scripts\\語意除錯調校.ps1"),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\語意調校工作室.ps1"),
-        paths.sandbox_dir.join("scripts").join("語意除錯調教.ps1"),
-        paths.sandbox_dir.join("語意除錯調教.ps1"),
+    let rust_candidates = [
+        paths.sandbox_dir.join("ruhi-studio.exe"),
+        paths.sandbox_dir.join("scripts").join("ruhi-studio.exe"),
+        paths.sandbox_dir.join("dist").join("ruhi-studio.exe"),
+        paths.sandbox_dir.join("ruhi-studio").join("target").join("release").join("ruhi-studio.exe"),
+        paths.sandbox_dir.parent().map(|p| p.join("ruhi-studio.exe")).unwrap_or_default(),
+        paths.sandbox_dir.parent().map(|p| p.join("dist").join("ruhi-studio.exe")).unwrap_or_default(),
+        paths.sandbox_dir.parent().map(|p| p.join("ruhi-studio").join("target").join("release").join("ruhi-studio.exe")).unwrap_or_default(),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\ruhi-studio.exe"),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\dist\\ruhi-studio.exe"),
+        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\ruhi-studio\\target\\release\\ruhi-studio.exe"),
     ];
 
-    if let Some(script_path) = ps1_candidates.iter().find(|p| p.exists() && p.is_file()).cloned() {
-        logger::log(&format!("launch_semantic_tuner: launching {:?}", script_path));
-        let _ = std::process::Command::new("powershell.exe")
-            .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", &script_path.to_string_lossy()])
+    if let Some(rust_exe) = rust_candidates.iter().find(|p| p.exists() && p.is_file()).cloned() {
+        logger::log(&format!("launch_semantic_tuner: launching native Rust {:?} --tuner", rust_exe));
+        let work_dir = rust_exe.parent().unwrap_or(&paths.sandbox_dir);
+        let _ = std::process::Command::new(&rust_exe)
+            .arg("--tuner")
+            .current_dir(work_dir)
+            .creation_flags(CREATE_NO_WINDOW)
             .spawn();
         return;
     }
 
-    let py_candidates = [
-        paths.sandbox_dir.join("scripts").join("semantic_tuner.py"),
-        paths.sandbox_dir.join("semantic_tuner.py"),
-        paths.sandbox_dir.parent().map(|p| p.join("scripts").join("semantic_tuner.py")).unwrap_or_default(),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\scripts\\semantic_tuner.py"),
-    ];
-
-    if let Some(py_path) = py_candidates.iter().find(|p| p.exists() && p.is_file()).cloned() {
-        let exe_path = if std::path::Path::new("C:\\Python\\python.exe").exists() {
-            "C:\\Python\\python.exe"
-        } else {
-            "python"
-        };
-        let _ = std::process::Command::new(exe_path)
-            .args(&[&py_path.to_string_lossy(), "--web"])
-            .spawn();
-    } else {
-        logger::log("launch_semantic_tuner: semantic_tuner not found in any candidate path!");
-    }
+    logger::log("launch_semantic_tuner: ruhi-studio.exe not found in any candidate path!");
 }
 
 pub fn show_about_dialog(hwnd: HWND) {
@@ -705,30 +647,30 @@ pub fn show_about_dialog(hwnd: HWND) {
     let (title, msg) = if is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
         (
             "About RuhI",
-            "RuhI — Responsive Universal Human Input\nVersion: 0.2.0 (Release)\nFlowing like clouds and water, effortless and joyful."
+            "RuhI — Responsive Universal Human Input\nVersion: 0.3.0 (Release)\nFlowing like clouds and water, effortless and joyful."
         )
     } else {
         match kb_mode.as_str() {
             "japanese" | "kana" | "romaji" => (
                 "RuhI について",
-                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.2.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.3.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
             ),
             "korean" | "hangul" => (
                 "RuhI 정보",
-                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.2.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.3.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
             ),
             "iast" | "sanskrit" => (
                 "About RuhI (IAST)",
-                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.2.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
+                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.3.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
             ),
             "thai" => (
                 "เกี่ยวกับ RuhI",
-                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.2.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
+                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.3.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
             ),
             // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列等）：
             _ => (
                 "關於如喜",
-                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.2.0 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
+                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.3.0 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
             ),
         }
     };

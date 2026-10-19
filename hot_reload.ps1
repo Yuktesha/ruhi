@@ -145,12 +145,27 @@ try {
             }
         }
 
-        # 同步偏好設定腳本至該目標目錄
+        # 同步純 Rust 偏好設定與語意調校執行檔 (ruhi-studio.exe) 與設定檔至該目標目錄
+        $studioSrcCandidates = @(
+            (Join-Path $rootDir "ruhi-studio\target\release\ruhi-studio.exe"),
+            (Join-Path $rootDir "ruhi-studio.exe")
+        )
+        foreach ($sc in $studioSrcCandidates) {
+            if (Test-Path $sc) {
+                $dstStudio = Join-Path $parent "ruhi-studio.exe"
+                if ($sc -ne $dstStudio) {
+                    Copy-Item $sc -Destination $dstStudio -Force -ErrorAction SilentlyContinue
+                }
+                break
+            }
+        }
         foreach ($sf in @("settings_window.py", "settings_config.json", "config.json")) {
             $srcF = Join-Path $rootDir $sf
             if (Test-Path $srcF) {
                 $dstF = Join-Path $parent $sf
-                Copy-Item $srcF -Destination $dstF -Force -ErrorAction SilentlyContinue
+                if ($srcF -ne $dstF) {
+                    Copy-Item $srcF -Destination $dstF -Force -ErrorAction SilentlyContinue
+                }
             }
         }
     }
@@ -161,7 +176,7 @@ try {
         (Join-Path $rootDir "data"),
         (Join-Path $rootDir "scripts\data"),
         (Join-Path $rootDir "dist\data"),
-        (Join-Path $rootDir "dist\RuhI_v0.2.0_Windows_x64\data")
+        (Join-Path $rootDir "dist\RuhI_v0.3.0_Windows_x64\data")
     )
     if (Test-Path $canonicalDataDir) {
         foreach ($wTarget in $workspaceDataTargets) {

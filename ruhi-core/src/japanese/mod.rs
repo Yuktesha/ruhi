@@ -273,7 +273,293 @@ impl JapaneseEngine {
         }
     }
 
-    /// 貪婪最長前綴連文節假名漢字轉換（如「わたしはにほんごがすきです」➔「私は日本語が好きです」）
+    /// 嘗試匹配用言（一段動詞、五段動詞、サ變／カ變動詞、い形容詞）活用形與格助詞語境消歧
+    /// 回傳 (匹配之平假名長度, 合成後之漢字＋送り仮名表層字串)
+    fn match_inflected_predicate(chars: &[char], pos: usize, prev_context: &str) -> Option<(usize, String)> {
+        let rem: String = chars[pos..].iter().collect();
+        if rem.chars().count() < 2 {
+            return None;
+        }
+
+        // 1. カ行變格動詞「来る」活用（依長至短排序防止短詞綴截斷）
+        const KURU_FORMS: &[(&str, &str)] = &[
+            ("きませんでした", "来ませんでした"),
+            ("こなかったです", "来なかったです"),
+            ("きてください", "来てください"),
+            ("きています", "来ています"),
+            ("こなかった", "来なかった"),
+            ("きました", "来ました"),
+            ("きません", "来ません"),
+            ("きたい", "来たい"),
+            ("きます", "来ます"),
+            ("こない", "来ない"),
+            ("こよう", "来よう"),
+            ("くれば", "来れば"),
+            ("きて", "来て"),
+            ("きた", "来た"),
+            ("くる", "来る"),
+        ];
+        for &(hira_form, surface_form) in KURU_FORMS {
+            if rem.starts_with(hira_form) {
+                return Some((hira_form.chars().count(), surface_form.to_string()));
+            }
+        }
+
+        // 2. サ行變格動詞「する」活用（可獨立或接於動名詞如「勉強」「旅行」「練習」之後）
+        const SURU_FORMS: &[(&str, &str)] = &[
+            ("しませんでした", "しませんでした"),
+            ("しなかったです", "しなかったです"),
+            ("してください", "してください"),
+            ("しています", "しています"),
+            ("しなかった", "しなかった"),
+            ("しました", "しました"),
+            ("しません", "しません"),
+            ("したい", "したい"),
+            ("します", "します"),
+            ("しない", "しない"),
+            ("しよう", "しよう"),
+            ("すれば", "すれば"),
+            ("できる", "できる"),
+            ("できます", "できます"),
+            ("して", "して"),
+            ("した", "した"),
+            ("する", "する"),
+        ];
+        for &(hira_form, surface_form) in SURU_FORMS {
+            if rem.starts_with(hira_form) {
+                return Some((hira_form.chars().count(), surface_form.to_string()));
+            }
+        }
+
+        // 3. 一段動詞（語幹 + 活用語尾）
+        const ICHIDAN_STEMS: &[(&str, &str)] = &[
+            ("かんがえ", "考え"),
+            ("おしえ", "教え"),
+            ("おぼえ", "覚え"),
+            ("でかけ", "出かけ"),
+            ("つづけ", "続け"),
+            ("はじめ", "始め"),
+            ("たべ", "食べ"),
+            ("おき", "起き"),
+            ("あけ", "開け"),
+            ("しめ", "閉め"),
+            ("み", "見"),
+            ("ね", "寝"),
+        ];
+        const ICHIDAN_ENDINGS: &[&str] = &[
+            "ませんでした",
+            "ていました",
+            "てください",
+            "てはいけない",
+            "ています",
+            "てもいい",
+            "たくない",
+            "たかった",
+            "なかった",
+            "なければ",
+            "ました",
+            "ません",
+            "られる",
+            "させる",
+            "ます",
+            "たい",
+            "ない",
+            "よう",
+            "れば",
+            "たら",
+            "たり",
+            "て",
+            "た",
+            "る",
+        ];
+        for &(stem_hira, stem_kanji) in ICHIDAN_STEMS {
+            if rem.starts_with(stem_hira) {
+                let after_stem = &rem[stem_hira.len()..];
+                for &ending in ICHIDAN_ENDINGS {
+                    if after_stem.starts_with(ending) {
+                        // 單假名語幹（如「み」「ね」）若後接單假名「て/た/る」，確認不誤切其他長詞
+                        let chosen_kanji = if stem_hira == "み" {
+                            if prev_context.ends_with("映画を")
+                                || prev_context.ends_with("アニメを")
+                                || prev_context.ends_with("テレビを")
+                            {
+                                "観"
+                            } else if prev_context.ends_with("病気を") || prev_context.ends_with("患者を") {
+                                "診"
+                            } else {
+                                stem_kanji
+                            }
+                        } else {
+                            stem_kanji
+                        };
+                        let total_chars = stem_hira.chars().count() + ending.chars().count();
+                        return Some((total_chars, format!("{}{}", chosen_kanji, ending)));
+                    }
+                }
+            }
+        }
+
+        // 4. 五段動詞（語幹 + 禮貌連用形 / 音便形 / 否定未然形 / 辭書形）
+        // 結構：(語幹平假名, 語幹漢字, 連用i假名, 音便前綴(て/た或で/だ), 音便是否濁化d, 未然a假名, 辭書u假名)
+        const GODAN_VERBS: &[(&str, &str, &str, &str, bool, &str, &str)] = &[
+            ("はたら", "働", "き", "い", false, "か", "く"),
+            ("はな", "話", "し", "し", false, "さ", "す"),
+            ("つか", "使", "い", "っ", false, "わ", "う"),
+            ("わか", "分か", "り", "っ", false, "ら", "る"),
+            ("おも", "思", "い", "っ", false, "わ", "う"),
+            ("かえ", "帰", "り", "っ", false, "ら", "る"),
+            ("はし", "走", "り", "っ", false, "ら", "る"),
+            ("つく", "作", "り", "っ", false, "ら", "る"),
+            ("あそ", "遊", "び", "ん", true, "ば", "ぶ"),
+            ("およ", "泳", "ぎ", "い", true, "が", "ぐ"),
+            ("い", "行", "き", "っ", false, "か", "く"),
+            ("か", "書", "き", "い", false, "か", "く"),
+            ("き", "聞", "き", "い", false, "か", "く"),
+            ("よ", "読", "み", "ん", true, "ま", "む"),
+            ("の", "飲", "み", "ん", true, "ま", "む"),
+            ("か", "買", "い", "っ", false, "わ", "う"),
+            ("あ", "会", "い", "っ", false, "わ", "う"),
+            ("ま", "待", "ち", "っ", false, "た", "つ"),
+            ("も", "持", "ち", "っ", false, "た", "つ"),
+            ("し", "知", "り", "っ", false, "ら", "る"),
+            ("の", "乗", "り", "っ", false, "ら", "る"),
+            ("と", "撮", "り", "っ", false, "ら", "る"),
+        ];
+        const MASU_SUFFIXES: &[&str] = &[
+            "ませんでした",
+            "ました",
+            "ません",
+            "ます",
+            "たいです",
+            "たい",
+        ];
+        const TE_SUFFIXES: &[&str] = &[
+            "ていました",
+            "てください",
+            "ています",
+            "てもいい",
+            "たら",
+            "たり",
+            "て",
+            "た",
+        ];
+        const DE_SUFFIXES: &[&str] = &[
+            "でいました",
+            "でください",
+            "でいます",
+            "でもいい",
+            "だら",
+            "だり",
+            "で",
+            "だ",
+        ];
+        const NAI_SUFFIXES: &[&str] = &["なかったです", "なかった", "なければ", "ない"];
+
+        for &(stem_h, stem_k, ren_i, onbin, is_voiced_te, mizen_a, dict_u) in GODAN_VERBS {
+            // 針對同音語幹（「の」：飲む vs 乗る；「か」：書く vs 買う；「き」：聞く vs 聴く）依據前驅格助詞語境擇優
+            if stem_h == "の" && stem_k == "乗" && !prev_context.ends_with('に') {
+                continue;
+            }
+            if stem_h == "と" && stem_k == "撮" && !prev_context.ends_with("写真を") {
+                continue;
+            }
+            let effective_kanji = if stem_h == "き" && stem_k == "聞" {
+                if prev_context.ends_with("音楽を") || prev_context.ends_with("歌を") {
+                    "聴"
+                } else {
+                    "聞"
+                }
+            } else {
+                stem_k
+            };
+
+            if rem.starts_with(stem_h) {
+                let after_stem = &rem[stem_h.len()..];
+                // (a) 連用形 + ます / たい
+                if after_stem.starts_with(ren_i) {
+                    let after_ren = &after_stem[ren_i.len()..];
+                    for &ms in MASU_SUFFIXES {
+                        if after_ren.starts_with(ms) {
+                            let len = stem_h.chars().count() + ren_i.chars().count() + ms.chars().count();
+                            return Some((len, format!("{}{}{}", effective_kanji, ren_i, ms)));
+                        }
+                    }
+                }
+                // (b) 音便形 + て/た 或 で/だ
+                if after_stem.starts_with(onbin) {
+                    let after_onbin = &after_stem[onbin.len()..];
+                    let suffixes = if is_voiced_te { DE_SUFFIXES } else { TE_SUFFIXES };
+                    for &ts in suffixes {
+                        if after_onbin.starts_with(ts) {
+                            let len = stem_h.chars().count() + onbin.chars().count() + ts.chars().count();
+                            return Some((len, format!("{}{}{}", effective_kanji, onbin, ts)));
+                        }
+                    }
+                }
+                // (c) 未然形 + ない / なかった
+                if after_stem.starts_with(mizen_a) {
+                    let after_mizen = &after_stem[mizen_a.len()..];
+                    for &ns in NAI_SUFFIXES {
+                        if after_mizen.starts_with(ns) {
+                            let len = stem_h.chars().count() + mizen_a.chars().count() + ns.chars().count();
+                            return Some((len, format!("{}{}{}", effective_kanji, mizen_a, ns)));
+                        }
+                    }
+                }
+                // (d) 辭書原形
+                if after_stem.starts_with(dict_u) && (stem_h.chars().count() >= 2 || !prev_context.is_empty()) {
+                    let len = stem_h.chars().count() + dict_u.chars().count();
+                    return Some((len, format!("{}{}", effective_kanji, dict_u)));
+                }
+            }
+        }
+
+        // 5. い形容詞活用（語幹 + かった / くない / くて / い）
+        const I_ADJ_STEMS: &[(&str, &str)] = &[
+            ("あたらし", "新し"),
+            ("むずかし", "難し"),
+            ("おもしろ", "面白"),
+            ("いそがし", "忙し"),
+            ("おいし", "美味し"),
+            ("かわい", "可愛"),
+            ("たのし", "楽し"),
+            ("うれし", "嬉し"),
+            ("やさし", "優し"),
+            ("おおき", "大き"),
+            ("ちいさ", "小さ"),
+            ("たか", "高"),
+            ("やす", "安"),
+            ("あつ", "暑"),
+            ("さむ", "寒"),
+        ];
+        const I_ADJ_ENDINGS: &[&str] = &[
+            "くありません",
+            "くなかった",
+            "くないです",
+            "かったです",
+            "くなります",
+            "くない",
+            "かった",
+            "くなる",
+            "くて",
+            "い",
+        ];
+        for &(adj_h, adj_k) in I_ADJ_STEMS {
+            if rem.starts_with(adj_h) {
+                let after_stem = &rem[adj_h.len()..];
+                for &ending in I_ADJ_ENDINGS {
+                    if after_stem.starts_with(ending) {
+                        let len = adj_h.chars().count() + ending.chars().count();
+                        return Some((len, format!("{}{}", adj_k, ending)));
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    /// 連文節與用言活用智慧轉換（如「わたしはにほんごをべんきょうします」➔「私は日本語を勉強します」）
     pub fn compose_kanji_sentence(&self, hira: &str) -> String {
         if hira.is_empty() {
             return String::new();
@@ -288,46 +574,92 @@ impl JapaneseEngine {
         let mut out = String::new();
         let mut i = 0;
         while i < n {
-            let mut matched_len = 0;
-            let mut matched_surface = String::new();
+            // 1. 優先檢查用言（動詞／形容詞）活用形與格助詞語境搭配
+            let inflected = Self::match_inflected_predicate(&chars, i, &out);
+
+            // 2. 檢查靜態詞庫最長前綴匹配
+            let mut lex_len = 0;
+            let mut lex_surface = String::new();
             let max_span = (n - i).min(12);
             for span in (2..=max_span).rev() {
                 let sub: String = chars[i..i + span].iter().collect();
                 if let Some(entries) = self.lexicon.get(&sub) {
                     if let Some(best) = entries.first() {
-                        matched_len = span;
-                        matched_surface = best.surface.clone();
+                        lex_len = span;
+                        lex_surface = best.surface.clone();
                         break;
                     }
                 }
             }
-            if matched_len == 0 {
-                // 嘗試單假名詞彙（僅限高權重實詞如 私/今/本/車/駅，避免助詞 は/が/を/に 被誤轉為漢字）
-                let sub1: String = chars[i..i + 1].iter().collect();
-                let is_particle = matches!(
-                    chars[i],
-                    'は' | 'が' | 'を' | 'に' | 'へ' | 'で' | 'と' | 'も' | 'の' | 'か' | 'ね' | 'よ'
-                );
-                if !is_particle {
-                    if let Some(entries) = self.lexicon.get(&sub1) {
-                        if let Some(best) = entries.first() {
-                            if best.weight >= 1450 {
-                                matched_len = 1;
-                                matched_surface = best.surface.clone();
-                            }
+
+            // 比較用言活用跨距與靜態詞條跨距：取跨距較長者（若同長則優先用言活用語境結果）
+            if let Some((inf_len, inf_surf)) = inflected {
+                if inf_len >= lex_len {
+                    out.push_str(&inf_surf);
+                    i += inf_len;
+                    continue;
+                }
+            }
+
+            if lex_len > 0 {
+                out.push_str(&lex_surface);
+                i += lex_len;
+                continue;
+            }
+
+            // 3. 嘗試單假名詞彙（僅限高權重實詞如 私/今/本/車/駅，避免助詞 は/が/を/に 被誤轉為漢字）
+            let sub1: String = chars[i..i + 1].iter().collect();
+            let is_particle = matches!(
+                chars[i],
+                'は' | 'が' | 'を' | 'に' | 'へ' | 'で' | 'と' | 'も' | 'の' | 'か' | 'ね' | 'よ'
+            );
+            if !is_particle {
+                if let Some(entries) = self.lexicon.get(&sub1) {
+                    if let Some(best) = entries.first() {
+                        if best.weight >= 1450 {
+                            out.push_str(&best.surface);
+                            i += 1;
+                            continue;
                         }
                     }
                 }
             }
-            if matched_len > 0 {
-                out.push_str(&matched_surface);
-                i += matched_len;
-            } else {
-                out.push(chars[i]);
-                i += 1;
-            }
+
+            out.push(chars[i]);
+            i += 1;
         }
         out
+    }
+
+    /// 零基礎日文學習者救援橋接：當不懂日文讀音的使用者輸入常用英文單字時，直接提供對應日文常用詞句
+    fn lookup_english_learner_bridge(raw_lower: &str) -> &'static [&'static str] {
+        match raw_lower {
+            "hello" | "hi" => &["こんにちは", "どうも"],
+            "thanks" | "thank" | "thankyou" => &["ありがとうございます", "ありがとう", "どうもありがとうございます"],
+            "sorry" | "excuse" | "excuseme" => &["すみません", "ごめんなさい", "失礼します"],
+            "morning" | "goodmorning" => &["おはようございます", "おはよう"],
+            "evening" | "goodevening" => &["こんばんは"],
+            "night" | "goodnight" => &["おやすみなさい", "おやすみ"],
+            "bye" | "goodbye" => &["さようなら", "またね", "お疲れ様でした"],
+            "please" => &["お願いします", "よろしくお願いします", "ください"],
+            "yes" | "ok" | "okay" => &["はい", "大丈夫です", "わかりました"],
+            "no" => &["いいえ", "大丈夫です"],
+            "delicious" | "yummy" | "good" => &["美味しい", "とても美味しいです", "いいね"],
+            "cute" => &["可愛い", "とても可愛いです"],
+            "like" | "love" => &["好きです", "大好きです"],
+            "water" => &["お水", "水をください"],
+            "coffee" => &["コーヒー", "コーヒーをください"],
+            "tea" => &["お茶", "お茶をください"],
+            "toilet" | "restroom" | "bathroom" => &["トイレはどこですか", "お手洗い"],
+            "station" => &["駅", "駅はどこですか"],
+            "airport" => &["空港"],
+            "hotel" => &["ホテル"],
+            "howmuch" | "price" => &["いくらですか", "これはいくらですか"],
+            "where" => &["どこですか"],
+            "check" | "bill" => &["お会計お願いします"],
+            "help" => &["助けてください", "すみません、お願いします"],
+            _ => &[],
+        }
     }
 
     pub fn update_candidates(&mut self) {
@@ -340,12 +672,20 @@ impl JapaneseEngine {
             self.candidates.push(self.raw_romaji.clone());
             return;
         }
+        let lower_raw = self.raw_romaji.to_ascii_lowercase();
         let (hira, pending) = Self::convert_romaji_stream(&self.raw_romaji);
         self.hira_buffer = hira;
         self.pending_romaji = pending;
 
         let full_hira = self.finalized_hira();
         let full_kata = Self::hira_to_kata(&full_hira);
+
+        // 0. 零基礎英文橋接詞（如輸入 hello / thanks / toilet 直接提供日文候選）
+        for &bridged in Self::lookup_english_learner_bridge(&lower_raw) {
+            if !self.candidates.contains(&bridged.to_string()) {
+                self.candidates.push(bridged.to_string());
+            }
+        }
 
         // 1. 精確命中整詞漢字／片假名候選
         if let Some(entries) = self.lexicon.get(&full_hira) {
@@ -358,7 +698,10 @@ impl JapaneseEngine {
 
         // 2. 連文節組合候選
         let composed = self.compose_kanji_sentence(&full_hira);
-        if !composed.is_empty() && !self.candidates.contains(&composed) {
+        if !composed.is_empty()
+            && !self.candidates.contains(&composed)
+            && Self::lookup_english_learner_bridge(&lower_raw).is_empty()
+        {
             self.candidates.insert(0, composed);
         }
 
@@ -448,6 +791,51 @@ impl JapaneseEngine {
         cands
     }
 
+    /// 將日文平假名正規化為「無長音、無促音、清濁音歸一」之學習者音韻骨架，用於 `↑` 上方向鍵模糊救援
+    fn learner_phonetic_skeleton(hira: &str) -> String {
+        let mut skel = String::new();
+        let chars: Vec<char> = hira.chars().collect();
+        for (idx, &ch) in chars.iter().enumerate() {
+            // 忽略促音「っ」與長音符「ー」
+            if ch == 'っ' || ch == 'ー' {
+                continue;
+            }
+            // 忽略接在 o 段或 u 段假名後的長音「う」或「お」（如 とうきょう / とおきょお / ときょ 皆歸一為 ときょ）
+            if (ch == 'う' || ch == 'お') && idx > 0 {
+                let prev = chars[idx - 1];
+                if matches!(
+                    prev,
+                    'お' | 'こ' | 'ご' | 'そ' | 'ぞ' | 'と' | 'ど' | 'の' | 'ほ' | 'ぼ' | 'ぽ'
+                        | 'も' | 'よ' | 'ろ' | 'ょ' | 'う' | 'く' | 'ぐ' | 'す' | 'ず' | 'つ'
+                        | 'ぬ' | 'ふ' | 'ぶ' | 'ぷ' | 'む' | 'ゆ' | 'る' | 'ゅ'
+                ) {
+                    continue;
+                }
+            }
+            // 忽略接在 e 段假名後的長音「い」或「え」（如 せんせい / せんせえ / せんせ 皆歸一為 せんせ）
+            if (ch == 'い' || ch == 'え') && idx > 0 {
+                let prev = chars[idx - 1];
+                if matches!(
+                    prev,
+                    'え' | 'け' | 'げ' | 'せ' | 'ぜ' | 'て' | 'で' | 'ね' | 'へ' | 'べ' | 'ぺ' | 'め' | 'れ'
+                ) {
+                    continue;
+                }
+            }
+            // 清濁音歸一化（如 だいじょうぶ vs たいじょうぶ）
+            let norm_ch = match ch {
+                'が' => 'か', 'ぎ' => 'き', 'ぐ' => 'く', 'げ' => 'け', 'ご' => 'こ',
+                'ざ' => 'さ', 'じ' => 'し', 'ず' => 'す', 'ぜ' => 'せ', 'ぞ' => 'そ',
+                'だ' => 'た', 'ぢ' => 'ち', 'づ' => 'つ', 'で' => 'て', 'ど' => 'と',
+                'ば' | 'ぱ' => 'は', 'び' | 'ぴ' => 'ひ', 'ぶ' | 'ぷ' => 'ふ',
+                'べ' | 'ぺ' => 'へ', 'ぼ' | 'ぽ' => 'ほ',
+                _ => ch,
+            };
+            skel.push(norm_ch);
+        }
+        skel
+    }
+
     /// `↑` 上箭頭：依指定羅馬字串進行日文前綴預測補全與長詞展開
     pub fn lookup_up_predictions_for_romaji(&self, romaji: &str) -> Vec<String> {
         if romaji.is_empty() {
@@ -486,6 +874,31 @@ impl JapaneseEngine {
                 break;
             }
         }
+
+        // 學習者音韻盲點模糊救援（長音 ou/oo/o 漏打、促音漏打、清濁音混淆）
+        let input_skel = Self::learner_phonetic_skeleton(full_hira);
+        if !input_skel.is_empty() && res.len() < 12 {
+            let mut fuzzy_matches: Vec<(String, u32, usize)> = Vec::new();
+            for (reading, entries) in &self.lexicon {
+                let read_skel = Self::learner_phonetic_skeleton(reading);
+                if read_skel == input_skel || (input_skel.chars().count() >= 3 && read_skel.starts_with(&input_skel)) {
+                    for e in entries {
+                        let bonus = if read_skel == input_skel { 200 } else { 0 };
+                        fuzzy_matches.push((e.surface.clone(), e.weight + bonus, reading.chars().count()));
+                    }
+                }
+            }
+            fuzzy_matches.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.2.cmp(&b.2)));
+            for (surf, _, _) in fuzzy_matches {
+                if !res.contains(&surf) {
+                    res.push(surf);
+                }
+                if res.len() >= 12 {
+                    break;
+                }
+            }
+        }
+
         let kata = Self::hira_to_kata(full_hira);
         if !res.contains(&full_hira.to_string()) {
             res.push(full_hira.to_string());
@@ -932,7 +1345,22 @@ impl JapaneseEngine {
             ("れきし", "歴史", 1600),
             ("ぶんか", "文化", 1600),
             ("かがく", "科学", 1600),
+            ("かがく", "化学", 1580),
             ("ぎじゅつ", "技術", 1600),
+            ("はし", "橋", 1580),
+            ("はし", "箸", 1560),
+            ("べんきょう", "勉強", 1680),
+            ("れんしゅう", "練習", 1650),
+            ("しつもん", "質問", 1650),
+            ("せつめい", "説明", 1650),
+            ("じゅんび", "準備", 1650),
+            ("よやく", "予約", 1650),
+            ("りょうり", "料理", 1650),
+            ("さんぽ", "散歩", 1620),
+            ("かいもの", "買い物", 1650),
+            ("びょうき", "病気", 1620),
+            ("きっぷ", "切符", 1620),
+            ("ちょっと", "ちょっと", 1650),
             ("はる", "春", 1550),
             ("なつ", "夏", 1550),
             ("あき", "秋", 1550),
@@ -966,7 +1394,10 @@ impl JapaneseEngine {
             ("いく", "行く", 1600),
             ("くる", "来る", 1600),
             ("みる", "見る", 1600),
+            ("みる", "観る", 1560),
+            ("みる", "診る", 1540),
             ("きく", "聞く", 1600),
+            ("きく", "聴く", 1560),
             ("はなす", "話す", 1600),
             ("よむ", "読む", 1600),
             ("かく", "書く", 1600),
@@ -1031,4 +1462,76 @@ mod tests {
         assert!(up_resp.candidates.contains(&"ありがとうございます".to_string()));
         assert!(up_resp.candidates.contains(&"ありがとう".to_string()));
     }
+
+    #[test]
+    fn test_learner_inflection_context_and_fuzzy_rescue() {
+        let jp = JapaneseEngine::new();
+
+        // 1. 用言活用語幹＋送り仮名自動成詞（一段動詞、五段動詞、サ變、い形容詞）
+        assert_eq!(
+            jp.compose_kanji_sentence("わたしはにほんごをべんきょうします"),
+            "私は日本語を勉強します"
+        );
+        assert_eq!(
+            jp.compose_kanji_sentence("きのうがっこうへいきませんでした"),
+            "昨日学校へ行きませんでした"
+        );
+        assert_eq!(
+            jp.compose_kanji_sentence("とてもおいしかったです"),
+            "とても美味しかったです"
+        );
+        assert_eq!(
+            jp.compose_kanji_sentence("ほんをよんでいます"),
+            "本を読んでいます"
+        );
+
+        // 2. 格助詞與受詞語境消歧（映画を観る vs 病気を診る、音楽を聴く、写真を撮る、電車に乗る）
+        assert_eq!(
+            jp.compose_kanji_sentence("えいがをみました"),
+            "映画を観ました"
+        );
+        assert_eq!(
+            jp.compose_kanji_sentence("びょうきをみる"),
+            "病気を診る"
+        );
+        assert_eq!(
+            jp.compose_kanji_sentence("おんがくをききます"),
+            "音楽を聴きます"
+        );
+        assert_eq!(
+            jp.compose_kanji_sentence("しゃしんをとった"),
+            "写真を撮った"
+        );
+        assert_eq!(
+            jp.compose_kanji_sentence("でんしゃにのります"),
+            "電車に乗ります"
+        );
+
+        // 3. 學習者音韻盲點 `↑` 模糊救援（長音漏打 tokyo/gakko/sensee、促音漏打 gakou、清濁混淆 taijoubu）
+        let tokyo_rescue = jp.lookup_up_predictions_for_romaji("tokyo");
+        assert!(
+            tokyo_rescue.contains(&"東京".to_string()),
+            "tokyo 漏打長音應透過 ↑ 救回『東京』，實際：{:?}",
+            tokyo_rescue
+        );
+        let gakou_rescue = jp.lookup_up_predictions_for_romaji("gakou");
+        assert!(
+            gakou_rescue.contains(&"学校".to_string()),
+            "gakou 漏打促音應透過 ↑ 救回『学校』，實際：{:?}",
+            gakou_rescue
+        );
+        let sensee_rescue = jp.lookup_up_predictions_for_romaji("sensee");
+        assert!(
+            sensee_rescue.contains(&"先生".to_string()),
+            "sensee 長音混淆應透過 ↑ 救回『先生』，實際：{:?}",
+            sensee_rescue
+        );
+        let taijoubu_rescue = jp.lookup_up_predictions_for_romaji("taijoubu");
+        assert!(
+            taijoubu_rescue.contains(&"大丈夫".to_string()),
+            "taijoubu 清濁音混淆應透過 ↑ 救回『大丈夫』，實際：{:?}",
+            taijoubu_rescue
+        );
+    }
 }
+
