@@ -227,6 +227,21 @@ fn handle_get(
         return send_json_response(stream, 200, &recs);
     }
 
+    if path == "/api/ai/handover_spec" {
+        let StudioServerState {
+            ref tuner,
+            ref mut consultant,
+            ..
+        } = *guard;
+        let spec = consultant.get_recommended_models_and_handover_spec(tuner);
+        return send_json_response(stream, 200, &spec);
+    }
+
+    if path == "/api/rules/inventory" {
+        let inv = guard.tuner.get_rule_inventory_summary();
+        return send_json_response(stream, 200, &inv);
+    }
+
     if path == "/api/tune/preload" {
         let recent = guard.tuner.scan_recent_txt_files();
         let preload_target = guard.preloaded_file.clone();
@@ -413,6 +428,18 @@ fn handle_post(
             }
         }
 
+        let factorized_arrays = guard.tuner.factorize_rules_to_arrays(&all_rules);
+        for fa in &factorized_arrays {
+            let pid = fa
+                .get("pattern_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            if !pid.is_empty() && seen_patterns.insert(pid) {
+                all_constructions.push(fa.clone());
+            }
+        }
+
         let upsert_rep = guard.tuner.upsert_patterns_with_report(&all_constructions);
         let patterns_created = upsert_rep.get("added_count").and_then(Value::as_u64).unwrap_or(0) as usize;
         let patterns_updated = upsert_rep.get("updated_count").and_then(Value::as_u64).unwrap_or(0) as usize;
@@ -428,6 +455,7 @@ fn handle_post(
             "patterns_updated_count": patterns_updated,
             "augmented_rules": upsert_rep.get("augmented_rules").cloned().unwrap_or_else(|| json!([])),
             "created_rules": upsert_rep.get("created_rules").cloned().unwrap_or_else(|| json!([])),
+            "factorized_arrays": factorized_arrays,
             "analogical_families": analogical_families,
             "added_words": oov_words_to_add,
             "constructions": all_constructions,

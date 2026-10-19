@@ -3742,11 +3742,13 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vec![
                 "學".to_string(), "學習".to_string(), "用".to_string(), "使用".to_string(),
-                "打".to_string(), "練".to_string(), "練習".to_string(), "改用".to_string(), "切換".to_string(),
+                "打".to_string(), "練".to_string(), "練習".to_string(), "改用".to_string(),
+                "切換".to_string(), "熟悉".to_string(), "忘記".to_string(),
             ]),
             curr_pattern: WordPattern::OneOf(vec![
-                "大易".to_string(), "大易輸入法".to_string(), "倉頡".to_string(), "行列".to_string(),
-                "注音".to_string(), "許氏".to_string(), "無蝦米".to_string(),
+                "大易".to_string(), "倉頡".to_string(), "行列".to_string(), "注音".to_string(),
+                "許氏".to_string(), "嘸蝦米".to_string(), "無蝦米".to_string(), "速成".to_string(),
+                "拼音".to_string(), "大千".to_string(), "倚天".to_string(), "羅馬".to_string(),
             ]),
             bonus: 30.0,
             name: "learn_use_ime_name".to_string(),
@@ -3754,19 +3756,27 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vec![
                 "大易".to_string(), "倉頡".to_string(), "行列".to_string(), "注音".to_string(),
-                "許氏".to_string(), "拼音".to_string(), "智慧型".to_string(),
+                "許氏".to_string(), "嘸蝦米".to_string(), "無蝦米".to_string(), "速成".to_string(),
+                "拼音".to_string(), "大千".to_string(), "倚天".to_string(), "羅馬".to_string(),
+                "智慧型".to_string(),
             ]),
-            curr_pattern: WordPattern::Exact("輸入法".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "輸入法".to_string(), "鍵盤".to_string(), "字根".to_string(),
+                "碼表".to_string(), "拆碼".to_string(), "規則".to_string(),
+            ]),
             bonus: 28.0,
             name: "ime_name_shurufa_head".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vec![
-                "輸入法".to_string(), "大易".to_string(), "大易輸入法".to_string(), "工作".to_string(),
-                "學習".to_string(), "離開".to_string(), "開始".to_string(), "上班".to_string(), "畢業".to_string(),
+                "輸入法".to_string(), "鍵盤".to_string(), "大易".to_string(), "倉頡".to_string(),
+                "行列".to_string(), "許氏".to_string(), "嘸蝦米".to_string(), "無蝦米".to_string(),
+                "注音".to_string(), "工作".to_string(), "學習".to_string(), "離開".to_string(),
+                "開始".to_string(), "上班".to_string(), "畢業".to_string(),
             ]),
             curr_pattern: WordPattern::OneOf(vec![
-                "之前".to_string(), "之後".to_string(), "以前".to_string(), "以後".to_string(), "之初".to_string(),
+                "之前".to_string(), "之後".to_string(), "以前".to_string(), "以後".to_string(),
+                "之初".to_string(), "之餘".to_string(),
             ]),
             bonus: 28.0,
             name: "event_noun_temporal_localizer".to_string(),
@@ -3802,19 +3812,47 @@ impl TransitionEngine {
             curr_pattern: WordPattern::OneOf(vec![
                 "文字型".to_string(), "語音型".to_string(), "視覺型".to_string(), "圖像型".to_string(),
                 "邏輯型".to_string(), "文字".to_string(), "語音".to_string(), "視覺".to_string(), "圖像".to_string(),
+                "聽覺".to_string(), "邏輯".to_string(), "直覺".to_string(), "分析".to_string(), "記憶".to_string(),
+                "思考".to_string(), "概念".to_string(), "經驗".to_string(),
             ]),
             bonus: 30.0,
             name: "tendency_verb_cognitive_style".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vec![
-                "文字型".to_string(), "語音型".to_string(), "視覺型".to_string(), "圖像型".to_string(),
-                "邏輯型".to_string(), "文字".to_string(), "語音".to_string(),
+                "偏向".to_string(), "傾向".to_string(), "偏好".to_string(), "屬於".to_string(),
+            ]),
+            curr_pattern: WordPattern::Exact("紋".to_string()),
+            bonus: -40.0,
+            name: "anti_tendency_verb_wen".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("紋".to_string()),
+            curr_pattern: WordPattern::Exact("自行".to_string()),
+            bonus: -45.0,
+            name: "anti_wen_zixing".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "文字".to_string(), "語音".to_string(), "視覺".to_string(), "聽覺".to_string(),
+                "圖像".to_string(), "邏輯".to_string(), "直覺".to_string(), "分析".to_string(),
+                "記憶".to_string(), "思考".to_string(), "概念".to_string(), "經驗".to_string(),
+                "智慧".to_string(), "學習".to_string(), "觸覺".to_string(), "空間".to_string(),
+            ]),
+            curr_pattern: WordPattern::Exact("型".to_string()),
+            bonus: 32.0,
+            name: "cognitive_root_type_suffix_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "型".to_string(), "文字型".to_string(), "語音型".to_string(), "視覺型".to_string(),
+                "圖像型".to_string(), "邏輯型".to_string(), "文字".to_string(), "語音".to_string(),
             ]),
             curr_pattern: WordPattern::OneOf(vec![
-                "思考".to_string(), "思維".to_string(), "記憶".to_string(), "學習".to_string(), "模式".to_string(),
+                "思考".to_string(), "思維".to_string(), "記憶".to_string(), "學習".to_string(),
+                "模式".to_string(), "輸入法".to_string(), "人物".to_string(), "人才".to_string(),
             ]),
-            bonus: 28.0,
+            bonus: 30.0,
             name: "cognitive_style_head_noun".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -3837,6 +3875,184 @@ impl TransitionEngine {
             ]),
             bonus: 30.0,
             name: "rather_than_contrast_target".to_string(),
+        });
+
+        // 14. 派生後綴陣列構式：[飲食類別詞根 × {素}] 與 [食材生物詞根 × {類}]
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "增加".to_string(), "新增".to_string(), "加入".to_string(), "擴充".to_string(),
+                "增設".to_string(), "補充".to_string(), "提供".to_string(), "吃".to_string(),
+            ]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "瑜伽".to_string(), "五辛".to_string(), "蛋奶".to_string(), "植物".to_string(),
+                "全".to_string(), "純".to_string(), "奶".to_string(), "蛋".to_string(), "鍋邊".to_string(),
+            ]),
+            bonus: 30.0,
+            name: "add_verb_dietary_root_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "瑜伽".to_string(), "五辛".to_string(), "蛋奶".to_string(), "植物".to_string(),
+                "全".to_string(), "純".to_string(), "奶".to_string(), "蛋".to_string(),
+                "鍋邊".to_string(), "方便".to_string(), "早".to_string(),
+            ]),
+            curr_pattern: WordPattern::Exact("素".to_string()),
+            bonus: 32.0,
+            name: "dietary_root_su_suffix_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("素".to_string()),
+            curr_pattern: WordPattern::OneOf(vec![
+                "項目".to_string(), "選項".to_string(), "餐點".to_string(), "飲食".to_string(),
+                "分類".to_string(), "料理".to_string(), "者".to_string(),
+            ]),
+            bonus: 30.0,
+            name: "su_suffix_item_head_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "所有".to_string(), "各類".to_string(), "各種".to_string(), "任何".to_string(),
+                "一切".to_string(), "全部".to_string(),
+            ]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "菇".to_string(), "蛋".to_string(), "肉".to_string(), "豆".to_string(),
+                "藻".to_string(), "貝".to_string(), "魚".to_string(), "菜".to_string(),
+                "鳥".to_string(), "菌".to_string(), "穀".to_string(), "蔬".to_string(),
+                "果".to_string(), "奶".to_string(), "蝦".to_string(), "蟹".to_string(),
+            ]),
+            bonus: 28.0,
+            name: "universal_quantifier_food_root_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "菇".to_string(), "蛋".to_string(), "肉".to_string(), "豆".to_string(),
+                "藻".to_string(), "貝".to_string(), "魚".to_string(), "菜".to_string(),
+                "鳥".to_string(), "菌".to_string(), "穀".to_string(), "蔬".to_string(),
+                "果".to_string(), "奶".to_string(), "蝦".to_string(), "蟹".to_string(),
+                "人".to_string(), "鳥".to_string(), "蟲".to_string(),
+            ]),
+            curr_pattern: WordPattern::Exact("類".to_string()),
+            bonus: 30.0,
+            name: "food_bio_root_lei_suffix_array".to_string(),
+        });
+
+        // 15. 可能補語三維陣列構式：{核心動詞} × {得, 不} × {結果/趨向補語}（取代 lexicon_domain.tsv 120 筆平面化詞條）
+        let pot_verbs: Vec<String> = [
+            "看", "聽", "讀", "寫", "說", "算", "想", "記", "認", "猜", "弄", "搞", "分",
+            "做", "受", "吃", "合", "忘", "拿", "睡", "買", "走", "追", "配", "顧", "找",
+            "學", "用", "穿", "搬", "喝", "忍", "逃", "比", "猜", "算", "談",
+        ].iter().map(|s| s.to_string()).collect();
+        let pot_results: Vec<String> = [
+            "懂", "到", "見", "清", "起", "出", "完", "好", "下", "了", "飽", "來", "通",
+            "動", "著", "住", "上", "過", "開", "掉", "得", "進", "回", "準", "穩",
+        ].iter().map(|s| s.to_string()).collect();
+        let pot_neg_compounds: Vec<String> = [
+            "不懂", "不到", "不見", "不清", "不起", "不完", "不好", "不下", "不了", "不飽",
+            "不來", "不通", "不動", "不著", "不住", "不上", "不過", "不開", "不掉", "不得",
+        ].iter().map(|s| s.to_string()).collect();
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(pot_verbs.clone()),
+            curr_pattern: WordPattern::OneOf(vec!["得".to_string(), "不".to_string()]),
+            bonus: 28.0,
+            name: "potential_verb_de_bu_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec!["得".to_string(), "不".to_string()]),
+            curr_pattern: WordPattern::OneOf(pot_results),
+            bonus: 26.0,
+            name: "potential_de_bu_result_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(pot_verbs.clone()),
+            curr_pattern: WordPattern::OneOf(pot_neg_compounds),
+            bonus: 32.0,
+            name: "potential_verb_neg_compound_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(pot_verbs),
+            curr_pattern: WordPattern::OneOf(vec![
+                "步道".to_string(), "佈道".to_string(), "布道".to_string(), "不道".to_string(),
+            ]),
+            bonus: -45.0,
+            name: "anti_potential_verb_budao_impostor".to_string(),
+        });
+
+        // 16. 動量與離合詞中綴三維陣列構式：{核心動詞} × {一下, 個, 一頓, 一趟, 一個, 頓} × {離合賓語/修飾語}（取代 lexicon_domain.tsv 338 筆平面化詞條）
+        let vo_momentum_verbs: Vec<String> = [
+            "看", "聽", "讀", "寫", "說", "講", "聊", "問", "查", "試", "想", "等", "坐",
+            "走", "跑", "跳", "吃", "喝", "睡", "洗", "刷", "泡", "理", "剪", "做", "煮",
+            "抽", "流", "嘆", "開", "請", "幫", "見", "打", "握", "鞠", "生", "發", "吵",
+            "道", "散", "唱", "游", "爬", "逛", "釣", "拍", "照", "出", "上", "下", "加",
+            "罷", "辭", "考", "排", "住", "結", "買", "簽", "秀", "碰", "轉", "推", "拉",
+            "改", "用", "測試",
+        ].iter().map(|s| s.to_string()).collect();
+        let vo_infixes: Vec<String> = [
+            "一下", "個", "一頓", "一趟", "一個", "一場", "一番", "頓",
+        ].iter().map(|s| s.to_string()).collect();
+        let vo_objects: Vec<String> = [
+            "澡", "覺", "飯", "廁所", "床", "牙", "臉", "髮", "夢", "汗", "氣", "煙", "菸",
+            "酒", "茶", "天", "話", "玩笑", "客", "忙", "面", "招呼", "手", "躬", "脾氣",
+            "架", "歉", "步", "歌", "舞", "泳", "球", "山", "街", "魚", "照", "相", "假",
+            "差", "會", "卡", "班", "工", "職", "試", "隊", "病", "針", "藥", "院", "帳",
+            "單", "名", "仗", "石頭", "時", "時的", "什麼",
+        ].iter().map(|s| s.to_string()).collect();
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vo_momentum_verbs),
+            curr_pattern: WordPattern::OneOf(vo_infixes.clone()),
+            bonus: 28.0,
+            name: "vo_verb_momentum_infix_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vo_infixes.clone()),
+            curr_pattern: WordPattern::OneOf(vo_objects),
+            bonus: 26.0,
+            name: "vo_infix_object_head_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vo_infixes),
+            curr_pattern: WordPattern::OneOf(vec![
+                "好".to_string(), "熱水".to_string(), "痛快".to_string(), "大".to_string(),
+                "飽".to_string(), "小".to_string(), "短".to_string(),
+            ]),
+            bonus: 26.0,
+            name: "vo_infix_modifier_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "好".to_string(), "熱水".to_string(), "痛快".to_string(), "大".to_string(),
+                "飽".to_string(), "小".to_string(), "短".to_string(),
+            ]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "澡".to_string(), "覺".to_string(), "飯".to_string(), "會".to_string(),
+            ]),
+            bonus: 28.0,
+            name: "vo_modifier_object_head_array".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec!["個".to_string(), "一個".to_string()]),
+            curr_pattern: WordPattern::Exact("好叫".to_string()),
+            bonus: -45.0,
+            name: "anti_ge_haojiao_impostor".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "跑出來".to_string(), "出來".to_string(), "出來秀".to_string(), "來".to_string(),
+            ]),
+            curr_pattern: WordPattern::Exact("繡衣".to_string()),
+            bonus: -45.0,
+            name: "anti_xiuyi_impostor_after_chulai".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("繡衣".to_string()),
+            curr_pattern: WordPattern::Exact("下".to_string()),
+            bonus: -45.0,
+            name: "anti_xiuyi_xia_impostor".to_string(),
+        });
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("一".to_string()),
+            curr_pattern: WordPattern::Exact("下石".to_string()),
+            bonus: -45.0,
+            name: "anti_yi_xiashi_impostor".to_string(),
         });
     }
 
@@ -3912,6 +4128,8 @@ impl TransitionEngine {
             #[serde(default)]
             slots: Vec<Vec<String>>,
             #[serde(default)]
+            optional_slots: Vec<usize>,
+            #[serde(default)]
             target: Vec<String>,
             #[serde(default)]
             preferred: Vec<String>,
@@ -3947,6 +4165,15 @@ impl TransitionEngine {
                     continue;
                 }
                 let safe_bonus = pat.bonus.clamp(15.0, 35.0);
+                let label = if !pat.name.is_empty() {
+                    pat.name.clone()
+                } else if !pat.pattern_id.is_empty() {
+                    pat.pattern_id.clone()
+                } else if !pat.description.is_empty() {
+                    pat.description.clone()
+                } else {
+                    format!("slot_{}", count)
+                };
 
                 if pat.slots.len() >= 3 {
                     let s0: HashSet<String> = pat.slots[0]
@@ -3965,23 +4192,67 @@ impl TransitionEngine {
                         .filter(|w| Self::is_valid_cjk_token(w))
                         .collect();
                     if !s0.is_empty() && !s1.is_empty() && !s2.is_empty() {
-                        let label = if !pat.name.is_empty() {
-                            pat.name.clone()
-                        } else if !pat.pattern_id.is_empty() {
-                            pat.pattern_id.clone()
-                        } else if !pat.description.is_empty() {
-                            pat.description.clone()
-                        } else {
-                            format!("trigram_slot_{}", count)
-                        };
                         self.user_trigram_patterns.push(TrigramSlotPattern {
                             slot0: s0,
                             slot1: s1,
                             slot2: s2,
                             bonus: safe_bonus,
-                            name: label,
+                            name: label.clone(),
                         });
                         count += 1;
+                    }
+                    // 若為無 target/preferred 之多維槽位鏈（如 [A_arr, B_arr, C_arr, D_arr]），
+                    // 自動將相鄰槽位對 (slots[i] × slots[i+1]) 及可選槽位跨接 (slots[i] × slots[i+2]) 註冊為 O(1) 陣列規則
+                    if pat.target.is_empty() && pat.preferred.is_empty() {
+                        let cleaned_slots: Vec<Vec<String>> = pat
+                            .slots
+                            .iter()
+                            .map(|sl| {
+                                sl.iter()
+                                    .map(|w| w.trim().to_string())
+                                    .filter(|w| Self::is_valid_cjk_token(w))
+                                    .collect()
+                            })
+                            .collect();
+                        for i in 0..cleaned_slots.len().saturating_sub(1) {
+                            let left = &cleaned_slots[i];
+                            let right = &cleaned_slots[i + 1];
+                            if !left.is_empty() && !right.is_empty() {
+                                self.grammar_rules.push(GrammarRule {
+                                    prev_pattern: if left.len() == 1 {
+                                        WordPattern::Exact(left[0].clone())
+                                    } else {
+                                        WordPattern::OneOf(left.clone())
+                                    },
+                                    curr_pattern: if right.len() == 1 {
+                                        WordPattern::Exact(right[0].clone())
+                                    } else {
+                                        WordPattern::OneOf(right.clone())
+                                    },
+                                    bonus: safe_bonus,
+                                    name: format!("user_chain:{}:{}->{}", label, i, i + 1),
+                                });
+                            }
+                            if pat.optional_slots.contains(&(i + 1)) && i + 2 < cleaned_slots.len() {
+                                let skip_right = &cleaned_slots[i + 2];
+                                if !left.is_empty() && !skip_right.is_empty() {
+                                    self.grammar_rules.push(GrammarRule {
+                                        prev_pattern: if left.len() == 1 {
+                                            WordPattern::Exact(left[0].clone())
+                                        } else {
+                                            WordPattern::OneOf(left.clone())
+                                        },
+                                        curr_pattern: if skip_right.len() == 1 {
+                                            WordPattern::Exact(skip_right[0].clone())
+                                        } else {
+                                            WordPattern::OneOf(skip_right.clone())
+                                        },
+                                        bonus: safe_bonus,
+                                        name: format!("user_chain_opt:{}:{}->{}", label, i, i + 2),
+                                    });
+                                }
+                            }
+                        }
                     }
                     if pat.prev_slot.is_empty() || pat.next_slot.is_empty() {
                         continue;
@@ -4037,16 +4308,6 @@ impl TransitionEngine {
                     WordPattern::Exact(next_clean.into_iter().next().unwrap())
                 } else {
                     WordPattern::OneOf(next_clean)
-                };
-
-                let label = if !pat.name.is_empty() {
-                    pat.name
-                } else if !pat.pattern_id.is_empty() {
-                    pat.pattern_id
-                } else if !pat.description.is_empty() {
-                    pat.description
-                } else {
-                    format!("slot_{}", count)
                 };
 
                 self.grammar_rules.push(GrammarRule {

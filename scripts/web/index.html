@@ -736,6 +736,9 @@
       </nav>
 
       <div class="word-group">
+        <button class="btn btn-secondary char-element" id="btnOpenHandover" onclick="openAiHandoverModal()" style="font-size: 0.85rem; padding: 6px 14px; border-color: rgba(192, 132, 252, 0.45); color: var(--accent-purple);">
+          🤝 推薦模型與 AI/SI 交接協定
+        </button>
         <button class="btn btn-secondary char-element" id="btnOpenWizard" onclick="openAiWizardModal()" style="font-size: 0.85rem; padding: 6px 14px; border-color: rgba(56, 189, 248, 0.4); color: var(--accent-cyan);">
           🧙 AI 策略精靈
         </button>
@@ -3577,6 +3580,117 @@
       }
     }
 
+    let cachedHandoverPrompt = '';
+    let cachedHandoverSchema = '';
+
+    async function openAiHandoverModal() {
+      const modal = document.getElementById('aiHandoverModal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      const body = document.getElementById('aiHandoverModalBody');
+      body.innerHTML = `<div style="color: var(--accent-cyan); padding: 18px;">正在載入即時三層語意規則庫盤點與 AI/SI 交接規格書...</div>`;
+      try {
+        const res = await fetch('/api/ai/handover_spec');
+        const data = await res.json();
+        cachedHandoverPrompt = (data.handover_protocol && data.handover_protocol.system_prompt) || '';
+        cachedHandoverSchema = JSON.stringify((data.handover_protocol && data.handover_protocol.json_output_schema) || {}, null, 2);
+        const inv = data.live_inventory || {};
+        const pInfo = inv.patterns_user_jsonl || {};
+        const tInfo = inv.transitions_user_tsv || {};
+        const lInfo = inv.lexicon_domain_tsv || {};
+        const cloudList = (data.recommended_cloud_models || []).map(m => `
+          <div style="background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 10px 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+              <strong style="color: #fff; font-size: 0.92rem;">${escapeHtml(m.display_name || m.id)}</strong>
+              <span class="wizard-badge" style="background: rgba(56, 189, 248, 0.18); color: var(--accent-cyan);">${escapeHtml(m.ecosystem || '')}</span>
+            </div>
+            <div style="font-size: 0.82rem; color: var(--accent-green); margin-top: 4px;">定位：${escapeHtml(m.role || '')}</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; line-height: 1.4;">${escapeHtml(m.description || '')}</div>
+          </div>
+        `).join('');
+        const localList = (data.recommended_local_models || []).map(m => `
+          <div style="background: rgba(192, 132, 252, 0.06); border: 1px solid rgba(192, 132, 252, 0.25); border-radius: 8px; padding: 10px 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+              <strong style="color: #fff; font-size: 0.92rem;">${escapeHtml(m.display_name || m.name)}</strong>
+              <span class="wizard-badge" style="background: rgba(192, 132, 252, 0.18); color: var(--accent-purple);">${escapeHtml(m.ecosystem || '')}</span>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">${escapeHtml(m.description || '')}</div>
+          </div>
+        `).join('');
+        const depth = data.hierarchy_depth_analysis || {};
+
+        body.innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+            <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 12px;">
+              <div style="font-size: 0.78rem; color: var(--text-muted);">Layer 1 多維陣列構式 (patterns_user.jsonl)</div>
+              <div style="font-size: 1.25rem; font-weight: 700; color: var(--accent-cyan); margin-top: 4px;">${pInfo.total_patterns || 0} 條構式</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">3D~5D 鏈式：${pInfo.multi_slot_3d_to_5d_chains || 0} 條 ｜ 2D 陣列：${pInfo.array_2d_correspondences || 0} 條（索引 ${pInfo.total_indexed_slot_tokens || 0} 詞元）</div>
+            </div>
+            <div style="background: rgba(74, 222, 128, 0.08); border: 1px solid rgba(74, 222, 128, 0.3); border-radius: 8px; padding: 12px;">
+              <div style="font-size: 0.78rem; color: var(--text-muted);">Layer 2 二元轉移矩陣 (transitions_user.tsv)</div>
+              <div style="font-size: 1.25rem; font-weight: 700; color: var(--accent-green); margin-top: 4px;">${tInfo.total_bigram_rules || 0} 條規則</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">正向搭配：${tInfo.positive_collocations || 0} 條 ｜ 負向防劫掠：${tInfo.negative_anti_hijack_rules || 0} 條</div>
+            </div>
+            <div style="background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px; padding: 12px;">
+              <div style="font-size: 0.78rem; color: var(--text-muted);">Layer 3 領域核心詞根 (lexicon_domain.tsv)</div>
+              <div style="font-size: 1.25rem; font-weight: 700; color: var(--accent-yellow); margin-top: 4px;">${lInfo.total_irreducible_entries || 0} 筆詞根</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">已全面清除 480 筆笛卡兒積平面化冗餘詞條</div>
+            </div>
+          </div>
+
+          <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 14px; font-size: 0.85rem; line-height: 1.55;">
+            <div style="font-weight: 700; color: var(--accent-yellow); margin-bottom: 4px;">📐 多層巢狀陣列複雜度與語言學最佳層數分析（2～3 層黃金定律）</div>
+            <div>• <strong>最佳層數</strong>：${escapeHtml(depth.optimal_levels || '')}</div>
+            <div>• <strong>時間複雜度</strong>：${escapeHtml(depth.runtime_complexity || '')}</div>
+            <div>• <strong>為何不宜超過 3～4 層</strong>：${escapeHtml(depth.why_not_deeper_than_3 || '')}</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-weight: 700; color: var(--accent-cyan); font-size: 0.92rem;">☁️ 推薦雲端大 AI / SI 模型（Google 生態第一優先）</div>
+              ${cloudList}
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-weight: 700; color: var(--accent-purple); font-size: 0.92rem;">💻 推薦本地純綠開源模型（llama.cpp GGUF / Ollama）</div>
+              ${localList}
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <span style="font-weight: 700; color: #fff; font-size: 0.92rem;">📋 對接 AI / SI 標準任務交接提示詞 (System Handover Prompt)</span>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn-pill" style="color: var(--accent-cyan); border-color: rgba(56, 189, 248, 0.4);" onclick="copyHandoverSystemPrompt()">📋 一鍵複製完整交接規格書</button>
+                <button type="button" class="btn-pill" style="color: var(--accent-green); border-color: rgba(74, 222, 128, 0.4);" onclick="copyHandoverJsonSchema()">📐 複製 JSON Schema</button>
+              </div>
+            </div>
+            <textarea readonly style="width: 100%; height: 210px; background: #090d16; color: #e2e8f0; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.8rem; line-height: 1.45;">${escapeHtml(cachedHandoverPrompt)}</textarea>
+          </div>
+        `;
+      } catch (e) {
+        body.innerHTML = `<div style="color: var(--accent-red); padding: 16px;">載入 AI/SI 交接協定失敗：${escapeHtml(String(e))}</div>`;
+      }
+    }
+
+    function closeAiHandoverModal() {
+      const modal = document.getElementById('aiHandoverModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function copyHandoverSystemPrompt() {
+      if (!cachedHandoverPrompt) return;
+      navigator.clipboard.writeText(cachedHandoverPrompt).then(() => {
+        showToast('✅ 已複製完整 AI / SI 語意調校任務交接規格書！可直接貼給任何對接模型。');
+      });
+    }
+
+    function copyHandoverJsonSchema() {
+      if (!cachedHandoverSchema) return;
+      navigator.clipboard.writeText(cachedHandoverSchema).then(() => {
+        showToast('✅ 已複製如喜陣列構式 JSON Schema！');
+      });
+    }
+
     // 預設載入
     window.addEventListener('DOMContentLoaded', () => {
       renderSentencePairs();
@@ -3587,5 +3701,18 @@
       checkWizardOnStartup();
     });
   </script>
+
+  <!-- 推薦 AI 模型與 AI/SI 任務交接協定對話框 -->
+  <div id="aiHandoverModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card" style="max-width: 880px; width: 95%; max-height: 90vh; overflow-y: auto;">
+      <div class="row-sentence" style="justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+        <div class="card-title" style="font-size: 1.15rem;">
+          <span>🤝 大 AI / SI 時代：推薦對接模型與語意調校任務交接協定</span>
+        </div>
+        <button class="btn-pill" onclick="closeAiHandoverModal()">✕ 關閉</button>
+      </div>
+      <div id="aiHandoverModalBody" style="display: flex; flex-direction: column; gap: 14px; margin-top: 6px;"></div>
+    </div>
+  </div>
 </body>
 </html>

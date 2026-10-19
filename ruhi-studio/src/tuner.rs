@@ -835,46 +835,47 @@ impl SemanticTuner {
                         continue;
                     }
                 }
+                if (t.ends_with('素') || t.ends_with('型') || t.ends_with('類')) && t_len >= 2 {
+                    let stem: String = t.chars().take(t_len - 1).collect();
+                    if stem.chars().count() >= 2 && !self.known_words.contains(&stem) && seen_oov.insert(stem.clone()) {
+                        oov_compound_words.push(json!({
+                            "word": stem,
+                            "bopomofo": self.get_bopomofo(&stem),
+                            "weight": 1500,
+                            "category": "領域專名詞根",
+                            "reason": format!("自派生陣列詞「{}」抽離不可再分之核心詞根，後綴交由 Layer 1 陣列規則處理", t)
+                        }));
+                    }
+                    continue;
+                }
                 let is_domain_worthy = !self.known_words.contains(t)
-                    || t.ends_with('素')
-                    || t.ends_with('型')
-                    || t.ends_with('類')
-                    || matches!(t, "大易" | "大易輸入法" | "倉頡" | "行列" | "瑜伽素" | "文字型" | "菇類");
-                if is_domain_worthy && seen_oov.insert(t.to_string()) {
+                    || matches!(t, "大易" | "倉頡" | "行列" | "許氏" | "嘸蝦米");
+                if is_domain_worthy && !t.ends_with("輸入法") && !t.ends_with("鍵盤") && seen_oov.insert(t.to_string()) {
                     oov_compound_words.push(json!({
                         "word": t,
                         "bopomofo": self.get_bopomofo(t),
                         "weight": if t_len >= 3 { 1600 } else { 1500 },
-                        "category": if t.ends_with('素') || t.ends_with('型') || t.ends_with('類') {
-                            "領域分類複合實詞"
-                        } else {
-                            "語意調校複合長詞"
-                        },
+                        "category": "語意調校複合長詞",
                         "reason": format!("Layer 3 複合詞凝聚保護：防止「{}」碎裂或遭假詞「{}」劫掠", t, rejected)
                     }));
                 }
             }
         }
-        // 若完整區間為「XX輸入法」等專名複合詞，同步收錄全稱與核心專名
-        if accepted.ends_with("輸入法") && acc_len >= 4 && acc_len <= 6 && is_valid_chinese_token(accepted) {
-            if seen_oov.insert(accepted.to_string()) {
-                oov_compound_words.push(json!({
-                    "word": accepted,
-                    "bopomofo": self.get_bopomofo(accepted),
-                    "weight": 1650,
-                    "category": "輸入法專有名詞",
-                    "reason": "Layer 3 專名完整性與前綴自動拆解保護"
-                }));
-            }
-            let stem: String = accepted.chars().take(acc_len - 3).collect();
-            if stem.chars().count() >= 2 && seen_oov.insert(stem.clone()) {
-                oov_compound_words.push(json!({
-                    "word": stem.clone(),
-                    "bopomofo": self.get_bopomofo(&stem),
-                    "weight": 1550,
-                    "category": "輸入法專名簡稱",
-                    "reason": format!("自專名「{}」自動拆解核心詞根", accepted)
-                }));
+        // 若完整區間為「XX輸入法 / XX鍵盤」等陣列組合詞，僅拆解並收錄不可再分之核心專名詞根（如「大易」），
+        // 其與「{輸入法, 鍵盤, 字根, 碼表}」之組合一律交由 Layer 1 二維陣列笛卡兒積 (prev_slot × next_slot) 處理
+        for head_suf in ["輸入法", "鍵盤"] {
+            let suf_len = head_suf.chars().count();
+            if accepted.ends_with(head_suf) && acc_len >= suf_len + 2 && acc_len <= suf_len + 3 && is_valid_chinese_token(accepted) {
+                let stem: String = accepted.chars().take(acc_len - suf_len).collect();
+                if stem.chars().count() >= 2 && !self.known_words.contains(&stem) && seen_oov.insert(stem.clone()) {
+                    oov_compound_words.push(json!({
+                        "word": stem.clone(),
+                        "bopomofo": self.get_bopomofo(&stem),
+                        "weight": 1550,
+                        "category": "輸入法專名核心詞根",
+                        "reason": format!("自「{}」因式分解核心詞根，配合 {{專名詞根}} × {{輸入法, 鍵盤}} 陣列對應規則", accepted)
+                    }));
+                }
             }
         }
 
@@ -1152,24 +1153,40 @@ impl SemanticTuner {
             }
         }
 
-        // E. 學習/使用輸入法專名＋時間方位＋因果連詞構式（如：學大易輸入法之前因為）
+        // E. 學習/使用輸入法專名＋時間方位＋因果連詞構式（以 `{大易, 倉頡, 行列, 許氏, 嘸蝦米...} × {輸入法, 鍵盤, 字根, 碼表}` 二維陣列笛卡兒積處理）
         if accepted.contains("大易") || accepted_tokens.iter().any(|t| t == "之前" || t == "因為") {
             constructions.push(json!({
+                "pattern_id": "ime_root_device_head_array",
+                "name": "中文輸入法專名詞根 × 設備/法體後綴二維陣列對應",
+                "formula": "[{大易, 倉頡, 行列, 許氏, 嘸蝦米, 無蝦米, 注音, 速成, 拼音, 大千, 倚天, 羅馬}] × [{輸入法, 鍵盤, 字根, 碼表, 拆碼, 規則}]",
+                "category": "Layer 1 二維陣列笛卡兒積構式 (M × N Array Correspondence)",
+                "prev_slot": ["大易", "倉頡", "行列", "許氏", "嘸蝦米", "無蝦米", "注音", "速成", "拼音", "大千", "倚天", "羅馬"],
+                "next_slot": ["輸入法", "鍵盤", "字根", "碼表", "拆碼", "規則"],
+                "suppress": ["大意"],
+                "bonus": 30.0,
+                "backbone_rules": [
+                    {"prev": "大易", "next": "輸入法", "score": 30.0, "kind": "construction", "comment": "輸入法詞根 × 後綴陣列對應 [大易 ➔ 輸入法]"},
+                    {"prev": "許氏", "next": "鍵盤", "score": 30.0, "kind": "construction", "comment": "輸入法詞根 × 後綴陣列對應 [許氏 ➔ 鍵盤]"}
+                ]
+            }));
+            constructions.push(json!({
                 "pattern_id": "learn_ime_temporal_localizer_causal",
-                "name": "動作動詞＋輸入法專名＋時間後置方位詞＋因果連詞構式",
-                "formula": "[{學, 學習, 用, 打, 練, 改用}] → [{大易, 倉頡, 行列, 注音, 許氏, 嘸蝦米} + {輸入法, ∅}] → [{之前, 之後, 以前, 以後}] → [{因為, 由於, 所以}]",
-                "category": "Layer 1 時間方位與因果銜接構式",
+                "name": "動作動詞 × 輸入法專名 × 設備後綴(可選) × 時間方位詞四維陣列鏈構式",
+                "formula": "[{學, 學習, 用, 使用, 打, 練, 改用, 切換}] × [{大易, 倉頡, 行列, 注音, 許氏, 嘸蝦米, 速成, 拼音, 大千, 倚天}] × [{輸入法, 鍵盤, 字根, 碼表}?] × [{之前, 之後, 以前, 以後}]",
+                "category": "Layer 1 多維陣列鏈與可選槽位跨接構式",
                 "slots": [
-                    ["學", "學習", "用", "使用", "打", "練", "改用"],
-                    ["大易", "大易輸入法", "倉頡", "倉頡輸入法", "行列", "行列輸入法", "注音", "許氏"],
-                    ["之前", "之後", "以前", "以後"]
+                    ["學", "學習", "用", "使用", "打", "練", "練習", "改用", "切換"],
+                    ["大易", "倉頡", "行列", "注音", "許氏", "嘸蝦米", "無蝦米", "速成", "拼音", "大千", "倚天"],
+                    ["輸入法", "鍵盤", "字根", "碼表", "拆碼", "規則"],
+                    ["之前", "之後", "以前", "以後", "之初", "之餘"]
                 ],
-                "prev_slot": ["輸入法", "大易", "大易輸入法", "倉頡", "行列", "工作", "學習", "上班"],
-                "next_slot": ["之前", "之後", "以前", "以後"],
+                "optional_slots": [2],
+                "prev_slot": ["輸入法", "鍵盤", "大易", "倉頡", "行列", "許氏", "嘸蝦米", "工作", "學習", "上班"],
+                "next_slot": ["之前", "之後", "以前", "以後", "之初", "之餘"],
                 "suppress": [rejected, "大意", "支前", "因位"],
                 "bonus": 30.0,
                 "backbone_rules": [
-                    {"prev": "學", "next": "大易", "score": 30.0, "kind": "construction", "comment": "學習動詞銜接輸入法專名 [學 ➔ 大易]（抑制同音形容詞『大意』）"},
+                    {"prev": "學", "next": "大易", "score": 30.0, "kind": "construction", "comment": "學習動詞銜接輸入法專名詞根 [學 ➔ 大易]（抑制同音形容詞『大意』）"},
                     {"prev": "輸入法", "next": "之前", "score": 28.0, "kind": "construction", "comment": "事件名詞後接時間方位詞 [輸入法 ➔ 之前]"},
                     {"prev": "之前", "next": "因為", "score": 28.0, "kind": "construction", "comment": "時間方位詞銜接因果連詞 [之前 ➔ 因為]"}
                 ]
@@ -1471,26 +1488,45 @@ impl SemanticTuner {
                 shi_words.sort();
                 shi_words.truncate(12);
 
-                let dietary_types = ["瑜伽素", "全素", "蛋奶素", "五辛素", "植物素", "鍋邊素", "純素", "奶素", "蛋素"];
-                for dt in dietary_types {
-                    if !self.known_words.contains(dt) && seen_words.insert(dt.to_string()) {
+                let dietary_roots = ["瑜伽", "蛋奶", "五辛"];
+                for dr in dietary_roots {
+                    if !self.known_words.contains(dr) && seen_words.insert(dr.to_string()) {
                         analogous_words_to_add.push(json!({
-                            "word": dt,
-                            "bopomofo": self.get_bopomofo(dt),
-                            "weight": 1600,
-                            "category": "舉一反三飲食分類專名",
-                            "reason": format!("由「{}」舉一反三擴充之飲食分類複合專名", accepted)
+                            "word": dr,
+                            "bopomofo": self.get_bopomofo(dr),
+                            "weight": 1500,
+                            "category": "飲食分類核心詞根",
+                            "reason": format!("由「{}」抽離不可再分之飲食專名詞根，其與『{{素}}』之組合由二維陣列處理", accepted)
                         }));
                     }
                 }
+                analogous_constructions.push(json!({
+                    "pattern_id": "dietary_root_su_suffix_array",
+                    "name": "飲食分類詞根 × [素]後綴 × 類別名詞三維陣列對應",
+                    "formula": "[{瑜伽, 全, 蛋奶, 五辛, 植物, 純, 奶, 蛋, 鍋邊}] × [{素}] × [{項目, 選項, 餐點, 飲食}]",
+                    "category": "Layer 1 飲食分類派生後綴三維陣列構式",
+                    "slots": [
+                        ["瑜伽", "全", "蛋奶", "五辛", "植物", "純", "奶", "蛋", "鍋邊"],
+                        ["素"],
+                        ["項目", "選項", "餐點", "飲食"]
+                    ],
+                    "prev_slot": ["瑜伽", "全", "蛋奶", "五辛", "植物", "純", "奶", "蛋", "鍋邊"],
+                    "next_slot": ["素"],
+                    "suppress": ["瑜珈素"],
+                    "bonus": 30.0,
+                    "backbone_rules": [
+                        {"prev": "瑜伽", "next": "素", "score": 30.0, "kind": "construction", "comment": "飲食詞根 × 素後綴陣列對應 [瑜伽 ➔ 素]"},
+                        {"prev": "素", "next": "項目", "score": 28.0, "kind": "construction", "comment": "素後綴 × 中心名詞陣列對應 [素 ➔ 項目]"}
+                    ]
+                }));
 
                 scanned_families.push(json!({
                     "trigger": format!("{} ➔ {}", rejected, accepted),
-                    "family_name": "[~食(ㄕˊ)] ＋ [分~(ㄈㄣ)] 跨界「十分」劫掠防護與「~素」飲食專名族",
-                    "vulnerability_mechanism": "凡以「食(ㄕˊ)」結尾之雙字名詞後接以「分(ㄈㄣ)」開頭之動詞/名詞時，跨詞界音節「ㄕˊ ㄈㄣ」極易遭高頻程度副詞「十分」交錯劫掠。",
+                    "family_name": "[~食(ㄕˊ)] × [分~(ㄈㄣ)] 跨界「十分」劫掠防護與 [{瑜伽, 全, 蛋奶, 五辛...} × {素}] 二維陣列",
+                    "vulnerability_mechanism": "凡以「食(ㄕˊ)」結尾之雙字名詞後接以「分(ㄈㄣ)」開頭之動詞/名詞時，跨詞界音節「ㄕˊ ㄈㄣ」極易遭高頻程度副詞「十分」交錯劫掠；且「~素」飲食分類應因式分解為詞根陣列 × {素}。",
                     "scanned_siblings": shi_words,
-                    "expanded_domain_words": dietary_types,
-                    "action": "已掃描詞庫中所有「~食」雙字詞與「分類/分級/分析/分配」組合，並舉一反三補齊「全素、蛋奶素、五辛素、植物素、瑜伽素」等專名與「再 + 擴充動詞」既有規則。"
+                    "expanded_domain_words": dietary_roots,
+                    "action": "已掃描詞庫中所有「~食 × 分~」二維陣列，並將「{瑜伽, 全, 蛋奶, 五辛, 植物, 純, 奶, 蛋} × {素}」建立為陣列對應規則。"
                 }));
             }
 
@@ -1506,111 +1542,140 @@ impl SemanticTuner {
                 ];
                 scanned_families.push(json!({
                     "trigger": format!("{} ➔ {}", rejected, accepted),
-                    "family_name": "[正反疑問/情態助動詞 ~會] ＋ [介詞 對/給/讓] 跨界「匯兌」劫掠防護族",
+                    "family_name": "[正反疑問/情態助動詞 ~會] × [介詞 對/給/讓] 跨界「匯兌」劫掠防護陣列",
                     "vulnerability_mechanism": "助動詞「會(ㄏㄨㄟˋ)」結尾後接介詞「對(ㄉㄨㄟˋ)」引介受事（特別是後接歐文專名如 Github 時），跨界音節「ㄏㄨㄟˋ ㄉㄨㄟˋ」易遭金融名詞「匯兌」劫掠。",
                     "scanned_siblings": modal_siblings,
-                    "action": "已舉一反三掃描全系列正反疑問詞（會不會、能不能、可不可以、要不要、該不該）與「~會」情態詞後接介詞「對/給/讓/向/為」之構式槽位。"
+                    "action": "已舉一反三掃描全系列正反疑問詞（會不會、能不能、可不可以、要不要、該不該）× 介詞「{對, 給, 讓, 向, 為}」之二維陣列構式。"
                 }));
             }
 
-            // 4. 掃描【認知型態 ~型】跨詞界「自行 (ㄗˋ ㄒㄧㄥˊ)」劫掠與派生屬性詞族（如：文字型思考 ➔ 語音型/視覺型/邏輯型）
+            // 4. 掃描【認知型態 詞根 × {型}】跨詞界「自行 (ㄗˋ ㄒㄧㄥˊ)」劫掠與派生屬性陣列（如：{文字, 語音, 視覺, 邏輯...} × {型} × {思考, 思維, 記憶}）
             if accepted_tokens.iter().any(|t| t.ends_with('型') || t == "偏向" || t == "而非")
                 && seen_family_ids.insert("analog_cognitive_xing2_paradigm".to_string())
             {
-                let xing_siblings = [
-                    "文字型", "語音型", "視覺型", "聽覺型", "圖像型", "邏輯型",
-                    "直覺型", "分析型", "記憶型", "思考型", "概念型", "經驗型",
+                let xing_roots = [
+                    "文字", "語音", "視覺", "聽覺", "圖像", "邏輯",
+                    "直覺", "分析", "記憶", "思考", "概念", "經驗",
                 ];
-                for xs in xing_siblings {
-                    if seen_words.insert(xs.to_string()) {
-                        analogous_words_to_add.push(json!({
-                            "word": xs,
-                            "bopomofo": self.get_bopomofo(xs),
-                            "weight": 1580,
-                            "category": "舉一反三派生屬性複合詞",
-                            "reason": format!("由「{}」舉一反三擴充之 [~型] 認知屬性詞族（防『自行』等跨界假詞切碎）", accepted)
-                        }));
-                    }
-                }
-                scanned_families.push(json!({
-                    "trigger": format!("{} ➔ {}", rejected, accepted),
-                    "family_name": "[~型] 認知與屬性派生複合詞族（文字型 / 語音型 / 視覺型 / 圖像型 / 邏輯型）",
-                    "vulnerability_mechanism": "「文字(ㄨㄣˊ ㄗˋ) + 型(ㄒㄧㄥˊ)」尾端音節「ㄗˋ ㄒㄧㄥˊ」與高頻詞「自行」同音，若未建立 [~型] 派生屬性詞族與心理傾向構式，極易碎裂為「紋 + 自行」。",
-                    "scanned_siblings": xing_siblings,
-                    "action": "已舉一反三將 12 組認知與感官屬性「~型」複合詞同步納入詞庫與「傾向動詞 + [~型] + 思考/思維/記憶」階層槽位構式。"
-                }));
-            }
-
-            // 5. 掃描【輸入法專名族】與【手寫/書寫/打字工具動賓族】
-            if (accepted.contains("大易") || accepted.contains("手寫") || accepted.contains("輸入法"))
-                && seen_family_ids.insert("analog_ime_and_writing_modality".to_string())
-            {
-                let ime_siblings = ["大易", "大易輸入法", "倉頡", "倉頡輸入法", "行列", "行列輸入法", "許氏", "許氏鍵盤", "嘸蝦米"];
-                for w in ime_siblings {
-                    if seen_words.insert(w.to_string()) {
-                        analogous_words_to_add.push(json!({
-                            "word": w,
-                            "bopomofo": self.get_bopomofo(w),
-                            "weight": 1620,
-                            "category": "舉一反三輸入法專名",
-                            "reason": "由「大易輸入法」舉一反三補齊台灣常見中文輸入法專名與簡稱"
-                        }));
-                    }
-                }
                 analogous_constructions.push(json!({
-                    "pattern_id": "writing_modality_document_collocation",
-                    "name": "書寫方式＋文體書信名詞定中/動賓構式",
-                    "formula": "[{手寫, 親筆, 撰寫, 抄寫, 打字}] → [{書信, 信件, 文件, 文稿, 筆記, 日記, 操作手冊}]",
-                    "category": "Layer 1 書寫行為與文體搭配構式",
-                    "prev_slot": ["手寫", "親筆", "撰寫", "抄寫", "編寫"],
-                    "next_slot": ["書信", "信件", "文件", "文稿", "筆記", "日記", "手冊"],
-                    "suppress": ["使寫", "首寫"],
-                    "bonus": 28.0,
+                    "pattern_id": "cognitive_root_type_suffix_array",
+                    "name": "認知感官詞根 × [型]後綴 × 中心名詞三維陣列對應",
+                    "formula": "[{文字, 語音, 視覺, 聽覺, 圖像, 邏輯, 直覺, 分析, 記憶, 思考, 概念, 經驗}] × [{型}] × [{思考, 思維, 記憶, 學習, 模式}]",
+                    "category": "Layer 1 派生屬性後綴三維陣列構式",
+                    "slots": [
+                        xing_roots,
+                        ["型"],
+                        ["思考", "思維", "記憶", "學習", "模式"]
+                    ],
+                    "prev_slot": xing_roots,
+                    "next_slot": ["型"],
+                    "suppress": ["紋自行", "自行"],
+                    "bonus": 32.0,
                     "backbone_rules": [
-                        {"prev": "手寫", "next": "書信", "score": 28.0, "kind": "construction", "comment": "書寫方式修飾文體名詞 [手寫 ➔ 書信]"}
+                        {"prev": "文字", "next": "型", "score": 32.0, "kind": "construction", "comment": "認知詞根 × 型後綴陣列對應 [文字 ➔ 型]"},
+                        {"prev": "型", "next": "思考", "score": 30.0, "kind": "construction", "comment": "型後綴 × 中心名詞陣列對應 [型 ➔ 思考]"}
                     ]
                 }));
                 scanned_families.push(json!({
                     "trigger": format!("{} ➔ {}", rejected, accepted),
-                    "family_name": "中文輸入法專名族（大易/倉頡/行列/許氏）與書寫文體（手寫書信/文件/手冊）構式族",
-                    "vulnerability_mechanism": "專名「大易」易與形容詞「大意」同音混淆，且「[動詞] + [XX輸入法] + [之前/之後]」需具備完整專名保護與時間方位詞銜接。",
-                    "scanned_siblings": ime_siblings,
-                    "action": "已舉一反三掃描並補齊台灣主流輸入法專名（大易、倉頡、行列、許氏）及「手寫 ➔ 書信/文件/筆記」構式。"
+                    "family_name": "{文字, 語音, 視覺, 聽覺, 圖像, 邏輯...} × {型} × {思考, 思維, 記憶} 三維陣列構式",
+                    "vulnerability_mechanism": "「文字(ㄨㄣˊ ㄗˋ) + 型(ㄒㄧㄥˊ)」尾端音節「ㄗˋ ㄒㄧㄥˊ」與高頻詞「自行」同音，透過因式分解為「認知詞根陣列 × {型} × {思考, 思維, 記憶}」，免除將 12 組『~型』詞條逐一塞入詞庫。",
+                    "scanned_siblings": ["{文字, 語音, 視覺, 聽覺, 圖像, 邏輯, 直覺, 分析, 記憶, 思考, 概念, 經驗} × {型}"],
+                    "action": "已因式分解為 12 × 1 × 5 三維陣列對應規則，直接瓦解『紋 + 自行』跨界假詞。"
                 }));
             }
 
-            // 6. 掃描【全稱限定詞 所有/各類 ＋ ~類 總稱名詞族】（如：所有菇類）
-            if accepted_tokens.iter().any(|t| t.ends_with('類'))
-                && seen_family_ids.insert("analog_lei4_category_nouns".to_string())
+            // 5. 掃描【輸入法專名詞根 × 設備後綴二維陣列對應】與【手寫/書寫/打字工具動賓族】
+            if (accepted.contains("大易") || accepted.contains("手寫") || accepted.contains("輸入法") || accepted.contains("鍵盤"))
+                && seen_family_ids.insert("analog_ime_and_writing_modality".to_string())
             {
-                let mut lei_siblings: Vec<String> = self
-                    .known_words
-                    .iter()
-                    .filter(|w| w.chars().count() == 2 && w.ends_with('類') && is_valid_chinese_token(w))
-                    .cloned()
-                    .collect();
-                for base in ["菇類", "肉類", "豆類", "藻類", "貝類", "魚類", "鳥類", "穀類", "菌類", "蛋類"] {
-                    if !lei_siblings.contains(&base.to_string()) {
-                        lei_siblings.push(base.to_string());
-                    }
-                    if seen_words.insert(base.to_string()) {
+                let ime_roots = ["大易", "倉頡", "行列", "許氏", "嘸蝦米"];
+                let ime_heads = ["輸入法", "鍵盤", "字根", "碼表", "拆碼", "規則"];
+                for w in ime_roots {
+                    if !self.known_words.contains(w) && seen_words.insert(w.to_string()) {
                         analogous_words_to_add.push(json!({
-                            "word": base,
-                            "bopomofo": self.get_bopomofo(base),
-                            "weight": 1550,
-                            "category": "舉一反三生物與食材類別詞",
-                            "reason": "由「菇類」舉一反三補齊雙字「~類」總稱名詞"
+                            "word": w,
+                            "bopomofo": self.get_bopomofo(w),
+                            "weight": 1580,
+                            "category": "輸入法專名核心詞根",
+                            "reason": "僅收錄不可再分之專名詞根，其與『{輸入法, 鍵盤, 字根, 碼表}』組合由二維陣列規則處理"
                         }));
                     }
                 }
-                lei_siblings.sort();
-                lei_siblings.truncate(16);
+                analogous_constructions.push(json!({
+                    "pattern_id": "ime_root_device_head_array",
+                    "name": "中文輸入法專名詞根 × 設備/法體後綴二維陣列對應",
+                    "formula": "[{大易, 倉頡, 行列, 許氏, 嘸蝦米, 無蝦米, 注音, 速成, 拼音, 大千, 倚天, 羅馬}] × [{輸入法, 鍵盤, 字根, 碼表, 拆碼, 規則}]",
+                    "category": "Layer 1 二維陣列笛卡兒積構式 (12 × 6 = 72 組對應)",
+                    "prev_slot": ["大易", "倉頡", "行列", "許氏", "嘸蝦米", "無蝦米", "注音", "速成", "拼音", "大千", "倚天", "羅馬"],
+                    "next_slot": ime_heads,
+                    "suppress": ["大意"],
+                    "bonus": 30.0,
+                    "backbone_rules": [
+                        {"prev": "大易", "next": "輸入法", "score": 30.0, "kind": "construction", "comment": "輸入法詞根 × 後綴陣列對應 [大易 ➔ 輸入法]"},
+                        {"prev": "許氏", "next": "鍵盤", "score": 30.0, "kind": "construction", "comment": "輸入法詞根 × 後綴陣列對應 [許氏 ➔ 鍵盤]"}
+                    ]
+                }));
+                analogous_constructions.push(json!({
+                    "pattern_id": "writing_modality_document_collocation",
+                    "name": "書寫方式 × 文體書信名詞二維陣列構式",
+                    "formula": "[{多年, 長年, 長期, 習慣, 經常}] × [{手寫, 親筆, 撰寫, 抄寫, 編寫, 打字}] × [{書信, 信件, 文件, 文稿, 筆記, 日記, 手冊}]",
+                    "category": "Layer 1 書寫行為與文體搭配三維陣列鏈構式",
+                    "slots": [
+                        ["多年", "長年", "長期", "習慣", "經常"],
+                        ["手寫", "親筆", "撰寫", "抄寫", "編寫", "打字"],
+                        ["書信", "信件", "文件", "文稿", "筆記", "日記", "手冊"]
+                    ],
+                    "prev_slot": ["手寫", "親筆", "撰寫", "抄寫", "編寫", "打字"],
+                    "next_slot": ["書信", "信件", "文件", "文稿", "筆記", "日記", "手冊"],
+                    "suppress": ["使寫", "首寫"],
+                    "bonus": 28.0,
+                    "backbone_rules": [
+                        {"prev": "多年", "next": "手寫", "score": 28.0, "kind": "construction", "comment": "時段副詞 × 書寫方式陣列對應 [多年 ➔ 手寫]"},
+                        {"prev": "手寫", "next": "書信", "score": 28.0, "kind": "construction", "comment": "書寫方式 × 文體名詞陣列對應 [手寫 ➔ 書信]"}
+                    ]
+                }));
                 scanned_families.push(json!({
                     "trigger": format!("{} ➔ {}", rejected, accepted),
-                    "family_name": "全稱限定詞「所有/各類/各種」＋「~類」生物與食材總稱名詞族",
-                    "vulnerability_mechanism": "單字食材根（如「菇、藻、菌、貝」）後接類別詞綴「類」若未凝聚為雙字詞並綁定全稱限定詞「所有/各類」，易被單字高頻詞拆碎為「孤 + 累」。",
-                    "scanned_siblings": lei_siblings,
-                    "action": "已全詞庫掃描雙字「~類」總稱名詞並補齊「菇類、藻類、菌類、穀類、豆類、肉類」等詞條與全稱量化構式。"
+                    "family_name": "{大易, 倉頡, 行列, 許氏, 嘸蝦米...} × {輸入法, 鍵盤, 字根, 碼表} 二維陣列笛卡兒積與書寫文體構式族",
+                    "vulnerability_mechanism": "若將「大易輸入法、許氏鍵盤」等組合逐一展開塞入詞庫，既冗餘又無法覆蓋「許氏輸入法、大易鍵盤、行列字根」等笛卡兒積組合；應因式分解為詞根陣列 × 後綴陣列。",
+                    "scanned_siblings": ["{大易, 倉頡, 行列, 許氏, 嘸蝦米, 注音, 速成, 拼音, 大千, 倚天} × {輸入法, 鍵盤, 字根, 碼表, 拆碼, 規則}"],
+                    "action": "已因式分解為 12 × 6 二維陣列對應規則（覆蓋 72 組輸入法／鍵盤／字根組合），詞庫僅保留不可再分之專名詞根。"
+                }));
+            }
+
+            // 6. 掃描【全稱限定詞 {所有, 各類...} × {菇, 蛋, 肉, 豆, 藻...} × {類} 三維陣列構式】（如：所有菇類）
+            if accepted_tokens.iter().any(|t| t.ends_with('類'))
+                && seen_family_ids.insert("analog_lei4_category_nouns".to_string())
+            {
+                let food_bio_roots = [
+                    "菇", "蛋", "肉", "豆", "藻", "貝", "魚", "菜", "鳥", "菌", "穀", "蔬", "果", "奶",
+                ];
+                analogous_constructions.push(json!({
+                    "pattern_id": "universal_quantifier_class_noun",
+                    "name": "全稱量化限定詞 × 生物食材詞根 × [類]後綴三維陣列構式",
+                    "formula": "[{所有, 各類, 各種, 任何, 一切, 全部}] × [{菇, 蛋, 肉, 豆, 藻, 貝, 魚, 菜, 鳥, 菌, 穀, 蔬, 果, 奶}] × [{類}]",
+                    "category": "Layer 1 全稱量化類別後綴三維陣列構式",
+                    "slots": [
+                        ["所有", "各類", "各種", "任何", "一切", "全部"],
+                        food_bio_roots,
+                        ["類"]
+                    ],
+                    "prev_slot": ["所有", "各類", "各種", "任何", "一切", "全部"],
+                    "next_slot": food_bio_roots,
+                    "suppress": ["十分類在", "孤累"],
+                    "bonus": 30.0,
+                    "backbone_rules": [
+                        {"prev": "所有", "next": "菇", "score": 28.0, "kind": "construction", "comment": "全稱限定詞 × 食材詞根陣列對應 [所有 ➔ 菇]"},
+                        {"prev": "菇", "next": "類", "score": 30.0, "kind": "construction", "comment": "食材詞根 × 類後綴陣列對應 [菇 ➔ 類]"}
+                    ]
+                }));
+                scanned_families.push(json!({
+                    "trigger": format!("{} ➔ {}", rejected, accepted),
+                    "family_name": "{所有, 各類, 各種, 任何} × {菇, 蛋, 肉, 豆, 藻, 貝, 魚, 菌, 穀} × {類} 三維陣列構式",
+                    "vulnerability_mechanism": "單字食材詞根（如「菇、藻、菌、貝」）後接類別詞綴「類」透過因式分解為「全稱限定詞陣列 × 食材生物詞根陣列 × {類}」，即可免除將雙字『~類』逐一展開塞入詞庫並根除『孤 + 累』碎裂。",
+                    "scanned_siblings": ["{所有, 各類, 各種, 任何, 一切, 全部} × {菇, 蛋, 肉, 豆, 藻, 貝, 魚, 菜, 鳥, 菌, 穀, 蔬, 果, 奶} × {類}"],
+                    "action": "已建立 6 × 14 × 1 三維陣列對應規則（覆蓋 84 組全稱類別組合）。"
                 }));
             }
         }
@@ -1760,6 +1825,18 @@ impl SemanticTuner {
                         }
                     }
 
+                    if let Some(inc_slots) = c.get("slots").and_then(Value::as_array) {
+                        if !inc_slots.is_empty() && ex_obj.get("slots") != Some(&json!(inc_slots)) {
+                            ex_obj["slots"] = json!(inc_slots);
+                            changed = true;
+                        }
+                    }
+                    if let Some(opt_slots) = c.get("optional_slots").and_then(Value::as_array) {
+                        if !opt_slots.is_empty() && ex_obj.get("optional_slots") != Some(&json!(opt_slots)) {
+                            ex_obj["optional_slots"] = json!(opt_slots);
+                            changed = true;
+                        }
+                    }
                     if ex_obj.get("pattern_id").is_none() && !pid.is_empty() {
                         ex_obj["pattern_id"] = json!(pid);
                     }
@@ -1786,6 +1863,7 @@ impl SemanticTuner {
                         "pattern_id": pid,
                         "name": c.get("name").and_then(Value::as_str).unwrap_or("語意調校階層槽位構式"),
                         "slots": c.get("slots").cloned().unwrap_or_else(|| json!([])),
+                        "optional_slots": c.get("optional_slots").cloned().unwrap_or_else(|| json!([])),
                         "prev_slot": incoming_prev,
                         "next_slot": incoming_next,
                         "suppress": incoming_suppress,
@@ -2535,6 +2613,228 @@ impl SemanticTuner {
         }
         out
     }
+
+    /// 自動將同構之單點二元轉移規則 (`prev -> next`) 因式分解為二維陣列對應 (`A_array × B_array`)
+    ///
+    /// 演算法步驟：
+    /// 1. 收集所有正向轉移規則 (`score > 0`) 之二元關係圖 $E \subseteq A \times B$。
+    /// 2. 依共同後繼詞 $b \in B$ 聚合前驅集合 $P(b) = \{a \mid (a, b) \in E\}$；若 $|P(b)| \ge 2$，形成候選槽位。
+    /// 3. 將具備相同前驅集合（或高度重疊）之後繼詞 $b_1, b_2, \dots$ 合併為二維笛卡兒積陣列 $P \times Q$。
+    /// 4. 針對剩餘規則再依共同前驅詞 $a \in A$ 聚合後繼集合 $N(a) = \{b \mid (a, b) \in E\}$（$|N(a)| \ge 2$）。
+    pub fn factorize_rules_to_arrays(&self, rules: &[Value]) -> Vec<Value> {
+        let mut by_next: HashMap<String, Vec<String>> = HashMap::new();
+        let mut by_prev: HashMap<String, Vec<String>> = HashMap::new();
+
+        for r in rules {
+            let score = r
+                .get("score")
+                .or_else(|| r.get("recommended_delta"))
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
+            if score <= 0.0 {
+                continue;
+            }
+            let prev = r.get("prev").and_then(Value::as_str).unwrap_or("").trim();
+            let next = r.get("next").and_then(Value::as_str).unwrap_or("").trim();
+            if !is_valid_chinese_token(prev) || !is_valid_chinese_token(next) {
+                continue;
+            }
+            let p_list = by_next.entry(next.to_string()).or_default();
+            if !p_list.contains(&prev.to_string()) {
+                p_list.push(prev.to_string());
+            }
+            let n_list = by_prev.entry(prev.to_string()).or_default();
+            if !n_list.contains(&next.to_string()) {
+                n_list.push(next.to_string());
+            }
+        }
+
+        // 將擁有相同 prev_slot 集合的 next 合併為 A_array × B_array
+        let mut prev_set_to_nexts: HashMap<Vec<String>, Vec<String>> = HashMap::new();
+        let mut covered_edges: HashSet<(String, String)> = HashSet::new();
+
+        let mut next_keys: Vec<String> = by_next.keys().cloned().collect();
+        next_keys.sort();
+        for nk in next_keys {
+            if let Some(mut p_list) = by_next.get(&nk).cloned() {
+                if p_list.len() >= 2 {
+                    p_list.sort();
+                    prev_set_to_nexts.entry(p_list).or_default().push(nk);
+                }
+            }
+        }
+
+        let mut out_arrays = Vec::new();
+        let mut sorted_groups: Vec<(Vec<String>, Vec<String>)> =
+            prev_set_to_nexts.into_iter().collect();
+        sorted_groups.sort_by(|a, b| (b.0.len() * b.1.len()).cmp(&(a.0.len() * a.1.len())));
+
+        for (p_slot, mut n_slot) in sorted_groups {
+            n_slot.sort();
+            for p in &p_slot {
+                for n in &n_slot {
+                    covered_edges.insert((p.clone(), n.clone()));
+                }
+            }
+            let pid = format!(
+                "auto_array_{}_{}",
+                p_slot.first().map(String::as_str).unwrap_or("p"),
+                n_slot.first().map(String::as_str).unwrap_or("n")
+            );
+            let formula = format!(
+                "[{{{}}} × {{{}}}]",
+                p_slot.join(", "),
+                n_slot.join(", ")
+            );
+            out_arrays.push(json!({
+                "pattern_id": pid,
+                "level": "Level 2 (自動因式分解二維陣列構式 A_array × B_array)",
+                "name": format!("自動因式分解陣列對應（{} 等 {} 詞 × {} 等 {} 詞）", p_slot[0], p_slot.len(), n_slot[0], n_slot.len()),
+                "formula": formula,
+                "prev_slot": p_slot,
+                "next_slot": n_slot,
+                "slots": [p_slot, n_slot],
+                "bonus": 28.0,
+                "suppress": []
+            }));
+        }
+
+        // 針對尚未被覆蓋之同前驅多後繼 (1 × B_array) 進行聚合
+        let mut prev_keys: Vec<String> = by_prev.keys().cloned().collect();
+        prev_keys.sort();
+        for pk in prev_keys {
+            if let Some(n_list) = by_prev.get(&pk) {
+                let uncovered: Vec<String> = n_list
+                    .iter()
+                    .filter(|n| !covered_edges.contains(&(pk.clone(), (*n).clone())))
+                    .cloned()
+                    .collect();
+                if uncovered.len() >= 2 {
+                    let p_slot = vec![pk.clone()];
+                    let pid = format!(
+                        "auto_array_{}_{}",
+                        pk,
+                        uncovered.first().map(String::as_str).unwrap_or("n")
+                    );
+                    let formula = format!("[{{{}}} × {{{}}}]", pk, uncovered.join(", "));
+                    out_arrays.push(json!({
+                        "pattern_id": pid,
+                        "level": "Level 2 (自動因式分解一對多陣列構式 {a} × B_array)",
+                        "name": format!("自動因式分解右向陣列（{} × {} 等 {} 詞）", pk, uncovered[0], uncovered.len()),
+                        "formula": formula,
+                        "prev_slot": p_slot.clone(),
+                        "next_slot": uncovered.clone(),
+                        "slots": [p_slot, uncovered],
+                        "bonus": 28.0,
+                        "suppress": []
+                    }));
+                }
+            }
+        }
+
+        out_arrays
+    }
+
+    /// 統計目前語意規則庫與詞庫之三層結構盤點摘要（供語意工作室與 AI/SI 交接協定即時讀取）
+    pub fn get_rule_inventory_summary(&self) -> Value {
+        let mut patterns_total = 0usize;
+        let mut multi_slot_3d_plus = 0usize;
+        let mut array_2d_count = 0usize;
+        let mut total_slot_elements = 0usize;
+
+        if self.patterns_jsonl.is_file() {
+            if let Ok(raw) = fs::read_to_string(&self.patterns_jsonl) {
+                for line in raw.lines() {
+                    let s = line.trim();
+                    if s.is_empty() {
+                        continue;
+                    }
+                    if let Ok(v) = serde_json::from_str::<Value>(s) {
+                        patterns_total += 1;
+                        let slots_len = v
+                            .get("slots")
+                            .and_then(Value::as_array)
+                            .map(|a| a.len())
+                            .unwrap_or(0);
+                        if slots_len >= 3 {
+                            multi_slot_3d_plus += 1;
+                        } else {
+                            array_2d_count += 1;
+                        }
+                        if let Some(arr) = v.get("slots").and_then(Value::as_array) {
+                            for sl in arr {
+                                if let Some(inner) = sl.as_array() {
+                                    total_slot_elements += inner.len();
+                                }
+                            }
+                        }
+                        if let Some(ps) = v.get("prev_slot").and_then(Value::as_array) {
+                            total_slot_elements += ps.len();
+                        }
+                        if let Some(ns) = v.get("next_slot").and_then(Value::as_array) {
+                            total_slot_elements += ns.len();
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut transitions_total = 0usize;
+        let mut positive_bigrams = 0usize;
+        let mut negative_anti_hijack = 0usize;
+        if self.user_tsv.is_file() {
+            if let Ok(raw) = fs::read_to_string(&self.user_tsv) {
+                for line in raw.lines() {
+                    let s = line.trim();
+                    if s.is_empty() || s.starts_with('#') {
+                        continue;
+                    }
+                    let parts: Vec<&str> = s.split('\t').collect();
+                    if parts.len() >= 3 {
+                        transitions_total += 1;
+                        let sc = parts[2].parse::<f64>().unwrap_or(0.0);
+                        if sc >= 0.0 {
+                            positive_bigrams += 1;
+                        } else {
+                            negative_anti_hijack += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut domain_words_total = 0usize;
+        if self.domain_tsv.is_file() {
+            if let Ok(raw) = fs::read_to_string(&self.domain_tsv) {
+                for line in raw.lines() {
+                    let s = line.trim();
+                    if !s.is_empty() && !s.starts_with('#') {
+                        domain_words_total += 1;
+                    }
+                }
+            }
+        }
+
+        json!({
+            "patterns_user_jsonl": {
+                "path": self.patterns_jsonl.to_string_lossy(),
+                "total_patterns": patterns_total,
+                "multi_slot_3d_to_5d_chains": multi_slot_3d_plus,
+                "array_2d_correspondences": array_2d_count,
+                "total_indexed_slot_tokens": total_slot_elements
+            },
+            "transitions_user_tsv": {
+                "path": self.user_tsv.to_string_lossy(),
+                "total_bigram_rules": transitions_total,
+                "positive_collocations": positive_bigrams,
+                "negative_anti_hijack_rules": negative_anti_hijack
+            },
+            "lexicon_domain_tsv": {
+                "path": self.domain_tsv.to_string_lossy(),
+                "total_irreducible_entries": domain_words_total
+            }
+        })
+    }
 }
 
 #[cfg(test)]
@@ -2573,6 +2873,25 @@ mod tests {
         assert_eq!(res["status"], "ok");
         assert_eq!(res["blocked_unigram_rules"], 1);
         assert_eq!(res["blocked_unsafe_rules"], 2);
+    }
+
+    #[test]
+    fn test_factorize_rules_to_arrays_261019() {
+        let tuner = SemanticTuner::new(None);
+        let sample_rules = vec![
+            json!({"prev": "大易", "next": "輸入法", "score": 28.0}),
+            json!({"prev": "倉頡", "next": "輸入法", "score": 28.0}),
+            json!({"prev": "行列", "next": "輸入法", "score": 28.0}),
+            json!({"prev": "大易", "next": "鍵盤", "score": 28.0}),
+            json!({"prev": "倉頡", "next": "鍵盤", "score": 28.0}),
+            json!({"prev": "行列", "next": "鍵盤", "score": 28.0}),
+        ];
+        let arrays = tuner.factorize_rules_to_arrays(&sample_rules);
+        assert_eq!(arrays.len(), 1, "6 rules (3x2 Cartesian product) should factorize into 1 2D array rule");
+        let prev_slot = arrays[0]["prev_slot"].as_array().unwrap();
+        let next_slot = arrays[0]["next_slot"].as_array().unwrap();
+        assert_eq!(prev_slot.len(), 3);
+        assert_eq!(next_slot.len(), 2);
     }
 
     #[test]
@@ -2643,6 +2962,10 @@ mod tests {
             }
         }
 
+        // 自動因式分解同構單點規則為二維陣列
+        let factored = tuner.factorize_rules_to_arrays(&all_rules);
+        all_constructions.extend(factored);
+
         // 同步寫入並驗證規則庫維護（補充既有規則 & 創建新規則）
         let pattern_report = tuner.upsert_patterns_with_report(&all_constructions);
         let _added_words = tuner.append_words_to_domain_lexicon(&all_new_words);
@@ -2651,4 +2974,5 @@ mod tests {
         assert!(pattern_report.get("created_rules").is_some());
     }
 }
+
 

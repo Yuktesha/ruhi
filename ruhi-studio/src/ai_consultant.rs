@@ -19,40 +19,90 @@ use crate::tuner::{
     ZeroPiiPrivacyFilter,
 };
 
-/// 推薦本地離線備援模型清單（Google Gemma 生態第一優先）
+/// 推薦雲端大 AI / SI 模型清單（Google Gemini 生態第一優先，歐美模型第二順位）
+pub fn recommended_cloud_models() -> Vec<Value> {
+    vec![
+        json!({
+            "id": "gemini-2.5-pro",
+            "provider": "gemini",
+            "display_name": "Google Gemini 2.5 Pro（複雜句法構式與階層陣列因式分解首選）",
+            "priority": 1,
+            "ecosystem": "Google 雲端生態（第一優先）",
+            "role": "深層語法構式設計、多槽位陣列抽離 (A_array × B_array) 與全詞庫同音防禦規畫",
+            "description": "具備極佳的形式語言學推理與結構化 JSON 輸出穩定度，適合處理跨子句結構歧義與階層式陣列因式分解。"
+        }),
+        json!({
+            "id": "gemini-2.5-flash",
+            "provider": "gemini",
+            "display_name": "Google Gemini 2.5 Flash（日常高速對照句診斷預設推薦）",
+            "priority": 2,
+            "ecosystem": "Google 雲端生態（第一優先）",
+            "role": "高頻日常錯句／正句對照分析、同音病灶定位與舉一反三掃描",
+            "description": "低延遲、高吞吐且支援免費額度 API Key，適合日常語意調校工作室即時互動診斷。"
+        }),
+        json!({
+            "id": "claude-sonnet-4-20250514",
+            "provider": "claude",
+            "display_name": "Anthropic Claude Sonnet 4（歐美雲端備援）",
+            "priority": 3,
+            "ecosystem": "歐美商用生態（第二順位）",
+            "role": "結構化語意規則生成與跨句對比審計",
+            "description": "支援透過如喜標準 AI/SI 交接協定（Handover Protocol）無縫接續語意調校任務。"
+        }),
+        json!({
+            "id": "gpt-4o",
+            "provider": "openai",
+            "display_name": "OpenAI GPT-4o（歐美雲端備援）",
+            "priority": 4,
+            "ecosystem": "歐美商用生態（第二順位）",
+            "role": "相容 OpenAI API 端點之語意診斷備援",
+            "description": "支援標準 JSON Schema 輸出，可依交接協定產出二維／三維陣列對應規則。"
+        }),
+    ]
+}
+
+/// 推薦本地離線純綠模型清單（Google Gemma 生態第一優先，歐美開源第二順位）
 pub fn recommended_local_models() -> Vec<Value> {
     vec![
         json!({
+            "name": "gemma3:12b",
+            "tag": "gemma-3-12b-it-Q4_K_M.gguf",
+            "display_name": "Google Gemma 3 12B Instruct Q4_K_M（本地深度語意調校首選）",
+            "priority": 1,
+            "ecosystem": "Google 開源生態（第一優先）",
+            "description": "支援純綠免安裝 llama.cpp (127.0.0.1:8080) 或 Ollama 驅動，繁體中文句法構式與陣列抽離能力最佳（建議 8GB+ VRAM）。"
+        }),
+        json!({
+            "name": "gemma3:4b",
+            "tag": "gemma-3-4b-it-Q4_K_M.gguf",
+            "display_name": "Google Gemma 3 4B Instruct Q4_K_M（輕量筆電高速首選）",
+            "priority": 2,
+            "ecosystem": "Google 開源生態（第一優先）",
+            "description": "記憶體佔用僅約 3GB，推論極快，適合本機常駐即時對照句診斷。"
+        }),
+        json!({
             "name": "gemma2:latest",
             "tag": "gemma2:latest",
-            "display_name": "Google Gemma 2 / Gemma 系列最新版 (第一推薦)",
-            "priority": 1,
-            "ecosystem": "Google 開源生態 (第一優先)",
-            "description": "Google 官方開源輕量大模型，由純綠開源 Llama 引擎 (llama.cpp) 驅動，零商業廣告與訂閱，具備極強繁體中文語法構式解析力。"
-        }),
-        json!({
-            "name": "gemma2:2b",
-            "tag": "gemma2:2b",
-            "display_name": "Google Gemma 2 2B (極致超輕量 · 筆電首選)",
-            "priority": 2,
-            "ecosystem": "Google 開源生態",
-            "description": "極低記憶體佔用（僅需約 2GB VRAM），由純綠開源 Llama 引擎零干擾流暢驅動。"
-        }),
-        json!({
-            "name": "llama3.2:latest",
-            "tag": "llama3.2:latest",
-            "display_name": "純綠 Llama 3.2 (歐美優質開源備援)",
+            "display_name": "Google Gemma 2 9B / 2B（穩定開源主力）",
             "priority": 3,
-            "ecosystem": "純綠開源生態 (第二順位)",
-            "description": "Meta 歐美開源架構，純淨無審查偏見。"
+            "ecosystem": "Google 開源生態（第一優先）",
+            "description": "Google 官方開源輕量模型，由純綠開源 Llama 引擎驅動，零商業廣告與審查干擾。"
         }),
         json!({
             "name": "llama3.2:3b",
             "tag": "llama3.2:3b",
-            "display_name": "純綠 Llama 3.2 3B (平衡高能版)",
+            "display_name": "Meta Llama 3.2 3B Instruct（歐美優質開源備援）",
             "priority": 4,
-            "ecosystem": "純綠開源生態",
-            "description": "純綠開源輕量版，推論速度極快，離線二階搭配提煉流暢。"
+            "ecosystem": "歐美開源生態（第二順位）",
+            "description": "Meta 歐美開源架構，推論速度極快，適合離線二階搭配提煉。"
+        }),
+        json!({
+            "name": "mistral-nemo:latest",
+            "tag": "mistral-nemo:latest",
+            "display_name": "Mistral Nemo 12B Instruct（歐洲開源備援）",
+            "priority": 5,
+            "ecosystem": "歐美開源生態（第二順位）",
+            "description": "法國 Mistral AI 與 NVIDIA 合作開源模型，多語結構化指令遵循穩定。"
         }),
     ]
 }
@@ -1054,6 +1104,94 @@ impl AISemanticConsultant {
                 words_added,
                 rules_added
             )
+        })
+    }
+
+    /// 產生大 AI / SI 時代之「推薦對接模型型錄」與「語意調校任務標準交接協定 (Handover Protocol)」
+    pub fn get_recommended_models_and_handover_spec(&mut self, tuner: &SemanticTuner) -> Value {
+        let inventory = tuner.get_rule_inventory_summary();
+        let active_provider = self.get_effective_provider();
+        let cloud_models = recommended_cloud_models();
+        let local_models = recommended_local_models();
+
+        let handover_system_prompt = format!(
+r#"# 如喜輸入法 (RuhI) · 語意調校工作室 AI / SI 任務交接規格書 (Handover Specification v2.6)
+
+您現在接手的是 **如喜輸入法 (RuhI — 如雲行水流自在歡喜)** 的計算語言學語意調校工程。請嚴格遵循以下三層架構規範、陣列因式分解原則與五大標準作業程序 (SOP) 接續工作，確保零回歸完成目標。
+
+## 一、三層語意知識庫即時狀態 (Live Knowledge Inventory)
+1. **Layer 1 多維槽位陣列與句法構式 (`ruhi_lexicon/data/patterns_user.jsonl`)**：
+   - 目前共 `{}` 條構式規則（含 `{}` 條 3D~5D 多槽位鏈式陣列、`{}` 條 2D 二維笛卡兒積陣列，共索引 `{}` 個槽位詞元）。
+   - 核心引擎 (`ruhi-core/src/router/transitions.rs`) 透過雙向雜湊倒排索引 (`rules_by_prev` / `rules_by_curr`) 以嚴格 $O(1)$ 時間複雜度匹配相鄰槽位 `slots[i] × slots[i+1]`（支援 `optional_slots` 可選跨槽跳接）。
+2. **Layer 2 二元語意轉移矩陣 (`ruhi_lexicon/data/transitions_user.tsv`)**：
+   - 目前共 `{}` 條精確二元轉移（正向搭配引力 `{}` 條、負向防跨界劫掠抑制 `{}` 條）。
+   - 分值規範：正向搭配固定於 `[+20.0, +35.0]`，負向防劫掠固定於 `[-25.0, -45.0]`。
+3. **Layer 3 領域核心詞根庫 (`ruhi_lexicon/data/lexicon_domain.tsv`)**：
+   - 目前共 `{}` 筆不可再分之原子詞根（如 `大易`、`許氏`、`嘸蝦米`、`瑜伽`、`五辛`、`完工`）。
+
+## 二、階層式陣列深度規範（為何以 2～3 層陣列為最佳平衡點）
+- **計算複雜度分析**：
+  - 若將多層陣列做「平面笛卡兒積展開 (Cartesian Flattening)」塞入詞庫，詞條數將呈 $O(N^k)$ 指數膨脹，拖慢詞圖 (Lattice DAG) 建構並汙染快取。
+  - 若採用 **槽位集合因式分解 (Factored Slot-Set Indexing)**，在 Viterbi 動態規劃每步僅查詢 `HashMap<Word, Vec<RuleId>>`，單步複雜度恆為 $O(1)$，不會造成推論延遲。
+- **語言學精準度最佳層數（2 至 3 層）**：
+  - **第 1～2 層（構詞與詞組層，如 `{{大易, 倉頡, 行列, 許氏}} × {{輸入法, 鍵盤, 字根}}` 或 `{{看, 聽, 做}} × {{得, 不}} × {{懂, 到, 完}}`）**：結構凝聚力最強、語意選擇限制最明確，能以極小規則量覆蓋數十至數百組同構詞群。
+  - **第 3 層（子句銜接層，如 `[動詞群 × 輸入法群 × 後綴群?] × [時間方位詞 {{之前, 之後}}]`）**：足以徹底鎖定同音歧義邊界。
+  - **超過 4 層之巢狀陣列 (`{{[(a*b)*(c*d)]*[(e*f)*(g*h)]}}`) 應避免**：自然語言跨子句存在高度語意選擇限制 (Selectional Restrictions)，4 層以上無條件笛卡兒積會產生大量不合語感之過度泛化路徑，反而稀釋局部 Viterbi 束搜尋 (Beam Search) 的鑑別力。
+
+## 三、三大絕對禁令 (Strict Prohibitions)
+1. **嚴禁單字權重打地鼠 (No Unigram Weight Whack-a-Mole)**：絕對禁止手動調整單字先驗權重（如調高「裡、視、是、越、對、再」之單字分數），以免引發全域連鎖退化。
+2. **嚴禁笛卡兒積平面化塞詞庫 (No Cartesian Lexicon Flattening)**：凡具備 `A_array × B_array` 結構之組合（如 `~輸入法`、`~鍵盤`、`~型`、`~素`、`~類`、離合詞 `V+個/一下+O`、可能補語 `V+得/不+R`），一律收斂為 Layer 1 陣列規則，詞庫僅保留不可再分之專名詞根。
+3. **嚴禁非漢字佔位符寫入槽位 (No Non-CJK Placeholders in Slots)**：所有 `prev_slot`、`next_slot`、`slots` 內之元素必須為純漢字實際詞元，禁止寫入 `<ASCII>`、`[動詞]` 等抽象標籤。
+
+## 四、接續工作五大標準作業程序 (5-Step Handover SOP)
+1. **步驟 1（雙向最大匹配與 LCS 差異孤島定位）**：對齊使用者提供之「錯誤句」與「正確句」，找出跨詞界交錯劫掠假詞（如 `匯兌` 劫掠 `不會+對`、`十分` 劫掠 `素食+分類`）。
+2. **步驟 2（舉一反三全詞庫同構掃描）**：掃描詞庫中具備相同語音或構詞結構之同族詞（如掃描所有 `~食 × 分~`、所有正反疑問助動 `~會 × 介詞`）。
+3. **步驟 3（陣列因式分解 `A_array × B_array`）**：將共享前驅或共享後繼之同構規則抽離為 `patterns_user.jsonl` 的 2D/3D 陣列規則（優先補充既有 `pattern_id`，無對應者才創建新 `pattern_id`）。
+4. **步驟 4（跨詞界負向抑制與黃金基準驗證）**：針對跨界假詞加入 `[-25.0, -45.0]` 負向轉移，並呼叫 `/api/benchmark` 或執行 `cargo test --lib` 驗證黃金基準零回歸。
+5. **步驟 5（雙環境同步與無縫熱重載）**：同步更新開發端與 `dist/`，執行 `hot_reload.ps1` 即時生效。"#,
+            inventory["patterns_user_jsonl"]["total_patterns"].as_u64().unwrap_or(0),
+            inventory["patterns_user_jsonl"]["multi_slot_3d_to_5d_chains"].as_u64().unwrap_or(0),
+            inventory["patterns_user_jsonl"]["array_2d_correspondences"].as_u64().unwrap_or(0),
+            inventory["patterns_user_jsonl"]["total_indexed_slot_tokens"].as_u64().unwrap_or(0),
+            inventory["transitions_user_tsv"]["total_bigram_rules"].as_u64().unwrap_or(0),
+            inventory["transitions_user_tsv"]["positive_collocations"].as_u64().unwrap_or(0),
+            inventory["transitions_user_tsv"]["negative_anti_hijack_rules"].as_u64().unwrap_or(0),
+            inventory["lexicon_domain_tsv"]["total_irreducible_entries"].as_u64().unwrap_or(0),
+        );
+
+        json!({
+            "status": "ok",
+            "active_provider": active_provider,
+            "recommended_cloud_models": cloud_models,
+            "recommended_local_models": local_models,
+            "live_inventory": inventory,
+            "hierarchy_depth_analysis": {
+                "optimal_levels": "2 至 3 層 (Level 1: A×B 構詞陣列, Level 2: [A×B]×[C×D] 短語構式陣列, Level 3: 子句邊界錨定)",
+                "runtime_complexity": "O(1) 雙向雜湊槽位查找（嚴禁平面展開為 O(N^k) 詞庫詞條）",
+                "why_not_deeper_than_3": "超過 3～4 層之深層張量巢狀（如 {[(a*b)*(c*d)]*[(o*p)*(r*s)]}）會違反自然語言跨詞組之『語意選擇限制 (Selectional Restrictions)』，造成不合語感的過度泛化並稀釋 Viterbi 局部束搜尋權重；維持 2～3 層陣列並在槽位間以可選跳接 (optional_slots) 串聯，兼具最高推廣力與零延遲。"
+            },
+            "handover_protocol": {
+                "version": "RUHI_AI_SI_HANDOVER_V2.6",
+                "system_prompt": handover_system_prompt,
+                "five_step_sop": [
+                    "1. 句對齊與跨詞界劫掠定位：透過 BiMM + LCS 找出錯誤句中之跨界假詞與碎裂邊界。",
+                    "2. 舉一反三同構詞族掃描：掃描全詞庫具相同尾音/首音或派生後綴之同類詞群。",
+                    "3. 陣列因式分解 (A_array × B_array)：將同構單點規則收斂為 2D/3D 槽位陣列，優先擴充既有 pattern_id。",
+                    "4. 最小不可分詞根收錄：僅將不可再分之專名詞根寫入 lexicon_domain.tsv，絕不平面展開組合詞。",
+                    "5. 黃金基準迴歸驗證：執行 /api/benchmark 與 cargo test 確認 100% 通過且無副作用。"
+                ],
+                "json_output_schema": {
+                    "pattern_id": "string (英文蛇形命名，如 ime_root_device_head_array)",
+                    "name": "string (繁體中文台灣資訊科學與語言學術語名稱)",
+                    "formula": "string (陣列表示式，如 [{大易, 倉頡, 行列, 許氏}] × [{輸入法, 鍵盤}])",
+                    "prev_slot": ["純漢字前驅詞元陣列"],
+                    "next_slot": ["純漢字後繼詞元陣列"],
+                    "slots": [["第1槽位詞元陣列"], ["第2槽位詞元陣列"], ["第3槽位詞元陣列(可選)"]],
+                    "optional_slots": [2],
+                    "bonus": 28.0,
+                    "suppress": ["需抑制之跨界同音假詞"]
+                }
+            }
         })
     }
 }
