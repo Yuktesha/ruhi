@@ -459,8 +459,8 @@ $$\text{cost} = \text{音節數} \times \text{COST\_SYLLABLE} - \text{COST\_LEXI
 | P5 | 2026-10-22 | `fa47139` | 工作區全套 126/126 通過；`cargo build --release` 成功 | 該提交單獨檢出時 `test_dual_track_arrow_lookup_and_contextual_rescue` 失敗（見 P5 審查修正） |
 | P5 審查修正 | 2026-10-22 | `622e681` | 乾淨工作目錄（僅含已提交內容）全套 **125/125** 通過（工作區多出之 1 項屬使用者未提交之梵文修改） | ① `fa47139` 只提交測試的 `"歐"` 斷言、未提交對應的徽章對照，已補提交該行；② P3 審查修正之雜湊原誤植為不存在的 `d0795ef`，已更正為 `7393c1b`；③ 內建詞表實為 60 條（原紀錄 55） |
 | P6 | 2026-10-22 | `c8737e5` | 乾淨工作目錄（`_tmp_korean_verify`）全套 `ruhi-core` 126/126 通過（新增 `test_p6_finalized_commit_text`）；`ruhi-tsf` 與 `ruhi-studio` `cargo build --release` 均零錯誤完成 | 14.4(G) 方向鍵：因 `service.rs` 於方向鍵進入 `detect_*` 前會先呼叫 `consolidate_engine_to_pending()` 將 `raw_romaja` 轉入 `last_raw_ascii` 並重置緩衝區，故於 `KoreanEngine` 新增 `lookup_down_candidates_for_romaja` 與 `lookup_up_candidates_for_romaja` 供 `last_raw_ascii`／`pending_segments` 區段查詢；(G) 選做部分（對已併入暫存流無 `raw_romaja` 之純諺文表面反查）本輪未做 |
-| P6 審查修正 | 2026-10-22 | 見 `fix(korean): P6 review` 提交 | `korean` 20/20 通過（新增 `test_p6_digit_after_consolidation_is_literal`） | 第 14.4(B) 節指引錯誤（非接手 Agent 之失誤）：數字鍵 `digit_consolidate` 未納入韓文，致 `hangeul2` 會上屏第 2 候選。已補上 `\|\| engine.korean.has_buffer()`，僅暫存該行 |
-| P7 | | | | |
+| P6 審查修正 | 2026-10-22 | `534a67d` | `korean` 20/20 通過（新增 `test_p6_digit_after_consolidation_is_literal`） | 第 14.4(B) 節指引錯誤（非接手 Agent 之失誤）：數字鍵 `digit_consolidate` 未納入韓文，致 `hangeul2` 會上屏第 2 候選。已補上 `\|\| engine.korean.has_buffer()`，僅暫存該行 |
+| P7 | 2026-10-22 | `baef93f` | 純文件與變更紀錄更新（前階段乾淨工作目錄 `ruhi-core` 127/127、`korean` 20/20 全數通過） | 無（同時更新 `RUHI_ASIAN_LANGUAGES_EXTENSION_GUIDE.md` 第四節接入範例之設定中心路徑為 `ruhi-studio/src/main.rs` 以符實際架構） |
 
 
 ---
