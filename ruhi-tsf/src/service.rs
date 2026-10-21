@@ -765,18 +765,18 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
                     let wide: Vec<u16> = lbl.encode_utf16().collect();
                     let _ = menu.AddMenuItem(id, 0, null_bmp, null_bmp, &wide, std::ptr::null_mut());
                 }
-                let is_en_active = matches!(cur_kb.as_str(), "english" | "en" | "latin" | "western");
+                let is_en_active = matches!(cur_kb.as_str(), "english" | "en" | "latin" | "western" | "euro" | "sanskrit");
                 let en_lbl = if is_direct_en_caps {
                     if is_en_active {
-                        "✓ 英數／歐文直通模式 (英)\tCapsLock".to_string()
+                        "✓ 泛歐／羅馬字模式 (歐)\tCapsLock".to_string()
                     } else {
-                        "   英數／歐文直通模式 (英)\tCapsLock".to_string()
+                        "   泛歐／羅馬字模式 (歐)\tCapsLock".to_string()
                     }
                 } else {
                     if is_en_active {
-                        "✓ 英數／歐文直通模式 (英)\tCtrl/Shift + CapsLock".to_string()
+                        "✓ 泛歐／羅馬字模式 (歐)\tCtrl/Shift + CapsLock".to_string()
                     } else {
-                        "   英數／歐文直通模式 (英)\tCtrl/Shift + CapsLock".to_string()
+                        "   泛歐／羅馬字模式 (歐)\tCtrl/Shift + CapsLock".to_string()
                     }
                 };
                 let en_wide: Vec<u16> = en_lbl.encode_utf16().collect();
@@ -1674,7 +1674,23 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     let target_len = target_range.1.saturating_sub(target_range.0);
                     let chosen_len = chosen.chars().count();
 
-                    let (replace_start, replace_end) = if target_len >= 1
+                    let (replace_start, replace_end) = if target_len == 1 && chosen_len > 1 {
+                        let seg_match = {
+                            let segs = self.pending_segments.lock().unwrap();
+                            segs.iter()
+                                .find(|s| target_idx >= s.0 && target_idx < s.1 && (s.1 - s.0) == chosen_len && s.1 <= chars.len())
+                                .map(|s| (s.0, s.1))
+                        };
+                        if let Some((s0, s1)) = seg_match {
+                            (s0, s1)
+                        } else if target_range.1 <= chars.len() {
+                            (target_range.0, target_range.1)
+                        } else if target_idx < chars.len() {
+                            (target_idx, target_idx + 1)
+                        } else {
+                            (chars.len(), chars.len())
+                        }
+                    } else if target_len >= 1
                         && target_range.1 <= chars.len()
                         && (chosen_len == target_len || chosen_len > 1 || target_len == 1)
                     {
@@ -1941,22 +1957,30 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         }
                         // 移動游標（擴展選取）
                         {
+                            let chars_vec: Vec<char> = full_text.chars().collect();
+                            let is_comb = |c: char| ('\u{0300}'..='\u{036F}').contains(&c);
                             let mut cur = self.sentence_cursor.lock().unwrap();
                             match vk {
                                 v if v == VK_LEFT.0 as u32 => {
                                     if is_ctrl {
                                         let boundaries = self.get_word_boundaries(&full_text);
-                                        *cur = Self::find_prev_word_boundary(&boundaries, *cur);
-                                    } else {
-                                        if *cur > 0 { *cur -= 1; }
+                                        *cur = Self::find_prev_word_boundary(&boundaries, &full_text, *cur);
+                                    } else if *cur > 0 {
+                                        *cur -= 1;
+                                        while *cur > 0 && *cur < chars_vec.len() && is_comb(chars_vec[*cur]) {
+                                            *cur -= 1;
+                                        }
                                     }
                                 }
                                 v if v == VK_RIGHT.0 as u32 => {
                                     if is_ctrl {
                                         let boundaries = self.get_word_boundaries(&full_text);
-                                        *cur = Self::find_next_word_boundary(&boundaries, *cur, total_chars);
-                                    } else {
-                                        if *cur < total_chars { *cur += 1; }
+                                        *cur = Self::find_next_word_boundary(&boundaries, &full_text, *cur, total_chars);
+                                    } else if *cur < total_chars {
+                                        *cur += 1;
+                                        while *cur < total_chars && is_comb(chars_vec[*cur]) {
+                                            *cur += 1;
+                                        }
                                     }
                                 }
                                 v if v == VK_HOME.0 as u32 => { *cur = 0; }
@@ -1973,16 +1997,22 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         *self.sel_anchor.lock().unwrap() = None;
                     }
 
-                    // 4.1 向左方向鍵 ← (自由穿透標點，移動至前文，支援 Ctrl+Left 詞間快退)
+                    // 4.1 向左方向鍵 ← (自由穿透標點，移動至前文，支援 Ctrl+Left 詞間快退與組合變音字素跨越)
                     if vk == VK_LEFT.0 as u32 {
+                        let chars_vec: Vec<char> = full_text.chars().collect();
+                        let is_comb = |c: char| ('\u{0300}'..='\u{036F}').contains(&c);
                         let mut cur = self.sentence_cursor.lock().unwrap();
                         if is_ctrl {
                             let boundaries = self.get_word_boundaries(&full_text);
-                            *cur = Self::find_prev_word_boundary(&boundaries, *cur);
+                            *cur = Self::find_prev_word_boundary(&boundaries, &full_text, *cur);
                         } else {
-                            let c = (*cur).min(total_chars);
+                            let mut c = (*cur).min(total_chars);
                             if c > 0 {
-                                *cur = c - 1;
+                                c -= 1;
+                                while c > 0 && c < chars_vec.len() && is_comb(chars_vec[c]) {
+                                    c -= 1;
+                                }
+                                *cur = c;
                             } else {
                                 *cur = 0;
                             }
@@ -1992,16 +2022,22 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         return Ok(BOOL::from(true));
                     }
 
-                    // 4.2 向右方向鍵 → (自由穿透標點，支援 Ctrl+Right 詞間快進)
+                    // 4.2 向右方向鍵 → (自由穿透標點，支援 Ctrl+Right 詞間快進與組合變音字素跨越)
                     if vk == VK_RIGHT.0 as u32 {
+                        let chars_vec: Vec<char> = full_text.chars().collect();
+                        let is_comb = |c: char| ('\u{0300}'..='\u{036F}').contains(&c);
                         let mut cur = self.sentence_cursor.lock().unwrap();
                         if is_ctrl {
                             let boundaries = self.get_word_boundaries(&full_text);
-                            *cur = Self::find_next_word_boundary(&boundaries, *cur, total_chars);
+                            *cur = Self::find_next_word_boundary(&boundaries, &full_text, *cur, total_chars);
                         } else {
-                            let c = (*cur).min(total_chars);
+                            let mut c = (*cur).min(total_chars);
                             if c < total_chars {
-                                *cur = c + 1;
+                                c += 1;
+                                while c < total_chars && is_comb(chars_vec[c]) {
+                                    c += 1;
+                                }
+                                *cur = c;
                             } else {
                                 *cur = total_chars;
                             }
@@ -2463,7 +2499,7 @@ impl RuhiTextService_Impl {
             }
         }
 
-        // 2. 未切詞區域（英文單字、數字、標點、空白、獨立漢字）依字元屬性轉換判定邊界
+        // 2. 未切詞區域（歐文單字、數字、標點、空白、獨立漢字）依字元屬性轉換判定邊界
         #[derive(PartialEq, Eq, Clone, Copy)]
         enum Kind {
             AsciiWord,
@@ -2474,7 +2510,12 @@ impl RuhiTextService_Impl {
         }
 
         let classify = |ch: char| -> Kind {
-            if ch.is_ascii_alphanumeric() || ch == '_' {
+            if ch.is_ascii_alphanumeric()
+                || ch == '_'
+                || ch == '\''
+                || ('\u{0300}'..='\u{036F}').contains(&ch)
+                || ruhi::western::WesternEngine::strip_char_diacritic(ch).is_ascii_alphabetic()
+            {
                 Kind::AsciiWord
             } else if ch.is_whitespace() {
                 Kind::Whitespace
@@ -2487,8 +2528,9 @@ impl RuhiTextService_Impl {
             }
         };
 
+        // 僅對未被分詞涵蓋之單獨漢字建立逐字邊界；歐文單字 (AsciiWord) 保持整詞連貫！
         for i in 0..total {
-            if !covered[i] {
+            if !covered[i] && classify(chars[i]) == Kind::CjkSingle {
                 bset.insert(i);
                 bset.insert(i + 1);
             }
@@ -2505,12 +2547,31 @@ impl RuhiTextService_Impl {
         bset.into_iter().collect()
     }
 
-    fn find_prev_word_boundary(boundaries: &[usize], cur: usize) -> usize {
-        boundaries.iter().rev().copied().find(|&b| b < cur).unwrap_or(0)
+    fn find_prev_word_boundary(boundaries: &[usize], full_text: &str, cur: usize) -> usize {
+        let chars: Vec<char> = full_text.chars().collect();
+        let mut pos = cur.min(chars.len());
+        // 遵循標準文書軟體 (Word / VS Code / Notepad) 習慣：Ctrl+Left 先跳過游標左側緊鄰之空白，再停於前一個單詞開頭
+        while pos > 0 && chars[pos - 1].is_whitespace() {
+            pos -= 1;
+        }
+        boundaries.iter().rev().copied().find(|&b| b < pos).unwrap_or(0)
     }
 
-    fn find_next_word_boundary(boundaries: &[usize], cur: usize, total: usize) -> usize {
-        boundaries.iter().copied().find(|&b| b > cur).unwrap_or(total)
+    fn find_next_word_boundary(boundaries: &[usize], full_text: &str, cur: usize, total: usize) -> usize {
+        let chars: Vec<char> = full_text.chars().collect();
+        let mut pos = cur.min(total);
+        // 若當前游標位於空白上，先跳過空白；否則跳至當前單詞結尾並跨越緊隨其後之空白（直達下一詞開頭）
+        if pos < total && chars[pos].is_whitespace() {
+            while pos < total && chars[pos].is_whitespace() {
+                pos += 1;
+            }
+            return pos;
+        }
+        let mut next_b = boundaries.iter().copied().find(|&b| b > pos).unwrap_or(total);
+        while next_b < total && chars[next_b].is_whitespace() {
+            next_b += 1;
+        }
+        next_b
     }
 
     fn take_snapshot(&self) -> EditorSnapshot {
@@ -3252,10 +3313,33 @@ impl RuhiTextService_Impl {
             return (0, (0, 0), Vec::new());
         }
 
+        let is_western_char = |c: char| -> bool {
+            c.is_ascii_alphabetic()
+                || c == '\''
+                || ('\u{0300}'..='\u{036F}').contains(&c)
+                || ruhi::western::WesternEngine::strip_char_diacritic(c).is_ascii_alphabetic()
+        };
+
         let target_idx = if cur < chars.len() {
-            cur
+            if chars[cur].is_whitespace() && cur > 0 {
+                // 當游標位於空白上（如 "cafe| world" 或 "cafe| "），自動向左鎖定緊鄰之單詞末尾字元
+                let mut i = cur;
+                while i > 0 && chars[i].is_whitespace() {
+                    i -= 1;
+                }
+                i
+            } else if cur > 0 && is_western_char(chars[cur - 1]) && !is_western_char(chars[cur]) {
+                // 當游標位於歐文單詞右緣與標點交界（如 "cafe|, world"），鎖定左側剛打完之歐文單詞
+                cur - 1
+            } else {
+                cur
+            }
         } else if cur > 0 {
-            cur - 1
+            let mut i = cur - 1;
+            while i > 0 && chars[i].is_whitespace() {
+                i -= 1;
+            }
+            i
         } else {
             0
         };
@@ -3457,9 +3541,6 @@ impl RuhiTextService_Impl {
             }
 
             // ── 歐文軌 ↓ 智慧查詢：拉丁字母與外來語重音變體（cafe ➔ café、a ➔ á, à, â, ä...）──
-            let is_western_char = |c: char| -> bool {
-                c.is_ascii_alphabetic() || ruhi::western::WesternEngine::strip_char_diacritic(c).is_ascii_alphabetic()
-            };
             if is_western_char(ch) {
                 let mut w_start = target_idx;
                 while w_start > 0 && is_western_char(chars[w_start - 1]) {
@@ -3471,7 +3552,12 @@ impl RuhiTextService_Impl {
                 }
                 let span_word: String = chars[w_start..w_end].iter().collect();
                 if w_end - w_start >= 2 {
-                    let loan_cands = engine.western.lookup_down_arrow_candidates(&span_word, None);
+                    let focus_offset = target_idx.saturating_sub(w_start);
+                    let loan_cands = engine.western.lookup_word_down_candidates_at_offset(
+                        &span_word,
+                        Some(focus_offset),
+                        Some(ch),
+                    );
                     if !loan_cands.is_empty() {
                         return (w_start, (w_start, w_end), loan_cands);
                     }
@@ -3627,16 +3713,33 @@ impl RuhiTextService_Impl {
             return (0, (0, 0), Vec::new());
         }
 
-        let target_idx = if cur < chars.len() {
-            cur
-        } else if cur > 0 {
-            cur - 1
-        } else {
-            0
+        let is_western_char = |c: char| -> bool {
+            c.is_ascii_alphabetic()
+                || c == '\''
+                || ('\u{0300}'..='\u{036F}').contains(&c)
+                || ruhi::western::WesternEngine::strip_char_diacritic(c).is_ascii_alphabetic()
         };
 
-        let is_western_char = |c: char| -> bool {
-            c.is_ascii_alphabetic() || c == '\'' || ruhi::western::WesternEngine::strip_char_diacritic(c).is_ascii_alphabetic()
+        let target_idx = if cur < chars.len() {
+            if chars[cur].is_whitespace() && cur > 0 {
+                let mut i = cur;
+                while i > 0 && chars[i].is_whitespace() {
+                    i -= 1;
+                }
+                i
+            } else if cur > 0 && is_western_char(chars[cur - 1]) && !is_western_char(chars[cur]) {
+                cur - 1
+            } else {
+                cur
+            }
+        } else if cur > 0 {
+            let mut i = cur - 1;
+            while i > 0 && chars[i].is_whitespace() {
+                i -= 1;
+            }
+            i
+        } else {
+            0
         };
 
         let manual_range = self.get_manual_selection_range();
@@ -3805,7 +3908,11 @@ impl RuhiTextService_Impl {
                 None
             };
             let kb_mode = engine.keyboard_mode.clone();
-            let high_conf_en = engine.western.has_high_confidence_rescue(&word);
+            let is_western_mode = matches!(
+                kb_mode.to_lowercase().as_str(),
+                "english" | "en" | "latin" | "western" | "euro" | "sanskrit"
+            );
+            let high_conf_en = is_western_mode || engine.western.has_high_confidence_rescue(&word);
             let mut cands = Vec::new();
             if word.chars().count() >= 3 && !high_conf_en {
                 if kb_mode == "cangjie" {

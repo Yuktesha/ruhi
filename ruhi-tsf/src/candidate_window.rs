@@ -24,10 +24,10 @@ static CURRENT_TRAY_HICON: Mutex<isize> = Mutex::new(0);
 
 pub fn get_mode_badge_and_name(kb_mode: &str, is_caps: bool) -> (&'static str, &'static str) {
     if is_caps {
-        return ("英", "英數／歐文直通");
+        return ("歐", "泛歐／羅馬字模式");
     }
     match kb_mode.to_lowercase().as_str() {
-        "english" | "en" | "latin" | "western" => ("英", "英數／歐文直通"),
+        "english" | "en" | "latin" | "western" | "euro" | "sanskrit" => ("歐", "泛歐／羅馬字模式"),
         "hsu" => ("許", "許氏雙拼注音"),
         "japanese" | "jp" | "romaji" | "kana" => ("日", "日文羅馬字"),
         "korean" | "ko" | "hangul" | "romaja" => ("韓", "韓文羅馬拼音"),
@@ -41,7 +41,7 @@ pub fn get_mode_badge_and_name(kb_mode: &str, is_caps: bool) -> (&'static str, &
     }
 }
 
-/// 動態繪製 32x32 高解析度輸入狀態圖示（如「許」、「日」、「英」、「行」、「倉」），供右下角工作列與系統匣即時顯示
+/// 動態繪製 32x32 高解析度輸入狀態圖示（如「許」、「日」、「歐」、「行」、「倉」），供右下角工作列與系統匣即時顯示
 pub unsafe fn create_mode_hicon(badge: &str, is_caps: bool) -> HICON {
     let size: i32 = 32;
     let screen_dc = GetDC(None);
@@ -72,8 +72,8 @@ pub unsafe fn create_mode_hicon(badge: &str, is_caps: bool) -> HICON {
     let old_bmp = SelectObject(mem_dc, dib_bmp);
 
     // 依輸入模式選擇鮮明易辨識的底色（COLORREF 格式為 0x00BBGGRR）
-    let bg_color = if is_caps || badge == "英" {
-        COLORREF(0x00EB6325) // 皇家藍 #2563EB（英數模式）
+    let bg_color = if is_caps || badge == "歐" || badge == "英" {
+        COLORREF(0x00EB6325) // 皇家藍 #2563EB（泛歐／羅馬字模式）
     } else {
         match badge {
             "日" => COLORREF(0x005E3FDB), // 櫻緋紅 #DB3F5E（日文模式，一眼區分）
@@ -496,7 +496,11 @@ impl CandidateWindow {
         let cand_font_h = (state.candidate_font_size * 0.9 * dpi_scale).clamp(13.0 * dpi_scale, 68.0 * dpi_scale);
 
         let max_line_chars = state.max_composition_chars.clamp(8, 80);
-        let total_chars = state.composition_text.chars().count();
+        let total_chars = state
+            .composition_text
+            .chars()
+            .filter(|&c| !('\u{0300}'..='\u{036F}').contains(&c))
+            .count();
         let num_lines = if total_chars == 0 {
             1
         } else {
@@ -1667,7 +1671,8 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         let font_h = (state.font_size * 0.9 * state.dpi_scale).clamp(14.0 * state.dpi_scale, 90.0 * state.dpi_scale);
         let max_line_chars = state.max_composition_chars.clamp(8, 80);
         let comp_chars: Vec<char> = state.composition_text.chars().collect();
-        let total_chars = comp_chars.len();
+        let is_combining = |c: char| -> bool { ('\u{0300}'..='\u{036F}').contains(&c) };
+        let total_chars = comp_chars.iter().filter(|&&c| !is_combining(c)).count();
         let num_lines = if total_chars == 0 {
             1
         } else {
@@ -1712,10 +1717,18 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         let mut last_line_top = base_top_y;
         let mut last_line_bottom = base_top_y + line_step_h;
 
-        // 逐字繪製（依 max_line_chars 自動多行折行）
-        for (i, &ch) in comp_chars.iter().enumerate() {
-            let line_idx = i / max_line_chars;
-            let col_idx = i % max_line_chars;
+        // 以完整字素叢集（基底字母 + 緊隨之組合變音符號 U+0300..=U+036F）為單位繪製，
+        // 避免 GDI 因逐一 char 拆開而使組合尖音符/底抑揚符與基底歐文字母分離錯位！
+        let mut visual_col = 0usize;
+        let mut i = 0usize;
+        while i < comp_chars.len() {
+            let mut cluster_end = i + 1;
+            while cluster_end < comp_chars.len() && is_combining(comp_chars[cluster_end]) {
+                cluster_end += 1;
+            }
+
+            let line_idx = visual_col / max_line_chars;
+            let col_idx = visual_col % max_line_chars;
             let line_top = base_top_y + (line_idx as i32 * line_step_h);
             let line_bottom = line_top + line_step_h;
             if col_idx == 0 {
@@ -1725,7 +1738,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             last_line_bottom = line_bottom;
 
             // 繪製游標垂直線
-            if i == cur {
+            if cur >= i && cur < cluster_end {
                 let caret_r = RECT {
                     left: pen_x,
                     top: line_top + (2.0 * state.dpi_scale) as i32,
@@ -1736,8 +1749,8 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 pen_x += (3.0 * state.dpi_scale) as i32;
             }
 
-            let ch_str = ch.to_string();
-            let ch_wide: Vec<u16> = ch_str.encode_utf16().collect();
+            let cluster_str: String = comp_chars[i..cluster_end].iter().collect();
+            let ch_wide: Vec<u16> = cluster_str.encode_utf16().collect();
             let mut sz_ch = SIZE::default();
             let _ = GetTextExtentPoint32W(mem_dc, &ch_wide, &mut sz_ch);
 
@@ -1745,7 +1758,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             let is_in_target = if state.target_range.1 > state.target_range.0 {
                 i >= state.target_range.0 && i < state.target_range.1
             } else {
-                i == state.target_char_idx
+                state.target_char_idx >= i && state.target_char_idx < cluster_end
             };
 
             let is_in_selection = if state.selection_range.1 > state.selection_range.0 {
@@ -1767,12 +1780,14 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 SetTextColor(mem_dc, accent_commit); // 碧玉翠綠色
             }
 
-            let mut r_ch = RECT { left: pen_x, top: line_top, right: pen_x + sz_ch.cx + 2, bottom: line_bottom };
+            let mut r_ch = RECT { left: pen_x, top: line_top, right: pen_x + sz_ch.cx + 4, bottom: line_bottom };
             let mut c_w = ch_wide;
             c_w.push(0);
             DrawTextW(mem_dc, &mut c_w, &mut r_ch, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
             pen_x += sz_ch.cx;
+            i = cluster_end;
+            visual_col += 1;
         }
 
         // 若游標在句尾
@@ -2096,10 +2111,10 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         let mut tune_r = tune_toggle_rect;
         DrawTextW(mem_dc, &mut tune_text, &mut tune_r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
-        // 右側：純文字大號「半   許 / 日 / 倉 / 行 / 注 / 倚 / 拼」或「半   英」
+        // 右側：純文字大號「半   許 / 日 / 倉 / 行 / 注 / 倚 / 拼」或「半   歐」
         SetTextColor(mem_dc, ink_secondary);
         let kb_indicator = match state.keyboard_mode.to_lowercase().as_str() {
-            "english" | "en" | "latin" | "western" => "英",
+            "english" | "en" | "latin" | "western" | "euro" | "sanskrit" => "歐",
             "hsu" => "許",
             "japanese" | "jp" | "romaji" | "kana" => "日",
             "korean" | "ko" | "hangul" | "romaja" => "韓",
@@ -2111,7 +2126,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             "pinyin" => "拼",
             _ => "中",
         };
-        let mode_label = if state.is_caps_on { "半   英".to_string() } else { format!("半   {}", kb_indicator) };
+        let mode_label = if state.is_caps_on { "半   歐".to_string() } else { format!("半   {}", kb_indicator) };
         let mode_wide_no_null: Vec<u16> = mode_label.encode_utf16().collect();
         let mut sz_mode = SIZE::default();
         let _ = GetTextExtentPoint32W(mem_dc, &mode_wide_no_null, &mut sz_mode);
@@ -2540,12 +2555,12 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
             }
             let _ = AppendMenuW(hmenu, MF_SEPARATOR, 0, PCWSTR::null());
 
-            let is_en_active = matches!(cur_kb.as_str(), "english" | "en" | "latin" | "western");
+            let is_en_active = matches!(cur_kb.as_str(), "english" | "en" | "latin" | "western" | "euro" | "sanskrit");
             let is_direct_en_caps = latest_cfg.capslock_switch == "english_direct";
             let en_label = if is_direct_en_caps {
-                "英數／歐文直通模式 (英)\tCapsLock"
+                "泛歐／羅馬字模式 (歐)\tCapsLock"
             } else {
-                "英數／歐文直通模式 (英)\tCtrl/Shift + CapsLock"
+                "泛歐／羅馬字模式 (歐)\tCtrl/Shift + CapsLock"
             };
             let en_wide: Vec<u16> = en_label.encode_utf16().chain(Some(0)).collect();
             let en_flags = if is_en_active { MF_STRING | MF_CHECKED } else { MF_STRING };
@@ -2571,7 +2586,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
 
             // CapsLock 按鍵功能快速設定子選單 (2011 / 2012)
             if let Ok(caps_cfg_menu) = CreatePopupMenu() {
-                let opt_direct: Vec<u16> = "英數／歐文直通模式 (英)\t單按 CapsLock 直通英數".encode_utf16().chain(Some(0)).collect();
+                let opt_direct: Vec<u16> = "泛歐／羅馬字模式 (歐)\t單按 CapsLock 直通泛歐模式".encode_utf16().chain(Some(0)).collect();
                 let opt_mru: Vec<u16> = format!("最後兩種輸入模式快速切換 ({} ⇄ {})\t單按 CapsLock 對切", cur_badge, last_badge).encode_utf16().chain(Some(0)).collect();
                 let _ = AppendMenuW(
                     caps_cfg_menu,
@@ -2586,7 +2601,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                     PCWSTR(opt_mru.as_ptr()),
                 );
                 let sub_title = if is_direct_en_caps {
-                    "CapsLock 按鍵設定：英數／歐文直通模式 (英)..."
+                    "CapsLock 按鍵設定：泛歐／羅馬字模式 (歐)..."
                 } else {
                     "CapsLock 按鍵設定：最後兩種輸入模式快速切換..."
                 };

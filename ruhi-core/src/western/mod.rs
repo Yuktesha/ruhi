@@ -4,6 +4,7 @@
 pub mod fsm;
 pub mod lexicon;
 pub mod morphology;
+pub mod sanskrit_am;
 pub mod scoring;
 
 pub use fsm::{FsmAction, TokenCasing, WesternFSM, WesternToken, WesternTokenKind};
@@ -132,6 +133,7 @@ impl WesternEngine {
         ("resume", &["résumé", "resumé", "resume"]),
         ("resumes", &["résumés", "resumés", "resumes"]),
         ("naive", &["naïve", "naive"]),
+        ("naivete", &["naïveté", "naivete"]),
         ("facade", &["façade", "facade"]),
         ("cliche", &["cliché", "cliche"]),
         ("cliches", &["clichés", "cliches"]),
@@ -151,8 +153,24 @@ impl WesternEngine {
         ("senor", &["señor", "senor"]),
         ("senorita", &["señorita", "senorita"]),
         ("nino", &["niño", "nino"]),
+        ("nina", &["niña", "nina"]),
+        ("espana", &["España", "españa", "espana"]),
+        ("espanol", &["español", "Español", "espanol"]),
+        ("malaga", &["Málaga", "Malaga"]),
+        ("bogota", &["Bogotá", "Bogota"]),
+        ("cancun", &["Cancún", "Cancun"]),
         ("uber", &["über", "Uber", "uber"]),
+        ("strasse", &["Straße", "Strasse", "straße"]),
         ("doppelganger", &["doppelgänger", "doppelganger"]),
+        ("fuhrer", &["Führer", "fuhrer"]),
+        ("schon", &["schön", "schon"]),
+        ("zurich", &["Zürich", "Zurich"]),
+        ("munchen", &["München", "Munich"]),
+        ("koln", &["Köln", "Cologne"]),
+        ("dusseldorf", &["Düsseldorf", "Dusseldorf"]),
+        ("nurnberg", &["Nürnberg", "Nuremberg"]),
+        ("gottingen", &["Göttingen", "Gottingen"]),
+        ("tubingen", &["Tübingen", "Tubingen"]),
         ("expose", &["exposé", "expose"]),
         ("matinee", &["matinée", "matinee"]),
         ("puree", &["purée", "puree"]),
@@ -167,6 +185,7 @@ impl WesternEngine {
         ("flambe", &["flambé", "flambe"]),
         ("frappe", &["frappé", "frappe"]),
         ("garcon", &["garçon", "garcon"]),
+        ("lecon", &["leçon", "lecon"]),
         ("macrame", &["macramé", "macrame"]),
         ("nee", &["née", "nee"]),
         ("outre", &["outré", "outre"]),
@@ -176,13 +195,36 @@ impl WesternEngine {
         ("rose", &["rosé", "rose"]),
         ("souffle", &["soufflé", "souffle"]),
         ("francais", &["français", "Français", "francais"]),
-        ("espanol", &["español", "Español", "espanol"]),
-        ("zurich", &["Zürich", "Zurich"]),
-        ("munchen", &["München", "Munich"]),
-        ("koln", &["Köln", "Cologne"]),
+        ("chateau", &["château", "chateau"]),
+        ("gateau", &["gâteau", "gateau"]),
+        ("hotel", &["hôtel", "hotel"]),
+        ("role", &["rôle", "role"]),
+        ("cote", &["côte", "côté", "cote"]),
+        ("tete", &["tête", "tête-à-tête", "tete"]),
+        ("etre", &["être", "etre"]),
+        ("tres", &["très", "tres"]),
+        ("apres", &["après", "apres"]),
+        ("noel", &["Noël", "noël", "noel"]),
+        ("coeur", &["cœur", "coeur"]),
+        ("oeuvre", &["œuvre", "oeuvre"]),
+        ("hors", &["hors d'œuvre", "hors"]),
         ("malmo", &["Malmö", "Malmo"]),
         ("goteborg", &["Göteborg", "Gothenburg"]),
+        ("angstrom", &["ångström", "Ångström", "angstrom"]),
+        ("smorgasbord", &["smörgåsbord", "smorgasbord"]),
         ("sao", &["São", "São Paulo", "sao"]),
+        ("coracao", &["coração", "coracao"]),
+        ("joao", &["João", "Joao"]),
+        ("dvorak", &["Dvořák", "Dvorak"]),
+        ("lodz", &["Łódź", "Lodz"]),
+        ("krakow", &["Kraków", "Krakow"]),
+        ("wroclaw", &["Wrocław", "Wroclaw"]),
+        ("gdansk", &["Gdańsk", "Gdansk"]),
+        ("erdogan", &["Erdoğan", "Erdogan"]),
+        ("turkiye", &["Türkiye", "Turkiye"]),
+        ("pho", &["phở", "Phở", "pho"]),
+        ("banh", &["bánh", "bánh mì", "banh"]),
+        ("nguyen", &["Nguyễn", "Nguyen"]),
     ];
 
     /// 高頻歐文縮寫展開表（供 ↑ 上箭頭智慧展開）
@@ -450,30 +492,30 @@ impl WesternEngine {
             'Y' => &["Ý", "Ÿ", "Ŷ", "Ȳ", "Y"],
             'c' => &["ç", "ć", "č", "ĉ", "ċ", "©", "¢", "c"],
             'C' => &["Ç", "Ć", "Č", "Ĉ", "Ċ", "©", "C"],
-            'n' => &["ñ", "ń", "ň", "ņ", "ŋ", "ṅ", "ṇ", "n"],
-            'N' => &["Ñ", "Ń", "Ň", "Ņ", "Ŋ", "Ṅ", "Ṇ", "N"],
-            's' => &["ß", "ś", "š", "ş", "ș", "ŝ", "ṣ", "§", "s"],
-            'S' => &["ẞ", "Ś", "Š", "Ş", "Ș", "Ŝ", "Ṣ", "§", "S"],
+            'n' => &["ñ", "ń", "n\u{0301}", "n\u{032d}", "ň", "ņ", "ŋ", "ṅ", "ṇ", "n"],
+            'N' => &["Ñ", "Ń", "N\u{0301}", "N\u{032d}", "Ň", "Ņ", "Ŋ", "Ṅ", "Ṇ", "N"],
+            's' => &["ß", "ś", "s\u{0301}", "š", "ş", "ș", "ŝ", "ṣ", "§", "s"],
+            'S' => &["ẞ", "Ś", "S\u{0301}", "Š", "Ş", "Ș", "Ŝ", "Ṣ", "§", "S"],
             'z' => &["ź", "ż", "ž", "z"],
             'Z' => &["Ź", "Ż", "Ž", "Z"],
-            'l' => &["ł", "ĺ", "ľ", "ļ", "ŀ", "l"],
-            'L' => &["Ł", "Ĺ", "Ľ", "Ļ", "Ŀ", "L"],
-            'd' => &["ð", "ď", "đ", "ḍ", "d"],
-            'D' => &["Ð", "Ď", "Đ", "Ḍ", "D"],
-            't' => &["þ", "ť", "ţ", "ț", "ṭ", "™", "t"],
-            'T' => &["Þ", "Ť", "Ţ", "Ț", "Ṭ", "™", "T"],
-            'r' => &["ŕ", "ř", "ŗ", "ṛ", "®", "r"],
-            'R' => &["Ŕ", "Ř", "Ŗ", "Ṛ", "®", "R"],
+            'l' => &["ł", "ĺ", "l\u{0301}", "ľ", "ļ", "ŀ", "ḷ", "l"],
+            'L' => &["Ł", "Ĺ", "L\u{0301}", "Ľ", "Ļ", "Ŀ", "Ḷ", "L"],
+            'd' => &["d\u{0301}", "ḍ", "ð", "ď", "đ", "d"],
+            'D' => &["D\u{0301}", "Ḍ", "Ð", "Ď", "Đ", "D"],
+            't' => &["t\u{0301}", "ṭ", "þ", "ť", "ţ", "ț", "™", "t"],
+            'T' => &["T\u{0301}", "Ṭ", "Þ", "Ť", "Ţ", "Ț", "™", "T"],
+            'r' => &["r\u{0301}", "ṛ", "ṝ", "ŕ", "ř", "ŗ", "®", "r"],
+            'R' => &["R\u{0301}", "Ṛ", "Ṝ", "Ŕ", "Ř", "Ŗ", "®", "R"],
             'g' => &["ğ", "ĝ", "ġ", "ģ", "g"],
             'G' => &["Ğ", "Ĝ", "Ġ", "Ģ", "G"],
-            'h' => &["ĥ", "ħ", "ḥ", "h"],
-            'H' => &["Ĥ", "Ħ", "Ḥ", "H"],
+            'h' => &["ḥ", "ĥ", "ħ", "h"],
+            'H' => &["Ḥ", "Ĥ", "Ħ", "H"],
             'j' => &["ĵ", "j"],
             'J' => &["Ĵ", "J"],
             'k' => &["ķ", "ĸ", "k"],
             'K' => &["Ķ", "K"],
-            'm' => &["ṁ", "ṃ", "µ", "m"],
-            'M' => &["Ṁ", "Ṃ", "M"],
+            'm' => &["m\u{0301}", "ṁ", "ṃ", "µ", "m"],
+            'M' => &["M\u{0301}", "Ṁ", "Ṃ", "M"],
             'w' => &["ŵ", "ẁ", "ẃ", "ẅ", "w"],
             'W' => &["Ŵ", "Ẁ", "Ẃ", "Ẅ", "W"],
             _ => &[],
@@ -505,6 +547,18 @@ impl WesternEngine {
 
     /// 歐語軌 `↓` 下箭頭：同位變音字母（Diacritics）與外來語重音標準整詞查詢
     pub fn lookup_down_arrow_candidates(&self, token: &str, target_char: Option<char>) -> Vec<String> {
+        self.lookup_word_down_candidates_at_offset(token, None, target_char)
+    }
+
+    /// 歐語軌 `↓` 下箭頭（支援指定單字內游標字元偏移 `focus_offset`）：
+    /// 無論游標停在單字詞尾 (`cafe|`)、詞中 (`ca|fe`) 或詞首 (`|cafe`)，
+    /// 皆優先回傳整詞變音候選，並針對游標所在字母與詞內母音合成整詞變音變體，絕不以單一字母覆寫整詞！
+    pub fn lookup_word_down_candidates_at_offset(
+        &self,
+        token: &str,
+        focus_offset: Option<usize>,
+        target_char: Option<char>,
+    ) -> Vec<String> {
         let trimmed = token.trim();
         let mut results: Vec<String> = Vec::new();
 
@@ -515,14 +569,19 @@ impl WesternEngine {
             return results;
         }
 
+        let word_chars: Vec<char> = trimmed.chars().collect();
         // 1. 單一字元：直接回傳該字母之完整變音同位字集
-        if trimmed.chars().count() == 1 {
-            let ch = trimmed.chars().next().unwrap();
-            return Self::lookup_char_diacritics(ch);
+        if word_chars.len() == 1 {
+            return Self::lookup_char_diacritics(word_chars[0]);
         }
 
-        // 2. 多字元單字：優先檢查外來語重音整詞表（如 cafe -> café, resume -> résumé, naive -> naïve）
-        let normalized_ascii: String = trimmed.chars().map(Self::strip_char_diacritic).collect::<String>().to_ascii_lowercase();
+        // 2. 多字元單字：優先檢查外來語重音整詞表（如 cafe -> café, resume -> résumé, naive -> naïve, strasse -> Straße）
+        let normalized_ascii: String = word_chars
+            .iter()
+            .copied()
+            .map(Self::strip_char_diacritic)
+            .collect::<String>()
+            .to_ascii_lowercase();
         for &(key, variants) in Self::LOANWORD_DIACRITICS {
             if key == normalized_ascii {
                 for &v in variants {
@@ -535,17 +594,96 @@ impl WesternEngine {
             }
         }
 
-        // 3. 若指定了游標所在字母（或取單字末尾母音/字母），提供該字母之單字元變音候選以供局部替換
-        let focus_ch = target_char.or_else(|| trimmed.chars().last());
-        if let Some(ch) = focus_ch {
-            for d in Self::lookup_char_diacritics(ch) {
-                if !results.contains(&d) {
-                    results.push(d);
+        // 2b. 阿南達瑪迦梵語羅馬拼音（Ananda Marga Roman Saṁskṛta）與 IAST 整詞轉寫查詢
+        //     例如 ananda -> ánanda / Ánanda / ānanda, krsna / krishna -> krśńa / Krśńa / kṛṣṇa,
+        //     samskrta / sanskrit -> saḿskrta, jinana / jnana -> jiṋána, dharana -> dhárańá
+        for am_cand in sanskrit_am::lookup_am_sanskrit_word(trimmed) {
+            if !results.contains(&am_cand) {
+                results.push(am_cand);
+            }
+        }
+
+        // 3. 針對游標所在位置字母（或詞內母音／可變音子音）合成「整詞變音變體」
+        //    例如在 cafe 詞尾或 'e' 上按 ↓ 產生 café, cafè, cafê, cafë；在 'a' 上按 ↓ 產生 cáfe, càfe, câfe
+        let primary_idx = focus_offset
+            .filter(|&idx| idx < word_chars.len())
+            .or_else(|| {
+                if let Some(tc) = target_char {
+                    word_chars.iter().rposition(|&c| c == tc)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(word_chars.len() - 1);
+
+        let mut candidate_indices = vec![primary_idx];
+        for idx in (0..word_chars.len()).rev() {
+            if idx != primary_idx {
+                let base = Self::strip_char_diacritic(word_chars[idx]).to_ascii_lowercase();
+                if matches!(base, 'a' | 'e' | 'i' | 'o' | 'u' | 'y' | 'c' | 'n' | 's' | 'z' | 'l' | 't' | 'd' | 'm' | 'r') {
+                    candidate_indices.push(idx);
                 }
             }
         }
 
-        // 4. 補充大小寫形態變體（TitleCase / UPPERCASE / lowercase）
+        for (order, &idx) in candidate_indices.iter().enumerate() {
+            let ch = word_chars[idx];
+            let diacritics = Self::lookup_char_diacritics(ch);
+            let limit = if order == 0 { 8 } else { 4 };
+            for d in diacritics.into_iter().take(limit) {
+                if d == ch.to_string() || d.chars().any(|dc| matches!(dc, '©' | '¢' | '§' | '™' | '®' | 'µ' | 'ª' | 'º')) {
+                    continue;
+                }
+                let mut mutated = String::new();
+                for (i, &orig_c) in word_chars.iter().enumerate() {
+                    if i == idx {
+                        mutated.push_str(&d);
+                    } else {
+                        mutated.push(orig_c);
+                    }
+                }
+                if !results.contains(&mutated) {
+                    results.push(mutated);
+                }
+            }
+        }
+
+        // 4. 補充常見無撇號縮寫、拼字修正與縮寫展開（讓使用者在詞尾按 ↓ 也能直接獲得智慧整詞修正）
+        for &(raw, rescues) in Self::CONTRACTION_RESCUE {
+            if normalized_ascii == raw {
+                for &r in rescues {
+                    let cased = Self::apply_casing_pattern(trimmed, r);
+                    if !results.contains(&cased) {
+                        results.push(cased);
+                    }
+                }
+                break;
+            }
+        }
+        for &(mis, fixes) in Self::COMMON_MISSPELLINGS {
+            if normalized_ascii == mis {
+                for &f in fixes {
+                    let cased = Self::apply_casing_pattern(trimmed, f);
+                    if !results.contains(&cased) {
+                        results.push(cased);
+                    }
+                }
+                break;
+            }
+        }
+        for &(abbr, expansions) in Self::ABBREV_EXPANSIONS {
+            if normalized_ascii == abbr {
+                for &exp in expansions {
+                    let cased = Self::apply_casing_pattern(trimmed, exp);
+                    if !results.contains(&cased) {
+                        results.push(cased);
+                    }
+                }
+                break;
+            }
+        }
+
+        // 5. 補充大小寫形態變體（TitleCase / UPPERCASE / lowercase）
         let lower = trimmed.to_lowercase();
         let title = Self::apply_casing_pattern("Title", &lower);
         let upper = trimmed.to_uppercase();
@@ -568,7 +706,7 @@ impl WesternEngine {
         let t_lower = trimmed.to_ascii_lowercase();
         let mut results: Vec<String> = Vec::new();
 
-        let mut push_unique = |cand: &str| {
+        let push_unique = |results: &mut Vec<String>, cand: &str| {
             let cased = Self::apply_casing_pattern(trimmed, cand);
             if !cased.is_empty() && !results.contains(&cased) {
                 results.push(cased);
@@ -579,7 +717,7 @@ impl WesternEngine {
         for &(abbr, expansions) in Self::ABBREV_EXPANSIONS {
             if t_lower == abbr {
                 for &exp in expansions {
-                    push_unique(exp);
+                    push_unique(&mut results, exp);
                 }
                 break;
             }
@@ -589,7 +727,7 @@ impl WesternEngine {
         for &(raw, rescues) in Self::CONTRACTION_RESCUE {
             if t_lower == raw {
                 for &r in rescues {
-                    push_unique(r);
+                    push_unique(&mut results, r);
                 }
                 break;
             }
@@ -599,7 +737,7 @@ impl WesternEngine {
         for &(mis, fixes) in Self::COMMON_MISSPELLINGS {
             if t_lower == mis {
                 for &f in fixes {
-                    push_unique(f);
+                    push_unique(&mut results, f);
                 }
                 break;
             }
@@ -609,20 +747,32 @@ impl WesternEngine {
         for &(key, variants) in Self::LOANWORD_DIACRITICS {
             if t_lower == key {
                 for &v in variants {
-                    push_unique(v);
+                    push_unique(&mut results, v);
                 }
                 break;
             }
         }
 
+        // 4b. 阿南達瑪迦梵語經典名相與片語展開 (如 ananda -> Ánanda Vacanámrtam, Ánanda Sútram; baba -> Bábá náma kevalam)
+        for ph in sanskrit_am::lookup_am_sanskrit_phrases(trimmed) {
+            if !results.contains(&ph) {
+                results.push(ph);
+            }
+        }
+        for am_w in sanskrit_am::lookup_am_sanskrit_word(trimmed) {
+            if !results.contains(&am_w) {
+                results.push(am_w);
+            }
+        }
+
         // 5. 子音骨架匹配與 Damerau-Levenshtein 動態編輯距離校正
         for w in self.lexicon.lookup_skeleton_and_fuzzy(&t_lower, 8) {
-            push_unique(&w);
+            push_unique(&mut results, &w);
         }
 
         // 6. 前綴智慧補全 (Prefix Completion)
         for w in self.lexicon.lookup_prefix(&t_lower, 8) {
-            push_unique(&w);
+            push_unique(&mut results, &w);
         }
 
         // 7. 保留原始輸入字串於末位作為保底選項
@@ -649,6 +799,15 @@ impl WesternEngine {
             return true;
         }
         if Self::LOANWORD_DIACRITICS.iter().any(|&(k, _)| k == t_lower) {
+            return true;
+        }
+        if sanskrit_am::AM_ABBREV_AND_HEADCODES.binary_search_by_key(&t_lower.as_str(), |&(k, _)| k).is_ok() {
+            return true;
+        }
+        if sanskrit_am::AM_PHRASE_EXPANSIONS.binary_search_by_key(&t_lower.as_str(), |&(k, _)| k).is_ok() {
+            return true;
+        }
+        if sanskrit_am::AM_SANSKRIT_LEXICON.binary_search_by_key(&t_lower.as_str(), |&(k, _)| k).is_ok() {
             return true;
         }
         self.lexicon.contains(&t_lower)
@@ -756,5 +915,50 @@ mod tests {
         // 4. 輸入無撇號縮寫 dont 按 ↑ 必得 don't
         let dont_cands = eng.lookup_up_arrow_candidates("dont");
         assert_eq!(dont_cands[0], "don't");
+    }
+
+    #[test]
+    fn test_ananda_marga_roman_sanskrit_support() {
+        let eng = WesternEngine::new();
+
+        // 1. 輸入 ananda 按 ↓ 必得 ánanda 與 Ánanda 及 IAST ānanda
+        let ananda_cands = eng.lookup_down_arrow_candidates("ananda", None);
+        assert!(ananda_cands.contains(&"a\u{0301}nanda".to_string()), "ananda cands: {:?}", ananda_cands);
+        assert!(ananda_cands.contains(&"A\u{0301}nanda".to_string()));
+        assert!(ananda_cands.contains(&"ānanda".to_string()));
+
+        // 2. 輸入 krsna 或常見拼法 krishna 按 ↓ 必得 krśńa / Krśńa
+        let krsna_cands = eng.lookup_down_arrow_candidates("krsna", None);
+        assert!(krsna_cands.contains(&"krs\u{0301}n\u{0301}a".to_string()), "krsna cands: {:?}", krsna_cands);
+        let krishna_cands = eng.lookup_down_arrow_candidates("krishna", None);
+        assert!(krishna_cands.contains(&"krs\u{0301}n\u{0301}a".to_string()), "krishna cands: {:?}", krishna_cands);
+
+        // 3. 輸入 jinana 或標準拼法 jnana 按 ↓ 必得含底抑揚符 U+032D 之 jiṋána
+        let jnana_cands = eng.lookup_down_arrow_candidates("jnana", None);
+        assert!(jnana_cands.contains(&"jin\u{032d}a\u{0301}na".to_string()), "jnana cands: {:?}", jnana_cands);
+
+        // 4. 輸入 samskrta 或 sanskrit 按 ↓ 必得 saḿskrta
+        let skt_cands = eng.lookup_down_arrow_candidates("sanskrit", None);
+        assert!(skt_cands.contains(&"sam\u{0301}skrta".to_string()), "sanskrit cands: {:?}", skt_cands);
+
+        // 5. 輸入 ananda / baba 按 ↑ 必得 Ánanda Vacanámrtam、Ánanda Sútram 與 Bábá náma kevalam / Bábá nám kevalam 等正統名相片語
+        let up_ananda = eng.lookup_up_arrow_candidates("ananda");
+        assert!(up_ananda.contains(&"A\u{0301}nanda Vacana\u{0301}mrtam".to_string()), "up_ananda: {:?}", up_ananda);
+        assert!(up_ananda.contains(&"A\u{0301}nanda Su\u{0301}tram".to_string()));
+        let up_baba = eng.lookup_up_arrow_candidates("baba");
+        assert_eq!(up_baba[0], "Ba\u{0301}ba\u{0301} na\u{0301}ma kevalam");
+        assert!(up_baba.contains(&"Ba\u{0301}ba\u{0301} na\u{0301}m kevalam".to_string()));
+
+        // 6. 測試常用縮寫與子音頭碼展開：bnk -> Bábá Náma Kevalam，ksn -> Krśńa
+        let up_bnk = eng.lookup_up_arrow_candidates("bnk");
+        assert_eq!(up_bnk[0], "Ba\u{0301}ba\u{0301} Na\u{0301}ma Kevalam");
+        assert!(up_bnk.contains(&"Ba\u{0301}ba\u{0301} na\u{0301}ma kevalam".to_string()));
+        let down_bnk = eng.lookup_down_arrow_candidates("bnk", None);
+        assert_eq!(down_bnk[0], "Ba\u{0301}ba\u{0301} Na\u{0301}ma Kevalam");
+
+        let up_ksn = eng.lookup_up_arrow_candidates("ksn");
+        assert_eq!(up_ksn[0], "Krs\u{0301}n\u{0301}a");
+        let down_ksn = eng.lookup_down_arrow_candidates("ksn", None);
+        assert_eq!(down_ksn[0], "Krs\u{0301}n\u{0301}a");
     }
 }

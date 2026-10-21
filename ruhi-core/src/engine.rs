@@ -636,7 +636,9 @@ impl RuhiEngine {
                 .sentence_chars
                 .get(active_idx)
                 .and_then(|s| s.chars().next());
-            let cands = self.western.lookup_down_arrow_candidates(&self.composed_sentence, target_ch);
+            let cands = self
+                .western
+                .lookup_word_down_candidates_at_offset(&self.composed_sentence, Some(active_idx), target_ch);
             if !cands.is_empty() {
                 let first_len = cands[0].chars().count();
                 if first_len > 1 && self.sentence_chars.len() > 1 {

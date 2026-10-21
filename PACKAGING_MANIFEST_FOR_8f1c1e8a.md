@@ -63,13 +63,14 @@
 | **最新編譯產物 (DLL)** | [`ruhi-tsf/target/release/ruhi_tsf.dll`](file:///C:/ATGprjs/ruhi/ruhi-tsf/target/release/ruhi_tsf.dll) | Windows TSF 輸入法核心動態連結庫（含雙軌方向鍵、自訂模式迴圈、日文模式與狀態標籤選單） |
 | **最新編譯產物 (DLL)** | [`ruhi-core/target/release/ruhi.dll`](file:///C:/ATGprjs/ruhi/ruhi-core/target/release/ruhi.dll) | 如喜核心語言學與多語系引擎動態連結庫 |
 | **新增核心模組** | [`ruhi-core/src/japanese/mod.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/japanese/mod.rs) | 內建輕量級日文羅馬字／假名／漢字轉換與上下方向鍵預測引擎 (`JapaneseEngine`) |
+| **新增核心模組** | [`ruhi-core/src/western/sanskrit_am.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/western/sanskrit_am.rs) | 阿南達瑪迦梵語羅馬拼音（Ananda Marga Roman Saṁskṛta，3,893 組核心詞根）與 IAST 雙向轉寫及名相展開詞庫 |
 | **修改核心模組** | [`ruhi-core/src/lib.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/lib.rs) | 匯出 `japanese` 模組與 `JapaneseEngine` |
 | **修改核心模組** | [`ruhi-core/src/engine.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/engine.rs) | 整合 `JapaneseEngine`、`enabled_keyboard_modes` 自訂循環、歐亞雙軌 `↓`/`↑` 方向鍵選字與單元測試 |
 | **修改核心模組** | [`ruhi-core/src/lexicon/manager.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/lexicon/manager.rs) | 新增 `lookup_up_arrow_predictions`（注音頭碼／前綴快打與上文語境救援演算法） |
 | **修改核心模組** | [`ruhi-core/src/cangjie/mod.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/cangjie/mod.rs) & [`table.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/cangjie/table.rs) | 新增倉頡 `Z` 萬用碼查詢與 `↑` 前綴預測 |
-| **修改核心模組** | [`ruhi-core/src/western/mod.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/western/mod.rs), [`lexicon.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/western/lexicon.rs), [`scoring.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/western/scoring.rs) | 新增歐文 `↓` 變音符號／外來語展開與 `↑` 長字補全／拼寫救援／上文語境推論 |
-| **修改 TSF 模組** | [`ruhi-tsf/src/service.rs`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) | 支援 `Ctrl/Shift + Caps Lock` 亞洲模式循環、`Caps Lock` 歐文模式雙軌方向鍵攔截、`JapaneseEngine` 組字與 `enabled_keyboard_modes` 熱重載 |
-| **修改 TSF 模組** | [`ruhi-tsf/src/candidate_window.rs`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/candidate_window.rs) | 支援輸入座狀態標籤點擊彈出選單、`半   日` 標籤顯示，並依 `enabled_keyboard_modes` 過濾選單項目 |
+| **修改核心模組** | [`ruhi-core/src/western/mod.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/western/mod.rs), [`lexicon.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/western/lexicon.rs), [`scoring.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/western/scoring.rs) | 新增泛歐模式整詞原位變音、阿南達瑪迦梵語羅馬拼音 `↓` 變音與 `↑` 長字補全／拼寫救援／上文語境推論 |
+| **修改 TSF 模組** | [`ruhi-tsf/src/service.rs`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) | 支援泛歐模式 `Ctrl + ←/→` 跨詞移動、詞尾／詞中／空白前後 `↓`/`↑` 整詞變音（含 `U+0300..U+036F` 梵語組合變音字元）、`JapaneseEngine` 組字與熱重載 |
+| **修改 TSF 模組** | [`ruhi-tsf/src/candidate_window.rs`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/candidate_window.rs) | 將泛歐／羅馬字模式狀態圖示與輸入座標籤升級為 **`「歐」`**（`半   歐`），支援 `半   日` 標籤顯示與選單項目過濾 |
 
 ### 2. 偏好設定中心 GUI 與組態檔（已同步至根目錄、`dist/` 與 `scripts/`）
 | 類別 | 檔案路徑 | 說明 |
