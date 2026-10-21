@@ -455,8 +455,9 @@ $$\text{cost} = \text{音節數} \times \text{COST\_SYLLABLE} - \text{COST\_LEXI
 | P2 | 2026-10-21 | `399f556` | `korean::romaja` 3/3 通過（含 20 個核心案例、75 詞往返檢查、40 字元 < 1ms 效能測試） | 無 |
 | P3 | 2026-10-21 | `c878112` | `korean` 全模組 13/13 通過；日／歐／注／倉／行模組回歸全數通過 | 無 |
 | P3 審查修正 | 2026-10-22 | `7393c1b` | `korean` 15/15 通過（新增 532 組終聲×初聲邊界窮舉往返、結算尾端保留拉丁字母） | ① `to_romaja` 的 `-` 規則改為通用判斷 `boundary_can_shift`，修正 각까、갓싸 往返失敗；② Finalize 模式不再輸出孤立相容字母（陷阱 5），如 `g` 結算為 `g`、`anny` 結算為 `안ny` |
-| P4 | 2026-10-22 | `d88923d` | `korean` 全模組 17/17 通過（含指定案例、55 條內建詞表與 406 條 `data/korean.tsv` 全量 5 項窮舉檢查） | 全量檢查發現 4 條目需修正：`체크인` 補上音節連字號 `chekeu-in`；單音節複合終聲詞 `닭/삶/값` 因單音節不建 DP 詞邊而改收錄多音節詞 `닭갈비/달걀/가격` |
-| P5 | 2026-10-22 | `fa47139` | 全套 `cargo test --lib` 126/126 通過（含 P4-0 `"歐"` 徽章更新與 `test_korean_rr_mode_integration`）；`cargo build --release` 成功 | 無（使用 partial staging 僅提交 `engine.rs` 之 P4-0 與 P5 區塊，完整保留工作區既有未提交修改） |
+| P4 | 2026-10-22 | `d88923d` | `korean` 全模組 17/17 通過（含指定案例、60 條內建詞表與 406 條 `data/korean.tsv` 全量 5 項窮舉檢查） | 全量檢查發現 4 條目需修正：`체크인` 補上音節連字號 `chekeu-in`；單音節複合終聲詞 `닭/삶/값` 因單音節不建 DP 詞邊而改收錄多音節詞 `닭갈비/달걀/가격` |
+| P5 | 2026-10-22 | `fa47139` | 工作區全套 126/126 通過；`cargo build --release` 成功 | 該提交單獨檢出時 `test_dual_track_arrow_lookup_and_contextual_rescue` 失敗（見 P5 審查修正） |
+| P5 審查修正 | 2026-10-22 | `622e681` | 乾淨工作目錄（僅含已提交內容）全套 **125/125** 通過（工作區多出之 1 項屬使用者未提交之梵文修改） | ① `fa47139` 只提交測試的 `"歐"` 斷言、未提交對應的徽章對照，已補提交該行；② P3 審查修正之雜湊原誤植為不存在的 `d0795ef`，已更正為 `7393c1b`；③ 內建詞表實為 60 條（原紀錄 55） |
 | P6 | | | | |
 | P7 | | | | |
 
@@ -644,3 +645,205 @@ pub fn romaja_to_hangul_with_lexicon(raw: &str, mode: ParseMode, lex: Option<&Ko
   4. 任何偏離本節規定之處
 - 同步更新第十二節「實作紀錄」表格的 P4、P5 列。
 - **P6（TSF 前端）不在本輪範圍**，P5 回報後等待使用者指示。
+
+
+---
+
+## 十四、P6 起續做指引（2026-10-22 P5 審查後補充，優先於第九節原文）
+
+### 14.1 目前狀態
+
+| 項目 | 內容 |
+| :--- | :--- |
+| 分支 | `feature/korean-rr`（最新提交見 `git log --oneline -1`，至少為 `622e681` 之後） |
+| 已完成 | P1～P5；`RuhiEngine` 已可用 `set_keyboard_mode("korean")` 切換並分派全部按鍵 |
+| 乾淨目錄全套測試 | 125/125 通過 |
+| 本輪範圍 | **只做 P6**（TSF 前端 + 設定中心），完成後停下來回報，**不做 P7** |
+
+### 14.2 P5 審查發現的問題（請引以為戒）
+
+1. **提交的內容與測試的內容不一致**。`fa47139` 只提交了測試斷言 `"歐"`，卻把對應的徽章程式碼留在未提交區。回報的「126 項通過」是在工作區跑的，而提交本身單獨檢出時有 1 項失敗。
+2. **回報中出現不存在的提交雜湊**（`d0795ef`）。
+3. **數字與實際不符**（內建詞表回報 55 條，實際 60 條）。
+
+**因此本階段起強制要求**：
+- **提交後必須在「只含已提交內容」的乾淨目錄驗證**，做法見 14.6。工作區測試結果不能當作提交的測試結果。
+- 回報中的每一個雜湊、每一個數字，都必須直接貼上產生它的指令輸出（例如 `git log --oneline -5`、`cargo test` 最後的 `test result:` 行），不得手寫或憑記憶填寫。
+
+### 14.3 工作區注意事項（最重要）
+
+`git status` 顯示以下檔案帶有**使用者其他工作的未提交修改**，本輪會動到其中兩個：
+
+| 檔案 | 本輪是否修改 | 處理方式 |
+| :--- | :--- | :--- |
+| `ruhi-tsf/src/service.rs` | **是** | 只暫存韓文相關區塊 |
+| `ruhi-tsf/src/candidate_window.rs` | **是** | 只暫存韓文相關區塊 |
+| `ruhi-studio/src/main.rs` | 是 | 目前無未提交修改，可整檔暫存（暫存前再用 `git diff` 確認一次） |
+| `ruhi-core/src/engine.rs`、`western/mod.rs`、設定檔、`user_dict.tsv`、`sanskrit_am.rs` | 否 | **不得暫存、不得還原、不得修改** |
+
+- 一律以 `git add -p <檔案>` 逐區塊選擇；若某個區塊同時混有使用者的修改與你的修改而無法分開，**停下來回報**，不要猜。
+- 嚴禁 `git add -A`、`git add .`、`git checkout -- <檔案>`、`git stash`。
+- 下文的行號取自**含使用者未提交修改的工作區**（2026-10-22 查得），可能已偏移，請以搜尋關鍵字為準。
+
+---
+
+### 14.4 P6 修改點（已逐處閱讀分類，請照表施作）
+
+#### (A) 核心修正：結算路徑必須使用 Finalize 結果（必做，否則違反陷阱 5）
+
+**問題**：TSF 的所有結算路徑（Space、Enter、Tab、標點、`commit_current_composition`）最終都經過 `service.rs` 的 `fn consolidate_engine_to_pending`（約第 2795 行），它直接讀取 `engine.composed_sentence`。韓文模式下 `composed_sentence` 是 **Preview** 結果，可能含孤立相容字母（例如只打 `g` 時為 `ㄱ`）。若不處理，相容字母會被送進應用程式。
+
+**做法**：
+1. 在 `ruhi-core/src/korean/mod.rs`，把既有的私有函式 `fn finalized_commit_text(&self)`（約第 166 行）改為 `pub fn finalized_commit_text(&self) -> String`。**只改可見性，不改內容**。
+2. 在 `consolidate_engine_to_pending` 開頭（取得 `engine` 鎖之後、讀取 `composed_sentence` 之前）加入韓文分支：若 `engine.korean.has_buffer()`，則以 `engine.korean.finalized_commit_text()` 作為本次要併入暫存流的文字，`raw_ascii` 使用 `engine.korean.raw_romaja`，並比照日文（`is_jp_chunk` 那段，約第 2819 行）在 `eng_segs` 為空時推入一個涵蓋整段的區段。
+3. 此處需要可變借用或先複製資料再釋放鎖，請依該函式既有的鎖寫法處理，**不要在持有 `engine` 鎖時呼叫其他會再次上鎖的 `self.*` 方法**（會造成死鎖）。
+4. 在 `ruhi-core` 新增單元測試：鍵入 `g` 後 `finalized_commit_text() == "g"`；鍵入 `hangeul` 後為 `한글`；鍵入 `hangeul` + `Down` + 選第 2 筆後為該候選。
+
+#### (B) 「是否有緩衝區」判斷：四處都要加入韓文（必做）
+
+以下四處的布林式都列舉了 `engine.japanese.has_buffer()`，請在其後加上 `|| engine.korean.has_buffer()`：
+
+| 約略行號 | 所在位置 | 影響 |
+| :--- | :--- | :--- |
+| 1210 | 按鍵前置判斷 `let (has_buffer, is_english_mode)` | 漏掉會使韓文組字中的按鍵被當作無緩衝區而放行給應用程式 |
+| 1389 | 同上（另一個入口） | 同上 |
+| 2241 | Escape 處理 `has_engine_preedit` | 漏掉會使 Escape 無法取消韓文組字 |
+| 4264 | `fn sync_input_display` | 漏掉會使韓文組字區不顯示、組字被提前結束 |
+
+另外第 2305、2311 行的 `!engine.japanese.has_buffer()` / `engine.japanese.has_buffer()` 屬於標點與數字的「先結算注音」判斷，對韓文**不需要**修改（韓文不使用 `fsm`）。
+
+#### (C) Space（必做）
+
+`service.rs` 約第 1759 行的 Space 區塊目前只有日文分支；韓文會落入 `commit_current_composition`，直接把整句送出，而不是「結算當前詞並插入空白」。
+
+請在 `if is_jp_mode { ... }` 之後加入韓文分支，行為規格：
+- 韓文有緩衝區：呼叫 `engine.process_key_str("Space")`，把回應的 `committed_chunk`（例如 `"한글 "`）以 `splice_pending_chunk` 併入暫存流（寫法比照第 2397～2400 行的 `action.starts_with("commit")` 分支），呼叫 `sync_input_display`，回傳 `true`。**不要**直接送出整句。
+- 韓文無緩衝區但暫存流非空：比照日文 `insert_pending_char(' ', None)`。
+- 整句仍由 Enter 送出，與日文一致。
+
+#### (D) Backspace（必做）
+
+約第 2124 行 `if engine.japanese.has_buffer() { let _ = engine.process_key('\x08'); true }`，請新增同樣寫法的 `else if engine.korean.has_buffer()` 分支。韓文退格刪的是拉丁字母（陷阱 4），引擎已正確處理，前端只需轉交。
+
+#### (E) Enter（必做）
+
+約第 2080 行的 Enter 區塊最終會走 `commit_current_composition` → `consolidate_engine_to_pending`。完成 (A) 之後，韓文會自動得到 Finalize 結果，**原則上不需另加分支**。請以 14.5 的手動驗證步驟確認 `g` + Enter 上屏為 `g`、不是 `ㄱ`。
+
+#### (F) 字元分派與連字號（必做）
+
+約第 2282 行：
+```rust
+let is_jp = matches!(engine.keyboard_mode.as_str(), "japanese" | "jp" | "romaji");
+let is_jp_romaji_key = is_jp && matches!(ch, '-' | '\'');
+```
+韓文 RR 使用 `-` 標示音節邊界（例如 `chekeu-in`、`jung-ang`）。請新增：
+```rust
+let is_kr = matches!(engine.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja");
+let is_kr_romaja_key = is_kr && engine.korean.has_buffer() && ch == '-';
+```
+並在 `let punct = ...` 的條件中加入 `&& !is_kr_romaja_key`。只有在韓文**有緩衝區**時才把 `-` 當拼寫鍵；緩衝區為空時 `-` 仍照標點規則處理。
+
+#### (G) 方向鍵（必做部分 + 選做部分）
+
+- **必做**：韓文**有緩衝區**時，`Down`／`Up` 應使用韓文引擎的候選。TSF 在第 2038、2059 行分別呼叫 `detect_target_word_and_cands`（約第 3314 行起）與 `detect_up_arrow_target_and_cands`（約第 3679 行起），兩者開頭都有日文分支。請在兩個函式的日文分支之後各加一個韓文分支：若 `engine.korean.has_buffer()`，分別回傳 `engine.korean.lookup_down_candidates()` / `engine.korean.lookup_up_candidates()`，目標範圍為暫存流中韓文組字所在區段。範圍的計算方式請比照同函式內日文對 `raw_romaja` 區段的處理。
+- **選做（本輪可不做，但須在回報中說明有沒有做）**：對**已併入暫存流**的韓文詞重新選字（日文用 `lookup_down_candidates_for_surface`）。韓文目前沒有對應函式；若要做，須先在 `ruhi-core` 新增函式並附測試，不可直接在 TSF 內拼湊邏輯。
+
+#### (H) Tab
+
+約第 1817 行 Tab 為手動斷詞。韓文引擎對 Tab 回傳 `pass_through`（不攔截）。請確認韓文模式下：有緩衝區時 Tab 不會造成資料遺失。最低要求是**不修改此區塊**，並在手動驗證中確認行為；若發現問題，回報而不是自行設計新行為。
+
+#### (I) 選單與徽章
+
+`candidate_window.rs`：
+
+| 約略行號 | 內容 | 動作 |
+| :--- | :--- | :--- |
+| 32 | 模式徽章與名稱對照 | 新增 `"korean" \| "ko" \| "hangul" \| "romaja" => ("韓", "韓文羅馬拼音")` |
+| 334、2287 | `enabled_keyboard_modes` 預設值 | **不要修改** |
+| 1306、1354 | 依模式顯示的右鍵選單文字 | 閱讀後比照日文新增韓文分支；若該處文字是日文專屬功能（例如假名相關），韓文落入預設分支即可，不要硬套 |
+| 2118 | 徽章字元 | 新增 `"korean" \| "ko" \| "hangul" \| "romaja" => "韓"` |
+| 2522～2527 | 模式選單項目清單 | 在日文 `(2005, "japanese", ...)` 之後新增 `(2009, "korean", "韓文羅馬拼音輸入 (韓)\tCtrl/Shift + CapsLock")` |
+| 2534、2542 | 目前模式與啟用模式的比對 | 比照日文加入 `mode_code == "korean" && (… == "ko" \|\| … == "hangul" \|\| … == "romaja")` |
+| 2698～2704 | ID 對照 | 新增 `2009 => Some("korean")` |
+
+`service.rs`：
+
+| 約略行號 | 內容 | 動作 |
+| :--- | :--- | :--- |
+| 241 | `default_enabled_keyboard_modes` | **不要修改** |
+| 747～752 | 模式選單項目清單 | 同上新增 `(2009, "korean", …)` |
+| 758 | 目前模式比對 | 比照日文加入韓文 |
+| 822～828 | ID 對照 | 新增 `2009 => Some("korean")` |
+
+**選單 ID 使用 `2009`**：2026-10-22 已在 `ruhi-tsf`、`ruhi-studio`、`scripts` 中搜尋，`2009` 與 `2010` 皆未被使用（已使用者為 2001～2008、2011、2012）。施作前請用 `Select-String -Pattern '\b2009\b'` 再確認一次。兩個檔案**必須使用同一個 ID**。
+
+#### (J) 設定中心（`ruhi-studio/src/main.rs`）
+
+設定中心是 Rust（egui），**不是** Python。
+
+| 約略行號 | 內容 | 動作 |
+| :--- | :--- | :--- |
+| 561～574 `let layouts = [...]` | 預設亞洲輸入模式單選 | 在日文之後新增 `("korean", "韓文羅馬拼音輸入（Korean RR，外國人友善之標準羅馬拼音組字 - 韓）")` |
+| 597～604 `let mode_options = [...]` | 快速切換迴圈勾選 | 在日文之後新增 `("korean", "韓文羅馬拼音輸入 (韓)")` |
+| `config_sync.rs` 第 86 行 | 預設啟用清單 | **不要修改** |
+
+#### (K) 其他 `is_jp` 判斷（不要加入韓文）
+
+以下為日文專屬行為，**不要**把韓文加進去：第 2292 行（日文全形標點）、第 2346～2382 行（`でしだが`→`でしたか` 等日文句尾修正）、`detect_*` 函式內的假名／平假名查詢。
+
+---
+
+### 14.5 建置與手動驗證
+
+1. 建置：在 `ruhi-tsf` 與 `ruhi-studio` 各執行 `cargo build --release`，兩者都必須零錯誤。
+2. **嚴禁由 Agent 啟動 GUI 或以背景方式常駐**（包含設定中心與 `hot_reload.ps1`）。建置完成後，請在回報中提供使用者以下手動驗證清單，由使用者執行：
+
+| # | 操作 | 期望 |
+| :--- | :--- | :--- |
+| 1 | 執行 `.\hot_reload.ps1`，開啟設定中心勾選「韓文羅馬拼音輸入 (韓)」 | 勾選後儲存成功 |
+| 2 | 記事本中按 `Ctrl + Caps Lock` 切到韓文 | 徽章顯示 `韓` |
+| 3 | `annyeonghaseyo` + `Space` + `Enter` | 上屏 `안녕하세요 `（結尾含空白） |
+| 4 | `hangeul` + `Down` + `2` + `Enter` | 上屏 `↓` 清單第 2 筆 |
+| 5 | `kimchi` + `Up` + `1` + `Enter` | 上屏 `김치` |
+| 6 | `g` + `Enter` | 上屏 `g`，**不是** `ㄱ` |
+| 7 | `chekeu-in` + `Enter` | 上屏 `체크인` |
+| 8 | `hangeul` + `Backspace` ×2 | 組字區顯示 `한그`（刪的是拉丁字母） |
+| 9 | 韓文組字中按 `Escape` | 組字取消 |
+| 10 | 切回許氏輸入中文 | 中文輸入正常，不受影響 |
+| 11 | 深色與淺色主題各看一次候選視窗 | 韓文字顯示正常、無白底殘留 |
+
+---
+
+### 14.6 提交與乾淨目錄驗證（必做，順序不可顛倒）
+
+1. 以 `git add -p` 只暫存韓文相關區塊後，先執行 `git diff --cached --stat` 與 `git diff --cached`，確認暫存內容**只有**本輪修改。
+2. 提交。
+3. 建立乾淨工作目錄並驗證：
+   ```powershell
+   cd C:\ATGprjs\ruhi
+   git worktree add --detach C:\ATGprjs\_tmp_korean_verify HEAD
+   $env:CARGO_TARGET_DIR = 'C:\ATGprjs\ruhi\target_verify'
+   cd C:\ATGprjs\_tmp_korean_verify\ruhi-core;   cargo test --lib
+   cd C:\ATGprjs\_tmp_korean_verify\ruhi-tsf;    cargo build --release
+   cd C:\ATGprjs\_tmp_korean_verify\ruhi-studio; cargo build --release
+   cd C:\ATGprjs\ruhi
+   git worktree remove --force C:\ATGprjs\_tmp_korean_verify
+   ```
+   `ruhi-core` 全套約需 5 分鐘，請以背景方式執行並等待，不要中途中斷。
+4. 若乾淨目錄的結果與工作區不同，**停下來回報差異原因**，不要以修改測試來掩蓋。
+
+### 14.7 停止點與回報格式
+
+- P6 完成後停下來回報，**不要進入 P7**。
+- 回報內容（每一項都附上原始指令輸出）：
+  1. `git log --oneline -5` 的輸出
+  2. 乾淨目錄 `cargo test --lib` 的 `test result:` 行，以及 `ruhi-tsf`、`ruhi-studio` 建置的最後一行
+  3. 14.4 各項（A～K）逐項說明：已完成／未做（附原因）
+  4. (G) 選做部分有沒有做
+  5. 任何因無法分離使用者修改而未提交的區塊
+  6. 14.5 的手動驗證清單（原樣提供給使用者）
+- 同步更新第十二節「實作紀錄」表格的 P6 列。
+
+### 14.8 已知的輕微事項（本輪不處理，僅供知悉）
+
+- `RuhiEngine` 在韓文模式下結算時不會更新 `last_committed_word`。TSF 的 `commit*` 分支（約第 2393 行）會另外呼叫 `record_committed`，因此在實際使用中影響有限。留待 P7 或之後評估。
