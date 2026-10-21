@@ -890,4 +890,24 @@ mod tests {
         eng.candidate_idx = 1;
         assert_eq!(eng.finalized_commit_text(), second);
     }
+
+    /// TSF 在數字鍵前會先結算韓文緩衝區（`digit_consolidate`），
+    /// 因此引擎在緩衝區為空時收到數字，必須原樣輸出數字，而不是選字。
+    /// 緩衝區非空時數字仍為選字鍵（候選每次按鍵都會更新）。
+    #[test]
+    fn test_p6_digit_after_consolidation_is_literal() {
+        let mut eng = KoreanEngine::new();
+        for ch in "hangeul".chars() {
+            eng.process_key(ch);
+        }
+        assert!(!eng.candidates.is_empty(), "候選於每次按鍵後皆已更新");
+        let finalized = eng.finalized_commit_text();
+        assert_eq!(finalized, "한글");
+        eng.reset();
+
+        let r = eng.process_key('2');
+        assert_eq!(r.action, "commit");
+        assert_eq!(r.committed_chunk, "2");
+        assert!(!eng.has_buffer());
+    }
 }

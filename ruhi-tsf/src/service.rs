@@ -2305,7 +2305,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         && !engine.is_latin_mode
                         && !engine.cangjie.has_buffer()
                         && !engine.array30.has_buffer()
-                        && (!engine.fsm.syllables.is_empty() || engine.fsm.has_pending() || engine.japanese.has_buffer());
+                        && (!engine.fsm.syllables.is_empty() || engine.fsm.has_pending() || engine.japanese.has_buffer() || engine.korean.has_buffer());
                     if (punct_consolidate || digit_consolidate) && engine.fsm.has_pending() {
                         engine.fsm.commit_current('1');
                         engine.update_sentence_composition();
