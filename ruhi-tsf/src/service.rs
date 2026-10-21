@@ -746,6 +746,7 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
             let items: &[(u32, &str, &str)] = &[
                 (2001, "hsu", "許氏雙拼注音 (許)\tCtrl/Shift + CapsLock"),
                 (2005, "japanese", "日文羅馬字輸入 (日)\tCtrl/Shift + CapsLock"),
+                (2009, "korean", "韓文羅馬拼音輸入 (韓)\tCtrl/Shift + CapsLock"),
                 (2004, "cangjie", "倉頡輸入法 (倉)\tCtrl/Shift + CapsLock"),
                 (2007, "array30", "行列 30 輸入法 (行)\tCtrl/Shift + CapsLock"),
                 (2002, "standard", "標準大千注音 (注)\tCtrl/Shift + CapsLock"),
@@ -756,6 +757,7 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
                 for &(id, mode_code, label) in items {
                     let is_active = cur_kb == mode_code
                         || (mode_code == "japanese" && (cur_kb == "jp" || cur_kb == "romaji" || cur_kb == "kana"))
+                        || (mode_code == "korean" && (cur_kb == "ko" || cur_kb == "hangul" || cur_kb == "romaja"))
                         || (mode_code == "array30" && cur_kb == "ar30")
                         || (mode_code == "standard" && cur_kb == "daikien")
                         || (mode_code == "et26" && cur_kb == "eten26");
@@ -826,6 +828,7 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
             2005 => Some("japanese"),
             2006 => Some("english"),
             2007 => Some("array30"),
+            2009 => Some("korean"),
             _ => None,
         };
         if let Some(m) = chosen {
@@ -1207,7 +1210,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let (has_buffer, is_english_mode) = {
                 let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
                 let engine = self.engine.lock().unwrap();
-                let hb = pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer();
+                let hb = pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer();
                 let is_en = matches!(engine.keyboard_mode.to_lowercase().as_str(), "english" | "en" | "latin" | "western");
                 (hb, is_en)
             };
@@ -1386,7 +1389,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let (has_buffer, is_english_mode) = {
                 let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
                 let engine = self.engine.lock().unwrap();
-                let hb = pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer();
+                let hb = pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer();
                 let is_en = matches!(engine.keyboard_mode.to_lowercase().as_str(), "english" | "en" | "latin" | "western");
                 (hb, is_en)
             };
@@ -1741,20 +1744,44 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             // - 第 2 下 Space（當前詞彙已固定、無未決羅馬字時）：直接在輸入座長句中插入半形空格，無須切換至英文模式！
             // - 整句由 Enter（或句末標點 。/？/！）統一送出上屏！
             if vk == VK_SPACE.0 as u32 && has_buffer {
-                let (is_jp_mode, has_jp_buf, has_pending_fsm, is_latin, has_shape_buf) = {
+                let (is_jp_mode, has_jp_buf, is_kr_mode, has_kr_buf, has_pending_fsm, is_latin, has_shape_buf) = {
                     let engine = self.engine.lock().unwrap();
                     let jp_buf = engine.japanese.has_buffer();
+                    let kr_buf = engine.korean.has_buffer();
                     (
                         matches!(engine.keyboard_mode.as_str(), "japanese" | "jp" | "romaji"),
                         jp_buf,
+                        matches!(engine.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja"),
+                        kr_buf,
                         engine.fsm.has_pending(),
                         engine.is_latin_mode,
-                        engine.cangjie.has_buffer() || engine.array30.has_buffer() || jp_buf,
+                        engine.cangjie.has_buffer() || engine.array30.has_buffer() || jp_buf || kr_buf,
                     )
                 };
                 if is_jp_mode {
                     if has_jp_buf {
                         self.consolidate_engine_to_pending();
+                    } else {
+                        self.insert_pending_char(' ', None);
+                    }
+                    self.sync_input_display(ctx)?;
+                    return Ok(BOOL::from(true));
+                }
+                if is_kr_mode {
+                    if has_kr_buf {
+                        let committed_chunk = {
+                            let mut engine = self.engine.lock().unwrap();
+                            let resp = engine.process_key_str("Space");
+                            if !resp.committed_chunk.is_empty() {
+                                engine.record_committed(&resp.committed_chunk);
+                            }
+                            resp.committed_chunk
+                        };
+                        if !committed_chunk.is_empty() {
+                            let c_chars: Vec<char> = committed_chunk.chars().collect();
+                            let c_syls: Vec<Option<String>> = vec![None; c_chars.len()];
+                            self.splice_pending_chunk(&c_chars, &c_syls, &[]);
+                        }
                     } else {
                         self.insert_pending_char(' ', None);
                     }
@@ -2088,6 +2115,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     if engine.japanese.has_buffer() {
                         let _ = engine.process_key('\x08');
                         true
+                    } else if engine.korean.has_buffer() {
+                        let _ = engine.process_key('\x08');
+                        true
                     } else if engine.cangjie.has_buffer() {
                         if is_ctrl || is_shift {
                             let _ = engine.cangjie.process_key_str("Shift+BackSpace");
@@ -2202,7 +2232,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 let is_cand_sel_now = *self.candidate_selecting.lock().unwrap();
                 let has_engine_preedit = {
                     let engine = self.engine.lock().unwrap();
-                    engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer()
+                    engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer()
                 };
                 let has_pending = !self.pending_compose.lock().unwrap().is_empty();
 
@@ -2245,6 +2275,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     let mut engine = self.engine.lock().unwrap();
                     let is_jp = matches!(engine.keyboard_mode.as_str(), "japanese" | "jp" | "romaji");
                     let is_jp_romaji_key = is_jp && matches!(ch, '-' | '\'');
+                    let is_kr = matches!(engine.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja");
+                    let is_kr_romaja_key = is_kr && engine.korean.has_buffer() && ch == '-';
                     let is_ar30 = matches!(engine.keyboard_mode.as_str(), "array30" | "ar30");
                     let is_ar30_key = is_ar30 && (matches!(ch, ',' | '.' | ';' | '/') || (engine.array30.has_buffer() && matches!(ch, '?' | '*' | '_' | '-')));
                     let is_standard_bpm_punct = matches!(engine.keyboard_mode.as_str(), "standard" | "daikien")
@@ -2252,6 +2284,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     let punct = !is_ar30_key
                         && !is_standard_bpm_punct
                         && !is_jp_romaji_key
+                        && !is_kr_romaja_key
                         && (engine.symbols.get_char(ch).is_some()
                             || (is_jp && matches!(ch, ',' | '.' | '?' | '!' | '[' | ']' | '(' | ')' | ':' | ';')));
                     let raw_lower = engine.raw_ascii_buffer.to_ascii_lowercase();
@@ -2733,12 +2766,19 @@ impl RuhiTextService_Impl {
 
     fn consolidate_engine_to_pending(&self) {
         let engine = self.engine.lock().unwrap();
-        let has_composed = !engine.composed_sentence.is_empty();
+        let is_kr_chunk = engine.korean.has_buffer();
+        let has_composed = !engine.composed_sentence.is_empty() || is_kr_chunk;
         let has_pending = engine.fsm.has_pending();
         if has_composed || has_pending {
-            let composed_for_ctx = engine.composed_sentence.clone();
+            let composed_for_ctx = if is_kr_chunk {
+                engine.korean.finalized_commit_text()
+            } else {
+                engine.composed_sentence.clone()
+            };
             let is_jp_chunk = !engine.japanese.raw_romaji.is_empty();
-            let raw_ascii = if is_jp_chunk {
+            let raw_ascii = if is_kr_chunk {
+                engine.korean.raw_romaja.clone()
+            } else if is_jp_chunk {
                 engine.japanese.raw_romaji.clone()
             } else if !engine.cangjie.buffer.is_empty() {
                 engine.cangjie.buffer.clone()
@@ -2747,7 +2787,7 @@ impl RuhiTextService_Impl {
             } else {
                 engine.raw_ascii_buffer.clone()
             };
-            let mut eng_chars: Vec<char> = engine.composed_sentence.chars().collect();
+            let mut eng_chars: Vec<char> = composed_for_ctx.chars().collect();
             let eng_count = eng_chars.len();
             let mut eng_syls: Vec<Option<String>> = (0..eng_count)
                 .map(|i| engine.get_syllable_at(i))
@@ -2755,7 +2795,7 @@ impl RuhiTextService_Impl {
             let mut eng_segs: Vec<(usize, usize, String, String)> = engine.segments.iter()
                 .map(|n| (n.start_idx, n.end_idx, n.word.clone(), n.bopomofo.clone()))
                 .collect();
-            if is_jp_chunk && eng_segs.is_empty() && eng_count > 0 {
+            if (is_jp_chunk || is_kr_chunk) && eng_segs.is_empty() && eng_count > 0 {
                 eng_segs.push((0, eng_count, composed_for_ctx.clone(), raw_ascii.clone()));
             }
             if has_pending {
@@ -3295,6 +3335,38 @@ impl RuhiTextService_Impl {
             }
         }
 
+        // 0b. 韓文羅馬拼音模式 (`korean`)：提供韓文 N-best 候選清單
+        if matches!(engine.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja") {
+            if engine.korean.has_buffer() {
+                let kr_cands = engine.korean.lookup_down_candidates();
+                if !kr_cands.is_empty() {
+                    let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
+                    let end = chars.len().max(pending_len);
+                    let start = pending_len.min(end);
+                    return (start, (start, end), kr_cands);
+                }
+            }
+            if let Some((raw_start, raw_end, ref raw_ascii)) = *self.last_raw_ascii.lock().unwrap() {
+                if target_idx >= raw_start && target_idx < raw_end && raw_end <= chars.len() {
+                    let kr_cands = engine.korean.lookup_down_candidates_for_romaja(raw_ascii);
+                    if !kr_cands.is_empty() {
+                        return (raw_start, (raw_start, raw_end), kr_cands);
+                    }
+                }
+            }
+            {
+                let segs = self.pending_segments.lock().unwrap();
+                for (s_start, s_end, ref _s_surf, ref s_raw) in segs.iter() {
+                    if target_idx >= *s_start && target_idx < *s_end && *s_end <= chars.len() && !s_raw.is_empty() {
+                        let kr_seg_cands = engine.korean.lookup_down_candidates_for_romaja(s_raw);
+                        if !kr_seg_cands.is_empty() {
+                            return (*s_start, (*s_start, *s_end), kr_seg_cands);
+                        }
+                    }
+                }
+            }
+        }
+
         // 0.5 行列 30 模式 (`array30`)：若游標位於剛組出的單字上，優先提供同碼重碼字，再補充同音字
         if matches!(engine.keyboard_mode.as_str(), "array30" | "ar30") && manual_range.is_none() {
             if let Some((raw_start, raw_end, ref raw_ascii)) = *self.last_raw_ascii.lock().unwrap() {
@@ -3654,6 +3726,41 @@ impl RuhiTextService_Impl {
             jp_preds.retain(|c| !del_words.contains(c));
             if !jp_preds.is_empty() {
                 return (0, (0, chars.len()), jp_preds);
+            }
+        }
+
+        // 0b. 韓文羅馬拼音模式 (`korean`)：學習者骨架容錯與常用詞前綴預測
+        if matches!(engine.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja") {
+            if engine.korean.has_buffer() {
+                let mut kr_cands = engine.korean.lookup_up_candidates();
+                kr_cands.retain(|c| !del_words.contains(c));
+                if !kr_cands.is_empty() {
+                    let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
+                    let end = chars.len().max(pending_len);
+                    let start = pending_len.min(end);
+                    return (start, (start, end), kr_cands);
+                }
+            }
+            if let Some((raw_start, raw_end, ref raw_ascii)) = *self.last_raw_ascii.lock().unwrap() {
+                if target_idx >= raw_start && target_idx < raw_end && raw_end <= chars.len() {
+                    let mut kr_cands = engine.korean.lookup_up_candidates_for_romaja(raw_ascii);
+                    kr_cands.retain(|c| !del_words.contains(c));
+                    if !kr_cands.is_empty() {
+                        return (raw_start, (raw_start, raw_end), kr_cands);
+                    }
+                }
+            }
+            {
+                let segs = self.pending_segments.lock().unwrap();
+                for (s_start, s_end, ref _s_surf, ref s_raw) in segs.iter() {
+                    if target_idx >= *s_start && target_idx < *s_end && *s_end <= chars.len() && !s_raw.is_empty() {
+                        let mut kr_seg_cands = engine.korean.lookup_up_candidates_for_romaja(s_raw);
+                        kr_seg_cands.retain(|c| !del_words.contains(c));
+                        if !kr_seg_cands.is_empty() {
+                            return (*s_start, (*s_start, *s_end), kr_seg_cands);
+                        }
+                    }
+                }
             }
         }
 
@@ -4154,7 +4261,7 @@ impl RuhiTextService_Impl {
         let has_buffer = {
             let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
             let engine = self.engine.lock().unwrap();
-            pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer()
+            pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer()
         };
 
         if !has_buffer {

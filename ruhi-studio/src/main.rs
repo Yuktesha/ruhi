@@ -568,6 +568,10 @@ impl RuhiStudioApp {
                     "japanese",
                     "日文羅馬字輸入（Japanese Romaji，五十音／漢字／片假名輕量轉換 - 日）",
                 ),
+                (
+                    "korean",
+                    "韓文羅馬拼音輸入（Korean RR，外國人友善之標準羅馬拼音組字 - 韓）",
+                ),
                 ("cangjie", "倉頡輸入法（Cangjie，支援 Z 鍵萬用字元查詢 - 倉）"),
                 ("standard", "標準大千注音（Standard Daikien - 注）"),
                 ("et26", "倚天 26 鍵注音（ETen 26-Key - 倚）"),
@@ -598,6 +602,7 @@ impl RuhiStudioApp {
                 ("hsu", "許氏雙拼注音 (許)"),
                 ("array30", "行列 30 輸入法 (行)"),
                 ("japanese", "日文羅馬字輸入 (日)"),
+                ("korean", "韓文羅馬拼音輸入 (韓)"),
                 ("cangjie", "倉頡輸入法 (倉)"),
                 ("standard", "標準大千注音 (注)"),
                 ("et26", "倚天 26 鍵注音 (倚)"),

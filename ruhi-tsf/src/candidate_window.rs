@@ -30,6 +30,7 @@ pub fn get_mode_badge_and_name(kb_mode: &str, is_caps: bool) -> (&'static str, &
         "english" | "en" | "latin" | "western" => ("英", "英數／歐文直通"),
         "hsu" => ("許", "許氏雙拼注音"),
         "japanese" | "jp" | "romaji" | "kana" => ("日", "日文羅馬字"),
+        "korean" | "ko" | "hangul" | "romaja" => ("韓", "韓文羅馬拼音"),
         "standard" | "daikien" | "dachen" | "bopomofo" => ("注", "標準大千注音"),
         "cangjie" => ("倉", "倉頡輸入法"),
         "array30" | "ar30" => ("行", "行列 30 輸入法"),
@@ -1303,7 +1304,7 @@ pub fn show_about_dialog(hwnd: HWND) {
                 "RuhI について",
                 "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.4.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
             ),
-            "korean" | "hangul" => (
+            "korean" | "ko" | "hangul" | "romaja" => (
                 "RuhI 정보",
                 "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.4.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
             ),
@@ -1348,7 +1349,7 @@ fn get_context_menu_labels() -> (&'static str, &'static str, &'static str) {
     } else {
         match kb_mode.as_str() {
             "japanese" | "kana" | "romaji" => ("設定センター (&S)...", "意味チューニングスタジオ (&T)...", "RuhI について (&A)"),
-            "korean" | "hangul" => ("환경설정 (&S)...", "의미 튜닝 스튜디오 (&T)...", "RuhI 정보 (&A)"),
+            "korean" | "ko" | "hangul" | "romaja" => ("환경설정 (&S)...", "의미 튜닝 스튜디오 (&T)...", "RuhI 정보 (&A)"),
             _ => ("偏好設定中心 (&S)...", "語意調校工作室 (&T)...", "關於 RuhI 如喜 (&A)"),
         }
     }
@@ -2101,6 +2102,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             "english" | "en" | "latin" | "western" => "英",
             "hsu" => "許",
             "japanese" | "jp" | "romaji" | "kana" => "日",
+            "korean" | "ko" | "hangul" | "romaja" => "韓",
             "standard" | "daikien" | "dachen" | "bopomofo" => "注",
             "cangjie" => "倉",
             "array30" | "ar30" => "行",
@@ -2506,6 +2508,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
             let items: &[(usize, &str, &str)] = &[
                 (2001, "hsu", "許氏雙拼注音 (許)\tCtrl/Shift + CapsLock"),
                 (2005, "japanese", "日文羅馬字輸入 (日)\tCtrl/Shift + CapsLock"),
+                (2009, "korean", "韓文羅馬拼音輸入 (韓)\tCtrl/Shift + CapsLock"),
                 (2004, "cangjie", "倉頡輸入法 (倉)\tCtrl/Shift + CapsLock"),
                 (2007, "array30", "行列 30 輸入法 (行)\tCtrl/Shift + CapsLock"),
                 (2002, "standard", "標準大千注音 (注)\tCtrl/Shift + CapsLock"),
@@ -2516,7 +2519,8 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                     || (mode_code == "standard" && cur_kb == "daikien")
                     || (mode_code == "et26" && cur_kb == "eten26")
                     || (mode_code == "array30" && cur_kb == "ar30")
-                    || (mode_code == "japanese" && (cur_kb == "jp" || cur_kb == "romaji" || cur_kb == "kana"));
+                    || (mode_code == "japanese" && (cur_kb == "jp" || cur_kb == "romaji" || cur_kb == "kana"))
+                    || (mode_code == "korean" && (cur_kb == "ko" || cur_kb == "hangul" || cur_kb == "romaja"));
                 let is_enabled_in_loop = enabled_modes.is_empty()
                     || enabled_modes.iter().any(|m| {
                         let m_low = m.to_lowercase();
@@ -2525,6 +2529,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                             || (mode_code == "et26" && m_low == "eten26")
                             || (mode_code == "array30" && m_low == "ar30")
                             || (mode_code == "japanese" && (m_low == "jp" || m_low == "romaji" || m_low == "kana"))
+                            || (mode_code == "korean" && (m_low == "ko" || m_low == "hangul" || m_low == "romaja"))
                     });
                 if !is_enabled_in_loop && !is_active {
                     continue;
@@ -2687,6 +2692,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 2005 => Some("japanese"),
                 2006 => Some("english"),
                 2007 => Some("array30"),
+                2009 => Some("korean"),
                 _ => None,
             };
             if let Some(m) = chosen_mode {

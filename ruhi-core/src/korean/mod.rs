@@ -64,16 +64,13 @@ impl KoreanEngine {
         romaja_to_hangul_with_lexicon(&self.raw_romaja, ParseMode::Preview, Some(&self.lexicon))
     }
 
-    /// 查詢 `↓` 候選清單：N-best 結果去重，最多 9 筆
-    pub fn lookup_down_candidates(&self) -> Vec<String> {
-        if self.raw_romaja.is_empty() {
+    /// 查詢指定羅馬拼音之 `↓` 候選清單：N-best 結果去重，最多 9 筆
+    pub fn lookup_down_candidates_for_romaja(&self, romaja: &str) -> Vec<String> {
+        if romaja.is_empty() {
             return Vec::new();
         }
-        if self.is_english_forced {
-            return vec![self.raw_romaja.clone()];
-        }
         let parses = parse_nbest_with_lexicon(
-            &self.raw_romaja,
+            romaja,
             ParseMode::Finalize,
             NBEST_K.max(9),
             Some(&self.lexicon),
@@ -88,21 +85,29 @@ impl KoreanEngine {
                 }
             }
         }
-        if cands.len() < 9 && !cands.contains(&self.raw_romaja) {
-            cands.push(self.raw_romaja.clone());
+        if cands.len() < 9 && !cands.contains(&romaja.to_string()) {
+            cands.push(romaja.to_string());
         }
         cands
     }
 
-    /// 查詢 `↑` 學習者模糊救援與前綴補全候選：
-    /// 1. 以 skeleton(raw_romaja) 在 skeleton_index 中找完全相同的條目
-    /// 2. 再找骨架以輸入骨架為前綴的條目（輸入骨架至少 2 個字元才做前綴比對）
-    /// 3. 各組內依「權重降序 → 音節數升序 → 加入順序」排序，去重，最多 9 筆
-    pub fn lookup_up_candidates(&self) -> Vec<String> {
-        if self.raw_romaja.is_empty() || self.is_english_forced {
+    /// 查詢 `↓` 候選清單：N-best 結果去重，最多 9 筆
+    pub fn lookup_down_candidates(&self) -> Vec<String> {
+        if self.raw_romaja.is_empty() {
             return Vec::new();
         }
-        let input_skel = KoreanLexicon::skeleton(&self.raw_romaja);
+        if self.is_english_forced {
+            return vec![self.raw_romaja.clone()];
+        }
+        self.lookup_down_candidates_for_romaja(&self.raw_romaja)
+    }
+
+    /// 查詢指定羅馬拼音之 `↑` 學習者模糊救援與前綴補全候選
+    pub fn lookup_up_candidates_for_romaja(&self, romaja: &str) -> Vec<String> {
+        if romaja.is_empty() {
+            return Vec::new();
+        }
+        let input_skel = KoreanLexicon::skeleton(romaja);
         if input_skel.is_empty() {
             return Vec::new();
         }
@@ -158,12 +163,23 @@ impl KoreanEngine {
         cands
     }
 
+    /// 查詢 `↑` 學習者模糊救援與前綴補全候選：
+    /// 1. 以 skeleton(raw_romaja) 在 skeleton_index 中找完全相同的條目
+    /// 2. 再找骨架以輸入骨架為前綴的條目（輸入骨架至少 2 個字元才做前綴比對）
+    /// 3. 各組內依「權重降序 → 音節數升序 → 加入順序」排序，去重，最多 9 筆
+    pub fn lookup_up_candidates(&self) -> Vec<String> {
+        if self.raw_romaja.is_empty() || self.is_english_forced {
+            return Vec::new();
+        }
+        self.lookup_up_candidates_for_romaja(&self.raw_romaja)
+    }
+
     pub fn update_candidates(&mut self) {
         self.candidates = self.lookup_down_candidates();
         self.candidate_idx = 0;
     }
 
-    fn finalized_commit_text(&self) -> String {
+    pub fn finalized_commit_text(&self) -> String {
         if self.is_english_forced {
             return self.raw_romaja.clone();
         }
@@ -849,5 +865,29 @@ mod tests {
                 b_weight
             );
         }
+    }
+
+    #[test]
+    fn test_p6_finalized_commit_text() {
+        let mut eng = KoreanEngine::new();
+
+        // 1. 鍵入 'g' 後，Preview 為 'ㄱ'，但 finalized_commit_text() 必須為 "g"
+        eng.process_key('g');
+        assert_eq!(eng.make_preedit(), "ㄱ");
+        assert_eq!(eng.finalized_commit_text(), "g");
+
+        // 2. 鍵入 "hangeul" 後，finalized_commit_text() 為 "한글"
+        eng.reset();
+        for ch in "hangeul".chars() {
+            eng.process_key(ch);
+        }
+        assert_eq!(eng.finalized_commit_text(), "한글");
+
+        // 3. 鍵入 "hangeul" + Down + 選第 2 筆後（candidate_idx = 1），finalized_commit_text() 為該候選
+        let r_down = eng.process_key_str("Down");
+        assert!(r_down.candidates.len() >= 2);
+        let second = r_down.candidates[1].clone();
+        eng.candidate_idx = 1;
+        assert_eq!(eng.finalized_commit_text(), second);
     }
 }
