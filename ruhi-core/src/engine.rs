@@ -538,7 +538,7 @@ impl RuhiEngine {
             "array30" | "ar30" => "行",
             "japanese" | "jp" | "romaji" => "日",
             "korean" | "ko" | "hangul" | "romaja" => "韓",
-            "english" | "en" | "latin" | "western" => "英",
+            "english" | "en" | "latin" | "western" | "euro" | "sanskrit" => "歐",
             _ => "許",
         }
     }
