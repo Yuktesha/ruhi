@@ -323,10 +323,16 @@ fn parse_segment_nbest(seg: &str, mode: ParseMode, k: usize) -> Vec<DpPath> {
         for coda_flag in 0..=1 {
             for p in &dp[i][coda_flag] {
                 for (pend_str, pend_cost) in &tail_matches {
+                    // 結算模式不輸出孤立相容字母：無法成音節的尾端一律保留原始拉丁字母
+                    let pending = if mode == ParseMode::Finalize {
+                        tail.to_string()
+                    } else {
+                        pend_str.clone()
+                    };
                     results.push(DpPath {
                         syllables: p.syllables.clone(),
                         span_lens: p.span_lens.clone(),
-                        pending: pend_str.clone(),
+                        pending,
                         cost: p.cost + *pend_cost,
                     });
                 }
@@ -569,6 +575,36 @@ mod tests {
                 w, rom, round
             );
         }
+    }
+
+    /// 窮舉所有「前一音節終聲 T × 下一音節初聲 L」邊界組合（28 × 19 = 532 組），
+    /// 驗證 `to_romaja` 的 `-` 插入規則能保證往返還原
+    #[test]
+    fn test_exhaustive_syllable_boundary_roundtrip() {
+        use crate::korean::jamo::compose;
+        let mut failures = Vec::new();
+        for t1 in 0..28 {
+            for l2 in 0..19 {
+                let w: String = [compose(0, 0, t1).unwrap(), compose(l2, 0, 0).unwrap()]
+                    .iter()
+                    .collect();
+                let rom = to_romaja(&w);
+                let round = romaja_to_hangul(&rom, ParseMode::Finalize);
+                if round != w {
+                    failures.push(format!("{} -> {} -> {}", w, rom, round));
+                }
+            }
+        }
+        assert!(failures.is_empty(), "邊界往返失敗：{:?}", failures);
+    }
+
+    /// 結算模式不得輸出孤立相容字母；無法成音節的尾端保留拉丁字母（交接文件陷阱 5）
+    #[test]
+    fn test_finalize_keeps_latin_tail() {
+        assert_eq!(romaja_to_hangul("g", ParseMode::Finalize), "g");
+        assert_eq!(romaja_to_hangul("anny", ParseMode::Finalize), "안ny");
+        assert_eq!(romaja_to_hangul("anny", ParseMode::Preview), "안ㄴy");
+        assert_eq!(romaja_to_hangul("hanx", ParseMode::Finalize), "한x");
     }
 
     #[test]

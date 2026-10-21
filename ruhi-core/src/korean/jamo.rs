@@ -136,12 +136,27 @@ pub fn is_hangul_syllable(c: char) -> bool {
     (S_BASE..S_BASE + S_COUNT).contains(&code)
 }
 
+/// 判斷「前一音節終聲 `prev_t` + 本音節初聲 `l`」的連寫字串，是否能在其他位置切開，
+/// 且切開後左段仍是合法終聲、右段仍是合法初聲（皆以成本 0 的唯一拼寫計）。
+/// 若可以，DP 會出現成本相同的另一種切分，必須以 `-` 明確標示邊界。
+/// 例：無終聲 + `kk`（가까 `ga|kka` vs `gak|ka`）、`k` + `kk`（각까 `gak|kka` vs `gakk|ka`）、`s` + `ss`（갓싸）。
+fn boundary_can_shift(prev_t: usize, l: usize) -> bool {
+    let t_rr = JONGSEONG[prev_t].map(|s| s.rr).unwrap_or("");
+    let combined = format!("{}{}", t_rr, CHOSEONG[l].rr);
+    (1..combined.len())
+        .filter(|&p| p != t_rr.len())
+        .any(|p| {
+            let (left, right) = combined.split_at(p);
+            JONGSEONG.iter().flatten().any(|s| s.rr == left)
+                && CHOSEONG.iter().any(|s| !s.rr.is_empty() && s.rr == right)
+        })
+}
+
 /// 諺文 → 唯一拼寫（逐音節、逐字母使用 `rr` 欄位）。
-/// 規則：
-/// 1. 凡「非詞首的零初聲（ㅇ）音節」之前一律插入 `-`（例：항을 → `hang-eul`、서울 → `seo-ul`、가에 → `ga-e`）
-/// 2. 若前一音節無終聲（T=0）且當前音節初聲為緊音（kk/pp/ss/jj），或前一音節為複合終聲，
-///    或前一音節終聲與當前初聲連寫會與其他終聲／初聲切分重疊（如 k+k, p+p, s+s, j+j, t+t, n+j, n+h, l+k, l+m, l+b, l+s, l+t, l+p, l+h, p+s, k+s），
-///    亦插入 `-` 以保證往返還原無歧義。
+/// 在以下邊界插入 `-`，以保證 `romaja_to_hangul(to_romaja(w), Finalize) == w`：
+/// 1. 非詞首的零初聲（ㅇ）音節之前（例：항을 → `hang-eul`、서울 → `seo-ul`、가에 → `ga-e`）
+/// 2. 終聲＋初聲的連寫可在別處切開成另一組合法終聲＋初聲時（見 [`boundary_can_shift`]）
+/// 3. 前一音節為複合終聲時（避免複合終聲的 +5 成本使 DP 改把後半拆入下一音節）
 pub fn to_romaja(hangul: &str) -> String {
     let mut out = String::new();
     let mut prev_syllable: Option<(usize, usize, usize)> = None;
@@ -149,18 +164,8 @@ pub fn to_romaja(hangul: &str) -> String {
     for c in hangul.chars() {
         if let Some((l, v, t)) = decompose(c) {
             if let Some((_prev_l, _prev_v, prev_t)) = prev_syllable {
-                let need_hyphen = if l == 11 {
-                    // 規則 1：非詞首零初聲（ㅇ）一律插入 '-'
-                    true
-                } else if prev_t == 0 && matches!(l, 1 | 8 | 10 | 13) {
-                    // 無終聲後接緊音 kk / pp / ss / jj，避免首字母被左側貪婪吸收為前一音節終聲
-                    true
-                } else if is_compound_coda(prev_t) {
-                    // 複合終聲後接子音，避免複合終聲（+5 成本）被拆入下一音節初聲
-                    true
-                } else {
-                    false
-                };
+                let need_hyphen =
+                    l == 11 || boundary_can_shift(prev_t, l) || is_compound_coda(prev_t);
 
                 if need_hyphen {
                     out.push('-');
