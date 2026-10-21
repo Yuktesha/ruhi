@@ -18375,10 +18375,8 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 再三	ㄗㄞˋ ㄙㄢ	395	mcbpmf	occ=79
 再三再四	ㄗㄞˋ ㄙㄢ ㄗㄞˋ ㄙˋ	100	mcbpmf	
 再三的	ㄗㄞˋ ㄙㄢ ㄉㄜ˙	193	mcbpmf	occ=3
-再上	ㄗㄞˋ ㄕㄤˋ	350	mcbpmf	occ=40
 再上來	ㄗㄞˋ ㄕㄤˋ ㄌㄞˊ	193	mcbpmf	occ=3
 再上去	ㄗㄞˋ ㄕㄤˋ ㄑㄩˋ	231	mcbpmf	occ=6
-再下	ㄗㄞˋ ㄒㄧㄚˋ	338	mcbpmf	occ=33
 再下來	ㄗㄞˋ ㄒㄧㄚˋ ㄌㄞˊ	231	mcbpmf	occ=6
 再下去	ㄗㄞˋ ㄒㄧㄚˋ ㄑㄩˋ	193	mcbpmf	occ=3
 再不	ㄗㄞˋ ㄅㄨˊ	444	mcbpmf	occ=164
@@ -18400,42 +18398,21 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 再來	ㄗㄞˋ ㄌㄞˊ	530	mcbpmf	occ=585
 再來一個	ㄗㄞˋ ㄌㄞˊ ㄧ ㄍㄜ˙	208	mcbpmf	occ=4
 再來一個	ㄗㄞˋ ㄌㄞˊ ㄧˊ ㄍㄜ˙	158	mcbpmf	occ=4
-再依	ㄗㄞˋ ㄧ	305	mcbpmf	occ=20
 再保險	ㄗㄞˋ ㄅㄠˇ ㄒㄧㄢˇ	193	mcbpmf	occ=3
-再倒	ㄗㄞˋ ㄉㄠˋ	193	mcbpmf	occ=3
-再借	ㄗㄞˋ ㄐㄧㄝˋ	146	mcbpmf	occ=1
 再借不難	ㄗㄞˋ ㄐㄧㄝˋ ㄅㄨˋ ㄋㄢˊ	100	mcbpmf	
-再做	ㄗㄞˋ ㄗㄨㄛˋ	427	mcbpmf	occ=127
-再入	ㄗㄞˋ ㄖㄨˋ	208	mcbpmf	occ=4
 再再	ㄗㄞˋ ㄗㄞˋ	331	mcbpmf	occ=30
-再出	ㄗㄞˋ ㄔㄨ	379	mcbpmf	occ=62
 再出來	ㄗㄞˋ ㄔㄨ ㄌㄞˊ	174	mcbpmf	occ=2
 再出去	ㄗㄞˋ ㄔㄨ ㄑㄩˋ	100	mcbpmf	
 再出現	ㄗㄞˋ ㄔㄨ ㄒㄧㄢˋ	305	mcbpmf	occ=20
 再別康橋	ㄗㄞˋ ㄅㄧㄝˊ ㄎㄤ ㄑㄧㄠˊ	174	mcbpmf	occ=2
-再到	ㄗㄞˋ ㄉㄠˋ	350	mcbpmf	occ=40
-再刻	ㄗㄞˋ ㄎㄜˋ	174	mcbpmf	occ=2
 再則	ㄗㄞˋ ㄗㄜˊ	255	mcbpmf	occ=9
-再剪	ㄗㄞˋ ㄐㄧㄢˇ	193	mcbpmf	occ=3
-再割	ㄗㄞˋ ㄍㄜ	100	mcbpmf	
 再加上	ㄗㄞˋ ㄐㄧㄚ ㄕㄤˋ	493	mcbpmf	occ=339
-再去	ㄗㄞˋ ㄑㄩˋ	455	mcbpmf	occ=192
-再取	ㄗㄞˋ ㄑㄩˇ	220	mcbpmf	occ=5
-再向	ㄗㄞˋ ㄒㄧㄤˋ	329	mcbpmf	occ=29
-再咬	ㄗㄞˋ ㄧㄠˇ	100	mcbpmf	
-再唱	ㄗㄞˋ ㄔㄤˋ	231	mcbpmf	occ=6
-再問	ㄗㄞˋ ㄨㄣˋ	359	mcbpmf	occ=46
-再回	ㄗㄞˋ ㄏㄨㄟˊ	431	mcbpmf	occ=134
 再回來	ㄗㄞˋ ㄏㄨㄟˊ ㄌㄞˊ	347	mcbpmf	occ=38
 再回到	ㄗㄞˋ ㄏㄨㄟˊ ㄉㄠˋ	308	mcbpmf	occ=21
 再回去	ㄗㄞˋ ㄏㄨㄟˊ ㄑㄩˋ	267	mcbpmf	occ=11
 再回頭	ㄗㄞˋ ㄏㄨㄟˊ ㄊㄡˊ	295	mcbpmf	occ=17
-再在	ㄗㄞˋ ㄗㄞˋ	231	mcbpmf	occ=6
-再壓	ㄗㄞˋ ㄧㄚ	193	mcbpmf	occ=3
 再多一點點	ㄗㄞˋ ㄉㄨㄛ ㄧ ㄉㄧㄢˇ ㄉㄧㄢˇ	146	mcbpmf	occ=1
 再多也	ㄗㄞˋ ㄉㄨㄛ ㄧㄝˇ	220	mcbpmf	occ=5
-再大	ㄗㄞˋ ㄉㄚˋ	248	mcbpmf	occ=8
-再好	ㄗㄞˋ ㄏㄠˇ	305	mcbpmf	occ=20
 再好不過	ㄗㄞˋ ㄏㄠˇ ㄅㄨˊ ㄍㄨㄛˋ	193	mcbpmf	occ=3
 再好不過	ㄗㄞˋ ㄏㄠˇ ㄅㄨˋ ㄍㄨㄛˋ	143	mcbpmf	occ=3
 再好也不過	ㄗㄞˋ ㄏㄠˇ ㄧㄝˇ ㄅㄨˊ ㄍㄨㄛˋ	146	mcbpmf	occ=1
@@ -18446,13 +18423,9 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 再婚者	ㄗㄞˋ ㄏㄨㄣ ㄓㄜˇ	100	mcbpmf	
 再嫁	ㄗㄞˋ ㄐㄧㄚˋ	231	mcbpmf	occ=6
 再嫁夫人	ㄗㄞˋ ㄐㄧㄚˋ ㄈㄨ ㄖㄣˊ	100	mcbpmf	
-再學	ㄗㄞˋ ㄒㄩㄝˊ	193	mcbpmf	occ=3
-再寄	ㄗㄞˋ ㄐㄧˋ	255	mcbpmf	occ=9
 再審	ㄗㄞˋ ㄕㄣˇ	372	mcbpmf	occ=56
 再就是	ㄗㄞˋ ㄐㄧㄡˋ ㄕˋ	174	mcbpmf	occ=2
 再度	ㄗㄞˋ ㄉㄨˋ	560	mcbpmf	occ=922
-再延	ㄗㄞˋ ㄧㄢˊ	324	mcbpmf	occ=27
-再往	ㄗㄞˋ ㄨㄤˇ	361	mcbpmf	occ=47
 再怎麼	ㄗㄞˋ ㄗㄜˇ ㄇㄛ˙	391	mcbpmf	occ=74
 再怎麼	ㄗㄞˋ ㄗㄜˇ ㄇㄜ˙	341	mcbpmf	occ=74
 再怎麼	ㄗㄞˋ ㄗㄣˇ ㄇㄛ˙	291	mcbpmf	occ=74
@@ -18463,36 +18436,15 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 再怎麼野蠻	ㄗㄞˋ ㄗㄣˇ ㄇㄜ˙ ㄧㄝˇ ㄇㄢˊ	1	mcbpmf	occ=1
 再恰當不過	ㄗㄞˋ ㄑㄧㄚˋ ㄉㄤ ㄅㄨˊ ㄍㄨㄛˋ	100	mcbpmf	
 再恰當不過	ㄗㄞˋ ㄑㄧㄚˋ ㄉㄤ ㄅㄨˋ ㄍㄨㄛˋ	50	mcbpmf	
-再想	ㄗㄞˋ ㄒㄧㄤˇ	347	mcbpmf	occ=38
-再慢	ㄗㄞˋ ㄇㄢˋ	282	mcbpmf	occ=14
-再打	ㄗㄞˋ ㄉㄚˇ	345	mcbpmf	occ=37
-再把	ㄗㄞˋ ㄅㄚˇ	414	mcbpmf	occ=105
-再押	ㄗㄞˋ ㄧㄚ	100	mcbpmf	
 再拜	ㄗㄞˋ ㄅㄞˋ	193	mcbpmf	occ=3
-再按	ㄗㄞˋ ㄢˋ	282	mcbpmf	occ=14
-再接	ㄗㄞˋ ㄐㄧㄝ	347	mcbpmf	occ=38
 再接再勵	ㄗㄞˋ ㄐㄧㄝ ㄗㄞˋ ㄌㄧˋ	193	mcbpmf	occ=3
 再接再厲	ㄗㄞˋ ㄐㄧㄝ ㄗㄞˋ ㄌㄧˋ	273	mcbpmf	occ=12
 再接再礪	ㄗㄞˋ ㄐㄧㄝ ㄗㄞˋ ㄌㄧˋ	100	mcbpmf	
-再搖	ㄗㄞˋ ㄧㄠˊ	174	mcbpmf	occ=2
-再搬	ㄗㄞˋ ㄅㄢ	193	mcbpmf	occ=3
-再撿	ㄗㄞˋ ㄐㄧㄢˇ	100	mcbpmf	
-再擠	ㄗㄞˋ ㄐㄧˇ	100	mcbpmf	
 再教育	ㄗㄞˋ ㄐㄧㄠˋ ㄩˋ	231	mcbpmf	occ=6
-再於	ㄗㄞˋ ㄩˊ	248	mcbpmf	occ=8
 再會	ㄗㄞˋ ㄏㄨㄟˋ	401	mcbpmf	occ=86
 再會了	ㄗㄞˋ ㄏㄨㄟˋ ㄌㄜ˙	174	mcbpmf	occ=2
-再有	ㄗㄞˋ ㄧㄡˇ	422	mcbpmf	occ=117
 再次	ㄗㄞˋ ㄘˋ	521	mcbpmf	occ=510
-再殺	ㄗㄞˋ ㄕㄚ	146	mcbpmf	occ=1
-再沒	ㄗㄞˋ ㄇㄟˊ	359	mcbpmf	occ=46
 再沒有	ㄗㄞˋ ㄇㄟˊ ㄧㄡˇ	357	mcbpmf	occ=44
-再混	ㄗㄞˋ ㄏㄨㄣˋ	193	mcbpmf	occ=3
-再滿	ㄗㄞˋ ㄇㄢˇ	100	mcbpmf	
-再演	ㄗㄞˋ ㄧㄢˇ	208	mcbpmf	occ=4
-再為	ㄗㄞˋ ㄨㄟˋ	287	mcbpmf	occ=15
-再煎	ㄗㄞˋ ㄐㄧㄢ	146	mcbpmf	occ=1
-再燃	ㄗㄞˋ ㄖㄢˊ	174	mcbpmf	occ=2
 再燃戰火	ㄗㄞˋ ㄖㄢˊ ㄓㄢˋ ㄏㄨㄛˇ	146	mcbpmf	occ=1
 再版	ㄗㄞˋ ㄅㄢˇ	302	mcbpmf	occ=19
 再版書	ㄗㄞˋ ㄅㄢˇ ㄕㄨ	146	mcbpmf	occ=1
@@ -18502,61 +18454,35 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 再生產	ㄗㄞˋ ㄕㄥ ㄔㄢˇ	208	mcbpmf	occ=4
 再生紙	ㄗㄞˋ ㄕㄥ ㄓˇ	338	mcbpmf	occ=33
 再生緣	ㄗㄞˋ ㄕㄥ ㄩㄢˊ	100	mcbpmf	
-再看	ㄗㄞˋ ㄎㄢˋ	412	mcbpmf	occ=101
 再看看	ㄗㄞˋ ㄎㄢˋ ㄎㄢˋ	311	mcbpmf	occ=22
-再移	ㄗㄞˋ ㄧˊ	208	mcbpmf	occ=4
-再種	ㄗㄞˋ ㄓㄨㄥˋ	146	mcbpmf	occ=1
-再笑	ㄗㄞˋ ㄒㄧㄠˋ	146	mcbpmf	occ=1
-再答	ㄗㄞˋ ㄉㄚˊ	174	mcbpmf	occ=2
 再結晶	ㄗㄞˋ ㄐㄧㄝˊ ㄐㄧㄥ	100	mcbpmf	
 再經過	ㄗㄞˋ ㄐㄧㄥ ㄍㄨㄛˋ	311	mcbpmf	occ=22
 再者	ㄗㄞˋ ㄓㄜˇ	393	mcbpmf	occ=76
 再而三	ㄗㄞˋ ㄦˊ ㄙㄢ	295	mcbpmf	occ=17
 再聯絡	ㄗㄞˋ ㄌㄧㄢˊ ㄌㄨㄛˋ	146	mcbpmf	occ=1
-再與	ㄗㄞˋ ㄩˇ	322	mcbpmf	occ=26
 再興	ㄗㄞˋ ㄒㄧㄥ	255	mcbpmf	occ=9
-再補	ㄗㄞˋ ㄅㄨˇ	324	mcbpmf	occ=27
 再製品	ㄗㄞˋ ㄓˋ ㄆㄧㄣˇ	174	mcbpmf	occ=2
 再製鹽	ㄗㄞˋ ㄓˋ ㄧㄢˊ	100	mcbpmf	
-再要	ㄗㄞˋ ㄧㄠˋ	287	mcbpmf	occ=15
 再見	ㄗㄞˋ ㄐㄧㄢˋ	440	mcbpmf	occ=153
 再見天日	ㄗㄞˋ ㄐㄧㄢˋ ㄊㄧㄢ ㄖˋ	100	mcbpmf	
 再見面	ㄗㄞˋ ㄐㄧㄢˋ ㄇㄧㄢˋ	174	mcbpmf	occ=2
-再討	ㄗㄞˋ ㄊㄠˇ	331	mcbpmf	occ=30
-再記	ㄗㄞˋ ㄐㄧˋ	174	mcbpmf	occ=2
-再試	ㄗㄞˋ ㄕˋ	334	mcbpmf	occ=31
 再試一下	ㄗㄞˋ ㄕˋ ㄧ ㄒㄧㄚˋ	100	mcbpmf	
 再試一下	ㄗㄞˋ ㄕˋ ㄧˊ ㄒㄧㄚˋ	50	mcbpmf	
 再試一次	ㄗㄞˋ ㄕˋ ㄧ ㄘˋ	193	mcbpmf	occ=3
 再試一次	ㄗㄞˋ ㄕˋ ㄧˊ ㄘˋ	143	mcbpmf	occ=3
-再認	ㄗㄞˋ ㄖㄣˋ	278	mcbpmf	occ=13
 再說	ㄗㄞˋ ㄕㄨㄛ	455	mcbpmf	occ=193
 再說下去	ㄗㄞˋ ㄕㄨㄛ ㄒㄧㄚˋ ㄑㄩˋ	146	mcbpmf	occ=1
-再請	ㄗㄞˋ ㄑㄧㄥˇ	368	mcbpmf	occ=52
 再議	ㄗㄞˋ ㄧˋ	193	mcbpmf	occ=3
-再讀	ㄗㄞˋ ㄉㄨˊ	287	mcbpmf	occ=15
-再賠	ㄗㄞˋ ㄆㄟˊ	100	mcbpmf	
-再賭	ㄗㄞˋ ㄉㄨˇ	100	mcbpmf	
-再贏	ㄗㄞˋ ㄧㄥˊ	146	mcbpmf	occ=1
 再起	ㄗㄞˋ ㄑㄧˇ	365	mcbpmf	occ=50
 再起不能	ㄗㄞˋ ㄑㄧˇ ㄅㄨˋ ㄋㄥˊ	220	mcbpmf	occ=5
 再起來	ㄗㄞˋ ㄑㄧˇ ㄌㄞˊ	146	mcbpmf	occ=1
-再跟	ㄗㄞˋ ㄍㄣ	381	mcbpmf	occ=64
-再辦	ㄗㄞˋ ㄅㄢˋ	255	mcbpmf	occ=9
-再逃	ㄗㄞˋ ㄊㄠˊ	174	mcbpmf	occ=2
 再造	ㄗㄞˋ ㄗㄠˋ	394	mcbpmf	occ=77
-再進	ㄗㄞˋ ㄐㄧㄣˋ	397	mcbpmf	occ=81
 再進來	ㄗㄞˋ ㄐㄧㄣˋ ㄌㄞˊ	146	mcbpmf	occ=1
 再進去	ㄗㄞˋ ㄐㄧㄣˋ ㄑㄩˋ	174	mcbpmf	occ=2
-再運	ㄗㄞˋ ㄩㄣˋ	174	mcbpmf	occ=2
-再過	ㄗㄞˋ ㄍㄨㄛˋ	408	mcbpmf	occ=95
 再過來	ㄗㄞˋ ㄍㄨㄛˋ ㄌㄞˊ	220	mcbpmf	occ=5
 再過去	ㄗㄞˋ ㄍㄨㄛˋ ㄑㄩˋ	220	mcbpmf	occ=5
-再配	ㄗㄞˋ ㄆㄟˋ	317	mcbpmf	occ=24
 再醮	ㄗㄞˋ ㄐㄧㄠˋ	100	mcbpmf	
-再陪	ㄗㄞˋ ㄆㄟˊ	146	mcbpmf	occ=1
 再難玩的	ㄗㄞˋ ㄋㄢˊ ㄨㄢˊ ㄉㄜ˙	146	mcbpmf	occ=1
-再騎	ㄗㄞˋ ㄑㄧˊ	174	mcbpmf	occ=2
 冒上	ㄇㄠˋ ㄕㄤˋ	146	mcbpmf	occ=1
 冒上來	ㄇㄠˋ ㄕㄤˋ ㄌㄞˊ	100	mcbpmf	
 冒上去	ㄇㄠˋ ㄕㄤˋ ㄑㄩˋ	100	mcbpmf	
@@ -34522,23 +34448,17 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 在位	ㄗㄞˋ ㄨㄟˋ	358	mcbpmf	occ=45
 在位者	ㄗㄞˋ ㄨㄟˋ ㄓㄜˇ	208	mcbpmf	occ=4
 在來米	ㄗㄞˋ ㄌㄞˊ ㄇㄧˇ	174	mcbpmf	occ=2
-在做	ㄗㄞˋ ㄗㄨㄛˋ	524	mcbpmf	occ=539
 在傷口上灑鹽	ㄗㄞˋ ㄕㄤ ㄎㄡˇ ㄕㄤˋ ㄙㄚˇ ㄧㄢˊ	100	mcbpmf	
 在先	ㄗㄞˋ ㄒㄧㄢ	380	mcbpmf	occ=63
 在內	ㄗㄞˋ ㄋㄟˋ	464	mcbpmf	occ=220
 在內的	ㄗㄞˋ ㄋㄟˋ ㄉㄜ˙	377	mcbpmf	occ=60
 在再不分	ㄗㄞˋ ㄗㄞˋ ㄅㄨˋ ㄈㄣ	100	mcbpmf	
-在出	ㄗㄞˋ ㄔㄨ	414	mcbpmf	occ=104
-在刻	ㄗㄞˋ ㄎㄜˋ	208	mcbpmf	occ=4
-在割	ㄗㄞˋ ㄍㄜ	231	mcbpmf	occ=6
 在劫難逃	ㄗㄞˋ ㄐㄧㄝˊ ㄋㄢˊ ㄊㄠˊ	146	mcbpmf	occ=1
 在即	ㄗㄞˋ ㄐㄧˊ	385	mcbpmf	occ=68
 在台	ㄗㄞˋ ㄊㄞˊ	629	mcbpmf	occ=2532
 在台協會	ㄗㄞˋ ㄊㄞˊ ㄒㄧㄝˊ ㄏㄨㄟˋ	340	mcbpmf	occ=34
 在吃飯	ㄗㄞˋ ㄔ ㄈㄢˋ	278	mcbpmf	occ=13
-在咬	ㄗㄞˋ ㄧㄠˇ	208	mcbpmf	occ=4
 在哪裡	ㄗㄞˋ ㄋㄚˇ ㄌㄧˇ	500	mcbpmf	occ=376
-在唱	ㄗㄞˋ ㄔㄤˋ	324	mcbpmf	occ=27
 在商言商	ㄗㄞˋ ㄕㄤ ㄧㄢˊ ㄕㄤ	248	mcbpmf	occ=8
 在在	ㄗㄞˋ ㄗㄞˋ	501	mcbpmf	occ=380
 在地	ㄗㄞˋ ㄉㄧˋ	538	mcbpmf	occ=658
@@ -34552,22 +34472,17 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 在學生	ㄗㄞˋ ㄒㄩㄝˊ ㄕㄥ	331	mcbpmf	occ=30
 在家	ㄗㄞˋ ㄐㄧㄚ	507	mcbpmf	occ=416
 在家人	ㄗㄞˋ ㄐㄧㄚ ㄖㄣˊ	255	mcbpmf	occ=9
-在審	ㄗㄞˋ ㄕㄣˇ	393	mcbpmf	occ=76
 在幫	ㄗㄞˋ ㄅㄤ	365	mcbpmf	occ=50
 在座	ㄗㄞˋ ㄗㄨㄛˋ	405	mcbpmf	occ=91
 在很大程度上	ㄗㄞˋ ㄏㄣˇ ㄉㄚˋ ㄔㄥˊ ㄉㄨˋ ㄕㄤˋ	255	mcbpmf	occ=9
 在心	ㄗㄞˋ ㄒㄧㄣ	423	mcbpmf	occ=120
-在想	ㄗㄞˋ ㄒㄧㄤˇ	488	mcbpmf	occ=313
 在意	ㄗㄞˋ ㄧˋ	473	mcbpmf	occ=250
 在所不惜	ㄗㄞˋ ㄙㄨㄛˇ ㄅㄨˋ ㄒㄧˊ	261	mcbpmf	occ=10
 在所不辭	ㄗㄞˋ ㄙㄨㄛˇ ㄅㄨˋ ㄘˊ	208	mcbpmf	occ=4
 在所難免	ㄗㄞˋ ㄙㄨㄛˇ ㄋㄢˊ ㄇㄧㄢˇ	255	mcbpmf	occ=9
-在打	ㄗㄞˋ ㄉㄚˇ	405	mcbpmf	occ=91
 在押	ㄗㄞˋ ㄧㄚ	278	mcbpmf	occ=13
 在押犯	ㄗㄞˋ ㄧㄚ ㄈㄢˋ	100	mcbpmf	
 在握	ㄗㄞˋ ㄨㄛˋ	220	mcbpmf	occ=5
-在搖	ㄗㄞˋ ㄧㄠˊ	267	mcbpmf	occ=11
-在搬	ㄗㄞˋ ㄅㄢ	255	mcbpmf	occ=9
 在教	ㄗㄞˋ ㄐㄧㄠˋ	451	mcbpmf	occ=181
 在新的	ㄗㄞˋ ㄒㄧㄣ ㄉㄜ˙	347	mcbpmf	occ=38
 在於	ㄗㄞˋ ㄩˊ	585	mcbpmf	occ=1318
@@ -34583,19 +34498,13 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 在此一舉	ㄗㄞˋ ㄘˇ ㄧ ㄐㄩˇ	100	mcbpmf	
 在此一舉	ㄗㄞˋ ㄘˇ ㄧˋ ㄐㄩˇ	50	mcbpmf	
 在水一方	ㄗㄞˋ ㄕㄨㄟˇ ㄧˋ ㄈㄤ	146	mcbpmf	occ=1
-在混	ㄗㄞˋ ㄏㄨㄣˋ	287	mcbpmf	occ=15
-在演	ㄗㄞˋ ㄧㄢˇ	383	mcbpmf	occ=66
-在為	ㄗㄞˋ ㄨㄟˊ	411	mcbpmf	occ=100
 在煮飯	ㄗㄞˋ ㄓㄨˇ ㄈㄢˋ	146	mcbpmf	occ=1
 在營	ㄗㄞˋ ㄧㄥˊ	350	mcbpmf	occ=40
 在營休假	ㄗㄞˋ ㄧㄥˊ ㄒㄧㄡ ㄐㄧㄚˋ	146	mcbpmf	occ=1
 在理	ㄗㄞˋ ㄌㄧˇ	352	mcbpmf	occ=41
 在生	ㄗㄞˋ ㄕㄥ	443	mcbpmf	occ=160
 在產品	ㄗㄞˋ ㄔㄢˇ ㄆㄧㄣˇ	287	mcbpmf	occ=15
-在看	ㄗㄞˋ ㄎㄢˋ	507	mcbpmf	occ=415
 在眼裡	ㄗㄞˋ ㄧㄢˇ ㄌㄧˇ	278	mcbpmf	occ=13
-在種	ㄗㄞˋ ㄓㄨㄥˋ	248	mcbpmf	occ=8
-在笑	ㄗㄞˋ ㄒㄧㄠˋ	273	mcbpmf	occ=12
 在籍	ㄗㄞˋ ㄐㄧˊ	100	mcbpmf	
 在編	ㄗㄞˋ ㄅㄧㄢ	329	mcbpmf	occ=29
 在職	ㄗㄞˋ ㄓˊ	437	mcbpmf	occ=147
@@ -34605,23 +34514,11 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 在職訓練	ㄗㄞˋ ㄓˊ ㄒㄩㄣˋ ㄌㄧㄢˋ	240	mcbpmf	occ=7
 在職進修	ㄗㄞˋ ㄓˊ ㄐㄧㄣˋ ㄒㄧㄡ	295	mcbpmf	occ=17
 在行	ㄗㄞˋ ㄏㄤˊ	444	mcbpmf	occ=163
-在補	ㄗㄞˋ ㄅㄨˇ	308	mcbpmf	occ=21
-在要	ㄗㄞˋ ㄧㄠˋ	438	mcbpmf	occ=150
-在記	ㄗㄞˋ ㄐㄧˋ	390	mcbpmf	occ=73
-在說	ㄗㄞˋ ㄕㄨㄛ	433	mcbpmf	occ=138
-在請	ㄗㄞˋ ㄑㄧㄥˇ	302	mcbpmf	occ=19
-在讀	ㄗㄞˋ ㄉㄨˊ	364	mcbpmf	occ=49
-在賭	ㄗㄞˋ ㄉㄨˇ	220	mcbpmf	occ=5
-在跟	ㄗㄞˋ ㄍㄣ	425	mcbpmf	occ=123
-在辦	ㄗㄞˋ ㄅㄢˋ	380	mcbpmf	occ=63
 在逃	ㄗㄞˋ ㄊㄠˊ	327	mcbpmf	occ=28
 在逃犯	ㄗㄞˋ ㄊㄠˊ ㄈㄢˋ	100	mcbpmf	
 在這裡	ㄗㄞˋ ㄓㄜˋ ㄌㄧˇ	521	mcbpmf	occ=511
-在運	ㄗㄞˋ ㄩㄣˋ	368	mcbpmf	occ=52
-在過	ㄗㄞˋ ㄍㄨㄛˋ	459	mcbpmf	occ=204
 在野	ㄗㄞˋ ㄧㄝˇ	505	mcbpmf	occ=405
 在野黨	ㄗㄞˋ ㄧㄝˇ ㄉㄤˇ	466	mcbpmf	occ=226
-在陪	ㄗㄞˋ ㄆㄟˊ	146	mcbpmf	occ=1
 圩田	ㄩˊ ㄊㄧㄢˊ	100	mcbpmf	
 圭亞那	ㄍㄨㄟ ㄧㄚˇ ㄋㄚˋ	220	mcbpmf	occ=5
 圭臬	ㄍㄨㄟ ㄋㄧㄝˋ	267	mcbpmf	occ=11

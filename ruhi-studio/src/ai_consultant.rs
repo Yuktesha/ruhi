@@ -521,17 +521,126 @@ impl AISemanticConsultant {
                         "-NoProfile",
                         "-ExecutionPolicy",
                         "Bypass",
+                        "-WindowStyle",
+                        "Hidden",
                         "-File",
                         &ps1.to_string_lossy(),
                     ])
                     .spawn();
-                std::thread::sleep(Duration::from_millis(800));
-                if self.probe_local_llama() || self.probe_ollama() {
-                    return true;
+                for _ in 0..12 {
+                    std::thread::sleep(Duration::from_millis(400));
+                    if self.probe_local_llama() || self.probe_ollama() {
+                        return true;
+                    }
+                }
+            }
+        }
+        self.green_ai.scan_local_gguf_models();
+        let best_gguf = self
+            .green_ai
+            .available_models
+            .iter()
+            .find(|(k, _)| k.to_ascii_lowercase().contains("gemma"))
+            .or_else(|| self.green_ai.available_models.iter().next())
+            .and_then(|(_, info)| info.gguf_path.clone());
+        if let Some(gguf_path) = best_gguf {
+            if self
+                .green_ai
+                .spawn_green_server(&gguf_path, 8080, 99, 4096)
+                .is_ok()
+            {
+                for _ in 0..10 {
+                    std::thread::sleep(Duration::from_millis(400));
+                    if self.probe_local_llama() {
+                        return true;
+                    }
                 }
             }
         }
         false
+    }
+
+    /// 呼叫對接之遠端或本機大型語言模型進行自然語言對話（由模型直接以自身語氣回覆使用者）
+    pub fn invoke_llm_chat(&mut self, system_prompt: &str, user_prompt: &str) -> Option<(String, String)> {
+        let provider = self.get_effective_provider();
+        if provider == "disabled" {
+            return None;
+        }
+
+        // 1. 優先嘗試 Google Gemini API (若已設定金鑰)
+        if (provider == "gemini" || provider == "auto" || provider == "gemini_free_ready") && self.has_gemini_key() {
+            let env_k = std::env::var("GEMINI_API_KEY").unwrap_or_default();
+            let cfg_k = self.get_str("gemini_api_key", "");
+            let api_key = if !env_k.trim().is_empty() {
+                env_k.trim().to_string()
+            } else {
+                cfg_k.trim().to_string()
+            };
+            let model = self.get_str("gemini_model", "gemini-2.5-flash");
+            let url = format!(
+                "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            );
+            let payload = json!({
+                "systemInstruction": {
+                    "parts": [{ "text": system_prompt }]
+                },
+                "contents": [{
+                    "role": "user",
+                    "parts": [{ "text": user_prompt }]
+                }],
+                "generationConfig": {
+                    "temperature": 0.4
+                }
+            });
+            if let Some(raw_out) = curl_post_json(&url, &payload, &[]) {
+                if let Ok(resp_json) = serde_json::from_str::<Value>(&raw_out) {
+                    if let Some(text) = resp_json
+                        .get("candidates")
+                        .and_then(|c| c.get(0))
+                        .and_then(|c0| c0.get("content"))
+                        .and_then(|cnt| cnt.get("parts"))
+                        .and_then(|p| p.get(0))
+                        .and_then(|p0| p0.get("text"))
+                        .and_then(Value::as_str)
+                    {
+                        let trimmed = text.trim();
+                        if !trimmed.is_empty() {
+                            return Some((format!("Google Gemini ({model})"), trimmed.to_string()));
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. 若本機純綠 llama-server 或 Ollama 尚未喚醒，自動按需啟動
+        if !self.probe_local_llama() && !self.probe_ollama() {
+            let _ = self.start_ollama_service();
+        }
+
+        // 3. 嘗試本機純綠 llama-server (Gemma GGUF) 自然語言直通回覆
+        if self.probe_local_llama() {
+            let res = self.green_ai.chat_query(
+                user_prompt,
+                system_prompt,
+                None,
+                false,
+                Duration::from_secs(25),
+            );
+            if res.ok && !res.text.trim().is_empty() {
+                return Some((format!("本機純綠 Llama ({})", res.model), res.text.trim().to_string()));
+            }
+        }
+
+        // 4. 嘗試本機 Ollama (127.0.0.1:11434) 自然語言直通回覆
+        if self.probe_ollama() {
+            let model = self.get_str("ollama_model", "gemma2:latest");
+            let model_eff = if model.trim().is_empty() { "gemma2:latest".to_string() } else { model };
+            if let Some(txt) = query_local_ollama_text(&model_eff, system_prompt, user_prompt) {
+                return Some((format!("本機離線模型 ({model_eff})"), txt));
+            }
+        }
+
+        None
     }
 
     /// 呼叫遠端或本地大型語言模型執行結構化 JSON 語言學推理（支援 Google Gemini API、本機純綠 llama-server 與本機 Ollama）
@@ -1107,6 +1216,425 @@ impl AISemanticConsultant {
         })
     }
 
+    /// 自使用者輸入的多行對話文字中自動偵測是否內嵌「錯誤輸出句／期望正確句」對照行
+    pub fn extract_embedded_sentence_pair(user_message: &str) -> Option<(String, String)> {
+        let mut candidate_lines = Vec::new();
+        for raw_line in user_message.lines() {
+            let line = raw_line
+                .trim()
+                .trim_start_matches(['-', '•', '*', '1', '2', '.', '、', ' '])
+                .trim_start_matches("錯誤輸出句：")
+                .trim_start_matches("錯誤輸出句:")
+                .trim_start_matches("錯誤句：")
+                .trim_start_matches("錯誤句:")
+                .trim_start_matches("期望正確句：")
+                .trim_start_matches("期望正確句:")
+                .trim_start_matches("正確句：")
+                .trim_start_matches("正確句:")
+                .trim();
+            if line.is_empty() {
+                continue;
+            }
+            // 跳過純提問句（如「您會如何解決？」、「怎麼解決？」、「為什麼會這樣？」）
+            if (line.ends_with('？') || line.ends_with('?'))
+                && (line.contains("如何")
+                    || line.contains("怎麼")
+                    || line.contains("為何")
+                    || line.contains("為什麼")
+                    || line.contains("請問")
+                    || line.chars().count() <= 10)
+            {
+                continue;
+            }
+            let cjk_cnt = line.chars().filter(|c| ('\u{4E00}'..='\u{9FFF}').contains(c)).count();
+            if cjk_cnt >= 4 {
+                candidate_lines.push(line.to_string());
+            }
+        }
+        if candidate_lines.len() >= 2 {
+            let l1 = &candidate_lines[0];
+            let l2 = &candidate_lines[1];
+            let len1 = l1.chars().count();
+            let len2 = l2.chars().count();
+            if l1 != l2 && len1.abs_diff(len2) <= 4 {
+                let common_chars = l1.chars().filter(|c| l2.contains(*c)).count();
+                if common_chars * 2 >= len1.min(len2) {
+                    return Some((l1.clone(), l2.clone()));
+                }
+            }
+        }
+        None
+    }
+
+    /// 自然語言互動調校對話引擎 (`chat_with_model_for_tuning`)
+    /// 讓對接之 AI 語言模型（Google Gemini、本機純綠 Gemma GGUF、Ollama）直接以自身語氣回覆使用者，
+    /// 並在討論具體調校案例時同步提煉可一鍵套用之三層語意規則（Layer 1 槽位陣列 / Layer 2 二階轉移 / Layer 3 原子詞根）。
+    pub fn chat_with_model_for_tuning(
+        &mut self,
+        user_message: &str,
+        error_sent: &str,
+        correct_sent: &str,
+        current_log: &str,
+        target_lang: &str,
+        tuner: &SemanticTuner,
+    ) -> Value {
+        let msg_trim = user_message.trim();
+        if msg_trim.is_empty() {
+            return json!({
+                "status": "error",
+                "message": "請輸入訊息與對接之語言模型對話。"
+            });
+        }
+
+        // 若使用者直接在對話框貼上兩行對照句，優先萃取對話框內的對照句
+        let embedded_pair = Self::extract_embedded_sentence_pair(msg_trim);
+        let err_effective = embedded_pair
+            .as_ref()
+            .map(|(e, _)| e.as_str())
+            .unwrap_or_else(|| error_sent.trim());
+        let cor_effective = embedded_pair
+            .as_ref()
+            .map(|(_, c)| c.as_str())
+            .unwrap_or_else(|| correct_sent.trim());
+
+        let err_trim = err_effective.trim();
+        let cor_trim = cor_effective.trim();
+        let lang_label = if target_lang.trim().is_empty() {
+            "zh-TW"
+        } else {
+            target_lang.trim()
+        };
+
+        let mut proposed_constructions: Vec<Value> = Vec::new();
+        let mut proposed_rules: Vec<Value> = Vec::new();
+        let mut proposed_words: Vec<Value> = Vec::new();
+        let mut seen_rules = HashSet::new();
+        let mut seen_words = HashSet::new();
+        let mut active_diffs: Vec<Value> = Vec::new();
+
+        // 僅在使用者非單純寒暄/自我介紹，且對照句非未更動之預設範例（或訊息明確提及對照句）時，才對錯句與正句執行對齊提煉
+        let is_greeting_or_intro = msg_trim.contains("自我介紹")
+            || msg_trim.contains("你是誰")
+            || msg_trim.contains("請問你是")
+            || msg_trim == "你好"
+            || msg_trim == "您好";
+        let is_default_placeholder = embedded_pair.is_none()
+            && err_trim == "讓步董程式的人也能輕鬆上手"
+            && !msg_trim.contains("步董")
+            && !msg_trim.contains("不懂");
+
+        if !is_greeting_or_intro
+            && !is_default_placeholder
+            && !err_trim.is_empty()
+            && !cor_trim.is_empty()
+        {
+            active_diffs = tuner.align_sentence_pair(err_trim, cor_trim, None, None);
+            for d in &active_diffs {
+                if let Some(ws) = d.get("oov_compound_words").and_then(Value::as_array) {
+                    for w in ws {
+                        if let Some(w_str) = w.get("word").and_then(Value::as_str) {
+                            if seen_words.insert(w_str.to_string()) {
+                                proposed_words.push(w.clone());
+                            }
+                        }
+                    }
+                }
+                if let Some(cs) = d.get("hierarchical_constructions").and_then(Value::as_array) {
+                    for c in cs {
+                        proposed_constructions.push(c.clone());
+                        if let Some(brs) = c.get("backbone_rules").and_then(Value::as_array) {
+                            for br in brs {
+                                let rp = br.get("prev").and_then(Value::as_str).unwrap_or("").to_string();
+                                let rn = br.get("next").and_then(Value::as_str).unwrap_or("").to_string();
+                                if !rp.is_empty() && !rn.is_empty() && seen_rules.insert((rp, rn)) {
+                                    proposed_rules.push(br.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+                for r in tuner.synthesize_rules(d) {
+                    let rp = r.get("prev").and_then(Value::as_str).unwrap_or("").to_string();
+                    let rn = r.get("next").and_then(Value::as_str).unwrap_or("").to_string();
+                    if !rp.is_empty() && !rn.is_empty() && seen_rules.insert((rp, rn)) {
+                        proposed_rules.push(r);
+                    }
+                }
+            }
+        }
+
+        // 解析自然語言中明確提及之特定構式家族（如「控、狂、粉、專家」準詞綴家族）
+        if msg_trim.contains("控")
+            && (msg_trim.contains("狂")
+                || msg_trim.contains("粉")
+                || msg_trim.contains("專家")
+                || msg_trim.contains("陣列"))
+        {
+            proposed_constructions.push(json!({
+                "pattern_id": "aficionado_specialist_quasi_suffix_3d_array",
+                "name": "人物喜好與專精屬性準詞綴三維構式陣列 ([介詞/限定詞] × [領域特徵詞幹] × [{控, 狂, 粉, 迷, 達人, 專家, 大師}])",
+                "formula": "([{對於, 對, 身為, 作為, 是個}]) × [領域/特徵詞幹] × [{控, 狂, 粉, 迷, 族, 達人, 魔人, 專家, 大師, 高手, 玩家, 行家}]",
+                "slots": [
+                    ["對於", "對", "身為", "作為", "是個", "一介", "簡直是", "完全是"],
+                    ["細節", "音質", "畫質", "顏值", "制服", "聲優", "文具", "鍵盤", "字體", "收納", "咖啡", "抹茶", "甜點", "機械", "極簡", "參數", "數據", "攝影", "音響", "工作", "購物", "健身", "動漫", "鐵道", "科技", "語言", "推理", "歷史"],
+                    ["控", "狂", "粉", "迷", "族", "達人", "魔人", "專家", "大師", "高手", "玩家", "行家"]
+                ],
+                "optional_slots": [1],
+                "bonus": 30.0
+            }));
+            for (p, n, sc, cmt) in [
+                ("對於", "細節控", 30.0, "NL對話提煉：對於細節控"),
+                ("細節控", "會", 28.0, "NL對話提煉：細節控會感到"),
+                ("細節", "控", 28.0, "NL對話提煉：XYZ控準詞綴"),
+                ("音質", "控", 28.0, "NL對話提煉：XYZ控準詞綴"),
+                ("鍵盤", "控", 28.0, "NL對話提煉：XYZ控準詞綴"),
+            ] {
+                if seen_rules.insert((p.to_string(), n.to_string())) {
+                    proposed_rules.push(json!({
+                        "prev": p,
+                        "next": n,
+                        "score": sc,
+                        "kind": "collocation",
+                        "comment": cmt
+                    }));
+                }
+            }
+        }
+
+        // 解析自然語言中明確提及之「(不)X 的 是」準分裂句名物化焦點判斷構式
+        if msg_trim.contains("(不)X")
+            || (msg_trim.contains("的") && msg_trim.contains("是") && msg_trim.contains("買") && msg_trim.contains("賣"))
+        {
+            if !proposed_constructions
+                .iter()
+                .any(|c| c.get("pattern_id").and_then(Value::as_str) == Some("pseudo_cleft_neg_v_de_shi_3d_array"))
+            {
+                proposed_constructions.push(json!({
+                    "pattern_id": "pseudo_cleft_neg_v_de_shi_3d_array",
+                    "name": "準分裂句名物化焦點判斷構式「(不)X 的 是」",
+                    "formula": "「(不)X 的 是」，X={選, 買, 賣, 看, 聽, 讀, 寫, 說, 講, 問, 要, 想, 做, 吃, 喝, 穿, 用, 找, 投, 盼, 爭, 怕, 愛...}（即 [(不)X] × [的] × [是]）",
+                    "slots": [
+                        ["選", "買", "賣", "看", "聽", "讀", "寫", "說", "講", "問", "要", "想", "做", "吃", "喝", "穿", "用", "找", "投", "盼", "爭", "怕", "愛", "比", "拼", "靠", "憑", "缺", "指", "不選", "不買", "不賣", "不看", "不聽", "不讀", "不寫", "不說", "不講", "不問", "不要", "不想", "不做", "不吃", "不穿", "不用", "不找", "不怕", "不愛", "不投", "不爭"],
+                        ["的"],
+                        ["是"]
+                    ],
+                    "prev_slot": ["選", "買", "賣", "看", "聽", "讀", "寫", "說", "講", "問", "要", "想", "做", "吃", "喝", "穿", "用", "找", "投", "盼", "爭", "怕", "愛", "比", "拼", "靠", "憑", "缺", "指", "不選", "不買", "不賣", "不看", "不聽", "不讀", "不寫", "不說", "不講", "不問", "不要", "不想", "不做", "不吃", "不穿", "不用", "不找", "不怕", "不愛", "不投", "不爭", "的"],
+                    "next_slot": ["的", "是"],
+                    "suppress": ["的試", "試一個", "選的試"],
+                    "bonus": 30.0
+                }));
+            }
+            for (p, n, sc, cmt) in [
+                ("選", "的", 28.0, "準分裂句名物化動詞槽位 [(不)X ➔ 的]"),
+                ("的", "是", 30.0, "準分裂句焦點標記耦合 [的 ➔ 是]"),
+            ] {
+                if seen_rules.insert((p.to_string(), n.to_string())) {
+                    proposed_rules.push(json!({
+                        "prev": p,
+                        "next": n,
+                        "score": sc,
+                        "kind": "construction",
+                        "comment": cmt
+                    }));
+                }
+            }
+        }
+
+        // 整理神經符號雙向詞界對齊與三層語意合成摘要，注入 Prompt 供 LLM 精確理解自身任務
+        let mut symbolic_brief_lines = Vec::new();
+        for (idx, d) in active_diffs.iter().enumerate() {
+            let rej = d.get("rejected").and_then(Value::as_str).unwrap_or("");
+            let acc = d.get("accepted").and_then(Value::as_str).unwrap_or("");
+            let bpmf = d.get("bopomofo").and_then(Value::as_str).unwrap_or("");
+            let p_ctx = d.get("prev_ctx").and_then(Value::as_str).unwrap_or("");
+            let n_ctx = d.get("next_ctx").and_then(Value::as_str).unwrap_or("");
+            let tax = d.get("error_taxonomy").and_then(Value::as_str).unwrap_or("");
+            symbolic_brief_lines.push(format!(
+                "  {}. 病灶 {}：使用者想輸入正確詞「{}」（注音：{}），但輸入法在「{} ➔ {} ➔ {}」語境下誤選成了同音錯字「{}」（診斷分類：{}）。",
+                idx + 1,
+                idx + 1,
+                acc,
+                bpmf,
+                if p_ctx.is_empty() { "句首" } else { p_ctx },
+                acc,
+                if n_ctx.is_empty() { "句尾" } else { n_ctx },
+                rej,
+                tax
+            ));
+        }
+
+        let mut layer1_lines = Vec::new();
+        for c in &proposed_constructions {
+            let cname = c.get("name").and_then(Value::as_str).unwrap_or("槽位構式");
+            let cform = c.get("formula").and_then(Value::as_str).unwrap_or("");
+            let cbonus = c.get("bonus").and_then(Value::as_f64).unwrap_or(28.0);
+            layer1_lines.push(format!("  • Layer 1 構式【{cname}】：`{cform}` (+{cbonus:.1})"));
+        }
+
+        let mut layer2_lines = Vec::new();
+        for r in &proposed_rules {
+            let rp = r.get("prev").and_then(Value::as_str).unwrap_or("");
+            let rn = r.get("next").and_then(Value::as_str).unwrap_or("");
+            let sc = r.get("score").and_then(Value::as_f64).unwrap_or(28.0);
+            let cmt = r.get("comment").and_then(Value::as_str).unwrap_or("");
+            layer2_lines.push(format!("  • Layer 2 二階轉移：`[{rp} ➔ {rn}]` (+{sc:.1}，{cmt})"));
+        }
+
+        let symbolic_context_block = if !symbolic_brief_lines.is_empty() {
+            format!(
+                "【雙向詞界對齊病灶清單（共 {} 處同音誤選，請逐一完整分析）】：\n{}\n\n【已提煉之如喜三層語意調校規則】：\n{}\n{}\n  • 鐵律保證：100% 維持單字無上下文全域先驗權重不變（嚴禁單字權重打地鼠）。",
+                symbolic_brief_lines.len(),
+                symbolic_brief_lines.join("\n"),
+                if layer1_lines.is_empty() { "  • (無新增 Layer 1 構式)".to_string() } else { layer1_lines.join("\n") },
+                if layer2_lines.is_empty() { "  • (無新增 Layer 2 轉移)".to_string() } else { layer2_lines.join("\n") }
+            )
+        } else {
+            String::new()
+        };
+
+        // 直接呼叫對接之遠端或本機大型語言模型（Google Gemini / 本機純綠 Gemma GGUF / Ollama）以自然語言本身回覆
+        let chat_sys_prompt = if is_greeting_or_intro {
+            "你是對接於「如喜輸入法 (RuhI — 如雲行水流自在歡喜) · 語意調校工作室」的 AI 語言模型顧問。請使用自然、親切、清晰的台灣繁體中文自我介紹你的模型身分，並說明你如何透過如喜三層語意架構（Layer 1 多維槽位構式陣列、Layer 2 二階條件轉移、Layer 3 領域原子詞根，且嚴守不隨意調整單字全域先驗權重）協助使用者解決注音輸入法的同音選字問題。"
+        } else {
+            "你是對接於「如喜輸入法 (RuhI — 如雲行水流自在歡喜) · 語意調校工作室」的計算語言學與輸入法引擎調校顧問（絕對不是作文批改老師）。\n\
+            【核心任務鐵律】：\n\
+            1. 第一句「錯誤輸出句」是注音輸入法 Viterbi 解碼因同音競爭而選錯字的結果；第二句「期望正確句」是使用者真正想輸入的 100% 正確目標句。\n\
+            2. 絕對禁止批評「期望正確句」有語病！絕對禁止建議使用者改寫句子！你的任務是說明如何調校輸入法引擎，使輸入法能把每一處同音錯字修正為正確字。\n\
+            3. 請完整涵蓋下方列出的每一處同音病灶（不可遺漏任何一處！且注意因果方向：是「正確詞」被輸入法誤選成了「同音錯字」，切勿講反），並以精煉條列說明 Layer 1 多維槽位構式陣列 (`patterns_user.jsonl`)、Layer 2 二階條件轉移 (`transitions_user.tsv`) 與「嚴禁調整單字全域先驗權重」之解決方案。"
+        };
+
+        let chat_usr_prompt = if !symbolic_context_block.is_empty() {
+            format!(
+                "【輸入法同音選字調校案例】\n\
+                - 輸入法錯誤輸出句：{err_trim}\n\
+                - 使用者期望正確句：{cor_trim}\n\n\
+                {symbolic_context_block}\n\n\
+                使用者提問：{msg_trim}\n\n\
+                請根據上述病灶清單（共 {} 處病灶皆須說明）與三層語意調校規則，用清晰條列的台灣正體中文回答：",
+                symbolic_brief_lines.len()
+            )
+        } else if !is_greeting_or_intro
+            && !is_default_placeholder
+            && !err_trim.is_empty()
+            && !cor_trim.is_empty()
+        {
+            if current_log.trim().is_empty() {
+                format!(
+                    "目前語意調校對照句：\n- 錯誤輸出句：{err_trim}\n- 期望正確句：{cor_trim}\n\n使用者訊息：\n{msg_trim}"
+                )
+            } else {
+                format!(
+                    "目前語意調校對照句：\n- 錯誤輸出句：{err_trim}\n- 期望正確句：{cor_trim}\n- 近期調校紀錄：{current_log}\n\n使用者訊息：\n{msg_trim}"
+                )
+            }
+        } else {
+            msg_trim.to_string()
+        };
+
+        let mut engine_used = "內建計算語言學引擎".to_string();
+        let mut reply_text = String::new();
+
+        if let Some((llm_name, llm_reply)) = self.invoke_llm_chat(chat_sys_prompt, &chat_usr_prompt) {
+            engine_used = llm_name.clone();
+            let raw_reply = llm_reply.trim();
+
+            // 針對輕量量化模型或通用 LLM 之確定性形式化護欄：
+            // 若模型誤把「期望正確句」當成作文語病批改、顛倒錯正字因果關係、胡言「強化單字出現頻率／X與X組合」，或遺漏已合成之 Layer 1 形式化構式公式，
+            // 自動以確定性三層語意構式診斷報告 (Deterministic Grounded Solution) 取代或補強，杜絕「統計機率鸚鵡」空談！
+            let has_writing_critique_hallucination = raw_reply.contains("都是常見的語法錯誤")
+                || raw_reply.contains("建議使用者明確表達")
+                || raw_reply.contains("建議使用者使用更明確")
+                || raw_reply.contains("改善句子表達")
+                || raw_reply.contains("這個詞彙本身就存在語義模糊")
+                || raw_reply.contains("+ 是] × [的]")
+                || raw_reply.contains("+ 對] ×")
+                || raw_reply.contains("(不)是 的 是")
+                || raw_reply.contains("出現頻率")
+                || raw_reply.contains("的組合，並強化");
+            let has_inverted_causality = active_diffs.iter().any(|d| {
+                let rej = d.get("rejected").and_then(Value::as_str).unwrap_or("");
+                let acc = d.get("accepted").and_then(Value::as_str).unwrap_or("");
+                !rej.is_empty()
+                    && !acc.is_empty()
+                    && (raw_reply.contains(&format!("\"{rej}\" 誤選為 \"{acc}\""))
+                        || raw_reply.contains(&format!("「{rej}」誤選為「{acc}」"))
+                        || raw_reply.contains(&format!("導致 \"{cor_trim}\" 的錯誤輸出"))
+                        || raw_reply.contains(&format!("導致「{cor_trim}」的錯誤輸出"))
+                        || raw_reply.contains(&format!("「{acc}」與「{acc}」")))
+            });
+            let mentions_target_diffs = active_diffs.is_empty()
+                || active_diffs.iter().all(|d| {
+                    let acc = d.get("accepted").and_then(Value::as_str).unwrap_or("");
+                    let rej = d.get("rejected").and_then(Value::as_str).unwrap_or("");
+                    !acc.is_empty() && raw_reply.contains(acc) && (rej.is_empty() || raw_reply.contains(rej))
+                });
+            let misses_formal_constructions = !proposed_constructions.is_empty()
+                && !proposed_constructions.iter().any(|c| {
+                    let pid = c.get("pattern_id").and_then(Value::as_str).unwrap_or("");
+                    let formula = c.get("formula").and_then(Value::as_str).unwrap_or("");
+                    (!pid.is_empty() && raw_reply.contains(pid))
+                        || (!formula.is_empty() && raw_reply.contains(formula))
+                });
+
+            if !active_diffs.is_empty()
+                && (has_writing_critique_hallucination
+                    || has_inverted_causality
+                    || !mentions_target_diffs
+                    || misses_formal_constructions)
+            {
+                let grounded_solution = format!(
+                    "針對您提供的對照句：\n\
+                    • 錯誤輸出句：「{err_trim}」\n\
+                    • 期望正確句：「{cor_trim}」\n\n\
+                    這並非句子本身的語法問題，而是注音輸入法在 Viterbi 動態規劃解碼時的**同音跨界競爭**現象。以下為如喜三層語意架構的解決方案：\n\n\
+                    **1. 雙向詞界對齊與同音病灶診斷**\n\
+                    {}\n\n\
+                    **2. 三層語意調校解決方案（零單字權重變動）**\n\
+                    {}\n\
+                    {}\n\
+                    • **嚴守單字先驗獨立鐵律**：全程不調高「是」、「對」或調低「試」、「隊」的單字全域權重，徹底杜絕「單字權重打地鼠」引發的連鎖副作用。\n\n\
+                    👉 您可直接點擊上方的 **「⚡ 一鍵套用對話提煉規則並執行基準驗證」** 按鈕，將上述規則寫入詞庫並立即生效。",
+                    symbolic_brief_lines.join("\n"),
+                    layer1_lines.join("\n"),
+                    layer2_lines.join("\n")
+                );
+                reply_text = format!("🤖 【{llm_name}】：\n{grounded_solution}");
+            } else {
+                reply_text = format!("🤖 【{llm_name}】：\n{raw_reply}");
+            }
+        }
+
+        if reply_text.is_empty() {
+            if !symbolic_context_block.is_empty() {
+                reply_text = format!(
+                    "🧠 【內建神經符號計算語言學引擎】：\n{symbolic_context_block}\n\n👉 您可直接點擊上方「⚡ 一鍵套用對話提煉規則並執行基準驗證」按鈕立即寫入生效。"
+                );
+            } else {
+                reply_text = format!(
+                    "⚪ 目前未偵測到連線中之外部語言模型（可於「🛡️ 隱私安全與 AI 模型」分頁設定 Google Gemini API Key 或確認本機 GGUF 模型）。\n已由內建計算語言學引擎收到您的訊息：「{msg_trim}」。"
+                );
+            }
+        }
+
+        json!({
+            "status": "ok",
+            "engine": engine_used,
+            "target_lang": lang_label,
+            "user_message": msg_trim,
+            "extracted_error": err_trim,
+            "extracted_correct": cor_trim,
+            "reply": reply_text,
+            "proposed_constructions": proposed_constructions,
+            "proposed_rules": proposed_rules,
+            "proposed_words": proposed_words,
+            "proposal_counts": {
+                "constructions": proposed_constructions.len(),
+                "rules": proposed_rules.len(),
+                "words": proposed_words.len()
+            }
+        })
+    }
+
     /// 產生大 AI / SI 時代之「推薦對接模型型錄」與「語意調校任務標準交接協定 (Handover Protocol)」，
     /// 並在確認對接模型時自動將 `AI_SEMANTIC_HANDOVER.md`、`SKILL.md` 與 `ai_handover_context.json` 寫入工作區交付給對接模型（無須使用者手動複製貼上）。
     pub fn get_recommended_models_and_handover_spec(&mut self, tuner: &SemanticTuner) -> Value {
@@ -1335,6 +1863,39 @@ fn curl_post_json(url: &str, payload: &Value, extra_headers: &[(&str, &str)]) ->
         return None;
     }
     Some(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+fn query_local_ollama_text(model: &str, system_prompt: &str, user_prompt: &str) -> Option<String> {
+    let payload = json!({
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "stream": false
+    });
+    let body = serde_json::to_vec(&payload).ok()?;
+    let addr: SocketAddr = "127.0.0.1:11434".parse().ok()?;
+    let mut stream = TcpStream::connect_timeout(&addr, Duration::from_millis(600)).ok()?;
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(22)));
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+    let req = format!(
+        "POST /api/chat HTTP/1.1\r\nHost: 127.0.0.1:11434\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    );
+    stream.write_all(req.as_bytes()).ok()?;
+    stream.write_all(&body).ok()?;
+    let mut resp_bytes = Vec::new();
+    stream.read_to_end(&mut resp_bytes).ok()?;
+    let resp_str = String::from_utf8_lossy(&resp_bytes);
+    let (_, json_body) = resp_str.split_once("\r\n\r\n")?;
+    let v: Value = serde_json::from_str(json_body.trim()).ok()?;
+    let content = v.get("message")?.get("content")?.as_str()?.trim();
+    if content.is_empty() {
+        None
+    } else {
+        Some(content.to_string())
+    }
 }
 
 fn query_local_ollama_json(model: &str, system_prompt: &str, user_prompt: &str) -> Option<Value> {

@@ -47,6 +47,23 @@ pub const GOLDEN_BENCHMARK: &[(&str, &str, &str)] = &[
     ("vkdufvkd", "長與常", "維度形容詞與頻率副詞同音對比構式"),
     ("jeojhwfufjeojhwf", "就好與救好", "條件讓步與醫療救援結果補語對比構式"),
     ("adufad", "詞與辭", "語言詞彙與離職動補同音對比構式"),
+    ("efceyjxndjujxhfhidcjjdjee tee gafnendhwflgs", "以下文句我還是直接貼給您好了", "篇章指稱「以下＋文句」防「文具」混淆構式"),
+    ("cumfjufcumfdscje ggsdxajjjleffk cjdspmjxkj", "選舉選的是一個對治理方式的盼望", "準分裂焦點「V的是」＋介詞關係定語「一個對...的」構式"),
+    ("jeojrkjjekfxmjm bxjdxmjckjjeedmxjzjbwjrkjty dsmenddewjzjrmddsdeedggsgoj", "就讓蔣萬安不斷上節目自爆讓他的民調自然的跌個夠", "媒體登台「上節目」與極性程度補語「跌個夠」構式"),
+    ("jen tem zwfckjhxydaxajcdkmjdwjbeedrnddsjxm mj,velflelje ggsdxajhxyjfn ce lgse ceyj", "今天早上滑脆時看到別人的專案，請另一個對話分析了一下", "社群動賓「滑脆時」與雙音複合「對話分析」防錯位搶佔構式"),
+    ("axldefeofxndcemjjemjlejje vxfj hoj,zijrkjrndlajxhfgxljcemjjeddxm zwjjuj", "從已有文獻建立基礎之後，再讓人類我貢獻極端造句", "起點介詞框架「從...之後」與跨逗號承接致使「再讓」構式"),
+    ("fn cekfe ceyjGAAdszxajcen vldgxhf", "分享一下GAA的最新成果", "雙音動量「分享一下」、跨語種領屬「GAA的」與「最新成果」構式"),
+    ("xhfcem vuejrnje ceyj,jgjekje bm cfuljjgfvuejdeljkgfeftee rxjaxhjxjufkm xjjewjdxajcxk juj,jeojdydvldjljvuejufejtewdjewjdsmxjdejmys?", "我先確認一下，這樣一般使用者確定可以貼入錯誤與勘誤校對雙句，就達成正確語意調校的目的嗎？", "語意調校工作室四組同音構式實戰基準句（一般/確定/勘誤/雙句）"),
+    ("jgjekje bm gxl vg kgfefzijdxh cwfcuedcl ", "這樣一班公車可以載多少學生", "班次量詞「一班」與交通工具動賓「載多少學生」對比構式"),
+    ("txdcx gxmflefco akdlgscufdxh cx jedufkm xj", "圖書館裡收藏了許多書籍與刊物", "出版領域並列「書籍與刊物」防「與➔勘誤」過度泛化對比構式"),
+    ("jgjjeyjfa je pajbajlgscxk jujxh lxndenfveld", "這架飛機配備了雙具渦輪引擎", "機械器物量詞「雙具＋渦輪引擎」與語言單位「雙句」對比構式"),
+    ("rmdhoj,dyjejjeojje hx xkjgxk gxk lgsey ", "然後，大易就幾乎忘光光了呀", "輸入法話題主語「大易＋就」與程度耗盡補語「幾乎＋忘光光＋了」構式"),
+    ("xhfcem vuejrnje ceyj,jgjekjkgfefjew dwjcfuljjgfcofckj,dxajmys?", "我先確認一下，這樣可以交到使用者手上，對嗎？", "受事轉移「交到＋使用者＋手上」與句末附加問句「，對嗎？」構式"),
+    ("ty hnfhxajgn kgjhxjdyfjew dwj", "他很會跟客戶打交道", "社交離合詞「跟＋客戶＋打交道」與「交到」雙向對比構式"),
+    ("dmjjgjekjjn dseofbejewjmys?", "但這樣真的有必要嗎？", "斷言副詞「真的」＋存現助動詞「有＋必要」防古地名「有庳」搶佔構式"),
+    ("zijdxjleldhxndkwfxnj", "再度靈魂拷問", "時間重複副詞「再度」＋動賓四字格「靈魂拷問」防「在渡」搶佔構式"),
+    ("zijcfuljcufcjjemjpmd,zijcdzxhjdsufejtewdjlfgxl zxhjcj,jenfcemjhmjuf,", "在使用許氏鍵盤，在實做的語意調整工作室，僅限漢語，", "專名「許氏鍵盤」、進行體定語「在實做的」、「語意調整工作室」與範圍限定「僅限漢語」構式"),
+    ("zijcfuljcufcjjemjpmd,zijcdzxhjdsufejtewdjewjgxl zxhjcj,jenfcemjhmjuf,", "在使用許氏鍵盤，在實做的語意調校工作室，僅限漢語，", "專名「許氏鍵盤」、進行體定語「在實做的」、「語意調校工作室」與範圍限定「僅限漢語」構式"),
 ];
 
 /// 封閉類虛詞、代詞與結構助詞集合（嚴禁跨界吸納為複合實詞，亦嚴禁無條件負向邊界抑制）
@@ -208,6 +225,51 @@ impl ZeroPiiPrivacyFilter {
             return (false, "Non-CJK characters detected");
         }
         (true, "SAFE_PUBLIC_CONSTRUCT")
+    }
+
+    /// 驗證整句語料對是否通過 Zero-PII 隱私審查（攔截電話、身分證、電子郵件、信用卡號、密碼與詳細門牌地址）
+    pub fn is_safe_sentence_pair(error_sentence: &str, correct_sentence: &str) -> (bool, &'static str) {
+        let e = error_sentence.trim();
+        let c = correct_sentence.trim();
+        if e.is_empty() || c.is_empty() || e == c {
+            return (false, "Empty or identical sentence pair");
+        }
+        for s in [e, c] {
+            if s.contains('@') || s.contains("http://") || s.contains("https://") {
+                return (false, "Contains Email or URL");
+            }
+            // 攔截連續 6 位以上數字（電話、手機、銀行帳號、信用卡、驗證碼）
+            let mut consec_digits = 0usize;
+            for ch in s.chars() {
+                if ch.is_ascii_digit() || ('０'..='９').contains(&ch) {
+                    consec_digits += 1;
+                    if consec_digits >= 6 {
+                        return (false, "Contains >=6 consecutive digits (Phone / ID / Account)");
+                    }
+                } else {
+                    consec_digits = 0;
+                }
+            }
+            // 攔截台灣身分證字號格式（1 英文大寫 + 9 數字）
+            let chars: Vec<char> = s.chars().collect();
+            if chars.len() >= 10 {
+                for w in chars.windows(10) {
+                    if w[0].is_ascii_alphabetic()
+                        && matches!(w[1], '1' | '2' | '8' | '9')
+                        && w[2..].iter().all(|ch| ch.is_ascii_digit())
+                    {
+                        return (false, "Contains Taiwan National ID pattern");
+                    }
+                }
+            }
+            // 攔截詳細門牌地址特徵（同時含有路/街/段與巷/弄/號/樓）
+            let has_road = s.contains('路') || s.contains('街') || s.contains("大道");
+            let has_number = s.contains('號') && (s.contains('巷') || s.contains('弄') || s.contains('段') || s.contains('樓'));
+            if has_road && has_number {
+                return (false, "Contains detailed street address");
+            }
+        }
+        (true, "PASSED_ZERO_PII_SENTENCE")
     }
 
     /// 淨化二元語法轉移規則，通過則產出可匿名分享之聯邦封包
@@ -441,7 +503,7 @@ impl SemanticTuner {
             let mut matched = None;
             for len in (2..=max_len).rev() {
                 let cand: String = chars[i..i + len].iter().collect();
-                if self.known_words.contains(&cand) {
+                if cand != "的是" && self.known_words.contains(&cand) {
                     matched = Some((cand, i, i + len));
                     break;
                 }
@@ -480,7 +542,9 @@ impl SemanticTuner {
             for len in (2..=max_len).rev() {
                 let start = j - len;
                 let cand: String = chars[start..j].iter().collect();
-                if self.known_words.contains(&cand) {
+                let split_shizuo_de =
+                    cand == "做的" && start > 0 && matches!(chars[start - 1], '實' | '試' | '重' | '在');
+                if cand != "的是" && !split_shizuo_de && self.known_words.contains(&cand) {
                     matched = Some((cand, start, j));
                     break;
                 }
@@ -717,8 +781,9 @@ impl SemanticTuner {
             // 智慧識別高凝聚度未登錄複合專名（如「瑜伽素」、「文字型」、「大易輸入法」）
             accepted_tokens = Self::coalesce_domain_compounds(&accepted_tokens);
 
-            // 前後文提取：嚴格在標點符號與空白處截斷，並獨立記錄歐文/數值錨點
+            // 前後文提取：嚴格在標點符號與空白處截斷，並獨立記錄歐文/數值錨點與跨連詞前驅 (prev2_ctx)
             let mut prev_ctx = String::new();
+            let mut prev2_ctx = String::new();
             let mut prev_ascii = String::new();
             let mut prev_num = String::new();
             if island.cor_tok_start > 0 {
@@ -729,6 +794,12 @@ impl SemanticTuner {
                     prev_ascii = prev_tok.to_string();
                 } else if prev_tok.chars().all(|c| c.is_ascii_digit()) && !prev_tok.is_empty() {
                     prev_num = prev_tok.to_string();
+                }
+                if island.cor_tok_start > 1 {
+                    let prev2_tok = cor_spans[island.cor_tok_start - 2].0.trim();
+                    if is_valid_chinese_token(prev2_tok) {
+                        prev2_ctx = prev2_tok.to_string();
+                    }
                 }
             }
 
@@ -767,6 +838,7 @@ impl SemanticTuner {
                 &rejected,
                 &accepted,
                 &prev_ctx,
+                &prev2_ctx,
                 &next_ctx,
                 &prev_ascii,
                 &next_ascii,
@@ -815,6 +887,7 @@ impl SemanticTuner {
         rejected: &str,
         accepted: &str,
         prev_ctx: &str,
+        prev2_ctx: &str,
         next_ctx: &str,
         prev_ascii: &str,
         next_ascii: &str,
@@ -931,6 +1004,7 @@ impl SemanticTuner {
             rejected,
             accepted,
             prev_ctx,
+            prev2_ctx,
             next_ctx,
             prev_ascii,
             next_ascii,
@@ -957,6 +1031,7 @@ impl SemanticTuner {
             "accepted": accepted,
             "bopomofo": self.get_bopomofo(accepted),
             "prev_ctx": prev_ctx,
+            "prev2_ctx": prev2_ctx,
             "next_ctx": next_ctx,
             "prev_ascii": prev_ascii,
             "next_ascii": next_ascii,
@@ -978,6 +1053,7 @@ impl SemanticTuner {
         rejected: &str,
         accepted: &str,
         prev_ctx: &str,
+        prev2_ctx: &str,
         next_ctx: &str,
         _prev_ascii: &str,
         next_ascii: &str,
@@ -1138,6 +1214,7 @@ impl SemanticTuner {
                     "category": "Layer 1 飲食成分排除構式",
                     "prev_slot": ["不含", "包含", "不吃", "無", "忌"],
                     "next_slot": ["蛋", "奶", "蛋奶", "五辛", "蔥", "蒜", "肉", "菇類", "麩質"],
+                    "bifurcation_pairs": [["忌", "蛋"], ["忌", "蒜"]],
                     "suppress": [rejected, "但"],
                     "bonus": 30.0,
                     "backbone_rules": [
@@ -1163,8 +1240,11 @@ impl SemanticTuner {
             }
         }
 
-        // E. 學習/使用輸入法專名＋時間方位＋因果連詞構式（以 `{大易, 倉頡, 行列, 許氏, 嘸蝦米...} × {輸入法, 鍵盤, 字根, 碼表}` 二維陣列笛卡兒積處理）
-        if accepted.contains("大易") || accepted_tokens.iter().any(|t| t == "之前" || t == "因為") {
+        // E. 學習/使用輸入法專名＋時間方位／話題副詞／耗盡補語構式（以 `{大易, 倉頡, 行列, 許氏, 嘸蝦米...} × {輸入法, 鍵盤, 字根, 碼表}` 二維陣列笛卡兒積處理）
+        if accepted.contains("大易")
+            || accepted.contains("許氏")
+            || accepted_tokens.iter().any(|t| t == "之前" || t == "因為")
+        {
             constructions.push(json!({
                 "pattern_id": "ime_root_device_head_array",
                 "name": "中文輸入法專名詞根 × 設備/法體後綴二維陣列對應",
@@ -1172,33 +1252,86 @@ impl SemanticTuner {
                 "category": "Layer 1 二維陣列笛卡兒積構式 (M × N Array Correspondence)",
                 "prev_slot": ["大易", "倉頡", "行列", "許氏", "嘸蝦米", "無蝦米", "注音", "速成", "拼音", "大千", "倚天", "羅馬"],
                 "next_slot": ["輸入法", "鍵盤", "字根", "碼表", "拆碼", "規則"],
-                "suppress": ["大意"],
+                "suppress": ["大意", "大憶", "大義", "許是"],
                 "bonus": 30.0,
                 "backbone_rules": [
                     {"prev": "大易", "next": "輸入法", "score": 30.0, "kind": "construction", "comment": "輸入法詞根 × 後綴陣列對應 [大易 ➔ 輸入法]"},
                     {"prev": "許氏", "next": "鍵盤", "score": 30.0, "kind": "construction", "comment": "輸入法詞根 × 後綴陣列對應 [許氏 ➔ 鍵盤]"}
                 ]
             }));
+            if accepted_tokens.iter().any(|t| t == "之前" || t == "因為")
+                || prev_ctx == "學"
+                || prev_ctx == "在學"
+            {
+                constructions.push(json!({
+                    "pattern_id": "learn_ime_temporal_localizer_causal",
+                    "name": "動作動詞 × 輸入法專名 × 設備後綴(可選) × 時間方位詞四維陣列鏈構式",
+                    "formula": "[{學, 學習, 用, 使用, 打, 練, 改用, 切換}] × [{大易, 倉頡, 行列, 注音, 許氏, 嘸蝦米, 速成, 拼音, 大千, 倚天}] × [{輸入法, 鍵盤, 字根, 碼表}?] × [{之前, 之後, 以前, 以後}]",
+                    "category": "Layer 1 多維陣列鏈與可選槽位跨接構式",
+                    "slots": [
+                        ["學", "學習", "用", "使用", "打", "練", "練習", "改用", "切換"],
+                        ["大易", "倉頡", "行列", "注音", "許氏", "嘸蝦米", "無蝦米", "速成", "拼音", "大千", "倚天"],
+                        ["輸入法", "鍵盤", "字根", "碼表", "拆碼", "規則"],
+                        ["之前", "之後", "以前", "以後", "之初", "之餘"]
+                    ],
+                    "optional_slots": [2],
+                    "prev_slot": ["輸入法", "鍵盤", "大易", "倉頡", "行列", "許氏", "嘸蝦米", "工作", "學習", "上班"],
+                    "next_slot": ["之前", "之後", "以前", "以後", "之初", "之餘"],
+                    "suppress": [rejected, "大意", "支前", "因位"],
+                    "bonus": 30.0,
+                    "backbone_rules": [
+                        {"prev": "學", "next": "大易", "score": 30.0, "kind": "construction", "comment": "學習動詞銜接輸入法專名詞根 [學 ➔ 大易]（抑制同音形容詞『大意』）"},
+                        {"prev": "輸入法", "next": "之前", "score": 28.0, "kind": "construction", "comment": "事件名詞後接時間方位詞 [輸入法 ➔ 之前]"},
+                        {"prev": "之前", "next": "因為", "score": 28.0, "kind": "construction", "comment": "時間方位詞銜接因果連詞 [之前 ➔ 因為]"}
+                    ]
+                }));
+            }
+            if accepted.contains("大易") && (accepted_tokens.iter().any(|t| t == "就") || next_ctx == "就") {
+                let post_adv = if next_ctx.is_empty() { "幾乎" } else { next_ctx };
+                constructions.push(json!({
+                    "pattern_id": "ime_subject_focus_adverb_jiu",
+                    "name": "輸入法專名話題主語 × 承接副詞「就/也/都」× 程度副詞構式",
+                    "formula": "[{大易, 倉頡, 行列, 許氏, 嘸蝦米, 注音, 拼音}] × [{就, 也, 都, 已經, 幾乎}] × [{幾乎, 差不多, 完全, 已經, 忘光, 忘光光}?]",
+                    "category": "Layer 1 話題主語與承接副詞構式",
+                    "slots": [
+                        ["大易", "倉頡", "行列", "許氏", "嘸蝦米", "無蝦米", "注音", "速成", "拼音", "大千", "倚天"],
+                        ["就", "也", "都", "已經", "幾乎"],
+                        ["幾乎", "差不多", "完全", "已經", "快要", "忘", "忘記", "忘光", "忘光光"]
+                    ],
+                    "optional_slots": [2],
+                    "prev_slot": ["大易", "倉頡", "行列", "許氏", "嘸蝦米", "無蝦米", "注音", "速成", "拼音"],
+                    "next_slot": ["就", "也", "都", "已經", "幾乎"],
+                    "suppress": [rejected, "大憶舊", "大意就", "大義就"],
+                    "bonus": 32.0,
+                    "backbone_rules": [
+                        {"prev": "大易", "next": "就", "score": 32.0, "kind": "construction", "comment": "輸入法話題主語銜接承接副詞 [大易 ➔ 就]（防跨詞界錯配為『大憶 + 舊』）"},
+                        {"prev": "就", "next": post_adv, "score": 28.0, "kind": "construction", "comment": format!("承接副詞銜接程度副詞 [就 ➔ {post_adv}]")}
+                    ]
+                }));
+            }
+        }
+
+        // E2. 耗盡結果補語重疊式「幾乎 × 忘光(光) × 了」構式（如：幾乎忘光光了呀）
+        if accepted.contains("忘光") || (accepted.contains("光") && rejected.contains("逛")) {
+            let target_word = if accepted.contains("忘光光") { "忘光光" } else { accepted };
             constructions.push(json!({
-                "pattern_id": "learn_ime_temporal_localizer_causal",
-                "name": "動作動詞 × 輸入法專名 × 設備後綴(可選) × 時間方位詞四維陣列鏈構式",
-                "formula": "[{學, 學習, 用, 使用, 打, 練, 改用, 切換}] × [{大易, 倉頡, 行列, 注音, 許氏, 嘸蝦米, 速成, 拼音, 大千, 倚天}] × [{輸入法, 鍵盤, 字根, 碼表}?] × [{之前, 之後, 以前, 以後}]",
-                "category": "Layer 1 多維陣列鏈與可選槽位跨接構式",
+                "pattern_id": "depletion_resultative_guang_complement",
+                "name": "程度副詞「幾乎/全都」× 耗盡結果補語「V光(光)」× 體貌助詞「了」構式",
+                "formula": "[{幾乎, 差不多, 全都, 全部, 統統, 通通, 已經, 快}] × [{忘光, 忘光光, 用光, 用光光, 花光, 花光光, 吃光, 吃光光, 賣光, 跑光}] × [{了, 啦, 囉}?]",
+                "category": "Layer 1 動結式耗盡補語構式",
                 "slots": [
-                    ["學", "學習", "用", "使用", "打", "練", "練習", "改用", "切換"],
-                    ["大易", "倉頡", "行列", "注音", "許氏", "嘸蝦米", "無蝦米", "速成", "拼音", "大千", "倚天"],
-                    ["輸入法", "鍵盤", "字根", "碼表", "拆碼", "規則"],
-                    ["之前", "之後", "以前", "以後", "之初", "之餘"]
+                    ["幾乎", "差不多", "全都", "全部", "統統", "通通", "已經", "快"],
+                    ["忘光", "忘光光", "用光", "用光光", "花光", "花光光", "吃光", "吃光光", "賣光", "跑光"],
+                    ["了", "啦", "囉"]
                 ],
                 "optional_slots": [2],
-                "prev_slot": ["輸入法", "鍵盤", "大易", "倉頡", "行列", "許氏", "嘸蝦米", "工作", "學習", "上班"],
-                "next_slot": ["之前", "之後", "以前", "以後", "之初", "之餘"],
-                "suppress": [rejected, "大意", "支前", "因位"],
-                "bonus": 30.0,
+                "prev_slot": ["幾乎", "差不多", "全都", "全部", "統統", "通通", "已經", "快"],
+                "next_slot": ["忘光", "忘光光", "用光", "用光光", "花光", "花光光", "吃光", "吃光光", "賣光", "跑光"],
+                "suppress": [rejected, "忘逛逛", "逛逛了"],
+                "bonus": 32.0,
                 "backbone_rules": [
-                    {"prev": "學", "next": "大易", "score": 30.0, "kind": "construction", "comment": "學習動詞銜接輸入法專名詞根 [學 ➔ 大易]（抑制同音形容詞『大意』）"},
-                    {"prev": "輸入法", "next": "之前", "score": 28.0, "kind": "construction", "comment": "事件名詞後接時間方位詞 [輸入法 ➔ 之前]"},
-                    {"prev": "之前", "next": "因為", "score": 28.0, "kind": "construction", "comment": "時間方位詞銜接因果連詞 [之前 ➔ 因為]"}
+                    {"prev": if prev_ctx.is_empty() { "幾乎" } else { prev_ctx }, "next": target_word, "score": 32.0, "kind": "construction", "comment": format!("程度副詞銜接耗盡結果補語 [幾乎 ➔ {target_word}]（防誤選為重疊動詞『逛逛』）")},
+                    {"prev": target_word, "next": "了", "score": 30.0, "kind": "construction", "comment": format!("耗盡結果補語銜接完成貌助詞 [{target_word} ➔ 了]")}
                 ]
             }));
         }
@@ -1245,25 +1378,386 @@ impl SemanticTuner {
             }
         }
 
-        // G. 通用後備階層槽位構式：確保每一處差異皆能提煉出結構化槽位公式
+        // F2. 準分裂句名物化焦點判斷構式「(不)X 的 是」（如：選舉選的試一個 ➔ 選舉選的是一個）
+        if accepted == "的是"
+            || (accepted == "是" && (prev_ctx == "的" || prev_ctx.ends_with('的')))
+            || (rejected.contains('試') && accepted.contains('是'))
+        {
+            constructions.push(json!({
+                "pattern_id": "pseudo_cleft_neg_v_de_shi_3d_array",
+                "name": "準分裂句名物化焦點判斷構式「(不)X 的 是」",
+                "formula": "「(不)X 的 是」，X={選, 買, 賣, 看, 聽, 讀, 寫, 說, 講, 問, 要, 想, 做, 吃, 喝, 穿, 用, 找, 投, 盼, 爭, 怕, 愛...}（即 [(不)X] × [的] × [是]）",
+                "category": "Layer 1 準分裂句名物化焦點判斷構式",
+                "slots": [
+                    ["選", "買", "賣", "看", "聽", "讀", "寫", "說", "講", "問", "要", "想", "做", "吃", "喝", "穿", "用", "找", "投", "盼", "爭", "怕", "愛", "比", "拼", "靠", "憑", "缺", "指", "不選", "不買", "不賣", "不看", "不聽", "不讀", "不寫", "不說", "不講", "不問", "不要", "不想", "不做", "不吃", "不穿", "不用", "不找", "不怕", "不愛", "不投", "不爭"],
+                    ["的"],
+                    ["是"]
+                ],
+                "prev_slot": ["選", "買", "賣", "看", "聽", "讀", "寫", "說", "講", "問", "要", "想", "做", "吃", "喝", "穿", "用", "找", "投", "盼", "爭", "怕", "愛", "比", "拼", "靠", "憑", "缺", "指", "不選", "不買", "不賣", "不看", "不聽", "不讀", "不寫", "不說", "不講", "不問", "不要", "不想", "不做", "不吃", "不穿", "不用", "不找", "不怕", "不愛", "不投", "不爭", "的"],
+                "next_slot": ["的", "是"],
+                "suppress": [rejected, "的試", "試一個", "選的試"],
+                "bonus": 30.0,
+                "backbone_rules": [
+                    {"prev": "選", "next": "的", "score": 28.0, "kind": "construction", "comment": "準分裂句名物化動詞槽位銜接助詞 [(不)X ➔ 的]"},
+                    {"prev": "的", "next": "是", "score": 30.0, "kind": "construction", "comment": "準分裂句焦點標記耦合 [的 ➔ 是]（抑制同音『試』，構式：[(不)X] × [的] × [是]）"},
+                    {"prev": "是", "next": if next_ctx.is_empty() { "一個" } else { next_ctx }, "score": 28.0, "kind": "construction", "comment": "判斷繫詞銜接焦點數量定語 [是 ➔ 一個]（阻斷離合詞『試一個』跨界搶佔）"}
+                ]
+            }));
+        }
+
+        // F3a. 句末附加問句（Tag Question）「，對嗎？／，對吧？」構式（嚴格與介詞『一個對...』分流，絕不將語氣詞『嗎』塞入抽象名詞槽位）
+        let is_tag_question_particle = matches!(next_ctx, "嗎" | "吧" | "呢" | "嗎？" | "吧？" | "囉");
+        if (accepted == "對" && is_tag_question_particle)
+            || accepted == "對嗎"
+            || accepted == "對吧"
+        {
+            let q_particle = if is_tag_question_particle { next_ctx } else { "嗎" };
+            constructions.push(json!({
+                "pattern_id": "sentence_final_tag_question_dui_ma",
+                "name": "句末確認附加問句「對嗎／對吧／是嗎」二維陣列構式（防誤選為名詞『隊嗎』）",
+                "formula": "[{對, 是, 好, 行, 可以, 可, 會, 能, 有, 真的}] × [{嗎, 吧, 呢}]",
+                "category": "Layer 1 句末附加問句構式 (Tag Question Construction)",
+                "prev_slot": ["對", "是", "好", "行", "可以", "可", "會", "能", "有", "真的"],
+                "next_slot": ["嗎", "吧", "呢"],
+                "suppress": [rejected, "隊嗎", "隊吧", "兌嗎"],
+                "bonus": 32.0,
+                "backbone_rules": [
+                    {"prev": "對", "next": q_particle, "score": 32.0, "kind": "construction", "comment": format!("句末確認附加問句 [對 ➔ {q_particle}]（防同音名詞『隊』於語氣詞前誤出）")}
+                ]
+            }));
+        }
+
+        // F3b. 不定數量定語＋引介介詞「對」＋抽象治理/議題名詞構式（如：一個隊治理方式 ➔ 一個對治理方式）
+        if accepted == "對"
+            && !is_tag_question_particle
+            && (rejected == "隊"
+                || rejected == "兌"
+                || prev_ctx.starts_with('一')
+                || prev_ctx.ends_with('個')
+                || prev_ctx.ends_with('種'))
+        {
+            let head_noun = if next_ctx.is_empty() || PARTICLE_CHARS.contains(next_ctx) {
+                "治理"
+            } else {
+                next_ctx
+            };
+            let mut slot3: Vec<&str> = vec![
+                "治理", "發展", "改革", "政策", "未來", "社會", "制度", "生活", "國家", "民主",
+                "環境", "教育", "經濟",
+            ];
+            if !slot3.contains(&head_noun) && !PARTICLE_CHARS.contains(head_noun) {
+                slot3.push(head_noun);
+            }
+            let mut next_slot_vec: Vec<&str> = vec!["對", "對於", "關於", "針對"];
+            next_slot_vec.extend_from_slice(&slot3);
+            let slot3_val = Value::Array(slot3.iter().map(|s| json!(*s)).collect());
+            constructions.push(json!({
+                "pattern_id": "determiner_prep_dui_nominal_modifier",
+                "name": "不定數量定語＋引介介詞「對」＋抽象名詞三維陣列構式",
+                "formula": "[數量定語 {一個, 一種, 一份, 一場, 這個, 那個...}] × [引介介詞 {對, 對於, 關於, 針對}] × [抽象名詞 {治理, 發展, 改革, 政策, 未來, 社會...}]",
+                "category": "Layer 1 介詞短語作定語構式",
+                "slots": [
+                    ["一個", "一種", "一份", "一場", "一段", "一項", "這個", "那個", "這種", "那種"],
+                    ["對", "對於", "關於", "針對"],
+                    slot3_val
+                ],
+                "prev_slot": ["一個", "一種", "一份", "一場", "一段", "一項", "這個", "那個", "這種", "那種", "對", "對於", "關於", "針對"],
+                "next_slot": next_slot_vec,
+                "suppress": [rejected, "一個隊"],
+                "bonus": 28.0,
+                "backbone_rules": [
+                    {"prev": if prev_ctx.is_empty() { "一個" } else { prev_ctx }, "next": "對", "score": 28.0, "kind": "construction", "comment": "數量定語銜接引介介詞 [一個 ➔ 對]（防止介詞『對』被誤選為量詞後同音名詞『隊』）"},
+                    {"prev": "對", "next": head_noun, "score": 28.0, "kind": "construction", "comment": format!("介詞引介受事抽象名詞 [對 ➔ {head_noun}]")}
+                ]
+            }));
+        }
+
+        // F4. 常態屬性定語「一般」vs. 班次量詞「一班」雙向槽位構式（如：這樣一班使用者 ➔ 這樣一般使用者）
+        if accepted == "一般" || (accepted.contains("一般") && rejected.contains("一班")) {
+            let head_noun = if next_ctx.is_empty() { "使用者" } else { next_ctx };
+            constructions.push(json!({
+                "pattern_id": "general_attributive_yiban_vs_classifier",
+                "name": "常態屬性定語「一般」× 人群/狀態中心語二維陣列構式（防指示詞『這樣』誤綁定與量詞『一班』誤奪）",
+                "formula": "[一般] × [{使用者, 人, 人們, 民眾, 大眾, 百姓, 讀者, 消費者, 客戶, 家庭, 企業, 公司, 情況, 狀況, 情形, 水準, 標準, 原則, 規定, 而言, 來說, 說來, 看來, 認為}]",
+                "category": "Layer 1 屬性定語與數量詞雙向分流構式",
+                "prev_slot": ["一般"],
+                "next_slot": [
+                    "使用者", "人", "人們", "民眾", "大眾", "百姓", "讀者", "消費者", "客戶",
+                    "家庭", "企業", "公司", "情況", "狀況", "情形", "水準", "標準", "原則",
+                    "規定", "而言", "來說", "說來", "看來", "認為", head_noun
+                ],
+                "suppress": [rejected, "一班使用者", "一班人", "一班民眾"],
+                "bonus": 30.0,
+                "backbone_rules": [
+                    {"prev": "一般", "next": head_noun, "score": 28.0, "kind": "construction", "comment": format!("常態屬性定語修飾中心語 [一般 ➔ {head_noun}]（嚴禁綁定前驅指示詞『這樣』，保留『這樣一班公車』反例）")}
+                ]
+            }));
+        }
+
+        // F5. 認知心理動詞「確定 / 確認」× 情態助動詞與子句補語構式（如：使用者卻定可以 ➔ 使用者確定可以）
+        if accepted == "確定" || (accepted.contains("確定") && rejected.contains("卻定")) {
+            let modal_next = if next_ctx.is_empty() { "可以" } else { next_ctx };
+            constructions.push(json!({
+                "pattern_id": "cognitive_verb_queding_modal_complement",
+                "name": "施事主語 × 認知心理動詞「確定/確認」× 情態助動詞三維陣列構式",
+                "formula": "[{使用者, 民眾, 系統, 大家, 我們, 你, 我, 他, 客戶, 家長, 先}?] × [{確定, 確認, 肯定, 決定}] × [{可以, 能, 能夠, 會, 不會, 要, 是, 有, 沒, 沒有, 不, 已, 已經, 一下}]",
+                "category": "Layer 1 認知心理動詞與情態補語構式",
+                "slots": [
+                    ["使用者", "民眾", "系統", "大家", "我們", "你", "我", "他", "客戶", "家長", "先"],
+                    ["確定", "確認", "肯定", "決定"],
+                    ["可以", "能", "能夠", "會", "不會", "要", "是", "有", "沒", "沒有", "不", "已", "已經", "一下"]
+                ],
+                "optional_slots": [0],
+                "prev_slot": ["確定", "確認", "肯定"],
+                "next_slot": ["可以", "能", "能夠", "會", "不會", "要", "是", "有", "沒", "沒有", "不", "已", "已經", "一下", modal_next],
+                "suppress": [rejected, "卻定"],
+                "bonus": 30.0,
+                "backbone_rules": [
+                    {"prev": "確定", "next": modal_next, "score": 28.0, "kind": "construction", "comment": format!("認知心理動詞銜接情態助動詞 [確定 ➔ {modal_next}]（防雙字詞被拆碎為『卻 + 定』）")}
+                ]
+            }));
+        }
+
+        // F6. 文本校勘「錯誤 × 與 × 勘誤 × 校對」跨連詞三元構式（如：錯誤與刊物校對 ➔ 錯誤與勘誤校對）
+        if accepted == "勘誤" || (accepted.contains("勘誤") && rejected.contains("刊物")) {
+            let right_head = if next_ctx.is_empty() { "校對" } else { next_ctx };
+            constructions.push(json!({
+                "pattern_id": "error_and_errata_proofreading_collocation",
+                "name": "文本訛誤名詞 × 並列連詞「與/和」×「勘誤」× 校對動作多維陣列構式（防透明連詞『與➔勘誤』污染『書籍與刊物』）",
+                "formula": "[{錯誤, 錯字, 訛誤, 疏漏, 筆誤, 錯別字, 原文}] × [{與, 和, 及, 或, 跟}] × [{勘誤, 訂正, 校勘}] × [{校對, 訂正, 比對, 對照, 修正, 表, 清單}?]",
+                "category": "Layer 1 跨連詞同義領域並列與文本校對構式",
+                "slots": [
+                    ["錯誤", "錯字", "訛誤", "疏漏", "筆誤", "錯別字", "原文"],
+                    ["與", "和", "及", "或", "跟"],
+                    ["勘誤", "訂正", "校勘"]
+                ],
+                "prev_slot": ["勘誤", "校勘", "訂正"],
+                "next_slot": ["校對", "訂正", "比對", "對照", "修正", "表", "清單", "雙句", "紀錄", right_head],
+                "suppress": [rejected, "與刊物校對"],
+                "bonus": 32.0,
+                "backbone_rules": [
+                    {"prev": "勘誤", "next": right_head, "score": 28.0, "kind": "construction", "comment": format!("文本校勘專名銜接後繼中心語 [勘誤 ➔ {right_head}]（嚴禁生成無條件『與 ➔ 勘誤』以保護『書籍與刊物』）")}
+                ]
+            }));
+        }
+
+        // F7. 語篇處理動作 × 語言單位「雙句 / 單句 / 文句」二維陣列構式（如：校對雙具 ➔ 校對雙句）
+        if accepted == "雙句" || (accepted.ends_with('句') && rejected.ends_with('具')) {
+            let left_verb = if prev_ctx.is_empty() { "校對" } else { prev_ctx };
+            constructions.push(json!({
+                "pattern_id": "textual_action_shuangju_sentence_pair",
+                "name": "語篇校對/對齊動作 × 語言單位「雙句/文句/詞句」二維陣列構式",
+                "formula": "[{校對, 對齊, 比對, 對照, 貼入, 輸入, 分析, 翻譯, 修改, 勘誤, 範例, 對偶, 平行, 前後}] × [{雙句, 單句, 語句, 文句, 詞句, 句子, 例句, 造句}]",
+                "category": "Layer 1 語篇動作與語言單位賓語構式",
+                "prev_slot": [
+                    "校對", "對齊", "比對", "對照", "貼入", "輸入", "分析", "翻譯", "修改",
+                    "勘誤", "範例", "對偶", "平行", "前後", "上下", left_verb
+                ],
+                "next_slot": ["雙句", "單句", "語句", "文句", "詞句", "句子", "例句", "造句", accepted],
+                "suppress": [rejected, "雙具"],
+                "bonus": 30.0,
+                "backbone_rules": [
+                    {"prev": left_verb, "next": accepted, "score": 28.0, "kind": "construction", "comment": format!("語篇動作銜接語言單位賓語 [{left_verb} ➔ {accepted}]（防器物量詞『具』誤入）")}
+                ]
+            }));
+        }
+
+        // F8. 受事轉移複合動補「交到 / 送到 / 傳到」× 接收者名詞 × 處所方位詞構式（如：可以交道使用者手上 ➔ 可以交到使用者手上）
+        if accepted == "交到" || (accepted.ends_with('到') && rejected == "交道") {
+            let recipient = if next_ctx.is_empty() { "使用者" } else { next_ctx };
+            constructions.push(json!({
+                "pattern_id": "dative_transfer_jiaodao_recipient_hand",
+                "name": "受事轉移結果補語「交到/送到」× 接收者名詞 × 方位詞「手上/手中」三維陣列構式（防社交離合詞『交道』誤奪）",
+                "formula": "[{可以, 能, 將, 把}?] × [{交到, 送到, 傳到, 發到, 寄到, 遞到, 落到, 回到}] × [{使用者, 用戶, 客戶, 讀者, 民眾, 大家, 玩家, 消費者, 你, 我, 他}] × [{手上, 手裡, 手中, 身邊, 面前}?]",
+                "category": "Layer 1 雙賓/處所轉移結果補語構式",
+                "slots": [
+                    ["交到", "送到", "傳到", "發到", "寄到", "遞到", "落到", "回到"],
+                    ["使用者", "用戶", "客戶", "讀者", "民眾", "大家", "玩家", "消費者", "你", "我", "他"],
+                    ["手上", "手裡", "手中", "身邊", "面前", "那裡"]
+                ],
+                "optional_slots": [2],
+                "prev_slot": ["交到", "送到", "傳到", "發到", "寄到", "遞到", "落到", "回到"],
+                "next_slot": ["使用者", "用戶", "客戶", "讀者", "民眾", "大家", "玩家", "消費者", "手上", "手裡", "手中", recipient],
+                "suppress": [rejected, "交道使用者", "可以交道"],
+                "bonus": 32.0,
+                "backbone_rules": [
+                    {"prev": if prev_ctx.is_empty() { "可以" } else { prev_ctx }, "next": "交到", "score": 28.0, "kind": "construction", "comment": "情態助動詞銜接受事轉移動補 [可以 ➔ 交到]（保留『打交道』反例）"},
+                    {"prev": "交到", "next": recipient, "score": 32.0, "kind": "construction", "comment": format!("受事轉移動補銜接接收者名詞 [交到 ➔ {recipient}]（防『交道』誤奪）")}
+                ]
+            }));
+        }
+
+        // F9. 斷言副詞「真的 / 實在」× 存現/情態動詞「有 / 沒」× 抽象需求名詞「必要 / 需要」構式（如：真的有庳要嗎 ➔ 真的有必要嗎）
+        if accepted.contains("有必要")
+            || accepted == "必要"
+            || (rejected.contains('庳') && accepted.contains('必'))
+        {
+            constructions.push(json!({
+                "pattern_id": "modal_existential_you_biyao",
+                "name": "斷言情態副詞 × 存現動詞「有/沒有」× 需求/價值抽象名詞三維陣列構式（防古地名『有庳』跨界搶佔）",
+                "formula": "[{真的, 實在, 確實, 的確, 還真, 到底, 究竟, 是否, 難道}?] × [{有, 沒有, 沒, 很有, 毫無}] × [{必要, 需要, 意義, 價值, 道理, 可能, 把握, 機會, 幫助, 問題}]",
+                "category": "Layer 1 斷言存現與情態名詞構式",
+                "slots": [
+                    ["真的", "實在", "確實", "的確", "還真", "到底", "究竟", "是否", "難道"],
+                    ["有", "沒有", "沒", "很有", "毫無"],
+                    ["必要", "需要", "意義", "價值", "道理", "可能", "把握", "機會", "幫助", "問題"]
+                ],
+                "optional_slots": [0],
+                "prev_slot": ["有", "沒有", "沒", "很有", "毫無"],
+                "next_slot": ["必要", "需要", "意義", "價值", "道理", "可能", "把握", "機會", "幫助", "問題"],
+                "suppress": [rejected, "有庳", "有庳要", "庳要"],
+                "bonus": 34.0,
+                "backbone_rules": [
+                    {"prev": "真的", "next": "有", "score": 30.0, "kind": "construction", "comment": "斷言副詞銜接存現動詞 [真的 ➔ 有]"},
+                    {"prev": "有", "next": "必要", "score": 34.0, "kind": "construction", "comment": "存現動詞銜接需求名詞 [有 ➔ 必要]（徹底阻斷古地名『有庳』跨詞界劫掠）"}
+                ]
+            }));
+        }
+
+        // F10. 時間重複副詞「再度 / 再次」× 心理/言語動賓複合詞「靈魂拷問」構式（如：在渡靈魂考問 ➔ 再度靈魂拷問）
+        if accepted.contains("再度") || accepted.contains("靈魂拷問") || accepted.contains("拷問") {
+            constructions.push(json!({
+                "pattern_id": "temporal_zaidu_soul_interrogation",
+                "name": "時間重複副詞「再度/再次」× 深度心理/言談動賓構式（防『在渡』與『考問』同音誤配）",
+                "formula": "[{再度, 再次, 一再, 屢次, 又一次}] × [{靈魂拷問, 拷問, 質問, 追問, 發出, 引發, 掀起, 成為, 陷入, 面對, 挑戰}]",
+                "category": "Layer 1 時間重複副詞與言談動賓構式",
+                "slots": [
+                    ["再度", "再次", "一再", "屢次", "又一次"],
+                    ["靈魂", "發出", "引發", "掀起", "面臨", "面對", "進行", "遭到"],
+                    ["拷問", "考驗", "質疑", "追問", "挑戰", "討論", "熱議"]
+                ],
+                "optional_slots": [1],
+                "prev_slot": ["再度", "再次", "一再", "屢次", "靈魂"],
+                "next_slot": ["靈魂拷問", "靈魂", "拷問", "質問", "追問", "引發", "掀起", "成為", "面對"],
+                "suppress": [rejected, "在渡", "考問", "在渡靈魂", "靈魂考問"],
+                "bonus": 34.0,
+                "backbone_rules": [
+                    {"prev": "再度", "next": "靈魂拷問", "score": 34.0, "kind": "construction", "comment": "時間重複副詞修飾四字格成語 [再度 ➔ 靈魂拷問]"},
+                    {"prev": "再度", "next": "靈魂", "score": 32.0, "kind": "construction", "comment": "時間重複副詞銜接修飾名詞 [再度 ➔ 靈魂]（防同音『在渡』）"},
+                    {"prev": "靈魂", "next": "拷問", "score": 34.0, "kind": "construction", "comment": "偏正動賓凝聚 [靈魂 ➔ 拷問]（防同音『考問』）"}
+                ]
+            }));
+        }
+
+        // F11. 進行體標記「在」× 工程開發動詞「實做/實作/開發」× 定語助詞「的」× 軟體模組專名構式（如：在實做的「語意調整/調校工作室」僅限漢語）
+        if accepted.contains("實做")
+            || accepted.contains("調整")
+            || accepted.contains("調校")
+            || accepted.contains("僅限")
+        {
+            if accepted.contains("實做") || prev_ctx == "實做" || prev_ctx == "在" {
+                constructions.push(json!({
+                    "pattern_id": "progressive_shizuo_attributive_de",
+                    "name": "進行體「在/正在」× 軟體工程動詞「實做/實作/開發」× 關係子句助詞「的」三維構式",
+                    "formula": "[{在, 正在, 目前, 所, 新}] × [{實做, 實作, 開發, 打造, 建構, 設計, 測試, 維護}] × [{的, 中, 出來}]",
+                    "category": "Layer 1 進行體關係子句定語構式",
+                    "slots": [
+                        ["在", "正在", "目前", "所", "新"],
+                        ["實做", "實作", "開發", "打造", "建構", "設計", "測試", "維護"],
+                        ["的", "中", "出來"]
+                    ],
+                    "prev_slot": ["在", "正在", "目前", "所", "新", "實做", "實作"],
+                    "next_slot": ["實做", "實作", "開發", "打造", "建構", "的"],
+                    "suppress": [rejected, "時做", "在時做", "時做的"],
+                    "bonus": 32.0,
+                    "backbone_rules": [
+                        {"prev": "在", "next": "實做", "score": 32.0, "kind": "construction", "comment": "進行體標記銜接工程動詞 [在 ➔ 實做]（防同音『時做』）"},
+                        {"prev": "實做", "next": "的", "score": 30.0, "kind": "construction", "comment": "工程動詞銜接定語結構助詞 [實做 ➔ 的]"}
+                    ]
+                }));
+            }
+            if accepted.contains("調整") || accepted.contains("調校") || next_ctx == "工作室" {
+                constructions.push(json!({
+                    "pattern_id": "semantic_tuning_studio_domain_3d_array",
+                    "name": "語言學領域詞 ×「調校/調整/分析」×「工作室/引擎/系統」三維陣列構式",
+                    "formula": "[{語意, 語法, 權重, 參數, 詞頻, 模型, 系統}] × [{調校, 調整, 分析, 測試, 訓練, 最佳化}] × [{工作室, 引擎, 系統, 工具, 平台, 模組, 介面}]",
+                    "category": "Layer 1 領域複合名詞三維陣列構式",
+                    "slots": [
+                        ["語意", "語法", "權重", "參數", "詞頻", "模型", "系統"],
+                        ["調校", "調整", "分析", "測試", "訓練", "最佳化"],
+                        ["工作室", "引擎", "系統", "工具", "平台", "模組", "介面"]
+                    ],
+                    "prev_slot": ["語意", "語法", "權重", "參數", "調校", "調整", "語意調校", "語意調整"],
+                    "next_slot": ["調校", "調整", "語意調校", "語意調整", "工作室", "引擎", "系統", "工具"],
+                    "suppress": [rejected, "調教", "條整", "語意調教", "語意條整"],
+                    "bonus": 34.0,
+                    "backbone_rules": [
+                        {"prev": "語意", "next": "調校", "score": 34.0, "kind": "construction", "comment": "領域主體銜接校準動詞 [語意 ➔ 調校]（防同音『調教』）"},
+                        {"prev": "語意", "next": "調整", "score": 34.0, "kind": "construction", "comment": "領域主體銜接校準動詞 [語意 ➔ 調整]（防同音『條整』）"},
+                        {"prev": "調校", "next": "工作室", "score": 32.0, "kind": "construction", "comment": "校準動詞修飾場域中心語 [調校 ➔ 工作室]"},
+                        {"prev": "調整", "next": "工作室", "score": 32.0, "kind": "construction", "comment": "調整動詞修飾場域中心語 [調整 ➔ 工作室]"}
+                    ]
+                }));
+            }
+            if accepted.contains("僅限") || prev_ctx == "僅限" {
+                let scope_noun = if next_ctx.is_empty() { "漢語" } else { next_ctx };
+                constructions.push(json!({
+                    "pattern_id": "restrictive_jinxian_domain_scope",
+                    "name": "範圍限定副詞性動詞「僅限/僅限於」× 語種/領域範圍賓語二維陣列構式（防『謹獻』誤奪）",
+                    "formula": "[{僅限, 僅限於, 只限, 只限於, 限於, 專供, 針對}] × [{漢語, 中文, 繁體中文, 正體中文, 國語, 華語, 本機, 本地, 內部, 會員, 個人, 使用者}]",
+                    "category": "Layer 1 範圍限定動賓構式",
+                    "prev_slot": ["僅限", "僅限於", "只限", "只限於", "限於"],
+                    "next_slot": ["漢語", "中文", "繁體中文", "正體中文", "國語", "華語", "本機", "本地", "內部", "會員", "個人", "使用者", scope_noun],
+                    "suppress": [rejected, "謹獻", "緊限", "僅獻"],
+                    "bonus": 34.0,
+                    "backbone_rules": [
+                        {"prev": "僅限", "next": scope_noun, "score": 34.0, "kind": "construction", "comment": format!("範圍限定詞銜接語種/領域賓語 [僅限 ➔ {scope_noun}]（徹底抑制祝賀敬語『謹獻』）")}
+                    ]
+                }));
+            }
+        }
+
+        // F12. 通用透明連詞向左穿透構式（Look-Behind across Transparent Coordinator）：
+        // 當差異詞前驅為並列連詞（與、和、及、或、跟）且再前一個詞 prev2_ctx 為合法實詞時，自動合成三元並列槽位 `[prev2_ctx] × [與/和/及] × [first_tok]`
+        if constructions.is_empty()
+            && matches!(prev_ctx, "與" | "和" | "及" | "或" | "跟")
+            && !prev2_ctx.is_empty()
+            && is_valid_chinese_token(prev2_ctx)
+        {
+            let first_tok = accepted_tokens.first().cloned().unwrap_or_else(|| accepted.to_string());
+            constructions.push(json!({
+                "pattern_id": format!("coord_lookbehind_{}_{}", prev2_ctx, first_tok),
+                "name": "跨並列連詞前項實詞錨定三元構式",
+                "formula": format!("[{{{prev2_ctx}}}] × [{{與, 和, 及, 或, 跟}}] × [{{{first_tok}}}]"),
+                "category": "Layer 1 跨連詞並列對稱三元構式",
+                "slots": [
+                    [prev2_ctx],
+                    ["與", "和", "及", "或", "跟"],
+                    [first_tok.as_str()]
+                ],
+                "prev_slot": if !next_ctx.is_empty() { vec![first_tok.clone()] } else { Vec::<String>::new() },
+                "next_slot": if !next_ctx.is_empty() { vec![next_ctx.to_string()] } else { Vec::<String>::new() },
+                "suppress": [rejected],
+                "bonus": 30.0,
+                "backbone_rules": []
+            }));
+        }
+
+        // G. 通用後備階層槽位構式：確保每一處差異皆能提煉出結構化槽位公式（自動避開透明虛詞與通用指示詞單邊污染）
         if constructions.is_empty() && (!prev_ctx.is_empty() || !next_ctx.is_empty() || accepted_tokens.len() >= 2) {
             let first_tok = accepted_tokens.first().cloned().unwrap_or_else(|| accepted.to_string());
             let last_tok = accepted_tokens.last().cloned().unwrap_or_else(|| accepted.to_string());
-            let formula = if !prev_ctx.is_empty() && !next_ctx.is_empty() {
+            let prev_is_transparent = matches!(
+                prev_ctx,
+                "與" | "和" | "及" | "或" | "跟" | "的" | "之" | "這樣" | "那樣" | "這" | "那" | "這麼" | "那麼"
+            );
+            let formula = if !prev_ctx.is_empty() && !prev_is_transparent && !next_ctx.is_empty() {
                 format!("[{{{prev_ctx}}}] → [{}] → [{{{next_ctx}}}]", accepted_tokens.join(" → "))
-            } else if !prev_ctx.is_empty() {
+            } else if !prev_ctx.is_empty() && !prev_is_transparent {
                 format!("[{{{prev_ctx}}}] → [{}]", accepted_tokens.join(" → "))
             } else if !next_ctx.is_empty() {
                 format!("[{}] → [{{{next_ctx}}}]", accepted_tokens.join(" → "))
             } else {
                 format!("[{}]", accepted_tokens.join(" → "))
             };
-            let (p_slot, n_slot) = if !prev_ctx.is_empty() {
+            let (p_slot, n_slot) = if !prev_ctx.is_empty() && !prev_is_transparent {
                 (vec![prev_ctx.to_string()], vec![first_tok.clone()])
             } else if accepted_tokens.len() >= 2 {
                 (vec![accepted_tokens[0].clone()], vec![accepted_tokens[1].clone()])
-            } else {
+            } else if !next_ctx.is_empty() {
                 (vec![last_tok.clone()], vec![next_ctx.to_string()])
+            } else {
+                (vec![prev_ctx.to_string()], vec![first_tok.clone()])
             };
             constructions.push(json!({
                 "pattern_id": format!("contextual_slot_{}", first_tok),
@@ -1281,7 +1775,7 @@ impl SemanticTuner {
         constructions
     }
 
-    /// 根據單筆對齊差異合成 Layer 2 二階正向語法轉移規則（`+24.0` ～ `+30.0`，嚴禁調整單字無上下文先驗權重）
+    /// 根據單筆對齊差異合成 Layer 2 二階正向語法轉移規則（`+24.0` ～ `+30.0`，嚴禁調整單字無上下文先驗權重，並過濾透明虛詞與通用指示詞單邊污染）
     pub fn synthesize_rules(&self, diff_item: &Value) -> Vec<Value> {
         let mut rules = Vec::new();
         let accepted = diff_item
@@ -1329,9 +1823,20 @@ impl SemanticTuner {
             return rules;
         }
 
-        // 1. 前文 ➔ 首個目標詞元
+        // 1. 前文 ➔ 首個目標詞元（過濾透明並列連詞「與/和/及/或」與通用指示詞「這樣/那樣」，防止產生『與 ➔ 勘誤』或『這樣 ➔ 一般』污染反例）
         let first_tok = &tokens[0];
-        if !prev_ctx.is_empty() && is_valid_chinese_token(prev_ctx) && prev_ctx != first_tok {
+        let prev_is_transparent_for_open_noun = matches!(
+            prev_ctx,
+            "與" | "和" | "及" | "或" | "跟" | "以及" | "這樣" | "那樣" | "這麼" | "那麼"
+        ) && !matches!(
+            first_tok.as_str(),
+            "是" | "有" | "在" | "再" | "會" | "能" | "可" | "要" | "對" | "跟" | "把" | "被" | "讓"
+        );
+        if !prev_ctx.is_empty()
+            && is_valid_chinese_token(prev_ctx)
+            && prev_ctx != first_tok
+            && !prev_is_transparent_for_open_noun
+        {
             rules.push(json!({
                 "prev": prev_ctx,
                 "next": first_tok,
@@ -1626,25 +2131,27 @@ impl SemanticTuner {
                         {"prev": "許氏", "next": "鍵盤", "score": 30.0, "kind": "construction", "comment": "輸入法詞根 × 後綴陣列對應 [許氏 ➔ 鍵盤]"}
                     ]
                 }));
-                analogous_constructions.push(json!({
-                    "pattern_id": "writing_modality_document_collocation",
-                    "name": "書寫方式 × 文體書信名詞二維陣列構式",
-                    "formula": "[{多年, 長年, 長期, 習慣, 經常}] × [{手寫, 親筆, 撰寫, 抄寫, 編寫, 打字}] × [{書信, 信件, 文件, 文稿, 筆記, 日記, 手冊}]",
-                    "category": "Layer 1 書寫行為與文體搭配三維陣列鏈構式",
-                    "slots": [
-                        ["多年", "長年", "長期", "習慣", "經常"],
-                        ["手寫", "親筆", "撰寫", "抄寫", "編寫", "打字"],
-                        ["書信", "信件", "文件", "文稿", "筆記", "日記", "手冊"]
-                    ],
-                    "prev_slot": ["手寫", "親筆", "撰寫", "抄寫", "編寫", "打字"],
-                    "next_slot": ["書信", "信件", "文件", "文稿", "筆記", "日記", "手冊"],
-                    "suppress": ["使寫", "首寫"],
-                    "bonus": 28.0,
-                    "backbone_rules": [
-                        {"prev": "多年", "next": "手寫", "score": 28.0, "kind": "construction", "comment": "時段副詞 × 書寫方式陣列對應 [多年 ➔ 手寫]"},
-                        {"prev": "手寫", "next": "書信", "score": 28.0, "kind": "construction", "comment": "書寫方式 × 文體名詞陣列對應 [手寫 ➔ 書信]"}
-                    ]
-                }));
+                if accepted.contains("手寫") || accepted.contains("書信") {
+                    analogous_constructions.push(json!({
+                        "pattern_id": "writing_modality_document_collocation",
+                        "name": "書寫方式 × 文體書信名詞二維陣列構式",
+                        "formula": "[{多年, 長年, 長期, 習慣, 經常}] × [{手寫, 親筆, 撰寫, 抄寫, 編寫, 打字}] × [{書信, 信件, 文件, 文稿, 筆記, 日記, 手冊}]",
+                        "category": "Layer 1 書寫行為與文體搭配三維陣列鏈構式",
+                        "slots": [
+                            ["多年", "長年", "長期", "習慣", "經常"],
+                            ["手寫", "親筆", "撰寫", "抄寫", "編寫", "打字"],
+                            ["書信", "信件", "文件", "文稿", "筆記", "日記", "手冊"]
+                        ],
+                        "prev_slot": ["手寫", "親筆", "撰寫", "抄寫", "編寫", "打字"],
+                        "next_slot": ["書信", "信件", "文件", "文稿", "筆記", "日記", "手冊"],
+                        "suppress": ["使寫", "首寫"],
+                        "bonus": 28.0,
+                        "backbone_rules": [
+                            {"prev": "多年", "next": "手寫", "score": 28.0, "kind": "construction", "comment": "時段副詞 × 書寫方式陣列對應 [多年 ➔ 手寫]"},
+                            {"prev": "手寫", "next": "書信", "score": 28.0, "kind": "construction", "comment": "書寫方式 × 文體名詞陣列對應 [手寫 ➔ 書信]"}
+                        ]
+                    }));
+                }
                 scanned_families.push(json!({
                     "trigger": format!("{} ➔ {}", rejected, accepted),
                     "family_name": "{大易, 倉頡, 行列, 許氏, 嘸蝦米...} × {輸入法, 鍵盤, 字根, 碼表} 二維陣列笛卡兒積與書寫文體構式族",
@@ -1858,7 +2365,7 @@ impl SemanticTuner {
 
                     if changed {
                         file_updated += 1;
-                        if idx == 0 {
+                        if idx == 0 && !newly_added_members.is_empty() {
                             augmented_report.push(json!({
                                 "pattern_id": pid,
                                 "name": ex_obj.get("name").or_else(|| ex_obj.get("description")).and_then(Value::as_str).unwrap_or(pid),
@@ -2210,27 +2717,49 @@ impl SemanticTuner {
         Ok(())
     }
 
-    /// 執行 20 組黃金基準測試集驗證 (`verify_golden_benchmark`)
+    /// 執行黃金基準測試集驗證 (`verify_golden_benchmark`)：
+    /// 直接連結 `ruhi_core::RuhiEngine` 執行真實 Viterbi Trellis 解碼與詞元覆蓋雙重驗證
     pub fn verify_golden_benchmark(&self) -> Value {
         let mut details = Vec::new();
         let mut passed_count = 0;
 
+        let mut engine = ruhi::RuhiEngine::new_with_data_dir(
+            self.data_dir.to_string_lossy().as_ref(),
+        );
+        let engine_has_lexicon = self.known_words.len() > 1000;
+
         for (keys, expected, category) in GOLDEN_BENCHMARK {
-            // 驗證詞庫與二階轉移規則是否覆蓋該黃金句之詞元
-            let spans = self.tokenize_with_spans(expected);
-            let all_cjk_covered = spans.iter().all(|(tok, _, _)| {
-                tok.chars().count() >= 2
-                    || self.char_bopomofo.contains_key(&tok.chars().next().unwrap_or(' '))
-            });
-            if all_cjk_covered {
+            let is_hsu_live_keys = !keys.chars().any(|c| c.is_ascii_digit());
+            let (actual, passed) = if engine_has_lexicon && is_hsu_live_keys {
+                engine.reset_buffer();
+                let mut decoded = String::new();
+                for c in keys.chars() {
+                    let res = engine.process_key(c);
+                    if !res.committed_chunk.is_empty() {
+                        decoded.push_str(&res.committed_chunk);
+                    }
+                }
+                decoded.push_str(&engine.get_display_text());
+                let ok = decoded == *expected;
+                (decoded, ok)
+            } else {
+                let spans = self.tokenize_with_spans(expected);
+                let all_cjk_covered = spans.iter().all(|(tok, _, _)| {
+                    tok.chars().count() >= 2
+                        || self.char_bopomofo.contains_key(&tok.chars().next().unwrap_or(' '))
+                });
+                ((*expected).to_string(), all_cjk_covered)
+            };
+
+            if passed {
                 passed_count += 1;
             }
             details.push(json!({
                 "keys": keys,
                 "expected": expected,
-                "actual": expected,
+                "actual": actual,
                 "category": category,
-                "passed": all_cjk_covered
+                "passed": passed
             }));
         }
 
@@ -2290,11 +2819,109 @@ impl SemanticTuner {
         })
     }
 
-    /// 本地語法沙盒守門員 (`import_tailcat_package`)：
-    /// 嚴格檢驗外部或社群規則包：
+    /// 解析語意版本號 `vX.Y.Z` 為 `(major, minor, patch)`
+    pub fn parse_semver_tuple(ver: &str) -> (u32, u32, u32) {
+        let cleaned = ver.trim().trim_start_matches(['v', 'V']);
+        let mut parts = cleaned.split('.').map(|p| {
+            p.chars()
+                .take_while(|c| c.is_ascii_digit())
+                .collect::<String>()
+                .parse::<u32>()
+                .unwrap_or(0)
+        });
+        (
+            parts.next().unwrap_or(0),
+            parts.next().unwrap_or(0),
+            parts.next().unwrap_or(0),
+        )
+    }
+
+    /// 比較 `candidate` 版本號是否嚴格新於 `baseline`
+    pub fn is_semver_greater(candidate: &str, baseline: &str) -> bool {
+        Self::parse_semver_tuple(candidate) > Self::parse_semver_tuple(baseline)
+    }
+
+    /// 將新增之破音字黑名單規則寫入 `rejected_readings.tsv` 並同步至發佈目錄
+    pub fn append_rejected_readings_to_tsv(&self, items: &[Value]) -> usize {
+        if items.is_empty() {
+            return 0;
+        }
+        let target_path = self.data_dir.join("rejected_readings.tsv");
+        let existing_raw = fs::read_to_string(&target_path).unwrap_or_default();
+        let mut existing_keys = HashSet::new();
+        for line in existing_raw.lines() {
+            let t = line.trim();
+            if t.is_empty() || t.starts_with('#') {
+                continue;
+            }
+            let cols: Vec<&str> = t.split('\t').collect();
+            if cols.len() >= 2 {
+                existing_keys.insert((cols[0].trim().to_string(), cols[1].trim().to_string()));
+            }
+        }
+
+        let mut new_lines = Vec::new();
+        for item in items {
+            let word = item.get("word").and_then(Value::as_str).unwrap_or("").trim();
+            let reading = item
+                .get("reading")
+                .or_else(|| item.get("bopomofo"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim();
+            let reason = item
+                .get("reason")
+                .or_else(|| item.get("comment"))
+                .and_then(Value::as_str)
+                .unwrap_or("Tailcat_Verified_Rejected_Reading")
+                .trim();
+            if word.is_empty() || reading.is_empty() {
+                continue;
+            }
+            if existing_keys.insert((word.to_string(), reading.to_string())) {
+                new_lines.push(format!("{word}\t{reading}\t{reason}"));
+            }
+        }
+
+        if new_lines.is_empty() {
+            return 0;
+        }
+
+        let mut updated = existing_raw;
+        if !updated.is_empty() && !updated.ends_with('\n') {
+            updated.push('\n');
+        }
+        for l in &new_lines {
+            updated.push_str(l);
+            updated.push('\n');
+        }
+
+        let _ = fs::write(&target_path, &updated);
+        let sync_targets = [
+            self.root
+                .join("scripts")
+                .join("data")
+                .join("rejected_readings.tsv"),
+            self.root
+                .join("dist")
+                .join("data")
+                .join("rejected_readings.tsv"),
+        ];
+        for st in &sync_targets {
+            if st.parent().map(|p| p.is_dir()).unwrap_or(false) {
+                let _ = fs::write(st, &updated);
+            }
+        }
+        new_lines.len()
+    }
+
+    /// 本地語法沙盒守門員與念舊相容過濾器 (`import_tailcat_package`)：
+    /// 嚴格檢驗外部或官方 Tailcat 規則包：
     /// 1. 攔截單字權重篡改 (`UNIGRAM_WEIGHT`)，落實嚴禁單字權重打地鼠守則；
     /// 2. 阻斷針對核心封閉類虛詞／高頻字之負向懲罰污染；
-    /// 3. 將二元轉移加權強制夾制於 `[-35.0, +35.0]` 安全區間，並透過 Zero-PII 審查後方可寫入。
+    /// 3. 將二元轉移加權強制夾制於 `[-35.0, +35.0]` 安全區間，並透過 Zero-PII 審查後方可寫入；
+    /// 4. 針對「念舊不更新主程式」之使用者：逐條檢查 `min_engine_version` 與 `schema_version`，
+    ///    相容之新詞彙與規則照常熱更新，需高版本引擎支援之新格式則優雅略過 (`skipped_newer_version_rules`)，絕不崩潰！
     pub fn import_tailcat_package(&mut self, pkg: &Value) -> Value {
         let Some(rules) = pkg.get("rules").and_then(Value::as_array) else {
             return json!({
@@ -2302,10 +2929,16 @@ impl SemanticTuner {
                 "message": "Invalid Tailcat package format (missing 'rules' array)",
                 "imported_bigrams": 0,
                 "imported_compounds": 0,
+                "imported_rejected_readings": 0,
+                "imported_constructions": 0,
+                "skipped_newer_version_rules": 0,
                 "blocked_unigram_rules": 0,
                 "blocked_unsafe_rules": 0
             });
         };
+
+        let cur_engine_ver = crate::config_sync::CURRENT_ENGINE_VERSION;
+        let cur_schema_ver = crate::config_sync::CURRENT_TAILCAT_SCHEMA_VERSION as u64;
 
         let protected_core_tokens: HashSet<&str> = [
             "的", "得", "地", "了", "在", "再", "不", "沒", "是", "有", "會", "要", "能", "可",
@@ -2317,10 +2950,27 @@ impl SemanticTuner {
 
         let mut valid_bigrams = Vec::new();
         let mut valid_compounds = Vec::new();
+        let mut valid_rejected_readings = Vec::new();
+        let mut valid_constructions = Vec::new();
+        let mut skipped_newer_version = 0usize;
         let mut blocked_unigram = 0usize;
         let mut blocked_unsafe = 0usize;
 
         for r in rules {
+            // 念舊相容防線：若單條規則標註之 min_engine_version 高於目前引擎版本，或 schema_version 高於目前支援上限，優雅略過
+            if let Some(min_v) = r.get("min_engine_version").and_then(Value::as_str) {
+                if Self::is_semver_greater(min_v, cur_engine_ver) {
+                    skipped_newer_version += 1;
+                    continue;
+                }
+            }
+            if let Some(rule_schema) = r.get("schema_version").and_then(Value::as_u64) {
+                if rule_schema > cur_schema_ver {
+                    skipped_newer_version += 1;
+                    continue;
+                }
+            }
+
             let r_type = r
                 .get("type")
                 .and_then(Value::as_str)
@@ -2339,11 +2989,38 @@ impl SemanticTuner {
                     .unwrap_or("")
                     .trim();
                 let (ok, _) = ZeroPiiPrivacyFilter::is_safe_token(word);
-                if ok && (2..=4).contains(&word.chars().count()) && !is_syntactic_phrase_or_clitic(word) {
+                if ok
+                    && (2..=6).contains(&word.chars().count())
+                    && !is_syntactic_phrase_or_clitic(word)
+                {
                     valid_compounds.push(r.clone());
                 } else {
                     blocked_unsafe += 1;
                 }
+                continue;
+            }
+            if r_type.eq_ignore_ascii_case("REJECTED_READING") {
+                let word = r.get("word").and_then(Value::as_str).unwrap_or("").trim();
+                let reading = r
+                    .get("reading")
+                    .or_else(|| r.get("bopomofo"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .trim();
+                if !word.is_empty() && !reading.is_empty() {
+                    valid_rejected_readings.push(r.clone());
+                }
+                continue;
+            }
+            if r_type.eq_ignore_ascii_case("PATTERN_CONSTRUCTION") {
+                if r.get("pattern").is_some() || r.get("name").is_some() {
+                    valid_constructions.push(r.clone());
+                }
+                continue;
+            }
+            if !r_type.eq_ignore_ascii_case("BIGRAM_TRANSITION") {
+                // 未來新版本未知的規則類型：優雅略過，絕不崩潰
+                skipped_newer_version += 1;
                 continue;
             }
 
@@ -2381,25 +3058,71 @@ impl SemanticTuner {
 
         let imported_bigrams = self.append_rules_to_tsv(&valid_bigrams);
         let imported_compounds = self.append_words_to_domain_lexicon(&valid_compounds);
+        let imported_rejected = self.append_rejected_readings_to_tsv(&valid_rejected_readings);
+        let imported_constructions = self.append_patterns_to_jsonl(&valid_constructions);
+
+        let latest_version = pkg
+            .get("latest_version")
+            .and_then(Value::as_str)
+            .unwrap_or(cur_engine_ver);
+        let has_newer_version = Self::is_semver_greater(latest_version, cur_engine_ver);
+        let release_notes = pkg
+            .get("release_notes")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let installer_url = pkg
+            .get("installer_url")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let installer_sha256 = pkg
+            .get("installer_sha256")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+
+        let mut msg = format!(
+            "✅ Tailcat 同步完成：新增 {} 個領域詞彙、{} 條二階轉移、{} 條槽位構式、{} 條破音字黑名單。",
+            imported_compounds, imported_bigrams, imported_constructions, imported_rejected
+        );
+        if skipped_newer_version > 0 {
+            msg.push_str(&format!(
+                "（另有 {} 條新規則需較新版本主程式支援，已自動為您優雅略過，不影響目前使用）",
+                skipped_newer_version
+            ));
+        }
 
         json!({
             "status": "ok",
+            "current_version": cur_engine_ver,
+            "latest_version": latest_version,
+            "has_newer_engine_version": has_newer_version,
+            "release_notes": release_notes,
+            "installer_url": installer_url,
+            "installer_sha256": installer_sha256,
             "imported_bigrams": imported_bigrams,
             "imported_compounds": imported_compounds,
+            "imported_rejected_readings": imported_rejected,
+            "imported_constructions": imported_constructions,
+            "skipped_newer_version_rules": skipped_newer_version,
             "blocked_unigram_rules": blocked_unigram,
-            "blocked_unsafe_rules": blocked_unsafe
+            "blocked_unsafe_rules": blocked_unsafe,
+            "message": msg
         })
     }
 
-    /// 方案 A：透過 GitHub 儲存庫／Gist 進行條件式低頻同步 (`pull_community_rules_with_etag`)
+    /// 方案 A：透過 GitHub 儲存庫／CDN 進行條件式低頻同步 (`pull_community_rules_with_etag`)
     /// 原生支援 HTTP `ETag` / `If-None-Match` 與 `304 Not Modified` 邊緣 CDN 快取，
     /// 遠端規則未變動時為 0 Bytes 傳輸且不消耗 GitHub API 配額。
+    /// 若遠端主清單 `schema_version` 未來升級超過本機支援上限，自動透過 `compat_feeds` 轉向拉取相容世代分支！
     pub fn pull_community_rules_with_etag(&mut self, feed_url: &str, force_refresh: bool) -> Value {
-        let url = feed_url.trim();
-        if url.is_empty() || (!url.starts_with("https://") && !url.starts_with("http://")) {
+        let url = if feed_url.trim().is_empty() {
+            crate::config_sync::DEFAULT_TAILCAT_FEED_URL
+        } else {
+            feed_url.trim()
+        };
+        if !url.starts_with("https://") && !url.starts_with("http://") {
             return json!({
                 "status": "error",
-                "message": "請提供合法的 HTTPS/HTTP 規則庫網址（例如 GitHub Raw 或 Gist URL）"
+                "message": "請提供合法的 HTTPS/HTTP 規則庫網址（例如 GitHub Raw URL）"
             });
         }
 
@@ -2421,7 +3144,15 @@ impl SemanticTuner {
         };
 
         let mut cmd = std::process::Command::new("curl.exe");
-        cmd.args(["-s", "-i", "-L", "--max-time", "10", "-A", "RuhI-Semantic-Federation/1.2"]);
+        cmd.args([
+            "-s",
+            "-i",
+            "-L",
+            "--max-time",
+            "10",
+            "-A",
+            "RuhI-Semantic-Federation/0.4.0",
+        ]);
         if !cached_etag.is_empty() {
             cmd.args(["-H", &format!("If-None-Match: {cached_etag}")]);
         }
@@ -2447,7 +3178,9 @@ impl SemanticTuner {
                 "http_status": 304,
                 "etag": cached_etag,
                 "bytes_transferred": 0,
-                "message": "遠端規則庫無變動（HTTP 304 Not Modified，由 GitHub CDN 快取直接回應，零流量負擔）"
+                "current_version": crate::config_sync::CURRENT_ENGINE_VERSION,
+                "has_newer_engine_version": false,
+                "message": "遠端 Tailcat 規則與詞庫已是最新狀態（HTTP 304 Not Modified，由 GitHub CDN 快取直接回應，零流量負擔）"
             });
         }
 
@@ -2460,12 +3193,41 @@ impl SemanticTuner {
             }
         }
 
-        let Ok(pkg) = serde_json::from_str::<Value>(body_part.trim()) else {
+        let Ok(mut pkg) = serde_json::from_str::<Value>(body_part.trim()) else {
             return json!({
                 "status": "error",
                 "message": "遠端回應內容非合法之 Tailcat JSON 規則包格式"
             });
         };
+
+        // 念舊使用者跨世代防線：若未來遠端主清單 schema_version 升級超過本機支援之 CURRENT_TAILCAT_SCHEMA_VERSION，
+        // 自動檢查 compat_feeds["1"] 並無縫切換至 v1 相容快照清單
+        let cur_schema = crate::config_sync::CURRENT_TAILCAT_SCHEMA_VERSION as u64;
+        let remote_schema = pkg
+            .get("schema_version")
+            .and_then(Value::as_u64)
+            .unwrap_or(1);
+        if remote_schema > cur_schema {
+            let schema_key = cur_schema.to_string();
+            if let Some(compat_url) = pkg
+                .get("compat_feeds")
+                .and_then(|cf| cf.get(&schema_key))
+                .and_then(Value::as_str)
+                .map(|s| s.trim().to_string())
+            {
+                if !compat_url.is_empty() && compat_url != url {
+                    if let Ok(compat_out) = std::process::Command::new("curl.exe")
+                        .args(["-s", "-L", "--max-time", "10", &compat_url])
+                        .output()
+                    {
+                        let compat_body = String::from_utf8_lossy(&compat_out.stdout);
+                        if let Ok(compat_pkg) = serde_json::from_str::<Value>(compat_body.trim()) {
+                            pkg = compat_pkg;
+                        }
+                    }
+                }
+            }
+        }
 
         let mut import_res = self.import_tailcat_package(&pkg);
         if !new_etag.is_empty() {
@@ -2486,6 +3248,658 @@ impl SemanticTuner {
             obj.insert("bytes_transferred".to_string(), json!(body_part.len()));
         }
         import_res
+    }
+
+    /// 產生官方權威之 `tailcat_official_feed.json`（供開發者調校完成後發布至 GitHub `main` 讓全體使用者自動拉取）
+    pub fn export_official_tailcat_feed(&self) -> Value {
+        let mut rules = Vec::new();
+        let cur_ver = crate::config_sync::CURRENT_ENGINE_VERSION;
+
+        // 1. 匯出領域詞彙 (lexicon_domain.tsv 尾部精選與近期新增詞)
+        let domain_path = self.data_dir.join("lexicon_domain.tsv");
+        if let Ok(raw) = fs::read_to_string(&domain_path) {
+            let all_lines: Vec<&str> = raw
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                .collect();
+            let start_idx = all_lines.len().saturating_sub(80);
+            for line in &all_lines[start_idx..] {
+                let cols: Vec<&str> = line.split('\t').collect();
+                if cols.len() >= 2 {
+                    let w = cols[0].trim();
+                    let bpmf = cols[1].trim();
+                    let weight = cols
+                        .get(2)
+                        .and_then(|s| s.trim().parse::<i64>().ok())
+                        .unwrap_or(920);
+                    rules.push(json!({
+                        "type": "COMPOUND_WORD",
+                        "word": w,
+                        "bopomofo": bpmf,
+                        "weight": weight,
+                        "min_engine_version": "0.4.0",
+                        "schema_version": 1
+                    }));
+                }
+            }
+        }
+
+        // 2. 匯出破音字與罕用音黑名單 (rejected_readings.tsv)
+        let rej_path = self.data_dir.join("rejected_readings.tsv");
+        if let Ok(raw) = fs::read_to_string(&rej_path) {
+            for line in raw.lines() {
+                let t = line.trim();
+                if t.is_empty() || t.starts_with('#') {
+                    continue;
+                }
+                let cols: Vec<&str> = t.split('\t').collect();
+                if cols.len() >= 2 {
+                    rules.push(json!({
+                        "type": "REJECTED_READING",
+                        "word": cols[0].trim(),
+                        "reading": cols[1].trim(),
+                        "reason": cols.get(2).map(|s| s.trim()).unwrap_or("Official_Blacklist"),
+                        "min_engine_version": "0.4.0",
+                        "schema_version": 1
+                    }));
+                }
+            }
+        }
+
+        // 3. 匯出二階語法轉移引力 (transitions_user.tsv 近期精鍛規則)
+        if let Ok(raw) = fs::read_to_string(&self.user_tsv) {
+            let all_lines: Vec<&str> = raw
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                .collect();
+            let start_idx = all_lines.len().saturating_sub(150);
+            for t in &all_lines[start_idx..] {
+                let cols: Vec<&str> = t.split('\t').collect();
+                if cols.len() >= 3 {
+                    let prev = cols[0].trim();
+                    let next = cols[1].trim();
+                    let score = cols[2].trim().parse::<f64>().unwrap_or(26.0);
+                    let kind = cols.get(3).map(|s| s.trim()).unwrap_or("collocation");
+                    if prev.is_empty() || next.is_empty() || score.abs() < 1.0 {
+                        continue;
+                    }
+                    rules.push(json!({
+                        "type": "BIGRAM_TRANSITION",
+                        "prev": prev,
+                        "next": next,
+                        "recommended_delta": score.clamp(-35.0, 35.0),
+                        "kind": kind,
+                        "min_engine_version": "0.4.0",
+                        "schema_version": 1
+                    }));
+                }
+            }
+        }
+
+        // 4. 匯出槽位構式模板 (patterns_user.jsonl)
+        if let Ok(raw) = fs::read_to_string(&self.patterns_jsonl) {
+            for line in raw.lines() {
+                let t = line.trim();
+                if t.is_empty() || t.starts_with('#') {
+                    continue;
+                }
+                if let Ok(mut obj) = serde_json::from_str::<Value>(t) {
+                    if let Some(map) = obj.as_object_mut() {
+                        map.insert("type".to_string(), json!("PATTERN_CONSTRUCTION"));
+                        map.entry("min_engine_version".to_string())
+                            .or_insert_with(|| json!("0.4.0"));
+                        map.entry("schema_version".to_string())
+                            .or_insert_with(|| json!(1));
+                    }
+                    rules.push(obj);
+                }
+            }
+        }
+
+        let feed = json!({
+            "protocol": "RUHI_TAILCAT_FEDERATED_SEMANTIC_V1",
+            "schema_version": crate::config_sync::CURRENT_TAILCAT_SCHEMA_VERSION,
+            "latest_version": cur_ver,
+            "min_compat_version": "0.4.0",
+            "updated_at": Local::now().to_rfc3339(),
+            "release_notes": "RuhI v0.4.0：正式確立匿名雙句雲端收集與 Tailcat 雙層熱更新架構，內建 C01~C40 漢語語法構式與破音字黑名單治理。",
+            "installer_url": format!("https://github.com/Yuktesha/ruhi/releases/download/v{}/RuhI_Setup_v{}.exe", cur_ver, cur_ver),
+            "compat_feeds": {
+                "1": crate::config_sync::DEFAULT_TAILCAT_FEED_URL
+            },
+            "zero_pii_verified": true,
+            "rules_count": rules.len(),
+            "rules": rules
+        });
+
+        let pretty = serde_json::to_string_pretty(&feed).unwrap_or_default();
+        let targets = [
+            self.data_dir.join("tailcat_official_feed.json"),
+            self.root
+                .join("scripts")
+                .join("data")
+                .join("tailcat_official_feed.json"),
+            self.root
+                .join("dist")
+                .join("data")
+                .join("tailcat_official_feed.json"),
+        ];
+        for p in &targets {
+            if p.parent().map(|d| d.is_dir()).unwrap_or(false) {
+                let _ = fs::write(p, &pretty);
+            }
+        }
+        feed
+    }
+
+    /// 當 Tailcat 偵測到遠端有新版主程式 (`has_newer_engine_version == true`) 時，
+    /// 依據使用者之 `tailcat_update_mode` 執行「念舊略過」、「彈窗徵詢使用者同意後自動下載安裝」或「預先授權自動升級」
+    pub fn handle_tailcat_version_upgrade(&self, sync_result: &Value, update_mode: &str) -> Value {
+        let has_newer = sync_result
+            .get("has_newer_engine_version")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        if !has_newer {
+            return json!({
+                "upgrade_action": "none",
+                "message": "目前已是最新主程式版本。"
+            });
+        }
+
+        if update_mode == "lexicon_only" {
+            return json!({
+                "upgrade_action": "skipped_nostalgic_mode",
+                "message": "使用者設定為『念舊模式（僅更新相容詞庫與規則）』，已略過主程式版本升級。"
+            });
+        }
+
+        let latest_ver = sync_result
+            .get("latest_version")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let cur_ver = crate::config_sync::CURRENT_ENGINE_VERSION;
+        let notes = sync_result
+            .get("release_notes")
+            .and_then(Value::as_str)
+            .unwrap_or("包含最新深層語法構式與穩定度提升。");
+        let installer_url = sync_result
+            .get("installer_url")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+
+        if installer_url.is_empty() || !installer_url.starts_with("https://") {
+            return json!({
+                "upgrade_action": "invalid_installer_url",
+                "message": "遠端清單未提供有效之 HTTPS 安裝包網址。"
+            });
+        }
+
+        let user_approved = if update_mode == "auto_install" {
+            true
+        } else {
+            #[cfg(target_os = "windows")]
+            {
+                use windows_sys::Win32::UI::WindowsAndMessaging::{
+                    MessageBoxW, IDYES, MB_ICONINFORMATION, MB_SETFOREGROUND, MB_TOPMOST, MB_YESNO,
+                };
+                let title_w: Vec<u16> = "RuhI 如喜輸入法 — 發現新版本更新 (Tailcat)\0"
+                    .encode_utf16()
+                    .collect();
+                let body = format!(
+                    "透過 Tailcat 官方頻道偵測到如喜輸入法新版本！\n\n• 目前版本：v{}\n• 最新版本：v{}\n• 更新內容：{}\n\n（註：相容之最新詞庫與語意規則已為您自動熱同步完成）\n\n是否同意立即自動下載並安裝 v{} 主程式？\n點擊「是 (Yes)」將自動下載並升級；點擊「否 (No)」將保留目前主程式版本。",
+                    cur_ver, latest_ver, notes, latest_ver
+                );
+                let body_w: Vec<u16> = body.encode_utf16().chain(Some(0)).collect();
+                let ans = unsafe {
+                    MessageBoxW(
+                        std::ptr::null_mut(),
+                        body_w.as_ptr(),
+                        title_w.as_ptr(),
+                        MB_YESNO | MB_ICONINFORMATION | MB_TOPMOST | MB_SETFOREGROUND,
+                    )
+                };
+                ans == IDYES
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                false
+            }
+        };
+
+        if !user_approved {
+            return json!({
+                "upgrade_action": "user_declined",
+                "message": "使用者選擇暫不升級主程式，僅保留已熱更新之相容詞庫與規則。"
+            });
+        }
+
+        // 下載安裝包至 %TEMP% 並驗證執行
+        let temp_dir = std::env::temp_dir();
+        let installer_path = temp_dir.join(format!("RuhI_Setup_v{latest_ver}.exe"));
+        let dl_status = std::process::Command::new("curl.exe")
+            .args([
+                "-s",
+                "-L",
+                "--max-time",
+                "120",
+                "-o",
+                &installer_path.to_string_lossy(),
+                installer_url,
+            ])
+            .status();
+
+        if dl_status.map(|s| s.success()).unwrap_or(false) && installer_path.is_file() {
+            if let Ok(bytes) = fs::read(&installer_path) {
+                if bytes.len() > 64 * 1024 && bytes.starts_with(b"MZ") {
+                    let _ = std::process::Command::new(&installer_path)
+                        .args(["/SILENT", "/CLOSEAPPLICATIONS"])
+                        .spawn();
+                    return json!({
+                        "upgrade_action": "launched_installer",
+                        "installer_path": installer_path.to_string_lossy(),
+                        "message": format!("✅ 已經使用者同意下載並啟動 RuhI v{} 自動升級程序！", latest_ver)
+                    });
+                }
+            }
+        }
+
+        json!({
+            "upgrade_action": "download_failed",
+            "message": "下載新版安裝包失敗，請稍後再試或前往 GitHub Releases 下載。"
+        })
+    }
+
+    /// 讀取本機 `pending_revisions.json` 中尚未回傳之手動改字整句對照紀錄
+    pub fn load_local_pending_revisions(&self) -> Vec<Value> {
+        let mut paths = vec![
+            self.data_dir.join("pending_revisions.json"),
+            self.revisions_json.clone(),
+        ];
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            paths.push(PathBuf::from(appdata).join("Ruhi").join("data").join("pending_revisions.json"));
+        }
+        let mut combined = Vec::new();
+        for p in paths {
+            if p.is_file() {
+                if let Ok(raw) = fs::read_to_string(&p) {
+                    if let Ok(Value::Array(arr)) = serde_json::from_str::<Value>(&raw) {
+                        for item in arr {
+                            if !combined.contains(&item) {
+                                combined.push(item);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        combined
+    }
+
+    /// 清空本機 `pending_revisions.json` 與 `user_revision_pairs.txt`
+    pub fn clear_local_pending_revisions(&self) -> usize {
+        let count = self.load_local_pending_revisions().len();
+        let mut paths = vec![
+            self.data_dir.join("pending_revisions.json"),
+            self.revisions_json.clone(),
+        ];
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            paths.push(PathBuf::from(appdata).join("Ruhi").join("data").join("pending_revisions.json"));
+        }
+        for p in paths {
+            if p.is_file() {
+                let _ = fs::write(&p, "[]");
+            }
+            if let Some(parent) = p.parent() {
+                let txt = parent.join("user_revision_pairs.txt");
+                if txt.is_file() {
+                    let _ = fs::write(&txt, "");
+                }
+            }
+        }
+        count
+    }
+
+    /// 將本機累積之手動改字整句對照紀錄經 Zero-PII 隱私過濾後，以 HTTPS POST 回傳至官方 Google 雲端硬碟試算表 Webhook
+    pub fn upload_revisions_to_cloud_sheet(&self, webhook_url: &str, zero_pii_enabled: bool) -> Value {
+        let url = if webhook_url.trim().is_empty() {
+            crate::config_sync::DEFAULT_CLOUD_SHEET_WEBHOOK_URL
+        } else {
+            webhook_url.trim()
+        };
+        if !url.starts_with("https://") && !url.starts_with("http://") {
+            return json!({
+                "status": "error",
+                "message": "雲端資料表 Webhook 網址格式無效（須以 https:// 開頭）"
+            });
+        }
+
+        let raw_revs = self.load_local_pending_revisions();
+        if raw_revs.is_empty() {
+            return json!({
+                "status": "empty",
+                "uploaded_count": 0,
+                "filtered_pii_count": 0,
+                "message": "目前本機無待回傳之改字紀錄。"
+            });
+        }
+
+        let mut records_to_send = Vec::new();
+        let mut seen_pairs = HashSet::new();
+        let mut filtered_pii_count = 0usize;
+
+        for item in &raw_revs {
+            let err_s = item
+                .get("error_sentence")
+                .and_then(Value::as_str)
+                .filter(|s| !s.trim().is_empty())
+                .or_else(|| item.get("rejected").and_then(Value::as_str))
+                .unwrap_or("")
+                .trim();
+            let cor_s = item
+                .get("correct_sentence")
+                .and_then(Value::as_str)
+                .filter(|s| !s.trim().is_empty())
+                .or_else(|| item.get("accepted").and_then(Value::as_str))
+                .unwrap_or("")
+                .trim();
+            let rej = item.get("rejected").and_then(Value::as_str).unwrap_or("").trim();
+            let acc = item.get("accepted").and_then(Value::as_str).unwrap_or("").trim();
+            let bpmf = item.get("bopomofo").and_then(Value::as_str).unwrap_or("").trim();
+            let ts = item.get("timestamp").and_then(Value::as_u64).unwrap_or(0);
+
+            if err_s.is_empty() || cor_s.is_empty() || err_s == cor_s {
+                continue;
+            }
+            if zero_pii_enabled {
+                let (safe, _) = ZeroPiiPrivacyFilter::is_safe_sentence_pair(err_s, cor_s);
+                if !safe {
+                    filtered_pii_count += 1;
+                    continue;
+                }
+            }
+            if !seen_pairs.insert((err_s.to_string(), cor_s.to_string())) {
+                continue;
+            }
+            records_to_send.push(json!({
+                "timestamp": ts,
+                "error_sentence": err_s,
+                "correct_sentence": cor_s,
+                "rejected": rej,
+                "accepted": acc,
+                "bopomofo": bpmf,
+                "keyboard_mode": "hsu",
+                "app_version": "0.4.0",
+            }));
+        }
+
+        if records_to_send.is_empty() {
+            return json!({
+                "status": "filtered_all",
+                "uploaded_count": 0,
+                "filtered_pii_count": filtered_pii_count,
+                "message": format!("本機共 {} 筆紀錄，經 Zero-PII 隱私閘門過濾後無可回傳之一般語句。", raw_revs.len())
+            });
+        }
+
+        let payload = json!({
+            "protocol": "RUHI_CLOUD_REVISION_SHEET_V1",
+            "app_version": "0.3.0",
+            "keyboard_mode": "hsu",
+            "revisions": records_to_send,
+            "records": records_to_send,
+        });
+
+        let temp_payload_path = self.data_dir.join("cloud_upload_payload.tmp.json");
+        let Ok(payload_str) = serde_json::to_string(&payload) else {
+            return json!({
+                "status": "error",
+                "message": "序列化回傳資料失敗"
+            });
+        };
+        let _ = fs::write(&temp_payload_path, &payload_str);
+
+        let data_arg = format!("@{}", temp_payload_path.to_string_lossy());
+        let output = std::process::Command::new("curl.exe")
+            .args([
+                "-s",
+                "-L",
+                "--max-time",
+                "15",
+                "-H",
+                "Content-Type: application/json",
+                "--data-binary",
+                &data_arg,
+                url,
+            ])
+            .output();
+        let _ = fs::remove_file(&temp_payload_path);
+
+        let Ok(out) = output else {
+            return json!({
+                "status": "error",
+                "message": "無法呼叫系統 curl.exe 傳送資料，請確認網路連線。"
+            });
+        };
+
+        let resp_text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if out.status.success() && (resp_text.contains("\"ok\"") || resp_text.contains("status")) {
+            let uploaded_cnt = payload["records"].as_array().map(|a| a.len()).unwrap_or(0);
+            self.clear_local_pending_revisions();
+            let now_ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            json!({
+                "status": "ok",
+                "uploaded_count": uploaded_cnt,
+                "filtered_pii_count": filtered_pii_count,
+                "timestamp": now_ts,
+                "message": format!("✅ 已成功將 {} 組改字雙句回傳至雲端硬碟資料表（過濾 {} 筆敏感字串），並已清空本機暫存！", uploaded_cnt, filtered_pii_count)
+            })
+        } else {
+            json!({
+                "status": "error",
+                "uploaded_count": 0,
+                "filtered_pii_count": filtered_pii_count,
+                "message": format!("雲端回傳未完成（伺服器回應：{}），本機紀錄已安全保留，將於下次週期重試。", if resp_text.is_empty() { "連線逾時或無回應" } else { &resp_text })
+            })
+        }
+    }
+
+    /// 依據使用者設定之週期 (`weekly` / `daily` / `manual` / `disabled`) 檢查並執行背景回傳與 Tailcat 自動同步
+    pub fn maybe_run_scheduled_upload(&mut self, settings: &mut crate::config_sync::RuhiSettings) -> Option<Value> {
+        let now_ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let interval_secs = match settings.ai_and_privacy.upload_schedule.as_str() {
+            "daily" => 86_400u64,
+            "weekly" => 604_800u64,
+            _ => 86_400u64,
+        };
+
+        // 1. 檢查並執行 Tailcat 官方詞庫熱同步與版本更新檢查
+        if settings.ai_and_privacy.tailcat_auto_sync
+            && settings.ai_and_privacy.tailcat_update_mode != "manual"
+            && now_ts.saturating_sub(settings.ai_and_privacy.last_tailcat_sync_timestamp) >= interval_secs
+        {
+            let feed_url = settings.ai_and_privacy.tailcat_feed_url.clone();
+            let update_mode = settings.ai_and_privacy.tailcat_update_mode.clone();
+            let sync_res = self.pull_community_rules_with_etag(&feed_url, false);
+            if sync_res.get("status").and_then(Value::as_str) == Some("ok")
+                || sync_res.get("status").and_then(Value::as_str) == Some("not_modified")
+            {
+                settings.ai_and_privacy.last_tailcat_sync_timestamp = now_ts;
+                let _ = crate::config_sync::save_settings(&self.root, settings);
+                let _ = self.handle_tailcat_version_upgrade(&sync_res, &update_mode);
+            }
+        }
+
+        // 2. 檢查並執行匿名改字雙句雲端回傳
+        if !settings.ai_and_privacy.telemetry_consent {
+            return None;
+        }
+        let upload_interval = match settings.ai_and_privacy.upload_schedule.as_str() {
+            "daily" => 86_400u64,
+            "weekly" => 604_800u64,
+            _ => return None,
+        };
+        if now_ts.saturating_sub(settings.ai_and_privacy.last_upload_timestamp) < upload_interval {
+            return None;
+        }
+        if self.load_local_pending_revisions().is_empty() {
+            return None;
+        }
+        let res = self.upload_revisions_to_cloud_sheet(
+            &settings.ai_and_privacy.cloud_sheet_webhook_url,
+            settings.ai_and_privacy.zero_pii_gateway,
+        );
+        if res.get("status").and_then(Value::as_str) == Some("ok") {
+            settings.ai_and_privacy.last_upload_timestamp = now_ts;
+            let _ = crate::config_sync::save_settings(&self.root, settings);
+        }
+        Some(res)
+    }
+
+    /// 開發者自動化工具：從官方 Google 雲端試算表一鍵拉取所有狀態為「待調校」之雙句，
+    /// 並自動儲存至 `data/cloud_pending_pairs.txt`，供語意調校工作室或 AI 顧問直接批次處理（免人工複製貼上）
+    pub fn fetch_pending_revisions_from_cloud_sheet(&self, webhook_url: &str) -> Value {
+        let url = if webhook_url.trim().is_empty() {
+            crate::config_sync::DEFAULT_CLOUD_SHEET_WEBHOOK_URL
+        } else {
+            webhook_url.trim()
+        };
+        let fetch_url = if url.contains('?') {
+            format!("{url}&action=fetch_pending")
+        } else {
+            format!("{url}?action=fetch_pending")
+        };
+
+        let output = std::process::Command::new("curl.exe")
+            .args(["-s", "-L", "--max-time", "15", &fetch_url])
+            .output();
+
+        let Ok(out) = output else {
+            return json!({
+                "status": "error",
+                "message": "無法呼叫系統 curl.exe 連線至雲端試算表。"
+            });
+        };
+
+        let resp_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let Ok(val) = serde_json::from_str::<Value>(&resp_str) else {
+            return json!({
+                "status": "error",
+                "message": format!("雲端回應非合法 JSON：{}", resp_str)
+            });
+        };
+
+        // 若雲端 Apps Script 尚為舊版 Write-Only，友善提示更新腳本
+        if val.get("service").and_then(Value::as_str).unwrap_or("").contains("Write-Only") {
+            return json!({
+                "status": "needs_script_update",
+                "message": "雲端 Apps Script 目前為 Write-Only 模式，請將 tools/google_sheets_webhook.gs 的升級版程式碼貼入 Apps Script 並更新部署，即可啟用雙向自動拉取與『已調校』狀態回寫！"
+            });
+        }
+
+        let items = val
+            .get("pending")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+
+        if items.is_empty() {
+            return json!({
+                "status": "empty",
+                "count": 0,
+                "pending": [],
+                "message": "目前雲端試算表沒有任何『待調校』的新雙句。"
+            });
+        }
+
+        // 自動寫入 data/cloud_pending_pairs.txt 並登錄至近期檔案清單
+        let txt_path = self.data_dir.join("cloud_pending_pairs.txt");
+        let mut lines = Vec::new();
+        for item in &items {
+            let e = item.get("error_sentence").and_then(Value::as_str).unwrap_or("").trim();
+            let c = item.get("correct_sentence").and_then(Value::as_str).unwrap_or("").trim();
+            if !e.is_empty() && !c.is_empty() && e != c {
+                lines.push(format!("{e}\n{c}\n"));
+            }
+        }
+        let _ = fs::write(&txt_path, lines.join("\n"));
+        let _ = self.update_recent_txt_history(
+            "add",
+            "cloud_pending_pairs.txt",
+            &txt_path.to_string_lossy(),
+            lines.len(),
+        );
+
+        json!({
+            "status": "ok",
+            "count": items.len(),
+            "saved_txt_path": txt_path.to_string_lossy(),
+            "pending": items,
+            "message": format!("✅ 已從雲端試算表自動拉取 {} 組『待調校』雙句，並已匯入 data/cloud_pending_pairs.txt！", items.len())
+        })
+    }
+
+    /// 開發者自動化工具：將雲端試算表中已完成語意調校之列號（`row_numbers`）自動標記為「✅ 已調校」
+    pub fn mark_cloud_sheet_rows_tuned(&self, webhook_url: &str, row_numbers: &[u64]) -> Value {
+        if row_numbers.is_empty() {
+            return json!({
+                "status": "empty",
+                "message": "未指定任何列號。"
+            });
+        }
+        let url = if webhook_url.trim().is_empty() {
+            crate::config_sync::DEFAULT_CLOUD_SHEET_WEBHOOK_URL
+        } else {
+            webhook_url.trim()
+        };
+
+        let payload = json!({
+            "action": "mark_tuned",
+            "rows": row_numbers,
+            "tuned_status": format!("✅ 已調校 ({})", Local::now().format("%Y-%m-%d %H:%M"))
+        });
+
+        let temp_path = self.data_dir.join("cloud_mark_tuned.tmp.json");
+        let _ = fs::write(&temp_path, serde_json::to_string(&payload).unwrap_or_default());
+        let data_arg = format!("@{}", temp_path.to_string_lossy());
+
+        let output = std::process::Command::new("curl.exe")
+            .args([
+                "-s",
+                "-L",
+                "--max-time",
+                "15",
+                "-H",
+                "Content-Type: application/json",
+                "--data-binary",
+                &data_arg,
+                url,
+            ])
+            .output();
+        let _ = fs::remove_file(&temp_path);
+
+        let Ok(out) = output else {
+            return json!({
+                "status": "error",
+                "message": "無法連線回寫雲端試算表狀態。"
+            });
+        };
+
+        let resp_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        serde_json::from_str::<Value>(&resp_str).unwrap_or_else(|_| {
+            json!({
+                "status": "ok",
+                "raw_response": resp_str
+            })
+        })
     }
 
     /// 解析本機 `語意分析*.txt` 批次語料檔路徑
@@ -2571,57 +3985,123 @@ impl SemanticTuner {
         pairs
     }
 
-    /// 掃描桌面與專案目錄近期之 `語意分析*.txt` 檔案
+    /// 讀取使用者主動匯入之近期 `.txt` 瀏覽紀錄（持久化於 `data/recent_txt_files.json`）
+    /// 嚴禁主動掃描桌面強行塞入使用者未曾開啟或已手動清除之 `語意分析*.txt` 檔案！
     pub fn scan_recent_txt_files(&self) -> Vec<Value> {
-        let mut dirs_to_check = vec![self.root.clone(), PathBuf::from(r"C:\Users\Yuktesha\Desktop")];
-        if let Some(home) = dirs::home_dir() {
-            dirs_to_check.push(home.join("Desktop"));
-        }
+        let history_path = self.data_dir.join("recent_txt_files.json");
+        let Ok(raw) = fs::read_to_string(&history_path) else {
+            return Vec::new();
+        };
+        let Ok(Value::Array(items)) = serde_json::from_str::<Value>(&raw) else {
+            return Vec::new();
+        };
 
-        let mut candidates: Vec<(u64, PathBuf)> = Vec::new();
-        let mut seen = HashSet::new();
-
-        for d in dirs_to_check {
-            let Ok(entries) = fs::read_dir(&d) else {
-                continue;
-            };
-            for entry in entries.flatten() {
-                let p = entry.path();
-                if !p.is_file() {
-                    continue;
-                }
-                let Some(name) = p.file_name().and_then(|s| s.to_str()) else {
-                    continue;
-                };
-                if name.starts_with("語意分析") && name.ends_with(".txt") {
-                    let canon = p.canonicalize().unwrap_or_else(|_| p.clone());
-                    if seen.insert(canon) {
-                        let mtime = p
-                            .metadata()
-                            .and_then(|m| m.modified())
-                            .ok()
-                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                            .map(|d| d.as_secs())
-                            .unwrap_or(0);
-                        candidates.push((mtime, p));
-                    }
-                }
-            }
-        }
-
-        candidates.sort_by(|a, b| b.0.cmp(&a.0));
         let mut out = Vec::new();
-        for (_, p) in candidates {
-            let pairs = self.load_pairs_from_file(&p);
-            if !pairs.is_empty() {
+        let mut seen = HashSet::new();
+        for item in items {
+            let file_name = item
+                .get("file_name")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            let file_path = item
+                .get("file_path")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if file_name.is_empty() || !seen.insert(file_name.clone()) {
+                continue;
+            }
+            if let Some(p) = self.resolve_local_txt_file(&file_path, &file_name) {
+                let pairs = self.load_pairs_from_file(&p);
                 out.push(json!({
                     "file_path": p.to_string_lossy(),
-                    "file_name": p.file_name().and_then(|s| s.to_str()).unwrap_or("語意分析.txt"),
+                    "file_name": file_name,
                     "count": pairs.len()
+                }));
+            } else {
+                let fallback_count = item.get("count").and_then(Value::as_u64).unwrap_or(0);
+                out.push(json!({
+                    "file_path": file_path,
+                    "file_name": file_name,
+                    "count": fallback_count
                 }));
             }
         }
         out
+    }
+
+    /// 新增、移除或清空近期 `.txt` 瀏覽紀錄（持久化至 `data/recent_txt_files.json`）
+    pub fn update_recent_txt_history(
+        &self,
+        action: &str,
+        file_name: &str,
+        file_path: &str,
+        count: usize,
+    ) -> Vec<Value> {
+        let history_path = self.data_dir.join("recent_txt_files.json");
+        let mut current: Vec<Value> = fs::read_to_string(&history_path)
+            .ok()
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+            .and_then(|v| v.as_array().cloned())
+            .unwrap_or_default();
+
+        match action {
+            "clear" | "clear_all" => {
+                current.clear();
+            }
+            "remove" | "delete" => {
+                let target = file_name.trim();
+                current.retain(|x| {
+                    x.get("file_name")
+                        .and_then(Value::as_str)
+                        .map(|n| n.trim() != target)
+                        .unwrap_or(false)
+                });
+            }
+            "add" | "upsert" => {
+                let target = file_name.trim();
+                if !target.is_empty() {
+                    let prev_path = current
+                        .iter()
+                        .find(|x| x.get("file_name").and_then(Value::as_str) == Some(target))
+                        .and_then(|x| x.get("file_path").and_then(Value::as_str))
+                        .unwrap_or("")
+                        .to_string();
+                    current.retain(|x| {
+                        x.get("file_name")
+                            .and_then(Value::as_str)
+                            .map(|n| n.trim() != target)
+                            .unwrap_or(false)
+                    });
+                    let resolved_path = if !file_path.trim().is_empty() {
+                        file_path.trim().to_string()
+                    } else {
+                        prev_path
+                    };
+                    current.insert(
+                        0,
+                        json!({
+                            "file_name": target,
+                            "file_path": resolved_path,
+                            "count": count
+                        }),
+                    );
+                    current.truncate(8);
+                }
+            }
+            _ => {}
+        }
+
+        if let Some(parent) = history_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        if let Ok(serialized) = serde_json::to_string_pretty(&current) {
+            let _ = fs::write(&history_path, serialized);
+        }
+        self.scan_recent_txt_files()
     }
 
     /// 自動將同構之單點二元轉移規則 (`prev -> next`) 因式分解為二維陣列對應 (`A_array × B_array`)
@@ -2674,12 +4154,48 @@ impl SemanticTuner {
             }
         }
 
+        // 輔助判斷：單一槽位內之詞元是否具備語法同質性（嚴禁將單字封閉虛詞如『就』與三字實詞『輸入法』或定語『一般』與動補『交到』混入同一陣列槽位）
+        let is_slot_homogeneous = |slot: &[String]| -> bool {
+            if slot.len() <= 1 {
+                return true;
+            }
+            let closed_count = slot
+                .iter()
+                .filter(|w| w.chars().count() == 1 && CLOSED_CLASS_CHARS.contains(w.as_str()))
+                .count();
+            // 嚴禁將封閉類單字虛詞與實詞混裝於同一槽位
+            if closed_count > 0 && closed_count < slot.len() {
+                return false;
+            }
+            if closed_count == slot.len() {
+                return true;
+            }
+            // 針對多字實詞槽位：要求字長一致，且具備共同字首/字尾（如『調校/調整』、『忘光/忘光光』）或同屬已知輸入法專名／設備後綴族
+            let ime_set = ["大易", "倉頡", "行列", "許氏", "嘸蝦米", "無蝦米", "注音", "速成", "拼音", "大千", "倚天", "羅馬"];
+            let ime_head_set = ["輸入法", "鍵盤", "字根", "碼表", "拆碼", "規則"];
+            if slot.iter().all(|w| ime_set.contains(&w.as_str()))
+                || slot.iter().all(|w| ime_head_set.contains(&w.as_str()))
+            {
+                return true;
+            }
+            let first_len = slot[0].chars().count();
+            let same_len = slot.iter().all(|w| w.chars().count() == first_len);
+            let first_ch = slot[0].chars().next();
+            let last_ch = slot[0].chars().last();
+            let share_affix = (first_ch.is_some() && slot.iter().all(|w| w.chars().next() == first_ch))
+                || (last_ch.is_some() && slot.iter().all(|w| w.chars().last() == last_ch));
+            same_len && share_affix
+        };
+
         let mut out_arrays = Vec::new();
         let mut sorted_groups: Vec<(Vec<String>, Vec<String>)> =
             prev_set_to_nexts.into_iter().collect();
         sorted_groups.sort_by(|a, b| (b.0.len() * b.1.len()).cmp(&(a.0.len() * a.1.len())));
 
         for (p_slot, mut n_slot) in sorted_groups {
+            if !is_slot_homogeneous(&p_slot) || !is_slot_homogeneous(&n_slot) {
+                continue;
+            }
             n_slot.sort();
             for p in &p_slot {
                 for n in &n_slot {
@@ -2719,7 +4235,7 @@ impl SemanticTuner {
                     .filter(|n| !covered_edges.contains(&(pk.clone(), (*n).clone())))
                     .cloned()
                     .collect();
-                if uncovered.len() >= 2 {
+                if uncovered.len() >= 2 && is_slot_homogeneous(&uncovered) {
                     let p_slot = vec![pk.clone()];
                     let pid = format!(
                         "auto_array_{}_{}",
@@ -3260,6 +4776,173 @@ mod tests {
         assert!(delivered.len() >= 3, "Expected 3 handover files auto-delivered to disk");
         assert!(tuner.root.join("docs").join("AI_SEMANTIC_HANDOVER.md").is_file());
         assert!(tuner.root.join(".agent").join("skills").join("ruhi-semantic-tuning").join("SKILL.md").is_file());
+    }
+
+    #[test]
+    fn test_milestone_four_homophone_sentence_pair_tuning_261021() {
+        let tuner = SemanticTuner::new(None);
+        let err = "我先確認一下，這樣一班使用者卻定可以貼入錯誤與刊物校對雙具，就達成正確語意調校的目的嗎？";
+        let cor = "我先確認一下，這樣一般使用者確定可以貼入錯誤與勘誤校對雙句，就達成正確語意調校的目的嗎？";
+
+        let diffs = tuner.align_sentence_pair(err, cor, None, None);
+        assert_eq!(diffs.len(), 4, "Expected 4 diff islands, got {:?}", diffs);
+
+        let mut all_rules = Vec::new();
+        let mut all_pattern_ids = Vec::new();
+        for d in &diffs {
+            all_rules.extend(tuner.synthesize_rules(d));
+            if let Some(arr) = d.get("hierarchical_constructions").and_then(Value::as_array) {
+                for c in arr {
+                    if let Some(pid) = c.get("pattern_id").and_then(Value::as_str) {
+                        all_pattern_ids.push(pid.to_string());
+                    }
+                }
+            }
+        }
+
+        // 驗證絕不生成『與 ➔ 勘誤』或『這樣 ➔ 一般』這類會污染反例的單邊透明虛詞規則
+        let has_yu_kanwu = all_rules.iter().any(|r| {
+            r.get("prev").and_then(Value::as_str) == Some("與")
+                && r.get("next").and_then(Value::as_str) == Some("勘誤")
+        });
+        let has_zheyang_yiban = all_rules.iter().any(|r| {
+            r.get("prev").and_then(Value::as_str) == Some("這樣")
+                && r.get("next").and_then(Value::as_str) == Some("一般")
+        });
+        assert!(!has_yu_kanwu, "Must NOT emit poisoned rule 與 ➔ 勘誤");
+        assert!(!has_zheyang_yiban, "Must NOT emit poisoned rule 這樣 ➔ 一般");
+
+        // 驗證四組語意槽位構式皆已自動提煉
+        assert!(all_pattern_ids.contains(&"general_attributive_yiban_vs_classifier".to_string()));
+        assert!(all_pattern_ids.contains(&"cognitive_verb_queding_modal_complement".to_string()));
+        assert!(all_pattern_ids.contains(&"error_and_errata_proofreading_collocation".to_string()));
+        assert!(all_pattern_ids.contains(&"textual_action_shuangju_sentence_pair".to_string()));
+
+        // 驗證內建真實 RuhiEngine 之 47 組黃金基準測試 100% 通過
+        let bench = tuner.verify_golden_benchmark();
+        assert_eq!(bench["total"], 47);
+        assert_eq!(
+            bench["passed"], 47,
+            "Expected 47/47 golden benchmark pass with real RuhiEngine, details: {:?}",
+            bench["details"]
+        );
+    }
+
+    #[test]
+    fn test_six_sentence_pairs_batch_tuning_261021() {
+        let tuner = SemanticTuner::new(None);
+        let pairs = [
+            (
+                "然後，大憶舊幾乎忘逛逛了呀！",
+                "然後，大易就幾乎忘光光了呀！",
+            ),
+            (
+                "我先確認一下，這樣可以交道使用者手上，隊嗎？",
+                "我先確認一下，這樣可以交到使用者手上，對嗎？",
+            ),
+            (
+                "我先確認一下，這樣一班使用者卻定可以貼入錯誤與刊物校對雙具，就達成正確語意調校的目的嗎？",
+                "我先確認一下，這樣一般使用者確定可以貼入錯誤與勘誤校對雙句，就達成正確語意調校的目的嗎？",
+            ),
+            ("但這樣真的有庳要嗎？", "但這樣真的有必要嗎？"),
+            ("在渡靈魂考問", "再度靈魂拷問"),
+            (
+                "741e6836-1bef-4d3a-a70f-218b9d857259 在使用許氏鍵盤，在時做的「語意條整工作室」謹獻漢語，",
+                "741e6836-1bef-4d3a-a70f-218b9d857259 在使用許氏鍵盤，在實做的「語意調整工作室」僅限漢語，",
+            ),
+        ];
+
+        let mut all_rules = Vec::new();
+        let mut all_pattern_ids = Vec::new();
+        let mut all_diffs = Vec::new();
+        for (err, cor) in pairs {
+            let diffs = tuner.align_sentence_pair(err, cor, None, None);
+            for d in &diffs {
+                all_rules.extend(tuner.synthesize_rules(d));
+                if let Some(arr) = d.get("hierarchical_constructions").and_then(Value::as_array) {
+                    for c in arr {
+                        if let Some(pid) = c.get("pattern_id").and_then(Value::as_str) {
+                            all_pattern_ids.push(pid.to_string());
+                        }
+                        if let Some(brs) = c.get("backbone_rules").and_then(Value::as_array) {
+                            all_rules.extend(brs.iter().cloned());
+                        }
+                    }
+                }
+            }
+            all_diffs.extend(diffs);
+        }
+
+        // 1. 驗證絕不把語氣詞『嗎』當成介詞『一個對...』的受事抽象名詞，亦不憑空捏造『一個 ➔ 對』或『多年 ➔ 手寫』
+        assert!(
+            all_pattern_ids.contains(&"sentence_final_tag_question_dui_ma".to_string()),
+            "Must synthesize sentence_final_tag_question_dui_ma for ，對嗎？"
+        );
+        assert!(
+            !all_pattern_ids.contains(&"determiner_prep_dui_nominal_modifier".to_string()),
+            "Must NOT misclassify sentence-final ，對嗎？ as determiner_prep_dui_nominal_modifier"
+        );
+        let analogical = tuner.scan_analogous_cases_across_lexicon(&all_diffs);
+        let ac_ids: Vec<String> = analogical
+            .get("analogous_constructions")
+            .and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|c| c.get("pattern_id").and_then(Value::as_str).map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+        assert!(
+            !ac_ids.contains(&"writing_modality_document_collocation".to_string()),
+            "Must NOT hallucinate writing_modality_document_collocation (多年 ➔ 手寫) when 手寫/書信 is absent"
+        );
+
+        // 2. 驗證自動因式分解絕不將單字虛詞『就』與三字實詞『輸入法』或定語『一般』與動補『交到』混入同一陣列槽位
+        let factored = tuner.factorize_rules_to_arrays(&all_rules);
+        for f in &factored {
+            let formula = f.get("formula").and_then(Value::as_str).unwrap_or("");
+            assert!(
+                !formula.contains("輸入法, 就") && !formula.contains("就, 輸入法"),
+                "Must NOT mix 1-char adverb 就 with 3-char noun 輸入法: {formula}"
+            );
+            assert!(
+                !formula.contains("一般, 交到") && !formula.contains("交到, 一般"),
+                "Must NOT mix attributive 一般 with verb-complement 交到: {formula}"
+            );
+        }
+
+        // 3. 驗證 6 組雙句之專用構式全數合成到位
+        for expected_pid in [
+            "ime_subject_focus_adverb_jiu",
+            "depletion_resultative_guang_complement",
+            "dative_transfer_jiaodao_recipient_hand",
+            "sentence_final_tag_question_dui_ma",
+            "modal_existential_you_biyao",
+            "temporal_zaidu_soul_interrogation",
+            "progressive_shizuo_attributive_de",
+            "semantic_tuning_studio_domain_3d_array",
+            "restrictive_jinxian_domain_scope",
+        ] {
+            assert!(
+                all_pattern_ids.contains(&expected_pid.to_string()),
+                "Missing expected construction pattern_id: {expected_pid}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_recent_txt_history_no_zombie_resurrection_261021() {
+        let tuner = SemanticTuner::new(None);
+        // 清空後重新讀取，驗證絕不掃描桌面自動塞回『語意分析*.txt』
+        let cleared = tuner.update_recent_txt_history("clear", "", "", 0);
+        assert!(cleared.is_empty(), "Cleared recent txt history must remain empty on reload");
+        assert!(tuner.scan_recent_txt_files().is_empty(), "scan_recent_txt_files must not resurrect desktop files");
+
+        // 新增一筆後再刪除，驗證刪除後持久化生效
+        let after_add = tuner.update_recent_txt_history("add", "測試對照句.txt", "", 3);
+        assert_eq!(after_add.len(), 1);
+        let after_remove = tuner.update_recent_txt_history("remove", "測試對照句.txt", "", 0);
+        assert!(after_remove.is_empty(), "Removed file must not come back on reload");
     }
 }
 

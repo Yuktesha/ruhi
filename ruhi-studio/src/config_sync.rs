@@ -15,6 +15,10 @@ pub struct AppearanceSettings {
     pub input_display_mode: String,
     pub orientation: String,
     pub font_size: i32,
+    #[serde(default = "default_candidate_font_size")]
+    pub candidate_font_size: i32,
+    #[serde(default = "default_desk_opacity")]
+    pub desk_opacity: i32,
     pub max_composition_chars: i32,
     pub theme: String,
     pub show_bopomofo: bool,
@@ -24,12 +28,22 @@ pub struct AppearanceSettings {
     pub sidebar_width: i32,
 }
 
+fn default_candidate_font_size() -> i32 {
+    24
+}
+
+fn default_desk_opacity() -> i32 {
+    95
+}
+
 impl Default for AppearanceSettings {
     fn default() -> Self {
         Self {
             input_display_mode: "smart_auto".to_string(),
             orientation: "horizontal".to_string(),
             font_size: 32,
+            candidate_font_size: 24,
+            desk_opacity: 95,
             max_composition_chars: 30,
             theme: "system".to_string(),
             show_bopomofo: true,
@@ -57,6 +71,12 @@ pub struct KeyboardSettings {
     pub q_cycle_max: i32,
     #[serde(default)]
     pub enable_array30_coach: bool,
+    #[serde(default = "default_last_keyboard_mode")]
+    pub last_keyboard_mode: String,
+}
+
+fn default_last_keyboard_mode() -> String {
+    "english".to_string()
 }
 
 impl Default for KeyboardSettings {
@@ -74,6 +94,7 @@ impl Default for KeyboardSettings {
             punctuation_commit_mode: "A".to_string(),
             q_cycle_max: 3,
             enable_array30_coach: false,
+            last_keyboard_mode: "english".to_string(),
         }
     }
 }
@@ -98,12 +119,74 @@ impl Default for GrammarSettings {
     }
 }
 
-/// 隱私安全閘門與 AI 模型設定 (`ai_and_privacy`)
+/// 官方預設之 Google 雲端硬碟試算表 Apps Script Webhook 網址
+pub const DEFAULT_CLOUD_SHEET_WEBHOOK_URL: &str =
+    "https://script.google.com/macros/s/AKfycbx6nCVXW4yP0VDRLrAbYCf5fqRkxCcqSACdJuKrC-Vpc4S52oL1owLlGJeWX11Q7PU_/exec";
+
+/// 官方預設之 Tailcat 語意規則、詞庫與核心版本發布清單網址 (GitHub Raw + ETag CDN)
+pub const DEFAULT_TAILCAT_FEED_URL: &str =
+    "https://raw.githubusercontent.com/Yuktesha/ruhi/main/ruhi_lexicon/data/tailcat_official_feed.json";
+
+/// 目前執行中之如喜核心引擎版本號
+pub const CURRENT_ENGINE_VERSION: &str = "0.4.0";
+
+/// 目前引擎支援之最高 Tailcat Schema 版本號
+pub const CURRENT_TAILCAT_SCHEMA_VERSION: u32 = 1;
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_upload_schedule() -> String {
+    "weekly".to_string()
+}
+
+fn default_cloud_sheet_webhook_url() -> String {
+    DEFAULT_CLOUD_SHEET_WEBHOOK_URL.to_string()
+}
+
+fn default_tailcat_update_mode() -> String {
+    "notify_confirm".to_string()
+}
+
+fn default_tailcat_feed_url() -> String {
+    DEFAULT_TAILCAT_FEED_URL.to_string()
+}
+
+/// 隱私安全閘門、匿名語料回傳與 Tailcat 雲端更新設定 (`ai_and_privacy`)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AiPrivacySettings {
     pub zero_pii_gateway: bool,
     pub ollama_model: String,
     pub enable_cloud_colab: bool,
+    /// 使用者是否同意匿名記錄手動改字整句對照並回傳至官方雲端硬碟資料表（安裝時徵詢，隨時可在設定修改）
+    #[serde(default = "default_true")]
+    pub telemetry_consent: bool,
+    /// 回傳週期設定：`"weekly"` (每週自動回傳) | `"daily"` (每日自動回傳) | `"manual"` (僅手動回傳) | `"disabled"` (關閉)
+    #[serde(default = "default_upload_schedule")]
+    pub upload_schedule: String,
+    /// Google Apps Script Web App (`doPost`) 網址（內建預設官方網址，進階使用者亦可自訂）
+    #[serde(default = "default_cloud_sheet_webhook_url")]
+    pub cloud_sheet_webhook_url: String,
+    /// 上次成功回傳之 Unix 時間戳（秒）
+    #[serde(default)]
+    pub last_upload_timestamp: u64,
+    /// 是否啟用 Tailcat 官方語意規則與詞庫背景自動熱同步 (`ETag` / `HTTP 304`)
+    #[serde(default = "default_true")]
+    pub tailcat_auto_sync: bool,
+    /// Tailcat 更新與版本升級模式：
+    /// - `"notify_confirm"` (預設推薦)：詞庫與語意規則自動熱同步；發現新主程式版本時彈出通知，經點擊同意後自動下載安裝
+    /// - `"auto_install"`：預先授權同意，詞庫熱更新與新版主程式均自動下載安裝
+    /// - `"lexicon_only"` (念舊模式)：僅自動更新向下相容之詞庫與語意規則，永不升級主程式（不支援的新格式自動優雅略過）
+    /// - `"manual"`：僅手動點擊檢查更新
+    #[serde(default = "default_tailcat_update_mode")]
+    pub tailcat_update_mode: String,
+    /// 官方 Tailcat 清單網址
+    #[serde(default = "default_tailcat_feed_url")]
+    pub tailcat_feed_url: String,
+    /// 上次執行 Tailcat 同步檢查之 Unix 時間戳（秒）
+    #[serde(default)]
+    pub last_tailcat_sync_timestamp: u64,
 }
 
 impl Default for AiPrivacySettings {
@@ -112,6 +195,14 @@ impl Default for AiPrivacySettings {
             zero_pii_gateway: true,
             ollama_model: "gemma4:latest".to_string(),
             enable_cloud_colab: true,
+            telemetry_consent: true,
+            upload_schedule: default_upload_schedule(),
+            cloud_sheet_webhook_url: default_cloud_sheet_webhook_url(),
+            last_upload_timestamp: 0,
+            tailcat_auto_sync: true,
+            tailcat_update_mode: default_tailcat_update_mode(),
+            tailcat_feed_url: default_tailcat_feed_url(),
+            last_tailcat_sync_timestamp: 0,
         }
     }
 }
@@ -202,14 +293,12 @@ pub fn load_settings(root: &Path) -> RuhiSettings {
         }
     }
 
-    // 若扁平 config.json 有更新的組態（例如由舊版工具或 TSF 修改），亦做溫和對齊
+    // 若扁平 config.json 有更新的組態（例如由輸入座 UI 直接調校或 TSF 修改），同步對齊至 Studio
     let flat_path = root.join("config.json");
     if flat_path.is_file() {
         if let Ok(raw) = fs::read_to_string(&flat_path) {
             if let Ok(Value::Object(map)) = serde_json::from_str::<Value>(&raw) {
-                if !settings_candidates.iter().any(|p| p.is_file()) {
-                    sync_from_flat_map(&mut settings, &map);
-                }
+                sync_from_flat_map(&mut settings, &map);
             }
         }
     }
@@ -227,10 +316,16 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
             settings.appearance.orientation = v.to_string();
         }
         if let Some(v) = app.get("font_size").and_then(Value::as_i64) {
-            settings.appearance.font_size = (v as i32).clamp(18, 54);
+            settings.appearance.font_size = (v as i32).clamp(16, 96);
+        }
+        if let Some(v) = app.get("candidate_font_size").and_then(Value::as_i64) {
+            settings.appearance.candidate_font_size = (v as i32).clamp(14, 72);
+        }
+        if let Some(v) = app.get("desk_opacity").and_then(Value::as_i64) {
+            settings.appearance.desk_opacity = (v as i32).clamp(20, 100);
         }
         if let Some(v) = app.get("max_composition_chars").and_then(Value::as_i64) {
-            settings.appearance.max_composition_chars = (v as i32).clamp(15, 60);
+            settings.appearance.max_composition_chars = (v as i32).clamp(8, 80);
         }
         if let Some(v) = app.get("theme").and_then(Value::as_str) {
             settings.appearance.theme = v.to_string();
@@ -296,6 +391,9 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
         if let Some(v) = kb.get("enable_array30_coach").and_then(Value::as_bool) {
             settings.keyboard.enable_array30_coach = v;
         }
+        if let Some(v) = kb.get("last_keyboard_mode").and_then(Value::as_str) {
+            settings.keyboard.last_keyboard_mode = v.to_string();
+        }
     }
 
     if let Some(gr) = val.get("grammar").and_then(Value::as_object) {
@@ -326,6 +424,37 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
         if let Some(v) = ai.get("enable_cloud_colab").and_then(Value::as_bool) {
             settings.ai_and_privacy.enable_cloud_colab = v;
         }
+        if let Some(v) = ai.get("telemetry_consent").and_then(Value::as_bool) {
+            settings.ai_and_privacy.telemetry_consent = v;
+        }
+        if let Some(v) = ai.get("upload_schedule").and_then(Value::as_str) {
+            settings.ai_and_privacy.upload_schedule = v.to_string();
+        }
+        if let Some(v) = ai.get("cloud_sheet_webhook_url").and_then(Value::as_str) {
+            let trimmed = v.trim();
+            if !trimmed.is_empty() {
+                settings.ai_and_privacy.cloud_sheet_webhook_url = trimmed.to_string();
+            }
+        }
+        if let Some(v) = ai.get("last_upload_timestamp").and_then(Value::as_u64) {
+            settings.ai_and_privacy.last_upload_timestamp = v;
+        }
+        if let Some(v) = ai.get("tailcat_auto_sync").and_then(Value::as_bool) {
+            settings.ai_and_privacy.tailcat_auto_sync = v;
+        }
+        if let Some(v) = ai.get("tailcat_update_mode").and_then(Value::as_str) {
+            if !v.trim().is_empty() {
+                settings.ai_and_privacy.tailcat_update_mode = v.trim().to_string();
+            }
+        }
+        if let Some(v) = ai.get("tailcat_feed_url").and_then(Value::as_str) {
+            if !v.trim().is_empty() {
+                settings.ai_and_privacy.tailcat_feed_url = v.trim().to_string();
+            }
+        }
+        if let Some(v) = ai.get("last_tailcat_sync_timestamp").and_then(Value::as_u64) {
+            settings.ai_and_privacy.last_tailcat_sync_timestamp = v;
+        }
     }
 }
 
@@ -337,13 +466,25 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
         settings.appearance.theme = v.to_string();
     }
     if let Some(v) = map.get("font_size").and_then(Value::as_i64) {
-        settings.appearance.font_size = (v as i32).clamp(18, 54);
+        settings.appearance.font_size = (v as i32).clamp(16, 96);
+    }
+    if let Some(v) = map.get("candidate_font_size").and_then(Value::as_i64) {
+        settings.appearance.candidate_font_size = (v as i32).clamp(14, 72);
+    }
+    if let Some(v) = map.get("desk_opacity").and_then(Value::as_i64) {
+        settings.appearance.desk_opacity = (v as i32).clamp(20, 100);
     }
     if let Some(v) = map.get("max_composition_chars").and_then(Value::as_i64) {
-        settings.appearance.max_composition_chars = (v as i32).clamp(15, 60);
+        settings.appearance.max_composition_chars = (v as i32).clamp(8, 80);
     }
     if let Some(v) = map.get("keyboard_mode").and_then(Value::as_str) {
         settings.keyboard.layout = v.to_string();
+    }
+    if let Some(v) = map.get("last_keyboard_mode").and_then(Value::as_str) {
+        settings.keyboard.last_keyboard_mode = v.to_string();
+    }
+    if let Some(v) = map.get("capslock_switch").and_then(Value::as_str) {
+        settings.keyboard.capslock_switch = v.to_string();
     }
     if let Some(v) = map.get("punctuation_commit_mode").and_then(Value::as_str) {
         settings.keyboard.punctuation_commit_mode = v.to_string();
@@ -353,6 +494,36 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
     }
     if let Some(v) = map.get("enable_array30_coach").and_then(Value::as_bool) {
         settings.keyboard.enable_array30_coach = v;
+    }
+    if let Some(v) = map.get("telemetry_consent").and_then(Value::as_bool) {
+        settings.ai_and_privacy.telemetry_consent = v;
+    }
+    if let Some(v) = map.get("upload_schedule").and_then(Value::as_str) {
+        settings.ai_and_privacy.upload_schedule = v.to_string();
+    }
+    if let Some(v) = map.get("cloud_sheet_webhook_url").and_then(Value::as_str) {
+        if !v.trim().is_empty() {
+            settings.ai_and_privacy.cloud_sheet_webhook_url = v.trim().to_string();
+        }
+    }
+    if let Some(v) = map.get("last_upload_timestamp").and_then(Value::as_u64) {
+        settings.ai_and_privacy.last_upload_timestamp = v;
+    }
+    if let Some(v) = map.get("tailcat_auto_sync").and_then(Value::as_bool) {
+        settings.ai_and_privacy.tailcat_auto_sync = v;
+    }
+    if let Some(v) = map.get("tailcat_update_mode").and_then(Value::as_str) {
+        if !v.trim().is_empty() {
+            settings.ai_and_privacy.tailcat_update_mode = v.trim().to_string();
+        }
+    }
+    if let Some(v) = map.get("tailcat_feed_url").and_then(Value::as_str) {
+        if !v.trim().is_empty() {
+            settings.ai_and_privacy.tailcat_feed_url = v.trim().to_string();
+        }
+    }
+    if let Some(v) = map.get("last_tailcat_sync_timestamp").and_then(Value::as_u64) {
+        settings.ai_and_privacy.last_tailcat_sync_timestamp = v;
     }
 }
 
@@ -437,6 +608,14 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             json!(settings.appearance.font_size),
         );
         map.insert(
+            "candidate_font_size".to_string(),
+            json!(settings.appearance.candidate_font_size),
+        );
+        map.insert(
+            "desk_opacity".to_string(),
+            json!(settings.appearance.desk_opacity),
+        );
+        map.insert(
             "max_composition_chars".to_string(),
             json!(settings.appearance.max_composition_chars),
         );
@@ -448,6 +627,12 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             "keyboard_mode".to_string(),
             json!(settings.keyboard.layout),
         );
+        if !map.contains_key("last_keyboard_mode") {
+            map.insert(
+                "last_keyboard_mode".to_string(),
+                json!(settings.keyboard.last_keyboard_mode),
+            );
+        }
         map.insert(
             "enabled_keyboard_modes".to_string(),
             json!(settings.keyboard.enabled_keyboard_modes),
@@ -490,6 +675,38 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
                 json!(settings.ai_and_privacy.ollama_model),
             );
         }
+        map.insert(
+            "telemetry_consent".to_string(),
+            json!(settings.ai_and_privacy.telemetry_consent),
+        );
+        map.insert(
+            "upload_schedule".to_string(),
+            json!(settings.ai_and_privacy.upload_schedule),
+        );
+        map.insert(
+            "cloud_sheet_webhook_url".to_string(),
+            json!(settings.ai_and_privacy.cloud_sheet_webhook_url),
+        );
+        map.insert(
+            "last_upload_timestamp".to_string(),
+            json!(settings.ai_and_privacy.last_upload_timestamp),
+        );
+        map.insert(
+            "tailcat_auto_sync".to_string(),
+            json!(settings.ai_and_privacy.tailcat_auto_sync),
+        );
+        map.insert(
+            "tailcat_update_mode".to_string(),
+            json!(settings.ai_and_privacy.tailcat_update_mode),
+        );
+        map.insert(
+            "tailcat_feed_url".to_string(),
+            json!(settings.ai_and_privacy.tailcat_feed_url),
+        );
+        map.insert(
+            "last_tailcat_sync_timestamp".to_string(),
+            json!(settings.ai_and_privacy.last_tailcat_sync_timestamp),
+        );
 
         if let Ok(s) = serde_json::to_string_pretty(&Value::Object(map)) {
             let _ = fs::write(flat_path, s);

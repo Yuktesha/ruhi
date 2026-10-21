@@ -56,3 +56,22 @@ scratch/
 
 scripts/_cfg/
 
+# Sealed Semantic Tuning Studio & local runtime state (do not publish to GitHub)
+scripts/web/
+scripts/active_dll_path.txt
+active_dll_path.txt
+studio_wakeup.json
+_cfg/
+tools/google_sheets_webhook.gs
+語意調校工作室.ps1
+安裝本地AI純綠推論引擎.ps1
+啟動本地AI服務.ps1
+停止本地AI服務.ps1
+ruhi_lexicon/data/cloud_pending_pairs.txt
+ruhi_lexicon/data/recent_txt_files.json
+ruhi_lexicon/data/pending_revisions.json
+ruhi_lexicon/data/user_revision_pairs.txt
+ruhi_lexicon/data/revision_log.jsonl
+ruhi_lexicon/data/community_sync_state.json
+
+

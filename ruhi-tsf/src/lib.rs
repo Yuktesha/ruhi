@@ -9,10 +9,11 @@ pub mod candidate_window;
 pub mod display_attribute;
 pub mod user_word_dialog;
 use std::ffi::c_void;
-use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use windows_core::*;
 use windows::Win32::Foundation::*;
 use windows::Win32::System::Com::*;
+use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
 
 use crate::guid::CLSID_RUHI_TEXT_SERVICE;
 use crate::class_factory::RuhiClassFactory;
@@ -20,6 +21,13 @@ use crate::class_factory::RuhiClassFactory;
 const DLL_PROCESS_ATTACH: u32 = 1;
 
 static DLL_HINSTANCE: AtomicIsize = AtomicIsize::new(0);
+static IN_DLL_FORWARD: AtomicBool = AtomicBool::new(false);
+
+type DllGetClassObjectFn = unsafe extern "system" fn(
+    rclsid: *const GUID,
+    riid: *const GUID,
+    ppv: *mut *mut c_void,
+) -> HRESULT;
 
 #[no_mangle]
 pub unsafe extern "system" fn DllMain(
@@ -44,6 +52,16 @@ pub unsafe extern "system" fn DllGetClassObject(
         return E_INVALIDARG;
     }
 
+    // 若熱更新腳本已部署更新版本的 ruhi_tsf_<timestamp>.dll，自動轉發 DllGetClassObject 至最新 DLL，
+    // 使既有常駐程序無須重啟、亦無須 FreeLibrary 卸載舊 DLL 即可無縫切換至最新輸入法核心。
+    if !IN_DLL_FORWARD.swap(true, Ordering::SeqCst) {
+        let forwarded_hr = try_forward_to_newer_dll(rclsid, riid, ppv);
+        IN_DLL_FORWARD.store(false, Ordering::SeqCst);
+        if let Some(hr) = forwarded_hr {
+            return hr;
+        }
+    }
+
     logger::log(&format!("DllGetClassObject: rclsid={:?}, riid={:?}", *rclsid, *riid));
 
     if *rclsid == CLSID_RUHI_TEXT_SERVICE {
@@ -55,6 +73,36 @@ pub unsafe extern "system" fn DllGetClassObject(
         logger::log("DllGetClassObject: CLASS_E_CLASSNOTAVAILABLE");
         CLASS_E_CLASSNOTAVAILABLE
     }
+}
+
+unsafe fn try_forward_to_newer_dll(
+    rclsid: *const GUID,
+    riid: *const GUID,
+    ppv: *mut *mut c_void,
+) -> Option<HRESULT> {
+    let hinst = HMODULE(DLL_HINSTANCE.load(Ordering::SeqCst) as *mut c_void);
+    let self_path = registry::get_module_path(hinst);
+    if self_path.is_empty() {
+        return None;
+    }
+    let self_dir = std::path::Path::new(&self_path).parent()?;
+    let pointer_file = self_dir.join("active_dll_path.txt");
+    let target_path = std::fs::read_to_string(&pointer_file).ok()?.trim().to_string();
+    if target_path.is_empty() || target_path.eq_ignore_ascii_case(&self_path) {
+        return None;
+    }
+    if !std::path::Path::new(&target_path).exists() {
+        return None;
+    }
+    let wide_target: Vec<u16> = target_path.encode_utf16().chain(Some(0)).collect();
+    let new_hmod = LoadLibraryW(PCWSTR(wide_target.as_ptr())).ok()?;
+    if new_hmod.0.is_null() || new_hmod.0 == hinst.0 {
+        return None;
+    }
+    let proc = GetProcAddress(new_hmod, s!("DllGetClassObject"))?;
+    let func: DllGetClassObjectFn = std::mem::transmute(proc);
+    logger::log(&format!("DllGetClassObject forwarded from {} -> {}", self_path, target_path));
+    Some(func(rclsid, riid, ppv))
 }
 
 #[no_mangle]

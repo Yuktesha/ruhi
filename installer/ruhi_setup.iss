@@ -2,7 +2,7 @@
 ; 符合 Windows 10 / 11 64 位元純 TSF 與 Win32 全生態相容性規範 (TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC)
 
 #define MyAppName "RuhI 如喜通用智慧型輸入法"
-#define MyAppVersion "0.3.0"
+#define MyAppVersion "0.4.0"
 #define MyAppPublisher "RuhOS Community"
 #define MyAppURL "https://github.com/Yuktesha/ruhi"
 #define MyAppExeName "ruhi-studio.exe"
@@ -32,6 +32,9 @@ CloseApplications=force
 [Languages]
 Name: "chinesetraditional"; MessagesFile: "ChineseTraditional.isl"
 
+[Tasks]
+Name: "telemetry_consent"; Description: "同意在手動改字時記錄匿名對照句，並依設定週期回傳至官方雲端語料表以協助優化語意（隨時可於設定中心更改或關閉，絕不含個資）"
+
 #define StageDir "..\dist\RuhI_v" + MyAppVersion + "_Windows_x64"
 
 [Files]
@@ -43,26 +46,19 @@ Source: "{#StageDir}\ruhi-studio.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; 完整詞庫與轉移引力資料
 Source: "{#StageDir}\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; 偏好設定中心設定檔與使用者詞庫
-Source: "{#StageDir}\settings_config.json"; DestDir: "{app}"; Flags: ignoreversion
+; 偏好設定中心設定檔與使用者詞庫（升級時完整保留使用者既有設定與自建詞庫）
+Source: "{#StageDir}\settings_config.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 Source: "{#StageDir}\config.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 Source: "{#StageDir}\user_dict.tsv"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 
-; 管理、語意調校工作室與日常熱重載工具
+; 管理與日常熱重載工具
 Source: "{#StageDir}\run_settings.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\hot_reload.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\一鍵安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\一鍵解除安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#StageDir}\語意調校工作室.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#StageDir}\安裝本地AI純綠推論引擎.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#StageDir}\啟動本地AI服務.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#StageDir}\停止本地AI服務.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 ; 內建介面與主題引擎庫 (_lib)
 Source: "{#StageDir}\_lib\*"; DestDir: "{app}\_lib"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; 語意調校工作室腳本與 Web 視覺介面 (scripts)
-Source: "{#StageDir}\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; AI / SI 自動交接 SKILL 規範 (.agent)
 Source: "{#StageDir}\.agent\*"; DestDir: "{app}\.agent"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -74,7 +70,6 @@ Source: "{#StageDir}\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recurs
 
 [Icons]
 Name: "{group}\如喜輸入法偏好設定"; Filename: "{app}\ruhi-studio.exe"; WorkingDir: "{app}"
-Name: "{group}\如喜語意調校工作室"; Filename: "{app}\ruhi-studio.exe"; Parameters: "--tuner"; WorkingDir: "{app}"
 Name: "{group}\如喜輸入法熱更新工具"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\hot_reload.ps1"""; WorkingDir: "{app}"
 Name: "{group}\解除安裝如喜輸入法"; Filename: "{uninstallexe}"
 
@@ -120,9 +115,9 @@ begin
     AppDir := ExpandConstant('{app}');
     DllPath := ExpandConstant('{app}\ruhi_tsf.dll');
 
-    // 1. 配置安全性存取清單 (ACL: ALL_APPLICATION_PACKAGES 及 Users)
+    // 1. 配置安全性存取清單 (ACL: ALL_APPLICATION_PACKAGES RX 及 Users Modify 權限，確保免 UAC 熱更新詞庫與儲存設定)
     ExecCmd('icacls.exe', '"' + AppDir + '" /grant *S-1-15-2-1:(OI)(CI)RX /T /Q');
-    ExecCmd('icacls.exe', '"' + AppDir + '" /grant Users:(OI)(CI)RX /T /Q');
+    ExecCmd('icacls.exe', '"' + AppDir + '" /grant Users:(OI)(CI)M /T /Q');
 
     // 2. 註冊 TSF COM 伺服器
     ExecCmd('regsvr32.exe', '/s "' + DllPath + '"');
@@ -153,7 +148,13 @@ begin
       'Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000404\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000',
       'KeyboardLayout', $04040404);
 
-    // 5. 重新喚起文字服務框架
+    // 5. 依據使用者安裝時勾選之同意狀態寫入 config.json (telemetry_consent)
+    if WizardIsTaskSelected('telemetry_consent') then
+      ExecCmd('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -Command "$p=''' + AppDir + '\config.json''; if(Test-Path $p){$j=Get-Content $p -Raw -Encoding UTF8|ConvertFrom-Json; $j|Add-Member -NotePropertyName telemetry_consent -NotePropertyValue $true -Force; $j|ConvertTo-Json -Depth 5|Set-Content $p -Encoding UTF8}"')
+    else
+      ExecCmd('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -Command "$p=''' + AppDir + '\config.json''; if(Test-Path $p){$j=Get-Content $p -Raw -Encoding UTF8|ConvertFrom-Json; $j|Add-Member -NotePropertyName telemetry_consent -NotePropertyValue $false -Force; $j|ConvertTo-Json -Depth 5|Set-Content $p -Encoding UTF8}"');
+
+    // 6. 重新喚起文字服務框架
     StartCtfmon();
   end;
 end;

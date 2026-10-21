@@ -435,6 +435,16 @@ impl HsuFSM {
                 self.raw_keys.push(k);
                 return true;
             }
+            if let Some(med) = Self::find_med(k) {
+                if self.cur_medial == med {
+                    // 連按相同介音鍵（如 u+u 或退格後重按 u），冪等維持當前介音並吸收按鍵，嚴防 u/x 洩漏至目標視窗
+                    return true;
+                }
+                self.commit_current('1');
+                self.cur_medial = med.to_string();
+                self.raw_keys.push(k);
+                return true;
+            }
         }
 
         // 5. 狀態 D：已有韻母

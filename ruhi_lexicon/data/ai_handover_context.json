@@ -1,7 +1,7 @@
 {
   "active_provider": "gemini",
   "auto_delivered": true,
-  "delivered_at": "2026-10-19T23:20:46.642890700+08:00",
+  "delivered_at": "2026-10-21T12:13:46.917230900+08:00",
   "json_output_schema": {
     "bifurcation_pairs": [
       [
@@ -46,13 +46,13 @@
   "live_inventory": {
     "lexicon_domain_tsv": {
       "path": "C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data\\lexicon_domain.tsv",
-      "total_irreducible_entries": 1917
+      "total_irreducible_entries": 2002
     },
     "patterns_user_jsonl": {
-      "array_2d_correspondences": 17,
+      "array_2d_correspondences": 30,
       "array_collision_audit": {
-        "harmless_non_existent_readings_count": 1801,
-        "naturally_harmless_rate": "98.53%",
+        "harmless_non_existent_readings_count": 4931,
+        "naturally_harmless_rate": "99.32%",
         "suppressed_by_exclude_array_count": 12,
         "suppressed_collisions": [
           {
@@ -221,8 +221,8 @@
           }
         ],
         "theoretical_principle": "陣列展開同音對衝四維分流定理：(1) 無同音實詞對應之展開組合（>98%）使用者絕不會打出，天然 0% 干擾；(2) 對衝詞為罕見古語（weight<=220，如 說部/坐簿/得間/芳蘭）時，保留現代高頻陣列（Type A）；(3) 雙方皆為真實語句合法用法（如『他馬騎得很好吧』vs.『才不是什麼耆德老人呢』、『讀不懂』vs.『獨步全球』、『笑到飽』vs.『恪守孝道』）時，透過 bifurcation_pairs 與左右句法槽位進行語法環境雙向分流（Type B）；(4) 陣列展開本身為跨界假組合且對衝高頻現代實詞（如 這鍵/這件、個相/各項、分不/分布）時，方透過 exclude_pairs 對衝抑制陣列抵銷孤立二元分數（Type C）。",
-        "total_expanded_pairs": 1968,
-        "total_homophone_collisions": 29,
+        "total_expanded_pairs": 5185,
+        "total_homophone_collisions": 35,
         "type_a_archaic_items": [
           {
             "competing_real_words": [
@@ -340,9 +340,36 @@
             "pattern_id": "potential_complement_3d_array",
             "reading": "ㄅㄨˋ ㄅㄠˇ",
             "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
+          },
+          {
+            "competing_real_words": [
+              "毋乃",
+              "無乃"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "無",
+              "奶"
+            ],
+            "pattern_id": "dietary_exclusion_ingredient_coord",
+            "reading": "ㄨˊ ㄋㄞˇ",
+            "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
+          },
+          {
+            "competing_real_words": [
+              "不爭得"
+            ],
+            "max_competitor_weight": 180,
+            "pair": [
+              "不爭",
+              "的"
+            ],
+            "pattern_id": "pseudo_cleft_neg_v_de_shi_3d_array",
+            "reading": "ㄅㄨˋ ㄓㄥ ˙ㄉㄜ",
+            "status": "KEEP_MODERN_ARRAY_OVER_ARCHAIC"
           }
         ],
-        "type_a_archaic_keep_array_count": 9,
+        "type_a_archaic_keep_array_count": 11,
         "type_b_bifurcation_items": [
           {
             "competing_real_words": [
@@ -448,24 +475,76 @@
             "pattern_id": "v_dao_bao_satiation_3d_array",
             "reading": "ㄒㄧㄠˋ ㄉㄠˋ",
             "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          },
+          {
+            "competing_real_words": [
+              "忌憚"
+            ],
+            "max_competitor_weight": 311,
+            "pair": [
+              "忌",
+              "蛋"
+            ],
+            "pattern_id": "dietary_exclusion_ingredient_coord",
+            "reading": "ㄐㄧˋ ㄉㄢˋ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          },
+          {
+            "competing_real_words": [
+              "計算"
+            ],
+            "max_competitor_weight": 564,
+            "pair": [
+              "忌",
+              "蒜"
+            ],
+            "pattern_id": "dietary_exclusion_ingredient_coord",
+            "reading": "ㄐㄧˋ ㄙㄨㄢˋ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          },
+          {
+            "competing_real_words": [
+              "坐滿"
+            ],
+            "max_competitor_weight": 311,
+            "pair": [
+              "做",
+              "滿"
+            ],
+            "pattern_id": "v_hao_v_man_quad_array",
+            "reading": "ㄗㄨㄛˋ ㄇㄢˇ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
+          },
+          {
+            "competing_real_words": [
+              "完滿"
+            ],
+            "max_competitor_weight": 273,
+            "pair": [
+              "玩",
+              "滿"
+            ],
+            "pattern_id": "v_hao_v_man_quad_array",
+            "reading": "ㄨㄢˊ ㄇㄢˇ",
+            "status": "RESOLVED_BY_SYNTACTIC_BIFURCATION"
           }
         ],
-        "type_b_syntactic_bifurcation_count": 8,
+        "type_b_syntactic_bifurcation_count": 12,
         "type_c_suppressed_by_exclude_array_count": 12,
         "unsuppressed_active_collisions_count": 0,
         "unsuppressed_collisions": [],
-        "valid_lexicon_compounds_count": 138
+        "valid_lexicon_compounds_count": 219
       },
-      "multi_slot_3d_to_5d_chains": 21,
+      "multi_slot_3d_to_5d_chains": 33,
       "path": "C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data\\patterns_user.jsonl",
-      "total_indexed_slot_tokens": 1056,
-      "total_patterns": 38
+      "total_indexed_slot_tokens": 1883,
+      "total_patterns": 63
     },
     "transitions_user_tsv": {
       "negative_anti_hijack_rules": 1011,
       "path": "C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data\\transitions_user.tsv",
-      "positive_collocations": 15797,
-      "total_bigram_rules": 16808
+      "positive_collocations": 15838,
+      "total_bigram_rules": 16849
     }
   },
   "version": "RUHI_AI_SI_HANDOVER_V2.8"

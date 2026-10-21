@@ -1,0 +1,6243 @@
+{
+  "compat_feeds": {
+    "1": "https://raw.githubusercontent.com/Yuktesha/ruhi/main/ruhi_lexicon/data/tailcat_official_feed.json"
+  },
+  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v0.4.0/RuhI_Setup_v0.4.0.exe",
+  "latest_version": "0.4.0",
+  "min_compat_version": "0.4.0",
+  "protocol": "RUHI_TAILCAT_FEDERATED_SEMANTIC_V1",
+  "release_notes": "RuhI v0.4.0：正式確立匿名雙句雲端收集與 Tailcat 雙層熱更新架構，內建 C01~C40 漢語語法構式與破音字黑名單治理。",
+  "rules": [
+    {
+      "bopomofo": "ㄊㄧㄠˊ ㄒㄧㄠˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "調校"
+    },
+    {
+      "bopomofo": "ㄅㄨˋ ㄉㄨㄢˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 625,
+      "word": "不斷"
+    },
+    {
+      "bopomofo": "ㄅㄨˊ ㄉㄨㄢˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 625,
+      "word": "不斷"
+    },
+    {
+      "bopomofo": "ㄕㄨˋ ㄓˊ ㄎㄨㄤ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "數值框"
+    },
+    {
+      "bopomofo": "ㄕㄨ ㄖㄨˋ ㄎㄨㄤ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "輸入框"
+    },
+    {
+      "bopomofo": "ㄗˋ ㄖㄢˊ ㄩˇ ㄧㄢˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "自然語言"
+    },
+    {
+      "bopomofo": "ㄩˇ ㄧㄢˊ ㄇㄛˊ ㄒㄧㄥˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "語言模型"
+    },
+    {
+      "bopomofo": "ㄩˇ ㄓㄨㄥˇ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "語種"
+    },
+    {
+      "bopomofo": "ㄉㄨㄟˋ ㄐㄧㄝ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "對接"
+    },
+    {
+      "bopomofo": "ㄕˋ ㄔㄨ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "釋出"
+    },
+    {
+      "bopomofo": "ㄓㄨˋ ㄐㄧˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "註記"
+    },
+    {
+      "bopomofo": "ㄒㄧㄝˇ ㄒㄧㄚˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "寫下"
+    },
+    {
+      "bopomofo": "ㄒㄧˋ ㄐㄧㄝˊ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "細節控"
+    },
+    {
+      "bopomofo": "ㄧㄣ ㄓˊ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "音質控"
+    },
+    {
+      "bopomofo": "ㄏㄨㄚˋ ㄓˊ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "畫質控"
+    },
+    {
+      "bopomofo": "ㄧㄢˊ ㄓˊ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "顏值控"
+    },
+    {
+      "bopomofo": "ㄓˋ ㄈㄨˊ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "制服控"
+    },
+    {
+      "bopomofo": "ㄕㄥ ㄧㄡ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "聲優控"
+    },
+    {
+      "bopomofo": "ㄨㄣˊ ㄐㄩˋ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "文具控"
+    },
+    {
+      "bopomofo": "ㄐㄧㄢˋ ㄆㄢˊ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "鍵盤控"
+    },
+    {
+      "bopomofo": "ㄗˋ ㄊㄧˇ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "字體控"
+    },
+    {
+      "bopomofo": "ㄕㄡ ㄋㄚˋ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "收納控"
+    },
+    {
+      "bopomofo": "ㄎㄚ ㄈㄟ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "咖啡控"
+    },
+    {
+      "bopomofo": "ㄇㄛˇ ㄔㄚˊ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "抹茶控"
+    },
+    {
+      "bopomofo": "ㄊㄧㄢˊ ㄉㄧㄢˇ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "甜點控"
+    },
+    {
+      "bopomofo": "ㄘㄠˇ ㄇㄟˊ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "草莓控"
+    },
+    {
+      "bopomofo": "ㄩˋ ㄊㄡˊ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "芋頭控"
+    },
+    {
+      "bopomofo": "ㄒㄧㄤ ㄘㄞˋ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "香菜控"
+    },
+    {
+      "bopomofo": "ㄐㄧ ㄒㄧㄝˋ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "機械控"
+    },
+    {
+      "bopomofo": "ㄐㄧˊ ㄐㄧㄢˇ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "極簡控"
+    },
+    {
+      "bopomofo": "ㄘㄢ ㄕㄨˋ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "參數控"
+    },
+    {
+      "bopomofo": "ㄕㄨˋ ㄐㄩˋ ㄎㄨㄥˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "數據控"
+    },
+    {
+      "bopomofo": "ㄕˊ ㄗㄨㄛˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 610,
+      "word": "實作"
+    },
+    {
+      "bopomofo": "ㄊㄞˊ ㄨㄢ ㄉㄚˋ ㄒㄩㄝˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "台灣大學"
+    },
+    {
+      "bopomofo": "ㄑㄧㄥ ㄏㄨㄚˊ ㄉㄚˋ ㄒㄩㄝˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "清華大學"
+    },
+    {
+      "bopomofo": "ㄧㄤˊ ㄇㄧㄥˊ ㄐㄧㄠ ㄊㄨㄥ ㄉㄚˋ ㄒㄩㄝˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "陽明交通大學"
+    },
+    {
+      "bopomofo": "ㄔㄥˊ ㄍㄨㄥ ㄉㄚˋ ㄒㄩㄝˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "成功大學"
+    },
+    {
+      "bopomofo": "ㄓㄥˋ ㄓˋ ㄉㄚˋ ㄒㄩㄝˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "政治大學"
+    },
+    {
+      "bopomofo": "ㄊㄞˊ ㄨㄢ ㄕ ㄈㄢˋ ㄉㄚˋ ㄒㄩㄝˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "台灣師範大學"
+    },
+    {
+      "bopomofo": "ㄊㄞˊ ㄨㄢ ㄎㄜ ㄐㄧˋ ㄉㄚˋ ㄒㄩㄝˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "台灣科技大學"
+    },
+    {
+      "bopomofo": "ㄊㄞˊ ㄅㄟˇ ㄎㄜ ㄐㄧˋ ㄉㄚˋ ㄒㄩㄝˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "台北科技大學"
+    },
+    {
+      "bopomofo": "ㄓㄨㄥ ㄧㄤ ㄧㄢˊ ㄐㄧㄡˋ ㄩㄢˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "中央研究院"
+    },
+    {
+      "bopomofo": "ㄍㄨㄛˊ ㄐㄧㄚ ㄐㄧㄠˋ ㄩˋ ㄧㄢˊ ㄐㄧㄡˋ ㄩㄢˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "國家教育研究院"
+    },
+    {
+      "bopomofo": "ㄕㄨˋ ㄨㄟˋ ㄈㄚ ㄓㄢˇ ㄅㄨˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "數位發展部"
+    },
+    {
+      "bopomofo": "ㄍㄨㄛˊ ㄐㄧㄚ ㄎㄜ ㄒㄩㄝˊ ㄐㄧˊ ㄐㄧˋ ㄕㄨˋ ㄨㄟˇ ㄩㄢˊ ㄏㄨㄟˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "國家科學及技術委員會"
+    },
+    {
+      "bopomofo": "ㄨㄟˋ ㄕㄥ ㄈㄨˊ ㄌㄧˋ ㄅㄨˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "衛生福利部"
+    },
+    {
+      "bopomofo": "ㄊㄞˊ ㄉㄚˋ ㄧ ㄩㄢˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "台大醫院"
+    },
+    {
+      "bopomofo": "ㄖㄨㄥˊ ㄇㄧㄣˊ ㄗㄨㄥˇ ㄧ ㄩㄢˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "榮民總醫院"
+    },
+    {
+      "bopomofo": "ㄔㄤˊ ㄍㄥ ㄧ ㄩㄢˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "長庚醫院"
+    },
+    {
+      "bopomofo": "ㄇㄚˇ ㄐㄧㄝ ㄧ ㄩㄢˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "馬偕醫院"
+    },
+    {
+      "bopomofo": "ㄘˊ ㄐㄧˋ ㄧ ㄩㄢˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "慈濟醫院"
+    },
+    {
+      "bopomofo": "ㄑㄧˊ ㄇㄟˇ ㄧ ㄩㄢˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "奇美醫院"
+    },
+    {
+      "bopomofo": "ㄐㄧㄤˇ ㄨㄢˋ ㄢ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "蔣萬安"
+    },
+    {
+      "bopomofo": "ㄨㄣˊ ㄐㄩˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "文句"
+    },
+    {
+      "bopomofo": "ㄏㄨㄚˊ ㄘㄨㄟˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "滑脆"
+    },
+    {
+      "bopomofo": "ㄗˋ ㄅㄠˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "自爆"
+    },
+    {
+      "bopomofo": "ㄇㄧㄣˊ ㄉㄧㄠˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "民調"
+    },
+    {
+      "bopomofo": "˙ㄍㄜ ㄍㄡˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "個夠"
+    },
+    {
+      "bopomofo": "ㄍㄜˋ ㄍㄡˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "個夠"
+    },
+    {
+      "bopomofo": "ㄑㄧㄢ ㄅㄧˇ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "鉛筆"
+    },
+    {
+      "bopomofo": "ㄒㄧㄤˋ ㄆㄧˊ ㄘㄚ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "橡皮擦"
+    },
+    {
+      "bopomofo": "ㄒㄧㄤ ㄆㄧˊ ㄘㄚ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 550,
+      "word": "橡皮擦"
+    },
+    {
+      "bopomofo": "ㄒㄧㄤ ㄆㄧˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "橡皮"
+    },
+    {
+      "bopomofo": "ㄑㄧㄤˇ ㄕㄨ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "搶輸"
+    },
+    {
+      "bopomofo": "ㄑㄧㄤˇ ㄧㄥˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "搶贏"
+    },
+    {
+      "bopomofo": "ㄧˋ ㄅㄢ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 650,
+      "word": "一般"
+    },
+    {
+      "bopomofo": "ㄕㄨㄤ ㄐㄩˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "雙句"
+    },
+    {
+      "bopomofo": "ㄕㄨㄤ ㄐㄩˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 460,
+      "word": "雙具"
+    },
+    {
+      "bopomofo": "ㄆㄟˋ ㄅㄟˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "配備"
+    },
+    {
+      "bopomofo": "ㄕˊ ㄗㄨㄛˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "實做"
+    },
+    {
+      "bopomofo": "ㄐㄧㄣˇ ㄒㄧㄢˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "僅限"
+    },
+    {
+      "bopomofo": "ㄐㄧㄣˇ ㄒㄧㄢˋ ㄩˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "僅限於"
+    },
+    {
+      "bopomofo": "ㄨㄤˋ ㄍㄨㄤ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 540,
+      "word": "忘光"
+    },
+    {
+      "bopomofo": "ㄨㄤˋ ㄍㄨㄤ ㄍㄨㄤ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "忘光光"
+    },
+    {
+      "bopomofo": "ㄌㄧㄥˊ ㄏㄨㄣˊ ㄎㄠˇ ㄨㄣˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "靈魂拷問"
+    },
+    {
+      "bopomofo": "ㄩˇ ㄧˋ ㄊㄧㄠˊ ㄐㄧㄠˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "語意調校"
+    },
+    {
+      "bopomofo": "ㄩˇ ㄧˋ ㄊㄧㄠˊ ㄓㄥˇ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "語意調整"
+    },
+    {
+      "bopomofo": "ㄒㄩˇ ㄕˋ ㄐㄧㄢˋ ㄆㄢˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 580,
+      "word": "許氏鍵盤"
+    },
+    {
+      "bopomofo": "ㄒㄩˇ ㄕˋ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 560,
+      "word": "許氏"
+    },
+    {
+      "bopomofo": "ㄌㄩㄝˋ ㄐㄧㄝˊ",
+      "min_engine_version": "0.4.0",
+      "schema_version": 1,
+      "type": "COMPOUND_WORD",
+      "weight": 520,
+      "word": "掠劫"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄧˇ",
+      "reason": "古籍罕用破音（防干擾「ㄧˇ」常用字詞）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "尾"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄏㄨㄟˇ",
+      "reason": "會計/會稽古破音單字誤用（防干擾「ㄏㄨㄟˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "會"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "˙ㄉㄜ",
+      "reason": "早期文言白話過渡期助詞異讀（防干擾現代「的 ˙ㄉㄜ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "底"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄉㄜ˙",
+      "reason": "早期文言白話過渡期助詞異讀（防干擾現代「的 ㄉㄜ˙」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "底"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄓㄥ ㄓㄥ",
+      "reason": "詩經「伐木丁丁」古破音（防干擾現代「ㄓㄥ ㄓㄥ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "丁丁"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄉㄚˋ ㄍㄨ",
+      "reason": "漢代「曹大家」古破音（防干擾現代「大家 ㄉㄚˋ ㄐㄧㄚ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "大家"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄍㄨㄥ ㄐㄩ",
+      "reason": "漢代官署名古讀音（防干擾現代「公車 ㄍㄨㄥ ㄔㄜ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "公車"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄊㄨㄛ ㄇㄣ",
+      "reason": "早期老國音異讀（防干擾現代「ㄊㄚ ˙ㄇㄣ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "它們"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄊㄨㄛ ㄇㄣ",
+      "reason": "早期老國音異讀（防干擾現代「ㄊㄚ ˙ㄇㄣ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "她們"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄊㄨㄛ ㄇㄣ",
+      "reason": "早期老國音異讀（防干擾現代「ㄊㄚ ˙ㄇㄣ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "他們"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄎㄥ ㄐㄧㄚ",
+      "reason": "罕用舊讀音（防干擾「ㄎㄥ ㄐㄧㄚ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "傾家"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄜˋ ㄜˋ",
+      "reason": "笑聲古破音（防干擾「ㄜˋ ㄜˋ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "啞啞"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄓㄤ ㄩㄝˋ",
+      "reason": "唐代人名專讀（防干擾日常「張說」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "張說"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄙㄨㄥˋ ㄓㄠ",
+      "reason": "春秋人名「宋朝」古讀（防干擾朝代名「宋朝 ㄙㄨㄥˋ ㄔㄠˊ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "宋朝"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄗˇ ㄗ",
+      "reason": "罕用舊讀（現代標準讀「ㄐㄧㄝˇ ˙ㄐㄧㄝ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "姊姊"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄗˇ ㄈㄨ",
+      "reason": "罕用舊讀（現代標準讀「ㄐㄧㄝˇ ㄈㄨ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "姊夫"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄐㄧㄚ ㄗˇ",
+      "reason": "罕用舊讀（現代標準讀「ㄐㄧㄚ ㄐㄧㄝˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "家姊"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄊㄤˊ ㄗˇ",
+      "reason": "罕用舊讀（現代標準讀「ㄊㄤˊ ㄐㄧㄝˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "堂姊"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄕㄤˋ ㄕㄞˇ",
+      "reason": "京片子口語異讀（防干擾「ㄕㄤˋ ㄙㄜˋ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "上色"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄎㄚˇ ㄒㄧㄝˇ",
+      "reason": "醫護舊讀破音（防干擾日常「ㄎㄚˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "咳血"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄎㄚˇ ㄊㄢˊ",
+      "reason": "醫護舊讀破音（防干擾日常「ㄎㄚˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "咳痰"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄨˋ ㄒㄧㄣ",
+      "reason": "文言舊讀（現代標準讀「ㄜˇ ㄒㄧㄣ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "噁心"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "罕用古異體字（防干擾「我 ㄨㄛˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "𣇫"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "罕用古器物字（防干擾「都 ㄉㄡ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "篼"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "舊時謙稱亡語（防干擾「驚呼/經費」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "荊婦"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "錯誤切分殘片（防干擾「時候 / 小時後」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "時後"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "錯誤同音合成詞（防干擾「自己 ㄗˋ ㄐㄧˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "字擠"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "罕用專名（防干擾「會覺得 ㄏㄨㄟˋ ㄐㄩㄝˊ ˙ㄉㄜ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "慧覺"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「音檔 ㄧㄣ ㄉㄤˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "姻黨"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「音檔」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "內外姻黨"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「這一 ㄓㄜˋ ㄧ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "赭衣"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "繡衣"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「與此 ㄩˇ ㄘˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "瘐死"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "罕用軍事舊詞（防干擾「批次 ㄆㄧ ㄘˋ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "劈刺"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "罕用宗祠詞（防干擾「加詞 ㄐㄧㄚ ㄘˊ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "家祠"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "罕用古詞（防干擾「長與 / 常與」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "常語"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "罕用截斷詞（防干擾「但與 ㄉㄢˋ ㄩˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "彈雨"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「但會 ㄉㄢˋ ㄏㄨㄟˋ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "旦會"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古禮俗罕用詞（防干擾「是最 ㄕˋ ㄗㄨㄟˋ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "試晬"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「但這 ㄉㄢˋ ㄓㄜˋ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "啖蔗"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古黑話罕用詞（防干擾「是與 ㄕˋ ㄩˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "市語"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「與都 ㄩˇ ㄉㄡ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "傴兜"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「卻與 ㄑㄩㄝˋ ㄩˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "鵲語"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「卻極 ㄑㄩㄝˋ ㄐㄧˊ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "确瘠"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「再就 / 在就」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "在疚"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "舊公文罕用詞（防干擾「不你 / 部你」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "不擬"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料誤切殘片（防干擾「也很 ㄧㄝˇ ㄏㄣˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "野狠"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「也與 ㄧㄝˇ ㄩˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "野語"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "早期白話異體詞（防干擾「卻才 ㄑㄩㄝˋ ㄘㄞˊ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "卻纔"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "版型與"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "批次間"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "查至關重"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "域比較"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "化與"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "於梁柱間"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "入以"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "度與"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "美呈現其"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "將這"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "的數位"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "語料庫錯誤黏連殘片",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "構與模"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "罕用誤植詞（防干擾「開始 ㄎㄞ ㄕˇ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "開駛"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "罕用古詞（防干擾「檢視 ㄐㄧㄢˇ ㄕˋ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "簡釋"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古中醫罕用詞（防干擾「一包 ㄧ ㄅㄠ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "衣胞"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「一頁 ㄧ ㄧㄝˋ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "遺業"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「意思 ㄧˋ ㄙ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "縊死"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾「必要/醫藥」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "熠燿"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古文罕用片語（防干擾「你去 ㄋㄧˇ ㄑㄩˋ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "擬去"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄆㄧˊ",
+      "reason": "左傳「皋比（虎皮）」單字古破音誤用（防「相+比(ㄆㄧˊ)+擦」劫掠「橡皮擦」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "比"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "孟子「封之有庳」上古封國地名（防「有庳+要」跨界劫掠「有+必要」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "有庳"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用詞（防干擾現代日常詞彙）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "汙庳"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "*",
+      "reason": "古籍罕用單字（防干擾「必 ㄅㄧˋ / 杯 ㄅㄟ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "庳"
+    },
+    {
+      "min_engine_version": "0.4.0",
+      "reading": "ㄐㄧˊ",
+      "reason": "古文「口吃」單字罕用破音（雙字詞「口吃」已獨立收錄，防單字「吃(ㄐㄧˊ)+全」借動詞語法分劫掠「集權 ㄐㄧˊ ㄑㄩㄢˊ」）",
+      "schema_version": 1,
+      "type": "REJECTED_READING",
+      "word": "吃"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "打出",
+      "prev": "只",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "也",
+      "prev": "想破頭",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "想不出",
+      "prev": "也",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "其實",
+      "prev": "人物",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "人物",
+      "prev": "一堆",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "都很",
+      "prev": "其實",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "著",
+      "prev": "供奉",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "的",
+      "prev": "著",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "天龍",
+      "prev": "擺脫",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "人",
+      "prev": "天龍",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "愚蠢",
+      "prev": "的",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "還有",
+      "prev": "愚蠢",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "待",
+      "prev": "還有",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "要",
+      "prev": "只是",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "只是",
+      "prev": "我",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "轉",
+      "prev": "要",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "一個",
+      "prev": "轉",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "音檔",
+      "prev": "一個",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "好",
+      "prev": "頭",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "痛",
+      "prev": "好",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "做",
+      "prev": "可以",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "一個",
+      "prev": "做",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "在地",
+      "prev": "超簡單",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "的",
+      "prev": "在地",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "程式",
+      "prev": "轉錄",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "嗎",
+      "prev": "程式",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "檔",
+      "prev": "錄音",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "錄音",
+      "prev": "格式",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "都",
+      "prev": "檔",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "不",
+      "prev": "或",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "或",
+      "prev": "包含",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "包含",
+      "prev": "不",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "時間",
+      "prev": "軸",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "軸",
+      "prev": "時間",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "選項",
+      "prev": "推",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "天龍人",
+      "prev": "擺脫",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "的",
+      "prev": "天龍人",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "都",
+      "prev": "錄音檔",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "支援",
+      "prev": "時間軸",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "選項",
+      "prev": "倒推",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "捨棄",
+      "prev": "因",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "純綠版",
+      "prev": "改用",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "是",
+      "prev": "再來",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "這個",
+      "prev": "是",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "原本",
+      "prev": "取代",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "單純的",
+      "prev": "原本",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "任何",
+      "prev": "無",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "校正",
+      "prev": "任何",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "的",
+      "prev": "可能",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "答案",
+      "prev": "的",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "手",
+      "prev": "不用",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "離開",
+      "prev": "手",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "就",
+      "prev": "鍵盤",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "鍵盤",
+      "prev": "離開",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "能",
+      "prev": "就",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "的",
+      "prev": "切換",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "好",
+      "prev": "的",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "贏",
+      "prev": "不",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "不",
+      "prev": "搶",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "系統",
+      "prev": "贏",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "實測",
+      "prev": "剛剛",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "德政",
+      "prev": "真是",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "嫌棄",
+      "prev": "不",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "不",
+      "prev": "大家",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "耐心",
+      "prev": "嫌棄",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "亮",
+      "prev": "大",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "素食",
+      "prev": "建議",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "分類",
+      "prev": "素食",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "再",
+      "prev": "分類",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "增加",
+      "prev": "再",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "瑜伽素",
+      "prev": "增加",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "項目",
+      "prev": "瑜伽素",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "蛋",
+      "prev": "不含",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "菇類",
+      "prev": "所有",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "會不會",
+      "prev": "但",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "對",
+      "prev": "會不會",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "大易",
+      "prev": "學",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "輸入法",
+      "prev": "大易",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "之前",
+      "prev": "輸入法",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "因為",
+      "prev": "之前",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "手寫",
+      "prev": "因為",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "偏向",
+      "prev": "比較",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "文字型",
+      "prev": "偏向",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "思考",
+      "prev": "文字型",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "語音",
+      "prev": "而非",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "思考",
+      "prev": "語音",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "完工",
+      "prev": "都",
+      "recommended_delta": 30.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "了",
+      "prev": "完工",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "擴充",
+      "prev": "再",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "瑜伽素",
+      "prev": "叫",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "的",
+      "prev": "瑜伽素",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "跟",
+      "prev": "菇類",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "大易輸入法",
+      "prev": "在學",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "之前",
+      "prev": "大易輸入法",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "手寫",
+      "prev": "多年",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "書信",
+      "prev": "手寫",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "負擔",
+      "prev": "造成",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "鍵盤",
+      "prev": "許氏",
+      "recommended_delta": 30.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "大易",
+      "prev": "在學",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "瑜伽",
+      "prev": "叫",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "素",
+      "prev": "瑜伽",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "文",
+      "prev": "偏向",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "字型",
+      "prev": "文",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "思考",
+      "prev": "字型",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "項目",
+      "prev": "素",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "菇",
+      "prev": "所有",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "類",
+      "prev": "菇",
+      "recommended_delta": 30.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "型",
+      "prev": "文字",
+      "recommended_delta": 32.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "思考",
+      "prev": "型",
+      "recommended_delta": 30.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "與",
+      "prev": "蛋",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "而非",
+      "prev": "思考",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "日文",
+      "prev": "不懂",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "習慣",
+      "prev": "舊",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "就",
+      "prev": "習慣",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "不要",
+      "prev": "就",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "程式",
+      "prev": "還是",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "的",
+      "prev": "程式",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "不",
+      "prev": "如果",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "急著",
+      "prev": "不",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "玩",
+      "prev": "急著",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "的是",
+      "prev": "選",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "一個",
+      "prev": "的是",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "對",
+      "prev": "一個",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "治理",
+      "prev": "對",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "就",
+      "prev": "大易",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "幾乎",
+      "prev": "就",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "忘光光",
+      "prev": "幾乎",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "了",
+      "prev": "忘光光",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "忘",
+      "prev": "幾乎",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "光",
+      "prev": "忘",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "使用者",
+      "prev": "交到",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "嗎",
+      "prev": "對",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "使用者",
+      "prev": "一般",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "可以",
+      "prev": "確定",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "確定",
+      "prev": "使用者",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "校對",
+      "prev": "勘誤",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "construction",
+      "min_engine_version": "0.4.0",
+      "next": "雙句",
+      "prev": "校對",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "必要",
+      "prev": "有",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "這樣",
+      "prev": "必要",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "再度",
+      "prev": "剛剛",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "靈魂拷問",
+      "prev": "再度",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "靈魂",
+      "prev": "再度",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "拷問",
+      "prev": "靈魂",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "實做",
+      "prev": "在",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "的",
+      "prev": "實做",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "調整",
+      "prev": "語意",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "工作室",
+      "prev": "調整",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "漢語",
+      "prev": "僅限",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "限",
+      "prev": "僅",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "漢語",
+      "prev": "限",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "bonus": 38.0,
+      "min_engine_version": "0.4.0",
+      "name": "疑問存在句+形容詞名物化",
+      "optional_slots": [
+        2
+      ],
+      "pattern_id": "rhetorical_question_predicate_de",
+      "penalty": -18.0,
+      "preferred": [
+        "小",
+        "好的",
+        "要緊的",
+        "少",
+        "大不了的",
+        "壞的",
+        "貴的",
+        "大",
+        "多",
+        "痛的",
+        "稀罕的",
+        "氣的",
+        "難",
+        "笑的",
+        "難的",
+        "累的",
+        "怪的",
+        "便宜的",
+        "遠的",
+        "怕的",
+        "好"
+      ],
+      "punctuation": [
+        "呀",
+        "哩",
+        "？",
+        "！",
+        "呢",
+        "嗎",
+        "。",
+        "?",
+        "!",
+        "啦"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "有",
+          "沒",
+          "算",
+          "哪",
+          "差",
+          "憑"
+        ],
+        [
+          "什麼",
+          "啥",
+          "甚麼",
+          "哪樣"
+        ],
+        [
+          "好",
+          "真",
+          "那麼",
+          "這麼",
+          "太",
+          "可"
+        ]
+      ],
+      "suppress": [
+        "南得",
+        "喃得",
+        "南德",
+        "男的",
+        "難得",
+        "湳得"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 38.0,
+      "min_engine_version": "0.4.0",
+      "name": "反問難度句式",
+      "optional_slots": [
+        2
+      ],
+      "pattern_id": "rhetorical_difficulty_de",
+      "penalty": -18.0,
+      "preferred": [
+        "怕的",
+        "難的",
+        "怪的"
+      ],
+      "punctuation": [
+        "？",
+        "！"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "到底",
+          "究竟"
+        ],
+        [
+          "有什麼",
+          "有啥"
+        ],
+        [
+          "好",
+          "真"
+        ]
+      ],
+      "suppress": [
+        "男的",
+        "難得",
+        "南得"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 38.0,
+      "min_engine_version": "0.4.0",
+      "name": "心靈主體與心境狀態語意場",
+      "optional_slots": [
+        1
+      ],
+      "pattern_id": "mind_state_collocation",
+      "penalty": -18.0,
+      "preferred": [
+        "祥和",
+        "提升",
+        "寧靜",
+        "澄澈",
+        "安詳",
+        "純淨",
+        "昇華",
+        "安定",
+        "平靜"
+      ],
+      "punctuation": [
+        "？",
+        "。",
+        "，",
+        "！"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "心靈",
+          "內心",
+          "精神",
+          "靈魂",
+          "思緒",
+          "心智"
+        ],
+        [
+          "的",
+          "之",
+          "非常",
+          "格外",
+          "十分",
+          "無比"
+        ],
+        [
+          "平靜",
+          "澄澈",
+          "安詳",
+          "純淨",
+          "寧靜",
+          "祥和",
+          "安定",
+          "昇華",
+          "提升",
+          "混亂",
+          "痛苦",
+          "喜悅"
+        ]
+      ],
+      "suppress": [
+        "南得",
+        "平敬",
+        "安祥",
+        "城澈",
+        "難得"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 38.0,
+      "min_engine_version": "0.4.0",
+      "name": "心境狀態修飾心靈主體語意場",
+      "optional_slots": [],
+      "pattern_id": "state_mind_attributive",
+      "penalty": -18.0,
+      "preferred": [
+        "心靈",
+        "靈魂",
+        "精神",
+        "內心",
+        "心智"
+      ],
+      "punctuation": [
+        "？",
+        "。",
+        "，",
+        "！"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "平靜",
+          "澄澈",
+          "安詳",
+          "純淨",
+          "寧靜",
+          "祥和",
+          "安定",
+          "昇華",
+          "提升"
+        ],
+        [
+          "的",
+          "之"
+        ],
+        [
+          "心靈",
+          "內心",
+          "精神",
+          "靈魂",
+          "心智",
+          "世界"
+        ]
+      ],
+      "suppress": [
+        "新靈",
+        "心靈性"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 38.0,
+      "min_engine_version": "0.4.0",
+      "name": "兼類詞修飾位法則",
+      "optional_slots": [
+        1
+      ],
+      "pattern_id": "dual_category_attributive_pattern",
+      "penalty": -18.0,
+      "preferred": [
+        "科學",
+        "經典",
+        "標準",
+        "理論",
+        "概念",
+        "案例",
+        "權威",
+        "著作",
+        "傳統",
+        "定義"
+      ],
+      "punctuation": [
+        "？",
+        "。",
+        "，",
+        "！"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "經典",
+          "權威",
+          "傳統",
+          "規範",
+          "科學",
+          "標準",
+          "基本",
+          "專業",
+          "極端",
+          "熱門",
+          "理想",
+          "關鍵",
+          "核心",
+          "典型"
+        ],
+        [
+          "的",
+          "之"
+        ],
+        [
+          "定義",
+          "理論",
+          "概念",
+          "案例",
+          "著作",
+          "之作",
+          "語錄",
+          "範例",
+          "教材",
+          "方法",
+          "解答",
+          "文化",
+          "觀念",
+          "流程",
+          "標準",
+          "態度",
+          "問題",
+          "作品"
+        ]
+      ],
+      "suppress": [
+        "經點",
+        "全威",
+        "傳同",
+        "歸範"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 38.0,
+      "min_engine_version": "0.4.0",
+      "name": "兼類詞核心位法則",
+      "optional_slots": [],
+      "pattern_id": "dual_category_head_pattern",
+      "penalty": -18.0,
+      "preferred": [
+        "經典",
+        "規範",
+        "標準",
+        "權威",
+        "傳統"
+      ],
+      "punctuation": [
+        "？",
+        "。",
+        "，",
+        "！"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "不朽",
+          "永恆",
+          "偉大",
+          "傳世",
+          "歷久彌新",
+          "跨時代",
+          "嚴格",
+          "現代",
+          "歷史",
+          "世界",
+          "我們"
+        ],
+        [
+          "的",
+          "之"
+        ],
+        [
+          "經典",
+          "權威",
+          "傳統",
+          "規範",
+          "科學",
+          "標準",
+          "基本",
+          "專業",
+          "理想"
+        ]
+      ],
+      "suppress": [
+        "經點",
+        "全威",
+        "傳同"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 36.0,
+      "exclude_pairs": [
+        [
+          "在",
+          "極"
+        ],
+        [
+          "居",
+          "極"
+        ]
+      ],
+      "min_engine_version": "0.4.0",
+      "name": "處所動詞錨定空間方位修飾構式",
+      "optional_slots": [],
+      "pattern_id": "locative_direction_attributive",
+      "penalty": -18.0,
+      "preferred": [
+        "北的",
+        "南",
+        "南的",
+        "北部",
+        "西的",
+        "北",
+        "西",
+        "東",
+        "南部",
+        "東的"
+      ],
+      "punctuation": [
+        "？",
+        "。",
+        "，",
+        "！"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "住",
+          "住在",
+          "居",
+          "居於",
+          "在",
+          "位於",
+          "處於",
+          "座落於",
+          "座落",
+          "落在",
+          "站在",
+          "面向"
+        ],
+        [
+          "很",
+          "非常",
+          "極",
+          "特別",
+          "蠻",
+          "挺"
+        ]
+      ],
+      "suppress": [
+        "男的",
+        "南得",
+        "難的"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 35.0,
+      "exclude_pairs": [
+        [
+          "男",
+          "得"
+        ],
+        [
+          "美",
+          "得"
+        ]
+      ],
+      "min_engine_version": "0.4.0",
+      "name": "形容詞化重疊與程度補語構式",
+      "optional_slots": [],
+      "pattern_id": "rhetorical_degree_complement",
+      "penalty": -18.0,
+      "preferred": [
+        "很美",
+        "不得了",
+        "要命",
+        "很神",
+        "很男",
+        "很好",
+        "很女",
+        "很難"
+      ],
+      "punctuation": [
+        "？",
+        "。",
+        "，",
+        "！"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "男",
+          "女",
+          "文青",
+          "美",
+          "帥",
+          "台",
+          "神",
+          "難",
+          "好"
+        ],
+        [
+          "得",
+          "得更",
+          "得非常"
+        ]
+      ],
+      "suppress": [
+        "男德",
+        "南得"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 38.0,
+      "min_engine_version": "0.4.0",
+      "name": "模態評價動詞構式",
+      "optional_slots": [],
+      "pattern_id": "modal_eval_difficulty",
+      "penalty": -25.0,
+      "preferred": [
+        "好看",
+        "好住",
+        "好受",
+        "難走",
+        "難受",
+        "難看",
+        "好走",
+        "難吃",
+        "難住",
+        "好吃"
+      ],
+      "punctuation": [
+        "？",
+        "。",
+        "，",
+        "！"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "很",
+          "非常",
+          "太",
+          "真",
+          "格外",
+          "一點都不",
+          "一點也不",
+          "毫不"
+        ],
+        [
+          "難",
+          "好"
+        ],
+        [
+          "住",
+          "吃",
+          "看",
+          "喝",
+          "聽",
+          "開",
+          "讀",
+          "寫",
+          "做",
+          "受",
+          "懂",
+          "走",
+          "買",
+          "賣"
+        ]
+      ],
+      "suppress": [
+        "南住",
+        "男看",
+        "南看",
+        "南吃",
+        "男吃",
+        "男住"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[({框, 圈, 點, 勾, 篩, 挑} → {選, 取, 列})]",
+      "min_engine_version": "0.4.0",
+      "next_slot": [
+        "選",
+        "取",
+        "列"
+      ],
+      "prev_slot": [
+        "圈",
+        "點",
+        "勾",
+        "框",
+        "篩",
+        "挑"
+      ],
+      "schema_version": 1,
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{在, 於, 從, 往, 向, 自}] → [框] → [({中, 內, 裡, 外, 上, 下} → {的, 面, 邊, ∅})]",
+      "exclude_pairs": [
+        [
+          "向",
+          "框"
+        ]
+      ],
+      "min_engine_version": "0.4.0",
+      "next_slot": [
+        "框"
+      ],
+      "prev_slot": [
+        "在",
+        "於",
+        "從",
+        "往",
+        "向",
+        "自"
+      ],
+      "schema_version": 1,
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[({圈, 點, 勾, 框, 篩, 挑, 複, 全, 單, 候} → {選, 取})] → [{框, 欄, 區, 鈕, 鍵, 窗}]",
+      "min_engine_version": "0.4.0",
+      "next_slot": [
+        "框",
+        "欄",
+        "區",
+        "鈕",
+        "鍵",
+        "窗"
+      ],
+      "prev_slot": [
+        "圈選",
+        "點選",
+        "勾選",
+        "框選",
+        "全選",
+        "複選",
+        "單選",
+        "篩選",
+        "候選",
+        "選取"
+      ],
+      "schema_version": 1,
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[({上,下,左,右,前,後} → {上,下,左,右,內,外})] → [往/向] → [複合方位]",
+      "min_engine_version": "0.4.0",
+      "next_slot": [
+        "往",
+        "向"
+      ],
+      "prev_slot": [
+        "上下",
+        "左右",
+        "前後",
+        "內外",
+        "四處"
+      ],
+      "schema_version": 1,
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{會, 將, 要, 能, 可, 先, 請}] → [再] → [動作謂詞 (如：改用、被、取消)]",
+      "min_engine_version": "0.4.0",
+      "name": "重複副詞「再」＋擴充與操作動作謂詞構式",
+      "next_slot": [
+        "改用",
+        "被",
+        "取消",
+        "試",
+        "點擊",
+        "確認",
+        "增加",
+        "新增",
+        "加入",
+        "擴充",
+        "增設",
+        "補充",
+        "調整"
+      ],
+      "pattern_id": "zai4_action_verb_expansion",
+      "prev_slot": [
+        "再"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "再"
+        ],
+        [
+          "增加",
+          "擴充"
+        ]
+      ],
+      "suppress": [
+        "在"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{每, 各, 凡, 逢}] → [點擊] → [(數詞 → 動量詞 {次, 回, 下, 遍})]",
+      "min_engine_version": "0.4.0",
+      "next_slot": [
+        "點擊"
+      ],
+      "prev_slot": [
+        "每",
+        "各",
+        "凡",
+        "逢"
+      ],
+      "schema_version": 1,
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{此, 這, 該, 那, 外, 邊, 方}] → [{框, 欄, 區, 鈕, 鍵, 窗}]",
+      "exclude_pairs": [
+        [
+          "這",
+          "鍵"
+        ],
+        [
+          "那",
+          "鍵"
+        ],
+        [
+          "這",
+          "欄"
+        ],
+        [
+          "該",
+          "鍵"
+        ]
+      ],
+      "min_engine_version": "0.4.0",
+      "next_slot": [
+        "框",
+        "欄",
+        "區",
+        "鈕",
+        "鍵",
+        "窗"
+      ],
+      "prev_slot": [
+        "此",
+        "這",
+        "該",
+        "那",
+        "外",
+        "邊",
+        "方"
+      ],
+      "schema_version": 1,
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 32.0,
+      "description": "[{都, 全, 全都, 統統, 已經, 終於, 總算, 快, 剛}] → [{完工, 完成, 完畢, 完結, 完稿, 完賽, 收工, 竣工, 做好, 寫好, 弄好, 修好, 改好, 準備好}] → [{了, 囉, 啦}]",
+      "min_engine_version": "0.4.0",
+      "name": "範圍總括副詞「都」＋完成態動補複合詞＋體標記「了」構式",
+      "next_slot": [
+        "完工",
+        "完成",
+        "完畢",
+        "完結",
+        "完稿",
+        "完賽",
+        "收工",
+        "竣工",
+        "做好",
+        "寫好",
+        "弄好",
+        "修好",
+        "改好",
+        "建好",
+        "裝好"
+      ],
+      "pattern_id": "scope_adv_completion_predicate_le",
+      "prev_slot": [
+        "都",
+        "全",
+        "全都",
+        "統統",
+        "已經",
+        "終於",
+        "總算",
+        "快",
+        "剛"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "都",
+          "全",
+          "全都",
+          "統統",
+          "已經",
+          "終於",
+          "總算",
+          "快",
+          "剛"
+        ],
+        [
+          "完工",
+          "完成",
+          "完畢",
+          "完結",
+          "完稿",
+          "完賽",
+          "收工",
+          "竣工",
+          "做好",
+          "寫好",
+          "弄好",
+          "修好",
+          "改好",
+          "建好",
+          "裝好"
+        ],
+        [
+          "了",
+          "囉",
+          "啦"
+        ]
+      ],
+      "suppress": [
+        "兜完攻",
+        "兜",
+        "攻了",
+        "工了",
+        "兜完"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{建議, 另建議, 新增}] × [{素食, 飲食, 蔬食, 肉食, 餐點, 菜單} × {分類, 類別, 分級, 項目}] × [再] × [{增加, 新增, 加入, 擴充, 增設}] × [{瑜伽, 全, 蛋奶, 五辛, 植物, 純, 奶, 蛋, 鍋邊} × {素} × {項目, 選項}]",
+      "min_engine_version": "0.4.0",
+      "name": "飲食分類體系 × 重複副詞「再」 × 擴充動作 × [詞根×素×項目] 多維陣列構式",
+      "next_slot": [
+        "分類",
+        "分析",
+        "分級",
+        "分配",
+        "分區",
+        "分量"
+      ],
+      "optional_slots": [],
+      "pattern_id": "dietary_category_zai4_add_item",
+      "prev_slot": [
+        "素食",
+        "飲食",
+        "蔬食",
+        "肉食",
+        "主食",
+        "副食",
+        "糧食",
+        "美食",
+        "速食",
+        "熟食"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "素食",
+          "飲食",
+          "蔬食",
+          "肉食",
+          "餐點",
+          "菜單",
+          "分類",
+          "項目"
+        ],
+        [
+          "再"
+        ],
+        [
+          "增加",
+          "新增",
+          "加入",
+          "擴充",
+          "增設",
+          "補充"
+        ]
+      ],
+      "suppress": [
+        "十分類在",
+        "十分",
+        "瑜珈素",
+        "加速"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{所有, 各類, 各種, 任何, 一切, 全部}] × [{菇, 蛋, 肉, 豆, 藻, 貝, 魚, 菜, 鳥, 菌, 穀, 蔬, 果, 奶}] × [{類}]",
+      "min_engine_version": "0.4.0",
+      "name": "全稱量化限定詞 × 生物食材詞根 × 類別後綴三維陣列構式",
+      "next_slot": [
+        "菇",
+        "蛋",
+        "肉",
+        "豆",
+        "藻",
+        "貝",
+        "魚",
+        "菇類",
+        "肉類",
+        "豆類",
+        "藻類",
+        "貝類",
+        "魚類",
+        "蔬菜",
+        "素食",
+        "食材",
+        "項目",
+        "菜",
+        "鳥",
+        "菌",
+        "穀",
+        "蔬",
+        "果",
+        "奶"
+      ],
+      "optional_slots": [],
+      "pattern_id": "universal_quantifier_class_noun",
+      "prev_slot": [
+        "所有",
+        "各類",
+        "各種",
+        "任何",
+        "一切",
+        "全部"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "所有",
+          "各類",
+          "各種",
+          "任何",
+          "一切",
+          "全部"
+        ],
+        [
+          "菇",
+          "蛋",
+          "肉",
+          "豆",
+          "藻",
+          "貝",
+          "魚",
+          "菜",
+          "鳥",
+          "菌",
+          "穀",
+          "蔬",
+          "果",
+          "奶"
+        ],
+        [
+          "類"
+        ]
+      ],
+      "suppress": [
+        "十分類在",
+        "孤累",
+        "速十分累在"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{比較, 較, 更, 相當, 基本上}] × [{偏向, 傾向, 偏好, 擅長}] × [{文字, 語音, 視覺, 聽覺, 圖像, 邏輯, 直覺, 分析, 記憶, 思考, 概念, 經驗}] × [{型}] × [{思考, 思維, 記憶, 學習, 模式}]",
+      "min_engine_version": "0.4.0",
+      "name": "程度副詞 × 心理傾向動詞 × 認知詞根 × [型]後綴 × 中心名詞五維陣列構式",
+      "next_slot": [
+        "文字",
+        "語音",
+        "視覺",
+        "聽覺",
+        "圖像",
+        "邏輯",
+        "直覺",
+        "分析",
+        "記憶",
+        "思考",
+        "概念",
+        "經驗",
+        "文字型",
+        "語音型",
+        "視覺型",
+        "聽覺型",
+        "圖像型",
+        "邏輯型",
+        "直覺型",
+        "分析型"
+      ],
+      "optional_slots": [
+        3
+      ],
+      "pattern_id": "cognitive_tendency_type_thinking",
+      "prev_slot": [
+        "偏向",
+        "傾向",
+        "偏好",
+        "屬於"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "比較",
+          "較",
+          "更",
+          "相當",
+          "基本上"
+        ],
+        [
+          "偏向",
+          "傾向",
+          "偏好",
+          "擅長"
+        ],
+        [
+          "文字型",
+          "語音型",
+          "視覺型",
+          "聽覺型",
+          "圖像型",
+          "邏輯型",
+          "直覺型",
+          "分析型"
+        ]
+      ],
+      "suppress": [
+        "紋自行",
+        "片象",
+        "自行",
+        "片象紋自行"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{但, 但是, 不過, 卻, 那}] → [{會不會, 能不能, 可不可以, 要不要, 該不該, 是否會, 會}] → [{對, 給, 讓, 向, 為}] → [<ASCII/NP>]",
+      "min_engine_version": "0.4.0",
+      "name": "轉折連詞＋正反疑問助動＋介詞引介構式",
+      "next_slot": [
+        "對",
+        "給",
+        "讓",
+        "向",
+        "為",
+        "造成"
+      ],
+      "optional_slots": [],
+      "pattern_id": "adversative_a_not_a_preposition_slot",
+      "prev_slot": [
+        "會不會",
+        "能不能",
+        "可不可以",
+        "要不要",
+        "該不該",
+        "是否會",
+        "可能會",
+        "或許會",
+        "應該會",
+        "總會",
+        "只會"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "但",
+          "但是",
+          "不過",
+          "卻",
+          "那"
+        ],
+        [
+          "會不會",
+          "能不能",
+          "可不可以",
+          "要不要",
+          "該不該",
+          "是否會"
+        ],
+        [
+          "對",
+          "給",
+          "讓",
+          "向",
+          "為"
+        ]
+      ],
+      "suppress": [
+        "兌",
+        "匯兌"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{對, 給, 讓}] → [<ASCII: Github>] → [{造成, 帶來, 產生, 構成}] → [{負擔, 影響, 壓力, 衝擊}]",
+      "min_engine_version": "0.4.0",
+      "name": "跨語系歐文受事與致使負擔構式",
+      "next_slot": [
+        "負擔",
+        "影響",
+        "壓力",
+        "衝擊",
+        "問題"
+      ],
+      "optional_slots": [],
+      "pattern_id": "preposition_ascii_causative_burden",
+      "prev_slot": [
+        "造成",
+        "帶來",
+        "產生",
+        "構成"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{大易, 倉頡, 行列, 許氏, 嘸蝦米, 無蝦米, 注音, 速成, 拼音, 大千, 倚天, 羅馬}] × [{輸入法, 鍵盤, 字根, 碼表, 拆碼, 規則}]",
+      "min_engine_version": "0.4.0",
+      "name": "中文輸入法專名詞根 × 設備/法體後綴二維陣列對應",
+      "next_slot": [
+        "輸入法",
+        "鍵盤",
+        "字根",
+        "碼表",
+        "拆碼",
+        "規則"
+      ],
+      "optional_slots": [],
+      "pattern_id": "ime_root_device_head_array",
+      "prev_slot": [
+        "大易",
+        "倉頡",
+        "行列",
+        "許氏",
+        "嘸蝦米",
+        "無蝦米",
+        "注音",
+        "速成",
+        "拼音",
+        "大千",
+        "倚天",
+        "羅馬"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "大意",
+        "大憶",
+        "大義",
+        "許是"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{學, 學習, 用, 使用, 打, 練, 改用, 切換}] × [{大易, 倉頡, 行列, 注音, 許氏, 嘸蝦米, 速成, 拼音, 大千, 倚天}] × [{輸入法, 鍵盤, 字根, 碼表}?] × [{之前, 之後, 以前, 以後}]",
+      "min_engine_version": "0.4.0",
+      "name": "動作動詞 × 輸入法專名 × 設備後綴(可選) × 時間方位詞四維陣列鏈構式",
+      "next_slot": [
+        "之前",
+        "之後",
+        "以前",
+        "以後",
+        "之初",
+        "之餘"
+      ],
+      "optional_slots": [
+        2
+      ],
+      "pattern_id": "learn_ime_temporal_localizer_causal",
+      "prev_slot": [
+        "輸入法",
+        "鍵盤",
+        "大易",
+        "倉頡",
+        "行列",
+        "許氏",
+        "嘸蝦米",
+        "工作",
+        "學習",
+        "上班"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "學",
+          "學習",
+          "用",
+          "使用",
+          "打",
+          "練",
+          "練習",
+          "改用",
+          "切換"
+        ],
+        [
+          "大易",
+          "倉頡",
+          "行列",
+          "注音",
+          "許氏",
+          "嘸蝦米",
+          "無蝦米",
+          "速成",
+          "拼音",
+          "大千",
+          "倚天"
+        ],
+        [
+          "輸入法",
+          "鍵盤",
+          "字根",
+          "碼表",
+          "拆碼",
+          "規則"
+        ],
+        [
+          "之前",
+          "之後",
+          "以前",
+          "以後",
+          "之初",
+          "之餘"
+        ]
+      ],
+      "suppress": [
+        "大意",
+        "支前",
+        "因位",
+        "支前因位",
+        "大憶舊"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{多年}] → [手寫] → [{書信}]",
+      "min_engine_version": "0.4.0",
+      "name": "語境錨定槽位構式",
+      "next_slot": [
+        "手寫"
+      ],
+      "optional_slots": [],
+      "pattern_id": "contextual_slot_手寫",
+      "prev_slot": [
+        "多年"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "使寫"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{多年, 長年, 長期, 習慣, 經常}] × [{手寫, 親筆, 撰寫, 抄寫, 編寫, 打字}] × [{書信, 信件, 文件, 文稿, 筆記, 日記, 手冊}]",
+      "min_engine_version": "0.4.0",
+      "name": "書寫方式 × 文體書信名詞二維陣列構式",
+      "next_slot": [
+        "書信",
+        "信件",
+        "文件",
+        "文稿",
+        "筆記",
+        "日記",
+        "手冊"
+      ],
+      "optional_slots": [],
+      "pattern_id": "writing_modality_document_collocation",
+      "prev_slot": [
+        "手寫",
+        "親筆",
+        "撰寫",
+        "抄寫",
+        "編寫",
+        "打字"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "多年",
+          "長年",
+          "長期",
+          "習慣",
+          "經常"
+        ],
+        [
+          "手寫",
+          "親筆",
+          "撰寫",
+          "抄寫",
+          "編寫",
+          "打字"
+        ],
+        [
+          "書信",
+          "信件",
+          "文件",
+          "文稿",
+          "筆記",
+          "日記",
+          "手冊"
+        ]
+      ],
+      "suppress": [
+        "使寫",
+        "首寫"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bifurcation_pairs": [
+        [
+          "讀",
+          "得"
+        ],
+        [
+          "讀",
+          "不"
+        ],
+        [
+          "走",
+          "不"
+        ],
+        [
+          "顧",
+          "不"
+        ]
+      ],
+      "bonus": 28.0,
+      "description": "[{看, 聽, 讀, 寫, 說, 算, 想, 記, 認, 猜, 弄, 搞, 分, 做, 受, 吃, 合, 忘, 拿, 睡, 買, 走, 追, 配, 顧}] × [{得, 不}] × [{懂, 到, 見, 清, 起, 出, 完, 好, 下, 了, 飽, 來, 通, 動, 著, 住, 上}]",
+      "exclude_pairs": [
+        [
+          "搞",
+          "得"
+        ],
+        [
+          "分",
+          "不"
+        ],
+        [
+          "合",
+          "不"
+        ]
+      ],
+      "min_engine_version": "0.4.0",
+      "name": "可能補語三維陣列構式 (V × {得,不} × R)",
+      "next_slot": [
+        "得",
+        "不"
+      ],
+      "optional_slots": [],
+      "pattern_id": "potential_complement_3d_array",
+      "prev_slot": [
+        "看",
+        "聽",
+        "讀",
+        "寫",
+        "說",
+        "算",
+        "想",
+        "記",
+        "認",
+        "猜",
+        "弄",
+        "搞",
+        "分",
+        "做",
+        "受",
+        "吃",
+        "合",
+        "忘",
+        "拿",
+        "睡",
+        "買",
+        "走",
+        "追",
+        "配",
+        "顧"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "看",
+          "聽",
+          "讀",
+          "寫",
+          "說",
+          "算",
+          "想",
+          "記",
+          "認",
+          "猜",
+          "弄",
+          "搞",
+          "分",
+          "做",
+          "受",
+          "吃",
+          "合",
+          "忘",
+          "拿",
+          "睡",
+          "買",
+          "走",
+          "追",
+          "配",
+          "顧"
+        ],
+        [
+          "得",
+          "不"
+        ],
+        [
+          "懂",
+          "到",
+          "見",
+          "清",
+          "起",
+          "出",
+          "完",
+          "好",
+          "下",
+          "了",
+          "飽",
+          "來",
+          "通",
+          "動",
+          "著",
+          "住",
+          "上",
+          "過",
+          "開",
+          "掉"
+        ]
+      ],
+      "suppress": [
+        "步道",
+        "佈道",
+        "布道",
+        "不道"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{洗, 睡, 吃, 上, 起, 刷, 理, 剪, 泡, 做, 流, 嘆, 抽, 喝, 煮, 聊, 講, 說, 開, 請, 幫, 見, 打, 握, 鞠, 生, 發, 吵, 道, 跑, 散, 唱, 跳, 游, 爬, 逛, 釣, 拍, 照, 出, 下, 加, 罷, 辭, 考, 排, 看, 住, 結, 買, 簽, 坐, 等, 聽, 問, 查, 試, 秀, 碰, 轉, 推, 拉, 改}] × [{一下, 個, 一頓, 一趟, 一個}] × [{澡, 覺, 飯, 廁所, 床, 牙, 臉, 髮, 夢, 汗, 氣, 煙, 菸, 酒, 茶, 天, 話, 玩笑, 客, 忙, 面, 招呼, 手, 躬, 脾氣, 架, 歉, 步, 歌, 舞, 泳, 球, 山, 街, 魚, 照, 相, 假, 差, 會, 卡, 班, 工, 職, 試, 隊, 病, 針, 藥, 院, 帳, 單, 名, 仗}]",
+      "exclude_pairs": [
+        [
+          "做",
+          "一下"
+        ],
+        [
+          "試",
+          "個"
+        ],
+        [
+          "試",
+          "一個"
+        ],
+        [
+          "個",
+          "步"
+        ],
+        [
+          "個",
+          "相"
+        ],
+        [
+          "個",
+          "試"
+        ]
+      ],
+      "min_engine_version": "0.4.0",
+      "name": "離合動詞與動量中綴三維陣列構式 (V × {一下,個,一頓} × O)",
+      "next_slot": [
+        "一下",
+        "個",
+        "一頓",
+        "一趟",
+        "一個"
+      ],
+      "optional_slots": [],
+      "pattern_id": "separable_vo_momentum_3d_array",
+      "prev_slot": [
+        "洗",
+        "睡",
+        "吃",
+        "上",
+        "起",
+        "刷",
+        "理",
+        "剪",
+        "泡",
+        "做",
+        "流",
+        "嘆",
+        "抽",
+        "喝",
+        "煮",
+        "聊",
+        "講",
+        "說",
+        "開",
+        "請",
+        "幫",
+        "見",
+        "打",
+        "握",
+        "鞠",
+        "生",
+        "發",
+        "吵",
+        "道",
+        "跑",
+        "散",
+        "唱",
+        "跳",
+        "游",
+        "爬",
+        "逛",
+        "釣",
+        "拍",
+        "照",
+        "出",
+        "下",
+        "加",
+        "罷",
+        "辭",
+        "考",
+        "排",
+        "看",
+        "住",
+        "結",
+        "買",
+        "簽",
+        "坐",
+        "等",
+        "聽",
+        "問",
+        "想",
+        "查",
+        "試",
+        "秀",
+        "碰",
+        "轉",
+        "推",
+        "拉",
+        "改"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "洗",
+          "睡",
+          "吃",
+          "上",
+          "起",
+          "刷",
+          "理",
+          "剪",
+          "泡",
+          "做",
+          "流",
+          "嘆",
+          "抽",
+          "喝",
+          "煮",
+          "聊",
+          "講",
+          "說",
+          "開",
+          "請",
+          "幫",
+          "見",
+          "打",
+          "握",
+          "鞠",
+          "生",
+          "發",
+          "吵",
+          "道",
+          "跑",
+          "散",
+          "唱",
+          "跳",
+          "游",
+          "爬",
+          "逛",
+          "釣",
+          "拍",
+          "照",
+          "出",
+          "下",
+          "加",
+          "罷",
+          "辭",
+          "考",
+          "排",
+          "看",
+          "住",
+          "結",
+          "買",
+          "簽",
+          "坐",
+          "等",
+          "聽",
+          "問",
+          "想",
+          "查",
+          "試",
+          "秀",
+          "碰",
+          "轉",
+          "推",
+          "拉",
+          "改"
+        ],
+        [
+          "一下",
+          "個",
+          "一頓",
+          "一趟",
+          "一個"
+        ],
+        [
+          "澡",
+          "覺",
+          "飯",
+          "廁所",
+          "床",
+          "牙",
+          "臉",
+          "髮",
+          "夢",
+          "汗",
+          "氣",
+          "煙",
+          "菸",
+          "酒",
+          "茶",
+          "天",
+          "話",
+          "玩笑",
+          "客",
+          "忙",
+          "面",
+          "招呼",
+          "手",
+          "躬",
+          "脾氣",
+          "架",
+          "歉",
+          "步",
+          "歌",
+          "舞",
+          "泳",
+          "球",
+          "山",
+          "街",
+          "魚",
+          "照",
+          "相",
+          "假",
+          "差",
+          "會",
+          "卡",
+          "班",
+          "工",
+          "職",
+          "試",
+          "隊",
+          "病",
+          "針",
+          "藥",
+          "院",
+          "帳",
+          "單",
+          "名",
+          "仗"
+        ]
+      ],
+      "suppress": [
+        "繡衣",
+        "好叫",
+        "下石"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{叫}] → [瑜伽] → [{素}]",
+      "min_engine_version": "0.4.0",
+      "name": "語境錨定槽位構式",
+      "next_slot": [
+        "瑜伽"
+      ],
+      "optional_slots": [],
+      "pattern_id": "contextual_slot_瑜伽",
+      "prev_slot": [
+        "叫"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "瑜珈"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bifurcation_pairs": [
+        [
+          "全",
+          "素"
+        ]
+      ],
+      "bonus": 30.0,
+      "description": "[{瑜伽, 全, 蛋奶, 五辛, 植物, 純, 奶, 蛋, 鍋邊}] × [{素}] × [{項目, 選項, 餐點, 飲食}]",
+      "exclude_pairs": [],
+      "min_engine_version": "0.4.0",
+      "name": "飲食分類詞根 × [素]後綴 × 類別名詞三維陣列對應",
+      "next_slot": [
+        "素"
+      ],
+      "optional_slots": [],
+      "pattern_id": "dietary_root_su_suffix_array",
+      "prev_slot": [
+        "瑜伽",
+        "全",
+        "蛋奶",
+        "五辛",
+        "植物",
+        "純",
+        "奶",
+        "蛋",
+        "鍋邊"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "瑜伽",
+          "全",
+          "蛋奶",
+          "五辛",
+          "植物",
+          "純",
+          "奶",
+          "蛋",
+          "鍋邊"
+        ],
+        [
+          "素"
+        ],
+        [
+          "項目",
+          "選項",
+          "餐點",
+          "飲食"
+        ]
+      ],
+      "suppress": [
+        "瑜珈素"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 32.0,
+      "description": "[{文字, 語音, 視覺, 聽覺, 圖像, 邏輯, 直覺, 分析, 記憶, 思考, 概念, 經驗}] × [{型}] × [{思考, 思維, 記憶, 學習, 模式}]",
+      "min_engine_version": "0.4.0",
+      "name": "認知感官詞根 × [型]後綴 × 中心名詞三維陣列對應",
+      "next_slot": [
+        "型"
+      ],
+      "optional_slots": [],
+      "pattern_id": "cognitive_root_type_suffix_array",
+      "prev_slot": [
+        "文字",
+        "語音",
+        "視覺",
+        "聽覺",
+        "圖像",
+        "邏輯",
+        "直覺",
+        "分析",
+        "記憶",
+        "思考",
+        "概念",
+        "經驗"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "文字",
+          "語音",
+          "視覺",
+          "聽覺",
+          "圖像",
+          "邏輯",
+          "直覺",
+          "分析",
+          "記憶",
+          "思考",
+          "概念",
+          "經驗"
+        ],
+        [
+          "型"
+        ],
+        [
+          "思考",
+          "思維",
+          "記憶",
+          "學習",
+          "模式"
+        ]
+      ],
+      "suppress": [
+        "紋自行",
+        "自行"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{型, 字型, 文字型} × {思考}]",
+      "min_engine_version": "0.4.0",
+      "name": "自動因式分解陣列對應（型 等 3 詞 × 思考 等 1 詞）",
+      "next_slot": [
+        "思考"
+      ],
+      "optional_slots": [],
+      "pattern_id": "auto_array_型_思考",
+      "prev_slot": [
+        "型",
+        "字型",
+        "文字型",
+        "語音"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "型",
+          "字型",
+          "文字型"
+        ],
+        [
+          "思考"
+        ]
+      ],
+      "suppress": [],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{在學, 學} × {大易}]",
+      "min_engine_version": "0.4.0",
+      "name": "自動因式分解陣列對應（在學 等 2 詞 × 大易 等 1 詞）",
+      "next_slot": [
+        "大易"
+      ],
+      "optional_slots": [],
+      "pattern_id": "auto_array_在學_大易",
+      "prev_slot": [
+        "在學",
+        "學"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "在學",
+          "學"
+        ],
+        [
+          "大易"
+        ]
+      ],
+      "suppress": [],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{偏向} × {文字型, 文}]",
+      "min_engine_version": "0.4.0",
+      "name": "自動因式分解右向陣列（偏向 × 文字型 等 2 詞）",
+      "next_slot": [
+        "文字型",
+        "文"
+      ],
+      "optional_slots": [],
+      "pattern_id": "auto_array_偏向_文字型",
+      "prev_slot": [
+        "偏向"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "偏向"
+        ],
+        [
+          "文字型",
+          "文"
+        ]
+      ],
+      "suppress": [],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{所有} × {菇類, 菇}]",
+      "min_engine_version": "0.4.0",
+      "name": "自動因式分解右向陣列（所有 × 菇類 等 2 詞）",
+      "next_slot": [
+        "菇類",
+        "菇"
+      ],
+      "optional_slots": [],
+      "pattern_id": "auto_array_所有_菇類",
+      "prev_slot": [
+        "所有"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "所有"
+        ],
+        [
+          "菇類",
+          "菇"
+        ]
+      ],
+      "suppress": [
+        "家"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bifurcation_pairs": [
+        [
+          "騎",
+          "得"
+        ],
+        [
+          "笑",
+          "到"
+        ],
+        [
+          "讀",
+          "得"
+        ],
+        [
+          "做",
+          "得"
+        ]
+      ],
+      "bonus": 32.0,
+      "description": "[{看, 吃, 喝, 聽, 玩, 睡, 坐, 唱, 騎, 用, 讀, 買, 逛, 泡, 聊, 笑, 氣, 學, 寫, 打, 充, 領, 拿, 做}] × [{到, 得}?] × [{飽}]",
+      "exclude_pairs": [
+        [
+          "充",
+          "到"
+        ]
+      ],
+      "min_engine_version": "0.4.0",
+      "name": "極量與可能飽足補語可選中綴三維陣列構式 (V × {到,得}? × 飽)",
+      "next_slot": [
+        "飽"
+      ],
+      "optional_slots": [
+        1
+      ],
+      "pattern_id": "v_dao_bao_satiation_3d_array",
+      "prev_slot": [
+        "看到",
+        "吃到",
+        "喝到",
+        "聽到",
+        "玩到",
+        "睡到",
+        "坐到",
+        "唱到",
+        "騎到",
+        "用到",
+        "讀到",
+        "買到",
+        "逛到",
+        "泡到",
+        "聊到",
+        "笑到",
+        "氣到",
+        "學到",
+        "寫到",
+        "打到",
+        "充到",
+        "領到",
+        "拿到",
+        "做到",
+        "看得",
+        "吃得",
+        "喝得",
+        "聽得",
+        "玩得",
+        "睡得",
+        "坐得",
+        "唱得",
+        "騎得",
+        "用得",
+        "讀得",
+        "買得",
+        "做得",
+        "看",
+        "吃",
+        "喝",
+        "聽",
+        "玩",
+        "睡",
+        "氣",
+        "做"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "看",
+          "吃",
+          "喝",
+          "聽",
+          "玩",
+          "睡",
+          "坐",
+          "唱",
+          "騎",
+          "用",
+          "讀",
+          "買",
+          "逛",
+          "泡",
+          "聊",
+          "笑",
+          "氣",
+          "學",
+          "寫",
+          "打",
+          "充",
+          "領",
+          "拿",
+          "做"
+        ],
+        [
+          "到",
+          "得"
+        ],
+        [
+          "飽"
+        ]
+      ],
+      "suppress": [
+        "保",
+        "寶",
+        "堡",
+        "道保",
+        "到保",
+        "到寶"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 34.0,
+      "description": "[{什麼, 不是什麼, 並非, 一代, 鄉里, 堪稱, 尊為}] × [耆德] × [{老人, 長者, 老者, 老人家, 宿儒, 碩望, 賢達, 前輩, 耆老, 風範}]",
+      "min_engine_version": "0.4.0",
+      "name": "尊長稱謂與雅言「耆德」語境雙向錨定構式 (防「騎得」跨語體誤奪)",
+      "next_slot": [
+        "老人",
+        "長者",
+        "老者",
+        "老人家",
+        "宿儒",
+        "碩望",
+        "賢達",
+        "前輩",
+        "耆老",
+        "風範"
+      ],
+      "optional_slots": [],
+      "pattern_id": "archaic_qide_elder_contextual_anchor",
+      "prev_slot": [
+        "耆德"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "什麼",
+          "不是",
+          "並非",
+          "一代",
+          "鄉里",
+          "堪稱",
+          "尊為"
+        ],
+        [
+          "耆德"
+        ],
+        [
+          "老人",
+          "長者",
+          "老者",
+          "老人家",
+          "宿儒",
+          "碩望",
+          "賢達",
+          "前輩",
+          "耆老",
+          "風範"
+        ]
+      ],
+      "suppress": [
+        "騎得老人",
+        "騎德"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 34.0,
+      "description": "[{恪守, 謹守, 奉行, 秉持, 實踐, 發揚, 弘揚, 講求, 固守}] × [{孝道, 本分, 原則, 禮教, 傳統, 規矩, 道德, 承諾}] × [{飽受, 備受, 深受, 遭受, 蒙受}] × [{抨擊, 批評, 折磨, 煎熬, 委屈, 質疑, 責難, 非議, 嘲笑, 譏諷, 壓力, 爭議}]",
+      "min_engine_version": "0.4.0",
+      "name": "規範及物動詞 × 倫理抽象名詞 × 遭受義心理動詞 × 負面評價賓語四維陣列構式 (防「孝道+飽受」遭拆碎為「笑到飽+受」)",
+      "next_slot": [
+        "飽受",
+        "備受",
+        "深受",
+        "遭受",
+        "蒙受"
+      ],
+      "optional_slots": [],
+      "pattern_id": "normative_verb_ethics_noun_experiencer_array",
+      "prev_slot": [
+        "孝道",
+        "本分",
+        "原則",
+        "禮教",
+        "傳統",
+        "規矩",
+        "道德",
+        "承諾"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "恪守",
+          "謹守",
+          "奉行",
+          "秉持",
+          "實踐",
+          "發揚",
+          "弘揚",
+          "講求",
+          "固守"
+        ],
+        [
+          "孝道",
+          "本分",
+          "原則",
+          "禮教",
+          "傳統",
+          "規矩",
+          "道德",
+          "承諾"
+        ],
+        [
+          "飽受",
+          "備受",
+          "深受",
+          "遭受",
+          "蒙受"
+        ],
+        [
+          "抨擊",
+          "批評",
+          "折磨",
+          "煎熬",
+          "委屈",
+          "質疑",
+          "責難",
+          "非議",
+          "嘲笑",
+          "譏諷",
+          "壓力",
+          "爭議"
+        ]
+      ],
+      "suppress": [
+        "笑到飽受",
+        "被孝道"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 32.0,
+      "description": "[{對於, 對, 身為, 作為, 是個, 簡直是, 根本是, 各種, 各類, 許多, 這種}] × [{細節, 設定, 數據, 資料, 音質, 畫質, 顏值, 外貌, 制服, 聲優, 大叔, 蘿莉, 御姐, 貓, 狗, 毛孩, 手錶, 機械, 鍵盤, 文具, 字體, 排版, 收納, 清潔, 完美, 裝備, 器材, 耳機, 相機, 攝影, 咖啡, 抹茶, 甜點, 巧克力, 起司, 草莓, 芋頭, 香菜, 火鍋, 拉麵, 鐵道, 火車, 飛機, 軍事, 歷史, 推理, 科幻, 動漫, 遊戲, 電玩, 電影, 音樂, 古典, 搖滾, 爵士, 購物, 工作, 健身, 跑步, 單車, 露營, 旅遊, 植物, 多肉, 古著, 球鞋, 香水, 保養, 成分, 效率, 速度, 性能, 參數, 程式碼, 架構, 美學, 極簡, 復古, 色彩, 對稱, 秩序}] × [{控, 狂, 粉, 迷, 族, 達人, 魔人, 專家, 大師, 高手, 玩家, 行家}]",
+      "min_engine_version": "0.4.0",
+      "name": "人物偏好／狂熱／專精準詞綴三維陣列構式 (XYZ × {控, 狂, 粉, 迷, 族, 達人, 魔人, 專家})",
+      "next_slot": [
+        "控",
+        "狂",
+        "粉",
+        "迷",
+        "族",
+        "達人",
+        "魔人",
+        "專家",
+        "大師",
+        "高手",
+        "玩家",
+        "行家"
+      ],
+      "optional_slots": [
+        0
+      ],
+      "pattern_id": "aficionado_specialist_quasi_suffix_3d_array",
+      "prev_slot": [
+        "細節",
+        "設定",
+        "數據",
+        "資料",
+        "音質",
+        "畫質",
+        "顏值",
+        "外貌",
+        "制服",
+        "聲優",
+        "大叔",
+        "蘿莉",
+        "御姐",
+        "貓",
+        "狗",
+        "毛孩",
+        "手錶",
+        "機械",
+        "鍵盤",
+        "文具",
+        "字體",
+        "排版",
+        "收納",
+        "清潔",
+        "完美",
+        "裝備",
+        "器材",
+        "耳機",
+        "相機",
+        "攝影",
+        "咖啡",
+        "抹茶",
+        "甜點",
+        "巧克力",
+        "起司",
+        "草莓",
+        "芋頭",
+        "香菜",
+        "火鍋",
+        "拉麵",
+        "鐵道",
+        "火車",
+        "飛機",
+        "軍事",
+        "歷史",
+        "推理",
+        "科幻",
+        "動漫",
+        "遊戲",
+        "電玩",
+        "電影",
+        "音樂",
+        "古典",
+        "搖滾",
+        "爵士",
+        "購物",
+        "工作",
+        "健身",
+        "跑步",
+        "單車",
+        "露營",
+        "旅遊",
+        "植物",
+        "多肉",
+        "古著",
+        "球鞋",
+        "香水",
+        "保養",
+        "成分",
+        "效率",
+        "速度",
+        "性能",
+        "參數",
+        "程式碼",
+        "架構",
+        "美學",
+        "極簡",
+        "復古",
+        "色彩",
+        "對稱",
+        "秩序"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "對於",
+          "對",
+          "身為",
+          "作為",
+          "是個",
+          "簡直是",
+          "根本是",
+          "各種",
+          "各類",
+          "許多",
+          "這種"
+        ],
+        [
+          "細節",
+          "設定",
+          "數據",
+          "資料",
+          "音質",
+          "畫質",
+          "顏值",
+          "外貌",
+          "制服",
+          "聲優",
+          "大叔",
+          "蘿莉",
+          "御姐",
+          "貓",
+          "狗",
+          "毛孩",
+          "手錶",
+          "機械",
+          "鍵盤",
+          "文具",
+          "字體",
+          "排版",
+          "收納",
+          "清潔",
+          "完美",
+          "裝備",
+          "器材",
+          "耳機",
+          "相機",
+          "攝影",
+          "咖啡",
+          "抹茶",
+          "甜點",
+          "巧克力",
+          "起司",
+          "草莓",
+          "芋頭",
+          "香菜",
+          "火鍋",
+          "拉麵",
+          "鐵道",
+          "火車",
+          "飛機",
+          "軍事",
+          "歷史",
+          "推理",
+          "科幻",
+          "動漫",
+          "遊戲",
+          "電玩",
+          "電影",
+          "音樂",
+          "古典",
+          "搖滾",
+          "爵士",
+          "購物",
+          "工作",
+          "健身",
+          "跑步",
+          "單車",
+          "露營",
+          "旅遊",
+          "植物",
+          "多肉",
+          "古著",
+          "球鞋",
+          "香水",
+          "保養",
+          "成分",
+          "效率",
+          "速度",
+          "性能",
+          "參數",
+          "程式碼",
+          "架構",
+          "美學",
+          "極簡",
+          "復古",
+          "色彩",
+          "對稱",
+          "秩序"
+        ],
+        [
+          "控",
+          "狂",
+          "粉",
+          "迷",
+          "族",
+          "達人",
+          "魔人",
+          "專家",
+          "大師",
+          "高手",
+          "玩家",
+          "行家"
+        ]
+      ],
+      "suppress": [
+        "細節空",
+        "音質空",
+        "畫質空",
+        "顏值空",
+        "鍵盤空",
+        "設定空"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bifurcation_pairs": [
+        [
+          "忌",
+          "蛋"
+        ],
+        [
+          "忌",
+          "蒜"
+        ]
+      ],
+      "bonus": 30.0,
+      "description": "[{不含, 包含, 不吃, 無, 忌, 免}] → [{蛋, 奶, 蛋奶, 五辛, 蔥, 蒜, 肉, 菇類, 麩質}] → [{與, 及, 和, 或}]",
+      "min_engine_version": "0.4.0",
+      "name": "否定排除謂詞＋食材名詞＋並列連詞構式",
+      "next_slot": [
+        "蛋",
+        "奶",
+        "蛋奶",
+        "五辛",
+        "蔥",
+        "蒜",
+        "肉",
+        "菇類",
+        "麩質"
+      ],
+      "optional_slots": [],
+      "pattern_id": "dietary_exclusion_ingredient_coord",
+      "prev_slot": [
+        "不含",
+        "包含",
+        "不吃",
+        "無",
+        "忌"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "但",
+        "但"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{思考, 思維, 模式, 方式}] → [{而非, 而不是}] → [{語音, 語音型, 文字, 文字型, 視覺, 視覺型, 邏輯}] → [{思考, 思維, 模式}]",
+      "min_engine_version": "0.4.0",
+      "name": "對比否定連詞「而非」＋平行認知名詞構式",
+      "next_slot": [
+        "語音",
+        "語音型",
+        "文字",
+        "文字型",
+        "視覺",
+        "視覺型",
+        "聽覺",
+        "圖像",
+        "邏輯"
+      ],
+      "optional_slots": [],
+      "pattern_id": "contrastive_negation_erfei_cognitive",
+      "prev_slot": [
+        "而非",
+        "而不是"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "羽音",
+        "羽音"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{讓}] → [不懂] → [{日文}]",
+      "min_engine_version": "0.4.0",
+      "name": "語境錨定槽位構式",
+      "next_slot": [
+        "不懂"
+      ],
+      "optional_slots": [],
+      "pattern_id": "contextual_slot_不懂",
+      "prev_slot": [
+        "讓"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "步懂"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{舊}] → [習慣 → 就] → [{不要}]",
+      "min_engine_version": "0.4.0",
+      "name": "語境錨定槽位構式",
+      "next_slot": [
+        "習慣"
+      ],
+      "optional_slots": [],
+      "pattern_id": "contextual_slot_習慣",
+      "prev_slot": [
+        "舊"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "習灌救"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{還是}] → [程式] → [{的}]",
+      "min_engine_version": "0.4.0",
+      "name": "語境錨定槽位構式",
+      "next_slot": [
+        "程式"
+      ],
+      "optional_slots": [],
+      "pattern_id": "contextual_slot_程式",
+      "prev_slot": [
+        "還是"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "城市"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{如果}] → [不] → [{急著}]",
+      "min_engine_version": "0.4.0",
+      "name": "語境錨定槽位構式",
+      "next_slot": [
+        "不"
+      ],
+      "optional_slots": [],
+      "pattern_id": "contextual_slot_不",
+      "prev_slot": [
+        "如果"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "部"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{急著}] → [玩]",
+      "min_engine_version": "0.4.0",
+      "name": "語境錨定槽位構式",
+      "next_slot": [
+        "玩"
+      ],
+      "optional_slots": [],
+      "pattern_id": "contextual_slot_玩",
+      "prev_slot": [
+        "急著"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "完"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{因為, 多年} × {手寫}]",
+      "min_engine_version": "0.4.0",
+      "name": "自動因式分解陣列對應（因為 等 2 詞 × 手寫 等 1 詞）",
+      "next_slot": [
+        "手寫"
+      ],
+      "optional_slots": [],
+      "pattern_id": "auto_array_因為_手寫",
+      "prev_slot": [
+        "因為",
+        "多年"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "因為",
+          "多年"
+        ],
+        [
+          "手寫"
+        ]
+      ],
+      "suppress": [],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[{瑜伽素, 素} × {項目}]",
+      "min_engine_version": "0.4.0",
+      "name": "自動因式分解陣列對應（瑜伽素 等 2 詞 × 項目 等 1 詞）",
+      "next_slot": [
+        "項目"
+      ],
+      "optional_slots": [],
+      "pattern_id": "auto_array_瑜伽素_項目",
+      "prev_slot": [
+        "瑜伽素",
+        "素"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "瑜伽素",
+          "素"
+        ],
+        [
+          "項目"
+        ]
+      ],
+      "suppress": [],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[(不/沒/最/只/所)? + {選, 買, 賣, 看, 聽, 讀, 寫, 說, 講, 問, 要, 想, 做, 吃, 喝, 穿, 用, 找, 投, 盼, 爭, 怕, 愛, 比, 拼, 靠, 憑, 缺, 指}] × [的] × [是]",
+      "min_engine_version": "0.4.0",
+      "name": "準分裂句名物化焦點判斷構式「(不)X 的 是」",
+      "next_slot": [
+        "的",
+        "是"
+      ],
+      "optional_slots": [],
+      "pattern_id": "pseudo_cleft_neg_v_de_shi_3d_array",
+      "prev_slot": [
+        "選",
+        "買",
+        "賣",
+        "看",
+        "聽",
+        "讀",
+        "寫",
+        "說",
+        "講",
+        "問",
+        "要",
+        "想",
+        "做",
+        "吃",
+        "喝",
+        "穿",
+        "用",
+        "找",
+        "投",
+        "盼",
+        "爭",
+        "怕",
+        "愛",
+        "比",
+        "拼",
+        "靠",
+        "憑",
+        "缺",
+        "指",
+        "不選",
+        "不買",
+        "不賣",
+        "不看",
+        "不聽",
+        "不讀",
+        "不寫",
+        "不說",
+        "不講",
+        "不問",
+        "不要",
+        "不想",
+        "不做",
+        "不吃",
+        "不穿",
+        "不用",
+        "不找",
+        "不怕",
+        "不愛",
+        "不投",
+        "不爭",
+        "的"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "選",
+          "買",
+          "賣",
+          "看",
+          "聽",
+          "讀",
+          "寫",
+          "說",
+          "講",
+          "問",
+          "要",
+          "想",
+          "做",
+          "吃",
+          "喝",
+          "穿",
+          "用",
+          "找",
+          "投",
+          "盼",
+          "爭",
+          "怕",
+          "愛",
+          "比",
+          "拼",
+          "靠",
+          "憑",
+          "缺",
+          "指",
+          "不選",
+          "不買",
+          "不賣",
+          "不看",
+          "不聽",
+          "不讀",
+          "不寫",
+          "不說",
+          "不講",
+          "不問",
+          "不要",
+          "不想",
+          "不做",
+          "不吃",
+          "不穿",
+          "不用",
+          "不找",
+          "不怕",
+          "不愛",
+          "不投",
+          "不爭"
+        ],
+        [
+          "的"
+        ],
+        [
+          "是"
+        ]
+      ],
+      "suppress": [
+        "的試",
+        "試一個",
+        "選的試"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bifurcation_pairs": [
+        [
+          "做",
+          "滿"
+        ],
+        [
+          "玩",
+          "滿"
+        ]
+      ],
+      "bonus": 32.0,
+      "description": "[{做好, 買好, 吃好, 看好, 聽好, 讀好, 寫好, 說好, 講好, 玩好, 睡好, 領好, 充好, 拿好, 拍好, 學好, 練好, 裝好, 補好, 用好}] × [{做, 買, 吃, 喝, 看, 聽, 讀, 寫, 說, 講, 玩, 睡, 領, 充, 拿, 拍, 學, 練, 裝, 補, 用}] × [滿]",
+      "exclude_pairs": [
+        [
+          "做",
+          "滿"
+        ],
+        [
+          "玩",
+          "滿"
+        ]
+      ],
+      "min_engine_version": "0.4.0",
+      "name": "完足嵌偶四字構式「X 好 X 滿」",
+      "next_slot": [
+        "滿"
+      ],
+      "optional_slots": [],
+      "pattern_id": "v_hao_v_man_quad_array",
+      "prev_slot": [
+        "做好",
+        "買好",
+        "吃好",
+        "看好",
+        "聽好",
+        "讀好",
+        "寫好",
+        "說好",
+        "講好",
+        "玩好",
+        "睡好",
+        "領好",
+        "充好",
+        "拿好",
+        "拍好",
+        "學好",
+        "練好",
+        "裝好",
+        "補好",
+        "用好"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "做好",
+          "買好",
+          "吃好",
+          "看好",
+          "聽好",
+          "讀好",
+          "寫好",
+          "說好",
+          "講好",
+          "玩好",
+          "睡好",
+          "領好",
+          "充好",
+          "拿好",
+          "拍好",
+          "學好",
+          "練好",
+          "裝好",
+          "補好",
+          "用好"
+        ],
+        [
+          "做",
+          "買",
+          "吃",
+          "喝",
+          "看",
+          "聽",
+          "讀",
+          "寫",
+          "說",
+          "講",
+          "玩",
+          "睡",
+          "領",
+          "充",
+          "拿",
+          "拍",
+          "學",
+          "練",
+          "裝",
+          "補",
+          "用"
+        ],
+        [
+          "滿"
+        ]
+      ],
+      "suppress": [
+        "作好",
+        "坐好",
+        "做蠻",
+        "買蠻"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 28.0,
+      "description": "[數量定語 {一個, 一種, 一份, 一場, 這個, 那個...}] × [引介介詞 {對, 對於, 關於, 針對}] × [抽象名詞 {治理, 發展, 改革, 政策, 未來, 社會...}]",
+      "min_engine_version": "0.4.0",
+      "name": "不定數量定語＋引介介詞「對」＋抽象名詞三維陣列構式",
+      "next_slot": [
+        "對",
+        "對於",
+        "關於",
+        "針對",
+        "治理",
+        "發展",
+        "改革",
+        "政策",
+        "未來",
+        "社會",
+        "制度",
+        "生活",
+        "國家",
+        "民主",
+        "環境",
+        "教育",
+        "經濟"
+      ],
+      "optional_slots": [],
+      "pattern_id": "determiner_prep_dui_nominal_modifier",
+      "prev_slot": [
+        "一個",
+        "一種",
+        "一份",
+        "一場",
+        "一段",
+        "一項",
+        "這個",
+        "那個",
+        "這種",
+        "那種",
+        "對",
+        "對於",
+        "關於",
+        "針對"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "一個",
+          "一種",
+          "一份",
+          "一場",
+          "一段",
+          "一項",
+          "這個",
+          "那個",
+          "這種",
+          "那種"
+        ],
+        [
+          "對",
+          "對於",
+          "關於",
+          "針對"
+        ],
+        [
+          "治理",
+          "發展",
+          "改革",
+          "政策",
+          "未來",
+          "社會",
+          "制度",
+          "生活",
+          "國家",
+          "民主",
+          "環境",
+          "教育",
+          "經濟"
+        ]
+      ],
+      "suppress": [
+        "兌",
+        "一個隊",
+        "隊"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{幾乎, 快, 快要, 差點, 全都, 通通, 完全}] × [{忘, 忘光, 忘光光, 吃光, 吃光光, 用光, 用光光, 花光, 花光光}] × [{了, 囉, 啦}?]",
+      "min_engine_version": "0.4.0",
+      "name": "程度／範圍副詞 × 完耗結果補語「忘光(光)/用光(光)」三維陣列構式",
+      "next_slot": [
+        "忘",
+        "忘光",
+        "忘光光",
+        "光",
+        "光光"
+      ],
+      "optional_slots": [
+        2
+      ],
+      "pattern_id": "depletion_resultative_guang_complement",
+      "prev_slot": [
+        "幾乎",
+        "快",
+        "快要",
+        "差點",
+        "全都",
+        "通通",
+        "完全",
+        "忘"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "幾乎",
+          "快",
+          "快要",
+          "差點",
+          "全都",
+          "通通",
+          "完全"
+        ],
+        [
+          "忘",
+          "忘光",
+          "忘光光",
+          "吃光",
+          "吃光光",
+          "用光",
+          "用光光",
+          "花光",
+          "花光光"
+        ],
+        [
+          "了",
+          "囉",
+          "啦"
+        ]
+      ],
+      "suppress": [
+        "望",
+        "望光",
+        "望光光",
+        "大憶舊"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{可以, 能, 能夠, 把, 將, 先, 已經}?] × [{交到, 送到, 傳到, 拿到, 轉交到}] × [{使用者, 客戶, 民眾, 讀者, 消費者, 大家, 人們, 你, 我, 他}] × [{手上, 手裡, 手中}?]",
+      "min_engine_version": "0.4.0",
+      "name": "處置受事移轉動補「交到/送到」× 受事人 × 處所方位構式（防離合名詞『打交道』誤奪）",
+      "next_slot": [
+        "使用者",
+        "客戶",
+        "民眾",
+        "讀者",
+        "消費者",
+        "大家",
+        "人們",
+        "人",
+        "手上",
+        "手裡",
+        "手中"
+      ],
+      "optional_slots": [
+        0,
+        3
+      ],
+      "pattern_id": "dative_transfer_jiaodao_recipient_hand",
+      "prev_slot": [
+        "交到",
+        "送到",
+        "傳到",
+        "拿到",
+        "轉交到"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "可以",
+          "能",
+          "能夠",
+          "把",
+          "將",
+          "先",
+          "已經"
+        ],
+        [
+          "交到",
+          "送到",
+          "傳到",
+          "拿到",
+          "轉交到"
+        ],
+        [
+          "使用者",
+          "客戶",
+          "民眾",
+          "讀者",
+          "消費者",
+          "大家",
+          "人們",
+          "人"
+        ],
+        [
+          "手上",
+          "手裡",
+          "手中"
+        ]
+      ],
+      "suppress": [
+        "交道",
+        "交道使用者"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[句末標點 ，] → [{對, 是, 好, 行, 可以, 對不對, 是不是, 好不好}] × [{嗎, 吧, 呢, 呀, 喔, 啦}]",
+      "min_engine_version": "0.4.0",
+      "name": "句末附加問句肯定謂詞「對/是/好」× 疑問語氣助詞「嗎/吧」二維陣列構式",
+      "next_slot": [
+        "嗎",
+        "吧",
+        "呢",
+        "呀",
+        "喔",
+        "啦"
+      ],
+      "optional_slots": [],
+      "pattern_id": "sentence_final_tag_question_dui_ma",
+      "prev_slot": [
+        "對",
+        "是",
+        "好",
+        "行",
+        "可以"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "對",
+          "是",
+          "好",
+          "行",
+          "可以"
+        ],
+        [
+          "嗎",
+          "吧",
+          "呢",
+          "呀",
+          "喔",
+          "啦"
+        ]
+      ],
+      "suppress": [
+        "隊嗎",
+        "隊吧"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[一般] × [{使用者, 人, 人們, 民眾, 大眾, 百姓, 讀者, 消費者, 客戶, 家庭, 企業, 公司, 情況, 狀況, 情形, 水準, 標準, 原則, 規定, 而言, 來說, 說來, 看來, 認為}]",
+      "min_engine_version": "0.4.0",
+      "name": "常態屬性定語「一般」× 人群/狀態中心語二維陣列構式（防指示詞『這樣』誤綁定與量詞『一班』誤奪）",
+      "next_slot": [
+        "使用者",
+        "人",
+        "人們",
+        "民眾",
+        "大眾",
+        "百姓",
+        "讀者",
+        "消費者",
+        "客戶",
+        "家庭",
+        "企業",
+        "公司",
+        "情況",
+        "狀況",
+        "情形",
+        "水準",
+        "標準",
+        "原則",
+        "規定",
+        "而言",
+        "來說",
+        "說來",
+        "看來",
+        "認為"
+      ],
+      "optional_slots": [],
+      "pattern_id": "general_attributive_yiban_vs_classifier",
+      "prev_slot": [
+        "一般"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "一班",
+        "一班使用者",
+        "一班人",
+        "一班民眾"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{使用者, 民眾, 系統, 大家, 我們, 你, 我, 他, 客戶, 家長, 先}?] × [{確定, 確認, 肯定, 決定}] × [{可以, 能, 能夠, 會, 不會, 要, 是, 有, 沒, 沒有, 不, 已, 已經, 一下}]",
+      "min_engine_version": "0.4.0",
+      "name": "施事主語 × 認知心理動詞「確定/確認」× 情態助動詞三維陣列構式",
+      "next_slot": [
+        "可以",
+        "能",
+        "能夠",
+        "會",
+        "不會",
+        "要",
+        "是",
+        "有",
+        "沒",
+        "沒有",
+        "不",
+        "已",
+        "已經",
+        "一下"
+      ],
+      "optional_slots": [
+        0
+      ],
+      "pattern_id": "cognitive_verb_queding_modal_complement",
+      "prev_slot": [
+        "確定",
+        "確認",
+        "肯定"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "使用者",
+          "民眾",
+          "系統",
+          "大家",
+          "我們",
+          "你",
+          "我",
+          "他",
+          "客戶",
+          "家長",
+          "先"
+        ],
+        [
+          "確定",
+          "確認",
+          "肯定",
+          "決定"
+        ],
+        [
+          "可以",
+          "能",
+          "能夠",
+          "會",
+          "不會",
+          "要",
+          "是",
+          "有",
+          "沒",
+          "沒有",
+          "不",
+          "已",
+          "已經",
+          "一下"
+        ]
+      ],
+      "suppress": [
+        "卻定"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 32.0,
+      "description": "[{錯誤, 錯字, 訛誤, 疏漏, 筆誤, 錯別字, 原文}] × [{與, 和, 及, 或, 跟}] × [{勘誤, 訂正, 校勘}] × [{校對, 訂正, 比對, 對照, 修正, 表, 清單}?]",
+      "min_engine_version": "0.4.0",
+      "name": "文本訛誤名詞 × 並列連詞「與/和」×「勘誤」× 校對動作多維陣列構式（防透明連詞『與➔勘誤』污染『書籍與刊物』）",
+      "next_slot": [
+        "校對",
+        "訂正",
+        "比對",
+        "對照",
+        "修正",
+        "表",
+        "清單",
+        "雙句",
+        "紀錄"
+      ],
+      "optional_slots": [],
+      "pattern_id": "error_and_errata_proofreading_collocation",
+      "prev_slot": [
+        "勘誤",
+        "校勘",
+        "訂正"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "錯誤",
+          "錯字",
+          "訛誤",
+          "疏漏",
+          "筆誤",
+          "錯別字",
+          "原文"
+        ],
+        [
+          "與",
+          "和",
+          "及",
+          "或",
+          "跟"
+        ],
+        [
+          "勘誤",
+          "訂正",
+          "校勘"
+        ]
+      ],
+      "suppress": [
+        "刊物",
+        "與刊物校對"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{校對, 對齊, 比對, 對照, 貼入, 輸入, 分析, 翻譯, 修改, 勘誤, 範例, 對偶, 平行, 前後}] × [{雙句, 單句, 語句, 文句, 詞句, 句子, 例句, 造句}]",
+      "min_engine_version": "0.4.0",
+      "name": "語篇校對/對齊動作 × 語言單位「雙句/文句/詞句」二維陣列構式",
+      "next_slot": [
+        "雙句",
+        "單句",
+        "語句",
+        "文句",
+        "詞句",
+        "句子",
+        "例句",
+        "造句"
+      ],
+      "optional_slots": [],
+      "pattern_id": "textual_action_shuangju_sentence_pair",
+      "prev_slot": [
+        "校對",
+        "對齊",
+        "比對",
+        "對照",
+        "貼入",
+        "輸入",
+        "分析",
+        "翻譯",
+        "修改",
+        "勘誤",
+        "範例",
+        "對偶",
+        "平行",
+        "前後",
+        "上下"
+      ],
+      "schema_version": 1,
+      "slots": [],
+      "suppress": [
+        "雙具"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{真的, 實在, 難道, 哪, 是否, 到底}?] × [{有, 沒, 沒有, 無, 毫無, 大有, 很有}] × [必要] × [{這樣, 這麼, 如此, 大費周章}?]",
+      "min_engine_version": "0.4.0",
+      "name": "情態存在必要性構式「(真的)有/沒有＋必要」三維陣列構式（防古地名『有庳』跨界劫掠）",
+      "next_slot": [
+        "必要",
+        "這樣",
+        "這麼",
+        "如此"
+      ],
+      "optional_slots": [
+        0,
+        3
+      ],
+      "pattern_id": "modal_existential_you_biyao",
+      "prev_slot": [
+        "有",
+        "沒",
+        "沒有",
+        "無",
+        "毫無",
+        "大有",
+        "很有",
+        "必要"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "真的",
+          "實在",
+          "難道",
+          "哪",
+          "是否",
+          "到底"
+        ],
+        [
+          "有",
+          "沒",
+          "沒有",
+          "無",
+          "毫無",
+          "大有",
+          "很有"
+        ],
+        [
+          "必要"
+        ]
+      ],
+      "suppress": [
+        "庳要",
+        "有庳",
+        "有庳要"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{剛剛, 剛才, 又, 今日, 近日, 最近}] × [{再度, 再次}] × [{靈魂拷問, 拷問, 靈魂, 質問, 追問, 審視}]",
+      "min_engine_version": "0.4.0",
+      "name": "重複時間副詞「再度/再次」×「靈魂拷問/追問」三維陣列構式（防『在度』與『考問』誤選）",
+      "next_slot": [
+        "再度",
+        "再次",
+        "靈魂",
+        "靈魂拷問",
+        "拷問",
+        "質問",
+        "追問"
+      ],
+      "optional_slots": [],
+      "pattern_id": "temporal_zaidu_soul_interrogation",
+      "prev_slot": [
+        "剛剛",
+        "剛才",
+        "又",
+        "今日",
+        "近日",
+        "最近",
+        "再度",
+        "再次",
+        "靈魂"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "剛剛",
+          "剛才",
+          "又",
+          "今日",
+          "近日",
+          "最近"
+        ],
+        [
+          "再度",
+          "再次"
+        ],
+        [
+          "靈魂拷問",
+          "拷問",
+          "靈魂",
+          "質問",
+          "追問",
+          "審視"
+        ]
+      ],
+      "suppress": [
+        "在度",
+        "考問",
+        "在度靈魂考問"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{在, 正在, 所, 目前}] × [{實做, 實作, 製作, 開發}] × [的]",
+      "min_engine_version": "0.4.0",
+      "name": "進行體／關係子句定語「在實做/實作的」三維陣列構式（防『在＋時＋做的』碎拆劫掠）",
+      "next_slot": [
+        "實做",
+        "實作",
+        "製作",
+        "開發",
+        "的"
+      ],
+      "optional_slots": [],
+      "pattern_id": "progressive_shizuo_attributive_de",
+      "prev_slot": [
+        "在",
+        "正在",
+        "所",
+        "目前",
+        "實做",
+        "實作"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "在",
+          "正在",
+          "所",
+          "目前"
+        ],
+        [
+          "實做",
+          "實作",
+          "製作",
+          "開發"
+        ],
+        [
+          "的"
+        ]
+      ],
+      "suppress": [
+        "時做",
+        "在時做的"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 32.0,
+      "description": "[{語意, 語法, 詞庫, 模型, 參數}] × [{調校, 調整, 分析, 測試}] × [{工作室, 中心, 系統, 工具, 平台}]",
+      "min_engine_version": "0.4.0",
+      "name": "語言工程領域「語意×調校/調整×工作室」三維陣列構式（防『與＋一條＋整＋工作＋是』跨界碎拆）",
+      "next_slot": [
+        "調校",
+        "調整",
+        "分析",
+        "測試",
+        "工作室",
+        "中心",
+        "系統",
+        "工具",
+        "平台"
+      ],
+      "optional_slots": [],
+      "pattern_id": "semantic_tuning_studio_domain_3d_array",
+      "prev_slot": [
+        "語意",
+        "語法",
+        "詞庫",
+        "模型",
+        "參數",
+        "調校",
+        "調整",
+        "語意調校",
+        "語意調整"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "語意",
+          "語法",
+          "詞庫",
+          "模型",
+          "參數"
+        ],
+        [
+          "調校",
+          "調整",
+          "分析",
+          "測試"
+        ],
+        [
+          "工作室",
+          "中心",
+          "系統",
+          "工具",
+          "平台"
+        ]
+      ],
+      "suppress": [
+        "與一條",
+        "與一條整工作是",
+        "工作是"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    },
+    {
+      "bonus": 30.0,
+      "description": "[{僅限, 僅限於, 只限, 只限於, 限於}] × [{漢語, 中文, 華語, 英文, 日文, 本機, 本地, 會員, 內部, 個人}]",
+      "min_engine_version": "0.4.0",
+      "name": "範圍限定謂詞「僅限/只限」× 語言/領域受事二維陣列構式（防『僅＋現』同音誤選）",
+      "next_slot": [
+        "漢語",
+        "中文",
+        "華語",
+        "英文",
+        "日文",
+        "本機",
+        "本地",
+        "會員",
+        "內部",
+        "個人"
+      ],
+      "optional_slots": [],
+      "pattern_id": "restrictive_jinxian_domain_scope",
+      "prev_slot": [
+        "僅限",
+        "僅限於",
+        "只限",
+        "只限於",
+        "限於"
+      ],
+      "schema_version": 1,
+      "slots": [
+        [
+          "僅限",
+          "僅限於",
+          "只限",
+          "只限於",
+          "限於"
+        ],
+        [
+          "漢語",
+          "中文",
+          "華語",
+          "英文",
+          "日文",
+          "本機",
+          "本地",
+          "會員",
+          "內部",
+          "個人"
+        ]
+      ],
+      "suppress": [
+        "僅現",
+        "僅現漢語"
+      ],
+      "type": "PATTERN_CONSTRUCTION"
+    }
+  ],
+  "rules_count": 366,
+  "schema_version": 1,
+  "updated_at": "2026-10-21T15:37:32.384796+08:00",
+  "zero_pii_verified": true
+}

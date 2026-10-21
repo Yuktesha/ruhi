@@ -446,6 +446,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             | ("遺業", _)
             | ("縊死", _)
             | ("熠燿", _)
+            | ("擬去", _)
             | ("丁丁", "ㄓㄥ ㄓㄥ")
             | ("大家", "ㄉㄚˋ ㄍㄨ")
             | ("公車", "ㄍㄨㄥ ㄐㄩ")
@@ -464,8 +465,14 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             | ("咳血", "ㄎㄚˇ ㄒㄧㄝˇ")
             | ("咳痰", "ㄎㄚˇ ㄊㄢˊ")
             | ("噁心", "ㄨˋ ㄒㄧㄣ")
+            | ("底", "ㄉㄜ")
             | ("底", "˙ㄉㄜ")
             | ("底", "ㄉㄜ˙")
+            | ("比", "ㄆㄧˊ")
+            | ("吃", "ㄐㄧˊ")
+            | ("有庳", _)
+            | ("汙庳", _)
+            | ("庳", _)
     )
 }
 
@@ -1801,6 +1808,68 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         
         Ok(count)
     }
+
+    /// 驗證永久黑名單帳本 (`rejected_readings.tsv`)：回傳所有意外殘留於詞庫中之違規 `(詞彙, 注音)` 項目
+    pub fn verify_rejected_readings_tsv<P: AsRef<Path>>(&self, path: P) -> Result<Vec<String>, std::io::Error> {
+        let file = File::open(path.as_ref())?;
+        let reader = BufReader::new(file);
+        let mut violations = Vec::new();
+        for line_res in reader.lines() {
+            let line = line_res?;
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            let parts: Vec<&str> = trimmed.split('\t').collect();
+            if parts.len() >= 2 {
+                let word = parts[0].trim();
+                let bpm = parts[1].trim();
+                if let Some(indices) = self.word_index.get(word) {
+                    for &idx in indices {
+                        let entry = &self.entries[idx];
+                        let clean_entry_bpm = entry.bopomofo.replace('˙', "");
+                        let clean_target_bpm = bpm.replace('˙', "");
+                        if bpm == "*" || clean_entry_bpm == clean_target_bpm {
+                            violations.push(format!("{} ({})", entry.word, entry.bopomofo));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(violations)
+    }
+
+    /// 驗證可達性迴歸契約帳本 (`reachability.tsv`)：回傳所有未能在詞庫中透過指定注音查得之缺失項目清單
+    pub fn verify_reachability_tsv<P: AsRef<Path>>(&self, path: P) -> Result<Vec<String>, std::io::Error> {
+        let file = File::open(path.as_ref())?;
+        let reader = BufReader::new(file);
+        let mut missing = Vec::new();
+        for line_res in reader.lines() {
+            let line = line_res?;
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            let parts: Vec<&str> = trimmed.split('\t').collect();
+            if parts.len() >= 2 {
+                let word = parts[0].trim();
+                let bpm = parts[1].trim();
+                let norm_bpm = LexiconEntry::normalize_bpm(bpm);
+                let found = self
+                    .lookup_bopomofo(&norm_bpm, true)
+                    .iter()
+                    .any(|e| e.word == word)
+                    || self
+                        .lookup_bopomofo(bpm, true)
+                        .iter()
+                        .any(|e| e.word == word);
+                if !found {
+                    missing.push(format!("{} ({})", word, bpm));
+                }
+            }
+        }
+        Ok(missing)
+    }
 }
 
 #[cfg(test)]
@@ -1924,5 +1993,31 @@ mod tests {
         let cands_zhiyuan = mgr.lookup_word_homophones_with_bpm("支援", Some("ㄓ ㄩㄢˊ"));
         assert!(!cands_zhiyuan.is_empty());
         assert_eq!(cands_zhiyuan[0], "支援", "「支援」候選排序必位列第一；實際候選為：{:?}", cands_zhiyuan);
+    }
+
+    #[test]
+    fn test_rejected_readings_and_reachability_ledgers() {
+        let mut mgr = LexiconManager::new();
+        let _ = mgr.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
+        let _ = mgr.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = mgr.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+
+        let violations = mgr
+            .verify_rejected_readings_tsv("../ruhi_lexicon/data/rejected_readings.tsv")
+            .expect("讀取 rejected_readings.tsv 失敗");
+        assert!(
+            violations.is_empty(),
+            "rejected_readings.tsv 中之黑名單詞條不得殘留於 LexiconManager：{:?}",
+            violations
+        );
+
+        let missing = mgr
+            .verify_reachability_tsv("../ruhi_lexicon/data/reachability.tsv")
+            .expect("讀取 reachability.tsv 失敗");
+        assert!(
+            missing.is_empty(),
+            "reachability.tsv 中之必達詞條必須 100% 可透過標準注音檢索命中，缺失項目：{:?}",
+            missing
+        );
     }
 }

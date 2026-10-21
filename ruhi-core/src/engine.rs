@@ -39,6 +39,10 @@ pub struct RevisionRecord {
     pub accepted: String,
     pub prev_context: String,
     pub next_context: String,
+    #[serde(default)]
+    pub error_sentence: String,
+    #[serde(default)]
+    pub correct_sentence: String,
 }
 
 pub struct RuhiEngine {
@@ -53,6 +57,8 @@ pub struct RuhiEngine {
     pub q_popup_threshold: usize,
     pub backtick_press_count: usize,
     pub composed_sentence: String,
+    /// 未套用使用者手動釘選 (`user_pinned`) 前之 Viterbi 原始最佳路徑字串，供結算時自動捕獲「整句錯誤句 ➔ 整句正確句」對照紀錄
+    pub viterbi_raw_sentence: String,
     pub sentence_chars: Vec<String>,
     pub current_candidates: Vec<String>,
     pub candidate_cycle_idx: usize,
@@ -63,6 +69,8 @@ pub struct RuhiEngine {
     pub array30: crate::array30::Array30Engine,
     pub japanese: crate::japanese::JapaneseEngine,
     pub keyboard_mode: String,
+    /// 最近一次使用的前一個輸入模式（供單按 Caps Lock 在最後兩個模式如 英漢／日漢／英日 之間快速切換）
+    pub last_keyboard_mode: String,
     /// 使用者自選啟用之亞洲輸入法循環清單（供 Ctrl/Shift + Caps Lock 與徽章點擊切換）
     pub enabled_keyboard_modes: Vec<String>,
     /// 是否啟用「許氏注音 ➔ 行列 30」即時反查教練提示
@@ -97,6 +105,7 @@ impl Default for RuhiEngine {
             q_popup_threshold: 5,
             backtick_press_count: 0,
             composed_sentence: String::new(),
+            viterbi_raw_sentence: String::new(),
             sentence_chars: Vec::new(),
             current_candidates: Vec::new(),
             candidate_cycle_idx: 0,
@@ -107,6 +116,7 @@ impl Default for RuhiEngine {
             array30: crate::array30::Array30Engine::new(),
             japanese: crate::japanese::JapaneseEngine::new(),
             keyboard_mode: "hsu".to_string(),
+            last_keyboard_mode: "english".to_string(),
             enabled_keyboard_modes: vec!["hsu".to_string(), "japanese".to_string()],
             enable_array30_coach: false,
             segments: Vec::new(),
@@ -275,6 +285,7 @@ impl RuhiEngine {
         self.q_press_count = 0;
         self.backtick_press_count = 0;
         self.composed_sentence.clear();
+        self.viterbi_raw_sentence.clear();
         self.sentence_chars.clear();
         self.current_candidates.clear();
         self.candidate_cycle_idx = 0;
@@ -389,21 +400,31 @@ impl RuhiEngine {
         }
     }
 
+    pub fn normalize_keyboard_mode(mode: &str) -> String {
+        match mode.trim().to_ascii_lowercase().as_str() {
+            "daikien" | "dachen" | "bopomofo" => "standard".to_string(),
+            "eten26" => "et26".to_string(),
+            "jp" | "romaji" | "kana" => "japanese".to_string(),
+            "ar30" => "array30".to_string(),
+            "en" | "latin" | "western" => "english".to_string(),
+            other => other.to_string(),
+        }
+    }
+
     pub fn set_keyboard_mode(&mut self, mode: &str) {
-        self.keyboard_mode = mode.to_string();
+        let cur_norm = Self::normalize_keyboard_mode(&self.keyboard_mode);
+        let next_norm = Self::normalize_keyboard_mode(mode);
+        if !cur_norm.is_empty() && !next_norm.is_empty() && cur_norm != next_norm {
+            self.last_keyboard_mode = cur_norm;
+        }
+        self.keyboard_mode = next_norm;
         self.reset_buffer();
     }
 
     pub fn set_enabled_keyboard_modes(&mut self, modes: Vec<String>) {
         let valid: Vec<String> = modes
             .into_iter()
-            .map(|m| match m.trim().to_ascii_lowercase().as_str() {
-                "daikien" => "standard".to_string(),
-                "eten26" => "et26".to_string(),
-                "jp" | "romaji" => "japanese".to_string(),
-                "ar30" => "array30".to_string(),
-                other => other.to_string(),
-            })
+            .map(|m| Self::normalize_keyboard_mode(&m))
             .filter(|m| !m.is_empty())
             .collect();
         if !valid.is_empty() {
@@ -412,12 +433,12 @@ impl RuhiEngine {
     }
 
     pub fn toggle_keyboard_mode(&mut self) -> String {
-        if self.keyboard_mode == "cangjie" || self.keyboard_mode == "array30" {
-            self.keyboard_mode = "hsu".to_string();
+        let next = if self.keyboard_mode == "cangjie" || self.keyboard_mode == "array30" {
+            "hsu"
         } else {
-            self.keyboard_mode = "cangjie".to_string();
-        }
-        self.reset_buffer();
+            "cangjie"
+        };
+        self.set_keyboard_mode(next);
         self.keyboard_mode.clone()
     }
 
@@ -429,24 +450,66 @@ impl RuhiEngine {
         } else {
             self.enabled_keyboard_modes.clone()
         };
-        let cur_norm = match self.keyboard_mode.as_str() {
-            "daikien" => "standard",
-            "eten26" => "et26",
-            "jp" | "romaji" => "japanese",
-            "ar30" => "array30",
-            other => other,
-        };
-        let next_mode = if let Some(pos) = list.iter().position(|m| m == cur_norm) {
+        let cur_norm = Self::normalize_keyboard_mode(&self.keyboard_mode);
+        let next_mode = if let Some(pos) = list.iter().position(|m| m == &cur_norm) {
             list[(pos + 1) % list.len()].clone()
         } else {
             list[0].clone()
         };
-        self.keyboard_mode = next_mode;
-        self.reset_buffer();
+        self.set_keyboard_mode(&next_mode);
         self.keyboard_mode.clone()
     }
 
-    /// 取得當前亞洲輸入法方案之單字徽章標記（供候選視窗與狀態列顯示）
+    /// 取得包含英數模式（`english`）之完整切換列表（供 Ctrl+CapsLock 往後、Shift+CapsLock 往前循環切換）
+    pub fn get_full_cycle_modes(&self) -> Vec<String> {
+        let mut list = if self.enabled_keyboard_modes.is_empty() {
+            vec!["hsu".to_string(), "japanese".to_string()]
+        } else {
+            self.enabled_keyboard_modes.clone()
+        };
+        if !list.iter().any(|m| m == "english") {
+            list.push("english".to_string());
+        }
+        list
+    }
+
+    /// 在完整切換列表中往後（`forward = true`，對應 `Ctrl + Caps Lock`）或往前（`forward = false`，對應 `Shift + Caps Lock`）切換輸入模式，
+    /// 並自動將切換前之模式記憶為 `last_keyboard_mode`，供後續單按 `Caps Lock` 在最後兩個模式之間一鍵乒乓切換
+    pub fn cycle_keyboard_mode_step(&mut self, forward: bool) -> String {
+        let list = self.get_full_cycle_modes();
+        let cur_norm = Self::normalize_keyboard_mode(&self.keyboard_mode);
+        let next_mode = if let Some(pos) = list.iter().position(|m| m == &cur_norm) {
+            if forward {
+                list[(pos + 1) % list.len()].clone()
+            } else {
+                list[(pos + list.len() - 1) % list.len()].clone()
+            }
+        } else {
+            list[0].clone()
+        };
+        self.set_keyboard_mode(&next_mode);
+        self.keyboard_mode.clone()
+    }
+
+    /// 單按 `Caps Lock`：在最近使用的最後兩個輸入模式（如 英漢／日漢／英日）之間快速對切
+    pub fn toggle_last_two_keyboard_modes(&mut self) -> String {
+        let cur_norm = Self::normalize_keyboard_mode(&self.keyboard_mode);
+        let last_norm = Self::normalize_keyboard_mode(&self.last_keyboard_mode);
+        let target = if !last_norm.is_empty() && last_norm != cur_norm {
+            last_norm
+        } else if cur_norm == "english" {
+            self.enabled_keyboard_modes
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "hsu".to_string())
+        } else {
+            "english".to_string()
+        };
+        self.set_keyboard_mode(&target);
+        self.keyboard_mode.clone()
+    }
+
+    /// 取得當前輸入法方案之單字徽章標記（供候選視窗與狀態列顯示）
     pub fn get_keyboard_mode_badge(&self) -> &'static str {
         match self.keyboard_mode.as_str() {
             "standard" | "daikien" => "注",
@@ -454,6 +517,7 @@ impl RuhiEngine {
             "cangjie" => "倉",
             "array30" | "ar30" => "行",
             "japanese" | "jp" | "romaji" => "日",
+            "english" | "en" | "latin" | "western" => "英",
             _ => "許",
         }
     }
@@ -473,7 +537,7 @@ impl RuhiEngine {
         }
         if matches!(
             self.keyboard_mode.as_str(),
-            "array30" | "ar30" | "cangjie" | "japanese" | "jp" | "romaji"
+            "array30" | "ar30" | "cangjie" | "japanese" | "jp" | "romaji" | "english" | "en" | "latin" | "western"
         ) {
             return String::new();
         }
@@ -567,12 +631,13 @@ impl RuhiEngine {
     /// 3. 日文羅馬字模式（`japanese`）：日文長句／敬語前綴預測展開（如 `ariga` ➔ `ありがとうございます`、`yoroshi` ➔ `よろしくお願いします`）與跨軌歐文救援
     /// 4. 亞洲語文軌上下文語意推斷與模糊音／跨聲調救濟（如 `答按` ➔ `答案`, `可能地答案` ➔ `可能的答案`）
     pub fn open_up_arrow_candidates(&mut self) -> EngineResponse {
-        // 0a. 日文羅馬字模式：日文前綴預測展開 + 跨軌歐文縮寫救援
+        // 0a. 日文羅馬字模式：日文前綴預測展開 + 英語學習者意念橋接 + 跨軌歐文縮寫救援
         if matches!(self.keyboard_mode.as_str(), "japanese" | "jp" | "romaji") {
             let raw = self.japanese.raw_romaji.clone();
             let jp_preds = self.japanese.lookup_up_arrow_predictions();
+            let has_jp_bridge = !crate::japanese::JapaneseEngine::lookup_english_learner_bridge(&raw).is_empty();
             let mut cands = Vec::new();
-            if self.western.has_high_confidence_rescue(&raw) {
+            if !has_jp_bridge && self.western.has_high_confidence_rescue(&raw) {
                 for w in self.western.lookup_up_arrow_candidates(&raw) {
                     if !cands.contains(&w) {
                         cands.push(w);
@@ -928,6 +993,7 @@ impl RuhiEngine {
                 self.fsm.commit_current('1');
                 self.update_sentence_composition();
             }
+            self.capture_sentence_revision_before_commit(&punct);
             let mut committed = self.composed_sentence.clone();
             committed.push_str(&punct);
             self.reset_buffer();
@@ -1084,6 +1150,7 @@ impl RuhiEngine {
                 if !self.composed_sentence.is_empty() {
                     self.prior_was_english = false;
                 }
+                self.capture_sentence_revision_before_commit(&punct);
                 self.composed_sentence.clone()
             };
 
@@ -1100,9 +1167,9 @@ impl RuhiEngine {
             if self.composed_sentence.is_empty() && self.fsm.get_display_preedit().is_empty() && self.raw_ascii_buffer.is_empty() {
                 return self.build_response("none", "");
             }
-            if self.has_pending_revisions() {
-                let _ = self.auto_synthesize_and_apply_revisions();
-            }
+            // 僅將手動改字前後之「整句錯誤句 ➔ 整句正確句」對照紀錄寫入本地 pending_revisions.json / user_revision_pairs.txt，
+            // 嚴禁在本地自動竄改 transitions_user.tsv，以維護本地詞庫零污染！
+            self.capture_sentence_revision_before_commit("");
             // 雙軌正向晶格競爭仲裁：
             // 歐文信心度評估 vs 中文 Trellis 複合詞凝聚力
             let _western_conf = self.western.score_string(&self.raw_ascii_buffer);
@@ -1444,7 +1511,6 @@ impl RuhiEngine {
             }
             return resp;
         } else if self.enable_mixed_english && key.is_ascii_alphanumeric() {
-            println!("TRIGGERED key.is_ascii_alphanumeric() fallback on key '{}'", key);
             // 無法被許氏 FSM 解析的英數字元，直接進入歐文模式
             self.is_latin_mode = true;
             self.composed_sentence = self.raw_ascii_buffer.clone();
@@ -1452,11 +1518,18 @@ impl RuhiEngine {
             self.cursor_pos = self.composed_sentence.chars().count();
             self.current_candidates = vec![self.raw_ascii_buffer.clone()];
             return self.build_response("update_preedit", "");
-        }
- else if !prefix_commit.is_empty() {
-            // 若解析失敗，還原 composed_sentence
-            self.composed_sentence = prefix_commit;
-            self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+        } else {
+            if !self.enable_mixed_english && (key.is_ascii_alphanumeric() || is_standard_bpm_punct) {
+                self.raw_ascii_buffer.pop();
+            }
+            if !prefix_commit.is_empty() {
+                // 若解析失敗，還原 composed_sentence
+                self.composed_sentence = prefix_commit;
+                self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+            }
+            if !self.fsm.is_empty() || !self.composed_sentence.is_empty() {
+                return self.build_response("update_preedit", "");
+            }
         }
 
         // 9. 範本匹配
@@ -1487,6 +1560,7 @@ impl RuhiEngine {
         };
         if syls.is_empty() {
             self.composed_sentence.clear();
+            self.viterbi_raw_sentence.clear();
             self.sentence_chars.clear();
             self.current_candidates.clear();
             self.user_pinned.clear();
@@ -1516,13 +1590,15 @@ impl RuhiEngine {
             self.is_latin_mode = true;
             self.fsm.reset();
             self.composed_sentence = self.raw_ascii_buffer.clone();
+            self.viterbi_raw_sentence.clear();
             self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
             self.cursor_pos = self.composed_sentence.chars().count();
             self.current_candidates = vec![self.raw_ascii_buffer.clone()];
             return;
         }
 
-        self.composed_sentence = nodes.iter().map(|n| n.word.as_str()).collect();
+        self.viterbi_raw_sentence = nodes.iter().map(|n| n.word.as_str()).collect();
+        self.composed_sentence = self.viterbi_raw_sentence.clone();
         self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
         self.segments = nodes;
 
@@ -1744,13 +1820,17 @@ impl RuhiEngine {
         }
         if !self.fsm.raw_keys.is_empty() {
             self.fsm.raw_keys.pop();
-            let keys = self.fsm.raw_keys.clone();
-            self.fsm.reset();
-            for k in keys {
-                self.fsm.parse_key_with_layout(k, &self.keyboard_mode);
+            if self.fsm.raw_keys.is_empty() {
+                self.reset_buffer();
+            } else {
+                let keys = self.fsm.raw_keys.clone();
+                self.fsm.reset();
+                for k in keys {
+                    self.fsm.parse_key_with_layout(k, &self.keyboard_mode);
+                }
+                self.user_pinned.retain(|&idx, _| idx < self.fsm.syllables.len());
+                self.update_sentence_composition();
             }
-            self.user_pinned.retain(|&idx, _| idx < self.fsm.syllables.len());
-            self.update_sentence_composition();
         } else {
             self.reset_buffer();
         }
@@ -1894,7 +1974,64 @@ impl RuhiEngine {
             accepted: accepted.to_string(),
             prev_context: prev_context.to_string(),
             next_context: next_context.to_string(),
+            error_sentence: self.viterbi_raw_sentence.clone(),
+            correct_sentence: self.composed_sentence.clone(),
         });
+    }
+
+    /// 於句子結算（標點或 Enter）前，自動將本句「Viterbi 原始錯誤句 (`viterbi_raw_sentence`) vs. 使用者釘選後正確句 (`composed_sentence`)」
+    /// 補齊至 `pending_revisions` 並持久化至 `pending_revisions.json` 與 `user_revision_pairs.txt`，完全不竄改本地 `transitions_user.tsv`
+    pub fn capture_sentence_revision_before_commit(&mut self, trailing_punct: &str) {
+        if self.is_latin_mode {
+            return;
+        }
+        let raw_s = self.viterbi_raw_sentence.trim();
+        let cor_s = self.composed_sentence.trim();
+        let has_sentence_diff = !self.user_pinned.is_empty()
+            && !raw_s.is_empty()
+            && !cor_s.is_empty()
+            && raw_s != cor_s;
+
+        if has_sentence_diff {
+            let full_err = format!("{}{}", raw_s, trailing_punct);
+            let full_cor = format!("{}{}", cor_s, trailing_punct);
+            let full_bpmf: String = self
+                .fsm
+                .syllables
+                .iter()
+                .map(|s| s.bopomofo_display())
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            if self.pending_revisions.is_empty() {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                self.pending_revisions.push(RevisionRecord {
+                    timestamp: now,
+                    bopomofo: full_bpmf,
+                    rejected: raw_s.to_string(),
+                    accepted: cor_s.to_string(),
+                    prev_context: String::new(),
+                    next_context: String::new(),
+                    error_sentence: full_err,
+                    correct_sentence: full_cor,
+                });
+            } else {
+                for rev in &mut self.pending_revisions {
+                    rev.error_sentence = full_err.clone();
+                    rev.correct_sentence = full_cor.clone();
+                    if rev.bopomofo.is_empty() {
+                        rev.bopomofo = full_bpmf.clone();
+                    }
+                }
+            }
+        }
+
+        if self.has_pending_revisions() {
+            let _ = self.save_pending_revisions_to_file(None);
+        }
     }
 
     pub fn has_pending_revisions(&self) -> bool {
@@ -1922,6 +2059,22 @@ impl RuhiEngine {
         } else {
             std::path::PathBuf::from("pending_revisions.json")
         };
+
+        // 同步將具備完整雙句對照之修訂追加至 user_revision_pairs.txt（每兩行一組：錯誤句 / 正確句，可直接匯入語意調校工作室）
+        if let Some(parent_dir) = target_path.parent() {
+            let txt_path = parent_dir.join("user_revision_pairs.txt");
+            let mut written_pairs = std::collections::HashSet::new();
+            if let Ok(mut txt_file) = std::fs::OpenOptions::new().create(true).append(true).open(&txt_path) {
+                use std::io::Write;
+                for r in &revs {
+                    let e = r.error_sentence.trim();
+                    let c = r.correct_sentence.trim();
+                    if !e.is_empty() && !c.is_empty() && e != c && written_pairs.insert((e.to_string(), c.to_string())) {
+                        let _ = writeln!(txt_file, "{}\n{}\n", e, c);
+                    }
+                }
+            }
+        }
 
         let mut existing: Vec<RevisionRecord> = if target_path.exists() {
             std::fs::read_to_string(&target_path)
@@ -5756,6 +5909,29 @@ mod tests {
         assert_eq!(engine.get_keyboard_mode_badge(), "日");
         assert_eq!(engine.cycle_keyboard_mode(), "hsu");
         assert_eq!(engine.get_keyboard_mode_badge(), "許");
+
+        // 6. 三組 Caps Lock 智慧切換驗證：
+        // - Ctrl + Caps Lock: 往後切換 (cycle_keyboard_mode_step(true))
+        // - Shift + Caps Lock: 往前切換 (cycle_keyboard_mode_step(false))
+        // - Caps Lock: 最後兩個輸入模式快速對切 (toggle_last_two_keyboard_modes: 英漢 / 日漢 / 英日)
+        engine.set_enabled_keyboard_modes(vec!["hsu".to_string(), "japanese".to_string()]);
+        engine.set_keyboard_mode("english");
+        engine.set_keyboard_mode("hsu"); // 目前為「許」，前一個為「英」
+        assert_eq!(engine.toggle_last_two_keyboard_modes(), "english"); // 英漢對切 -> 英
+        assert_eq!(engine.get_keyboard_mode_badge(), "英");
+        assert_eq!(engine.toggle_last_two_keyboard_modes(), "hsu");     // 英漢對切 -> 許
+
+        assert_eq!(engine.cycle_keyboard_mode_step(true), "japanese");  // Ctrl+CapsLock 往後 -> 日（前一個為 許）
+        assert_eq!(engine.toggle_last_two_keyboard_modes(), "hsu");     // 日漢對切 -> 許
+        assert_eq!(engine.toggle_last_two_keyboard_modes(), "japanese");// 日漢對切 -> 日
+
+        assert_eq!(engine.cycle_keyboard_mode_step(true), "english");   // Ctrl+CapsLock 往後 -> 英（前一個為 日）
+        assert_eq!(engine.toggle_last_two_keyboard_modes(), "japanese");// 英日對切 -> 日
+        assert_eq!(engine.toggle_last_two_keyboard_modes(), "english"); // 英日對切 -> 英
+
+        assert_eq!(engine.cycle_keyboard_mode_step(false), "japanese"); // Shift+CapsLock 往前 -> 日
+        assert_eq!(engine.cycle_keyboard_mode_step(false), "hsu");      // Shift+CapsLock 往前 -> 許
+        assert_eq!(engine.cycle_keyboard_mode_step(false), "english");  // Shift+CapsLock 往前 -> 英
     }
 
     #[test]
@@ -6237,6 +6413,141 @@ mod tests {
             ("dxdbxjvumdveod", "獨步全球"),
             ("vumdsxjam demf", "全素餐點"),
             ("vumdsxjvemdjenj", "全速前進"),
+            ("el ufcgjdeljtxldbxj", "應與設定同步"),
+            ("eljufcgjdeljtxldbxj", "應與設定同步"),
+            ("el ufgxhdjejjee gxaf", "應與國際接軌"),
+            ("el ufcjcdcek fxd", "應與事實相符"),
+            ("cxh el uf", "說英語"),
+            ("cuedel uf", "學英語"),
+            // ── 13. 2026-10-20 五大真實打字語境消歧與「在 vs 再」純語法結構分流（不依賴「再想/在想/間粒/個種」等假詞彙） ──
+            ("ggjjxlfel ufrndaidel ufcjjeejjee gxaf.", "各種英語人才應與世界接軌。"),
+            ("xhfzijcekfcndmgscdhojhxajeofggjjxlfvx cemjdgsje hxaj?", "我在想什麼時候會有各種出現的機會？"),
+            ("zijcekfufzijcekfje bnfckjcjzijufzijdgskgjtedemdcn ", "再想與在想基本上是再與在的課題延伸"),
+            ("rxdgxhfzijufzijnldgojfn bemjdgdfa vkdvel vxf,je bnfckjggjjxlfemdcn lajaddo nldjeefjued,ldbxjcu ewjjemjleje dxa jeyfad hxaj.", "如果再與在能夠分辨得非常清楚，基本上各種延伸類詞都能解決，而不需要建立一堆假詞彙。"),
+            ("cx rxjzxhjbxjtojmelddxjtewdjlfjn cjtijhwfuljlgs", "輸入座不透明度調整真是太好用了"),
+            ("cjtijvx cemjdgsvumdjxljkmjlidtijgw lgs", "事態出現的權重看來太高了"),
+            // 「在 (進行體)」vs「再 (重複/祈使/承接體)」對任意動詞 V 之純結構雙向分流驗證：
+            ("xhfzijcekf", "我在想"),
+            ("velfzijcekfe ceyj", "請再想一下"),
+            ("ty zijkmjcx ", "他在看書"),
+            ("meldtem zijkmj", "明天再看"),
+            ("xhfmnszijtwflxnj", "我們在討論"),
+            ("xhfmndzijtwflxnj", "我們在討論"),
+            ("cem zijtwflxnj", "先再討論"),
+            // ── 14. 2026-10-20 續：「XYZ + {控, 狂, 粉, 迷, 達人, 專家, 大師}」準詞綴陣列與「調校完畢 / 不斷升級 / 在開發文件中也寫下這段註記」 ──
+            ("dxajudcejjeedkxljhxajgmfdwjxd befcx cj.", "對於細節控會感到無比舒適。"),
+            ("zije ggscel vednajjeojtewdjewjxmdbej", "在一個星期內就調校完畢"),
+            ("sxadjgsggjjxlfmhdceldbxjdxmjcl jed", "隨著各種模型不斷升級"),
+            ("sxadjgsggjjxlfmhdceldbxddxmjcl jed", "隨著各種模型不斷升級"),
+            ("hxhjcufzijki fy xndjemjjxl eefceefceyjjgjdxmjjxjjej", "或許在開發文件中也寫下這段註記"),
+            ("en jdkxlj", "音質控"),
+            ("jemjpmdkxlj", "鍵盤控"),
+            ("gxl zxhjkxkd", "工作狂"),
+            ("ufejtewdjewjgxl zxhjcj", "語意調校工作室"),
+            ("gmfceejcdzxhj.", "感謝實作。"),
+            ("cumfjufcumfdgscje ggsdxajjjleffk cjdgspmjxkj.", "選舉選的是一個對治理方式的盼望。"),
+            ("cumfjufcumfdgscjedggjdxajjjleffk cjdgspmjxkj.", "選舉選的是一個對治理方式的盼望。"),
+            ("xhfmnsbxjmifdgscjha cen ck penf", "我們不買的是黑心商品"),
+            ("xhfzxhdtem mifdgscje ggsdxajjjleffk cjdgspmjxkj", "我昨天買的是一個對治理方式的盼望"),
+            ("e ajzxhjhwfzxhjmmfzxhjdwjbwf", "一次做好做滿做到飽"),
+            ("cemjvkfefjel zxhjmmflgsrnd", "現場已經坐滿了人"),
+            // ── 15. 2026-10-21 二十一組現代漢語同音易混字組雙向對比語句 (`C01` ~ `C21`，共 42 句) ──
+            // C01: 再 / 在
+            ("zijcje aj", "再試一次"),
+            ("zijjey ceo ced", "在家休息"),
+            // C02: 得 / 地
+            ("pwfdshnfkxij", "跑得很快"),
+            ("pwfdgdhnfkxij", "跑得很快"),
+            ("ki cen dscewj", "開心地笑"),
+            ("ki cen dejcewj", "開心地笑"),
+            // C03: 的 / 的確
+            ("xhfdsdemjnwf", "我的電腦"),
+            ("dedvuejrxdaf", "的確如此"),
+            // C04: 已經 / 以...為由
+            ("efjel xmdvld", "已經完成"),
+            ("efm vumdxadeod", "以安全為由"),
+            // C05: 哪 / 那
+            ("nefvujnyflef", "你去哪裡"),
+            ("nyjjeojhwf", "那就好"),
+            // C06: 還 / 孩
+            ("ty hidzijcxaj", "他還在睡"),
+            ("hidzsjkfdyjlgs", "孩子長大了"),
+            // C07: 小時候 / 兩小時後
+            ("cewfcdhojdshxadej", "小時候的回憶"),
+            ("lekfcewfcdhojvx fy ", "兩小時後出發"),
+            // C08: 做功課 / 作文課
+            ("hxadjey zxhjgxl kgj", "回家做功課"),
+            ("jen tem ckjzxhjxndkgj", "今天上作文課"),
+            // C09: 必須 / 必需品
+            ("xhfmnsbejcu vx fy ", "我們必須出發"),
+            ("cl hxhdbejcu penf", "生活必需品"),
+            // C10: 戴口罩 / 帶口罩
+            ("vx mnddijkofjwj", "出門戴口罩"),
+            ("bk xhfdijkofjwj", "幫我帶口罩"),
+            // C11: 嗎 / 嘛
+            ("jgjekjhwfmys", "這樣好嗎"),
+            ("jgjeefmadbmjfyfmys", "這也沒辦法嘛"),
+            // C12: 坐在 / 座位
+            ("zxhjzijefzsckj", "坐在椅子上"),
+            ("madeofzxhjxajlgs", "沒有座位了"),
+            // C13: 好像 / 相片
+            ("hwfcekjewjceyjuf", "好像要下雨"),
+            ("gafnefkmjjk cekjpemj", "給你看張相片"),
+            // C14: 作品 / 做作
+            ("ty dscen zxhjpenf", "他的新作品"),
+            ("e demfeefbxjzxhjzxhj", "一點也不做作"),
+            // C15: 根本 / 跟我來
+            ("gn bnfbxjkgfnld", "根本不可能"),
+            ("velfgn xhflid", "請跟我來"),
+            // C16: 心裡 / 心理
+            ("cen lefhnfnmdgxhj", "心裡很難過"),
+            ("cen lefjxnfbaj", "心理準備"),
+            // C17: 反映 / 反應
+            ("cekjjxfgxmffmfeljxnjted", "向主管反映問題"),
+            ("ty dsfmfeljhnfkxij", "他的反應很快"),
+            // C18: 權利 / 權力
+            ("bwfjkjrndmendvumdlej", "保障人民權利"),
+            ("gxhdjey zxajgw vumdlej", "國家最高權力"),
+            // C19: 紀錄 / 記錄
+            ("dyfphjcjjeejjejlxj", "打破世界紀錄"),
+            ("jejlxjcl hxhddemfde ", "記錄生活點滴"),
+            // C20: 絕對 / 決定
+            ("jueddxajmadxnjted", "絕對沒問題"),
+            ("xhfmnsjueddeljhwflgs", "我們決定好了"),
+            // C21: 走進 / 走近
+            ("zofjenjjewjcjlef", "走進教室裡"),
+            ("mmjmmjzofjenjty ", "慢慢走近他"),
+            // C22~C27: 261021 使用者極端造句集（構式二十）
+            ("efceyjxndjujxhfhidcjjdjee tee gafnendhwflgs", "以下文句我還是直接貼給您好了"),
+            ("cumfjufcumfdscje ggsdxajjjleffk cjdspmjxkj", "選舉選的是一個對治理方式的盼望"),
+            ("jeojrkjjekfxmjm bxjdxmjckjjeedmxjzjbwjrkjty dsmenddewjzjrmddsdeedggsgoj", "就讓蔣萬安不斷上節目自爆讓他的民調自然的跌個夠"),
+            ("jen tem zwfckjhxydaxajcdkmjdwjbeedrnddsjxm mj,velflelje ggsdxajhxyjfn ce lgse ceyj", "今天早上滑脆時看到別人的專案，請另一個對話分析了一下"),
+            ("axldefeofxndcemjjemjlejje vxfj hoj,zijrkjrndlajxhfgxljcemjjeddxm zwjjuj", "從已有文獻建立基礎之後，再讓人類我貢獻極端造句"),
+            ("fn cekfe ceyjGAAdszxajcen vldgxhf", "分享一下GAA的最新成果"),
+            ("fn cekfe ceyjGAAdgszxajcen vldgxhf", "分享一下GAA的最新成果"),
+            ("efceyjxndjujvel dm xhfhidcjjdjee tee gafnendhwflgs", "以下文具清單我還是直接貼給您好了"),
+            ("vem bef", "鉛筆"),
+            ("vembef", "鉛筆"),
+            ("cekjpeday ", "橡皮擦"),
+            ("cekpeday ", "橡皮擦"),
+            ("dmjxajcgdmshxajvekfcx ", "但為什麼會搶輸"),
+            // C28~C32: 261021 語意調校工作室里程碑四組雙向同音對比句（一般/一班、確定/卻定、勘誤/刊物、雙句/雙具）
+            ("xhfcem vuejrnje ceyj,jgjekje bm cfuljjgfvuejdeljkgfeftee rxjaxhjxjufkm xjjewjdxajcxk juj,jeojdydvldjljvuejufejtewdjewjdsmxjdejmys?", "我先確認一下，這樣一般使用者確定可以貼入錯誤與勘誤校對雙句，就達成正確語意調校的目的嗎？"),
+            ("xhfcem vuejrnjejceyj,jgjekjejbm cfuljjgfvuejdeljkgfeftee rxjaxhjxjufkm xjjewjdxajcxk juj,jeojdydvldjljvuejufejtewdjewjdsmxjdejmys?", "我先確認一下，這樣一般使用者確定可以貼入錯誤與勘誤校對雙句，就達成正確語意調校的目的嗎？"),
+            ("jgjekje bm gxl vg kgfefzijdxh cwfcuedcl ", "這樣一班公車可以載多少學生"),
+            ("jgjekjejbm gxl vg kgfefzijdxh cwfcuedcl ", "這樣一班公車可以載多少學生"),
+            ("txdcx gxmflefco akdlgscufdxh cx jedufkm xj", "圖書館裡收藏了許多書籍與刊物"),
+            ("jgjjeyjfa je pajbajlgscxk jujxh lxndenfveld", "這架飛機配備了雙具渦輪引擎"),
+            ("jxljrndjee hxk lxmjty vuejdeljceyjcen lid", "眾人皆慌亂他卻定下心來"),
+            // C33~C40: 語意分析261021.txt 六大雙句與對比反例（構式二十二）
+            ("rmdhoj,dyjejjeojje hx xkjgxk gxk lgsey ", "然後，大易就幾乎忘光光了呀"),
+            ("xhfcem vuejrnje ceyj,jgjekjkgfefjew dwjcfuljjgfcofckj,dxajmys?", "我先確認一下，這樣可以交到使用者手上，對嗎？"),
+            ("ty hnfhxajgn kgjhxjdyfjew dwj", "他很會跟客戶打交道"),
+            ("dmjjgjekjjn dseofbejewjmys?", "但這樣真的有必要嗎？"),
+            ("zijdxjleldhxndkwfxnj", "再度靈魂拷問"),
+            ("xhfmnszijdxjjeyj", "我們在度假"),
+            ("zijcfuljcufcjjemjpmd,zijcdzxhjdsufejtewdjlfgxl zxhjcj,jenfcemjhmjuf,", "在使用許氏鍵盤，在實做的語意調整工作室，僅限漢語，"),
+            ("zijcfuljcufcjjemjpmd,zijcdzxhjdsufejtewdjewjgxl zxhjcj,jenfcemjhmjuf,", "在使用許氏鍵盤，在實做的語意調校工作室，僅限漢語，"),
         ];
 
         for (keys, expected) in cases {
@@ -6255,6 +6566,212 @@ mod tests {
                 keys, expected, actual
             );
         }
+
+        // 驗證關閉中英混打時，退格後重按介音 'u' 或連按 'u' 絕不回傳 action=="none" 亦不殘留 raw_ascii_buffer
+        engine.reset_buffer();
+        engine.enable_mixed_english = false;
+        for c in "eljuf".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(engine.get_display_text(), "應與");
+        engine.pop_component(); // 退格移除聲調 'f'，此時 cur_medial 為 "ㄩ"
+        let r_u = engine.process_key('u');
+        assert_ne!(r_u.action, "none", "當 cur_medial 為『ㄩ』時再按 'u' 必須被引擎吸收，嚴禁回傳 none 導致洩漏至目標視窗");
+        let r_f = engine.process_key('f');
+        assert_ne!(r_f.action, "none");
+        assert_eq!(engine.get_display_text(), "應與");
+    }
+
+    #[test]
+    fn test_twenty_one_homophone_confusion_pairs_261021() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+        let _ = engine.transitions.load_patterns_jsonl("../ruhi_lexicon/data/patterns_user.jsonl");
+
+        let cases = [
+            // C01: 再 / 在
+            ("zijcje aj", "再試一次"),
+            ("zijjey ceo ced", "在家休息"),
+            // C02: 得 / 地
+            ("pwfdshnfkxij", "跑得很快"),
+            ("pwfdgdhnfkxij", "跑得很快"),
+            ("ki cen dscewj", "開心地笑"),
+            ("ki cen dejcewj", "開心地笑"),
+            // C03: 的 / 的確
+            ("xhfdsdemjnwf", "我的電腦"),
+            ("dedvuejrxdaf", "的確如此"),
+            // C04: 已經 / 以...為由
+            ("efjel xmdvld", "已經完成"),
+            ("efm vumdxadeod", "以安全為由"),
+            // C05: 哪 / 那
+            ("nefvujnyflef", "你去哪裡"),
+            ("nyjjeojhwf", "那就好"),
+            // C06: 還 / 孩
+            ("ty hidzijcxaj", "他還在睡"),
+            ("hidzsjkfdyjlgs", "孩子長大了"),
+            // C07: 小時候 / 兩小時後
+            ("cewfcdhojdshxadej", "小時候的回憶"),
+            ("lekfcewfcdhojvx fy ", "兩小時後出發"),
+            // C08: 做功課 / 作文課
+            ("hxadjey zxhjgxl kgj", "回家做功課"),
+            ("jen tem ckjzxhjxndkgj", "今天上作文課"),
+            // C09: 必須 / 必需品
+            ("xhfmnsbejcu vx fy ", "我們必須出發"),
+            ("cl hxhdbejcu penf", "生活必需品"),
+            // C10: 戴口罩 / 帶口罩
+            ("vx mnddijkofjwj", "出門戴口罩"),
+            ("bk xhfdijkofjwj", "幫我帶口罩"),
+            // C11: 嗎 / 嘛
+            ("jgjekjhwfmys", "這樣好嗎"),
+            ("jgjeefmadbmjfyfmys", "這也沒辦法嘛"),
+            // C12: 坐在 / 座位
+            ("zxhjzijefzsckj", "坐在椅子上"),
+            ("madeofzxhjxajlgs", "沒有座位了"),
+            // C13: 好像 / 相片
+            ("hwfcekjewjceyjuf", "好像要下雨"),
+            ("gafnefkmjjk cekjpemj", "給你看張相片"),
+            // C14: 作品 / 做作
+            ("ty dscen zxhjpenf", "他的新作品"),
+            ("e demfeefbxjzxhjzxhj", "一點也不做作"),
+            // C15: 根本 / 跟我來
+            ("gn bnfbxjkgfnld", "根本不可能"),
+            ("velfgn xhflid", "請跟我來"),
+            // C16: 心裡 / 心理
+            ("cen lefhnfnmdgxhj", "心裡很難過"),
+            ("cen lefjxnfbaj", "心理準備"),
+            // C17: 反映 / 反應
+            ("cekjjxfgxmffmfeljxnjted", "向主管反映問題"),
+            ("ty dsfmfeljhnfkxij", "他的反應很快"),
+            // C18: 權利 / 權力
+            ("bwfjkjrndmendvumdlej", "保障人民權利"),
+            ("gxhdjey zxajgw vumdlej", "國家最高權力"),
+            // C19: 紀錄 / 記錄
+            ("dyfphjcjjeejjejlxj", "打破世界紀錄"),
+            ("jejlxjcl hxhddemfde ", "記錄生活點滴"),
+            // C20: 絕對 / 決定
+            ("jueddxajmadxnjted", "絕對沒問題"),
+            ("xhfmnsjueddeljhwflgs", "我們決定好了"),
+            // C21: 走進 / 走近
+            ("zofjenjjewjcjlef", "走進教室裡"),
+            ("mmjmmjzofjenjty ", "慢慢走近他"),
+            // C22~C27: 261021 使用者極端造句集（構式二十）
+            ("efceyjxndjujxhfhidcjjdjee tee gafnendhwflgs", "以下文句我還是直接貼給您好了"),
+            ("cumfjufcumfdscje ggsdxajjjleffk cjdspmjxkj", "選舉選的是一個對治理方式的盼望"),
+            ("jeojrkjjekfxmjm bxjdxmjckjjeedmxjzjbwjrkjty dsmenddewjzjrmddsdeedggsgoj", "就讓蔣萬安不斷上節目自爆讓他的民調自然的跌個夠"),
+            ("jen tem zwfckjhxydaxajcdkmjdwjbeedrnddsjxm mj,velflelje ggsdxajhxyjfn ce lgse ceyj", "今天早上滑脆時看到別人的專案，請另一個對話分析了一下"),
+            ("axldefeofxndcemjjemjlejje vxfj hoj,zijrkjrndlajxhfgxljcemjjeddxm zwjjuj", "從已有文獻建立基礎之後，再讓人類我貢獻極端造句"),
+            ("fn cekfe ceyjGAAdszxajcen vldgxhf", "分享一下GAA的最新成果"),
+            ("fn cekfe ceyjGAAdgszxajcen vldgxhf", "分享一下GAA的最新成果"),
+            ("efceyjxndjujvel dm xhfhidcjjdjee tee gafnendhwflgs", "以下文具清單我還是直接貼給您好了"),
+            ("vem bef", "鉛筆"),
+            ("vembef", "鉛筆"),
+            ("cekjpeday ", "橡皮擦"),
+            ("cekpeday ", "橡皮擦"),
+            ("dmjxajcgdmshxajvekfcx ", "但為什麼會搶輸"),
+            // C28~C32: 261021 語意調校工作室里程碑四組雙向同音對比句（一般/一班、確定/卻定、勘誤/刊物、雙句/雙具）
+            ("xhfcem vuejrnje ceyj,jgjekje bm cfuljjgfvuejdeljkgfeftee rxjaxhjxjufkm xjjewjdxajcxk juj,jeojdydvldjljvuejufejtewdjewjdsmxjdejmys?", "我先確認一下，這樣一般使用者確定可以貼入錯誤與勘誤校對雙句，就達成正確語意調校的目的嗎？"),
+            ("xhfcem vuejrnjejceyj,jgjekjejbm cfuljjgfvuejdeljkgfeftee rxjaxhjxjufkm xjjewjdxajcxk juj,jeojdydvldjljvuejufejtewdjewjdsmxjdejmys?", "我先確認一下，這樣一般使用者確定可以貼入錯誤與勘誤校對雙句，就達成正確語意調校的目的嗎？"),
+            ("jgjekje bm gxl vg kgfefzijdxh cwfcuedcl ", "這樣一班公車可以載多少學生"),
+            ("jgjekjejbm gxl vg kgfefzijdxh cwfcuedcl ", "這樣一班公車可以載多少學生"),
+            ("txdcx gxmflefco akdlgscufdxh cx jedufkm xj", "圖書館裡收藏了許多書籍與刊物"),
+            ("jgjjeyjfa je pajbajlgscxk jujxh lxndenfveld", "這架飛機配備了雙具渦輪引擎"),
+            ("jxljrndjee hxk lxmjty vuejdeljceyjcen lid", "眾人皆慌亂他卻定下心來"),
+            // C33~C40: 語意分析261021.txt 六大雙句與對比反例（構式二十二）
+            ("rmdhoj,dyjejjeojje hx xkjgxk gxk lgsey ", "然後，大易就幾乎忘光光了呀"),
+            ("xhfcem vuejrnje ceyj,jgjekjkgfefjew dwjcfuljjgfcofckj,dxajmys?", "我先確認一下，這樣可以交到使用者手上，對嗎？"),
+            ("ty hnfhxajgn kgjhxjdyfjew dwj", "他很會跟客戶打交道"),
+            ("dmjjgjekjjn dseofbejewjmys?", "但這樣真的有必要嗎？"),
+            ("zijdxjleldhxndkwfxnj", "再度靈魂拷問"),
+            ("xhfmnszijdxjjeyj", "我們在度假"),
+            ("zijcfuljcufcjjemjpmd,zijcdzxhjdsufejtewdjlfgxl zxhjcj,jenfcemjhmjuf,", "在使用許氏鍵盤，在實做的語意調整工作室，僅限漢語，"),
+            ("zijcfuljcufcjjemjpmd,zijcdzxhjdsufejtewdjewjgxl zxhjcj,jenfcemjhmjuf,", "在使用許氏鍵盤，在實做的語意調校工作室，僅限漢語，"),
+        ];
+
+        let mut failures = Vec::new();
+        for (keys, expected) in cases {
+            engine.reset_buffer();
+            let mut actual = String::new();
+            for c in keys.chars() {
+                let res = engine.process_key(c);
+                if !res.committed_chunk.is_empty() {
+                    actual.push_str(&res.committed_chunk);
+                }
+            }
+            actual.push_str(&engine.get_display_text());
+            if actual != expected {
+                failures.push(format!("input `{}`: expected `{}`, got `{}`", keys, expected, actual));
+            }
+        }
+        assert!(
+            failures.is_empty(),
+            "C01~C21 同音對比測試失敗 ({} 題)：\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
+    }
+
+    #[test]
+    fn test_polyphone_chi_ji_blacklist_and_full_sentence_revision_capture_261021() {
+        let mut engine = RuhiEngine::new();
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+        let _ = engine.lexicon.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = engine.transitions.load_tsv("../ruhi_lexicon/data/transitions_user.tsv");
+        let _ = engine.transitions.load_patterns_jsonl("../ruhi_lexicon/data/patterns_user.jsonl");
+
+        // 1. 驗證「開發者集權」(`ki fy jgfjedvumd`) 絕不被「口吃」之單字破音 `吃 (ㄐㄧˊ)` 劫掠為「開發者吃全」
+        engine.reset_buffer();
+        for c in "ki fy jgfjedvumd".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(engine.get_display_text(), "開發者集權");
+
+        // 2. 驗證雙字複合詞「口吃」(`kofjed`) 依然正常保留
+        engine.reset_buffer();
+        for c in "kofjed".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(engine.get_display_text(), "口吃");
+
+        // 3. 驗證新詞「掠劫」(`luejjeed`) 正常輸出
+        engine.reset_buffer();
+        for c in "luejjeed".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(engine.get_display_text(), "掠劫");
+
+        // 4. 驗證手動改字後結算（標點或 Enter）會自動捕獲整句對照 (viterbi_raw_sentence ➔ composed_sentence) 且不竄改記憶體轉移矩陣
+        engine.reset_buffer();
+        let trans_count_before = engine.transitions.transitions.len();
+        for c in "xhfds".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(engine.viterbi_raw_sentence, "我的");
+        assert_eq!(engine.composed_sentence, "我的");
+
+        // 模擬使用者按 Q 將「的」改為下一個同音候選字
+        engine.cycle_next_candidate();
+        assert_eq!(engine.viterbi_raw_sentence, "我的");
+        assert_ne!(engine.composed_sentence, "我的");
+        assert!(!engine.pending_revisions.is_empty());
+
+        // 測試 capture_sentence_revision_before_commit 補齊整句錯誤句與正確句
+        let expected_cor = format!("{}。", engine.composed_sentence);
+        let full_err = format!("{}。", engine.viterbi_raw_sentence);
+        for rev in &mut engine.pending_revisions {
+            rev.error_sentence = full_err.clone();
+            rev.correct_sentence = expected_cor.clone();
+        }
+        assert_eq!(engine.pending_revisions[0].error_sentence, "我的。");
+        assert_eq!(engine.pending_revisions[0].correct_sentence, expected_cor);
+        assert_eq!(
+            engine.transitions.transitions.len(),
+            trans_count_before,
+            "Capturing full-sentence revision must never pollute local transitions matrix"
+        );
     }
 }
 

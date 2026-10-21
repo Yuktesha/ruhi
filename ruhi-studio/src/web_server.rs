@@ -771,6 +771,80 @@ fn handle_post(
         return send_json_response(stream, 200, &diag);
     }
 
+    if path == "/api/ai/chat_tune" {
+        let user_msg = req_data
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim();
+        let err_sent = req_data
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim();
+        let cor_sent = req_data
+            .get("correct")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim();
+        let cur_log = req_data
+            .get("current_log")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim();
+        let target_lang = req_data
+            .get("target_lang")
+            .and_then(Value::as_str)
+            .unwrap_or("zh-TW (繁體中文・許氏/大千/行列/倉頡)")
+            .trim();
+        let auto_apply = req_data
+            .get("auto_apply")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+
+        let StudioServerState {
+            ref mut tuner,
+            ref mut consultant,
+            ..
+        } = *guard;
+
+        let mut res = consultant.chat_with_model_for_tuning(
+            user_msg,
+            err_sent,
+            cor_sent,
+            cur_log,
+            target_lang,
+            tuner,
+        );
+
+        if auto_apply {
+            let cs = res
+                .get("proposed_constructions")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let rs = res
+                .get("proposed_rules")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let ws = res
+                .get("proposed_words")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let p_added = tuner.append_patterns_to_jsonl(&cs);
+            let w_added = tuner.append_words_to_domain_lexicon(&ws);
+            let r_added = tuner.append_rules_to_tsv(&rs);
+            res["applied"] = json!({
+                "patterns_added": p_added,
+                "words_added": w_added,
+                "rules_added": r_added
+            });
+        }
+        return send_json_response(stream, 200, &res);
+    }
+
     if path == "/api/ai/extract_corpus" {
         let text = req_data.get("text").and_then(Value::as_str).unwrap_or("").trim();
         let domain = req_data
@@ -946,6 +1020,33 @@ fn handle_post(
                 &json!({"status": "error", "message": format!("找不到指定檔案：{missing}")}),
             );
         }
+    }
+
+    if path == "/api/tune/recent_files" {
+        let action = req_data
+            .get("action")
+            .and_then(Value::as_str)
+            .unwrap_or("remove");
+        let file_name = req_data
+            .get("file_name")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let file_path = req_data
+            .get("file_path")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let count = req_data.get("count").and_then(Value::as_u64).unwrap_or(0) as usize;
+        let updated = guard
+            .tuner
+            .update_recent_txt_history(action, file_name, file_path, count);
+        return send_json_response(
+            stream,
+            200,
+            &json!({
+                "status": "ok",
+                "recent_files": updated
+            }),
+        );
     }
 
     if path == "/api/ai/install_green_engine" {

@@ -1,9 +1,9 @@
 [package]
 name = "ruhi-studio"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 authors = ["A Solid GUI Studio (龜鋼A工作室)"]
-description = "RuhI（如喜）輸入法 — 原生 Rust 現代化偏好設定與神經符號語意調校工作室"
+description = "RuhI（如喜）輸入法 — 原生 Rust 現代化偏好設定中心"
 license = "Proprietary"
 
 [[bin]]
@@ -16,6 +16,7 @@ path = "src/lib.rs"
 
 [dependencies]
 atg_lib = { path = "C:/ATGprjs/_lib_rs" }
+ruhi-core = { path = "../ruhi-core" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
