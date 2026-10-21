@@ -1464,7 +1464,7 @@ impl RuhiStudioApp {
             ui.add_space(6.0);
             ui.label(
                 egui::RichText::new(
-                    "核心版本：RuhI v0.4.0 (100% Pure Rust — ruhi-core + ruhi-tsf + ruhi-studio + atg_lib)",
+                    "核心版本：RuhI v0.5.0 (100% Pure Rust — ruhi-core + ruhi-tsf + ruhi-studio + atg_lib)",
                 )
                 .strong(),
             );

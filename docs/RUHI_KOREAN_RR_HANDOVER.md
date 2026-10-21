@@ -36,7 +36,7 @@
 | P1 | 字母對照表與 Unicode 代數層 | `korean/jamo.rs` | 否 |
 | P2 | 音節切分動態規劃（N-best） | `korean/romaja.rs` | 否 |
 | P3 | `KoreanEngine` 狀態機 | `korean/mod.rs` | **是**（核心完成點） |
-| P4 | 常用詞表與學習者容錯 | `korean/lexicon.rs`、`data/korean.tsv` | 否 |
+| P4 | 常用詞表與學習者容錯 | `korean/lexicon.rs`、`ruhi_lexicon/data/korean.tsv` | 否 |
 | P5 | 接入 `RuhiEngine` | `engine.rs` | **是** |
 | P6 | 接入 TSF 前端與設定中心 | `ruhi-tsf/src/*.rs`、設定 UI | **是**（需使用者手動驗證） |
 | P7 | 文件與變更紀錄 | `docs/`、`CHANGELOG.md` | 否 |
@@ -319,7 +319,7 @@ pub struct KoreanEngine {
 
 ## 七、P4：常用詞表與學習者容錯
 
-### 1. 資料格式 `ruhi/data/korean.tsv`
+### 1. 資料格式 `ruhi/ruhi_lexicon/data/korean.tsv`
 與 `japanese.tsv` 一致：`諺文詞<TAB>RR 拼寫<TAB>權重`，`#` 開頭為註解。
 
 ```tsv
@@ -455,7 +455,7 @@ $$\text{cost} = \text{音節數} \times \text{COST\_SYLLABLE} - \text{COST\_LEXI
 | P2 | 2026-10-21 | `399f556` | `korean::romaja` 3/3 通過（含 20 個核心案例、75 詞往返檢查、40 字元 < 1ms 效能測試） | 無 |
 | P3 | 2026-10-21 | `c878112` | `korean` 全模組 13/13 通過；日／歐／注／倉／行模組回歸全數通過 | 無 |
 | P3 審查修正 | 2026-10-22 | `7393c1b` | `korean` 15/15 通過（新增 532 組終聲×初聲邊界窮舉往返、結算尾端保留拉丁字母） | ① `to_romaja` 的 `-` 規則改為通用判斷 `boundary_can_shift`，修正 각까、갓싸 往返失敗；② Finalize 模式不再輸出孤立相容字母（陷阱 5），如 `g` 結算為 `g`、`anny` 結算為 `안ny` |
-| P4 | 2026-10-22 | `d88923d` | `korean` 全模組 17/17 通過（含指定案例、60 條內建詞表與 406 條 `data/korean.tsv` 全量 5 項窮舉檢查） | 全量檢查發現 4 條目需修正：`체크인` 補上音節連字號 `chekeu-in`；單音節複合終聲詞 `닭/삶/값` 因單音節不建 DP 詞邊而改收錄多音節詞 `닭갈비/달걀/가격` |
+| P4 | 2026-10-22 | `d88923d` | `korean` 全模組 17/17 通過（含指定案例、60 條內建詞表與 406 條 `ruhi_lexicon/data/korean.tsv` 全量 5 項窮舉檢查） | 全量檢查發現 4 條目需修正：`체크인` 補上音節連字號 `chekeu-in`；單音節複合終聲詞 `닭/삶/값` 因單音節不建 DP 詞邊而改收錄多音節詞 `닭갈비/달걀/가격` |
 | P5 | 2026-10-22 | `fa47139` | 工作區全套 126/126 通過；`cargo build --release` 成功 | 該提交單獨檢出時 `test_dual_track_arrow_lookup_and_contextual_rescue` 失敗（見 P5 審查修正） |
 | P5 審查修正 | 2026-10-22 | `622e681` | 乾淨工作目錄（僅含已提交內容）全套 **125/125** 通過（工作區多出之 1 項屬使用者未提交之梵文修改） | ① `fa47139` 只提交測試的 `"歐"` 斷言、未提交對應的徽章對照，已補提交該行；② P3 審查修正之雜湊原誤植為不存在的 `d0795ef`，已更正為 `7393c1b`；③ 內建詞表實為 60 條（原紀錄 55） |
 | P6 | 2026-10-22 | `c8737e5` | 乾淨工作目錄（`_tmp_korean_verify`）全套 `ruhi-core` 126/126 通過（新增 `test_p6_finalized_commit_text`）；`ruhi-tsf` 與 `ruhi-studio` `cargo build --release` 均零錯誤完成 | 14.4(G) 方向鍵：因 `service.rs` 於方向鍵進入 `detect_*` 前會先呼叫 `consolidate_engine_to_pending()` 將 `raw_romaja` 轉入 `last_raw_ascii` 並重置緩衝區，故於 `KoreanEngine` 新增 `lookup_down_candidates_for_romaja` 與 `lookup_up_candidates_for_romaja` 供 `last_raw_ascii`／`pending_segments` 區段查詢；(G) 選做部分（對已併入暫存流無 `raw_romaja` 之純諺文表面反查）本輪未做 |
@@ -595,7 +595,7 @@ pub fn romaja_to_hangul_with_lexicon(raw: &str, mode: ParseMode, lex: Option<&Ko
 - `process_key_str` 新增 `"Up" | "up"`：有候選時回傳 `action: "show_candidate_popup"`、`mode: "candidates"`，並把候選寫入 `self.candidates`（行為比照 `JapaneseEngine` 的 `Up` 分支）；沒有候選或緩衝區為空時回傳 `action: "none"`、`mode: "korean"`。
 
 #### (4) 詞表資料
-- `ruhi/data/korean.tsv`：300～500 條，分類見第七節（2）。檔頭註解寫明：格式、權重分級標準（一般 1000、極高頻問候語 1100）、RR 依據為韓國國立國語院公布的〈국어의 로마자 표기법〉。
+- `ruhi/ruhi_lexicon/data/korean.tsv`：300～500 條，分類見第七節（2）。檔頭註解寫明：格式、權重分級標準（一般 1000、極高頻問候語 1100）、RR 依據為韓國國立國語院公布的〈국어의 로마자 표기법〉。
 - 內建精簡版（`with_builtin`）：約 50 條最常用詞，**必須是 `korean.tsv` 的子集**，且至少包含：안녕하세요 `annyeonghaseyo`、감사합니다 `gamsahamnida`、김치 `gimchi`、떡볶이 `tteokbokki`、가을 `gaeul`、부산 `busan`、서울 `seoul`、한글 `hangeul`、하나 `hana`。
 - **不要**收錄單獨的助詞（은、는、이、가、을、를……），它們由規則組字即可。
 - 不得抄錄商業辭典，不得使用中國來源資料。
@@ -614,7 +614,7 @@ pub fn romaja_to_hangul_with_lexicon(raw: &str, mode: ParseMode, lex: Option<&Ko
 | `kimchi` | `Up` 第一筆 | `김치` |
 | `pusan` | `Up` 第一筆 | `부산` |
 
-**B. 詞表全量檢查**（對 `korean.tsv` 的**每一條**執行；測試中以 `env!("CARGO_MANIFEST_DIR")` 組出 `../data/korean.tsv` 路徑讀檔）
+**B. 詞表全量檢查**（對 `korean.tsv` 的**每一條**執行；測試中以 `env!("CARGO_MANIFEST_DIR")` 組出 `../ruhi_lexicon/data/korean.tsv` 路徑讀檔）
 1. `surface` 只含完整諺文音節；`weight` 只能是 1000 或 1100；沒有重複的 `(surface, rr)`。
 2. **官方拼寫可還原**：`romaja_to_hangul_with_lexicon(rr, Finalize, Some(&lex)) == surface`。
 3. **逐字母拼寫可還原**：`romaja_to_hangul_with_lexicon(&to_romaja(surface), Finalize, Some(&lex)) == surface`。

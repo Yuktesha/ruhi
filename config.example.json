@@ -6,7 +6,7 @@
   "capslock_switch": "chinese_english",
   "capsule_mode": "mini_capsule",
   "claude_model": "claude-3-5-sonnet-20241022",
-  "cloud_sheet_webhook_url": "https://script.google.com/macros/s/AKfycbx6nCVXW4yP0VDRLrAbYCf5fqRkxCcqSACdJuKrC-Vpc4S52oL1owLlGJeWX11Q7PU_/exec",
+  "cloud_sheet_webhook_url": "",
   "custom_base_url": "http://127.0.0.1:8080/v1",
   "custom_model": "gemma-2-2b-it",
   "desk_opacity": 50,
@@ -23,7 +23,7 @@
   "keyboard_mode": "hsu",
   "last_keyboard_mode": "english",
   "last_tailcat_sync_timestamp": 0,
-  "last_upload_timestamp": 1792561734,
+  "last_upload_timestamp": 0,
   "max_composition_chars": 36,
   "mixed_english_min_len": 4,
   "mixed_english_mode": "contextual_stream",
@@ -37,7 +37,7 @@
   "tailcat_auto_sync": true,
   "tailcat_feed_url": "https://raw.githubusercontent.com/Yuktesha/ruhi/main/ruhi_lexicon/data/tailcat_official_feed.json",
   "tailcat_update_mode": "notify_confirm",
-  "telemetry_consent": true,
+  "telemetry_consent": false,
   "theme": "system",
   "upload_schedule": "weekly"
 }

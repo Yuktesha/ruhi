@@ -10,7 +10,6 @@
     "show_bopomofo": true,
     "capsule_mode": "mini_capsule",
     "zoom_level": 0,
-    "geometry": "1391x1360+577+0",
     "sidebar_width": 223
   },
   "keyboard": {
@@ -41,10 +40,10 @@
     "zero_pii_gateway": true,
     "ollama_model": "gemma4:12b",
     "enable_cloud_colab": true,
-    "telemetry_consent": true,
+    "telemetry_consent": false,
     "upload_schedule": "weekly",
-    "cloud_sheet_webhook_url": "https://script.google.com/macros/s/AKfycbx6nCVXW4yP0VDRLrAbYCf5fqRkxCcqSACdJuKrC-Vpc4S52oL1owLlGJeWX11Q7PU_/exec",
-    "last_upload_timestamp": 1792561734,
+    "cloud_sheet_webhook_url": "",
+    "last_upload_timestamp": 0,
     "tailcat_auto_sync": true,
     "tailcat_update_mode": "notify_confirm",
     "tailcat_feed_url": "https://raw.githubusercontent.com/Yuktesha/ruhi/main/ruhi_lexicon/data/tailcat_official_feed.json",

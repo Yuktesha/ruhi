@@ -2,7 +2,7 @@
 ; 符合 Windows 10 / 11 64 位元純 TSF 與 Win32 全生態相容性規範 (TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC)
 
 #define MyAppName "RuhI 如喜通用智慧型輸入法"
-#define MyAppVersion "0.4.0"
+#define MyAppVersion "0.5.0"
 #define MyAppPublisher "RuhOS Community"
 #define MyAppURL "https://github.com/Yuktesha/ruhi"
 #define MyAppExeName "ruhi-studio.exe"
@@ -46,9 +46,11 @@ Source: "{#StageDir}\ruhi-studio.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; 完整詞庫與轉移引力資料
 Source: "{#StageDir}\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; 偏好設定中心設定檔與使用者詞庫（升級時完整保留使用者既有設定與自建詞庫）
-Source: "{#StageDir}\settings_config.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
-Source: "{#StageDir}\config.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
+; 偏好設定中心設定檔與使用者詞庫（自不含個人資料與 Webhook 網址之範本建立；升級時完整保留使用者既有設定與自建詞庫）
+Source: "{#StageDir}\settings_config.example.json"; DestDir: "{app}"; DestName: "settings_config.json"; Flags: ignoreversion onlyifdoesntexist
+Source: "{#StageDir}\config.example.json"; DestDir: "{app}"; DestName: "config.json"; Flags: ignoreversion onlyifdoesntexist
+Source: "{#StageDir}\settings_config.example.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\config.example.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\user_dict.tsv"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 
 ; 管理與日常熱重載工具
@@ -57,16 +59,22 @@ Source: "{#StageDir}\hot_reload.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\一鍵安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\一鍵解除安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
-; 內建介面與主題引擎庫 (_lib)
-Source: "{#StageDir}\_lib\*"; DestDir: "{app}\_lib"; Flags: ignoreversion recursesubdirs createallsubdirs
+; 管理員提權共用模組（僅 PowerShell 提權腳本；主程式為純 Rust，不打包 Python 程式庫）
+Source: "{#StageDir}\_lib\ps\Ensure-Admin.ps1"; DestDir: "{app}\_lib\ps"; Flags: ignoreversion
 
 ; AI / SI 自動交接 SKILL 規範 (.agent)
 Source: "{#StageDir}\.agent\*"; DestDir: "{app}\.agent"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; 專案宣告與文件
+; 專案宣告與使用者文件（不打包內部交接紀錄）
 Source: "{#StageDir}\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "{#StageDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#StageDir}\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#StageDir}\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\docs\RUHI_LINGUISTIC_ARCHITECTURE_AND_AI_TUNING_SPEC.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#StageDir}\docs\RUHI_MULTILINGUAL_EXPANSION_GUIDE.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#StageDir}\docs\RUHI_MULTILINGUAL_EXPANSION_GUIDE_EN.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#StageDir}\docs\RUHI_WESTERN_INPUT_AND_MIXED_TYPING_BLUEPRINT.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#StageDir}\docs\RUHI_KOREAN_RR_HANDOVER.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#StageDir}\docs\TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\如喜輸入法偏好設定"; Filename: "{app}\ruhi-studio.exe"; WorkingDir: "{app}"

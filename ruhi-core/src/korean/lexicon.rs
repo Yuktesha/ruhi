@@ -25,7 +25,7 @@ pub struct KoreanLexicon {
     pub max_key_len: usize,
 }
 
-/// 內建精簡常用詞表（約 55 條，為 data/korean.tsv 之嚴格子集）
+/// 內建精簡常用詞表（約 55 條，為 ruhi_lexicon/data/korean.tsv 之嚴格子集）
 pub const BUILTIN_LEXICON: &[(&str, &str, u32)] = &[
     ("안녕하세요", "annyeonghaseyo", 1100),
     ("안녕히가세요", "annyeonghigaseyo", 1100),

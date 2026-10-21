@@ -3151,7 +3151,7 @@ impl SemanticTuner {
             "--max-time",
             "10",
             "-A",
-            "RuhI-Semantic-Federation/0.4.0",
+            concat!("RuhI-Semantic-Federation/", env!("CARGO_PKG_VERSION")),
         ]);
         if !cached_etag.is_empty() {
             cmd.args(["-H", &format!("If-None-Match: {cached_etag}")]);
@@ -3364,7 +3364,7 @@ impl SemanticTuner {
             "latest_version": cur_ver,
             "min_compat_version": "0.4.0",
             "updated_at": Local::now().to_rfc3339(),
-            "release_notes": "RuhI v0.4.0：正式確立匿名雙句雲端收集與 Tailcat 雙層熱更新架構，內建 C01~C40 漢語語法構式與破音字黑名單治理。",
+            "release_notes": "RuhI v0.5.0：新增韓文羅馬字（RR）輸入模式、阿南達瑪迦梵語羅馬拼音詞彙轉寫與歐語變音候選擴充；雲端 Webhook 網址改由本機設定提供、不再內建；語意規則經 dev 集消融收斂。",
             "installer_url": format!("https://github.com/Yuktesha/ruhi/releases/download/v{}/RuhI_Setup_v{}.exe", cur_ver, cur_ver),
             "compat_feeds": {
                 "1": crate::config_sync::DEFAULT_TAILCAT_FEED_URL
@@ -3563,11 +3563,14 @@ impl SemanticTuner {
 
     /// 將本機累積之手動改字整句對照紀錄經 Zero-PII 隱私過濾後，以 HTTPS POST 回傳至官方 Google 雲端硬碟試算表 Webhook
     pub fn upload_revisions_to_cloud_sheet(&self, webhook_url: &str, zero_pii_enabled: bool) -> Value {
-        let url = if webhook_url.trim().is_empty() {
-            crate::config_sync::DEFAULT_CLOUD_SHEET_WEBHOOK_URL
-        } else {
-            webhook_url.trim()
-        };
+        let resolved_url = crate::config_sync::resolve_cloud_sheet_webhook_url(webhook_url);
+        let url = resolved_url.as_str();
+        if url.is_empty() {
+            return json!({
+                "status": "not_configured",
+                "message": "尚未設定雲端試算表 Webhook 網址（請於偏好設定填入，或設定環境變數 RUHI_CLOUD_SHEET_WEBHOOK_URL），已略過"
+            });
+        }
         if !url.starts_with("https://") && !url.starts_with("http://") {
             return json!({
                 "status": "error",
@@ -3767,11 +3770,14 @@ impl SemanticTuner {
     /// 開發者自動化工具：從官方 Google 雲端試算表一鍵拉取所有狀態為「待調校」之雙句，
     /// 並自動儲存至 `data/cloud_pending_pairs.txt`，供語意調校工作室或 AI 顧問直接批次處理（免人工複製貼上）
     pub fn fetch_pending_revisions_from_cloud_sheet(&self, webhook_url: &str) -> Value {
-        let url = if webhook_url.trim().is_empty() {
-            crate::config_sync::DEFAULT_CLOUD_SHEET_WEBHOOK_URL
-        } else {
-            webhook_url.trim()
-        };
+        let resolved_url = crate::config_sync::resolve_cloud_sheet_webhook_url(webhook_url);
+        let url = resolved_url.as_str();
+        if url.is_empty() {
+            return json!({
+                "status": "not_configured",
+                "message": "尚未設定雲端試算表 Webhook 網址（請於偏好設定填入，或設定環境變數 RUHI_CLOUD_SHEET_WEBHOOK_URL），已略過"
+            });
+        }
         let fetch_url = if url.contains('?') {
             format!("{url}&action=fetch_pending")
         } else {
@@ -3855,11 +3861,14 @@ impl SemanticTuner {
                 "message": "未指定任何列號。"
             });
         }
-        let url = if webhook_url.trim().is_empty() {
-            crate::config_sync::DEFAULT_CLOUD_SHEET_WEBHOOK_URL
-        } else {
-            webhook_url.trim()
-        };
+        let resolved_url = crate::config_sync::resolve_cloud_sheet_webhook_url(webhook_url);
+        let url = resolved_url.as_str();
+        if url.is_empty() {
+            return json!({
+                "status": "not_configured",
+                "message": "尚未設定雲端試算表 Webhook 網址（請於偏好設定填入，或設定環境變數 RUHI_CLOUD_SHEET_WEBHOOK_URL），已略過"
+            });
+        }
 
         let payload = json!({
             "action": "mark_tuned",

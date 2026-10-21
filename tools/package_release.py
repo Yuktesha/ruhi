@@ -10,9 +10,11 @@ RuhI (如喜) 輸入法 - GitHub 發布版自動化封裝工具 (Release Package
 """
 
 import os
+import re
 import sys
 import shutil
 import hashlib
+import subprocess
 import zipfile
 from pathlib import Path
 
@@ -61,7 +63,9 @@ def verify_pe_imports(dll_path: Path):
 
 def main():
     root = Path(__file__).resolve().parent.parent
-    version = "0.3.0"
+    # 版號以 ruhi-core/Cargo.toml 為唯一來源
+    cargo_txt = (root / "ruhi-core" / "Cargo.toml").read_text(encoding="utf-8")
+    version = re.search(r'(?m)^version\s*=\s*"([^"]+)"', cargo_txt).group(1)
     pkg_name = f"RuhI_v{version}_Windows_x64"
     dist_dir = root / "dist"
     release_dir = dist_dir / pkg_name
@@ -99,21 +103,28 @@ def main():
         shutil.copy2(studio_exe, release_dir / "ruhi-studio.exe")
         shutil.copy2(studio_exe, root / "ruhi-studio.exe")
 
-    # 複製詞庫與語意轉移檔
+    # 複製詞庫與語意轉移檔（僅限 Git 已追蹤之檔案，杜絕本機改字紀錄、雲端待調校雙句等私人執行期資料混入安裝包）
     release_data = release_dir / "data"
     release_data.mkdir(parents=True, exist_ok=True)
-    src_data = root / "ruhi_lexicon" / "data"
-    for item in src_data.glob("*"):
-        if item.is_file():
-            shutil.copy2(item, release_data / item.name)
-        elif item.is_dir():
-            shutil.copytree(item, release_data / item.name, dirs_exist_ok=True)
+    tracked = subprocess.check_output(
+        ["git", "ls-files", "ruhi_lexicon/data"], cwd=root, text=True, encoding="utf-8"
+    ).splitlines()
+    for rel in tracked:
+        src_item = root / rel
+        if src_item.is_file():
+            dst_item = release_data / Path(rel).relative_to("ruhi_lexicon/data")
+            dst_item.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_item, dst_item)
 
-    # 複製偏好設定與設定檔
-    for f in ["settings_config.json", "config.json", "user_dict.tsv"]:
-        src_f = dist_dir / f if (dist_dir / f).exists() else (root / f)
+    # 複製設定範本（不含個人設定與雲端 Webhook 網址；安裝程式會以範本建立 config.json / settings_config.json）
+    for f in ["settings_config.example.json", "config.example.json", "user_dict.tsv"]:
+        src_f = root / f
         if src_f.exists():
             shutil.copy2(src_f, release_dir / f)
+    if (root / "user_dict.tsv").exists():
+        # 使用者詞庫僅保留檔頭註解，不散布開發者個人學習詞
+        header = [ln for ln in (root / "user_dict.tsv").read_text(encoding="utf-8").splitlines() if ln.startswith("#")]
+        (release_dir / "user_dict.tsv").write_text("\n".join(header) + "\n", encoding="utf-8")
 
     # 複製安裝與啟動腳本（根目錄快捷進入點）
     for script_name in [
@@ -121,46 +132,18 @@ def main():
         "一鍵解除安裝.ps1",
         "run_settings.ps1",
         "hot_reload.ps1",
-        "語意調校工作室.ps1",
-        "安裝本地AI純綠推論引擎.ps1",
-        "啟動本地AI服務.ps1",
-        "停止本地AI服務.ps1",
     ]:
-        src_s = root / script_name if (root / script_name).exists() else (dist_dir / script_name if (dist_dir / script_name).exists() else (root / "scripts" / script_name))
+        src_s = root / script_name if (root / script_name).exists() else (root / "scripts" / script_name)
         if src_s.exists():
             shutil.copy2(src_s, release_dir / script_name)
 
-    # 複製獨立內建 _lib 介面與主題引擎庫（確保外部使用者免依賴外部目錄即可完整享受 DWM 深色標題列與 R-UI/UX）
-    src_lib = root / "_lib"
-    if src_lib.exists():
-        dst_lib = release_dir / "_lib"
-        dst_lib.mkdir(parents=True, exist_ok=True)
-        for py_file in src_lib.glob("*.py"):
-            shutil.copy2(py_file, dst_lib / py_file.name)
-        if (src_lib / "ps" / "Ensure-Admin.ps1").exists():
-            (dst_lib / "ps").mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_lib / "ps" / "Ensure-Admin.ps1", dst_lib / "ps" / "Ensure-Admin.ps1")
-
-    # 複製語意調校工作室與跨平台工具集 (scripts/)
-    release_scripts = release_dir / "scripts"
-    release_scripts.mkdir(parents=True, exist_ok=True)
-    src_scripts = root / "scripts"
-    for s_item in [
-        "語意除錯調校.ps1",
-        "安裝本地AI純綠推論引擎.ps1",
-        "啟動本地AI服務.ps1",
-        "停止本地AI服務.ps1",
-        "一鍵安裝.ps1",
-        "一鍵解除安裝.ps1",
-        "run_settings.ps1",
-        "hot_reload.ps1",
-        "install_linux.sh",
-        "config.json",
-    ]:
-        if (src_scripts / s_item).exists():
-            shutil.copy2(src_scripts / s_item, release_scripts / s_item)
-    if (src_scripts / "web").exists():
-        shutil.copytree(src_scripts / "web", release_scripts / "web", dirs_exist_ok=True)
+    # 僅複製管理員提權模組（主程式為純 Rust，不打包 Python 程式庫）
+    src_admin = root / "_lib" / "ps" / "Ensure-Admin.ps1"
+    if not src_admin.exists():
+        src_admin = root.parent / "_lib" / "ps" / "Ensure-Admin.ps1"
+    if src_admin.exists():
+        (release_dir / "_lib" / "ps").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_admin, release_dir / "_lib" / "ps" / "Ensure-Admin.ps1")
 
     # 複製 AI / SI 語意對接自動交接協定與 SKILL
     src_skill = root / ".agent" / "skills" / "ruhi-semantic-tuning" / "SKILL.md"
@@ -169,25 +152,31 @@ def main():
         dst_skill_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src_skill, dst_skill_dir / "SKILL.md")
 
-    # 複製文件
-    for doc in ["LICENSE", "README.md"]:
+    # 複製文件（與 installer/ruhi_setup.iss 之使用者文件清單一致，不含內部交接紀錄）
+    for doc in ["LICENSE", "README.md", "CHANGELOG.md"]:
         if (root / doc).exists():
             shutil.copy2(root / doc, release_dir / doc)
 
     docs_dir = release_dir / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
     for doc_name in [
-        "AI_SEMANTIC_HANDOVER.md",
         "TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC.md",
         "RUHI_LINGUISTIC_ARCHITECTURE_AND_AI_TUNING_SPEC.md",
         "RUHI_MULTILINGUAL_EXPANSION_GUIDE.md",
         "RUHI_MULTILINGUAL_EXPANSION_GUIDE_EN.md",
-        "RUHI_ASIAN_LANGUAGES_EXTENSION_GUIDE.md",
-        "RUHI_LINUX_FCITX5_ARCHITECTURE.md",
+        "RUHI_WESTERN_INPUT_AND_MIXED_TYPING_BLUEPRINT.md",
+        "RUHI_KOREAN_RR_HANDOVER.md",
     ]:
         src_doc = root / "docs" / doc_name
         if src_doc.exists():
             shutil.copy2(src_doc, docs_dir / doc_name)
+
+    # 防外流最終檢查：暫存目錄內任何文字檔不得含 Apps Script 部署網址
+    needle = "script.google.com/" + "macros/s/"
+    for p in release_dir.rglob("*"):
+        if p.is_file() and p.suffix.lower() in {".json", ".jsonl", ".tsv", ".txt", ".md", ".ps1"}:
+            if needle in p.read_text(encoding="utf-8", errors="ignore"):
+                raise RuntimeError(f"安裝包暫存檔含 Apps Script 部署網址，已中止打包: {p}")
 
     print(f"[*] 已完成檔案封裝至暫存目錄: {release_dir}")
 

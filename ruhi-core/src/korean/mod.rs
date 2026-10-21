@@ -732,6 +732,7 @@ mod tests {
     fn test_p4_exhaustive_tsv_lexicon_validation() {
         let tsv_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("..")
+            .join("ruhi_lexicon")
             .join("data")
             .join("korean.tsv");
         assert!(tsv_path.exists(), "korean.tsv not found at {:?}", tsv_path);

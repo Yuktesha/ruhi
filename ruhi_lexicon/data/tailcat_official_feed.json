@@ -2,11 +2,11 @@
   "compat_feeds": {
     "1": "https://raw.githubusercontent.com/Yuktesha/ruhi/main/ruhi_lexicon/data/tailcat_official_feed.json"
   },
-  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v0.4.0/RuhI_Setup_v0.4.0.exe",
-  "latest_version": "0.4.0",
+  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v0.5.0/RuhI_Setup_v0.5.0.exe",
+  "latest_version": "0.5.0",
   "min_compat_version": "0.4.0",
   "protocol": "RUHI_TAILCAT_FEDERATED_SEMANTIC_V1",
-  "release_notes": "RuhI v0.4.0：正式確立匿名雙句雲端收集與 Tailcat 雙層熱更新架構，內建 C01~C40 漢語語法構式與破音字黑名單治理。",
+  "release_notes": "RuhI v0.5.0：新增韓文羅馬字（RR）輸入模式、阿南達瑪迦梵語羅馬拼音詞彙轉寫與歐語變音候選擴充；雲端 Webhook 網址改由本機設定提供、不再內建；語意規則經 dev 集消融收斂。",
   "rules": [
     {
       "bopomofo": "ㄊㄧㄠˊ ㄒㄧㄠˋ",
@@ -6238,6 +6238,6 @@
   ],
   "rules_count": 366,
   "schema_version": 1,
-  "updated_at": "2026-10-21T20:12:07.546652900+08:00",
+  "updated_at": "2026-10-22T07:29:36.605128900+08:00",
   "zero_pii_verified": true
 }

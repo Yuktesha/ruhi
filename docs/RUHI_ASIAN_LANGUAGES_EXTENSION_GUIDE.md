@@ -84,7 +84,7 @@
 - **實作位置**：
   - 代數與字母對照層：[`ruhi-core/src/korean/jamo.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/korean/jamo.rs)
   - 音節切分動態規劃層：[`ruhi-core/src/korean/romaja.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/korean/romaja.rs)
-  - 常用詞表與學習者骨架層：[`ruhi-core/src/korean/lexicon.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/korean/lexicon.rs) 與 [`data/korean.tsv`](file:///C:/ATGprjs/ruhi/data/korean.tsv)
+  - 常用詞表與學習者骨架層：[`ruhi-core/src/korean/lexicon.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/korean/lexicon.rs) 與 [`ruhi_lexicon/data/korean.tsv`](file:///C:/ATGprjs/ruhi/ruhi_lexicon/data/korean.tsv)
   - 狀態機與引擎介面：[`ruhi-core/src/korean/mod.rs`](file:///C:/ATGprjs/ruhi/ruhi-core/src/korean/mod.rs)（模式代碼 `"korean"`，別名 `"ko"` / `"hangul"` / `"romaja"`，徽章 `"韓"`）
 - **產品定位**：專為不熟悉韓文兩鍵式（Dubeolsik）鍵盤配置的外國學習者與跨語系使用者設計，直接依據 2000 年韓國文化觀光部／國立國語院公告之標準羅馬拼音（Revised Romanization of Korean，簡稱 RR）鍵入拉丁字母，即時合成完整諺文音節。
 - **對照表摘要（19 初聲 × 21 中聲 × 28 終聲）**：
@@ -104,7 +104,7 @@
 | **① 音節切分歧義** | `hangeul` 可切為 `han-geul`（한글）或 `hang-eul`（항을）；`hana` 為 `ha-na`（하나）而非 `han-a`（한아） | 以 N-best 動態規劃（`parse_nbest`）對「前一音節有終聲、後一音節零初聲」違反連音規律之切分施加 `COST_NULL_ONSET_AFTER_CODA` 懲罰，自然優先選出 `한글` 與 `하나`，次佳切分保留於 `↓` 候選；使用者亦可輸入 `-` 強制指定音節邊界（如 `hang-eul` ➔ `항을`、`chekeu-in` ➔ `체크인`）。 |
 | **② 母音連寫歧義** | `ae` 為 `ㅐ` 或 `ㅏ+ㅔ`；`eo` 為 `ㅓ` 或 `ㅔ+ㅗ`；`gaeul` 為 `개울` 或 `가을` | 每個音節具基礎成本 `COST_SYLLABLE = 10`，動態規劃自然偏好音節數較少的複合母音；總成本相同時依「第一個相異音節取較長跨距（左側貪婪）」確定性規則決勝，並由常用詞表修正高頻詞排序（如 `gaeul` ➔ `가을`）；使用者亦可用 `a-e` 強制拆為 `아에`。 |
 | **③ 終聲依發音拼寫（有損收尾音）** | RR 將終聲 `ㄱ/ㄲ/ㅋ` 皆記為 `k`，`ㅅ/ㅆ/ㄷ/ㅈ/ㅊ/ㅌ/ㅎ` 皆記為 `t`，`ㅂ/ㅍ` 皆記為 `p` | 將最常見終聲設為成本 0 主拼寫（如 `k` ➔ `ㄱ`，使 `hakgyo` 直接合成 `학교`），其餘同音終聲賦予附加成本 1～4 並展開於 `↓` 候選清單；同時支援 `kh/th/ph/ss/d/j/ch/h` 等明確字母拼寫直出。 |
-| **④ 音變與學習者非標準拼法** | 鼻音化 `gamsahamnida`（감사합니다）、緊音化 `tteokbokki`（떡볶이）、舊式拼法 `kimchi`（김치）／`pusan`（부산） | 常用詞表（內建 60 條 + `data/korean.tsv` 406 條）對雙音節以上詞條同時建立「官方 RR 發音拼寫」與「`to_romaja` 逐字母拼寫」雙重精確索引，匹配時給予統一詞邊減免 `COST_LEXICON_BONUS = 6`，並可與規則組出的助詞自然串接（如 `gimchireul` ➔ `김치를`）。針對清濁／送氣混淆與子音重複誤植，則透過學習者骨架索引（`skeleton`：`ch→j`、`k→g`、`t→d`、`p→b`、`l→r` 及重複子音收斂）於 `↑` 上方向鍵提供容錯救援與前綴補全，不介入主動態規劃以免誤判。 |
+| **④ 音變與學習者非標準拼法** | 鼻音化 `gamsahamnida`（감사합니다）、緊音化 `tteokbokki`（떡볶이）、舊式拼法 `kimchi`（김치）／`pusan`（부산） | 常用詞表（內建 60 條 + `ruhi_lexicon/data/korean.tsv` 406 條）對雙音節以上詞條同時建立「官方 RR 發音拼寫」與「`to_romaja` 逐字母拼寫」雙重精確索引，匹配時給予統一詞邊減免 `COST_LEXICON_BONUS = 6`，並可與規則組出的助詞自然串接（如 `gimchireul` ➔ `김치를`）。針對清濁／送氣混淆與子音重複誤植，則透過學習者骨架索引（`skeleton`：`ch→j`、`k→g`、`t→d`、`p→b`、`l→r` 及重複子音收斂）於 `↑` 上方向鍵提供容錯救援與前綴補全，不介入主動態規劃以免誤判。 |
 
 - **動態規劃成本常數表（定義於 `ruhi-core/src/korean/romaja.rs`）**：
 

@@ -1300,30 +1300,30 @@ pub fn show_about_dialog(hwnd: HWND) {
     let (title, msg) = if is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
         (
             "About RuhI",
-            "RuhI — Responsive Universal Human Input\nVersion: 0.4.0 (Release)\nFlowing like clouds and water, effortless and joyful."
+            "RuhI — Responsive Universal Human Input\nVersion: 0.5.0 (Release)\nFlowing like clouds and water, effortless and joyful."
         )
     } else {
         match kb_mode.as_str() {
             "japanese" | "kana" | "romaji" => (
                 "RuhI について",
-                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.4.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.5.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
             ),
             "korean" | "ko" | "hangul" | "romaja" => (
                 "RuhI 정보",
-                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.4.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.5.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
             ),
             "iast" | "sanskrit" => (
                 "About RuhI (IAST)",
-                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.4.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
+                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.5.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
             ),
             "thai" => (
                 "เกี่ยวกับ RuhI",
-                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.4.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
+                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.5.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
             ),
             // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列等）：
             _ => (
                 "關於如喜",
-                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.4.0 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
+                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.5.0 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
             ),
         }
     };

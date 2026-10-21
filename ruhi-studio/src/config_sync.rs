@@ -119,9 +119,24 @@ impl Default for GrammarSettings {
     }
 }
 
-/// 官方預設之 Google 雲端硬碟試算表 Apps Script Webhook 網址
-pub const DEFAULT_CLOUD_SHEET_WEBHOOK_URL: &str =
-    "https://script.google.com/macros/s/AKfycbx6nCVXW4yP0VDRLrAbYCf5fqRkxCcqSACdJuKrC-Vpc4S52oL1owLlGJeWX11Q7PU_/exec";
+/// 雲端試算表 Apps Script Webhook 網址之內建預設值（刻意留空，不內建任何網址）。
+/// 實際網址一律由本機未入庫之設定檔或環境變數 `RUHI_CLOUD_SHEET_WEBHOOK_URL` 提供，
+/// 嚴防網址隨原始碼、設定範本或安裝包公開外流。
+pub const DEFAULT_CLOUD_SHEET_WEBHOOK_URL: &str = "";
+
+/// 存放 Webhook 網址之環境變數名稱
+pub const CLOUD_SHEET_WEBHOOK_ENV: &str = "RUHI_CLOUD_SHEET_WEBHOOK_URL";
+
+/// 解析實際使用之 Webhook 網址：優先採用設定值，其次環境變數；皆無則回傳空字串（呼叫端應略過上傳）
+pub fn resolve_cloud_sheet_webhook_url(configured: &str) -> String {
+    let c = configured.trim();
+    if !c.is_empty() {
+        return c.to_string();
+    }
+    std::env::var(CLOUD_SHEET_WEBHOOK_ENV)
+        .map(|v| v.trim().to_string())
+        .unwrap_or_default()
+}
 
 /// 官方預設之 Tailcat 語意規則、詞庫與核心版本發布清單網址 (GitHub Raw + ETag CDN)
 pub const DEFAULT_TAILCAT_FEED_URL: &str =
@@ -277,8 +292,23 @@ pub fn resolve_data_dir(root: &Path) -> PathBuf {
     cands[0].clone()
 }
 
+/// 若根目錄缺少執行期設定檔，自 `*.example.json` 範本複製一份（設定檔不入庫，首次啟動時建立）
+pub fn ensure_runtime_config_files(root: &Path) {
+    for (live, example) in [
+        ("settings_config.json", "settings_config.example.json"),
+        ("config.json", "config.example.json"),
+    ] {
+        let live_p = root.join(live);
+        let ex_p = root.join(example);
+        if !live_p.is_file() && ex_p.is_file() {
+            let _ = fs::copy(&ex_p, &live_p);
+        }
+    }
+}
+
 /// 從 `settings_config.json` 與 `config.json` 載入並合併最新設定
 pub fn load_settings(root: &Path) -> RuhiSettings {
+    ensure_runtime_config_files(root);
     let mut settings = RuhiSettings::default();
     let settings_candidates = [
         root.join("settings_config.json"),
@@ -732,5 +762,28 @@ mod tests {
         assert_eq!(s.keyboard.enabled_keyboard_modes[0], "cangjie");
         assert_eq!(s.appearance.font_size, 32);
         assert_eq!(s.keyboard.punctuation_commit_mode, "A");
+    }
+
+    /// 防外流：內建預設 Webhook 必須為空，且所有入庫之設定範本與原始碼不得含 Apps Script 部署網址
+    #[test]
+    fn test_no_cloud_webhook_url_leak_in_defaults_and_templates() {
+        assert!(DEFAULT_CLOUD_SHEET_WEBHOOK_URL.is_empty());
+        assert!(AiPrivacySettings::default().cloud_sheet_webhook_url.is_empty());
+        assert_eq!(resolve_cloud_sheet_webhook_url("  https://example.test/x  "), "https://example.test/x");
+
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let needle = ["script.google.com", "/macros/s/"].concat();
+        for rel in [
+            "config.example.json",
+            "settings_config.example.json",
+            "ruhi-studio/src/config_sync.rs",
+            "ruhi-studio/src/tuner.rs",
+            "ruhi-studio/src/main.rs",
+        ] {
+            let p = root.join(rel);
+            if let Ok(txt) = fs::read_to_string(&p) {
+                assert!(!txt.contains(&needle), "{rel} 含有 Apps Script 部署網址，禁止入庫");
+            }
+        }
     }
 }

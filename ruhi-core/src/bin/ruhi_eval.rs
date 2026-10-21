@@ -1804,41 +1804,7 @@ pub fn build_and_seal_evaluation_corpus(root: &Path, engine: &RuhiEngine) -> Val
     fs::write(&dev_path, dev_tsv).expect("Failed to write dev.tsv");
     fs::write(&test_path, test_tsv).expect("Failed to write test.tsv");
 
-    let readme_content = format!(
-        r#"# 如喜輸入法 (RuhI) 標準評估語料庫 (`ruhi_lexicon/eval/`)
-
-本目錄存放如喜輸入法 (`ruhi-core`) 用於客觀衡量盲打準確率（CER / SER）、執行規則庫消融實驗 (`--ablation`) 與平均結構化感知機權重校準 (`--calibrate`) 之標準分層抽樣語料庫。
-
-## 1. 語料庫規模與分層比例 (Stratified Sampling)
-
-- **總句數**：**{} 句**（長度 7 ～ 28 字之原生台灣正體中文多詞自然子句）
-- **切分比例**（固定隨機種子 `seed = 20261021`）：
-  - `dev.tsv`（開發驗證集，70%）：**{} 句**
-  - `test.tsv`（盲測封存集，30%）：**{} 句**
-- **五大文體領域分佈**（單一領域占比皆為 `20.0%`，嚴格遵守 `<= 35%` 之多元性規範）：
-  1. `daily_dialogue`（日常對話與生活溝通語境）：1,040 句（`dev` 728 句 / `test` 312 句，20.0%）
-  2. `tech_doc`（科普、資訊工程與技術文件語境）：1,040 句（`dev` 728 句 / `test` 312 句，20.0%）
-  3. `literary_narrative`（現代文學、哲思與人文敘事語境）：1,040 句（`dev` 728 句 / `test` 312 句，20.0%）
-  4. `civic_public`（公共事務、社會教育與書信公文語境）：1,040 句（`dev` 728 句 / `test` 312 句，20.0%）
-  5. `moe_idiom_context`（含教育部《重編國語辭典修訂本》成語熟語之自然語境子句）：1,040 句（`dev` 728 句 / `test` 312 句，20.0%）
-
-## 2. 純淨度與授權來源說明 (Provenance & Licensing)
-
-1. **原生台灣正體語料**：全數取自教育部《重編國語辭典修訂本》（CC BY-ND 3.0 TW 授權詞條與成語語境）、工作區自有開源技術文件與台灣本土人工譯校平行語料庫，**100% 零簡轉繁機械轉換（Zero OpenCC）**。
-2. **訓練／單元測試零重疊**：建置時已自動掃描並排除 `ruhi-core/src/engine.rs` 及 `ruhi-studio/src/tuner.rs` 中所有既有測試句，並排除詞庫中之單一詞條，確保每一句皆為需經词網格束搜尋組合之多詞子句。
-
-## 3. 🚫 盲測集防數據洩漏鐵律 (Test Set Isolation Rule)
-
-> **鐵律：任何開發者與 AI 代理在撰寫或調整語意規則時，絕對禁止讀取 `ruhi_lexicon/eval/test.tsv` 的具體句子內容。**
->
-> - 日常規則開發、錯誤分析、消融實驗與感知機權重校準僅允許針對 `dev.tsv` 進行。
-> - `ruhi_eval --set test` 僅輸出整體統計指標（CER、Sentence Accuracy、McNemar $\chi^2$ 與 $p\text{{-value}}$），程式內部強制遮蔽 `test.tsv` 之具體句子文字，杜絕針對測試集對答案之過擬合行為。
-"#,
-        dev_items.len() + test_items.len(),
-        dev_items.len(),
-        test_items.len()
-    );
-    let _ = fs::write(eval_dir.join("README.md"), readme_content);
+    // README.md 由人工維護（如實記載語料來源與不公開原因），重建語料時不覆寫
 
     json!({
         "status": "ok",
@@ -1966,7 +1932,9 @@ fn main() {
         return;
     }
 
-    let hide_text = set_name == "test";
+    // 評估語料不公開：輸出報告預設不含句子原文；僅 dev 集可加 `--with-text` 於本機做錯誤分析（test 集一律遮蔽）
+    let with_text = args.iter().any(|a| a == "--with-text");
+    let hide_text = set_name == "test" || !with_text;
     let mut report = evaluate_compiled_dataset(&engine, &compiled, &set_name, hide_text);
 
     if let Some(ref bp) = baseline_path {

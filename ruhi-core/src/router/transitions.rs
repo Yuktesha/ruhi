@@ -1334,12 +1334,8 @@ impl TransitionEngine {
         .into_iter()
         .map(|s| s.to_string())
         .collect();
-        self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::OneOf(safe_num_cls_compounds.clone()),
-            curr_pattern: WordPattern::CompoundContentWord,
-            bonus: 14.0,
-            name: "classifier_noun".to_string(),
-        });
+        // 消融實測（dev 集）：「數詞/指示詞+個/種 → 任意雙字實詞」通配加分僅改善 4 句、損害 70 句（同音雙字詞被錯誤吸附），
+        // 故移除通配引力，僅保留無歧義之「隻 → 貓」與「數量詞 → 程度副詞」搭配。
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("隻".to_string()),
             curr_pattern: WordPattern::Exact("貓".to_string()),
@@ -6087,18 +6083,10 @@ impl TransitionEngine {
 
                 // 7. 數詞與單位量詞構式 (numeric_unit_classifier) 之破音字讀音錨定與熟語保護：
                 if rule.name == "numeric_unit_classifier" {
-                    // 中文數詞（非阿拉伯數字）後接單字時，僅開放純度量衡/貨幣/時間/書面單位，其餘一般名量詞交由 numeral_classifier (+15.0) 處理，防止 +26.0 拆碎雙字詞
+                    // 中文數詞（非阿拉伯數字）後接單字單位：消融實測改善 0 句、損害 8 句，一律交由 numeral_classifier (+15.0) 處理，
+                    // +26.0 數值單位錨定僅保留給阿拉伯數字（如 2026年、100元）與多字單位（如 公里、小時）
                     if !prev_word.chars().any(|c| c.is_ascii_digit()) && curr_word.chars().count() == 1 {
-                        let is_strict_measure_unit = matches!(
-                            curr_word,
-                            "年" | "月" | "日" | "號" | "週" | "秒" | "天" | "歲" | "元" | "塊"
-                                | "萬" | "億" | "兆" | "折" | "倍" | "米" | "尺" | "寸" | "丈"
-                                | "克" | "噸" | "斤" | "兩" | "坪" | "度" | "瓦" | "伏" | "赫"
-                                | "頁" | "篇" | "章" | "節" | "筆" | "樓" | "屆" | "趟" | "遍"
-                        );
-                        if prev_word == "一" || !is_strict_measure_unit {
-                            continue;
-                        }
+                        continue;
                     }
                     // 現代漢語中，位數詞「百、千、萬、億、兆」不可在無係數前綴（如 一千、數千、上萬）時單獨直接修飾個體量詞（如 *千筆、*百個、*萬支）；
                     // 攔截裸位數詞 + 個體量詞之單字加分，嚴防「千+筆」(+26.0) 拆碎並搶佔既有雙字核心詞「鉛筆 (ㄑㄧㄢ ㄅㄧˇ)」！
