@@ -69,6 +69,7 @@ pub struct RuhiEngine {
     pub cangjie: crate::cangjie::CangjieEngine,
     pub array30: crate::array30::Array30Engine,
     pub japanese: crate::japanese::JapaneseEngine,
+    pub korean: crate::korean::KoreanEngine,
     pub keyboard_mode: String,
     /// 最近一次使用的前一個輸入模式（供單按 Caps Lock 在最後兩個模式如 英漢／日漢／英日 之間快速切換）
     pub last_keyboard_mode: String,
@@ -116,6 +117,7 @@ impl Default for RuhiEngine {
             cangjie: crate::cangjie::CangjieEngine::new(),
             array30: crate::array30::Array30Engine::new(),
             japanese: crate::japanese::JapaneseEngine::new(),
+            korean: crate::korean::KoreanEngine::new(),
             keyboard_mode: "hsu".to_string(),
             last_keyboard_mode: "english".to_string(),
             enabled_keyboard_modes: vec!["hsu".to_string(), "japanese".to_string()],
@@ -225,6 +227,11 @@ impl RuhiEngine {
             let _ = engine.japanese.load_tsv(&jp_path);
         }
 
+        let kr_path = p.join("korean.tsv");
+        if kr_path.exists() {
+            let _ = engine.korean.load_tsv(&kr_path);
+        }
+
         let en_path = p.join("lexicon_english.tsv");
         if en_path.exists() {
             if let Some(path_str) = en_path.to_str() {
@@ -291,6 +298,7 @@ impl RuhiEngine {
         self.cangjie.reset();
         self.array30.reset();
         self.japanese.reset();
+        self.korean.reset();
         self.western.reset();
         self.mode = EngineMode::Normal;
         self.q_press_count = 0;
@@ -416,6 +424,7 @@ impl RuhiEngine {
             "daikien" | "dachen" | "bopomofo" => "standard".to_string(),
             "eten26" => "et26".to_string(),
             "jp" | "romaji" | "kana" => "japanese".to_string(),
+            "ko" | "hangul" | "romaja" => "korean".to_string(),
             "ar30" => "array30".to_string(),
             "en" | "latin" | "western" => "english".to_string(),
             other => other.to_string(),
@@ -528,6 +537,7 @@ impl RuhiEngine {
             "cangjie" => "倉",
             "array30" | "ar30" => "行",
             "japanese" | "jp" | "romaji" => "日",
+            "korean" | "ko" | "hangul" | "romaja" => "韓",
             "english" | "en" | "latin" | "western" => "英",
             _ => "許",
         }
@@ -548,7 +558,7 @@ impl RuhiEngine {
         }
         if matches!(
             self.keyboard_mode.as_str(),
-            "array30" | "ar30" | "cangjie" | "japanese" | "jp" | "romaji" | "english" | "en" | "latin" | "western"
+            "array30" | "ar30" | "cangjie" | "japanese" | "jp" | "romaji" | "korean" | "ko" | "hangul" | "romaja" | "english" | "en" | "latin" | "western"
         ) {
             return String::new();
         }
@@ -592,6 +602,19 @@ impl RuhiEngine {
     pub fn open_down_arrow_candidates(&mut self) -> EngineResponse {
         if matches!(self.keyboard_mode.as_str(), "japanese" | "jp" | "romaji") {
             let resp = self.japanese.process_key_str("Down");
+            self.composed_sentence = resp.composed.clone();
+            self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+            self.cursor_pos = resp.cursor_pos;
+            self.candidate_target_range = Some((0, self.sentence_chars.len()));
+            self.current_candidates = resp.candidates.clone();
+            self.candidate_cycle_idx = resp.candidate_idx;
+            if !resp.candidates.is_empty() {
+                self.mode = EngineMode::CandidatePopup;
+            }
+            return resp;
+        }
+        if matches!(self.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja") {
+            let resp = self.korean.process_key_str("Down");
             self.composed_sentence = resp.composed.clone();
             self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
             self.cursor_pos = resp.cursor_pos;
@@ -692,6 +715,21 @@ impl RuhiEngine {
                 };
             }
             return self.build_response("none", "");
+        }
+
+        // 0a-2. 韓文羅馬拼音模式：韓文學習者骨架容錯與常用詞前綴預測
+        if matches!(self.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja") {
+            let resp = self.korean.process_key_str("Up");
+            self.composed_sentence = resp.composed.clone();
+            self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+            self.cursor_pos = resp.cursor_pos;
+            self.candidate_target_range = Some((0, self.sentence_chars.len()));
+            self.current_candidates = resp.candidates.clone();
+            self.candidate_cycle_idx = resp.candidate_idx;
+            if !resp.candidates.is_empty() {
+                self.mode = EngineMode::CandidatePopup;
+            }
+            return resp;
         }
 
         // 0b. 倉頡模式：優先處理跨軌歐文縮寫救援或三字詞以上（>= 3 字）倉頡首碼頭碼展開
@@ -888,6 +926,15 @@ impl RuhiEngine {
             self.japanese.candidate_idx = digit_idx;
             return Some(chosen);
         }
+        if matches!(self.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja") && digit_idx < self.korean.candidates.len() {
+            let chosen = self.korean.candidates[digit_idx].clone();
+            self.composed_sentence = chosen.clone();
+            self.sentence_chars = chosen.chars().map(|c| c.to_string()).collect();
+            self.cursor_pos = self.sentence_chars.len();
+            self.candidate_cycle_idx = digit_idx;
+            self.korean.candidate_idx = digit_idx;
+            return Some(chosen);
+        }
         if self.keyboard_mode == "cangjie" && digit_idx < self.cangjie.candidates.len() {
             let chosen = self.cangjie.candidates[digit_idx].clone();
             self.composed_sentence = chosen.clone();
@@ -966,6 +1013,20 @@ impl RuhiEngine {
             self.cursor_pos = resp.cursor_pos;
             return resp;
         }
+        if matches!(self.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja") {
+            let resp = self.korean.process_key_str(key_str);
+            self.composed_sentence = resp.composed.clone();
+            self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+            self.current_candidates = resp.candidates.clone();
+            self.candidate_cycle_idx = resp.candidate_idx;
+            self.cursor_pos = resp.cursor_pos;
+            if resp.mode == "candidates" {
+                self.mode = EngineMode::CandidatePopup;
+            } else {
+                self.mode = EngineMode::Normal;
+            }
+            return resp;
+        }
         if self.keyboard_mode == "cangjie" {
             if key_str == "Up" || key_str == "up" {
                 return self.open_up_arrow_candidates();
@@ -1025,6 +1086,20 @@ impl RuhiEngine {
             self.current_candidates = resp.candidates.clone();
             self.candidate_cycle_idx = resp.candidate_idx;
             self.cursor_pos = resp.cursor_pos;
+            return resp;
+        }
+        if matches!(self.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja") {
+            let resp = self.korean.process_key(key);
+            self.composed_sentence = resp.composed.clone();
+            self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+            self.current_candidates = resp.candidates.clone();
+            self.candidate_cycle_idx = resp.candidate_idx;
+            self.cursor_pos = resp.cursor_pos;
+            if resp.mode == "candidates" {
+                self.mode = EngineMode::CandidatePopup;
+            } else {
+                self.mode = EngineMode::Normal;
+            }
             return resp;
         }
         if self.keyboard_mode == "cangjie" {
@@ -5929,7 +6004,7 @@ mod tests {
         engine.set_keyboard_mode("english");
         engine.set_keyboard_mode("hsu"); // 目前為「許」，前一個為「英」
         assert_eq!(engine.toggle_last_two_keyboard_modes(), "english"); // 英漢對切 -> 英
-        assert_eq!(engine.get_keyboard_mode_badge(), "英");
+        assert_eq!(engine.get_keyboard_mode_badge(), "歐");
         assert_eq!(engine.toggle_last_two_keyboard_modes(), "hsu");     // 英漢對切 -> 許
 
         assert_eq!(engine.cycle_keyboard_mode_step(true), "japanese");  // Ctrl+CapsLock 往後 -> 日（前一個為 許）
@@ -6783,6 +6858,79 @@ mod tests {
             trans_count_before,
             "Capturing full-sentence revision must never pollute local transitions matrix"
         );
+    }
+
+    #[test]
+    fn test_korean_rr_mode_integration() {
+        let mut engine = RuhiEngine::default();
+
+        // 0. 確認預設 enabled_keyboard_modes 未被加入 korean
+        assert_eq!(
+            engine.enabled_keyboard_modes,
+            vec!["hsu".to_string(), "japanese".to_string()]
+        );
+
+        // 1. set_keyboard_mode("ko") 正規化為 "korean"，徽章為 "韓"
+        engine.set_keyboard_mode("ko");
+        assert_eq!(engine.keyboard_mode, "korean");
+        assert_eq!(engine.get_keyboard_mode_badge(), "韓");
+        assert_eq!(engine.last_keyboard_mode, "hsu");
+
+        // 行列教練於韓文模式下必須為空
+        engine.enable_array30_coach = true;
+        assert_eq!(engine.get_array30_coach_hint(), "");
+
+        // 2. 在 korean 模式下鍵入 "hangeul" 再按 Space，committed_chunk == "한글 "
+        for ch in "hangeul".chars() {
+            let r = engine.process_key(ch);
+            assert_eq!(r.action, "compose");
+        }
+        assert_eq!(engine.composed_sentence, "한글");
+        let r_space = engine.process_key_str("Space");
+        assert_eq!(r_space.action, "commit");
+        assert_eq!(r_space.committed_chunk, "한글 ");
+        assert!(engine.composed_sentence.is_empty());
+
+        // 3. Down 與數字選字路由至韓文分支
+        for ch in "hangeul".chars() {
+            engine.process_key(ch);
+        }
+        let r_down = engine.process_key_str("Down");
+        assert_eq!(r_down.action, "show_candidate_popup");
+        assert_eq!(r_down.mode, "candidates");
+        assert!(r_down.candidates.len() >= 2);
+        assert_eq!(r_down.candidates[0], "한글");
+        assert!(r_down.candidates.contains(&"항을".to_string()));
+        assert_eq!(engine.mode, EngineMode::CandidatePopup);
+
+        // 測試數字選字 (按 '2' 立即結算第 2 個候選)
+        let second_cand = r_down.candidates[1].clone();
+        let r_digit = engine.process_key('2');
+        assert_eq!(r_digit.action, "commit");
+        assert_eq!(r_digit.committed_chunk, second_cand);
+        assert!(engine.composed_sentence.is_empty());
+        assert_eq!(engine.mode, EngineMode::Normal);
+
+        // 4. Up (學習者骨架救援) 與 select_candidate 路由至韓文分支
+        for ch in "kimchi".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.composed_sentence, "킴치");
+        let r_up = engine.process_key_str("Up");
+        assert_eq!(r_up.action, "show_candidate_popup");
+        assert_eq!(r_up.mode, "candidates");
+        assert_eq!(r_up.candidates.first().map(|s| s.as_str()), Some("김치"));
+        assert_eq!(engine.composed_sentence, "김치");
+        assert_eq!(engine.select_candidate(0), Some("김치".to_string()));
+
+        // 5. 從 korean 切回 hsu 時緩衝區清空，last_keyboard_mode == "korean"
+        engine.set_keyboard_mode("hsu");
+        assert_eq!(engine.keyboard_mode, "hsu");
+        assert_eq!(engine.last_keyboard_mode, "korean");
+        assert_eq!(engine.get_keyboard_mode_badge(), "許");
+        assert!(engine.composed_sentence.is_empty());
+        assert!(engine.korean.raw_romaja.is_empty());
+        assert!(engine.korean.candidates.is_empty());
     }
 }
 
