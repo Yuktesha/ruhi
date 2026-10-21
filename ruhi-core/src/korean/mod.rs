@@ -2,3 +2,4 @@
 /// src/korean/mod.rs - 韓語標準羅馬拼音（RR）諺文組字模組
 
 pub mod jamo;
+pub mod romaja;
