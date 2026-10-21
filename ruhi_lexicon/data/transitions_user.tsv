@@ -12553,7 +12553,6 @@
 累	到	20.0	degree_complement	2026-09-19
 熱	到	20.0	degree_complement	2026-09-19
 忙	到	20.0	degree_complement	2026-09-19
-洗	好	12.0	aspect_marker	2026-09-19
 洗	完	12.0	aspect_marker	2026-09-19
 煮	好	12.0	aspect_marker	2026-09-19
 煮	完	12.0	aspect_marker	2026-09-19
@@ -12569,7 +12568,6 @@
 賺到	忘記	25.0	complement_target	2026-09-19
 忘記	淡季	20.0	object_collocation	2026-09-19
 淡季	時	18.0	temporal_scope	2026-09-19
-時	的	18.0	attributive_marker	2026-09-19
 的	悽慘	18.0	modifier_target	2026-09-19
 的	淒慘	18.0	modifier_target	2026-09-19
 悽慘	模樣	25.0	noun_collocation	2026-09-19
@@ -12592,7 +12590,6 @@
 美華	報導	25.0	devil_camp	2026-09-19
 報導	報到	30.0	devil_camp	2026-09-19
 報到	是	20.0	devil_camp	2026-09-19
-是	為了	25.0	devil_camp	2026-09-19
 為了	要	25.0	devil_camp	2026-09-19
 要	報導	25.0	devil_camp	2026-09-19
 報導	我們	20.0	devil_camp	2026-09-19
@@ -12769,7 +12766,6 @@
 的	錫杖	35.0	twister	2026-09-19
 先	這樣	30.0	collocation	2026-09-19
 先這樣	吧	25.0	collocation	2026-09-19
-這	樣	25.0	collocation	2026-09-19
 那	樣	25.0	collocation	2026-09-19
 怎	樣	25.0	collocation	2026-09-19
 起手	無回	35.0	supplementary	2026-09-19
@@ -12895,7 +12891,6 @@
 集體	生活	21.0	doc_learning	2026-09-19
 生活	靈性	35.0	doc_learning	2026-09-19
 集體	虔誠	19.0	doc_learning	2026-09-19
-如果	我們	29.0	doc_learning	2026-09-19
 外在	行為	29.0	doc_learning	2026-09-19
 行為	控制	35.0	doc_learning	2026-09-19
 控制	內在	19.0	doc_learning	2026-09-19
@@ -13235,7 +13230,6 @@
 他們	必須	35.0	doc_learning	2026-09-19
 必須	適當	19.0	doc_learning	2026-09-19
 成就	靈性	21.0	doc_learning	2026-09-19
-一個人	必須	35.0	doc_learning	2026-09-19
 均衡	飲食	19.0	doc_learning	2026-09-19
 什麼	什麼	27.0	doc_learning	2026-09-19
 原生質	細胞	21.0	doc_learning	2026-09-19
@@ -13256,7 +13250,6 @@
 精細	心靈	35.0	doc_learning	2026-09-19
 心靈	個體	33.0	doc_learning	2026-09-19
 個體	意識	35.0	doc_learning	2026-09-19
-宇宙	意識	35.0	doc_learning	2026-09-19
 意識	可以	27.0	doc_learning	2026-09-19
 達到	生命	21.0	doc_learning	2026-09-19
 如此	巨大	19.0	doc_learning	2026-09-19
@@ -13684,7 +13677,6 @@
 完成	工作	25.0	doc_learning	2026-09-19
 結果	和解	23.0	doc_learning	2026-09-19
 和解	行動	21.0	doc_learning	2026-09-19
-必須	發展	25.0	doc_learning	2026-09-19
 由於	恩典	25.0	doc_learning	2026-09-19
 從事	這個	19.0	doc_learning	2026-09-19
 捨棄	從事	19.0	doc_learning	2026-09-19
@@ -14178,7 +14170,6 @@
 就是	宇宙	23.0	doc_learning	2026-09-19
 服務	因為	19.0	doc_learning	2026-09-19
 因為	萬有	21.0	doc_learning	2026-09-19
-萬有	一切	31.0	doc_learning	2026-09-19
 一切	創造	19.0	doc_learning	2026-09-19
 所以	一個	27.0	doc_learning	2026-09-19
 彌補	人稱	19.0	doc_learning	2026-09-19
@@ -14385,7 +14376,6 @@
 基本	原則	23.0	doc_learning	2026-09-19
 人格	的實	19.0	doc_learning	2026-09-19
 放射	出來	23.0	doc_learning	2026-09-19
-存在	至上	35.0	doc_learning	2026-09-19
 意識	喜悅	31.0	doc_learning	2026-09-19
 喜悅	境界	23.0	doc_learning	2026-09-19
 何謂	靈性	21.0	doc_learning	2026-09-19
@@ -14708,7 +14698,6 @@
 變成	宇宙	19.0	doc_learning	2026-09-19
 所有	心理	21.0	doc_learning	2026-09-19
 就是	從事	21.0	doc_learning	2026-09-19
-一個	行動	35.0	doc_learning	2026-09-19
 世俗	工作	27.0	doc_learning	2026-09-19
 引導	我們	21.0	doc_learning	2026-09-19
 我們	智力	21.0	doc_learning	2026-09-19
@@ -15413,7 +15402,6 @@
 心靈	靈性	35.0	doc_learning	2026-09-19
 靈性	波流	35.0	doc_learning	2026-09-19
 應該	知道	21.0	doc_learning	2026-09-19
-成為	一個	25.0	doc_learning	2026-09-19
 一個	解脫	21.0	doc_learning	2026-09-19
 臣服	精神	19.0	doc_learning	2026-09-19
 死亡	戰鬥	19.0	doc_learning	2026-09-19
@@ -15548,7 +15536,6 @@
 力量	幫助	19.0	doc_learning	2026-09-19
 解決	任何	19.0	doc_learning	2026-09-19
 自我	暗示	35.0	doc_learning	2026-09-19
-應該	怎麼	21.0	doc_learning	2026-09-19
 生命	理念	35.0	doc_learning	2026-09-19
 暗示	意指	19.0	doc_learning	2026-09-19
 什麼	外在	19.0	doc_learning	2026-09-19
@@ -15576,7 +15563,6 @@
 平行	關係	25.0	doc_learning	2026-09-19
 達到	成就	19.0	doc_learning	2026-09-19
 覺醒	靈性	31.0	doc_learning	2026-09-19
-提升	靈性	23.0	doc_learning	2026-09-19
 達到	最終	19.0	doc_learning	2026-09-19
 極致	頂點	21.0	doc_learning	2026-09-19
 波動	外在	19.0	doc_learning	2026-09-19
@@ -15877,7 +15863,6 @@
 吸引力	完全	23.0	doc_learning	2026-09-19
 萬有	存在	19.0	doc_learning	2026-09-19
 實體	一個	19.0	doc_learning	2026-09-19
-一個	展現	19.0	doc_learning	2026-09-19
 生活	個體	19.0	doc_learning	2026-09-19
 永恆	波流	21.0	doc_learning	2026-09-19
 日出	方向	21.0	doc_learning	2026-09-19
@@ -16099,7 +16084,6 @@
 意識	達到	19.0	doc_learning	2026-09-19
 達到	存在	19.0	doc_learning	2026-09-19
 人類	親愛的	19.0	doc_learning	2026-09-19
-我們	認為	19.0	doc_learning	2026-09-19
 目標	就是	35.0	doc_learning	2026-09-19
 目標	一般	19.0	doc_learning	2026-09-19
 因為	其他	19.0	doc_learning	2026-09-19
@@ -16254,7 +16238,6 @@
 宇宙	一體	27.0	doc_learning	2026-09-19
 一體	精神	19.0	doc_learning	2026-09-19
 他們	有限	21.0	doc_learning	2026-09-19
-它們	也是	19.0	doc_learning	2026-09-19
 也是	宇宙	25.0	doc_learning	2026-09-19
 宇宙	一部分	19.0	doc_learning	2026-09-19
 他們	感受	19.0	doc_learning	2026-09-19
@@ -16485,7 +16468,6 @@
 記得	一切	19.0	doc_learning	2026-09-19
 法性	不可	19.0	doc_learning	2026-09-19
 分割	一部分	21.0	doc_learning	2026-09-19
-他們	可以	21.0	doc_learning	2026-09-19
 大法	理念	23.0	doc_learning	2026-09-19
 那麼	怎麼樣	19.0	doc_learning	2026-09-19
 前進	人類	19.0	doc_learning	2026-09-19
@@ -17867,7 +17849,6 @@
 擴展	道理	19.0	doc_learning	2026-09-19
 所以	法性	19.0	doc_learning	2026-09-19
 法性	給與	19.0	doc_learning	2026-09-19
-給與	所有	19.0	doc_learning	2026-09-19
 法性	宇宙	19.0	doc_learning	2026-09-19
 給與	這個	19.0	doc_learning	2026-09-19
 地球	宇宙	19.0	doc_learning	2026-09-19
@@ -18719,7 +18700,6 @@
 很難得	的	25.0	adverbial	2026-09-23
 很	難得	25.0	degree_modifier	2026-09-23
 的	住得	25.0	clause_transition	2026-09-23
-住	得	30.0	verb_complement	2026-09-23
 得	一點都不	30.0	complement_phrase	2026-09-23
 一點都不	難住	35.0	negative_predicate	2026-09-23
 不	難住	25.0	negative_predicate	2026-09-23
@@ -18733,7 +18713,6 @@
 難	得很難	25.0	degree_complement	2026-09-23
 難	得很	25.0	degree_complement	2026-09-23
 多少	倍	25.0	quantifier_collocation	2026-09-23
-倍	了	22.0	aspect_marker	2026-09-23
 多少	貝勒	-40.0	anti_confusion	2026-09-23
 前身	漢	30.0	collocation	2026-09-23
 前身	撼	-40.0	anti_confusion	2026-09-23
@@ -18756,9 +18735,7 @@
 對	照	30.0	collocation	2026-09-23
 對	詔	-45.0	anti_confusion	2026-09-23
 法	會	30.0	collocation	2026-09-23
-至	上	32.0	collocation	2026-09-23
 高	虔誠	28.0	collocation	2026-09-23
-上	主	25.0	collocation	2026-09-23
 時	祂	28.0	collocation	2026-09-23
 靈	修	27.0	collocation	2026-09-23
 科學	觀	30.0	collocation	2026-09-23
@@ -18848,7 +18825,6 @@
 是無	線	-35.0	anti_confusion	2026-09-23
 在無	限	25.0	domain_collocation	2026-09-23
 在無	線	-35.0	anti_confusion	2026-09-23
-不	執	25.0	domain_collocation	2026-09-23
 不	直	-35.0	anti_confusion	2026-09-23
 是不	執	25.0	domain_collocation	2026-09-23
 是不	直	-35.0	anti_confusion	2026-09-23
@@ -18899,7 +18875,6 @@
 全的	晨鳧	-35.0	anti_confusion	2026-09-23
 宇宙	間	25.0	domain_collocation	2026-09-23
 宇宙	建	-35.0	anti_confusion	2026-09-23
-身體	和	25.0	domain_collocation	2026-09-23
 身體	漢	-35.0	anti_confusion	2026-09-23
 實體	和	25.0	domain_collocation	2026-09-23
 實體	漢	-35.0	anti_confusion	2026-09-23
@@ -19003,7 +18978,6 @@
 點正	是	25.0	domain_collocation	2026-09-23
 點正	式	-35.0	anti_confusion	2026-09-23
 控制	主	25.0	domain_collocation	2026-09-23
-控制	著	-35.0	anti_confusion	2026-09-23
 他們	將與	25.0	domain_collocation	2026-09-23
 他們	疆宇	-35.0	anti_confusion	2026-09-23
 心靈	將與	25.0	domain_collocation	2026-09-23
@@ -19087,7 +19061,6 @@
 控制	鼎論	-35.0	anti_confusion	2026-09-23
 昇至	頂輪	25.0	domain_collocation	2026-09-23
 昇至	鼎論	-35.0	anti_confusion	2026-09-23
-本體	是	25.0	domain_collocation	2026-09-23
 本體	勢	-35.0	anti_confusion	2026-09-23
 眉心	輪	25.0	domain_collocation	2026-09-23
 眉心	論	-35.0	anti_confusion	2026-09-23
@@ -19126,7 +19099,6 @@
 界中	德	-35.0	anti_confusion	2026-09-23
 果中	得	25.0	domain_collocation	2026-09-23
 果中	德	-35.0	anti_confusion	2026-09-23
-不	必	25.0	domain_collocation	2026-09-23
 不	避	-35.0	anti_confusion	2026-09-23
 們不	必	25.0	domain_collocation	2026-09-23
 們不	避	-35.0	anti_confusion	2026-09-23
@@ -19168,7 +19140,6 @@
 一些	以	-35.0	anti_confusion	2026-09-23
 那些	已	25.0	domain_collocation	2026-09-23
 那些	以	-35.0	anti_confusion	2026-09-23
- 以	至	25.0	domain_collocation	2026-09-23
  以	致	-35.0	anti_confusion	2026-09-23
 是以	至	25.0	domain_collocation	2026-09-23
 是以	致	-35.0	anti_confusion	2026-09-23
@@ -19178,7 +19149,6 @@
 有了	物他	-35.0	anti_confusion	2026-09-23
  心	住至上	25.0	domain_collocation	2026-09-23
  心	著志尚	-35.0	anti_confusion	2026-09-23
-宇宙	和	25.0	domain_collocation	2026-09-23
 宇宙	漢	-35.0	anti_confusion	2026-09-23
 萬物	皆	25.0	domain_collocation	2026-09-23
 萬物	接	-35.0	anti_confusion	2026-09-23
@@ -19250,7 +19220,6 @@
 脫有	意	-35.0	anti_confusion	2026-09-23
 自身	為至	25.0	domain_collocation	2026-09-23
 自身	位置	-35.0	anti_confusion	2026-09-23
-力量	和	25.0	domain_collocation	2026-09-23
 力量	漢	-35.0	anti_confusion	2026-09-23
 能量	和	25.0	domain_collocation	2026-09-23
 能量	漢	-35.0	anti_confusion	2026-09-23
@@ -19264,15 +19233,12 @@
 不斷	巷他	-35.0	anti_confusion	2026-09-23
 開示	錄	25.0	domain_collocation	2026-09-23
 開示	路	-35.0	anti_confusion	2026-09-23
-正確	地	25.0	domain_collocation	2026-09-23
-正確	的	-35.0	anti_confusion	2026-09-23
 精確	地	25.0	domain_collocation	2026-09-23
 精確	的	-35.0	anti_confusion	2026-09-23
 心靈	會	25.0	domain_collocation	2026-09-23
 心靈	誨	-35.0	anti_confusion	2026-09-23
 習性	和	25.0	domain_collocation	2026-09-23
 習性	漢	-35.0	anti_confusion	2026-09-23
-法性	和	25.0	domain_collocation	2026-09-23
 法性	漢	-35.0	anti_confusion	2026-09-23
 未來	亦將	25.0	domain_collocation	2026-09-23
 未來	義漿	-35.0	anti_confusion	2026-09-23
@@ -19311,7 +19277,6 @@
 是全	脂	-35.0	anti_confusion	2026-09-23
 親近	祂	25.0	domain_collocation	2026-09-23
 接近	祂	25.0	domain_collocation	2026-09-23
-心靈	和	25.0	domain_collocation	2026-09-23
 心靈	漢	-35.0	anti_confusion	2026-09-23
 每一	步	25.0	domain_collocation	2026-09-23
 每一	不	-35.0	anti_confusion	2026-09-23
@@ -19358,8 +19323,6 @@
 也具	族	-35.0	anti_confusion	2026-09-23
 因為	它	25.0	domain_collocation	2026-09-23
 以為	它	25.0	domain_collocation	2026-09-23
-同樣	地	25.0	domain_collocation	2026-09-23
-同樣	的	-35.0	anti_confusion	2026-09-23
 極致	之	25.0	domain_collocation	2026-09-23
 極致	知	-35.0	anti_confusion	2026-09-23
 的理	智	25.0	domain_collocation	2026-09-23
@@ -19368,7 +19331,6 @@
 與理	治	-35.0	anti_confusion	2026-09-23
 何謂	瑪瑪	25.0	domain_collocation	2026-09-23
 何謂	馬馬	-35.0	anti_confusion	2026-09-23
-個人	和	25.0	domain_collocation	2026-09-23
 個人	漢	-35.0	anti_confusion	2026-09-23
 善人	和	25.0	domain_collocation	2026-09-23
 善人	漢	-35.0	anti_confusion	2026-09-23
@@ -19496,7 +19458,6 @@
 體即	世志尚	-35.0	anti_confusion	2026-09-23
 個你	做祂	25.0	domain_collocation	2026-09-23
 個你	作塌	-35.0	anti_confusion	2026-09-23
-感覺	和	25.0	domain_collocation	2026-09-23
 感覺	漢	-35.0	anti_confusion	2026-09-23
 直覺	和	25.0	domain_collocation	2026-09-23
 直覺	漢	-35.0	anti_confusion	2026-09-23
@@ -19582,7 +19543,6 @@
 如果	祂	25.0	domain_collocation	2026-09-23
 的地	域	25.0	domain_collocation	2026-09-23
 的地	獄	-35.0	anti_confusion	2026-09-23
-地	域	25.0	domain_collocation	2026-09-23
 地	獄	-35.0	anti_confusion	2026-09-23
 就是	它	25.0	domain_collocation	2026-09-23
 裡是	它	25.0	domain_collocation	2026-09-23
@@ -19618,7 +19578,6 @@
 當你	以	-35.0	anti_confusion	2026-09-23
 然你	已	25.0	domain_collocation	2026-09-23
 然你	以	-35.0	anti_confusion	2026-09-23
-根基	和	25.0	domain_collocation	2026-09-23
 根基	漢	-35.0	anti_confusion	2026-09-23
 祂的	膝	25.0	domain_collocation	2026-09-23
 祂的	西	-35.0	anti_confusion	2026-09-23
@@ -19680,7 +19639,6 @@
 慾望	要使	25.0	domain_collocation	2026-09-23
 慾望	鑰匙	-35.0	anti_confusion	2026-09-23
 物質	或	25.0	domain_collocation	2026-09-23
-物質	和	-35.0	anti_confusion	2026-09-23
 特質	或	25.0	domain_collocation	2026-09-23
 特質	和	-35.0	anti_confusion	2026-09-23
 出一	隻	25.0	domain_collocation	2026-09-23
@@ -19695,7 +19653,6 @@
 熟知	到	-35.0	anti_confusion	2026-09-23
 壓制	和	25.0	domain_collocation	2026-09-23
 壓制	漢	-35.0	anti_confusion	2026-09-23
-控制	和	25.0	domain_collocation	2026-09-23
 控制	漢	-35.0	anti_confusion	2026-09-23
 這種	渴	25.0	domain_collocation	2026-09-23
 這種	可	-35.0	anti_confusion	2026-09-23
@@ -19777,7 +19734,6 @@
 懼而	愛是	25.0	domain_collocation	2026-09-23
 懼而	礙事	-35.0	anti_confusion	2026-09-23
 什麼	它	25.0	domain_collocation	2026-09-23
-那麼	它	25.0	domain_collocation	2026-09-23
 的朝	祂	25.0	domain_collocation	2026-09-23
 地朝	祂	25.0	domain_collocation	2026-09-23
 道教	育文	25.0	domain_collocation	2026-09-23
@@ -19853,7 +19809,6 @@
 世界	近期	-35.0	anti_confusion	2026-09-23
 客體	盡其	25.0	domain_collocation	2026-09-23
 客體	近期	-35.0	anti_confusion	2026-09-23
-有權	力	25.0	domain_collocation	2026-09-23
 有權	利	-35.0	anti_confusion	2026-09-23
 之權	力	25.0	domain_collocation	2026-09-23
 之權	利	-35.0	anti_confusion	2026-09-23
@@ -19873,7 +19828,6 @@
 界之	陽	-35.0	anti_confusion	2026-09-23
 煩惱	盡	25.0	domain_collocation	2026-09-23
 煩惱	進	-35.0	anti_confusion	2026-09-23
-動物	和	25.0	domain_collocation	2026-09-23
 動物	漢	-35.0	anti_confusion	2026-09-23
 人物	和	25.0	domain_collocation	2026-09-23
 人物	漢	-35.0	anti_confusion	2026-09-23
@@ -19956,7 +19910,6 @@
 最	瑪迦	18.0	collocation	2026-09-23
 日	晨	25.0	collocation	2026-09-23
 與	祂	30.0	collocation	2026-09-23
-是	祂	30.0	collocation	2026-09-23
 在	祂	30.0	collocation	2026-09-23
 在	他	30.0	collocation	2026-09-23
 為	祂	30.0	collocation	2026-09-23
@@ -19978,7 +19931,6 @@
 對	祂	-45.0	anti_confusion	2026-09-23
 的靈性感受就會在	他	30.0	collocation	2026-09-23
 的靈性感受就會在	祂	-45.0	anti_confusion	2026-09-23
-提	昇	30.0	collocation	2026-09-23
 提	升	-35.0	anti_confusion	2026-09-23
 孤獨	沈默	30.0	collocation	2026-09-23
 孤獨	沉沒	-40.0	anti_confusion	2026-09-23
@@ -19990,11 +19942,8 @@
 心靈	祂	30.0	collocation	2026-09-23
 深處的	谷	30.0	collocation	2026-09-23
 深處的	古	-40.0	anti_confusion	2026-09-23
-的	我	30.0	collocation	2026-09-23
 我	覺	25.0	collocation	2026-09-23
 心靈最深處的	祂	30.0	collocation	2026-09-23
-力	地	30.0	grammatical_transition	2026-09-23
-力	的	-40.0	anti_confusion	2026-09-23
 呼喊	祂	30.0	collocation	2026-09-23
 呼喊	它	-35.0	anti_confusion	2026-09-23
 心	聲	30.0	collocation	2026-09-23
@@ -20005,7 +19954,6 @@
 親近的那一點上	祂	30.0	collocation	2026-09-23
 至上	義釋	-40.0	anti_confusion	2026-09-23
 靈性	修馳	-40.0	anti_confusion	2026-09-23
-的	知識	28.0	collocation	2026-09-23
 的	之事	-35.0	anti_confusion	2026-09-23
 獲得	之事	-35.0	anti_confusion	2026-09-23
 裡	製造	28.0	collocation	2026-09-23
@@ -20083,7 +20031,6 @@
 界之	終	32.0	collocation	A100_Gemma2_27B
 致之	終	32.0	collocation	A100_Gemma2_27B
 看這	化現	30.0	collocation	A100_Gemma2_27B
-行動	和	20.0	collocation	A100_Gemma2_27B
 潛能	再	28.0	collocation	A100_Gemma2_27B
 人類	間	32.0	collocation	A100_Gemma2_27B
 我們	和	25.0	collocation	A100_Gemma2_27B
@@ -20091,7 +20038,6 @@
 外在	織	-30.0	collocation	A100_Gemma2_27B
 所知	小	-25.0	collocation	A100_Gemma2_27B
 一定	會	30.0	collocation	A100_Gemma2_27B
-或	未	25.0	collocation	A100_Gemma2_27B
 至上	之	35.0	collocation	A100_Gemma2_27B
 意識	即	30.0	collocation	A100_Gemma2_27B
 子在	完	10.0	collocation	A100_Gemma2_27B
@@ -20140,10 +20086,8 @@
 個體	體集	-20.0	collocation	A100_Gemma2_27B
 實體	體集	-20.0	collocation	A100_Gemma2_27B
 親近	近漢	-25.0	collocation	A100_Gemma2_27B
-在心	裡	30.0	collocation	A100_Gemma2_27B
 往前	邁進	25.0	collocation	A100_Gemma2_27B
 至上	邁進	28.0	collocation	A100_Gemma2_27B
-喜悅	支	20.0	collocation	A100_Gemma2_27B
 整體	惠音	15.0	collocation	A100_Gemma2_27B
 個不	惠音	15.0	collocation	A100_Gemma2_27B
 古有	隻	10.0	collocation	A100_Gemma2_27B
@@ -20197,7 +20141,6 @@
 切都	歸	22.0	collocation	A100_Gemma2_27B
 慢慢	的	20.0	collocation	A100_Gemma2_27B
 開始	作	22.0	collocation	A100_Gemma2_27B
-將	他	25.0	collocation	A100_Gemma2_27B
 傍晚	逾	20.0	collocation	A100_Gemma2_27B
 完美	古魯	25.0	collocation	A100_Gemma2_27B
 在開	示	30.0	collocation	A100_Gemma2_27B
@@ -20205,7 +20148,6 @@
 表面	及	28.0	collocation	A100_Gemma2_27B
 層面	及	28.0	collocation	A100_Gemma2_27B
 修持	之	20.0	collocation	A100_Gemma2_27B
-社會	及	28.0	collocation	A100_Gemma2_27B
 行者	必為	30.0	collocation	A100_Gemma2_27B
 取中	道	35.0	collocation	A100_Gemma2_27B
 做	高尚	25.0	collocation	A100_Gemma2_27B
@@ -20243,10 +20185,8 @@
 願之	故	25.0	collocation	A100_Gemma2_27B
 中之	故	28.0	collocation	A100_Gemma2_27B
 物	無	30.0	collocation	A100_Gemma2_27B
-那麼	祂	35.0	collocation	A100_Gemma2_27B
 理大	道	25.0	collocation	A100_Gemma2_27B
 性大	道	25.0	collocation	A100_Gemma2_27B
-沒有	再	30.0	collocation	A100_Gemma2_27B
 唯一	之	30.0	collocation	A100_Gemma2_27B
 上	主會	30.0	collocation	A100_Gemma2_27B
 塊	安那	25.0	collocation	A100_Gemma2_27B
@@ -20274,7 +20214,6 @@
 遵循	本體	30.0	collocation	A100_Gemma2_27B
 依循	本體	30.0	collocation	A100_Gemma2_27B
 只有	第	28.0	collocation	A100_Gemma2_27B
-沒有	第	28.0	collocation	A100_Gemma2_27B
 變得	像祂	30.0	collocation	A100_Gemma2_27B
 必須	像祂	35.0	collocation	A100_Gemma2_27B
 完美	地	25.0	collocation	A100_Gemma2_27B
@@ -20298,9 +20237,7 @@
 目標	和	1.0	collocation	A100_Gemma2_27B
 兩者	者建	1.0	collocation	A100_Gemma2_27B
 個體	與至上	30.0	collocation	A100_Gemma2_27B
-在	第	25.0	collocation	A100_Gemma2_27B
 生命	即	35.0	collocation	A100_Gemma2_27B
-希望	祂	30.0	collocation	A100_Gemma2_27B
 念頭	和	25.0	collocation	A100_Gemma2_27B
 石頭	和	25.0	collocation	A100_Gemma2_27B
 二六	時	30.0	collocation	A100_Gemma2_27B
@@ -20365,7 +20302,6 @@
 傳法	法門	28.0	collocation	A100_Gemma2_27B
 非法	法門	22.0	collocation	A100_Gemma2_27B
 多麼	地	25.0	collocation	A100_Gemma2_27B
-完全	地	30.0	collocation	A100_Gemma2_27B
 思想	或	25.0	collocation	A100_Gemma2_27B
 個人	不	28.0	collocation	A100_Gemma2_27B
 是完	美道德智士	35.0	collocation	A100_Gemma2_27B
@@ -20389,7 +20325,6 @@
 機會	侵染	25.0	collocation	A100_Gemma2_27B
 奉行	眾善	30.0	collocation	A100_Gemma2_27B
 莫作	眾善	30.0	collocation	A100_Gemma2_27B
-社會	和	25.0	collocation	A100_Gemma2_27B
 靈性	頌舞	30.0	collocation	A100_Gemma2_27B
 來	呀	25.0	collocation	A100_Gemma2_27B
 您唱	誦	35.0	collocation	A100_Gemma2_27B
@@ -20414,7 +20349,6 @@
 藝術	與	20.0	collocation	A100_Gemma2_27B
 相反	的	20.0	collocation	A100_Gemma2_27B
 學家	和	20.0	collocation	A100_Gemma2_27B
-國家	和	20.0	collocation	A100_Gemma2_27B
 真理	及	25.0	collocation	A100_Gemma2_27B
 心理	及	25.0	collocation	A100_Gemma2_27B
 福回	饋	30.0	collocation	A100_Gemma2_27B
@@ -20425,7 +20359,6 @@
 情感	會	22.0	collocation	A100_Gemma2_27B
 只能	向	28.0	collocation	A100_Gemma2_27B
 技術	和	25.0	collocation	A100_Gemma2_27B
-思考	和	30.0	collocation	A100_Gemma2_27B
 他的	祈求	25.0	collocation	A100_Gemma2_27B
 一的	祈求	25.0	collocation	A100_Gemma2_27B
 得不	以	28.0	collocation	A100_Gemma2_27B
@@ -20450,7 +20383,6 @@
 成的	蜿蜒道	25.0	collocation	A100_Gemma2_27B
 花的	蜿蜒道	25.0	collocation	A100_Gemma2_27B
 從事	祂	35.0	collocation	A100_Gemma2_27B
-有	十	28.0	collocation	A100_Gemma2_27B
 路上	所	22.0	collocation	A100_Gemma2_27B
 同古	勝	-25.0	collocation	A100_Gemma2_27B
 哲學	以	-20.0	collocation	A100_Gemma2_27B
@@ -20468,8 +20400,6 @@
 果你	向	25.0	collocation	A100_Gemma2_27B
 向池	池塘	30.0	collocation	A100_Gemma2_27B
 快速	地	30.0	collocation	A100_Gemma2_27B
-亦即	它	25.0	collocation	A100_Gemma2_27B
-因為	牠	28.0	collocation	A100_Gemma2_27B
 獨居	便	32.0	collocation	A100_Gemma2_27B
 領袖	時尤須	30.0	collocation	A100_Gemma2_27B
 做之	事是	25.0	collocation	A100_Gemma2_27B
@@ -20491,7 +20421,6 @@
 何死	報	-25.0	collocation	A100_Gemma2_27B
 調整	併	-20.0	collocation	A100_Gemma2_27B
 用論	的午	-25.0	collocation	A100_Gemma2_27B
-文化	和	-20.0	collocation	A100_Gemma2_27B
 退化	和	-20.0	collocation	A100_Gemma2_27B
 以修	擬	35.0	collocation	A100_Gemma2_27B
 人類	終將	25.0	collocation	A100_Gemma2_27B
@@ -20541,7 +20470,6 @@
 唱歌	和	25.0	collocation	A100_Gemma2_27B
 快變	直	20.0	collocation	A100_Gemma2_27B
 度變	直	20.0	collocation	A100_Gemma2_27B
-雖然	祂	30.0	collocation	A100_Gemma2_27B
 輕易	的	-15.0	collocation	A100_Gemma2_27B
 濟就	愈	25.0	collocation	A100_Gemma2_27B
 力就	愈	25.0	collocation	A100_Gemma2_27B
@@ -20582,7 +20510,6 @@
 一千	倍	35.0	collocation	A100_Gemma2_27B
 間的	銀線	30.0	collocation	A100_Gemma2_27B
 純淨	淨和	25.0	collocation	A100_Gemma2_27B
-當	她	28.0	collocation	A100_Gemma2_27B
 但當	她	28.0	collocation	A100_Gemma2_27B
 的八	部瑜伽	35.0	collocation	A100_Gemma2_27B
 的是	做	22.0	collocation	A100_Gemma2_27B
@@ -20644,7 +20571,6 @@
 靠的	航船	25.0	collocation	A100_Gemma2_27B
 舵的	航船	25.0	collocation	A100_Gemma2_27B
 行動	會	22.0	collocation	A100_Gemma2_27B
-間接	的	15.0	collocation	A100_Gemma2_27B
 後界	線時	25.0	collocation	A100_Gemma2_27B
 色界	線時	25.0	collocation	A100_Gemma2_27B
 他們	以	18.0	collocation	A100_Gemma2_27B
@@ -20659,7 +20585,6 @@
 是從	哪	20.0	collocation	A100_Gemma2_27B
 瑜伽	漢	20.0	collocation	A100_Gemma2_27B
 我將	指	15.0	collocation	A100_Gemma2_27B
-回歸	至	30.0	collocation	A100_Gemma2_27B
 繁所	至	20.0	collocation	A100_Gemma2_27B
 我所	至	20.0	collocation	A100_Gemma2_27B
 自然	然	30.0	collocation	A100_Gemma2_27B
@@ -20720,7 +20645,6 @@
 理論	和	30.0	collocation	A100_Gemma2_27B
 辯論	和	25.0	collocation	A100_Gemma2_27B
 當人	獲	28.0	collocation	A100_Gemma2_27B
-人	獲	25.0	collocation	A100_Gemma2_27B
 集中	和	30.0	collocation	A100_Gemma2_27B
 人若	欲	32.0	collocation	A100_Gemma2_27B
 達若	欲	32.0	collocation	A100_Gemma2_27B
@@ -20802,7 +20726,6 @@
 到的	獲	-20.0	collocation	A100_Gemma2_27B
 流	和	30.0	collocation	A100_Gemma2_27B
 兩	件	35.0	collocation	A100_Gemma2_27B
-一	件	35.0	collocation	A100_Gemma2_27B
 為卡	瑪	30.0	collocation	A100_Gemma2_27B
 他們	皆	30.0	collocation	A100_Gemma2_27B
 不論	精細或	25.0	collocation	A100_Gemma2_27B
@@ -20813,7 +20736,6 @@
 我愛	一	-30.0	collocation	A100_Gemma2_27B
 奉獻	織	25.0	collocation	A100_Gemma2_27B
 最後	疆宇志尚	20.0	collocation	A100_Gemma2_27B
-他	誨	20.0	collocation	A100_Gemma2_27B
 都雷	克雅維克	30.0	collocation	A100_Gemma2_27B
 這樣	做	25.0	collocation	A100_Gemma2_27B
 那樣	做	25.0	collocation	A100_Gemma2_27B
@@ -20849,7 +20771,6 @@
 好比	再依	-25.0	collocation	A100_Gemma2_27B
 乘以	十	30.0	collocation	A100_Gemma2_27B
 能以	十	30.0	collocation	A100_Gemma2_27B
-學問	或	25.0	collocation	A100_Gemma2_27B
 疑問	或	25.0	collocation	A100_Gemma2_27B
 造物	間	28.0	collocation	A100_Gemma2_27B
 之物	間	28.0	collocation	A100_Gemma2_27B
@@ -20888,7 +20809,6 @@
 趙明	德	20.0	collocation	A100_Gemma2_27B
 擴展	其	28.0	collocation	A100_Gemma2_27B
 阻礙	誨	25.0	collocation	A100_Gemma2_27B
-而	背	20.0	collocation	A100_Gemma2_27B
 者而	備	30.0	collocation	A100_Gemma2_27B
 就是	往	28.0	collocation	A100_Gemma2_27B
 就	變	30.0	collocation	A100_Gemma2_27B
@@ -20984,7 +20904,6 @@
 有的	禍	25.0	collocation	A100_Gemma2_27B
 禍與	福	35.0	collocation	A100_Gemma2_27B
 中都	見	28.0	collocation	A100_Gemma2_27B
-說話	和	10.0	collocation	A100_Gemma2_27B
 為了	他	10.0	collocation	A100_Gemma2_27B
 積極	的	12.0	collocation	A100_Gemma2_27B
 完整	的	12.0	collocation	A100_Gemma2_27B
@@ -21018,7 +20937,6 @@
 駕車	或騎	35.0	collocation	A100_Gemma2_27B
 月球	或	20.0	collocation	A100_Gemma2_27B
 我們	做	28.0	collocation	A100_Gemma2_27B
-避免	地	30.0	collocation	A100_Gemma2_27B
 分別	智	35.0	collocation	A100_Gemma2_27B
 分別	智同時	32.0	collocation	A100_Gemma2_27B
 常外	馳	25.0	collocation	A100_Gemma2_27B
@@ -21129,7 +21047,6 @@
 星河	相輝	35.0	collocation	A100_Gemma2_27B
 女子	在冥	25.0	collocation	A100_Gemma2_27B
 曼妙	旋舞	30.0	collocation	A100_Gemma2_27B
-充	份	20.0	collocation	A100_Gemma2_27B
 當你	盡	30.0	collocation	A100_Gemma2_27B
 盡了	全力	35.0	collocation	A100_Gemma2_27B
 光陰	向	25.0	collocation	A100_Gemma2_27B
@@ -21161,7 +21078,6 @@
 空空	而	30.0	collocation	A100_Gemma2_27B
 接近	做	25.0	collocation	A100_Gemma2_27B
 的調	適是	35.0	collocation	A100_Gemma2_27B
-所有	客	20.0	collocation	A100_Gemma2_27B
 請	謹	30.0	collocation	A100_Gemma2_27B
 達都	導	30.0	collocation	A100_Gemma2_27B
 與此	客	25.0	collocation	A100_Gemma2_27B
@@ -21194,7 +21110,6 @@
 的	消逝	30.0	collocation	A100_Gemma2_27B
 不要	輕擲	25.0	collocation	A100_Gemma2_27B
 或缺	或	20.0	collocation	A100_Gemma2_27B
-的	澆	22.0	collocation	A100_Gemma2_27B
 處的	她	10.0	collocation	A100_Gemma2_27B
 一個	作	15.0	collocation	A100_Gemma2_27B
 由於	祂渴	30.0	collocation	A100_Gemma2_27B
@@ -21227,7 +21142,6 @@
 正的	虔誠之心向至上	30.0	collocation	A100_Gemma2_27B
 靈魂	之	25.0	collocation	A100_Gemma2_27B
 考驗	和	22.0	collocation	A100_Gemma2_27B
-憎恨	和	25.0	collocation	A100_Gemma2_27B
 一一	輩	15.0	collocation	A100_Gemma2_27B
 成畫	素	25.0	collocation	A100_Gemma2_27B
 蓮花	衷	10.0	collocation	A100_Gemma2_27B
@@ -21259,7 +21173,6 @@
 必須	是	28.0	collocation	A100_Gemma2_27B
 俗財	物	22.0	collocation	A100_Gemma2_27B
 軍備	和	25.0	collocation	A100_Gemma2_27B
-社會	知	15.0	collocation	A100_Gemma2_27B
 濫用	貨物	10.0	collocation	A100_Gemma2_27B
 動的	術賺	10.0	collocation	A100_Gemma2_27B
 將自	深叢	10.0	collocation	A100_Gemma2_27B
@@ -21292,7 +21205,6 @@
 您	是	30.0	collocation	A100_Gemma2_27B
 人	愈	30.0	collocation	A100_Gemma2_27B
 任何	渴	25.0	collocation	A100_Gemma2_27B
-就	是	35.0	collocation	A100_Gemma2_27B
 覺	之鏡	30.0	collocation	A100_Gemma2_27B
 處即	是巴伐	30.0	collocation	A100_Gemma2_27B
 親切	和	25.0	collocation	A100_Gemma2_27B
@@ -21347,7 +21259,6 @@
 意識	變	10.0	collocation	A100_Gemma2_27B
 樣做	事	15.0	collocation	A100_Gemma2_27B
 榮耀	支	5.0	collocation	A100_Gemma2_27B
-他們	事	15.0	collocation	A100_Gemma2_27B
 真誠	地祈	30.0	collocation	A100_Gemma2_27B
 當	渴求	25.0	collocation	A100_Gemma2_27B
 露給	渴求	25.0	collocation	A100_Gemma2_27B
@@ -21483,7 +21394,6 @@
 迦不	願	32.0	collocation	A100_Gemma2_27B
 們不	依賴	22.0	collocation	A100_Gemma2_27B
 期許	她	20.0	collocation	A100_Gemma2_27B
-希望	她	25.0	collocation	A100_Gemma2_27B
 儘快	做	30.0	collocation	A100_Gemma2_27B
 認為	須	22.0	collocation	A100_Gemma2_27B
 堅信	她	25.0	collocation	A100_Gemma2_27B
@@ -21516,7 +21426,6 @@
 卓越	集	-25.0	collocation	A100_Gemma2_27B
 在於	無	-30.0	collocation	A100_Gemma2_27B
 思想	合	-20.0	collocation	A100_Gemma2_27B
-我們	再	30.0	collocation	A100_Gemma2_27B
 吸收	那	25.0	collocation	A100_Gemma2_27B
 體化	時	30.0	collocation	A100_Gemma2_27B
 開始	時	30.0	collocation	A100_Gemma2_27B
@@ -21597,7 +21506,6 @@
 一再	的	-10.0	collocation	A100_Gemma2_27B
 生命	中	30.0	collocation	A100_Gemma2_27B
 層面	它	30.0	collocation	A100_Gemma2_27B
-而且	它	30.0	collocation	A100_Gemma2_27B
 有所	失	30.0	collocation	A100_Gemma2_27B
 火將	金	30.0	collocation	A100_Gemma2_27B
 金子	子焠	30.0	collocation	A100_Gemma2_27B
@@ -21683,11 +21591,9 @@
 忽略	哪	10.0	collocation	A100_Gemma2_27B
 走向	他	15.0	collocation	A100_Gemma2_27B
 智慧	和	25.0	collocation	A100_Gemma2_27B
-迷信	和	25.0	collocation	A100_Gemma2_27B
 進步	集	10.0	collocation	A100_Gemma2_27B
 一位	為	-15.0	collocation	A100_Gemma2_27B
 上師	錫	-25.0	collocation	A100_Gemma2_27B
-他	和	35.0	collocation	A100_Gemma2_27B
 驗到	沉	-10.0	collocation	A100_Gemma2_27B
 命標	標竿	30.0	collocation	A100_Gemma2_27B
 夢想	想以	15.0	collocation	A100_Gemma2_27B
@@ -21712,7 +21618,6 @@
 處以	極刑	35.0	collocation	A100_Gemma2_27B
 無辜	或輕罪	28.0	collocation	A100_Gemma2_27B
 各種	靜	30.0	collocation	A100_Gemma2_27B
-完全	得	25.0	collocation	A100_Gemma2_27B
 不過	為	28.0	collocation	A100_Gemma2_27B
 喚醒	其自身之	22.0	collocation	A100_Gemma2_27B
 法則	之負	30.0	collocation	A100_Gemma2_27B
@@ -21813,7 +21718,6 @@
 教條	或	25.0	collocation	A100_Gemma2_27B
 每一	一粒	28.0	collocation	A100_Gemma2_27B
 萬有	間	22.0	collocation	A100_Gemma2_27B
-父親	和	25.0	collocation	A100_Gemma2_27B
 具人	格之主	25.0	collocation	A100_Gemma2_27B
 要將	靜	22.0	collocation	A100_Gemma2_27B
 來宣	佈	30.0	collocation	A100_Gemma2_27B
@@ -21854,7 +21758,6 @@
 就會	徜徉	35.0	collocation	A100_Gemma2_27B
 即刻	靜坐	25.0	collocation	A100_Gemma2_27B
 需要	衣物時	20.0	collocation	A100_Gemma2_27B
-獲得	衣	30.0	collocation	A100_Gemma2_27B
 哲學	較	25.0	collocation	A100_Gemma2_27B
 思想	亦	28.0	collocation	A100_Gemma2_27B
 並且	明	22.0	collocation	A100_Gemma2_27B
@@ -21886,7 +21789,6 @@
 階段	是	22.0	collocation	A100_Gemma2_27B
 來	並導	28.0	collocation	A100_Gemma2_27B
 糧中	在	10.0	collocation	A100_Gemma2_27B
-容易	集	15.0	collocation	A100_Gemma2_27B
 保持	是	15.0	collocation	A100_Gemma2_27B
 去除	和	10.0	collocation	A100_Gemma2_27B
 醫藥	漢	25.0	collocation	A100_Gemma2_27B
@@ -21955,7 +21857,6 @@
 事以	至上為	35.0	collocation	A100_Gemma2_27B
 以為	道德是	30.0	collocation	A100_Gemma2_27B
 竟解	解脱	35.0	collocation	A100_Gemma2_27B
-悲慘	地	30.0	collocation	A100_Gemma2_27B
 該記	載	25.0	collocation	A100_Gemma2_27B
 不安	住	35.0	collocation	A100_Gemma2_27B
 良知	為	22.0	collocation	A100_Gemma2_27B
@@ -21969,7 +21870,6 @@
 自己	已和至	22.0	collocation	A100_Gemma2_27B
 法國	里昂更	30.0	collocation	A100_Gemma2_27B
 覺而	非智力	25.0	collocation	A100_Gemma2_27B
-而	智	28.0	collocation	A100_Gemma2_27B
 超越	智	32.0	collocation	A100_Gemma2_27B
 犯了	罪	22.0	collocation	A100_Gemma2_27B
 狂熱	地	30.0	collocation	A100_Gemma2_27B
@@ -22119,7 +22019,6 @@
 老朽	有	15.0	collocation	A100_Gemma2_27B
 假如	文	10.0	collocation	A100_Gemma2_27B
 折磨	和	10.0	collocation	A100_Gemma2_27B
-他們	可	15.0	collocation	A100_Gemma2_27B
 接受	和	10.0	collocation	A100_Gemma2_27B
 們將	齊	-15.0	collocation	A100_Gemma2_27B
 女子	再	-10.0	collocation	A100_Gemma2_27B
@@ -22127,7 +22026,6 @@
 顆光	華	-8.0	collocation	A100_Gemma2_27B
 縫隙	建	25.0	collocation	A100_Gemma2_27B
 大海	集	28.0	collocation	A100_Gemma2_27B
-世界	接	22.0	collocation	A100_Gemma2_27B
 質上	佚	20.0	collocation	A100_Gemma2_27B
 親拿	完	35.0	collocation	A100_Gemma2_27B
 孩子	報載	-25.0	collocation	A100_Gemma2_27B
@@ -22237,7 +22135,6 @@
 心靈	因受	20.0	collocation	A100_Gemma2_27B
 其音	根和	30.0	collocation	A100_Gemma2_27B
 就是	吽	35.0	collocation	A100_Gemma2_27B
-我們	為	28.0	collocation	A100_Gemma2_27B
 信仰	是	22.0	collocation	A100_Gemma2_27B
 無意	間	30.0	collocation	A100_Gemma2_27B
 我們	向	25.0	collocation	A100_Gemma2_27B
@@ -22282,7 +22179,6 @@
 你將	會	28.0	collocation	A100_Gemma2_27B
 無論	在	22.0	collocation	A100_Gemma2_27B
 在有	意或	30.0	collocation	A100_Gemma2_27B
-你們	絕	32.0	collocation	A100_Gemma2_27B
 你被	覆圉	25.0	collocation	A100_Gemma2_27B
 爾普	洱	-25.0	collocation	A100_Gemma2_27B
 現在	捍衛	-30.0	collocation	A100_Gemma2_27B
@@ -22309,7 +22205,6 @@
 磁鐵	將合爲	25.0	collocation	A100_Gemma2_27B
 你失	掉	28.0	collocation	A100_Gemma2_27B
 階段	或	25.0	collocation	A100_Gemma2_27B
-教育	和	22.0	collocation	A100_Gemma2_27B
 至於	那	28.0	collocation	A100_Gemma2_27B
 不應	涉	32.0	collocation	A100_Gemma2_27B
 多次	了	20.0	collocation	A100_Gemma2_27B
@@ -22411,7 +22306,6 @@
 社會	亦立	28.0	collocation	A100_Gemma2_27B
 這眾	聲	22.0	collocation	A100_Gemma2_27B
 他們	起身	30.0	collocation	A100_Gemma2_27B
-人	唯	25.0	collocation	A100_Gemma2_27B
 完美	地將它	35.0	collocation	A100_Gemma2_27B
 但卻	未	20.0	collocation	A100_Gemma2_27B
 不管	他	25.0	collocation	A100_Gemma2_27B
@@ -22524,7 +22418,6 @@
 如此	終	30.0	collocation	A100_Gemma2_27B
 祂在	中	25.0	collocation	A100_Gemma2_27B
 誠者	及	28.0	collocation	A100_Gemma2_27B
-所有	之	22.0	collocation	A100_Gemma2_27B
 調而	舞	35.0	collocation	A100_Gemma2_27B
 如何	持	30.0	collocation	A100_Gemma2_27B
 這樣	或像	25.0	collocation	A100_Gemma2_27B
@@ -22756,13 +22649,10 @@
 在那	長	15.0	collocation	A100_Gemma2_27B
 立足	於不忿	30.0	collocation	A100_Gemma2_27B
 稍稍	推一下	25.0	collocation	A100_Gemma2_27B
-不	憤	20.0	collocation	A100_Gemma2_27B
 一下	乙	35.0	collocation	A100_Gemma2_27B
 事物	均	25.0	collocation	A100_Gemma2_27B
-宇宙	幻	35.0	collocation	A100_Gemma2_27B
 光源	亦	22.0	collocation	A100_Gemma2_27B
 光源	即	28.0	collocation	A100_Gemma2_27B
-花上	一	25.0	collocation	A100_Gemma2_27B
 能力	均	28.0	collocation	A100_Gemma2_27B
 連繫	會	22.0	collocation	A100_Gemma2_27B
 當代	超	30.0	collocation	A100_Gemma2_27B
@@ -22826,7 +22716,6 @@
 極長	或極	35.0	collocation	A100_Gemma2_27B
 於中	中性	25.0	collocation	A100_Gemma2_27B
 稱為	沙卡	30.0	collocation	A100_Gemma2_27B
-的	沙	25.0	collocation	A100_Gemma2_27B
 唯一	令	28.0	collocation	A100_Gemma2_27B
 分離	之	22.0	collocation	A100_Gemma2_27B
 原因	即	32.0	collocation	A100_Gemma2_27B
@@ -22863,7 +22752,6 @@
 主有	真	30.0	collocation	A100_Gemma2_27B
 他們	將高聲	35.0	collocation	A100_Gemma2_27B
 變了	他	20.0	collocation	A100_Gemma2_27B
-會在	貧富	30.0	collocation	A100_Gemma2_27B
 其內	在	30.0	collocation	A100_Gemma2_27B
 內在	與	25.0	collocation	A100_Gemma2_27B
 有一	喜悅之洋	35.0	collocation	A100_Gemma2_27B
@@ -22873,7 +22761,6 @@
 如果	未以眾	22.0	collocation	A100_Gemma2_27B
 你比	受	30.0	collocation	A100_Gemma2_27B
 因此	每	25.0	collocation	A100_Gemma2_27B
-而	視	35.0	collocation	A100_Gemma2_27B
 裡	負性微	30.0	collocation	A100_Gemma2_27B
 負性微	的一個	25.0	collocation	A100_Gemma2_27B
 促進	正性微	35.0	collocation	A100_Gemma2_27B
@@ -25037,7 +24924,6 @@
 下崽	來	-60.0	anti_confusion	防下崽來誤拼
 進行	完美	60.0	collocation	進行完美高頻搭配
 進行	完每	-60.0	anti_confusion	防進行完每誤拼
-完美	的	60.0	collocation	完美的修飾搭配
 完每	的	-60.0	anti_confusion	防完每的誤拼
 跳出	智慧	80.0	collocation	跳出智慧選單
 智慧	選單	80.0	collocation	智慧選單
@@ -25062,7 +24948,6 @@
 目前	關掉	90.0	collocation	目前關掉
 再	確認	80.0	collocation	再確認動詞修飾
 在	確認	-60.0	anti_confusion	防在確認誤拼
-的	部份	70.0	collocation	的部份高頻名詞
 中的	位置	80.0	collocation	中的位置
 位置	大小	80.0	collocation	位置大小視窗屬性
 不能	直接	23.1	user_full_mining	Freq_8_ZeroPII
@@ -28584,7 +28469,6 @@
 完全	不需要	45.0	daily_thought	完全不需要
 不需要	選字	50.0	daily_thought	不需要選字
 不需要	選自	-50.0	anti_confusion	杜絕選自
-選字	是	40.0	daily_thought	選字是
 是	最理想	45.0	daily_thought	是最理想
 最理想	的	45.0	daily_thought	最理想的
 但	非關	45.0	discourse	但非關構式
@@ -28656,7 +28540,6 @@
 格外	感謝	30.0	polite_expression	格外感謝
 本來	要	32.0	adverb_modal	本來要
 本來	想	30.0	adverb_modal	本來想
-要	說	26.0	modal_verb	要說
 過程	中	30.0	temporal_locative	過程中
 退	兩步	30.0	motion_step	退兩步
 進	三步	30.0	motion_step	進三步
@@ -28694,7 +28577,6 @@
 實	相	30.0	collocation	結構事實
 面	相	30.0	collocation	結構事實
 骨	相	30.0	collocation	結構事實
-法	相	30.0	collocation	結構事實
 照	相	30.0	collocation	生活照相
 相	片	30.0	collocation	生活照相
 相	機	30.0	collocation	生活照相
@@ -28704,12 +28586,8 @@
 相	處	30.0	collocation	交互動詞
 相	伴	30.0	collocation	交互動詞
 相	對	30.0	collocation	交互動詞
-相	信	30.0	collocation	交互動詞
-相	撞	30.0	collocation	交互動詞
-相	逢	30.0	collocation	交互動詞
 相	比	30.0	collocation	交互動詞
 相	結合	35.0	collocation	交互動詞
-相	依	30.0	collocation	交互動詞
 相	愛	30.0	collocation	交互動詞
 相	敬	30.0	collocation	交互動詞
 相	提	30.0	collocation	交互動詞
@@ -29030,7 +28908,6 @@
 打	地鼠	26.0	collocation	2026-10-12 內部連鎖引力：打 ➔ 地鼠
 的	數	-30.0	collocation	2026-10-12 抑制錯詞拼湊：的+數
 都在	打的數	-28.0	collocation	2026-10-12 抑制前驅奪舍：都在 奪舍 打的數
-是	我	26.0	collocation	2026-10-12 內部連鎖引力：是 ➔ 我
 這句	是	26.0	collocation	2026-10-12 語意調校：這句 引導 是
 我	寫給	26.0	collocation	2026-10-12 語意調校：我 銜接 寫給
 寫在	介面	26.0	collocation	2026-10-12 內部連鎖引力：寫在 ➔ 介面
@@ -29038,7 +28915,6 @@
 介面	上	26.0	collocation	2026-10-12 語意調校：介面 銜接 上
 我	想像	26.0	collocation	2026-10-12 語意調校：我 引導 想像
 想像	了	26.0	collocation	2026-10-12 語意調校：想像 銜接 了
-不	知道	26.0	collocation	2026-10-12 語意調校：不 引導 知道
 知道	那個	26.0	collocation	2026-10-12 語意調校：知道 銜接 那個
 被	污染	26.0	collocation	2026-10-12 語意調校：被 引導 污染
 污染	過	26.0	collocation	2026-10-12 語意調校：污染 銜接 過
@@ -29127,7 +29003,6 @@
 語意	調校	26.0	collocation	2026-10-13 語意調校：語意 引導 調校
 調校	工作室	26.0	collocation	2026-10-13 語意調校：調校 銜接 工作室
 才	被	26.0	collocation	2026-10-13 內部連鎖引力：才 ➔ 被
-的	才	26.0	collocation	2026-10-13 語意調校：的 引導 才
 被	選取	26.0	collocation	2026-10-13 語意調校：被 銜接 選取
 尚未	支援	26.0	collocation	2026-10-13 語意調校：尚未 銜接 支援
 超級	智慧	26.0	collocation	2026-10-13 語意調校：超級 銜接 智慧
@@ -29175,7 +29050,6 @@
 其	前身	26.0	collocation	2026-10-13 內部連鎖引力：其 ➔ 前身
 兼	產品	26.0	collocation	2026-10-13 內部連鎖引力：兼 ➔ 產品
 師	兼	26.0	collocation	2026-10-13 語意調校：師 引導 兼
-來	刻	26.0	collocation	2026-10-13 內部連鎖引力：來 ➔ 刻
 自己	來	26.0	collocation	2026-10-13 語意調校：自己 引導 來
 刻	一個	26.0	collocation	2026-10-13 語意調校：刻 銜接 一個
 在	商業	26.0	collocation	2026-10-13 內部連鎖引力：在 ➔ 商業
@@ -29189,7 +29063,6 @@
 抬頭	看著	26.0	collocation	2026-10-13 語意調校：抬頭 銜接 看著
 可以	實現	26.0	collocation	2026-10-13 語意調校：可以 引導 實現
 實現	的	26.0	collocation	2026-10-13 語意調校：實現 銜接 的
-我	不	26.0	collocation	2026-10-14 語意調校：我 引導 不
 不	懂	26.0	collocation	2026-10-14 語意調校：不 銜接 懂
 請	依據	26.0	collocation	2026-10-14 語意調校：請 引導 依據
 依據	您	26.0	collocation	2026-10-14 語意調校：依據 銜接 您
@@ -29319,7 +29192,6 @@
 不	嫌棄	26.0	collocation	2026-10-17 內部連鎖引力：不 ➔ 嫌棄
 大家	不	26.0	collocation	2026-10-17 語意調校：大家 引導 不
 嫌棄	耐心	26.0	collocation	2026-10-17 語意調校：嫌棄 銜接 耐心
-大	亮	26.0	collocation	2026-10-17 語意調校：大 引導 亮
 
 建議	素食	28.0	collocation	前文二階正向搭配 [建議 ➔ 素食]
 素食	分類	28.0	collocation	詞組內部二階轉移 [素食 ➔ 分類]
@@ -29364,7 +29236,6 @@
 菇	類	30.0	construction	食材詞根 × 類後綴陣列對應 [菇 ➔ 類]
 文字	型	32.0	construction	認知詞根 × 型後綴陣列對應 [文字 ➔ 型]
 型	思考	30.0	construction	型後綴 × 中心名詞陣列對應 [型 ➔ 思考]
-蛋	與	26.0	construction	名詞並列連詞構式 [蛋 ➔ 與]
 思考	而非	28.0	construction	前項中心語銜接對比連詞 [思考 ➔ 而非]
 不懂	日文	26.0	collocation	後文二階正向搭配 [不懂 ➔ 日文]
 舊	習慣	28.0	collocation	前文二階正向搭配 [舊 ➔ 習慣]

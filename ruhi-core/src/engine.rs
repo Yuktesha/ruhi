@@ -190,6 +190,11 @@ impl RuhiEngine {
         } else {
             engine.transitions.patterns_file_path = Some(patterns_path);
         }
+
+        let fw_path = p.join("feature_weights.tsv");
+        if fw_path.exists() {
+            let _ = engine.transitions.load_feature_weights_tsv(&fw_path);
+        }
         
         let sym_path = p.join("symbols.tsv");
         if sym_path.exists() {

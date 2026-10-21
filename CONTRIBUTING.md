@@ -32,9 +32,10 @@
 2. **長詞凝聚力與正統 Viterbi Trellis 保證**：
    * 必須確保 Viterbi 演算法為保留多路徑假設的正統 Trellis 狀態機（不可退化為一維貪婪塌陷）。
    * 嚴格守護字典既有合法詞的整體凝聚力，防止演算法將合法詞切碎為無意義單字碎片。
-3. **測試先行（TDD）驗證義務**：
+3. **測試先行（TDD）與盲測集封存驗證義務**：
    * 凡修復任何選詞/字詞優先序問題，**必須在 `ruhi-core/src/engine.rs` 補上對應的注音拼弦單元測試**。
-   * 唯有在 `cargo test` 100% 通過、且完全沒有人工單字加權副作用時，方可合併！
+   * **盲測集防污染鐵律**：**任何開發者與 AI 代理在撰寫或調整語意規則時，絕對禁止讀取 `ruhi_lexicon/eval/test.tsv` 的具體句子內容。** 日常規則開發、錯誤分析與參數校準僅允許針對 `ruhi_lexicon/eval/dev.tsv` 進行；`test.tsv` 僅限於透過 `cargo run --release --bin ruhi_eval -- --set test` 取得最終聚合指標（CER / SER / p-value），嚴禁針對測試集句子進行人工對答案修補。
+   * 唯有在 `cargo test` 100% 通過、`ruhi_eval --set dev` 無淨退化，且完全沒有人工單字加權副作用時，方可合併！
 
 ---
 

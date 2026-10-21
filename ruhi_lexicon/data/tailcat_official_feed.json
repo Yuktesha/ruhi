@@ -1235,6 +1235,24 @@
     {
       "kind": "collocation",
       "min_engine_version": "0.4.0",
+      "next": "書",
+      "prev": "帶",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "帶",
+      "prev": "提醒",
+      "recommended_delta": 28.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
       "next": "回家",
       "prev": "書",
       "recommended_delta": 26.0,
@@ -1883,15 +1901,6 @@
     {
       "kind": "collocation",
       "min_engine_version": "0.4.0",
-      "next": "亮",
-      "prev": "大",
-      "recommended_delta": 26.0,
-      "schema_version": 1,
-      "type": "BIGRAM_TRANSITION"
-    },
-    {
-      "kind": "collocation",
-      "min_engine_version": "0.4.0",
       "next": "素食",
       "prev": "建議",
       "recommended_delta": 28.0,
@@ -2273,15 +2282,6 @@
       "next": "思考",
       "prev": "型",
       "recommended_delta": 30.0,
-      "schema_version": 1,
-      "type": "BIGRAM_TRANSITION"
-    },
-    {
-      "kind": "construction",
-      "min_engine_version": "0.4.0",
-      "next": "與",
-      "prev": "蛋",
-      "recommended_delta": 26.0,
       "schema_version": 1,
       "type": "BIGRAM_TRANSITION"
     },
@@ -6238,6 +6238,6 @@
   ],
   "rules_count": 366,
   "schema_version": 1,
-  "updated_at": "2026-10-21T17:14:07.213554700+08:00",
+  "updated_at": "2026-10-21T20:12:07.546652900+08:00",
   "zero_pii_verified": true
 }

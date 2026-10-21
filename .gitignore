@@ -73,5 +73,6 @@ ruhi_lexicon/data/pending_revisions.json
 ruhi_lexicon/data/user_revision_pairs.txt
 ruhi_lexicon/data/revision_log.jsonl
 ruhi_lexicon/data/community_sync_state.json
+ruhi_lexicon/data/federation_sync_state.json
 
 

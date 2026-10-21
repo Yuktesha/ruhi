@@ -1681,10 +1681,11 @@ r#"# 如喜輸入法 (RuhI) · 語意調校工作室 AI / SI 自動交付任務�
 3. **韓語／越南語／印歐屈折語**：`[詞幹陣列] × [詞尾／助詞／介詞陣列] × [受事／補語陣列]`。
 4. **字形碼與音形混合輸入法（行列 30、大易、倉頡、嘸蝦米）**：在簡碼、萬用字元 (`*`/`?`) 或盲打連打時，透過同一套 Layer 1 語意陣列與三路同音分流自動完成重碼消歧。
 
-## 四、三大絕對禁令與接續工作五大標準作業程序 (5-Step SOP)
+## 四、四大絕對禁令與接續工作五大標準作業程序 (5-Step SOP)
 1. **嚴禁單字權重打地鼠 (No Unigram Weight Whack-a-Mole)**：絕對禁止手動調整單字先驗權重。
 2. **嚴禁笛卡兒積平面化塞詞庫 (No Cartesian Lexicon Flattening)**：一律以 `patterns_user.jsonl` 陣列對應表達。
-3. **步驟 1～5**：(1) BiMM+LCS 差異孤島定位 ➔ (2) 舉一反三全詞庫同構掃描 ➔ (3) 陣列因式分解 `A_array × B_array` ➔ (4) 執行 `/api/rules/collisions` 執行四維度同音對衝審計，依 Type A（保留）、Type B（`bifurcation_pairs` 雙向槽位分流）、Type C（`exclude_pairs` 抑制）處置 ➔ (5) 執行 `/api/benchmark` 與 `cargo test --lib` 驗證零回歸。"#,
+3. **盲測集防污染鐵律 (Test Set Isolation)**：**任何開發者與 AI 代理在撰寫或調整語意規則時，絕對禁止讀取 `ruhi_lexicon/eval/test.tsv` 的具體句子內容。** 規則開發與校準僅允許針對 `ruhi_lexicon/eval/dev.tsv` 進行。
+4. **步驟 1～5**：(1) BiMM+LCS 差異孤島定位 ➔ (2) 舉一反三全詞庫同構掃描 ➔ (3) 陣列因式分解 `A_array × B_array` ➔ (4) 執行 `/api/rules/collisions` 執行四維度同音對衝審計，依 Type A（保留）、Type B（`bifurcation_pairs` 雙向槽位分流）、Type C（`exclude_pairs` 抑制）處置 ➔ (5) 執行 `/api/benchmark`、`ruhi_eval --set dev` 與 `cargo test --lib` 驗證零回歸。"#,
             active_provider,
             inventory["patterns_user_jsonl"]["total_patterns"].as_u64().unwrap_or(0),
             inventory["patterns_user_jsonl"]["multi_slot_3d_to_5d_chains"].as_u64().unwrap_or(0),

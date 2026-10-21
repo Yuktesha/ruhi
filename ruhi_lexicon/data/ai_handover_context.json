@@ -1,7 +1,7 @@
 {
   "active_provider": "gemini",
   "auto_delivered": true,
-  "delivered_at": "2026-10-21T12:13:46.917230900+08:00",
+  "delivered_at": "2026-10-21T20:10:49.300699600+08:00",
   "json_output_schema": {
     "bifurcation_pairs": [
       [
@@ -46,7 +46,7 @@
   "live_inventory": {
     "lexicon_domain_tsv": {
       "path": "C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data\\lexicon_domain.tsv",
-      "total_irreducible_entries": 2002
+      "total_irreducible_entries": 2003
     },
     "patterns_user_jsonl": {
       "array_2d_correspondences": 30,
@@ -541,10 +541,10 @@
       "total_patterns": 63
     },
     "transitions_user_tsv": {
-      "negative_anti_hijack_rules": 1011,
+      "negative_anti_hijack_rules": 1005,
       "path": "C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data\\transitions_user.tsv",
-      "positive_collocations": 15838,
-      "total_bigram_rules": 16849
+      "positive_collocations": 15708,
+      "total_bigram_rules": 16713
     }
   },
   "version": "RUHI_AI_SI_HANDOVER_V2.8"

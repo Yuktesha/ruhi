@@ -233,3 +233,28 @@ flowchart LR
 | 第 5 節完成 | `feature_weights.tsv`、校準前後開發集與測試集分數 |
 
 每個檢查點完成後，可請審查者依交付物進行下一輪評論。
+
+---
+
+## 7. 完工實測結果與驗收總表 (2026-10-21)
+
+### 7.1 四大檢查點交付狀態
+
+| 檢查點 | 狀態 | 核心交付物與實測指標 |
+|---|---|---|
+| **第 1 節（資安、隱私與單元測試）** | ✅ 已完成 | Commit `2e49c05`：清除硬編碼 Webhook URL（預設空字串、支援 `RUHI_CLOUD_SHEET_WEBHOOK_URL` 環境變數）、用語定性為「啟發式個資過濾」、預設關閉 Opt-In、支援四段回傳週期；`cargo test --release` 107/107 通過、0 警告。 |
+| **第 2 & 3 節（5,200 句分層語料庫與 `ruhi_eval` 基準線）** | ✅ 已完成 | 建立 `ruhi_lexicon/eval/dev.tsv`（3,640 句）與盲測封存集 `test.tsv`（1,560 句），五大領域各佔 20.0%；寫入 `CONTRIBUTING.md`、`.agent/skills/ruhi-semantic-tuning/SKILL.md` 與 `ai_consultant.rs` 防數據洩漏鐵律；產出 `eval_reports/dev_baseline.json`（CER `8.77%`, Sent Acc `45.30%`）與 `eval_reports/test_baseline.json`（CER `8.62%`, Sent Acc `47.05%`）。 |
+| **第 4 節（全圖格規則消融實驗與負向規則修剪）** | ✅ 已完成 | 執行 `ruhi_eval --set dev --ablation --prune-harmful`：修剪 `transitions_user.tsv` 中 93 條跨詞隙碎拆二元組，並收斂 `transitions.rs` 與 `constructions.rs` 中過寬之單字後綴／助詞／量詞規則及單字「和 (`ㄏㄨㄛˋ`)」破音守門；`dev` CER 由 `8.77%` 降至 **`6.70%`**（減少 931 個字元錯誤），產出 `eval_reports/ablation_report.json`。 |
+| **第 5 節（平均結構化感知器權重校準與盲測驗證）** | ✅ 已完成 | 執行 `ruhi_eval --set dev --calibrate` 訓練 5 個世代並匯出 `ruhi_lexicon/data/feature_weights.tsv`，產出 `eval_reports/calibration_report.json`、`eval_reports/dev_calibrated.json` 與 `eval_reports/test_calibrated.json`。 |
+
+### 7.2 校準前後開發集 (`dev.tsv`) 與盲測集 (`test.tsv`) 對比總表
+
+| 評估語料集 | 句數 / 總字數 | 基準線 CER (`baseline`) | 校準後 CER (`calibrated`) | CER 降幅 ($\Delta\text{CER}$) | 基準線整句命中率 | 校準後整句命中率 | 修復句數 ($b$) vs. 退化句數 ($c$) | McNemar $\chi^2$ 與 $p\text{-value}$ |
+|---|---|---|---|---|---|---|---|---|
+| **開發集 (`dev.tsv`)** | 3,640 句 / 44,855 字 | `8.77%` (3,935 錯字) | **`6.68%`** (2,996 錯字) | **`-2.093%`** (-939 錯字) | `45.30%` (1,649 句) | **`54.64%`** (1,989 句, `+9.34%`) | $b = 388$, $c = 48$ | $\chi^2 = 263.58$, **$p = 3.01 \times 10^{-59}$** |
+| **盲測封存集 (`test.tsv`)** | 1,560 句 / 19,058 字 | `8.62%` (1,643 錯字) | **`6.87%`** (1,310 錯字) | **`-1.747%`** (-333 錯字) | `47.05%` (734 句) | **`54.68%`** (853 句, `+7.63%`) | $b = 140$, $c = 21$ | $\chi^2 = 86.48$, **$p = 1.43 \times 10^{-20}$** |
+
+- **破音單字歧義剖析**：排除語料中含多音單字之句子後，`dev.tsv` 純語意 CER 為 **`6.32%`**（整句完全命中率 **`57.14%`**），`test.tsv` 純語意 CER 為 **`6.40%`**（整句完全命中率 **`57.33%`**）。
+- **黃金路徑可達率（Forced Alignment Reachability）**：`dev.tsv` 與 `test.tsv` 皆為 **`100.00%`**（無不可達黃金路徑）。
+- **單元測試與迴歸保護**：`ruhi-core` 107/107 項測試與 `ruhi-studio` 10/10 項測試 **100% 通過（0 失敗、0 警告）**。
+

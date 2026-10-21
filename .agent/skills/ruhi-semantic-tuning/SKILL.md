@@ -17,10 +17,10 @@ description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、�
      - **Type B（語法環境雙向分流，`RESOLVED_BY_SYNTACTIC_BIFURCATION` / `bifurcation_pairs`）**：共 `12` 組（如 `騎得` vs. `耆德`、`笑到` vs. `孝道`、`讀不` vs. `獨步`、`讀得` vs. `獨得`、`顧不` vs. `故步`、`全素` vs. `全速`），依左右槽位論元與中心語實現雙向精準共存（如「他馬騎得很好吧？…才不是什麼耆德老人呢。」）。
      - **Type C（對衝抑制陣列，`SUPPRESSED_BY_EXCLUDE_ARRAY` / `exclude_pairs`）**：共 `12` 組（如 `這×鍵` vs. `這件`、`個×相` vs. `各項`、`分×不` vs. `分布`、`在×極` vs. `在即`），二元展開無意義，抑制其單獨觸發，僅在完整三元構式時發火。
 2. **Layer 2 二元語意轉移矩陣 (`ruhi_lexicon/data/transitions_user.tsv`)**：
-   - 目前共 `16849` 條精確二元轉移（正向搭配引力 `15838` 條、負向防跨界劫掠抑制 `1011` 條）。
+   - 目前共 `16713` 條精確二元轉移（正向搭配引力 `15708` 條、負向防跨界劫掠抑制 `1005` 條）。
    - 分值規範：正向搭配固定於 `[+20.0, +35.0]`，負向防劫掠固定於 `[-25.0, -45.0]`。
 3. **Layer 3 領域核心詞根庫 (`ruhi_lexicon/data/lexicon_domain.tsv`)**：
-   - 目前共 `2002` 筆不可再分之原子詞根（如 `大易`、`許氏`、`嘸蝦米`、`瑜伽`、`五辛`、`完工`）。
+   - 目前共 `2003` 筆不可再分之原子詞根（如 `大易`、`許氏`、`嘸蝦米`、`瑜伽`、`五辛`、`完工`）。
 
 ## 二、同音詞彙對衝之「四維度辨析」與「三路分流 (`Type A / B / C`)」定理
 - **槽位集合因式分解 ($O(1)$ 查找)**：
@@ -39,7 +39,8 @@ description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、�
 3. **韓語／越南語／印歐屈折語**：`[詞幹陣列] × [詞尾／助詞／介詞陣列] × [受事／補語陣列]`。
 4. **字形碼與音形混合輸入法（行列 30、大易、倉頡、嘸蝦米）**：在簡碼、萬用字元 (`*`/`?`) 或盲打連打時，透過同一套 Layer 1 語意陣列與三路同音分流自動完成重碼消歧。
 
-## 四、三大絕對禁令與接續工作五大標準作業程序 (5-Step SOP)
+## 四、四大絕對禁令與接續工作五大標準作業程序 (5-Step SOP)
 1. **嚴禁單字權重打地鼠 (No Unigram Weight Whack-a-Mole)**：絕對禁止手動調整單字先驗權重。
 2. **嚴禁笛卡兒積平面化塞詞庫 (No Cartesian Lexicon Flattening)**：一律以 `patterns_user.jsonl` 陣列對應表達。
-3. **步驟 1～5**：(1) BiMM+LCS 差異孤島定位 ➔ (2) 舉一反三全詞庫同構掃描 ➔ (3) 陣列因式分解 `A_array × B_array` ➔ (4) 執行 `/api/rules/collisions` 執行四維度同音對衝審計，依 Type A（保留）、Type B（`bifurcation_pairs` 雙向槽位分流）、Type C（`exclude_pairs` 抑制）處置 ➔ (5) 執行 `/api/benchmark` 與 `cargo test --lib` 驗證零回歸。
+3. **盲測集防污染鐵律 (Test Set Isolation)**：**任何開發者與 AI 代理在撰寫或調整語意規則時，絕對禁止讀取 `ruhi_lexicon/eval/test.tsv` 的具體句子內容。** 規則開發與校準僅允許針對 `ruhi_lexicon/eval/dev.tsv` 進行。
+4. **步驟 1～5**：(1) BiMM+LCS 差異孤島定位 ➔ (2) 舉一反三全詞庫同構掃描 ➔ (3) 陣列因式分解 `A_array × B_array` ➔ (4) 執行 `/api/rules/collisions` 執行四維度同音對衝審計，依 Type A（保留）、Type B（`bifurcation_pairs` 雙向槽位分流）、Type C（`exclude_pairs` 抑制）處置 ➔ (5) 執行 `/api/benchmark`、`ruhi_eval --set dev` 與 `cargo test --lib` 驗證零回歸。

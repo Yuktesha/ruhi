@@ -672,7 +672,10 @@ impl TransitionEngine {
 
     /// 跨詞隙動賓離合感知 (Lookback VO Check)
     /// 檢查在前面若干個詞的歷史中，是否存在能與當前詞（或以賓語中心語結尾之偏正複合詞，如「遠路」、「熱水澡」、「好覺」、「錯字」）形成離合搭配的動詞
-    pub fn calculate_vo_lookback_bonus(&self, prefix_words: &[&str], curr_word: &str) -> f64 {
+    pub fn calculate_vo_lookback_bonus(&mut self, prefix_words: &[&str], curr_word: &str) -> f64 {
+        if self.is_rule_disabled("vo_separable_lookback") {
+            return 0.0;
+        }
         let n = prefix_words.len();
         if n == 0 {
             return 0.0;
@@ -717,6 +720,6 @@ impl TransitionEngine {
             }
         }
 
-        best_vo_bonus
+        self.apply_rule_score("vo_separable_lookback", best_vo_bonus)
     }
 }

@@ -24,6 +24,10 @@ strip = true
 name = "ruhi_cangjie_tester"
 path = "src/bin/cangjie_tester.rs"
 
+[[bin]]
+name = "ruhi_eval"
+path = "src/bin/ruhi_eval.rs"
+
 
 
 

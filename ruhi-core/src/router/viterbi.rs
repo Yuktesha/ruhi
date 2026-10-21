@@ -13,7 +13,7 @@ pub struct ViterbiRouter {
 impl Default for ViterbiRouter {
     fn default() -> Self {
         Self {
-            syllable_base_score: 10.0,
+            syllable_base_score: 0.0,
             multi_char_bonus: 28.0,
         }
     }
@@ -57,26 +57,38 @@ impl ViterbiRouter {
             }
 
             if let Some(nodes) = dag.get(&i) {
+                let (w_freq, w_mchar, w_coh3, w_coh4, w_coord_yu, w_coord_he) = if let Some(ref eng) = transitions {
+                    (
+                        eng.feature_weights.get("freq_ln").copied().unwrap_or(1.0),
+                        eng.feature_weights.get("multi_char_len").copied().unwrap_or(1.0),
+                        eng.feature_weights.get("cohesion_len3").copied().unwrap_or(1.0),
+                        eng.feature_weights.get("cohesion_len4").copied().unwrap_or(1.0),
+                        eng.feature_weights.get("coord_prior").copied().unwrap_or(1.0),
+                        eng.feature_weights.get("coord_he_huo_prior").copied().unwrap_or(0.0),
+                    )
+                } else {
+                    (1.0, 1.0, 1.0, 1.0, 1.0, 0.0)
+                };
+
                 for node in nodes {
                     let j = node.end_idx;
                     let word_len = node.length() as f64;
                     let base_weight = (std::cmp::max(1, node.weight)) as f64;
 
-                    let syllable_score = word_len * self.syllable_base_score;
-                    let freq_score = base_weight.ln();
+                    let freq_score = base_weight.ln() * w_freq;
                     let length_bonus = if word_len > 1.0 {
                         let cohesion_extra = if word_len >= 4.0 {
-                            16.0
+                            16.0 * w_coh4
                         } else if word_len >= 3.0 {
-                            8.0
+                            8.0 * w_coh3
                         } else {
                             0.0
                         };
-                        (word_len - 1.0) * self.multi_char_bonus + cohesion_extra
+                        (word_len - 1.0) * self.multi_char_bonus * w_mchar + cohesion_extra
                     } else {
                         0.0
                     };
-                    let self_score = syllable_score + freq_score + length_bonus;
+                    let self_score = freq_score + length_bonus;
 
                     let is_coord_conj = matches!(node.word.as_str(), "與" | "和" | "或");
                     let mut best_incoming_score = -f64::INFINITY;
@@ -130,9 +142,10 @@ impl ViterbiRouter {
                                     j,
                                     dag,
                                 );
-                                if node.word == "與" {
-                                    // 打破 X 與 Y 詞頻加法交換律對稱：使高頻正字 X 優先置於「與」之前（[高頻 X] 與 [次頻對比字 Y]）
-                                    b += 0.05 * (std::cmp::max(1, prev_state.node.weight) as f64).ln();
+                                if is_coord_conj {
+                                    // 並列連詞前驅詞頻特徵：使高頻正字 X 優先置於並列連詞之前
+                                    let scale = if node.word == "與" { 0.05 * w_coord_yu } else { 0.05 * w_coord_he };
+                                    b += scale * (std::cmp::max(1, prev_state.node.weight) as f64).ln();
                                 }
                                 b
                             } else {
@@ -240,5 +253,126 @@ impl ViterbiRouter {
             return candidates;
         }
         Vec::new()
+    }
+
+    /// 強制對齊 (Forced Alignment)：將詞網格限制為與目標句子字元完全相符之節點，解出黃金正確路徑
+    pub fn solve_forced_alignment(
+        &self,
+        n_syllables: usize,
+        dag: &HashMap<usize, Vec<LatticeNode>>,
+        transitions: Option<&mut super::transitions::TransitionEngine>,
+        target_chars: &[char],
+    ) -> Option<(Vec<LatticeNode>, f64)> {
+        if target_chars.len() != n_syllables || n_syllables == 0 {
+            return None;
+        }
+        let mut constrained_dag: HashMap<usize, Vec<LatticeNode>> = HashMap::new();
+        for (&start_idx, nodes) in dag {
+            if start_idx >= n_syllables {
+                continue;
+            }
+            let mut valid = Vec::new();
+            for node in nodes {
+                let end_idx = node.end_idx;
+                if end_idx <= n_syllables && end_idx > start_idx {
+                    let expected: String = target_chars[start_idx..end_idx].iter().collect();
+                    if node.word == expected {
+                        valid.push(node.clone());
+                    }
+                }
+            }
+            if !valid.is_empty() {
+                constrained_dag.insert(start_idx, valid);
+            }
+        }
+        let (path, score) = self.solve_best_path(n_syllables, &constrained_dag, transitions);
+        let joined: String = path.iter().map(|n| n.word.as_str()).collect();
+        let target_str: String = target_chars.iter().collect();
+        if !path.is_empty() && joined == target_str {
+            Some((path, score))
+        } else {
+            None
+        }
+    }
+
+    /// 擷取指定路徑之線性特徵向量 $f_k(\text{path})$ 與最佳路徑規則觸發清單（供消融分析與平均結構化感知器校準使用）
+    pub fn extract_path_features_and_triggers(
+        &self,
+        path: &[LatticeNode],
+        dag: &HashMap<usize, Vec<LatticeNode>>,
+        transitions: &mut super::transitions::TransitionEngine,
+    ) -> (HashMap<String, f64>, Vec<String>) {
+        let mut features: HashMap<String, f64> = HashMap::new();
+        let mut triggered_rules: Vec<String> = Vec::new();
+        if path.is_empty() {
+            return (features, triggered_rules);
+        }
+
+        let prev_trace = transitions.active_trace.take();
+        transitions.active_trace = Some(Vec::new());
+
+        let mut prefix_words: Vec<&str> = Vec::with_capacity(path.len());
+        for (idx, node) in path.iter().enumerate() {
+            let word_len = node.length() as f64;
+            let base_weight = (std::cmp::max(1, node.weight)) as f64;
+            *features.entry("freq_ln".to_string()).or_insert(0.0) += base_weight.ln();
+            if word_len > 1.0 {
+                *features.entry("multi_char_len".to_string()).or_insert(0.0) +=
+                    (word_len - 1.0) * self.multi_char_bonus;
+                if word_len >= 4.0 {
+                    *features.entry("cohesion_len4".to_string()).or_insert(0.0) += 16.0;
+                } else if word_len >= 3.0 {
+                    *features.entry("cohesion_len3".to_string()).or_insert(0.0) += 8.0;
+                }
+            }
+
+            if idx > 0 {
+                let prev_node = &path[idx - 1];
+                let _ = transitions.calculate_transition_bonus(
+                    &prev_node.word,
+                    &prev_node.bopomofo,
+                    &node.word,
+                    &node.bopomofo,
+                );
+                let lb_start = prefix_words.len().saturating_sub(12);
+                let lb_slice = &prefix_words[lb_start..];
+                let _ = transitions.calculate_vo_lookback_bonus(lb_slice, &node.word);
+                let _ = transitions.calculate_hierarchical_construction_bonus(
+                    lb_slice,
+                    &node.word,
+                    &node.bopomofo,
+                    node.end_idx,
+                    dag,
+                );
+                if node.word == "與" {
+                    *features.entry("coord_prior".to_string()).or_insert(0.0) +=
+                        0.05 * (std::cmp::max(1, prev_node.weight) as f64).ln();
+                } else if matches!(node.word.as_str(), "和" | "或") {
+                    *features.entry("coord_he_huo_prior".to_string()).or_insert(0.0) +=
+                        0.05 * (std::cmp::max(1, prev_node.weight) as f64).ln();
+                }
+            } else {
+                let _ = transitions.calculate_hierarchical_construction_bonus(
+                    &[],
+                    &node.word,
+                    &node.bopomofo,
+                    node.end_idx,
+                    dag,
+                );
+            }
+            prefix_words.push(node.word.as_str());
+        }
+
+        if let Some(trace_events) = transitions.active_trace.take() {
+            for (rname, fam, raw_score) in trace_events {
+                *features.entry(fam).or_insert(0.0) += raw_score;
+                if !triggered_rules.contains(&rname) {
+                    triggered_rules.push(rname);
+                }
+            }
+        }
+        transitions.active_trace = prev_trace;
+
+        (features, triggered_rules)
     }
 }
