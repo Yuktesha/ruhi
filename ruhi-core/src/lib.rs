@@ -9,6 +9,7 @@ pub mod symbols;
 pub mod cangjie;
 pub mod array30;
 pub mod japanese;
+pub mod korean;
 pub mod western;
 pub mod engine;
 
