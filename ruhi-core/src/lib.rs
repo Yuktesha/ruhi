@@ -18,6 +18,7 @@ pub use symbols::SymbolsManager;
 pub use cangjie::CangjieEngine;
 pub use array30::Array30Engine;
 pub use japanese::JapaneseEngine;
+pub use korean::KoreanEngine;
 pub use western::WesternEngine;
 
 use std::ffi::{CStr, CString};
