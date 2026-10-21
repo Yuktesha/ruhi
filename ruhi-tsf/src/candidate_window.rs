@@ -904,7 +904,6 @@ pub fn save_ui_appearance_to_configs(
         paths.config.clone(),
         paths.sandbox_dir.join("scripts").join("config.json"),
         paths.sandbox_dir.join("dist").join("config.json"),
-        std::path::PathBuf::from(r"C:\ATGprjs\ruhi\config.json"),
     ];
     flat_targets.dedup();
 
@@ -928,7 +927,6 @@ pub fn save_ui_appearance_to_configs(
         paths.sandbox_dir.join("settings_config.json"),
         paths.sandbox_dir.join("scripts").join("settings_config.json"),
         paths.sandbox_dir.join("dist").join("settings_config.json"),
-        std::path::PathBuf::from(r"C:\ATGprjs\ruhi\settings_config.json"),
     ];
     studio_targets.dedup();
 
@@ -1116,15 +1114,67 @@ fn write_studio_wakeup_signal(paths: &crate::service::RuhiPaths, category: &str)
         "timestamp": ts,
     });
     if let Ok(json_str) = serde_json::to_string(&payload) {
-        let mut signal_paths = vec![
-            paths.sandbox_dir.join("studio_wakeup.json"),
-            std::path::PathBuf::from(r"C:\ATGprjs\ruhi\studio_wakeup.json"),
-        ];
-        signal_paths.dedup();
-        for sp in &signal_paths {
-            let _ = std::fs::write(sp, &json_str);
+        let sp = paths.sandbox_dir.join("studio_wakeup.json");
+        let _ = std::fs::write(&sp, &json_str);
+    }
+}
+
+/// 檢查當前宿主程序是否以高權限 (Elevated Administrator) 執行。
+/// 若宿主程序具備高權限，一律禁止由 TSF 輸入法背景自動衍生子程序，徹底杜絕本機權限提升 (LPE) 風險。
+fn is_current_process_elevated() -> bool {
+    unsafe {
+        let mut token = HANDLE::default();
+        if windows::Win32::System::Threading::OpenProcessToken(
+            windows::Win32::System::Threading::GetCurrentProcess(),
+            windows::Win32::Security::TOKEN_QUERY,
+            &mut token,
+        )
+        .is_err()
+        {
+            return false;
+        }
+        let mut elevation = windows::Win32::Security::TOKEN_ELEVATION::default();
+        let mut ret_len = 0u32;
+        let ok = windows::Win32::Security::GetTokenInformation(
+            token,
+            windows::Win32::Security::TokenElevation,
+            Some(&mut elevation as *mut _ as *mut core::ffi::c_void),
+            std::mem::size_of::<windows::Win32::Security::TOKEN_ELEVATION>() as u32,
+            &mut ret_len,
+        );
+        let _ = CloseHandle(token);
+        ok.is_ok() && elevation.TokenIsElevated != 0
+    }
+}
+
+fn resolve_trusted_studio_exe(paths: &crate::service::RuhiPaths) -> Option<std::path::PathBuf> {
+    let mut candidates = vec![paths.sandbox_dir.join("ruhi-studio.exe")];
+    if cfg!(debug_assertions) {
+        candidates.push(paths.sandbox_dir.join("scripts").join("ruhi-studio.exe"));
+        candidates.push(paths.sandbox_dir.join("dist").join("ruhi-studio.exe"));
+        candidates.push(
+            paths
+                .sandbox_dir
+                .join("ruhi-studio")
+                .join("target")
+                .join("release")
+                .join("ruhi-studio.exe"),
+        );
+    } else {
+        // 支援開發樹內 scripts/ruhi_tsf.dll 之上一層根目錄或 dist/ 子目錄（均限於 DLL 自身所屬樹內，絕不讀取外部硬編碼路徑）
+        if paths.sandbox_dir.join("ruhi_lexicon").is_dir() {
+            candidates.push(paths.sandbox_dir.join("dist").join("ruhi-studio.exe"));
+            candidates.push(
+                paths
+                    .sandbox_dir
+                    .join("ruhi-studio")
+                    .join("target")
+                    .join("release")
+                    .join("ruhi-studio.exe"),
+            );
         }
     }
+    candidates.into_iter().find(|p| p.exists() && p.is_file())
 }
 
 fn launch_or_focus_studio(category: &str, pass_tuner_arg: bool) {
@@ -1145,20 +1195,7 @@ fn launch_or_focus_studio(category: &str, pass_tuner_arg: bool) {
         }
     }
 
-    let rust_candidates = [
-        paths.sandbox_dir.join("ruhi-studio.exe"),
-        paths.sandbox_dir.join("scripts").join("ruhi-studio.exe"),
-        paths.sandbox_dir.join("dist").join("ruhi-studio.exe"),
-        paths.sandbox_dir.join("ruhi-studio").join("target").join("release").join("ruhi-studio.exe"),
-        paths.sandbox_dir.parent().map(|p| p.join("ruhi-studio.exe")).unwrap_or_default(),
-        paths.sandbox_dir.parent().map(|p| p.join("dist").join("ruhi-studio.exe")).unwrap_or_default(),
-        paths.sandbox_dir.parent().map(|p| p.join("ruhi-studio").join("target").join("release").join("ruhi-studio.exe")).unwrap_or_default(),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\ruhi-studio.exe"),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\dist\\ruhi-studio.exe"),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\ruhi-studio\\target\\release\\ruhi-studio.exe"),
-    ];
-
-    if let Some(rust_exe) = rust_candidates.iter().find(|p| p.exists() && p.is_file()).cloned() {
+    if let Some(rust_exe) = resolve_trusted_studio_exe(&paths) {
         logger::log(&format!("launch_or_focus_studio: spawning native Rust {:?} (category={})", rust_exe, category));
         let work_dir = rust_exe.parent().unwrap_or(&paths.sandbox_dir);
         let mut cmd = std::process::Command::new(&rust_exe);
@@ -1172,7 +1209,7 @@ fn launch_or_focus_studio(category: &str, pass_tuner_arg: bool) {
         return;
     }
 
-    logger::log("launch_or_focus_studio: ruhi-studio.exe not found in any candidate path!");
+    logger::log("launch_or_focus_studio: ruhi-studio.exe not found in trusted installation path!");
 }
 
 pub fn launch_settings() {
@@ -1186,8 +1223,13 @@ pub fn launch_semantic_tuner() {
 static LAST_TELEMETRY_SPAWN_CHECK: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// 背景靜默檢查是否已到達使用者設定之匿名改字雙句回傳週期或 Tailcat 自動同步週期 (`weekly` / `daily`)；
-/// 若已到期，自動以無視窗模式 (`CREATE_NO_WINDOW`) 呼叫 `ruhi-studio.exe --upload-revisions` 或 `--tailcat-sync`，完全無須 `.ps1` 腳本。
+/// 若已到期且當前宿主程序非高權限 (Non-Elevated)，自動以無視窗模式 (`CREATE_NO_WINDOW`) 呼叫受信任安裝目錄下之 `ruhi-studio.exe`。
 pub fn maybe_spawn_background_telemetry_upload(paths: &crate::service::RuhiPaths, cfg: &crate::service::RuhiConfig) {
+    // 安全防禦：若當前宿主程序已提升權限 (Elevated Administrator)，一律禁止背景衍生子程序
+    if is_current_process_elevated() {
+        return;
+    }
+
     let now_ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -1228,23 +1270,14 @@ pub fn maybe_spawn_background_telemetry_upload(paths: &crate::service::RuhiPaths
 
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x08000000;
-    let rust_candidates = [
-        paths.sandbox_dir.join("ruhi-studio.exe"),
-        paths.sandbox_dir.join("scripts").join("ruhi-studio.exe"),
-        paths.sandbox_dir.join("dist").join("ruhi-studio.exe"),
-        paths.sandbox_dir.join("ruhi-studio").join("target").join("release").join("ruhi-studio.exe"),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\ruhi-studio.exe"),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\dist\\ruhi-studio.exe"),
-        std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\ruhi-studio\\target\\release\\ruhi-studio.exe"),
-    ];
-    if let Some(rust_exe) = rust_candidates.iter().find(|p| p.exists() && p.is_file()) {
+    if let Some(rust_exe) = resolve_trusted_studio_exe(paths) {
         let work_dir = rust_exe.parent().unwrap_or(&paths.sandbox_dir);
         let cli_flag = if need_upload {
             "--upload-revisions"
         } else {
             "--tailcat-sync"
         };
-        let _ = std::process::Command::new(rust_exe)
+        let _ = std::process::Command::new(&rust_exe)
             .arg(cli_flag)
             .current_dir(work_dir)
             .creation_flags(CREATE_NO_WINDOW)
@@ -2132,7 +2165,6 @@ pub fn save_keyboard_mode_with_last(mode: &str, last_mode: Option<&str>) {
         paths.config.clone(),
         paths.sandbox_dir.join("scripts").join("config.json"),
         paths.sandbox_dir.join("dist").join("config.json"),
-        std::path::PathBuf::from(r"C:\ATGprjs\ruhi\config.json"),
     ];
     flat_targets.dedup();
 
@@ -2162,7 +2194,6 @@ pub fn save_keyboard_mode_with_last(mode: &str, last_mode: Option<&str>) {
         paths.sandbox_dir.join("settings_config.json"),
         paths.sandbox_dir.join("scripts").join("settings_config.json"),
         paths.sandbox_dir.join("dist").join("settings_config.json"),
-        std::path::PathBuf::from(r"C:\ATGprjs\ruhi\settings_config.json"),
     ];
     studio_targets.dedup();
     for st_path in &studio_targets {
@@ -2193,7 +2224,6 @@ pub fn save_capslock_switch_mode(capslock_switch: &str) {
         paths.config.clone(),
         paths.sandbox_dir.join("scripts").join("config.json"),
         paths.sandbox_dir.join("dist").join("config.json"),
-        std::path::PathBuf::from(r"C:\ATGprjs\ruhi\config.json"),
     ];
     flat_targets.dedup();
     for cfg_path in &flat_targets {
@@ -2213,7 +2243,6 @@ pub fn save_capslock_switch_mode(capslock_switch: &str) {
         paths.sandbox_dir.join("settings_config.json"),
         paths.sandbox_dir.join("scripts").join("settings_config.json"),
         paths.sandbox_dir.join("dist").join("settings_config.json"),
-        std::path::PathBuf::from(r"C:\ATGprjs\ruhi\settings_config.json"),
     ];
     studio_targets.dedup();
     for st_path in &studio_targets {

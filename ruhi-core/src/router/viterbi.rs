@@ -1,9 +1,10 @@
 /// RuhI (如喜) Input Method Framework - Rust Core
-/// src/router/viterbi.rs - 雙向 Viterbi 最優路徑動態規劃路由
+/// src/router/viterbi.rs - 結合上下文回溯之詞網格束搜尋路由 (Context-Aware Lattice Beam Search Router)
 
 use std::collections::HashMap;
 use super::lattice::LatticeNode;
 
+#[derive(Debug, Clone)]
 pub struct ViterbiRouter {
     pub syllable_base_score: f64,
     pub multi_char_bonus: f64,

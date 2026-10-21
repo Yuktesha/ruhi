@@ -1235,6 +1235,69 @@
     {
       "kind": "collocation",
       "min_engine_version": "0.4.0",
+      "next": "回家",
+      "prev": "書",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "於",
+      "prev": "已經",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "已經",
+      "prev": "是否",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "如喜",
+      "prev": "於",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "實現",
+      "prev": "工作室",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "單純",
+      "prev": "要",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
+      "next": "只",
+      "prev": "單純",
+      "recommended_delta": 26.0,
+      "schema_version": 1,
+      "type": "BIGRAM_TRANSITION"
+    },
+    {
+      "kind": "collocation",
+      "min_engine_version": "0.4.0",
       "next": "打出",
       "prev": "只",
       "recommended_delta": 26.0,
@@ -2252,36 +2315,9 @@
     {
       "kind": "collocation",
       "min_engine_version": "0.4.0",
-      "next": "就",
-      "prev": "習慣",
-      "recommended_delta": 28.0,
-      "schema_version": 1,
-      "type": "BIGRAM_TRANSITION"
-    },
-    {
-      "kind": "collocation",
-      "min_engine_version": "0.4.0",
-      "next": "不要",
-      "prev": "就",
-      "recommended_delta": 26.0,
-      "schema_version": 1,
-      "type": "BIGRAM_TRANSITION"
-    },
-    {
-      "kind": "collocation",
-      "min_engine_version": "0.4.0",
       "next": "程式",
       "prev": "還是",
       "recommended_delta": 28.0,
-      "schema_version": 1,
-      "type": "BIGRAM_TRANSITION"
-    },
-    {
-      "kind": "collocation",
-      "min_engine_version": "0.4.0",
-      "next": "的",
-      "prev": "程式",
-      "recommended_delta": 26.0,
       "schema_version": 1,
       "type": "BIGRAM_TRANSITION"
     },
@@ -2317,24 +2353,6 @@
       "min_engine_version": "0.4.0",
       "next": "的是",
       "prev": "選",
-      "recommended_delta": 28.0,
-      "schema_version": 1,
-      "type": "BIGRAM_TRANSITION"
-    },
-    {
-      "kind": "collocation",
-      "min_engine_version": "0.4.0",
-      "next": "一個",
-      "prev": "的是",
-      "recommended_delta": 26.0,
-      "schema_version": 1,
-      "type": "BIGRAM_TRANSITION"
-    },
-    {
-      "kind": "collocation",
-      "min_engine_version": "0.4.0",
-      "next": "對",
-      "prev": "一個",
       "recommended_delta": 28.0,
       "schema_version": 1,
       "type": "BIGRAM_TRANSITION"
@@ -2477,15 +2495,6 @@
     {
       "kind": "collocation",
       "min_engine_version": "0.4.0",
-      "next": "這樣",
-      "prev": "必要",
-      "recommended_delta": 26.0,
-      "schema_version": 1,
-      "type": "BIGRAM_TRANSITION"
-    },
-    {
-      "kind": "collocation",
-      "min_engine_version": "0.4.0",
       "next": "再度",
       "prev": "剛剛",
       "recommended_delta": 28.0,
@@ -2525,15 +2534,6 @@
       "next": "實做",
       "prev": "在",
       "recommended_delta": 28.0,
-      "schema_version": 1,
-      "type": "BIGRAM_TRANSITION"
-    },
-    {
-      "kind": "collocation",
-      "min_engine_version": "0.4.0",
-      "next": "的",
-      "prev": "實做",
-      "recommended_delta": 26.0,
       "schema_version": 1,
       "type": "BIGRAM_TRANSITION"
     },
@@ -6238,6 +6238,6 @@
   ],
   "rules_count": 366,
   "schema_version": 1,
-  "updated_at": "2026-10-21T15:37:32.384796+08:00",
+  "updated_at": "2026-10-21T17:14:07.213554700+08:00",
   "zero_pii_verified": true
 }

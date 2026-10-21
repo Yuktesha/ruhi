@@ -11,6 +11,9 @@ pub enum EditSessionAction {
         is_commit: bool,
     },
     ProbeCaret,
+    ProbeInputScope {
+        is_password: Arc<std::sync::atomic::AtomicBool>,
+    },
     EndComposition,
 }
 
@@ -334,6 +337,64 @@ impl ITfEditSession_Impl for RuhiEditSession_Impl {
                                     if rc.left != 0 || rc.top != 0 || rc.bottom != 0 {
                                         crate::logger::log(&format!("ProbeCaret ShiftStart TextExt: ({}, {})", rc.right, rc.bottom + 4));
                                         crate::service::set_last_caret_pos(rc.right, rc.bottom + 4);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            EditSessionAction::ProbeInputScope { is_password } => {
+                // 透過 TSF GUID_PROP_INPUTSCOPE 讀取當前游標範圍之 InputScope（支援 Chrome、Edge、WPF、UWP 密碼框與 PIN 框）
+                let mut selections = [TF_SELECTION::default(); 1];
+                let mut fetched = 0u32;
+                unsafe {
+                    if self.context.GetSelection(ec, TF_DEFAULT_SELECTION, &mut selections, &mut fetched).is_ok() && fetched > 0 {
+                        let range_opt = (*selections[0].range).clone();
+                        std::mem::ManuallyDrop::drop(&mut selections[0].range);
+                        if let Some(range) = range_opt {
+                            if let Ok(prop) = self.context.GetProperty(&crate::guid::GUID_PROP_INPUTSCOPE) {
+                                if let Ok(var) = prop.GetValue(ec, &range) {
+                                    // VARIANT layout: offset 0 = vt (u16), offset 8 = punkVal (*mut c_void)
+                                    let var_ptr = &var as *const windows_core::VARIANT as *const u8;
+                                    let vt = *(var_ptr as *const u16);
+                                    if vt == 13 {
+                                        // VT_UNKNOWN = 13
+                                        let punk_ptr = *(var_ptr.add(8) as *const *mut core::ffi::c_void);
+                                        if !punk_ptr.is_null() {
+                                            #[repr(C)]
+                                            struct ITfInputScopeVtbl {
+                                                query_interface: unsafe extern "system" fn(*mut core::ffi::c_void, *const GUID, *mut *mut core::ffi::c_void) -> HRESULT,
+                                                add_ref: unsafe extern "system" fn(*mut core::ffi::c_void) -> u32,
+                                                release: unsafe extern "system" fn(*mut core::ffi::c_void) -> u32,
+                                                get_input_scopes: unsafe extern "system" fn(*mut core::ffi::c_void, *mut *mut i32, *mut u32) -> HRESULT,
+                                            }
+                                            let unk_vtbl = *(punk_ptr as *const *const ITfInputScopeVtbl);
+                                            let mut scope_iface: *mut core::ffi::c_void = std::ptr::null_mut();
+                                            if ((*unk_vtbl).query_interface)(
+                                                punk_ptr,
+                                                &crate::guid::IID_ITF_INPUT_SCOPE,
+                                                &mut scope_iface,
+                                            )
+                                            .is_ok()
+                                                && !scope_iface.is_null()
+                                            {
+                                                let scope_vtbl = *(scope_iface as *const *const ITfInputScopeVtbl);
+                                                let mut p_scopes: *mut i32 = std::ptr::null_mut();
+                                                let mut count: u32 = 0;
+                                                if ((*scope_vtbl).get_input_scopes)(scope_iface, &mut p_scopes, &mut count).is_ok()
+                                                    && !p_scopes.is_null()
+                                                {
+                                                    let scopes = std::slice::from_raw_parts(p_scopes, count as usize);
+                                                    // IS_PASSWORD = 32, IS_ALPHANUMERIC_PIN = 64, IS_NUMERIC_PIN = 65, IS_ALPHANUMERIC_PIN_SET = 66
+                                                    if scopes.iter().any(|&s| matches!(s, 32 | 64 | 65 | 66)) {
+                                                        is_password.store(true, std::sync::atomic::Ordering::Relaxed);
+                                                    }
+                                                    windows::Win32::System::Com::CoTaskMemFree(Some(p_scopes as *const core::ffi::c_void));
+                                                }
+                                                ((*scope_vtbl).release)(scope_iface);
+                                            }
+                                        }
                                     }
                                 }
                             }

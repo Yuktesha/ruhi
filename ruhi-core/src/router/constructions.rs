@@ -2986,12 +2986,24 @@ impl TransitionEngine {
             }
         }
         if matches!(curr_word, "僅限" | "僅限於" | "只限" | "只限於") {
-            bonus += 38.0;
+            bonus += 35.0;
         } else if prev_word == "僅" && matches!(curr_word, "限" | "現" | "獻" | "線" | "縣") {
             if curr_word == "限" {
-                bonus += 36.0;
+                bonus += 34.0;
             } else {
-                bonus -= 38.0;
+                bonus -= 35.0;
+            }
+        }
+
+        // 7. 建築與地景量詞構式 `[這座/那座/一座/整座/每座/某座/座] ➔ [城市/城堡/城池/城鎮/大樓/建築/橋樑/島嶼/山峰/宮殿]`（防「程式」同音跨類搶佔）
+        if prev_word.ends_with('座') {
+            if matches!(
+                curr_word,
+                "城市" | "城堡" | "城池" | "城鎮" | "大樓" | "建築" | "橋樑" | "橋梁" | "島嶼" | "山峰" | "宮殿" | "山" | "城" | "島" | "橋"
+            ) {
+                bonus += 32.0;
+            } else if matches!(curr_word, "程式" | "成事" | "乘勢") {
+                bonus -= 34.0;
             }
         }
 

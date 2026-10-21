@@ -29,6 +29,7 @@ use std::path::Path;
 /// 行列 30 標準最大碼長為 4 碼，加上罕用/異體字尾碼 `i` (8^) 最長為 5 碼
 const MAX_ARRAY30_CODE_LEN: usize = 5;
 
+#[derive(Debug, Clone)]
 pub struct Array30Engine {
     pub table: Array30Table,
     pub transitions: TransitionEngine,

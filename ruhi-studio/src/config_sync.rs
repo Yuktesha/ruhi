@@ -128,13 +128,17 @@ pub const DEFAULT_TAILCAT_FEED_URL: &str =
     "https://raw.githubusercontent.com/Yuktesha/ruhi/main/ruhi_lexicon/data/tailcat_official_feed.json";
 
 /// 目前執行中之如喜核心引擎版本號
-pub const CURRENT_ENGINE_VERSION: &str = "0.4.0";
+pub const CURRENT_ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// 目前引擎支援之最高 Tailcat Schema 版本號
 pub const CURRENT_TAILCAT_SCHEMA_VERSION: u32 = 1;
 
 fn default_true() -> bool {
     true
+}
+
+fn default_false() -> bool {
+    false
 }
 
 fn default_upload_schedule() -> String {
@@ -159,8 +163,8 @@ pub struct AiPrivacySettings {
     pub zero_pii_gateway: bool,
     pub ollama_model: String,
     pub enable_cloud_colab: bool,
-    /// 使用者是否同意匿名記錄手動改字整句對照並回傳至官方雲端硬碟資料表（安裝時徵詢，隨時可在設定修改）
-    #[serde(default = "default_true")]
+    /// 使用者是否同意匿名記錄手動改字整句對照並回傳至官方雲端硬碟資料表（預設關閉 Opt-In，安裝時徵詢，隨時可在設定修改）
+    #[serde(default = "default_false")]
     pub telemetry_consent: bool,
     /// 回傳週期設定：`"weekly"` (每週自動回傳) | `"daily"` (每日自動回傳) | `"manual"` (僅手動回傳) | `"disabled"` (關閉)
     #[serde(default = "default_upload_schedule")]
@@ -195,7 +199,7 @@ impl Default for AiPrivacySettings {
             zero_pii_gateway: true,
             ollama_model: "gemma4:latest".to_string(),
             enable_cloud_colab: true,
-            telemetry_consent: true,
+            telemetry_consent: false,
             upload_schedule: default_upload_schedule(),
             cloud_sheet_webhook_url: default_cloud_sheet_webhook_url(),
             last_upload_timestamp: 0,

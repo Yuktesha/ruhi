@@ -33,7 +33,7 @@ CloseApplications=force
 Name: "chinesetraditional"; MessagesFile: "ChineseTraditional.isl"
 
 [Tasks]
-Name: "telemetry_consent"; Description: "同意在手動改字時記錄匿名對照句，並依設定週期回傳至官方雲端語料表以協助優化語意（隨時可於設定中心更改或關閉，絕不含個資）"
+Name: "telemetry_consent"; Description: "同意在手動改字時記錄匿名對照句，並經啟發式個資過濾後依設定週期回傳至官方雲端語料表以協助優化語意（預設不勾選，隨時可於設定中心更改）"; Flags: unchecked
 
 #define StageDir "..\dist\RuhI_v" + MyAppVersion + "_Windows_x64"
 
@@ -115,9 +115,15 @@ begin
     AppDir := ExpandConstant('{app}');
     DllPath := ExpandConstant('{app}\ruhi_tsf.dll');
 
-    // 1. 配置安全性存取清單 (ACL: ALL_APPLICATION_PACKAGES RX 及 Users Modify 權限，確保免 UAC 熱更新詞庫與儲存設定)
+    // 1. 配置最小權限安全性存取清單 (ACL)：
+    //    - 程式主目錄與二進位檔 (.dll / .exe) 僅授予 ALL_APPLICATION_PACKAGES 與 Users 讀取與執行權限 (RX)，嚴防非管理員覆寫執行檔造成權限提升 (LPE)
+    //    - 僅對 data\ 資料夾、設定檔 (config.json / settings_config.json) 與使用者詞庫 (user_dict.tsv) 授予 Users 修改權限 (M)
     ExecCmd('icacls.exe', '"' + AppDir + '" /grant *S-1-15-2-1:(OI)(CI)RX /T /Q');
-    ExecCmd('icacls.exe', '"' + AppDir + '" /grant Users:(OI)(CI)M /T /Q');
+    ExecCmd('icacls.exe', '"' + AppDir + '" /grant Users:(OI)(CI)RX /T /Q');
+    ExecCmd('icacls.exe', '"' + AppDir + '\data" /grant Users:(OI)(CI)M /T /Q');
+    ExecCmd('icacls.exe', '"' + AppDir + '\config.json" /grant Users:M /Q');
+    ExecCmd('icacls.exe', '"' + AppDir + '\settings_config.json" /grant Users:M /Q');
+    ExecCmd('icacls.exe', '"' + AppDir + '\user_dict.tsv" /grant Users:M /Q');
 
     // 2. 註冊 TSF COM 伺服器
     ExecCmd('regsvr32.exe', '/s "' + DllPath + '"');

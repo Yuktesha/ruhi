@@ -3630,7 +3630,7 @@ impl SemanticTuner {
                 "accepted": acc,
                 "bopomofo": bpmf,
                 "keyboard_mode": "hsu",
-                "app_version": "0.4.0",
+                "app_version": env!("CARGO_PKG_VERSION"),
             }));
         }
 
@@ -3639,13 +3639,13 @@ impl SemanticTuner {
                 "status": "filtered_all",
                 "uploaded_count": 0,
                 "filtered_pii_count": filtered_pii_count,
-                "message": format!("本機共 {} 筆紀錄，經 Zero-PII 隱私閘門過濾後無可回傳之一般語句。", raw_revs.len())
+                "message": format!("本機共 {} 筆紀錄，經啟發式個資過濾閘門篩除後無可回傳之一般語句。", raw_revs.len())
             });
         }
 
         let payload = json!({
             "protocol": "RUHI_CLOUD_REVISION_SHEET_V1",
-            "app_version": "0.3.0",
+            "app_version": env!("CARGO_PKG_VERSION"),
             "keyboard_mode": "hsu",
             "revisions": records_to_send,
             "records": records_to_send,

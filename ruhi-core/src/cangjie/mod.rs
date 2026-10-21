@@ -8,6 +8,7 @@ use crate::router::transitions::TransitionEngine;
 use std::path::Path;
 use table::CangjieTable;
 
+#[derive(Debug, Clone)]
 pub struct CangjieEngine {
     pub table: CangjieTable,
     pub transitions: TransitionEngine,

@@ -186,7 +186,7 @@ pub struct RuhiConfig {
     pub upload_schedule: String,
     #[serde(default)]
     pub last_upload_timestamp: u64,
-    #[serde(default = "default_telemetry_consent")]
+    #[serde(default = "default_tailcat_auto_sync")]
     pub tailcat_auto_sync: bool,
     #[serde(default = "default_tailcat_update_mode")]
     pub tailcat_update_mode: String,
@@ -224,14 +224,15 @@ impl Default for RuhiConfig {
             telemetry_consent: default_telemetry_consent(),
             upload_schedule: default_upload_schedule(),
             last_upload_timestamp: 0,
-            tailcat_auto_sync: true,
+            tailcat_auto_sync: default_tailcat_auto_sync(),
             tailcat_update_mode: default_tailcat_update_mode(),
             last_tailcat_sync_timestamp: 0,
         }
     }
 }
 
-fn default_telemetry_consent() -> bool { true }
+fn default_telemetry_consent() -> bool { false }
+fn default_tailcat_auto_sync() -> bool { true }
 fn default_upload_schedule() -> String { "weekly".to_string() }
 fn default_tailcat_update_mode() -> String { "notify_confirm".to_string() }
 
@@ -346,8 +347,6 @@ impl RuhiPaths {
                 dll_dir.join("..").join("ruhi_lexicon").join("data").join(name)
             } else if dll_dir.join("..").join("..").join("ruhi_lexicon").join("data").join(name).exists() {
                 dll_dir.join("..").join("..").join("ruhi_lexicon").join("data").join(name)
-            } else if std::path::Path::new("C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data").join(name).exists() {
-                std::path::PathBuf::from("C:\\ATGprjs\\ruhi\\ruhi_lexicon\\data").join(name)
             } else if appdata_ruhi.join("data").join(name).exists() {
                 appdata_ruhi.join("data").join(name)
             } else {
@@ -416,7 +415,6 @@ pub fn save_ruhi_config(paths: &RuhiPaths, config: &RuhiConfig) {
             paths.config.clone(),
             paths.sandbox_dir.join("scripts").join("config.json"),
             paths.sandbox_dir.join("dist").join("config.json"),
-            std::path::PathBuf::from(r"C:\ATGprjs\ruhi\config.json"),
         ];
         targets.dedup();
         for t in &targets {
@@ -1214,8 +1212,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 (hb, is_en)
             };
 
-            // Win32 密碼控制項隱私保護：若當前聚焦於密碼欄位且無未決組字，自動放行直通英數，絕不攔截組字或寫入修訂記錄
-            if !has_buffer && is_focused_password_control() {
+            // Win32 與 TSF InputScope 密碼控制項隱私保護：若當前聚焦於密碼欄位且無未決組字，自動放行直通英數，絕不攔截組字或寫入修訂記錄
+            if !has_buffer && self.is_focused_or_tsf_password(_pic) {
                 return Ok(BOOL::from(false));
             }
 
@@ -1228,11 +1226,6 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     return Ok(BOOL::from(false));
                 }
                 return Ok(BOOL::from(true));
-            }
-
-            // Win32 密碼控制項隱私保護：若當前聚焦於密碼欄位且無未決組字，自動放行直通英數，絕不攔截組字
-            if !has_buffer && is_focused_password_control() {
-                return Ok(BOOL::from(false));
             }
 
             if is_ctrl {
@@ -1398,8 +1391,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 (hb, is_en)
             };
 
-            // Win32 密碼控制項隱私保護：若當前聚焦於密碼欄位且無未決組字，自動放行直通英數，絕不攔截組字或寫入修訂記錄
-            if !has_buffer && is_focused_password_control() {
+            // Win32 與 TSF InputScope 密碼控制項隱私保護：若當前聚焦於密碼欄位且無未決組字，自動放行直通英數，絕不攔截組字或寫入修訂記錄
+            if !has_buffer && self.is_focused_or_tsf_password(Some(ctx)) {
                 return Ok(BOOL::from(false));
             }
 
@@ -3841,21 +3834,25 @@ impl RuhiTextService_Impl {
     }
 
     fn commit_current_composition(&self, ctx: &ITfContext) -> Result<()> {
+        {
+            let mut eng = self.engine.lock().unwrap_or_else(|e| e.into_inner());
+            eng.capture_sentence_revision_before_commit("");
+        }
         self.consolidate_engine_to_pending();
         let (full, _) = self.get_full_display_and_cursor();
         self.clear_all_pending();
         {
-            let mut eng = self.engine.lock().unwrap();
+            let mut eng = self.engine.lock().unwrap_or_else(|e| e.into_inner());
             if eng.has_pending_revisions() {
-                let _ = eng.auto_synthesize_and_apply_revisions();
+                eng.capture_sentence_revision_before_commit("");
             }
             if !full.is_empty() {
                 eng.record_committed(&full);
             }
             eng.reset_buffer();
         }
-        *self.sentence_cursor.lock().unwrap() = 0;
-        *self.candidate_selecting.lock().unwrap() = false;
+        *self.sentence_cursor.lock().unwrap_or_else(|e| e.into_inner()) = 0;
+        *self.candidate_selecting.lock().unwrap_or_else(|e| e.into_inner()) = false;
 
         self.hide_candidate_window();
         set_last_caret_pos(0, 0);
@@ -4067,7 +4064,7 @@ impl RuhiTextService_Impl {
     }
 
     fn probe_caret(&self, ctx: &ITfContext) -> Result<()> {
-        let client_id = *self.client_id.lock().unwrap();
+        let client_id = *self.client_id.lock().unwrap_or_else(|e| e.into_inner());
         let sink: ITfCompositionSink = self.to_object().cast()?;
         let edit_session: ITfEditSession = RuhiEditSession::new(
             ctx.clone(),
@@ -4083,6 +4080,53 @@ impl RuhiTextService_Impl {
             }
         }
         Ok(())
+    }
+
+    /// 整合 Win32 (`ES_PASSWORD` / `EM_GETPASSWORDCHAR`) 與現代 TSF (`GUID_PROP_INPUTSCOPE` 之 `IS_PASSWORD` / `IS_PIN` 及 `GUID_COMPARTMENT_KEYBOARD_DISABLED`) 密碼欄位偵測
+    fn is_focused_or_tsf_password(&self, pic: Option<&ITfContext>) -> bool {
+        if is_focused_password_control() {
+            return true;
+        }
+        let Some(ctx) = pic else {
+            return false;
+        };
+        // 1. 檢查 TSF Compartment 是否標示為 Keyboard Disabled（許多 UWP/Chromium 密碼框會同步設置此項）
+        if let Ok(comp_mgr) = ctx.cast::<ITfCompartmentMgr>() {
+            unsafe {
+                if let Ok(comp) = comp_mgr.GetCompartment(&crate::guid::GUID_COMPARTMENT_KEYBOARD_DISABLED) {
+                    if let Ok(var) = comp.GetValue() {
+                        let var_ptr = &var as *const windows_core::VARIANT as *const u8;
+                        let vt = *(var_ptr as *const u16);
+                        if vt == 3 {
+                            // VT_I4 = 3
+                            let val = *(var_ptr.add(8) as *const i32);
+                            if val != 0 {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // 2. 透過同步只讀 EditSession 探測當前游標之 GUID_PROP_INPUTSCOPE 是否包含 IS_PASSWORD (32) 或 PIN (64..=66)
+        let client_id = *self.client_id.lock().unwrap_or_else(|e| e.into_inner());
+        let Ok(sink) = self.to_object().cast::<ITfCompositionSink>() else {
+            return false;
+        };
+        let is_pwd = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let edit_session: ITfEditSession = RuhiEditSession::new(
+            ctx.clone(),
+            EditSessionAction::ProbeInputScope {
+                is_password: is_pwd.clone(),
+            },
+            self.composition.clone(),
+            sink,
+        )
+        .into();
+        unsafe {
+            let _ = ctx.RequestEditSession(client_id, &edit_session, TF_ES_SYNC | TF_ES_READ);
+        }
+        is_pwd.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     fn is_complex_layout_editor() -> bool {

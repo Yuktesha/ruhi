@@ -12,6 +12,7 @@ pub struct CangjieEntry {
     pub weight: u32,
 }
 
+#[derive(Debug, Clone)]
 pub struct CangjieTable {
     pub map: HashMap<String, Vec<CangjieEntry>>,
     pub char_head_map: HashMap<char, Vec<char>>,

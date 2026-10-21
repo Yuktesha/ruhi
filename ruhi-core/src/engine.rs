@@ -45,6 +45,7 @@ pub struct RevisionRecord {
     pub correct_sentence: String,
 }
 
+#[derive(Clone)]
 pub struct RuhiEngine {
     pub fsm: HsuFSM,
     pub lexicon: LexiconManager,
@@ -230,49 +231,54 @@ impl RuhiEngine {
     }
 
     pub fn new() -> Self {
-        let mut resolved_dir = String::new();
-        
-        // 1. Adjacent to executable: {exe_dir}/data/
-        if let Ok(exe_path) = std::env::current_exe() {
-            if let Some(parent) = exe_path.parent() {
-                let adj_data = parent.join("data");
-                if adj_data.exists() && adj_data.is_dir() {
-                    resolved_dir = adj_data.to_string_lossy().to_string();
-                }
-            }
-        }
-        
-        // 2. Relative in-tree paths
-        if resolved_dir.is_empty() {
-            let candidates = [
-                std::path::PathBuf::from("../ruhi_lexicon/data"),
-                std::path::PathBuf::from("../../ruhi_lexicon/data"),
-                std::path::PathBuf::from("ruhi_lexicon/data"),
-                std::path::PathBuf::from("data"),
-            ];
-            for cand in &candidates {
-                if cand.exists() && cand.is_dir() {
-                    resolved_dir = cand.to_string_lossy().to_string();
-                    break;
-                }
-            }
-        }
+        static BASE_ENGINE: std::sync::OnceLock<RuhiEngine> = std::sync::OnceLock::new();
+        BASE_ENGINE
+            .get_or_init(|| {
+                let mut resolved_dir = String::new();
 
-        // 3. APPDATA fallback
-        if resolved_dir.is_empty() {
-            if let Ok(appdata) = std::env::var("APPDATA") {
-                let p = std::path::PathBuf::from(appdata).join("Ruhi").join("data");
-                if p.exists() && p.is_dir() {
-                    resolved_dir = p.to_string_lossy().to_string();
+                // 1. Adjacent to executable: {exe_dir}/data/
+                if let Ok(exe_path) = std::env::current_exe() {
+                    if let Some(parent) = exe_path.parent() {
+                        let adj_data = parent.join("data");
+                        if adj_data.exists() && adj_data.is_dir() {
+                            resolved_dir = adj_data.to_string_lossy().to_string();
+                        }
+                    }
                 }
-            }
-        }
 
-        if resolved_dir.is_empty() {
-            resolved_dir = "../ruhi_lexicon/data".to_string();
-        }
-        
-        Self::new_with_data_dir(&resolved_dir)
+                // 2. Relative in-tree paths
+                if resolved_dir.is_empty() {
+                    let candidates = [
+                        std::path::PathBuf::from("../ruhi_lexicon/data"),
+                        std::path::PathBuf::from("../../ruhi_lexicon/data"),
+                        std::path::PathBuf::from("ruhi_lexicon/data"),
+                        std::path::PathBuf::from("data"),
+                    ];
+                    for cand in &candidates {
+                        if cand.exists() && cand.is_dir() {
+                            resolved_dir = cand.to_string_lossy().to_string();
+                            break;
+                        }
+                    }
+                }
+
+                // 3. APPDATA fallback
+                if resolved_dir.is_empty() {
+                    if let Ok(appdata) = std::env::var("APPDATA") {
+                        let p = std::path::PathBuf::from(appdata).join("Ruhi").join("data");
+                        if p.exists() && p.is_dir() {
+                            resolved_dir = p.to_string_lossy().to_string();
+                        }
+                    }
+                }
+
+                if resolved_dir.is_empty() {
+                    resolved_dir = "../ruhi_lexicon/data".to_string();
+                }
+
+                Self::new_with_data_dir(&resolved_dir)
+            })
+            .clone()
     }
 
     pub fn reset_buffer(&mut self) {

@@ -144,6 +144,7 @@ pub struct Array30ReverseEntry {
     pub short2: Option<(String, u8)>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Array30Table {
     /// 全碼與特別碼表：code -> Vec<Array30Entry> (按 weight 降序排列)
     table: HashMap<String, Vec<Array30Entry>>,

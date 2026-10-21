@@ -75,8 +75,8 @@ impl StudioCategory {
                 "配置高階句法結構拓撲、動補/離合/框式介詞、ê/kah 結構助詞深層語意與自建詞庫熱重載。",
             ),
             StudioCategory::AiAndPrivacy => (
-                "🛡️ 隱私安全閘門與匿名改字雲端進化回饋",
-                "配置 Zero-PII 隱私安全閘門與匿名改字雙句（錯誤句 vs. 修正句）雲端回傳週期。",
+                "🛡️ 隱私過濾閘門與匿名改字雲端進化回饋",
+                "配置啟發式個資過濾閘門與匿名改字雙句（錯誤句 vs. 修正句）雲端回傳週期。",
             ),
             StudioCategory::SemanticTuner => (
                 "🛠️ 神經符號語意調校工作室 (Developer Only)",
@@ -865,13 +865,13 @@ impl RuhiStudioApp {
         let palette = self.shell.palette;
 
         ui.group(|ui| {
-            ui.heading("Zero-PII 隱私安全閘門");
+            ui.heading("啟發式個資過濾閘門 (Heuristic PII Filter)");
             ui.add_space(6.0);
             if two_tier_checkbox(
                 ui,
                 &mut self.settings.ai_and_privacy.zero_pii_gateway,
-                "啟用 Zero-PII 隱私安全閘門",
-                "絕不記錄個人敏感個資、電話、身分證、電子郵件與密碼欄位輸入，保障本機最高隱私安全。",
+                "啟用啟發式個資過濾閘門",
+                "自動攔截含電子郵件、網址、電話、連續數字、身分證字號與門牌地址之句子；在 Win32 與 TSF InputScope 密碼欄位中全面直通且絕不記錄任何修訂。",
                 &palette,
             ) {
                 self.auto_save_settings_quiet();
@@ -881,14 +881,14 @@ impl RuhiStudioApp {
         ui.add_space(10.0);
 
         ui.group(|ui| {
-            ui.heading("☁️ 匿名改字紀錄與雲端語意進化回饋（隨時可更改或關閉）");
+            ui.heading("☁️ 匿名改字紀錄與雲端語意進化回饋（預設關閉，隨時可更改）");
             ui.add_space(6.0);
 
             if two_tier_checkbox(
                 ui,
                 &mut self.settings.ai_and_privacy.telemetry_consent,
                 "同意在手動改字時記錄匿名對照句，並定期回傳至官方雲端資料表供語意調校",
-                "打字手動改字時僅將「Viterbi 原始錯誤句 vs. 手動修正後正確句」寫入本機紀錄檔（絕不在本地盲目打地鼠改權重），並經 Zero-PII 去識別化後依下方設定週期回傳。",
+                "打字手動改字時僅將「原始錯誤句 vs. 手動修正後正確句」寫入本機紀錄檔（絕不在本地盲目修改權重），並經啟發式個資過濾後依下方設定週期回傳。",
                 &palette,
             ) {
                 self.auto_save_settings_quiet();

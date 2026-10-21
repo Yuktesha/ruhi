@@ -6048,24 +6048,19 @@ impl TransitionEngine {
             let is_political_abbr = matches!(prev_word, "kmt" | "dpp" | "ccp" | "gop");
             if (is_ascii_word && !is_political_abbr) || matches!(prev_word, "圖" | "音" | "影片" | "封存") {
                 if curr_word == "檔" {
-                    bonus += 38.0;
+                    bonus += 35.0;
                 } else {
-                    bonus -= 45.0;
+                    bonus -= 35.0;
                 }
             }
         }
 
-        // 7. 全稱代詞「任何」後接凝聚與冷僻古詞（赭衣、繡衣、家祠）單點防護，以及三聲「ㄋㄚˇ」嚴禁出「那」
-        if prev_word == "任何" {
-            bonus += 38.0;
-        }
-        if curr_word == "赭衣" || curr_word == "繡衣" {
-            bonus -= 45.0;
-        } else if curr_word == "家祠" {
-            bonus -= 45.0;
+        // 7. 全稱限定詞「任何」後接名詞／實詞雙向語法構式（排除標點與純助詞），以及三聲「ㄋㄚˇ」嚴禁出指代詞「那」
+        if prev_word == "任何" && !curr_word.is_empty() && !matches!(curr_word, "的" | "了" | "嗎" | "呢" | "吧" | "啊") {
+            bonus += 32.0;
         }
         if (curr_word == "那" || curr_word.starts_with('那')) && curr_bopomofo.starts_with("ㄋㄚˇ") {
-            bonus -= 50.0;
+            bonus -= 35.0;
         }
 
         bonus
