@@ -2,13 +2,15 @@
 /// src/korean/romaja.rs - 韓語標準羅馬拼音（RR）音節切分動態規劃（N-best）
 
 use crate::korean::jamo::{
-    compose, is_compound_coda, CHOSEONG, JONGSEONG, JUNGSEONG,
+    compose, decompose, is_compound_coda, CHOSEONG, JONGSEONG, JUNGSEONG,
 };
+use crate::korean::lexicon::KoreanLexicon;
 
 pub const COST_SYLLABLE: u32 = 10;              // 每個音節的基礎成本 → 偏好較少音節（最長匹配）
 pub const COST_NULL_ONSET_AFTER_CODA: u32 = 8;  // 前一音節有終聲、本音節零初聲 → 違反連音規律
 pub const COST_COMPOUND_CODA: u32 = 5;          // 複合終聲較少見
 pub const COST_PENDING_PREVIEW: u32 = 3;        // 預覽模式下，每個未完成字母的成本
+pub const COST_LEXICON_BONUS: u32 = 6;          // 詞表匹配獎勵（2 音節以上詞條）
 pub const NBEST_K: usize = 8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,8 +210,13 @@ fn prune_and_dedup(paths: &mut Vec<DpPath>, mode: ParseMode, k: usize) {
     *paths = unique;
 }
 
-/// 對單一無 `-` 片段執行音節切分動態規劃
-fn parse_segment_nbest(seg: &str, mode: ParseMode, k: usize) -> Vec<DpPath> {
+/// 對單一無 `-` 片段執行音節切分動態規劃（支援可選詞表詞邊）
+fn parse_segment_nbest(
+    seg: &str,
+    mode: ParseMode,
+    k: usize,
+    lex: Option<&KoreanLexicon>,
+) -> Vec<DpPath> {
     let n = seg.len();
     if n == 0 {
         return vec![DpPath {
@@ -237,6 +244,7 @@ fn parse_segment_nbest(seg: &str, mode: ParseMode, k: usize) -> Vec<DpPath> {
             continue;
         }
 
+        // 1. 規則單音節邊
         let onsets = match_onsets(seg, i);
         for (l_idx, l_len, l_cost) in onsets {
             let i_v = i + l_len;
@@ -285,6 +293,74 @@ fn parse_segment_nbest(seg: &str, mode: ParseMode, k: usize) -> Vec<DpPath> {
                                 pending: String::new(),
                                 cost: p.cost + step_cost,
                             });
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. 詞表詞邊（僅限 2 音節以上詞條）
+        if let Some(lexicon) = lex {
+            if lexicon.max_key_len > 0 {
+                let max_j = n.min(i + lexicon.max_key_len);
+                for j in (i + 1)..=max_j {
+                    if !seg.is_char_boundary(j) {
+                        continue;
+                    }
+                    let sub = &seg[i..j];
+                    let matched = lexicon.lookup_exact(sub);
+                    if matched.is_empty() {
+                        continue;
+                    }
+                    for (rank, entry) in matched.into_iter().enumerate() {
+                        let mut word_syls = Vec::new();
+                        let mut all_valid = true;
+                        for ch in entry.surface.chars() {
+                            if let Some((l, v, t)) = decompose(ch) {
+                                word_syls.push(Syllable { l, v, t });
+                            } else {
+                                all_valid = false;
+                                break;
+                            }
+                        }
+                        if !all_valid || word_syls.len() < 2 {
+                            continue;
+                        }
+                        let syl_count = word_syls.len();
+                        let first_l = word_syls[0].l;
+                        let last_t = word_syls[syl_count - 1].t;
+                        let next_has_coda = usize::from(last_t > 0);
+                        let base_edge_cost = (syl_count as u32 * COST_SYLLABLE)
+                            .saturating_sub(COST_LEXICON_BONUS)
+                            + (rank as u32);
+                        let span_len = j - i;
+
+                        for prev_coda in 0..=1 {
+                            if dp[i][prev_coda].is_empty() {
+                                continue;
+                            }
+                            let liaison_cost = if prev_coda == 1 && first_l == 11 {
+                                COST_NULL_ONSET_AFTER_CODA
+                            } else {
+                                0
+                            };
+                            let step_cost = base_edge_cost + liaison_cost;
+                            let prev_paths = dp[i][prev_coda].clone();
+                            for p in prev_paths {
+                                let mut next_syls = p.syllables;
+                                next_syls.extend(word_syls.iter().cloned());
+                                let mut next_spans = p.span_lens;
+                                next_spans.push(span_len);
+                                for _ in 1..syl_count {
+                                    next_spans.push(0);
+                                }
+                                dp[j][next_has_coda].push(DpPath {
+                                    syllables: next_syls,
+                                    span_lens: next_spans,
+                                    pending: String::new(),
+                                    cost: p.cost + step_cost,
+                                });
+                            }
                         }
                     }
                 }
@@ -367,8 +443,13 @@ fn parse_segment_nbest(seg: &str, mode: ParseMode, k: usize) -> Vec<DpPath> {
     results
 }
 
-/// 傳回依成本遞增排序的前 `k` 種切分
-pub fn parse_nbest(raw: &str, mode: ParseMode, k: usize) -> Vec<Parse> {
+/// 傳回依成本遞增排序的前 `k` 種切分（支援可選詞表）
+pub fn parse_nbest_with_lexicon(
+    raw: &str,
+    mode: ParseMode,
+    k: usize,
+    lex: Option<&KoreanLexicon>,
+) -> Vec<Parse> {
     if raw.is_empty() || k == 0 {
         return Vec::new();
     }
@@ -392,7 +473,7 @@ pub fn parse_nbest(raw: &str, mode: ParseMode, k: usize) -> Vec<Parse> {
         } else {
             mode
         };
-        let seg_paths = parse_segment_nbest(seg, seg_mode, k);
+        let seg_paths = parse_segment_nbest(seg, seg_mode, k, lex);
         let mut next_combined = Vec::with_capacity(combined.len() * seg_paths.len());
         for prefix in &combined {
             for sp in &seg_paths {
@@ -435,6 +516,11 @@ pub fn parse_nbest(raw: &str, mode: ParseMode, k: usize) -> Vec<Parse> {
         .collect()
 }
 
+/// 傳回依成本遞增排序的前 `k` 種切分（純規則，不帶詞表）
+pub fn parse_nbest(raw: &str, mode: ParseMode, k: usize) -> Vec<Parse> {
+    parse_nbest_with_lexicon(raw, mode, k, None)
+}
+
 /// 將 Parse 渲染為諺文字串（音節 + pending）
 pub fn render(p: &Parse) -> String {
     let mut out = String::with_capacity(p.syllables.len() * 3 + p.pending.len());
@@ -447,15 +533,24 @@ pub fn render(p: &Parse) -> String {
     out
 }
 
-/// 最佳切分之諺文字串（含 pending）
-pub fn romaja_to_hangul(raw: &str, mode: ParseMode) -> String {
+/// 最佳切分之諺文字串（含 pending，支援可選詞表）
+pub fn romaja_to_hangul_with_lexicon(
+    raw: &str,
+    mode: ParseMode,
+    lex: Option<&KoreanLexicon>,
+) -> String {
     if raw.is_empty() {
         return String::new();
     }
-    parse_nbest(raw, mode, NBEST_K)
+    parse_nbest_with_lexicon(raw, mode, NBEST_K, lex)
         .first()
         .map(render)
         .unwrap_or_default()
+}
+
+/// 最佳切分之諺文字串（含 pending，純規則）
+pub fn romaja_to_hangul(raw: &str, mode: ParseMode) -> String {
+    romaja_to_hangul_with_lexicon(raw, mode, None)
 }
 
 #[cfg(test)]
