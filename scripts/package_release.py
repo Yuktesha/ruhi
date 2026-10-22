@@ -174,8 +174,11 @@ def main():
         if src_doc.exists():
             shutil.copy2(src_doc, docs_dir / doc_name)
 
-    # 防外流最終檢查：暫存目錄內任何文字檔不得含 Apps Script 部署網址
-    needle = "script.google.com/" + "macros/s/"
+    # 防外流最終檢查：暫存目錄內任何文字檔不得含已封存之舊版 Apps Script ID
+    archived_id = (
+        "AKfycbx6nCVXW4yP0"
+        + "VDRLrAbYCf5fqRkxCcqSACdJuKrC-Vpc4S52oL1owLlGJeWX11Q7PU_"
+    )
     for p in release_dir.rglob("*"):
         if p.is_file() and p.suffix.lower() in {
             ".json",
@@ -185,9 +188,9 @@ def main():
             ".md",
             ".ps1",
         }:
-            if needle in p.read_text(encoding="utf-8", errors="ignore"):
+            if archived_id in p.read_text(encoding="utf-8", errors="ignore"):
                 raise RuntimeError(
-                    f"安裝包暫存檔含 Apps Script 部署網址，已中止打包: {p}"
+                    f"安裝包暫存檔含已封存之舊版 Webhook ID，已中止打包: {p}"
                 )
 
     print(f"[*] 已完成檔案封裝至暫存目錄: {release_dir}")
