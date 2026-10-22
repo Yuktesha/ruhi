@@ -2510,11 +2510,20 @@ fn main() {
         }
     }
 
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title("RuhI（如喜）輸入法 — 現代化偏好設定中心")
+        .with_inner_size([1020.0, 740.0])
+        .with_min_inner_size([780.0, 540.0]);
+    {
+        const ICO_BYTES: &[u8] = include_bytes!("../../assets/ruhi.ico");
+        if ICO_BYTES.len() >= 20734 + 14539 {
+            if let Ok(icon) = eframe::icon_data::from_png_bytes(&ICO_BYTES[20734..20734 + 14539]) {
+                viewport = viewport.with_icon(std::sync::Arc::new(icon));
+            }
+        }
+    }
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title("RuhI（如喜）輸入法 — 現代化偏好設定中心")
-            .with_inner_size([1020.0, 740.0])
-            .with_min_inner_size([780.0, 540.0]),
+        viewport,
         ..Default::default()
     };
 

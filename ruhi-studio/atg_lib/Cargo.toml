@@ -1,0 +1,40 @@
+[package]
+name = "atg_lib"
+version = "1.0.0"
+edition = "2021"
+authors = ["A Solid GUI Studio (龜鋼A工作室)"]
+description = "ATGprjs / RuhOS 原生 Rust 公用核心與自適應 UI/UX 程式庫 (_lib_rs)"
+license = "Proprietary"
+
+[lib]
+name = "atg_lib"
+path = "src/lib.rs"
+
+[features]
+default = ["ui"]
+ui = ["dep:egui", "dep:eframe", "dep:egui_extras", "dep:rfd"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2.0"
+log = "0.4"
+dirs = "5.0"
+
+# Optional GUI dependencies (enabled by default via the `ui` feature)
+egui = { version = "0.31", optional = true }
+eframe = { version = "0.31", default-features = false, features = ["glow", "wgpu", "default_fonts", "persistence"], optional = true }
+egui_extras = { version = "0.31", features = ["all_loaders"], optional = true }
+rfd = { version = "0.15", optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_System_Power",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }

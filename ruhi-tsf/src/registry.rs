@@ -171,13 +171,15 @@ pub unsafe fn register_server(hinstance: HMODULE) -> Result<()> {
 
         let icon_path = {
             let dll_dir = std::path::Path::new(&dll_path).parent();
+            let parent1 = dll_dir.and_then(|p| p.parent());
+            let parent2 = parent1.and_then(|p| p.parent());
             let candidates = [
                 dll_dir.map(|p| p.join("ruhi.ico")).unwrap_or_default(),
                 dll_dir.map(|p| p.join("assets").join("ruhi.ico")).unwrap_or_default(),
-                dll_dir.map(|p| p.join("..").join("ruhi.ico")).unwrap_or_default(),
-                dll_dir.map(|p| p.join("..").join("assets").join("ruhi.ico")).unwrap_or_default(),
-                dll_dir.map(|p| p.join("..").join("..").join("ruhi.ico")).unwrap_or_default(),
-                dll_dir.map(|p| p.join("..").join("..").join("assets").join("ruhi.ico")).unwrap_or_default(),
+                parent1.map(|p| p.join("ruhi.ico")).unwrap_or_default(),
+                parent1.map(|p| p.join("assets").join("ruhi.ico")).unwrap_or_default(),
+                parent2.map(|p| p.join("ruhi.ico")).unwrap_or_default(),
+                parent2.map(|p| p.join("assets").join("ruhi.ico")).unwrap_or_default(),
             ];
             candidates
                 .into_iter()

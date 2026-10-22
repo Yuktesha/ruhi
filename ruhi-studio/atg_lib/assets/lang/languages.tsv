@@ -1,0 +1,58 @@
+# ====================================================================================================
+# ATG _lib_rs (atg_lib) 標準內建多語言試算表矩陣 (Default Built-in Multi-Language Matrix)
+# 遵循「在地化語意純粹與尊嚴定律 (L10n Semantic Precision & Linguistic Sovereignty Law)」
+# ====================================================================================================
+KEY	zh_TW (繁體中文)	en_US (English)	zh_CN (简体中文)	ja_JP (日本語)
+# --- 應用程式與通用選單 ---
+app_title	ATG Universal Studio - 原生自適應工作站	ATG Universal Studio - Adaptive Workstation	ATG Universal Studio - 原生自适应工作站	ATG Universal Studio - アダプティブワークステーション
+menu_file	檔案 (F)	File (F)	文件 (F)	ファイル (F)
+menu_edit	編輯 (E)	Edit (E)	编辑 (E)	編集 (E)
+menu_view	檢視 (V)	View (V)	视图 (V)	表示 (V)
+menu_tools	工具 (T)	Tools (T)	工具 (T)	ツール (T)
+menu_help	說明 (H)	Help (H)	帮助 (H)	ヘルプ (H)
+menu_language	語言 (Language)	Language	语言 (Language)	言語 (Language)
+
+# --- 標準對話框與按鈕 ---
+btn_ok	確定 (Enter)	OK (Enter)	确定 (Enter)	OK (Enter)
+btn_cancel	取消 (Esc)	Cancel (Esc)	取消 (Esc)	キャンセル (Esc)
+btn_apply	套用	Apply	应用	適用
+btn_save	儲存	Save	保存	保存
+btn_load	載入	Load	加载	開く
+btn_reset	重設	Reset	重置	リセット
+btn_close	關閉	Close	关闭	閉じる
+msg_yes	是 (Y)	Yes (Y)	是 (Y)	はい (Y)
+msg_no	否 (N)	No (N)	否 (N)	いいえ (N)
+msg_retry	重試 (R)	Retry (R)	重试 (R)	再試行 (R)
+msg_info_title	提示	Information	提示	情報
+msg_warn_title	警告	Warning	警告	警告
+msg_error_title	錯誤	Error	错误	エラー
+msg_confirm_title	確認	Confirm	确认	確認
+
+# --- 偏好設定中心 ---
+dlg_preferences_title	偏好設定中心 (Preferences)	Preferences	首选项设置 (Preferences)	環境設定 (Preferences)
+pref_theme_group	色彩主題風格：	Color Theme:	色彩主题风格：	カラーテーマ：
+pref_theme_system	跟隨系統設定 (Follow System)	Follow System	跟随系统设置 (Follow System)	システム設定に従う
+pref_theme_system_desc	自動偵測作業系統深淺色外觀與系統強調色，背景變更時即時同步換膚。	Automatically syncs with OS dark/light mode and system accent color in real time.	自动检测操作系统深浅色外观与系统强调色，后台变更时实时同步换肤。	OSのダーク/ライトモードおよびアクセントカラーとリアルタイムに自動同期します。
+pref_theme_dark	專業深色 (Studio Dark)	Studio Dark	专业深色 (Studio Dark)	スタジオダーク (Studio Dark)
+pref_theme_dark_desc	低眩光深色工作區，適合長時間專注創作、音視訊剪輯與夜間環境。	Low-glare dark workspace designed for extended focus, editing, and night work.	低眩光深色工作区，适合长时间专注创作、音视频剪辑与夜间环境。	長時間の集中作業や夜間環境に最適な低グレアのダークワークスペース。
+pref_theme_light	宣紙淺色 (Rice Paper Light)	Rice Paper Light	宣纸浅色 (Rice Paper Light)	宣紙ライト (Rice Paper Light)
+pref_theme_light_desc	溫潤不刺眼的宣紙暖白基底，適合明亮室內環境與文獻校對閱讀。	Warm rice-paper light palette suited for bright rooms and document reading.	温润不刺眼的宣纸暖白基底，适合明亮室内环境与文献校对阅读。	明るい室内や文書閲覧に適した温かみのある宣紙ライトパレット。
+pref_ui_scale	介面縮放比例 (UI Scaling)：	UI Scale Factor:	界面缩放比例 (UI Scaling)：	UI表示倍率 (UI Scaling)：
+pref_reset_windows	重設所有視窗自訂位置	Reset All Dialog Positions	重置所有窗口自定义位置	すべてのウィンドウ位置をリセット
+pref_reset_windows_done	已重設所有彈出視窗位置，下次開啟將自動居中於主視窗。	All dialog positions have been reset to center on the main window.	已重置所有弹出窗口位置，下次打开将自动居中于主窗口。	すべてのダイアログ位置をメインウィンドウ中央にリセットしました。
+pref_profiles_group	個人化參數組合 (Profiles)：	Configuration Profiles:	个性化参数组合 (Profiles)：	設定プロファイル (Profiles)：
+pref_restore_defaults	恢復原廠預設值	Restore Factory Defaults	恢复出厂默认值	工場出荷時の設定に戻す
+
+# --- 電源與關閉螢幕節能倒數 ---
+dlg_screen_off_title	關閉螢幕節能倒數 (Screen Off)	Screen Off Countdown	关闭屏幕节能倒计时 (Screen Off)	画面オフ省電力カウントダウン
+dlg_screen_off_header	工作已完成，即將自動關閉螢幕電源	Task completed. Turning off display power soon.	任务已完成，即将自动关闭屏幕电源	作業が完了しました。まもなくディスプレイ電源をオフにします。
+dlg_screen_off_desc	關閉螢幕可大幅節省電力並消除亮光干擾，移動滑鼠或按任意鍵即可喚醒。	Turning off the monitor saves power and eliminates glare. Move mouse to wake.	关闭屏幕可大幅节省电力并消除亮光干扰，移动鼠标或按任意键即可唤醒。	画面をオフにすると省電力になり眩しさを防ぎます。マウス操作で復帰します。
+btn_extend_5min	⏳ 延長 5 分鐘	⏳ Extend 5 Min	⏳ 延长 5 分钟	⏳ 5分延長
+btn_turn_off_now	🌙 立即關閉螢幕 (Enter)	🌙 Turn Off Now (Enter)	🌙 立即关闭屏幕 (Enter)	🌙 今すぐオフ (Enter)
+
+# --- 資料表格與控制台 ---
+tree_menu_fit_col	調整「{col}」至最適欄寬	Auto-fit Column "{col}"	调整“{col}”至合适列宽	列「{col}」の幅を自動調整
+tree_menu_fit_all	調整所有欄位至最適欄寬	Auto-fit All Columns	调整所有列至合适列宽	すべての列幅を自動調整
+console_title	即時日誌 (Live Console)	Live Console	实时日志 (Live Console)	ライブコンソール
+console_clear	📋 清空日誌	📋 Clear Log	📋 清空日志	📋 ログを消去
+console_export	💾 匯出日誌	💾 Export Log	💾 导出日志	💾 ログを出力

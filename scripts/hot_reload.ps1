@@ -159,6 +159,12 @@ try {
                 break
             }
         }
+        $icoSrc = Join-Path $rootDir "assets\ruhi.ico"
+        if (Test-Path $icoSrc) {
+            foreach ($icoDst in @((Join-Path $rootDir "ruhi.ico"), (Join-Path $parent "ruhi.ico"))) {
+                try { Copy-Item $icoSrc -Destination $icoDst -Force -ErrorAction SilentlyContinue } catch {}
+            }
+        }
         foreach ($sf in @("settings_config.json", "config.json")) {
             $srcF = Join-Path $rootDir $sf
             if (Test-Path $srcF) {

@@ -62,6 +62,8 @@ scratch/
 scripts/_cfg/
 
 # Local runtime state, personal dictionaries & shortcuts (do not publish to GitHub)
+/ruhi.ico
+scripts/ruhi.ico
 /user_dict.tsv
 /deleted_dict.tsv
 /hot_reload.ps1

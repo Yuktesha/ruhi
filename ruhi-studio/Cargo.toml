@@ -15,7 +15,7 @@ name = "ruhi_studio"
 path = "src/lib.rs"
 
 [dependencies]
-atg_lib = { path = "C:/ATGprjs/_lib_rs" }
+atg_lib = { path = "atg_lib" }
 ruhi-core = { path = "../ruhi-core" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
