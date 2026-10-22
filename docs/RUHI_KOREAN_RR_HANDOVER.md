@@ -850,3 +850,47 @@ let is_kr_romaja_key = is_kr && engine.korean.has_buffer() && ch == '-';
 ### 14.8 已知的輕微事項（本輪不處理，僅供知悉）
 
 - `RuhiEngine` 在韓文模式下結算時不會更新 `last_committed_word`。TSF 的 `commit*` 分支（約第 2393 行）會另外呼叫 `record_committed`，因此在實際使用中影響有限。留待 P7 或之後評估。
+
+---
+
+## 十五、跨輸入模式之輸入座基本操作一致性補正規範（`Esc`、`Shift + Backspace`、`Ctrl + Backspace`）
+
+> **架構鐵律**（已同步載入 [RUHI_ASIAN_LANGUAGES_EXTENSION_GUIDE.md 第五節](file:///C:/ATGprjs/ruhi/docs/RUHI_ASIAN_LANGUAGES_EXTENSION_GUIDE.md#L190-L225) 與 [RUHI_MULTILINGUAL_EXPANSION_GUIDE.md 第一節鐵律四](file:///C:/ATGprjs/ruhi/docs/RUHI_MULTILINGUAL_EXPANSION_GUIDE.md#L30-L38)）：
+> 如喜輸入座（`pending_compose` + 子引擎未決緩衝區）可同時容納不同語系的輸入字串，因此**無論當前處於哪一種輸入模式，輸入座的基本操作（`Esc` 四級撤銷、`Backspace` / `Shift + Backspace` / `Ctrl + Backspace` 三級退格刪除、游標穿梭、範圍選取與編輯快捷鍵）都必須 100% 保持一致**。
+
+### 15.1 已定位之行為不一致根因
+
+1. **`Esc` 在僅有子引擎未決緩衝區（`!has_pending`）時未隱藏懸浮輸入座視窗**：
+   - 位置：[`ruhi-tsf/src/service.rs`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) 的 `VK_ESCAPE` 處理區塊（約第 2284～2291 行）：
+     ```rust
+     } else if has_engine_preedit {
+         // Level 3：清除引擎中的未決注音/字根（保留已組的 pending 文字）
+         self.engine.lock().unwrap().reset_buffer();
+         if has_pending {
+             self.sync_input_display(ctx)?;
+         } else {
+             self.end_tsf_composition(ctx)?; // ← 遺漏 self.hide_candidate_window();
+         }
+     ```
+   - 影響：當韓文（或日文、倉頡）剛開始組字、尚未按空白或方向鍵併入 `pending_compose`（即 `has_engine_preedit == true` 且 `has_pending == false`）時，按下 `Esc` 雖然清空了 `engine`，但在懸浮輸入座模式（`floating_follow` / `floating_fixed`）下因未呼叫 `self.hide_candidate_window()`，導致懸浮輸入座視窗殘留於螢幕上。
+   - 修正方式：在 `else` 分支中呼叫 `self.hide_candidate_window();` 後再呼叫 `self.end_tsf_composition(ctx)?;`。
+
+2. **`Shift + Backspace` 與 `Ctrl + Backspace` 在韓文（及日文）未決緩衝區中退化為只刪 1 個拉丁字母**：
+   - 位置：[`ruhi-tsf/src/service.rs`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) 的 `VK_BACK` 處理區塊（約第 2151～2156 行）：
+     ```rust
+     if engine.japanese.has_buffer() {
+         let _ = engine.process_key('\x08');
+         true
+     } else if engine.korean.has_buffer() {
+         let _ = engine.process_key('\x08');
+         true
+     }
+     ```
+   - 影響：注音與倉頡／行列皆區分 `Backspace`（退 1 個部件／字母）、`Shift + Backspace`（退 1 個音節／字塊）、`Ctrl + Backspace`（退 1 個詞／清空當前未決緩衝區），但韓文與日文分支完全忽略 `is_shift` 與 `is_ctrl`，一律只呼叫 `process_key('\x08')` 刪除 1 個拉丁字母。
+   - 修正規格：
+     - **`KoreanEngine`**：
+       - `Backspace`（`\x08`）：刪除最後 **1 個拉丁字母**（既有行為）。
+       - `Shift + Backspace`（`pop_syllable`）：若尾端有未完成相容字母（`pending` 非空）或結尾為 `-`，先退掉該未完成部分；否則將 `raw_romaja` 退回 **1 個完整諺文音節**（可由最佳解析路徑 `Parse.span_lens` 取得最後一個音節所佔之位元組長度並截斷，或逐字元回退至音節數減少 1）。
+       - `Ctrl + Backspace`（`pop_word`）：一次清空當前 `KoreanEngine` 的未決詞緩衝區（`self.reset()`）。
+     - **`service.rs` 的 `VK_BACK`（當 `!eng_had_uncommitted`，即游標位於輸入座 `pending_compose` 已合成文字時）**：
+       - `Ctrl + Backspace` 除支援連續 ASCII 英數字詞與連續空白外，若游標前屬於 `pending_segments` 記錄的詞段（或連續諺文／假名／漢字區段），應一次向後刪除該完整詞段，而非退化為只刪 1 個字元。

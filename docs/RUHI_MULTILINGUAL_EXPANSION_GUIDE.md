@@ -27,6 +27,15 @@
 - 漢語二階轉移表（`transitions_user.tsv`）僅收錄純 CJK 漢字詞元；
 - 其他語系之詞頻、變音規則與語法同音消歧，一律封裝於各語系專屬模組與專屬 TSV 詞庫中，確保開啟或擴充新語言時，對既有注音與字形輸入**零效能損耗、零詞庫污染**。
 
+### 4. 鐵律四：跨輸入模式之共用輸入座基本操作一致性（Universal Composition Desk Consistency）
+- 如喜輸入座（`pending_compose` 與各子引擎未決緩衝區）可於同一次組字期間同時容納多種語言字串（如中文、日文、韓文、泛歐文字混排）。因此，**不論當前處於哪一種輸入模式，輸入座的基本操作必須 100% 保持一致**（完整對照表詳見 [RUHI_ASIAN_LANGUAGES_EXTENSION_GUIDE.md 第五節](file:///C:/ATGprjs/ruhi/docs/RUHI_ASIAN_LANGUAGES_EXTENSION_GUIDE.md#L190-L225)）：
+  1. **三級退格刪除（`Backspace` / `Shift + Backspace` / `Ctrl + Backspace`）**：
+     - `Backspace`：部件／單一拉丁字母級回退（子引擎有緩衝區時退 1 個部件／字母；於輸入座已合成文字則退 1 個字元）。
+     - `Shift + Backspace`：音節／單字塊級回退（注音退 1 個音節、倉頡／行列清空當前未決字根、韓文／日文退 1 個完整音節或未決相容字母，嚴禁退化為只刪 1 個拉丁字母）。
+     - `Ctrl + Backspace`：詞彙／區段級回退（子引擎有未決緩衝區時清空當前未決詞或退 1 個 Viterbi 詞；於輸入座已合成文字時依 `pending_segments` 或語系詞段一次刪除 1 個完整詞段，嚴禁在非 ASCII 字元時退化為只刪 1 個字）。
+  2. **四級階梯式 `Esc` 撤銷**：依序為 Level 1 取消反白選取 ➔ Level 2 關閉候選清單 ➔ Level 3 僅清除子引擎未決預覽並保留輸入座已合成前文 ➔ Level 4 徹底清空全部緩衝區並**同步呼叫 `hide_candidate_window()` 與 `end_tsf_composition(ctx)`**（嚴禁遺漏隱藏懸浮輸入座視窗）。
+  3. **游標導覽、範圍選取與編輯快捷鍵**：`←`/`→`/`Home`/`End`、`Ctrl + ←/→` 跨詞跳躍、`Shift + 方向鍵` 範圍選取、`Delete`、`Ctrl + A/C/X/V/Z/Y` 與 `Enter` 全句上屏，在所有輸入模式下行為一致。
+
 ---
 
 ## 二、多語言擴充之四大計算語言學類型（Four Typological Tracks）

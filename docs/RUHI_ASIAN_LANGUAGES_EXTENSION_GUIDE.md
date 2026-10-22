@@ -179,3 +179,46 @@
 3. **掛載雙軌方向鍵與快捷鍵迴圈**：
    - 於 [`RuhiEngine::process_key_str`](file:///C:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 與 [`service.rs`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) 將 `"korean"` 分派至 `self.korean`。
    - 於 [`ruhi-studio/src/main.rs`](file:///C:/ATGprjs/ruhi/ruhi-studio/src/main.rs) 的 `layouts` 與 `mode_options` 清單加入 `("korean", "韓文羅馬拼音輸入 (韓)")`，即可由使用者自由勾選納入 `Ctrl / Shift + Caps Lock` 快速切換迴圈。
+4. **對齊共用輸入座基本操作契約（詳見第五節）**：
+   - 確保子引擎與 [`service.rs`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) 在 `Esc`（四級階梯式撤銷）、`Backspace` / `Shift + Backspace` / `Ctrl + Backspace`（三級退格刪除）、方向鍵游標穿梭、範圍選取與 `Ctrl + Z/Y/A/C/X/V` 等輸入座基礎操作上，與所有既有輸入模式 100% 行為一致。
+
+---
+
+## 五、跨語系共用輸入座基本操作一致性規範（Universal Composition Desk Consistency Specification）
+
+> **核心設計原則**：「如喜輸入座（Shared Composition Desk）」是跨語系共用的長句編輯容器。使用者可在同一次組字過程中切換不同輸入模式，使同一輸入座同時容納中文（注音／倉頡／行列）、日文（漢字／假名）、韓文（諺文）與泛歐文字（英／法／德／西／梵文轉寫）。因此，**無論當前處於哪一種輸入模式，輸入座的所有基本編輯與控制操作都必須維持 100% 一致的行為語意**，嚴禁因切換語系而出現操作斷裂。
+
+### 1. 三級退格刪除階層（Three-Tier Backspace Hierarchy）
+
+輸入座的退格操作依修飾鍵分為「**部件／字母級（`Backspace`）** ➔ **音節／字塊級（`Shift + Backspace`）** ➔ **詞彙／區段級（`Ctrl + Backspace`）**」三個粒度層級（若有反白選取範圍 `sel_anchor`，三者皆優先刪除選取範圍）：
+
+| 組合鍵 | 刪除粒度 | 當子引擎有未決緩衝區時（Sub-Engine Active Buffer） | 當子引擎無未決緩衝區時（輸入座 `pending_compose` 已合成文字） |
+| :--- | :--- | :--- | :--- |
+| **`Backspace`** | **第 1 級：部件／字母級**<br>*(Component / Letter)* | • **注音**：刪除最後 1 個注音符號（`pop_component`）<br>• **倉頡／行列**：刪除最後 1 個字根碼<br>• **日文／韓文**：刪除最後 **1 個拉丁字母**（`romaji_buffer` / `raw_romaja`）並即時重算預覽 | 刪除游標前 **1 個字元**（Character / 含組合變音符之完整字素） |
+| **`Shift + Backspace`** | **第 2 級：音節／字塊級**<br>*(Syllable / Char-Block)* | • **注音**：若有未決注音部件則清除該未完成音節，否則刪除最後 **1 個完整音節（1 個中文字）**（`pop_syllable`）<br>• **倉頡／行列**：一次清空當前正在拆碼的未決字根緩衝區<br>• **韓文／日文**：退回最後 **1 個完整音節（韓文 1 個諺文字塊或尾端未完成相容字母；日文 1 個假名音節或尾端未決子音）**，嚴禁退化為只刪 1 個拉丁字母 | 刪除游標前 **1 個字元／音節塊** |
+| **`Ctrl + Backspace`** | **第 3 級：詞彙／區段級**<br>*(Word / Segment)* | • **注音**：依 Viterbi 斷詞結構（`segments`）一次刪除最後 **1 個完整詞彙**（`pop_word`）<br>• **倉頡／行列／韓文／日文**：一次清空當前子引擎正在拼打的**整個未決詞彙緩衝區** | 依輸入座詞界（`pending_segments` 區段、連續歐文字母數字詞、連續空白、或同語系連續詞段）一次向後刪除 **1 個完整詞段**，嚴禁在非 ASCII 字元時退化為只刪 1 個字 |
+
+### 2. 四級階梯式 `Esc` 撤銷（4-Level Stepped Escape Cancellation）
+
+不論當前為哪一種輸入模式，按下 `Esc` 鍵一律遵循由淺入深的 4 級撤銷狀態機（實作於 [`service.rs`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/service.rs)）：
+
+| 階梯層級 | 觸發條件 | 規定行為 | 視窗與狀態同步要求 |
+| :--- | :--- | :--- | :--- |
+| **Level 1** | 存在反白選取範圍（`sel_anchor.is_some()`） | 僅取消反白選取標記，**100% 保留輸入座與子引擎內所有文字** | 呼叫 `sync_input_display(ctx)` 重繪輸入座 |
+| **Level 2** | 候選字選取模式開啟中（`candidate_selecting == true`） | 關閉 `↓`／`↑` 候選選字清單，退回一般輸入座組字狀態，**保留所有組字內容** | 重設 `candidate_selecting = false`、隱藏候選清單並呼叫 `sync_input_display(ctx)` |
+| **Level 3** | 子引擎有未決預覽（`has_engine_preedit`）**且**輸入座已有前文（`has_pending`） | 僅清除當前子引擎未完成的組字緩衝區（`engine.reset_buffer()`），**完整保留輸入座（`pending_compose`）中先前已組好的多語系文字** | 呼叫 `sync_input_display(ctx)` 更新輸入座顯示 |
+| **Level 4** | 僅有子引擎未決緩衝區（`!has_pending`），或僅有輸入座已合成文字（`has_pending && !has_engine_preedit`） | 清空子引擎與輸入座全部緩衝區（`reset_buffer` + `clear_all_pending`），重設游標與選取錨點 | **必須同時呼叫 `hide_candidate_window()` 與 `end_tsf_composition(ctx)`**（嚴禁遺漏 `hide_candidate_window()` 導致懸浮輸入座視窗殘留於螢幕上） |
+
+### 3. 跨語系游標穿梭、範圍選取與編輯快捷鍵契約
+
+當輸入座中同時包含多種語言字串（例如 `「今天去 서울 吃 ラーメン 與 Café」`）時，以下操作在任何輸入模式下皆須保持一致：
+
+| 操作分類 | 按鍵組合 | 跨模式統一行為規範 |
+| :--- | :--- | :--- |
+| **單字游標移動** | `←` / `→` / `Home` / `End` | 先透過 `consolidate_engine_to_pending()` 將當前子引擎未決內容（韓文必須取 `Finalize` 結果，不得將孤立相容字母送入輸入座）併入 `pending_compose`，再於整句中自由移動游標（自動跨越 Unicode 組合變音符 `U+0300..U+036F`）。 |
+| **跨詞快速跳躍** | `Ctrl + ←` / `Ctrl + →` | 依 `get_word_boundaries`（結合 `pending_segments` 與語系字元類別邊界）在中文詞、韓文詞、日文詞與歐文單字之間逐詞跳躍。 |
+| **範圍反白選取** | `Shift + ←/→/Home/End`<br>`Ctrl + Shift + ←/→` | 於輸入座內建立或延伸反白選取區間（`sel_anchor` .. `sentence_cursor`）。 |
+| **向後刪除** | `Delete` | 若有選取範圍則刪除選取範圍；否則先結算子引擎未決緩衝區，再刪除游標後方 1 個字元。 |
+| **剪貼簿與復原** | `Ctrl + A` / `Ctrl + C` / `Ctrl + X` / `Ctrl + V`<br>`Ctrl + Z` / `Ctrl + Y` (`Ctrl + Shift + Z`) | 全選輸入座、複製選取（無選取時 `Ctrl + C` 為整句取消）、剪下選取、貼入游標處、以及跨語系編輯歷史之 Undo / Redo。 |
+| **雙軌選字連動** | `↓`（候選展開）<br>`↑`（模糊救援／預測） | 根據**游標當前所在詞段的語系與原始拼寫（`pending_segments` / `last_raw_ascii`）**或當前子引擎緩衝區，自動分派至對應語系的 `↓` 同音／切分候選與 `↑` 學習者模糊救援。 |
+| **全句確認上屏** | `Enter` | 將子引擎未決內容以 `Finalize` 模式結算併入輸入座後，將整條多語系句子一次性提交至目標應用程式。 |
