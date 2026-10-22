@@ -144,3 +144,40 @@ impl NewLangEngine {
    - **`Tab` 鍵循環選字**與數字鍵選字之確定性；
    - `Backspace` 退格與 `Escape` 取消之緩衝區完整性。
 2. 若需支援「如喜語意調校工作室」（[`scripts/semantic_tuner.py`](file:///C:/ATGprjs/ruhi/scripts/semantic_tuner.py)）之句對診斷，於 `synthesize_hierarchical_constructions_for_diff` 註冊該語系的構式識別規則，並確保不將外文字元寫入漢語 `transitions_user.tsv`。
+
+
+---
+
+## 五、全球多語系穿透安裝與介面母語自適應架構（Cross-Locale TSF Profile Registration & Native UI Auto-Adaptation）
+
+### 1. 核心願景：讓全世界的使用者都能從自己的母語環境自然安裝並使用 RuhI
+如喜（RuhI）定位為「通用智慧型輸入法（Universal Smart Input Method）」。全球不同母語的使用者（例如英語／歐語使用者、日語使用者、韓語使用者、繁體中文使用者）在 Windows 作業系統中，不一定會安裝「繁體中文（台灣 `0x0404`）」語言套件。因此，RuhI 在安裝與註冊時必須具備**「穿透各支援語言掛載」**與**「依選取語言自動切換介面語系與預設輸入模式」**的能力：
+
+- 當使用者從 **Windows 語言／英文（English `en-US`）** 選取並啟用 RuhI 時：
+  - 啟動後所有介面（輸入座狀態列、右鍵選單、提示膠囊、偏好設定中心 `ruhi-studio`）自動以 **英文（English）** 為主，且初始預設輸入模式自動設為歐文（或使用者上次於該語系記憶之模式）。
+- 當使用者從 **繁體中文（`zh-TW`）**、**日文（`ja-JP`）**、**韓文（`ko-KR`）** 或 **法／德／西文（`fr-FR` / `de-DE` / `es-ES`）** 選取 RuhI 時，依此類推，自動對應其母語介面與初始輸入模式。
+
+### 2. Windows TSF 多語系設定檔（Multi-LANGID Profiles）技術架構
+在 [`ruhi-tsf/src/registry.rs`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/registry.rs) 與 [`ruhi-tsf/src/guid.rs`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/guid.rs) 中，單一 TSF 文字服務（`CLSID_RUHI_TEXT_SERVICE`）可透過 `ITfInputProcessorProfileMgr::RegisterProfile` 向 Windows 註冊多組語言設定檔（Language Profiles）：
+
+| Windows 語言清單入口 (`LANGID`) | 註冊之設定檔顯示名稱 (Profile Description) | 啟動時預設 UI 語系 (`ui_lang`) | 啟動時預設輸入模式 (`default_mode`) |
+| :--- | :--- | :--- | :--- |
+| **`0x0404` (`zh-TW` 繁體中文)** | `RuhI如喜通用智慧型輸入法` | `zh-TW`（繁體中文） | `hsu` / `standard`（注音／字形） |
+| **`0x0409` (`en-US` English)** | `RuhI Universal Smart IME` | `en-US`（English） | `latin`（Pan-European 泛歐文） |
+| **`0x0411` (`ja-JP` 日本語)** | `RuhI 汎用スマート入力 (如喜)` | `ja-JP`（日本語 / English） | `japanese`（日文羅馬拼音） |
+| **`0x0412` (`ko-KR` 한국어)** | `RuhI 범용 스마트 입력기 (如喜)` | `ko-KR`（한국어 / English） | `korean`（韓文羅馬拼音） |
+| **`0x040C / 0x0407 / 0x0C0A` (法/德/西)** | `RuhI Universal Smart IME` | 對應歐語或 `en-US` | `latin`（Pan-European 泛歐文） |
+
+### 3. 執行期動態偵測與設定同步流程（Runtime Locale Detection & UI Synchronization）
+1. **安裝階段（Installer / `register_server`）**：
+   - 偵測使用者系統目前已安裝的 Windows 鍵盤語言清單（或於安裝精靈供使用者勾選要掛載至哪些語言底下），為對應的 `LANGID` 註冊 RuhI Profile。
+   - 若系統尚未建立 `config.json`，則依據當前系統 UI 語言（`GetUserDefaultUILanguage()`）或掛載之首選 `LANGID`，初始化預設 `ui_language` 與 `keyboard_layout`。
+2. **切換階段（`ITfInputProcessorProfileMgr::GetActiveProfile`）**：
+   - 當使用者從 Windows 右下角語言列（`Win + Space`）由「英文 - RuhI」切換至「中文 - RuhI」或「日文 - RuhI」時，[`RuhiTextService`](file:///C:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) 於 `ActivateEx` 或 Profile 變更通知中讀取當前 `TF_INPUTPROCESSORPROFILE.langid`：
+     - 若使用者將介面語系設為 `"auto"`（跟隨輸入語言／系統語言），則候選窗選單、狀態膠囊與設定中心自動切換為該 `langid` 對應之介面語言。
+3. **跨模式簡易英文語意橋接（Universal English Semantic Bridge）**：
+   - 在「不混打、嚴格依當前輸入模式分派」的前提下，同一組簡易英文語意鍵（如 `tks` / `thanks`、`hi` / `hello`、`sry` / `sorry`、`pls` / `please`）依當前所在輸入模式自動對應目標語言：
+     - **中文模式** ➔ `謝謝`、`感謝`
+     - **日文模式** ➔ `ありがとうございます`、`ありがとう`
+     - **韓文模式** ➔ `감사합니다`、`고마워요`
+     - **歐文模式（按 `↓` / `↑`）** ➔ 列出泛歐支援語言（`Thanks`, `Thank you`, `Merci`, `Danke`, `Gracias`, `Grazie`, `Obrigado`, `Dhanyavád`）。
