@@ -2,7 +2,8 @@
 /// src/korean/romaja.rs - 韓語標準羅馬拼音（RR）音節切分動態規劃（N-best）
 
 use crate::korean::jamo::{
-    compose, decompose, is_compound_coda, CHOSEONG, JONGSEONG, JUNGSEONG,
+    compose, decompose, is_compound_coda, match_compat_jamo_prefix, CHOSEONG, ISOLATED_JAMO_L,
+    JONGSEONG, JUNGSEONG,
 };
 use crate::korean::lexicon::KoreanLexicon;
 
@@ -164,7 +165,7 @@ fn match_tail_pending(tail: &str) -> Vec<(String, u32)> {
     }
 
     // 2. 半母音過渡（"y" 或 "w"）或「初聲 + y/w」（如 anny -> 안ㄴy、hwa 打到 hw -> ㅎw）
-    if tail == "y" || tail == "w" {
+    if tail == "y" || tail == "w" || tail == "q" || tail == "qc" || tail == "qw" || tail == "qy" {
         res.push((tail.to_string(), COST_PENDING_PREVIEW * 2));
     } else if tail.ends_with('y') || tail.ends_with('w') {
         let onset_part = &tail[..tail.len() - 1];
@@ -294,6 +295,51 @@ fn parse_segment_nbest(
                                 cost: p.cost + step_cost,
                             });
                         }
+                    }
+                }
+            }
+        }
+
+        // 1b. 獨立諺文相容字母邊（前綴 `q` 如 `qa` -> `ㅏ`、`qg` -> `ㄱ`；後綴 `q` 如 `aq` -> `ㅏ`、`gq` -> `ㄱ`）
+        {
+            let mut jamo_edges: Vec<(char, usize, u32)> = Vec::new();
+            if seg[i..].starts_with('q') {
+                for (compat_ch, jamo_len, alt_cost) in match_compat_jamo_prefix(&seg[i + 1..]) {
+                    jamo_edges.push((compat_ch, 1 + jamo_len, alt_cost));
+                }
+            }
+            for (compat_ch, jamo_len, alt_cost) in match_compat_jamo_prefix(&seg[i..]) {
+                let after = i + jamo_len;
+                if after < n && seg[after..].starts_with('q') {
+                    jamo_edges.push((compat_ch, jamo_len + 1, alt_cost));
+                }
+            }
+            for (compat_ch, span_len, alt_cost) in jamo_edges {
+                let j = i + span_len;
+                if j > n {
+                    continue;
+                }
+                let step_cost = COST_SYLLABLE + alt_cost;
+                for prev_coda in 0..=1 {
+                    if dp[i][prev_coda].is_empty() {
+                        continue;
+                    }
+                    let prev_paths = dp[i][prev_coda].clone();
+                    for p in prev_paths {
+                        let mut next_syls = p.syllables;
+                        next_syls.push(Syllable {
+                            l: ISOLATED_JAMO_L,
+                            v: compat_ch as usize,
+                            t: 0,
+                        });
+                        let mut next_spans = p.span_lens;
+                        next_spans.push(span_len);
+                        dp[j][0].push(DpPath {
+                            syllables: next_syls,
+                            span_lens: next_spans,
+                            pending: String::new(),
+                            cost: p.cost + step_cost,
+                        });
                     }
                 }
             }
@@ -525,7 +571,11 @@ pub fn parse_nbest(raw: &str, mode: ParseMode, k: usize) -> Vec<Parse> {
 pub fn render(p: &Parse) -> String {
     let mut out = String::with_capacity(p.syllables.len() * 3 + p.pending.len());
     for s in &p.syllables {
-        if let Some(ch) = compose(s.l, s.v, s.t) {
+        if s.l == ISOLATED_JAMO_L {
+            if let Some(ch) = char::from_u32(s.v as u32) {
+                out.push(ch);
+            }
+        } else if let Some(ch) = compose(s.l, s.v, s.t) {
             out.push(ch);
         }
     }

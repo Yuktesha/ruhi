@@ -102,6 +102,62 @@ pub const V_COUNT: u32 = 21;
 pub const T_COUNT: u32 = 28;
 pub const N_COUNT: u32 = V_COUNT * T_COUNT; // 588
 pub const S_COUNT: u32 = L_COUNT * N_COUNT; // 11172
+/// 用於 `Syllable.l` 的特殊標記：代表獨立諺文相容字母（Compatibility Jamo, U+3131..=U+318E），字元碼存放於 `Syllable.v`
+pub const ISOLATED_JAMO_L: usize = 99;
+
+/// 在 `rem` 開頭嘗試匹配獨立諺文相容字母（子音、母音、終聲 ㅇ 與複合收尾音），回傳 `(compat_char, matched_byte_len, alt_cost)`
+pub fn match_compat_jamo_prefix(rem: &str) -> Vec<(char, usize, u32)> {
+    let mut res = Vec::with_capacity(6);
+    for (l_idx, spec) in CHOSEONG.iter().enumerate() {
+        if l_idx == 11 {
+            continue;
+        }
+        if !spec.rr.is_empty() && rem.starts_with(spec.rr) {
+            res.push((spec.compat, spec.rr.len(), 0));
+        }
+        for &(alt, cost) in spec.alts {
+            if !alt.is_empty() && rem.starts_with(alt) {
+                res.push((spec.compat, alt.len(), cost as u32));
+            }
+        }
+    }
+    for spec in JUNGSEONG.iter() {
+        if !spec.rr.is_empty() && rem.starts_with(spec.rr) {
+            res.push((spec.compat, spec.rr.len(), 0));
+        }
+        for &(alt, cost) in spec.alts {
+            if !alt.is_empty() && rem.starts_with(alt) {
+                res.push((spec.compat, alt.len(), cost as u32));
+            }
+        }
+    }
+    for (t_idx, opt_spec) in JONGSEONG.iter().enumerate() {
+        if t_idx == 21 || is_compound_coda(t_idx) || matches!(t_idx, 24..=26) {
+            if let Some(spec) = opt_spec {
+                let extra = if matches!(t_idx, 24..=26) { 1 } else { 0 };
+                if !spec.rr.is_empty() && rem.starts_with(spec.rr) {
+                    res.push((spec.compat, spec.rr.len(), extra));
+                }
+                for &(alt, cost) in spec.alts {
+                    if !alt.is_empty() && rem.starts_with(alt) && !matches!(t_idx, 24..=26) {
+                        res.push((spec.compat, alt.len(), cost as u32));
+                    }
+                }
+            }
+        }
+    }
+    res
+}
+
+/// 若整個 `romaja` 字串恰好對應單一諺文相容字母（如 `"g"` -> `'ㄱ'`, `"a"` -> `'ㅏ'`, `"ng"` -> `'ㅇ'`, `"ks"` -> `'ㄳ'`），回傳該相容字母
+pub fn exact_compat_jamo(romaja: &str) -> Option<char> {
+    let lower = romaja.to_ascii_lowercase();
+    match_compat_jamo_prefix(&lower)
+        .into_iter()
+        .filter(|&(_, len, _)| len == lower.len())
+        .min_by_key(|&(_, _, cost)| cost)
+        .map(|(ch, _, _)| ch)
+}
 
 /// 判斷終聲索引 T 是否為複合終聲（T = 3, 5, 6, 9..=15, 18）
 pub fn is_compound_coda(t: usize) -> bool {

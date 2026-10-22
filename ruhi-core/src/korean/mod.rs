@@ -85,6 +85,14 @@ impl KoreanEngine {
                 }
             }
         }
+        if cands.len() < 9 {
+            if let Some(compat_ch) = crate::korean::jamo::exact_compat_jamo(romaja) {
+                let compat_str = compat_ch.to_string();
+                if !cands.contains(&compat_str) {
+                    cands.push(compat_str);
+                }
+            }
+        }
         if cands.len() < 9 && !cands.contains(&romaja.to_string()) {
             cands.push(romaja.to_string());
         }
@@ -1136,6 +1144,60 @@ mod tests {
             eng.process_key(ch);
         }
         let r_ctrl = eng.process_key_str("Ctrl+BackSpace");
+        assert_eq!(r_ctrl.action, "reset");
+        assert!(!eng.has_buffer());
+
+        // 獨立諺文字母（Compatibility Jamo）以 `q` 前綴／後綴直出與 `↓` 候選驗證
+        use crate::korean::romaja::romaja_to_hangul;
+        for (q_pre, q_suf, expected) in [
+            ("qa", "aq", "ㅏ"),
+            ("qeo", "eoq", "ㅓ"),
+            ("qo", "oq", "ㅗ"),
+            ("qu", "uq", "ㅜ"),
+            ("qeu", "euq", "ㅡ"),
+            ("qi", "iq", "ㅣ"),
+            ("qae", "aeq", "ㅐ"),
+            ("qe", "eq", "ㅔ"),
+            ("qyu", "yuq", "ㅠ"),
+            ("qg", "gq", "ㄱ"),
+            ("qk", "kq", "ㅋ"),
+            ("qkk", "kkq", "ㄲ"),
+            ("qd", "dq", "ㄷ"),
+            ("qt", "tq", "ㅌ"),
+            ("qtt", "ttq", "ㄸ"),
+            ("qb", "bq", "ㅂ"),
+            ("qp", "pq", "ㅍ"),
+            ("qpp", "ppq", "ㅃ"),
+            ("qj", "jq", "ㅈ"),
+            ("qch", "chq", "ㅊ"),
+            ("qjj", "jjq", "ㅉ"),
+            ("qs", "sq", "ㅅ"),
+            ("qss", "ssq", "ㅆ"),
+            ("qn", "nq", "ㄴ"),
+            ("qm", "mq", "ㅁ"),
+            ("qr", "rq", "ㄹ"),
+            ("qh", "hq", "ㅎ"),
+            ("qng", "ngq", "ㅇ"),
+            ("qks", "ksq", "ㄳ"),
+            ("qnj", "njq", "ㄵ"),
+            ("qnh", "nhq", "ㄶ"),
+            ("qlk", "lkq", "ㄺ"),
+            ("qlm", "lmq", "ㄻ"),
+            ("qlb", "lbq", "ㄼ"),
+            ("qps", "psq", "ㅄ"),
+        ] {
+            assert_eq!(romaja_to_hangul(q_pre, ParseMode::Preview), expected, "Preview failed for {}", q_pre);
+            assert_eq!(romaja_to_hangul(q_pre, ParseMode::Finalize), expected, "Finalize failed for {}", q_pre);
+            assert_eq!(romaja_to_hangul(q_suf, ParseMode::Preview), expected, "Preview failed for {}", q_suf);
+            assert_eq!(romaja_to_hangul(q_suf, ParseMode::Finalize), expected, "Finalize failed for {}", q_suf);
+        }
+        // 連打表情與混合組字（ㅋㅋㅋ、ㅠㅠ）
+        assert_eq!(romaja_to_hangul("kqkqkq", ParseMode::Finalize), "ㅋㅋㅋ");
+        assert_eq!(romaja_to_hangul("yuqyuq", ParseMode::Finalize), "ㅠㅠ");
+        // 單打母音/子音按 `↓` 候選清單亦包含獨立諺文字母
+        assert!(eng.lookup_down_candidates_for_romaja("a").contains(&"ㅏ".to_string()));
+        assert!(eng.lookup_down_candidates_for_romaja("g").contains(&"ㄱ".to_string()));
+        assert!(eng.lookup_down_candidates_for_romaja("ng").contains(&"ㅇ".to_string()));
         assert_eq!(r_ctrl.action, "reset");
         if false {
     }
