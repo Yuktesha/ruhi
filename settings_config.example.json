@@ -42,7 +42,7 @@
     "enable_cloud_colab": true,
     "telemetry_consent": false,
     "upload_schedule": "weekly",
-    "cloud_sheet_webhook_url": "",
+    "cloud_sheet_webhook_url": "https://script.google.com/macros/s/AKfycbzH-n5YhBFSUPZUiUWfZXw46qp9OYliLlnijGmHMpIs4F0Ve_2ZM6k2mNpeoSnU6NMt/exec",
     "last_upload_timestamp": 0,
     "tailcat_auto_sync": true,
     "tailcat_update_mode": "notify_confirm",

@@ -119,23 +119,82 @@ impl Default for GrammarSettings {
     }
 }
 
-/// 雲端試算表 Apps Script Webhook 網址之內建預設值（刻意留空，不內建任何網址）。
-/// 實際網址一律由本機未入庫之設定檔或環境變數 `RUHI_CLOUD_SHEET_WEBHOOK_URL` 提供，
-/// 嚴防網址隨原始碼、設定範本或安裝包公開外流。
-pub const DEFAULT_CLOUD_SHEET_WEBHOOK_URL: &str = "";
+/// 官方預設之公開遙測投遞端點（Google Apps Script Web App 投遞網址）。
+/// 一般使用者勾選同意匿名回傳後，開箱即用可直接投遞改字雙句；
+/// 若未來端點輪替，客戶端亦會自動從 `tailcat_official_feed.json` 的 `telemetry_intake_url` 動態更新。
+pub const DEFAULT_CLOUD_SHEET_WEBHOOK_URL: &str =
+    "https://script.google.com/macros/s/AKfycbzH-n5YhBFSUPZUiUWfZXw46qp9OYliLlnijGmHMpIs4F0Ve_2ZM6k2mNpeoSnU6NMt/exec";
 
 /// 存放 Webhook 網址之環境變數名稱
 pub const CLOUD_SHEET_WEBHOOK_ENV: &str = "RUHI_CLOUD_SHEET_WEBHOOK_URL";
 
-/// 解析實際使用之 Webhook 網址：優先採用設定值，其次環境變數；皆無則回傳空字串（呼叫端應略過上傳）
+/// 存放開發者管理端權杖（供 `fetch_pending` / `mark_tuned` 使用）之環境變數名稱
+pub const CLOUD_SHEET_ADMIN_TOKEN_ENV: &str = "RUHI_CLOUD_SHEET_ADMIN_TOKEN";
+
+/// 解析實際使用之雲端試算表投遞網址（四層優先序）：
+/// 1. 環境變數 `RUHI_CLOUD_SHEET_WEBHOOK_URL`（開發者或測試覆寫）
+/// 2. 使用者於設定檔明確自訂之非預設網址
+/// 3. Tailcat 雲端動態清單（`federation_sync_state.json` 或 `tailcat_official_feed.json`）中之 `telemetry_intake_url`（支援免重裝動態輪替網址）
+/// 4. 內建官方預設投遞網址 `DEFAULT_CLOUD_SHEET_WEBHOOK_URL`
 pub fn resolve_cloud_sheet_webhook_url(configured: &str) -> String {
+    if let Ok(env_url) = std::env::var(CLOUD_SHEET_WEBHOOK_ENV) {
+        let t = env_url.trim();
+        if !t.is_empty() {
+            return t.to_string();
+        }
+    }
+
     let c = configured.trim();
-    if !c.is_empty() {
+    if !c.is_empty() && c != DEFAULT_CLOUD_SHEET_WEBHOOK_URL {
         return c.to_string();
     }
-    std::env::var(CLOUD_SHEET_WEBHOOK_ENV)
-        .map(|v| v.trim().to_string())
-        .unwrap_or_default()
+
+    let root = resolve_ruhi_root();
+    let data_dir = resolve_data_dir(&root);
+    for candidate in [
+        data_dir.join("federation_sync_state.json"),
+        data_dir.join("tailcat_official_feed.json"),
+    ] {
+        if let Ok(raw) = fs::read_to_string(&candidate) {
+            if let Ok(val) = serde_json::from_str::<Value>(&raw) {
+                if let Some(dynamic_url) = val.get("telemetry_intake_url").and_then(Value::as_str) {
+                    let u = dynamic_url.trim();
+                    if u.starts_with("https://") {
+                        return u.to_string();
+                    }
+                }
+            }
+        }
+    }
+
+    if !c.is_empty() {
+        c.to_string()
+    } else {
+        DEFAULT_CLOUD_SHEET_WEBHOOK_URL.to_string()
+    }
+}
+
+/// 解析開發者管理端權杖（供拉取待調校雙句 `fetch_pending` 與回寫 `mark_tuned` 使用）
+pub fn resolve_cloud_sheet_admin_token() -> String {
+    if let Ok(tok) = std::env::var(CLOUD_SHEET_ADMIN_TOKEN_ENV) {
+        let t = tok.trim();
+        if !t.is_empty() {
+            return t.to_string();
+        }
+    }
+    let root = resolve_ruhi_root();
+    let flat_path = root.join("config.json");
+    if let Ok(raw) = fs::read_to_string(&flat_path) {
+        if let Ok(val) = serde_json::from_str::<Value>(&raw) {
+            if let Some(tok) = val.get("cloud_sheet_admin_token").and_then(Value::as_str) {
+                let t = tok.trim();
+                if !t.is_empty() {
+                    return t.to_string();
+                }
+            }
+        }
+    }
+    String::new()
 }
 
 /// 官方預設之 Tailcat 語意規則、詞庫與核心版本發布清單網址 (GitHub Raw + ETag CDN)
@@ -764,25 +823,37 @@ mod tests {
         assert_eq!(s.keyboard.punctuation_commit_mode, "A");
     }
 
-    /// 防外流：內建預設 Webhook 必須為空，且所有入庫之設定範本與原始碼不得含 Apps Script 部署網址
+    /// 驗證公開投遞端點解析、Tailcat 動態端點配置，並確保已封存之舊網址絕不殘留
     #[test]
-    fn test_no_cloud_webhook_url_leak_in_defaults_and_templates() {
-        assert!(DEFAULT_CLOUD_SHEET_WEBHOOK_URL.is_empty());
-        assert!(AiPrivacySettings::default().cloud_sheet_webhook_url.is_empty());
-        assert_eq!(resolve_cloud_sheet_webhook_url("  https://example.test/x  "), "https://example.test/x");
+    fn test_cloud_webhook_resolution_and_no_archived_url_leak() {
+        assert!(DEFAULT_CLOUD_SHEET_WEBHOOK_URL.starts_with("https://script.google.com/macros/s/"));
+        assert_eq!(
+            resolve_cloud_sheet_webhook_url("  https://example.test/x  "),
+            "https://example.test/x"
+        );
+        let resolved_default = resolve_cloud_sheet_webhook_url("");
+        assert!(resolved_default.starts_with("https://script.google.com/macros/s/"));
 
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-        let needle = ["script.google.com", "/macros/s/"].concat();
+        let archived_id = [
+            "AKfycbx6nCVXW4yP0",
+            "VDRLrAbYCf5fqRkxCcqSACdJuKrC-Vpc4S52oL1owLlGJeWX11Q7PU_",
+        ]
+        .concat();
         for rel in [
             "config.example.json",
             "settings_config.example.json",
+            "ruhi_lexicon/data/tailcat_official_feed.json",
             "ruhi-studio/src/config_sync.rs",
             "ruhi-studio/src/tuner.rs",
             "ruhi-studio/src/main.rs",
         ] {
             let p = root.join(rel);
             if let Ok(txt) = fs::read_to_string(&p) {
-                assert!(!txt.contains(&needle), "{rel} 含有 Apps Script 部署網址，禁止入庫");
+                assert!(
+                    !txt.contains(&archived_id),
+                    "{rel} 含有已封存之舊版 Webhook ID，禁止殘留"
+                );
             }
         }
     }

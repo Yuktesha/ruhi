@@ -962,7 +962,7 @@ impl RuhiStudioApp {
                 }
                 if ui.button("↺ 還原官方網址").clicked() {
                     self.settings.ai_and_privacy.cloud_sheet_webhook_url =
-                        ruhi_studio::config_sync::DEFAULT_CLOUD_SHEET_WEBHOOK_URL.to_string();
+                        ruhi_studio::config_sync::resolve_cloud_sheet_webhook_url("");
                     self.auto_save_settings_quiet();
                 }
             });

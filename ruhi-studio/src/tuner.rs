@@ -3230,11 +3230,19 @@ impl SemanticTuner {
         }
 
         let mut import_res = self.import_tailcat_package(&pkg);
-        if !new_etag.is_empty() {
+        if let Some(intake_url) = pkg.get("telemetry_intake_url").and_then(Value::as_str) {
+            let trimmed = intake_url.trim();
+            if trimmed.starts_with("https://") {
+                state_map["telemetry_intake_url"] = json!(trimmed);
+            }
+        }
+        if !new_etag.is_empty() || state_map.get("telemetry_intake_url").is_some() {
             if state_map.get("etags").is_none() {
                 state_map["etags"] = json!({});
             }
-            state_map["etags"][url] = json!(new_etag);
+            if !new_etag.is_empty() {
+                state_map["etags"][url] = json!(new_etag);
+            }
             state_map["last_sync"] = json!(Local::now().to_rfc3339());
             let _ = fs::write(
                 &state_path,
@@ -3364,8 +3372,9 @@ impl SemanticTuner {
             "latest_version": cur_ver,
             "min_compat_version": "0.4.0",
             "updated_at": Local::now().to_rfc3339(),
-            "release_notes": "RuhI v0.5.0：新增韓文羅馬字（RR）輸入模式、阿南達瑪迦梵語羅馬拼音詞彙轉寫與歐語變音候選擴充；雲端 Webhook 網址改由本機設定提供、不再內建；語意規則經 dev 集消融收斂。",
+            "release_notes": "RuhI v0.5.0：新增韓文羅馬字（RR）輸入模式、阿南達瑪迦梵語羅馬拼音詞彙轉寫與歐語變音候選擴充；支援 Tailcat 動態派發雲端投遞端點與試算表讀寫權限分離；語意規則經 dev 集消融收斂。",
             "installer_url": format!("https://github.com/Yuktesha/ruhi/releases/download/v{}/RuhI_Setup_v{}.exe", cur_ver, cur_ver),
+            "telemetry_intake_url": crate::config_sync::resolve_cloud_sheet_webhook_url(""),
             "compat_feeds": {
                 "1": crate::config_sync::DEFAULT_TAILCAT_FEED_URL
             },
@@ -3778,11 +3787,15 @@ impl SemanticTuner {
                 "message": "尚未設定雲端試算表 Webhook 網址（請於偏好設定填入，或設定環境變數 RUHI_CLOUD_SHEET_WEBHOOK_URL），已略過"
             });
         }
-        let fetch_url = if url.contains('?') {
+        let admin_token = crate::config_sync::resolve_cloud_sheet_admin_token();
+        let mut fetch_url = if url.contains('?') {
             format!("{url}&action=fetch_pending")
         } else {
             format!("{url}?action=fetch_pending")
         };
+        if !admin_token.is_empty() {
+            fetch_url.push_str(&format!("&token={admin_token}"));
+        }
 
         let output = std::process::Command::new("curl.exe")
             .args(["-s", "-L", "--max-time", "15", &fetch_url])
@@ -3802,6 +3815,13 @@ impl SemanticTuner {
                 "message": format!("雲端回應非合法 JSON：{}", resp_str)
             });
         };
+
+        if val.get("status").and_then(Value::as_str) == Some("unauthorized") {
+            return json!({
+                "status": "unauthorized",
+                "message": val.get("message").and_then(Value::as_str).unwrap_or("雲端試算表已啟用管理員權杖保護，請於本機 config.json 設定 cloud_sheet_admin_token 或環境變數 RUHI_CLOUD_SHEET_ADMIN_TOKEN。")
+            });
+        }
 
         // 若雲端 Apps Script 尚為舊版 Write-Only，友善提示更新腳本
         if val.get("service").and_then(Value::as_str).unwrap_or("").contains("Write-Only") {
@@ -3870,8 +3890,10 @@ impl SemanticTuner {
             });
         }
 
+        let admin_token = crate::config_sync::resolve_cloud_sheet_admin_token();
         let payload = json!({
             "action": "mark_tuned",
+            "admin_token": admin_token,
             "rows": row_numbers,
             "tuned_status": format!("✅ 已調校 ({})", Local::now().format("%Y-%m-%d %H:%M"))
         });
