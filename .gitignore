@@ -17,6 +17,9 @@ scripts/user_dict.tsv
 *.lib
 *.ilk
 
+# Local archive of retired legacy prototypes & tools
+_archive/
+
 # Python artifacts
 __pycache__/
 *.py[cod]
@@ -56,26 +59,34 @@ scratch/
 
 scripts/_cfg/
 
-# Sealed Semantic Tuning Studio & local runtime state (do not publish to GitHub)
+# Local runtime state, personal dictionaries & shortcuts (do not publish to GitHub)
+/user_dict.tsv
+/deleted_dict.tsv
+/hot_reload.ps1
+/語意調校工作室.ps1
+/一鍵發布更新至GitHub.ps1
 scripts/web/
 scripts/active_dll_path.txt
 active_dll_path.txt
 studio_wakeup.json
 _cfg/
 tools/google_sheets_webhook.gs
-語意調校工作室.ps1
 安裝本地AI純綠推論引擎.ps1
 啟動本地AI服務.ps1
 停止本地AI服務.ps1
+ruhi_lexicon/data/ai_handover_context.json
 ruhi_lexicon/data/cloud_pending_pairs.txt
 ruhi_lexicon/data/recent_txt_files.json
 ruhi_lexicon/data/pending_revisions.json
+ruhi_lexicon/data/revisions_archive.json
 ruhi_lexicon/data/user_revision_pairs.txt
 ruhi_lexicon/data/revision_log.jsonl
 ruhi_lexicon/data/community_sync_state.json
 ruhi_lexicon/data/federation_sync_state.json
+ruhi_lexicon/data/user_semantic_rules.json
+ruhi_lexicon/data/user_word_events.jsonl
 
-# 執行期設定檔（含個人偏好與雲端 Webhook 網址，不入庫；入庫者為 *.example.json 範本）
+# 執行期設定檔（含個人偏好與雲端 Webhook 網址，不入庫；入庫者為 installer/*.example.json 範本）
 /config.json
 /settings_config.json
 scripts/config.json
@@ -83,5 +94,3 @@ scripts/settings_config.json
 
 # 評估語料不公開（僅公開評估工具與彙總分數，詳見 ruhi_lexicon/eval/README.md）
 ruhi_lexicon/eval/*.tsv
-
-

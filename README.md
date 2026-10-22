@@ -81,26 +81,21 @@ flowchart TD
 ## 📂 儲存庫結構導覽 (Repository Layout)
 
 ```text
-C:\ATGprjs\ruhi/
-├── ruhi-core/            # 純 Rust 輸入法核心演算法庫 (FSM, Trellis, Router, Lexicon)
-│   ├── Cargo.toml
-│   └── src/              # 包含 69 項全量端到端單元測試
-├── ruhi-tsf/             # 純 Rust Windows 11 TSF COM 伺服器 (ruhi_tsf.dll)
-│   ├── Cargo.toml
-│   └── src/              # Direct2D 候選字視窗、TSF 服務
-├── ruhi_lexicon/         # 標準純淨詞庫資料
-│   └── data/             # 教育部詞典、小麥注音詞庫、倉頡碼表、西文詞庫
-├── scripts/              # 原生 UTF-8 BOM 交付與安裝腳本
-│   ├── 一鍵安裝.ps1       # 註冊並安裝如喜至 Windows 11
-│   ├── 一鍵解除安裝.ps1   # 乾淨反註冊與清理
-│   └── 免安裝即時測試.ps1 # 綠色免安裝即時體驗
-├── docs/                 # 系統藍圖與演進里程碑日誌
-├── hot_reload.ps1        # 【開發利器】1 秒免登出熱更新腳本
-├── config.json           # 預設偏好設定檔
-├── user_dict.tsv         # 使用者自建詞範本
+ruhi/
+├── .github/workflows/    # GitHub Actions CI 與自動發布流水線
+├── assets/               # 品牌圖示 (ICON.svg, ruhi.ico) 與許氏鍵盤配置表
+├── docs/                 # 系統架構規範、多語擴充指南與演進里程碑
+├── installer/            # Inno Setup 官方安裝包腳本與預設組態範本
+├── ruhi-core/            # [Rust] 語言學核心引擎 (FSM, Trellis, Constructions, Lexicon)
+├── ruhi-studio/          # [Rust] 偏好設定中心與語意調校工作室
+├── ruhi-tsf/             # [Rust] Windows 10/11 原生 TSF COM 伺服器 (ruhi_tsf.dll)
+├── ruhi_lexicon/         # 單一真實來源標準詞庫與語法轉移資料表 (data/*.tsv)
+├── scripts/              # 原生 UTF-8 BOM 安裝、解除安裝與 1 秒免登出熱更新腳本
+├── CHANGELOG.md          # 版本更新日誌
+├── CONTRIBUTING.md       # 開源社群貢獻指引與嚴禁打地鼠守則
 ├── LICENSE               # Apache License 2.0
-├── THIRD_PARTY_LICENSES  # 第三方授權與教育部辭典免責宣告
-└── CONTRIBUTING.md       # 開源社群貢獻指引與嚴禁打地鼠守則
+├── README.md             # 專案總覽
+└── THIRD_PARTY_LICENSES.md # 第三方語料授權與教育部辭典聲明
 ```
 
 ---
@@ -120,7 +115,7 @@ C:\ATGprjs\ruhi/
 本專案要求 **Rust 1.75+** 與 **Windows 10/11 64-bit**：
 
 ```powershell
-# 1. 執行全量單元測試 (驗證 69 項語意與演算法邏輯)
+# 1. 執行全量單元測試 (驗證核心語意與演算法邏輯)
 cd ruhi-core
 cargo test
 
@@ -130,7 +125,7 @@ cargo build --release
 
 # 3. 執行 1 秒免登出熱重載 (自動替換並重啟文字服務)
 cd ..
-.\hot_reload.ps1
+.\scripts\hot_reload.ps1
 ```
 
 ---

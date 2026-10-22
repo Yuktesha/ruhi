@@ -48,7 +48,7 @@ jobs:
         working-directory: ruhi-studio
 
       - name: Run Release Packager (Zip)
-        run: python tools/package_release.py
+        run: python scripts/package_release.py
 
       - name: Build Windows Standard Installer (Inno Setup)
         run: |

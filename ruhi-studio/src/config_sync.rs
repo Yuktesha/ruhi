@@ -405,9 +405,13 @@ pub fn ensure_runtime_config_files(root: &Path) {
         ("config.json", "config.example.json"),
     ] {
         let live_p = root.join(live);
-        let ex_p = root.join(example);
-        if !live_p.is_file() && ex_p.is_file() {
-            let _ = fs::copy(&ex_p, &live_p);
+        if !live_p.is_file() {
+            for ex_p in [root.join("installer").join(example), root.join(example)] {
+                if ex_p.is_file() {
+                    let _ = fs::copy(&ex_p, &live_p);
+                    break;
+                }
+            }
         }
     }
 }
@@ -899,8 +903,8 @@ mod tests {
         ]
         .concat();
         for rel in [
-            "config.example.json",
-            "settings_config.example.json",
+            "installer/config.example.json",
+            "installer/settings_config.example.json",
             "ruhi_lexicon/data/tailcat_official_feed.json",
             "ruhi-studio/src/config_sync.rs",
             "ruhi-studio/src/tuner.rs",

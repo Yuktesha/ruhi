@@ -159,7 +159,7 @@ try {
                 break
             }
         }
-        foreach ($sf in @("settings_window.py", "settings_config.json", "config.json")) {
+        foreach ($sf in @("settings_config.json", "config.json")) {
             $srcF = Join-Path $rootDir $sf
             if (Test-Path $srcF) {
                 $dstF = Join-Path $parent $sf

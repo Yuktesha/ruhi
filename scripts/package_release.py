@@ -4,12 +4,11 @@ RuhI (如喜) 輸入法 - GitHub 發布版自動化封裝工具 (Release Package
 ================================================================
 依據 TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC.md 規格：
 1. 驗證 ruhi_tsf.dll 之 PE 導入表（嚴格排除 comctl32.dll 與 TaskDialogIndirect 靜態依賴）
-2. 匯總最新編譯產物 (ruhi_tsf.dll, ruhi.dll)
+2. 匯總最新編譯產物 (ruhi_tsf.dll, ruhi.dll, ruhi-studio.exe)
 3. 封裝完整官方詞庫 (data/)、偏好設定中心、一鍵安裝/解除安裝腳本 (UTF-8 BOM)
 4. 產生標準壓縮檔 RuhI_v<version>_Windows_x64.zip 與 SHA256 校驗碼
 """
 
-import os
 import re
 import sys
 import shutil
@@ -25,6 +24,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+
 def calculate_sha256(filepath: Path) -> str:
     h = hashlib.sha256()
     with open(filepath, "rb") as f:
@@ -32,22 +32,27 @@ def calculate_sha256(filepath: Path) -> str:
             h.update(chunk)
     return h.hexdigest()
 
+
 def verify_pe_imports(dll_path: Path):
     print(f"[*] 正在執行 PE 導入表審計: {dll_path}...")
     try:
         import pefile
     except ImportError:
         print("[!] 尚未安裝 pefile 模組，嘗試安裝...")
-        import subprocess
         subprocess.check_call([sys.executable, "-m", "pip", "install", "pefile"])
         import pefile
 
     pe = pefile.PE(str(dll_path))
-    imported_dlls = [entry.dll.decode("utf-8", "ignore").lower() for entry in getattr(pe, "DIRECTORY_ENTRY_IMPORT", [])]
+    imported_dlls = [
+        entry.dll.decode("utf-8", "ignore").lower()
+        for entry in getattr(pe, "DIRECTORY_ENTRY_IMPORT", [])
+    ]
 
     # 規範 1：導入表中絕對不得包含 comctl32.dll
     if "comctl32.dll" in imported_dlls:
-        raise RuntimeError("【嚴重違規】PE 導入表包含 comctl32.dll 靜態依賴！會導致傳統 Win32 程式（如 conhost.exe、LibreOffice）載入失敗！")
+        raise RuntimeError(
+            "【嚴重違規】PE 導入表包含 comctl32.dll 靜態依賴！會導致傳統 Win32 程式（如 conhost.exe、LibreOffice）載入失敗！"
+        )
 
     # 規範 2：絕對不得靜態導入 TaskDialogIndirect
     imported_funcs = []
@@ -57,13 +62,15 @@ def verify_pe_imports(dll_path: Path):
                 imported_funcs.append(imp.name.decode("utf-8", "ignore"))
 
     if any("taskdialog" in f.lower() for f in imported_funcs):
-        raise RuntimeError("【嚴重違規】PE 導入表包含 TaskDialog 靜態進入點！必須於執行期動態獲取！")
+        raise RuntimeError(
+            "【嚴重違規】PE 導入表包含 TaskDialog 靜態進入點！必須於執行期動態獲取！"
+        )
 
     print("  [OK] PE 導入表審計通過！零 comctl32.dll 靜態依賴，安全相容全 Windows 生態。")
 
+
 def main():
     root = Path(__file__).resolve().parent.parent
-    # 版號以 ruhi-core/Cargo.toml 為唯一來源
     cargo_txt = (root / "ruhi-core" / "Cargo.toml").read_text(encoding="utf-8")
     version = re.search(r'(?m)^version\s*=\s*"([^"]+)"', cargo_txt).group(1)
     pkg_name = f"RuhI_v{version}_Windows_x64"
@@ -84,9 +91,13 @@ def main():
     studio_exe = next((p for p in studio_exe_candidates if p.exists()), None)
 
     if not tsf_dll.exists():
-        raise FileNotFoundError(f"找不到發布版 DLL: {tsf_dll}，請先執行 cargo build --release！")
+        raise FileNotFoundError(
+            f"找不到發布版 DLL: {tsf_dll}，請先執行 cargo build --release！"
+        )
     if not core_dll.exists():
-        raise FileNotFoundError(f"找不到發布版 DLL: {core_dll}，請先執行 cargo build --release！")
+        raise FileNotFoundError(
+            f"找不到發布版 DLL: {core_dll}，請先執行 cargo build --release！"
+        )
 
     # 2. PE 導入表審核
     verify_pe_imports(tsf_dll)
@@ -96,14 +107,18 @@ def main():
         shutil.rmtree(release_dir)
     release_dir.mkdir(parents=True, exist_ok=True)
 
-    # 複製核心二進位檔 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi-studio.exe)
+    # 複製核心二進位檔與圖示 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi-studio.exe)
     shutil.copy2(tsf_dll, release_dir / "ruhi_tsf.dll")
     shutil.copy2(core_dll, release_dir / "ruhi.dll")
     if studio_exe:
         shutil.copy2(studio_exe, release_dir / "ruhi-studio.exe")
         shutil.copy2(studio_exe, root / "ruhi-studio.exe")
 
-    # 複製詞庫與語意轉移檔（僅限 Git 已追蹤之檔案，杜絕本機改字紀錄、雲端待調校雙句等私人執行期資料混入安裝包）
+    ico_src = root / "assets" / "ruhi.ico"
+    if ico_src.exists():
+        shutil.copy2(ico_src, release_dir / "ruhi.ico")
+
+    # 複製詞庫與語意轉移檔（僅限 Git 已追蹤之檔案，杜絕本機改字紀錄等私人執行期資料混入安裝包）
     release_data = release_dir / "data"
     release_data.mkdir(parents=True, exist_ok=True)
     tracked = subprocess.check_output(
@@ -117,42 +132,30 @@ def main():
             shutil.copy2(src_item, dst_item)
 
     # 複製設定範本（不含個人設定與雲端 Webhook 網址；安裝程式會以範本建立 config.json / settings_config.json）
-    for f in ["settings_config.example.json", "config.example.json", "user_dict.tsv"]:
-        src_f = root / f
-        if src_f.exists():
-            shutil.copy2(src_f, release_dir / f)
-    if (root / "user_dict.tsv").exists():
-        # 使用者詞庫僅保留檔頭註解，不散布開發者個人學習詞
-        header = [ln for ln in (root / "user_dict.tsv").read_text(encoding="utf-8").splitlines() if ln.startswith("#")]
-        (release_dir / "user_dict.tsv").write_text("\n".join(header) + "\n", encoding="utf-8")
+    for f in ["settings_config.example.json", "config.example.json"]:
+        for cand in [root / "installer" / f, root / f]:
+            if cand.exists():
+                shutil.copy2(cand, release_dir / f)
+                break
 
-    # 複製安裝與啟動腳本（根目錄快捷進入點）
+    # 建立乾淨的使用者自建詞庫初始檔頭（不散布開發者個人學習詞）
+    (release_dir / "user_dict.tsv").write_text(
+        "# RuhI (如喜) 使用者自建詞庫 (word\\tbopomofo\\tweight\\tcontext)\n",
+        encoding="utf-8",
+    )
+
+    # 複製安裝與啟動腳本
     for script_name in [
         "一鍵安裝.ps1",
         "一鍵解除安裝.ps1",
         "run_settings.ps1",
         "hot_reload.ps1",
     ]:
-        src_s = root / script_name if (root / script_name).exists() else (root / "scripts" / script_name)
+        src_s = root / "scripts" / script_name
         if src_s.exists():
             shutil.copy2(src_s, release_dir / script_name)
 
-    # 僅複製管理員提權模組（主程式為純 Rust，不打包 Python 程式庫）
-    src_admin = root / "_lib" / "ps" / "Ensure-Admin.ps1"
-    if not src_admin.exists():
-        src_admin = root.parent / "_lib" / "ps" / "Ensure-Admin.ps1"
-    if src_admin.exists():
-        (release_dir / "_lib" / "ps").mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_admin, release_dir / "_lib" / "ps" / "Ensure-Admin.ps1")
-
-    # 複製 AI / SI 語意對接自動交接協定與 SKILL
-    src_skill = root / ".agent" / "skills" / "ruhi-semantic-tuning" / "SKILL.md"
-    if src_skill.exists():
-        dst_skill_dir = release_dir / ".agent" / "skills" / "ruhi-semantic-tuning"
-        dst_skill_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_skill, dst_skill_dir / "SKILL.md")
-
-    # 複製文件（與 installer/ruhi_setup.iss 之使用者文件清單一致，不含內部交接紀錄）
+    # 複製文件（與 installer/ruhi_setup.iss 之使用者文件清單一致）
     for doc in ["LICENSE", "README.md", "CHANGELOG.md"]:
         if (root / doc).exists():
             shutil.copy2(root / doc, release_dir / doc)
@@ -174,9 +177,18 @@ def main():
     # 防外流最終檢查：暫存目錄內任何文字檔不得含 Apps Script 部署網址
     needle = "script.google.com/" + "macros/s/"
     for p in release_dir.rglob("*"):
-        if p.is_file() and p.suffix.lower() in {".json", ".jsonl", ".tsv", ".txt", ".md", ".ps1"}:
+        if p.is_file() and p.suffix.lower() in {
+            ".json",
+            ".jsonl",
+            ".tsv",
+            ".txt",
+            ".md",
+            ".ps1",
+        }:
             if needle in p.read_text(encoding="utf-8", errors="ignore"):
-                raise RuntimeError(f"安裝包暫存檔含 Apps Script 部署網址，已中止打包: {p}")
+                raise RuntimeError(
+                    f"安裝包暫存檔含 Apps Script 部署網址，已中止打包: {p}"
+                )
 
     print(f"[*] 已完成檔案封裝至暫存目錄: {release_dir}")
 
@@ -205,6 +217,7 @@ def main():
     print(f"  SHA256:   {sha256_val}")
     print(f"  校驗檔案: {sha256_file}")
     print("========================================================")
+
 
 if __name__ == "__main__":
     main()

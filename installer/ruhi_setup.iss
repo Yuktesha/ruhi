@@ -21,7 +21,7 @@ DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
 OutputDir=..\dist
 OutputBaseFilename=RuhI_Setup_v{#MyAppVersion}
-SetupIconFile=
+SetupIconFile=..\assets\ruhi.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -38,10 +38,11 @@ Name: "telemetry_consent"; Description: "同意在手動改字時記錄匿名對
 #define StageDir "..\dist\RuhI_v" + MyAppVersion + "_Windows_x64"
 
 [Files]
-; 核心二進位檔 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi-studio.exe)
+; 核心二進位檔與圖示 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi-studio.exe)
 Source: "{#StageDir}\ruhi_tsf.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
 Source: "{#StageDir}\ruhi.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
 Source: "{#StageDir}\ruhi-studio.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\ruhi.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 ; 完整詞庫與轉移引力資料
 Source: "{#StageDir}\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -59,13 +60,7 @@ Source: "{#StageDir}\hot_reload.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\一鍵安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\一鍵解除安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
-; 管理員提權共用模組（僅 PowerShell 提權腳本；主程式為純 Rust，不打包 Python 程式庫）
-Source: "{#StageDir}\_lib\ps\Ensure-Admin.ps1"; DestDir: "{app}\_lib\ps"; Flags: ignoreversion
-
-; AI / SI 自動交接 SKILL 規範 (.agent)
-Source: "{#StageDir}\.agent\*"; DestDir: "{app}\.agent"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; 專案宣告與使用者文件（不打包內部交接紀錄）
+; 專案宣告與使用者文件
 Source: "{#StageDir}\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "{#StageDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion

@@ -171,18 +171,19 @@ pub unsafe fn register_server(hinstance: HMODULE) -> Result<()> {
 
         let icon_path = {
             let dll_dir = std::path::Path::new(&dll_path).parent();
-            let p1 = dll_dir.map(|p| p.join("ruhi.ico")).unwrap_or_default();
-            let p2 = dll_dir.map(|p| p.join("..").join("ruhi.ico")).unwrap_or_default();
-            let p3 = dll_dir.map(|p| p.join("..").join("..").join("ruhi.ico")).unwrap_or_default();
-            if p1.exists() {
-                p1.to_string_lossy().into_owned()
-            } else if p2.exists() {
-                p2.to_string_lossy().into_owned()
-            } else if p3.exists() {
-                p3.to_string_lossy().into_owned()
-            } else {
-                dll_path.clone()
-            }
+            let candidates = [
+                dll_dir.map(|p| p.join("ruhi.ico")).unwrap_or_default(),
+                dll_dir.map(|p| p.join("assets").join("ruhi.ico")).unwrap_or_default(),
+                dll_dir.map(|p| p.join("..").join("ruhi.ico")).unwrap_or_default(),
+                dll_dir.map(|p| p.join("..").join("assets").join("ruhi.ico")).unwrap_or_default(),
+                dll_dir.map(|p| p.join("..").join("..").join("ruhi.ico")).unwrap_or_default(),
+                dll_dir.map(|p| p.join("..").join("..").join("assets").join("ruhi.ico")).unwrap_or_default(),
+            ];
+            candidates
+                .into_iter()
+                .find(|p| p.exists())
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|| dll_path.clone())
         };
         let icon_u16: Vec<u16> = icon_path.encode_utf16().chain(Some(0)).collect();
 

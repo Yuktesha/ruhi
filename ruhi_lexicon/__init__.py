@@ -1,1 +1,0 @@
-# ruhi_lexicon package

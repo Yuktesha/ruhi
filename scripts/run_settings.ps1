@@ -1,4 +1,4 @@
-﻿# RuhI (如喜) 偏好設定中心啟動腳本 (優先啟動原生 Rust 版 ruhi-studio.exe)
+﻿# RuhI (如喜) 偏好設定中心啟動腳本 (純 Rust 原生 ruhi-studio.exe)
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -17,22 +17,5 @@ foreach ($rc in $rustCandidates) {
     }
 }
 
-$pyCandidates = @(
-    (Join-Path $PSScriptRoot "settings_window.py"),
-    (Join-Path (Split-Path -Parent $PSScriptRoot) "settings_window.py")
-)
-$target = $null
-foreach ($c in $pyCandidates) {
-    if (Test-Path $c) {
-        $target = (Resolve-Path $c).Path
-        break
-    }
-}
-
-if (-not $target) {
-    Write-Host "找不到 ruhi-studio.exe 或 settings_window.py！" -ForegroundColor Red
-    exit 1
-}
-
-$py = if (Test-Path "C:\Python\pythonw.exe") { "C:\Python\pythonw.exe" } else { "pythonw.exe" }
-Start-Process -FilePath $py -ArgumentList ('"' + $target + '"') -WorkingDirectory (Split-Path -Parent $target)
+Write-Host "找不到 ruhi-studio.exe！請先編譯 ruhi-studio。" -ForegroundColor Red
+exit 1
