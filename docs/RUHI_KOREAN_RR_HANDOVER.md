@@ -749,7 +749,7 @@ let is_kr_romaja_key = is_kr && engine.korean.has_buffer() && ch == '-';
 #### (G) 方向鍵（必做部分 + 選做部分）
 
 - **必做**：韓文**有緩衝區**時，`Down`／`Up` 應使用韓文引擎的候選。TSF 在第 2038、2059 行分別呼叫 `detect_target_word_and_cands`（約第 3314 行起）與 `detect_up_arrow_target_and_cands`（約第 3679 行起），兩者開頭都有日文分支。請在兩個函式的日文分支之後各加一個韓文分支：若 `engine.korean.has_buffer()`，分別回傳 `engine.korean.lookup_down_candidates()` / `engine.korean.lookup_up_candidates()`，目標範圍為暫存流中韓文組字所在區段。範圍的計算方式請比照同函式內日文對 `raw_romaja` 區段的處理。
-- **選做（本輪可不做，但須在回報中說明有沒有做）**：對**已併入暫存流**的韓文詞重新選字（日文用 `lookup_down_candidates_for_surface`）。韓文目前沒有對應函式；若要做，須先在 `ruhi-core` 新增函式並附測試，不可直接在 TSF 內拼湊邏輯。
+- **選做（✅ 已完成）**：對**已併入暫存流**的韓文詞重新選字。已於 `ruhi-core` 新增 `lookup_down_candidates_for_surface` 與 `lookup_up_candidates_for_surface`（支援由諺文表面詞反推 RR 拼音並展開 N-best 同音／近音與漢字詞候選，並附單元測試），且已於 `ruhi-tsf/src/service.rs` 接線。
 
 #### (H) Tab
 

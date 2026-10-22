@@ -53,13 +53,50 @@ impl KoreanEngine {
         !self.raw_romaja.is_empty()
     }
 
-    /// 取得當前組字預覽字串（Preview 模式，搭配常用詞表）
+    /// 零基礎韓文學習者英語意念橋接：當輸入常用英文單字或縮寫（如 tks / thanks / hello / sorry / please）時，直接提供對應韓文常用詞句
+    pub fn lookup_english_learner_bridge(raw_lower: &str) -> &'static [&'static str] {
+        match raw_lower {
+            "hello" => &["안녕하세요", "안녕"],
+            "thanks" | "thank" | "thankyou" | "thx" | "tks" | "ty" => &[
+                "감사합니다",
+                "고마워요",
+                "고맙습니다",
+            ],
+            "sorry" | "sry" | "excuse" | "excuseme" => &["죄송합니다", "미안해요", "실례합니다"],
+            "morning" | "goodmorning" | "gm" => &["좋은 아침이에요", "안녕하세요"],
+            "evening" | "goodevening" => &["좋은 저녁이에요"],
+            "night" | "goodnight" | "gn" => &["안녕히 주무세요", "잘 자요"],
+            "bye" | "goodbye" => &["안녕히 가세요", "안녕히 계세요", "잘 가요"],
+            "please" | "pls" | "plz" => &["부탁합니다", "주세요", "제발"],
+            "yes" | "okay" => &["네", "예", "알겠습니다", "괜찮아요"],
+            "delicious" | "yummy" => &["맛있어요", "정말 맛있어요"],
+            "cute" => &["귀여워요"],
+            "like" | "love" => &["사랑해요", "좋아해요"],
+            "water" => &["물", "물 주세요"],
+            "coffee" => &["커피", "커피 주세요"],
+            "toilet" | "restroom" | "bathroom" => &["화장실이 어디예요", "화장실"],
+            "station" => &["역", "역이 어디예요"],
+            "airport" => &["공항"],
+            "hotel" => &["호텔"],
+            "howmuch" | "price" => &["얼마예요", "이거 얼마예요"],
+            "where" => &["어디예요"],
+            "check" | "bill" => &["계산해 주세요"],
+            "help" => &["도와주세요", "잠시만요"],
+            _ => &[],
+        }
+    }
+
+    /// 取得當前組字預覽字串（Preview 模式，搭配常用詞表與英語學習者橋接）
     pub fn make_preedit(&self) -> String {
         if self.raw_romaja.is_empty() {
             return String::new();
         }
         if self.is_english_forced {
             return self.raw_romaja.clone();
+        }
+        let lower = self.raw_romaja.to_ascii_lowercase();
+        if let Some(&bridged) = Self::lookup_english_learner_bridge(&lower).first() {
+            return bridged.to_string();
         }
         romaja_to_hangul_with_lexicon(&self.raw_romaja, ParseMode::Preview, Some(&self.lexicon))
     }
@@ -76,6 +113,12 @@ impl KoreanEngine {
             Some(&self.lexicon),
         );
         let mut cands = Vec::new();
+        let lower_raw = romaja.to_ascii_lowercase();
+        for &bridged in Self::lookup_english_learner_bridge(&lower_raw) {
+            if !cands.contains(&bridged.to_string()) {
+                cands.push(bridged.to_string());
+            }
+        }
         for p in &parses {
             let s = render(p);
             if !s.is_empty() && !cands.contains(&s) {
@@ -108,6 +151,50 @@ impl KoreanEngine {
             return vec![self.raw_romaja.clone()];
         }
         self.lookup_down_candidates_for_romaja(&self.raw_romaja)
+    }
+
+    /// 針對已併入輸入座暫存流之諺文表層詞（`surface`），透過 `to_romaja` 與詞庫反查 `↓` N-best 切分候選
+    pub fn lookup_down_candidates_for_surface(&self, surface: &str) -> Vec<String> {
+        let trimmed = surface.trim();
+        if trimmed.is_empty() || !trimmed.chars().any(crate::korean::jamo::is_hangul_syllable) {
+            return Vec::new();
+        }
+        let rr_plain = crate::korean::jamo::to_romaja(trimmed).replace('-', "");
+        let mut cands = Vec::new();
+        for e in &self.lexicon.entries {
+            if e.surface == trimmed {
+                for c in self.lookup_down_candidates_for_romaja(&e.rr) {
+                    if c.chars().any(crate::korean::jamo::is_hangul_syllable) && !cands.contains(&c) {
+                        cands.push(c);
+                    }
+                }
+            }
+        }
+        for c in self.lookup_down_candidates_for_romaja(&rr_plain) {
+            if c.chars().any(crate::korean::jamo::is_hangul_syllable) && !cands.contains(&c) {
+                cands.push(c);
+            }
+        }
+        if !cands.contains(&trimmed.to_string()) {
+            cands.insert(0, trimmed.to_string());
+        }
+        cands.truncate(9);
+        cands
+    }
+
+    /// 針對已併入輸入座暫存流之諺文表層詞（`surface`），透過 `to_romaja` 反查 `↑` 學習者骨架同音／延伸候選
+    pub fn lookup_up_candidates_for_surface(&self, surface: &str) -> Vec<String> {
+        let trimmed = surface.trim();
+        if trimmed.is_empty() || !trimmed.chars().any(crate::korean::jamo::is_hangul_syllable) {
+            return Vec::new();
+        }
+        let rr_plain = crate::korean::jamo::to_romaja(trimmed).replace('-', "");
+        let mut cands = self.lookup_up_candidates_for_romaja(&rr_plain);
+        if !cands.contains(&trimmed.to_string()) && !cands.is_empty() {
+            cands.push(trimmed.to_string());
+        }
+        cands.truncate(9);
+        cands
     }
 
     /// 查詢指定羅馬拼音之 `↑` 學習者模糊救援與前綴補全候選
@@ -159,6 +246,12 @@ impl KoreanEngine {
         }
 
         let mut cands = Vec::new();
+        let lower_raw = romaja.to_ascii_lowercase();
+        for &bridged in Self::lookup_english_learner_bridge(&lower_raw) {
+            if !cands.contains(&bridged.to_string()) {
+                cands.push(bridged.to_string());
+            }
+        }
         for idx in exact_indices.into_iter().chain(prefix_indices.into_iter()) {
             let surf = &self.lexicon.entries[idx].surface;
             if !cands.contains(surf) {
@@ -1198,6 +1291,23 @@ mod tests {
         assert!(eng.lookup_down_candidates_for_romaja("a").contains(&"ㅏ".to_string()));
         assert!(eng.lookup_down_candidates_for_romaja("g").contains(&"ㄱ".to_string()));
         assert!(eng.lookup_down_candidates_for_romaja("ng").contains(&"ㅇ".to_string()));
+        // 英語學習者意念橋接（tks / thanks / hello / sorry）與已合成表層詞反查驗證
+        eng.reset();
+        for ch in "tks".chars() {
+            eng.process_key(ch);
+        }
+        assert_eq!(eng.make_preedit(), "감사합니다");
+        assert_eq!(eng.finalized_commit_text(), "감사합니다");
+        assert!(eng.lookup_down_candidates_for_romaja("thanks").contains(&"감사합니다".to_string()));
+        assert!(eng.lookup_down_candidates_for_romaja("thanks").contains(&"고마워요".to_string()));
+        assert_eq!(eng.lookup_up_candidates_for_romaja("hello").first().map(|s| s.as_str()), Some("안녕하세요"));
+        assert_eq!(eng.lookup_up_candidates_for_romaja("sorry").first().map(|s| s.as_str()), Some("죄송합니다"));
+        let surf_down = eng.lookup_down_candidates_for_surface("한글");
+        assert_eq!(surf_down.first().map(|s| s.as_str()), Some("한글"));
+        assert!(surf_down.len() >= 2);
+        let surf_up = eng.lookup_up_candidates_for_surface("김치");
+        assert!(surf_up.contains(&"김치".to_string()));
+        eng.reset();
         assert_eq!(r_ctrl.action, "reset");
         if false {
     }

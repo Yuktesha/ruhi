@@ -3486,9 +3486,70 @@ impl RuhiTextService_Impl {
                 let segs = self.pending_segments.lock().unwrap();
                 for (s_start, s_end, ref _s_surf, ref s_raw) in segs.iter() {
                     if target_idx >= *s_start && target_idx < *s_end && *s_end <= chars.len() && !s_raw.is_empty() {
-                        let kr_seg_cands = engine.korean.lookup_down_candidates_for_romaja(s_raw);
+                        let mut kr_seg_cands = engine.korean.lookup_down_candidates_for_romaja(s_raw);
+                        for sc in engine.korean.lookup_down_candidates_for_surface(_s_surf) {
+                            if !kr_seg_cands.contains(&sc) {
+                                kr_seg_cands.push(sc);
+                            }
+                        }
                         if !kr_seg_cands.is_empty() {
                             return (*s_start, (*s_start, *s_end), kr_seg_cands);
+                        }
+                    }
+                }
+            }
+        }
+
+        if matches!(engine.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja") {
+            // 若游標所在處為已定字之韓語詞段（表面詞反查 N-best 同音／近音與漢字詞）
+            if target_idx < chars.len() && !chars[target_idx].is_whitespace() {
+                let mut tok_start = target_idx;
+                while tok_start > 0 && !chars[tok_start - 1].is_whitespace() {
+                    tok_start -= 1;
+                }
+                let mut tok_end = target_idx + 1;
+                while tok_end < chars.len() && !chars[tok_end].is_whitespace() {
+                    tok_end += 1;
+                }
+                let tok_surf: String = chars[tok_start..tok_end].iter().collect();
+                let mut kr_tok_cands = engine.korean.lookup_down_candidates_for_surface(&tok_surf);
+                if kr_tok_cands.is_empty() {
+                    kr_tok_cands = engine.korean.lookup_down_candidates_for_romaja(&tok_surf);
+                }
+                if !kr_tok_cands.is_empty() {
+                    return (tok_start, (tok_start, tok_end), kr_tok_cands);
+                }
+            }
+            let full_surf: String = chars.iter().collect();
+            let mut kr_surf_cands = engine.korean.lookup_down_candidates_for_surface(&full_surf);
+            if kr_surf_cands.is_empty() {
+                kr_surf_cands = engine.korean.lookup_down_candidates_for_romaja(&full_surf);
+            }
+            if !kr_surf_cands.is_empty() {
+                return (0, (0, chars.len()), kr_surf_cands);
+            }
+        }
+
+        // 0.4 中文模式簡易英語語義橋接（不混打前提下輸入 tks/thanks/hello 等按 ↓ 直接提供中文致意詞）
+        if !matches!(
+            engine.keyboard_mode.as_str(),
+            "japanese" | "jp" | "romaji" | "korean" | "ko" | "hangul" | "romaja" | "english" | "en" | "latin" | "western" | "euro" | "sanskrit"
+        ) && manual_range.is_none()
+        {
+            if let Some((raw_start, raw_end, ref raw_ascii)) = *self.last_raw_ascii.lock().unwrap() {
+                if target_idx >= raw_start && target_idx < raw_end && raw_end <= chars.len() {
+                    let clean_ascii: String = raw_ascii.trim().chars().filter(|c| c.is_ascii_alphabetic()).collect();
+                    let mut zh_bridge = ruhi::western::WesternEngine::lookup_chinese_semantic_bridge(&clean_ascii);
+                    if !zh_bridge.is_empty() {
+                        for w in engine.western.lookup_up_arrow_candidates(&clean_ascii) {
+                            if !zh_bridge.contains(&w) {
+                                zh_bridge.push(w);
+                            }
+                        }
+                        let del_words = self.deleted_words.lock().unwrap();
+                        zh_bridge.retain(|c| !del_words.contains(c));
+                        if !zh_bridge.is_empty() {
+                            return (raw_start, (raw_start, raw_end), zh_bridge);
                         }
                     }
                 }
@@ -3902,12 +3963,48 @@ impl RuhiTextService_Impl {
                 for (s_start, s_end, ref _s_surf, ref s_raw) in segs.iter() {
                     if target_idx >= *s_start && target_idx < *s_end && *s_end <= chars.len() && !s_raw.is_empty() {
                         let mut kr_seg_cands = engine.korean.lookup_up_candidates_for_romaja(s_raw);
+                        for sc in engine.korean.lookup_up_candidates_for_surface(_s_surf) {
+                            if !kr_seg_cands.contains(&sc) {
+                                kr_seg_cands.push(sc);
+                            }
+                        }
                         kr_seg_cands.retain(|c| !del_words.contains(c));
                         if !kr_seg_cands.is_empty() {
                             return (*s_start, (*s_start, *s_end), kr_seg_cands);
                         }
                     }
                 }
+            }
+        }
+
+        if matches!(engine.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja") {
+            if target_idx < chars.len() && !chars[target_idx].is_whitespace() {
+                let mut tok_start = target_idx;
+                while tok_start > 0 && !chars[tok_start - 1].is_whitespace() {
+                    tok_start -= 1;
+                }
+                let mut tok_end = target_idx + 1;
+                while tok_end < chars.len() && !chars[tok_end].is_whitespace() {
+                    tok_end += 1;
+                }
+                let tok_surf: String = chars[tok_start..tok_end].iter().collect();
+                let mut kr_tok_cands = engine.korean.lookup_up_candidates_for_surface(&tok_surf);
+                if kr_tok_cands.is_empty() {
+                    kr_tok_cands = engine.korean.lookup_up_candidates_for_romaja(&tok_surf);
+                }
+                kr_tok_cands.retain(|c| !del_words.contains(c));
+                if !kr_tok_cands.is_empty() {
+                    return (tok_start, (tok_start, tok_end), kr_tok_cands);
+                }
+            }
+            let full_surf: String = chars.iter().collect();
+            let mut kr_surf_cands = engine.korean.lookup_up_candidates_for_surface(&full_surf);
+            if kr_surf_cands.is_empty() {
+                kr_surf_cands = engine.korean.lookup_up_candidates_for_romaja(&full_surf);
+            }
+            kr_surf_cands.retain(|c| !del_words.contains(c));
+            if !kr_surf_cands.is_empty() {
+                return (0, (0, chars.len()), kr_surf_cands);
             }
         }
 
@@ -4045,7 +4142,12 @@ impl RuhiTextService_Impl {
                 }
                 let alpha_ascii: String = clean_ascii.chars().filter(|c| c.is_ascii_alphabetic()).collect();
                 if alpha_ascii.len() >= 2 {
-                    let w_cands = engine.western.lookup_up_arrow_candidates(&alpha_ascii);
+                    let mut w_cands = ruhi::western::WesternEngine::lookup_chinese_semantic_bridge(&alpha_ascii);
+                    for w in engine.western.lookup_up_arrow_candidates(&alpha_ascii) {
+                        if !w_cands.contains(&w) {
+                            w_cands.push(w);
+                        }
+                    }
                     if !w_cands.is_empty() {
                         cross_track_cands = Some((raw_start, raw_end, w_cands));
                     }

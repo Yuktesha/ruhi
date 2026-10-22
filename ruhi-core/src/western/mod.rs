@@ -323,6 +323,135 @@ impl WesternEngine {
         ("prgm", &["program", "programming"]),
     ];
 
+    /// 跨歐語與梵語多語言致意／感謝語義橋接表（供歐文模式下輸入 `tks`/`thanks`/`hello` 等按 `↓` 展開）
+    pub const MULTILINGUAL_EU_GREETINGS: &[(&str, &[&str])] = &[
+        (
+            "tks",
+            &[
+                "Thanks",
+                "Thank you",
+                "Merci",
+                "Danke",
+                "Gracias",
+                "Grazie",
+                "Obrigado",
+                "Dhanyava\u{0301}d",
+            ],
+        ),
+        (
+            "thx",
+            &[
+                "Thanks",
+                "Thank you",
+                "Merci",
+                "Danke",
+                "Gracias",
+                "Grazie",
+                "Obrigado",
+                "Dhanyava\u{0301}d",
+            ],
+        ),
+        (
+            "thanks",
+            &[
+                "Thanks",
+                "Thank you",
+                "Merci",
+                "Danke",
+                "Gracias",
+                "Grazie",
+                "Obrigado",
+                "Dhanyava\u{0301}d",
+            ],
+        ),
+        (
+            "thankyou",
+            &[
+                "Thank you",
+                "Thanks",
+                "Merci beaucoup",
+                "Vielen Dank",
+                "Muchas gracias",
+                "Grazie mille",
+                "Muito obrigado",
+                "Dhanyava\u{0301}d",
+            ],
+        ),
+        (
+            "hi",
+            &["Hi", "Hello", "Bonjour", "Hallo", "Hola", "Ciao", "Ola\u{0301}", "Namaste"],
+        ),
+        (
+            "hello",
+            &["Hello", "Bonjour", "Hallo", "Hola", "Ciao", "Ola\u{0301}", "Namaste"],
+        ),
+        (
+            "sorry",
+            &[
+                "Sorry",
+                "De\u{0301}sole\u{0301}",
+                "Entschuldigung",
+                "Lo siento",
+                "Mi dispiace",
+                "Desculpe",
+            ],
+        ),
+        (
+            "pls",
+            &["Please", "S'il vous plai\u{0302}t", "Bitte", "Por favor", "Per favore"],
+        ),
+        (
+            "please",
+            &["Please", "S'il vous plai\u{0302}t", "Bitte", "Por favor", "Per favore"],
+        ),
+        (
+            "bye",
+            &["Bye", "Goodbye", "Au revoir", "Tschu\u{0308}ss", "Adio\u{0301}s", "Arrivederci", "Tchau"],
+        ),
+    ];
+
+    /// 中文輸入模式（許氏／大千／漢語／倉頡／行列）下之簡易英語語義橋接（不混打前提下按 `↓`／`↑` 映射為中文常用語）
+    pub const CHINESE_SEMANTIC_BRIDGE: &[(&str, &[&str])] = &[
+        ("tks", &["謝謝", "感謝", "非常感謝", "多謝"]),
+        ("thx", &["謝謝", "感謝", "非常感謝", "多謝"]),
+        ("ty", &["謝謝", "感謝", "非常感謝"]),
+        ("thanks", &["謝謝", "感謝", "非常感謝", "多謝"]),
+        ("thankyou", &["非常感謝", "謝謝你", "感謝您", "謝謝"]),
+        ("hi", &["你好", "嗨", "您好"]),
+        ("hello", &["你好", "您好", "哈囉"]),
+        ("sorry", &["對不起", "抱歉", "不好意思"]),
+        ("sry", &["抱歉", "對不起", "不好意思"]),
+        ("pls", &["請", "拜託", "麻煩"]),
+        ("plz", &["請", "拜託", "麻煩"]),
+        ("please", &["請", "拜託", "麻煩您"]),
+        ("ok", &["好的", "沒問題", "收到"]),
+        ("yes", &["是的", "沒錯", "好的"]),
+        ("no", &["不是", "不用", "沒有"]),
+        ("bye", &["再見", "拜拜", "下次見"]),
+        ("good", &["太好了", "很棒", "讚"]),
+        ("help", &["幫忙", "協助", "救命"]),
+    ];
+
+    /// 查詢中文模式下簡易英語語義橋接候選詞
+    pub fn lookup_chinese_semantic_bridge(raw_ascii: &str) -> Vec<String> {
+        let lower = raw_ascii.trim().to_ascii_lowercase();
+        if lower.len() < 2 {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        for &(key, targets) in Self::CHINESE_SEMANTIC_BRIDGE {
+            if key == lower {
+                for &t in targets {
+                    let s = t.to_string();
+                    if !out.contains(&s) {
+                        out.push(s);
+                    }
+                }
+            }
+        }
+        out
+    }
+
     /// 無撇號縮寫還原表（供 ↑ 上箭頭補回撇號）
     pub const CONTRACTION_RESCUE: &[(&str, &[&str])] = &[
         ("dont", &["don't", "do not"]),
@@ -603,6 +732,19 @@ impl WesternEngine {
             }
         }
 
+        // 2c. 泛歐與梵文多語系常用溝通語意橋接（如 tks / TKS / thanks + ↓ 列出 Thanks, Thank you, Merci, Danke, Gracias, Grazie, Obrigado, Dhanyavád）
+        for &(key, greetings) in Self::MULTILINGUAL_EU_GREETINGS {
+            if key == normalized_ascii {
+                for &g in greetings {
+                    let s = g.to_string();
+                    if !results.contains(&s) {
+                        results.push(s);
+                    }
+                }
+                break;
+            }
+        }
+
         // 3. 針對游標所在位置字母（或詞內母音／可變音子音）合成「整詞變音變體」
         //    例如在 cafe 詞尾或 'e' 上按 ↓ 產生 café, cafè, cafê, cafë；在 'a' 上按 ↓ 產生 cáfe, càfe, câfe
         let primary_idx = focus_offset
@@ -723,6 +865,19 @@ impl WesternEngine {
             }
         }
 
+        // 1b. 泛歐與梵文多語系常用溝通語意橋接
+        for &(key, greetings) in Self::MULTILINGUAL_EU_GREETINGS {
+            if t_lower == key {
+                for &g in greetings {
+                    let s = g.to_string();
+                    if !results.contains(&s) {
+                        results.push(s);
+                    }
+                }
+                break;
+            }
+        }
+
         // 2. 無撇號縮寫還原 (如 dont -> don't, cant -> can't, im -> I'm)
         for &(raw, rescues) in Self::CONTRACTION_RESCUE {
             if t_lower == raw {
@@ -790,6 +945,12 @@ impl WesternEngine {
             return false;
         }
         if Self::ABBREV_EXPANSIONS.iter().any(|&(k, _)| k == t_lower) {
+            return true;
+        }
+        if Self::MULTILINGUAL_EU_GREETINGS.iter().any(|&(k, _)| k == t_lower) {
+            return true;
+        }
+        if Self::CHINESE_SEMANTIC_BRIDGE.iter().any(|&(k, _)| k == t_lower) {
             return true;
         }
         if Self::CONTRACTION_RESCUE.iter().any(|&(k, _)| k == t_lower) {
@@ -960,5 +1121,20 @@ mod tests {
         assert_eq!(up_ksn[0], "Krs\u{0301}n\u{0301}a");
         let down_ksn = eng.lookup_down_arrow_candidates("ksn", None);
         assert_eq!(down_ksn[0], "Krs\u{0301}n\u{0301}a");
+
+        // 7. 歐文模式下 tks / TKS / thanks 按 ↓ 列出支援的歐洲與梵語各語言致意詞
+        let down_tks = eng.lookup_down_arrow_candidates("TKS", None);
+        assert!(down_tks.contains(&"Thanks".to_string()), "down_tks: {:?}", down_tks);
+        assert!(down_tks.contains(&"Merci".to_string()));
+        assert!(down_tks.contains(&"Danke".to_string()));
+        assert!(down_tks.contains(&"Gracias".to_string()));
+        assert!(down_tks.contains(&"Grazie".to_string()));
+        assert!(down_tks.contains(&"Obrigado".to_string()));
+        assert!(down_tks.contains(&"Dhanyava\u{0301}d".to_string()));
+
+        // 8. 中文語義橋接表查詢
+        let zh_tks = WesternEngine::lookup_chinese_semantic_bridge("tks");
+        assert_eq!(zh_tks[0], "謝謝");
+        assert!(zh_tks.contains(&"感謝".to_string()));
     }
 }

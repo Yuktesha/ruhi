@@ -630,6 +630,21 @@ impl RuhiEngine {
             self.fsm.commit_current('1');
             self.update_sentence_composition();
         }
+        if !self.is_latin_mode && !self.raw_ascii_buffer.is_empty() {
+            let mut zh_bridge = crate::western::WesternEngine::lookup_chinese_semantic_bridge(&self.raw_ascii_buffer);
+            if !zh_bridge.is_empty() {
+                for w in self.western.lookup_up_arrow_candidates(&self.raw_ascii_buffer) {
+                    if !zh_bridge.contains(&w) {
+                        zh_bridge.push(w);
+                    }
+                }
+                self.candidate_target_range = Some((0, self.sentence_chars.len()));
+                self.current_candidates = zh_bridge;
+                self.candidate_cycle_idx = 0;
+                self.mode = EngineMode::CandidatePopup;
+                return self.build_response("show_candidate_popup", "");
+            }
+        }
         if self.is_latin_mode || (!self.raw_ascii_buffer.is_empty() && self.composed_sentence == self.raw_ascii_buffer) {
             let active_idx = self.get_active_char_index();
             let target_ch = self
@@ -740,7 +755,12 @@ impl RuhiEngine {
                 let buf = self.cangjie.buffer.clone();
                 let mut cands = Vec::new();
                 if self.western.has_high_confidence_rescue(&buf) {
-                    cands.extend(self.western.lookup_up_arrow_candidates(&buf));
+                    cands.extend(crate::western::WesternEngine::lookup_chinese_semantic_bridge(&buf));
+                    for w in self.western.lookup_up_arrow_candidates(&buf) {
+                        if !cands.contains(&w) {
+                            cands.push(w);
+                        }
+                    }
                     for w in self.cangjie.table.lookup_phrase_headcode(&buf, &self.lexicon) {
                         if !cands.contains(&w) {
                             cands.push(w);
@@ -788,7 +808,12 @@ impl RuhiEngine {
                 let buf = self.array30.buffer.clone();
                 let mut cands = Vec::new();
                 if self.western.has_high_confidence_rescue(&buf) {
-                    cands.extend(self.western.lookup_up_arrow_candidates(&buf));
+                    cands.extend(crate::western::WesternEngine::lookup_chinese_semantic_bridge(&buf));
+                    for w in self.western.lookup_up_arrow_candidates(&buf) {
+                        if !cands.contains(&w) {
+                            cands.push(w);
+                        }
+                    }
                     for w in self.array30.table.lookup_phrase_headcode(&buf, &self.lexicon) {
                         if !cands.contains(&w) {
                             cands.push(w);
@@ -873,7 +898,17 @@ impl RuhiEngine {
         if !self.raw_ascii_buffer.is_empty()
             && (self.is_latin_mode || self.western.has_high_confidence_rescue(&self.raw_ascii_buffer))
         {
-            let cands = self.western.lookup_up_arrow_candidates(&self.raw_ascii_buffer);
+            let mut cands = self.western.lookup_up_arrow_candidates(&self.raw_ascii_buffer);
+            if !self.is_latin_mode {
+                let zh_bridge = crate::western::WesternEngine::lookup_chinese_semantic_bridge(&self.raw_ascii_buffer);
+                let mut insert_at = cands.len().min(1);
+                for zw in zh_bridge {
+                    if !cands.contains(&zw) {
+                        cands.insert(insert_at, zw);
+                        insert_at += 1;
+                    }
+                }
+            }
             if !cands.is_empty() {
                 self.is_latin_mode = true;
                 self.fsm.reset();
