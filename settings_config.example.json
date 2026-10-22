@@ -10,7 +10,8 @@
     "show_bopomofo": true,
     "capsule_mode": "mini_capsule",
     "zoom_level": 0,
-    "sidebar_width": 223
+    "sidebar_width": 223,
+    "ui_lang": "auto"
   },
   "keyboard": {
     "layout": "hsu",

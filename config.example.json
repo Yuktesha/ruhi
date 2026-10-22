@@ -39,5 +39,6 @@
   "tailcat_update_mode": "notify_confirm",
   "telemetry_consent": false,
   "theme": "system",
+  "ui_lang": "auto",
   "upload_schedule": "weekly"
 }

@@ -1,6 +1,6 @@
 [package]
 name = "ruhi-tsf"
-version = "0.5.0"
+version = "0.5.5"
 edition = "2021"
 authors = ["RuhOS Community", "大十"]
 description = "RuhI (如喜) Native Windows 11 TSF Input Method COM Server"

@@ -13,7 +13,7 @@ use atg_lib::prelude::*;
 use ruhi_studio::ai_consultant::AISemanticConsultant;
 use ruhi_studio::config_sync::{
     ensure_keyboard_modes_consistent, load_settings, resolve_data_dir, resolve_ruhi_root,
-    save_settings, RuhiSettings,
+    save_settings, resolve_effective_ui_lang, RuhiSettings,
 };
 use ruhi_studio::tuner::{SemanticTuner, ZeroPiiPrivacyFilter};
 use ruhi_studio::web_server::start_web_studio;
@@ -45,6 +45,136 @@ impl StudioCategory {
     ];
 
     pub fn sidebar_label(&self) -> &'static str {
+        self.sidebar_label_i18n("zh-TW")
+    }
+
+    pub fn sidebar_label_i18n(&self, ui_lang: &str) -> &'static str {
+        match (ui_lang, self) {
+            ("en-US", StudioCategory::Appearance) => "🎨 Appearance & Desk",
+            ("en-US", StudioCategory::KeyboardLayout) => "⌨️ Keyboard & Hotkeys",
+            ("en-US", StudioCategory::MixedEnglish) => "🔤 Mixed Latin Input",
+            ("en-US", StudioCategory::Grammar) => "🧠 Semantic & Grammar",
+            ("en-US", StudioCategory::AiAndPrivacy) => "🛡️ Privacy & Cloud Sync",
+            ("en-US", StudioCategory::SemanticTuner) => "🛠️ Semantic Tuner (Dev)",
+            ("en-US", StudioCategory::About) => "ℹ️ About & Universal Vision",
+            ("ja-JP", StudioCategory::Appearance) => "🎨 外観と候補デスク",
+            ("ja-JP", StudioCategory::KeyboardLayout) => "⌨️ キー配列とショートカット",
+            ("ja-JP", StudioCategory::MixedEnglish) => "🔤 欧文混在入力",
+            ("ja-JP", StudioCategory::Grammar) => "🧠 意味構造と文法重力",
+            ("ja-JP", StudioCategory::AiAndPrivacy) => "🛡️ プライバシーとクラウド同期",
+            ("ja-JP", StudioCategory::SemanticTuner) => "🛠️ 意味チューニング (Dev)",
+            ("ja-JP", StudioCategory::About) => "ℹ️ RuhI について",
+            ("ko-KR", StudioCategory::Appearance) => "🎨 외관 및 후보창",
+            ("ko-KR", StudioCategory::KeyboardLayout) => "⌨️ 키보드 배열 및 단축키",
+            ("ko-KR", StudioCategory::MixedEnglish) => "🔤 영문 혼용 입력",
+            ("ko-KR", StudioCategory::Grammar) => "🧠 의미 구조 및 문법 중력",
+            ("ko-KR", StudioCategory::AiAndPrivacy) => "🛡️ 개인정보 및 클라우드 동기화",
+            ("ko-KR", StudioCategory::SemanticTuner) => "🛠️ 의미 튜닝 스튜디오 (Dev)",
+            ("ko-KR", StudioCategory::About) => "ℹ️ RuhI 정보 및 비전",
+            _ => match self {
+                StudioCategory::Appearance => "🎨 外觀與候選座",
+                StudioCategory::KeyboardLayout => "⌨️ 鍵盤配置與常用鍵",
+                StudioCategory::MixedEnglish => "🔤 許氏＋歐文混打",
+                StudioCategory::Grammar => "🧠 語意結構與語法引力",
+                StudioCategory::AiAndPrivacy => "🛡️ 隱私安全與雲端回饋",
+                StudioCategory::SemanticTuner => "🛠️ 語意調校工作室 (Dev)",
+                StudioCategory::About => "ℹ️ 關於與全語言願景",
+            },
+        }
+    }
+
+    pub fn page_header_i18n(&self, ui_lang: &str) -> (&'static str, &'static str) {
+        match (ui_lang, self) {
+            ("en-US", StudioCategory::Appearance) => (
+                "🎨 Appearance & Candidate Desk (UniversalUI)",
+                "Configure UI language, input display mode, candidate orientation, font sizes, theme colors, and mini status capsule.",
+            ),
+            ("en-US", StudioCategory::KeyboardLayout) => (
+                "⌨️ Keyboard Layout & Hotkeys",
+                "Configure default keyboard mode, quick-switch cycle modes, Spacebar behavior, Caps Lock toggle, and punctuation commit rules.",
+            ),
+            ("en-US", StudioCategory::MixedEnglish) => (
+                "🔤 Smart Mixed Latin & Cross-Language Input",
+                "Configure mixed Bopomofo/Latin arbitration, contextual stream mode, and universal semantic bridge.",
+            ),
+            ("en-US", StudioCategory::Grammar) => (
+                "🧠 Syntactic Topology & Grammar Gravity Field",
+                "Configure syntactic constructions, bigram transitions, structural particles, and custom lexicon hot-reload.",
+            ),
+            ("en-US", StudioCategory::AiAndPrivacy) => (
+                "🛡️ Zero-PII Privacy Gateway & Cloud Feedback",
+                "Configure heuristic PII filtering, opt-in anonymous sentence revision telemetry, and Tailcat lexicon updates.",
+            ),
+            ("en-US", StudioCategory::SemanticTuner) => (
+                "🛠️ Neuro-Symbolic Semantic Tuning Studio (Developer Only)",
+                "Bidirectional word boundary alignment, computational linguistics diagnostics, bigram rule synthesis, and golden benchmark verification.",
+            ),
+            ("en-US", StudioCategory::About) => (
+                "ℹ️ About RuhI & Universal Multilingual Vision",
+                "RuhI philosophy, cross-language universal input architecture, engine version, and lexicon status.",
+            ),
+            ("ja-JP", StudioCategory::Appearance) => (
+                "🎨 外観と候補デスク（UniversalUI 自動適応）",
+                "表示言語、入力表示モード、候補の並び方向、フォントサイズ、テーマカラー、ミニ状態カプセルを設定します。",
+            ),
+            ("ja-JP", StudioCategory::KeyboardLayout) => (
+                "⌨️ キー配列とショートカット設定",
+                "既定の入力モード、高速切替サイクル、スペースキー動作、Caps Lock 切替、句読点確定モードを設定します。",
+            ),
+            ("ja-JP", StudioCategory::MixedEnglish) => (
+                "🔤 欧文スマート混在入力戦略",
+                "注音／欧文スマート混在入力、文脈ストリームモード、長単語しきい値を設定します。",
+            ),
+            ("ja-JP", StudioCategory::Grammar) => (
+                "🧠 構文トポロジーと文法重力場",
+                "高次構文構造、二階遷移ルール、構造助詞の意味解析、ユーザー辞書のホットリロードを設定します。",
+            ),
+            ("ja-JP", StudioCategory::AiAndPrivacy) => (
+                "🛡️ Zero-PII プライバシーゲートウェイとクラウド同期",
+                "個人情報フィルタリング、匿名修正文ペアの送信周期、Tailcat 辞書更新を設定します。",
+            ),
+            ("ja-JP", StudioCategory::SemanticTuner) => (
+                "🛠️ ニューロシンボリック意味チューニングスタジオ (Dev)",
+                "双方向最大一致アライメント、言語学診断、二階遷移ルール抽出、ゴールデンベンチマーク検証。",
+            ),
+            ("ja-JP", StudioCategory::About) => (
+                "ℹ️ RuhI について・多言語ユニバーサルビジョン",
+                "RuhI の設計哲学、全言語ユニバーサル入力ブループリント、システムバージョンと辞書ステータス。",
+            ),
+            ("ko-KR", StudioCategory::Appearance) => (
+                "🎨 외관 및 후보창 설정 (UniversalUI 자동 적응)",
+                "인터페이스 언어, 입력 표시 모드, 후보창 배열 방향, 글꼴 크기, 테마 색상 및 미니 상태 캡슐을 설정합니다.",
+            ),
+            ("ko-KR", StudioCategory::KeyboardLayout) => (
+                "⌨️ 키보드 배열 및 단축키 설정",
+                "기본 입력 모드, 빠른 전환 순환 목록, 스페이스바 동작, Caps Lock 전환 및 문장부호 확정 모드를 설정합니다.",
+            ),
+            ("ko-KR", StudioCategory::MixedEnglish) => (
+                "🔤 영문 스마트 혼용 입력 전략",
+                "주음/영문 스마트 혼용 입력, 문맥 스트림 모드 및 긴 단어 임계값을 설정합니다.",
+            ),
+            ("ko-KR", StudioCategory::Grammar) => (
+                "🧠 구문 토폴로지 및 문법 중력장",
+                "고차 구문 구조, 2차 전이 규칙, 구조 조사 의미 분석 및 사용자 사전 핫 리로드를 설정합니다.",
+            ),
+            ("ko-KR", StudioCategory::AiAndPrivacy) => (
+                "🛡️ Zero-PII 개인정보 보호 게이트웨이 및 클라우드 피드백",
+                "개인정보 필터링, 익명 수정 문장 쌍 전송 주기 및 Tailcat 사전 업데이트를 설정합니다.",
+            ),
+            ("ko-KR", StudioCategory::SemanticTuner) => (
+                "🛠️ 뉴로-심볼릭 의미 튜닝 스튜디오 (Dev)",
+                "양방향 단어 경계 정렬, 전산언어학 진단, 2차 전이 규칙 합성 및 골든 벤치마크 검증.",
+            ),
+            ("ko-KR", StudioCategory::About) => (
+                "ℹ️ RuhI 정보 및 다국어 유니버설 비전",
+                "RuhI 브랜드 철학, 전 언어 범용 입력기 청사진, 시스템 버전 및 사전 상태 정보.",
+            ),
+            _ => self.page_header(),
+        }
+    }
+
+    #[allow(dead_code)]
+    fn _unused_sidebar_label(&self) -> &'static str {
         match self {
             StudioCategory::Appearance => "🎨 外觀與候選座",
             StudioCategory::KeyboardLayout => "⌨️ 鍵盤配置與常用鍵",
@@ -119,10 +249,28 @@ pub struct RuhiStudioApp {
     pub last_wakeup_check: std::time::Instant,
     pub last_wakeup_ts: u64,
     pub last_config_mtime: Option<std::time::SystemTime>,
+    pub cli_lang_override: Option<String>,
 }
 
 impl RuhiStudioApp {
     pub fn new(initial_category: StudioCategory) -> Self {
+        Self::new_with_lang(initial_category, None)
+    }
+
+    pub fn effective_ui_lang(&self) -> &'static str {
+        let cfg_lang = self.settings.appearance.ui_lang.trim();
+        if !cfg_lang.is_empty() && !cfg_lang.eq_ignore_ascii_case("auto") {
+            return resolve_effective_ui_lang(cfg_lang);
+        }
+        if let Some(ref cli_lang) = self.cli_lang_override {
+            if !cli_lang.trim().is_empty() {
+                return resolve_effective_ui_lang(cli_lang);
+            }
+        }
+        resolve_effective_ui_lang(cfg_lang)
+    }
+
+    pub fn new_with_lang(initial_category: StudioCategory, cli_lang_override: Option<String>) -> Self {
         let root_dir = resolve_ruhi_root();
         let data_dir = resolve_data_dir(&root_dir);
         let settings = load_settings(&root_dir);
@@ -187,6 +335,7 @@ impl RuhiStudioApp {
             last_wakeup_check: std::time::Instant::now(),
             last_wakeup_ts,
             last_config_mtime,
+            cli_lang_override,
         }
     }
 
@@ -361,6 +510,42 @@ impl RuhiStudioApp {
 
     fn render_appearance_page(&mut self, ui: &mut egui::Ui) {
         let palette = self.shell.palette;
+
+        ui.group(|ui| {
+            let ui_lang = self.effective_ui_lang();
+            let grp_title = match ui_lang {
+                "en-US" => "🌐 Interface Language & Cross-Locale Profile Adaptation",
+                "ja-JP" => "🌐 表示言語（UI 言語と導入ロケール連動）",
+                "ko-KR" => "🌐 인터페이스 표시 언어 (설치 로케일 자동 연동)",
+                _ => "🌐 介面顯示語系（穿透各安裝語系自動適配）",
+            };
+            ui.heading(grp_title);
+            ui.add_space(6.0);
+            let mut lang_changed = false;
+            for (code, label) in [
+                ("auto", "自動跟隨安裝語系／系統語系 (Auto: Follow Active Language Profile / OS)"),
+                ("zh-TW", "繁體中文（台灣 · Traditional Chinese）"),
+                ("en-US", "English（英文／泛歐語系介面 · Pan-European UI）"),
+                ("ja-JP", "日本語（日文介面 · Japanese UI）"),
+                ("ko-KR", "한국어（韓文介面 · Korean UI）"),
+            ] {
+                if ui
+                    .radio_value(
+                        &mut self.settings.appearance.ui_lang,
+                        code.to_string(),
+                        label,
+                    )
+                    .changed()
+                {
+                    lang_changed = true;
+                }
+            }
+            if lang_changed {
+                self.auto_save_settings_quiet();
+            }
+        });
+
+        ui.add_space(10.0);
 
         ui.group(|ui| {
             ui.heading("輸入操作模式（微軟新注音 vs 如喜輸入座）");
@@ -1567,7 +1752,49 @@ impl eframe::App for RuhiStudioApp {
             .iter()
             .map(|c| (0, c.sidebar_label()))
             .collect();
+        let cur_ui_lang = self.effective_ui_lang();
+        let (app_title, app_sub, zoom_btn_fmt, theme_btn_lbl, reset_btn_lbl, save_btn_lbl) = match cur_ui_lang {
+            "en-US" => (
+                "RuhI Universal IME — Preferences & Semantic Studio",
+                "Responsive Universal Human Input · 100% Native Rust + UniversalUI (atg_lib)",
+                format!("🔍 Zoom {}% (Ctrl+0)", (self.shell.ui_scale * 100.0).round() as i32),
+                "🎨 Theme (Ctrl+T)",
+                "↺ Reset Defaults",
+                "  💾 Save & Apply  ",
+            ),
+            "ja-JP" => (
+                "RuhI（如喜）入力システム — 環境設定センター",
+                "雲の行くが如く水の流るるが如く · 100% ネイティブ Rust + UniversalUI (atg_lib)",
+                format!("🔍 ズーム {}% (Ctrl+0)", (self.shell.ui_scale * 100.0).round() as i32),
+                "🎨 テーマ切替 (Ctrl+T)",
+                "↺ 既定値に戻す",
+                "  💾 保存して適用  ",
+            ),
+            "ko-KR" => (
+                "RuhI 범용 입력기 — 환경설정 센터",
+                "구름 가듯 물 흐르듯 · 100% 네이티브 Rust + UniversalUI (atg_lib)",
+                format!("🔍 배율 {}% (Ctrl+0)", (self.shell.ui_scale * 100.0).round() as i32),
+                "🎨 테마 전환 (Ctrl+T)",
+                "↺ 기본값 복원",
+                "  💾 저장 및 적용  ",
+            ),
+            _ => (
+                "RuhI（如喜）輸入法 — 現代化偏好設定中心",
+                "如雲行水流自在歡喜 · 100% 原生 Rust + UniversalUI (atg_lib) 自適應架構",
+                format!("🔍 縮放 {}% (Ctrl+0)", (self.shell.ui_scale * 100.0).round() as i32),
+                "🎨 切換深淺色 (Ctrl+T)",
+                "↺ 還原出廠預設值",
+                "  💾 儲存並套用設定  ",
+            ),
+        };
+        ctx.send_viewport_cmd(egui::ViewportCommand::Title(app_title.to_string()));
+        let _ = nav_items;
+        let nav_items: Vec<(usize, &str)> = StudioCategory::ALL
+            .iter()
+            .map(|c| (0, c.sidebar_label_i18n(cur_ui_lang)))
+            .collect();
         let min_sidebar_w = self.shell.ensure_sidebar_min_width(&nav_items);
+        let _unused_min_sidebar_w = self.shell.ensure_sidebar_min_width(&nav_items);
 
         // 頂部品牌標頭列
         egui::TopBottomPanel::top("ruhi_studio_top_bar")
@@ -1578,13 +1805,13 @@ impl eframe::App for RuhiStudioApp {
                     ui.vertical(|ui| {
                         ui.add_space(6.0);
                         ui.label(
-                            egui::RichText::new("RuhI（如喜）輸入法 — 現代化偏好設定中心")
+                            egui::RichText::new(app_title)
                                 .size(17.0 * self.shell.ui_scale)
                                 .strong(),
                         );
                         ui.label(
                             egui::RichText::new(
-                                "如雲行水流自在歡喜 · 100% 原生 Rust + UniversalUI (atg_lib) 自適應架構",
+                                app_sub,
                             )
                             .size(11.5 * self.shell.ui_scale)
                             .color(self.shell.palette.fg_muted.to_egui()),
@@ -1592,15 +1819,15 @@ impl eframe::App for RuhiStudioApp {
                     });
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(10.0);
-                        let pct = (self.shell.ui_scale * 100.0).round() as i32;
+                        let _pct = (self.shell.ui_scale * 100.0).round() as i32;
                         if ui
-                            .button(format!("🔍 縮放 {pct}% (Ctrl+0)"))
+                            .button(zoom_btn_fmt)
                             .on_hover_text("支援 Ctrl + 滑鼠滾輪 或 Ctrl + +/-/0 即時無段縮放")
                             .clicked()
                         {
                             self.shell.set_ui_scale(1.0);
                         }
-                        if ui.button("🎨 切換深淺色 (Ctrl+T)").clicked() {
+                        if ui.button(theme_btn_lbl).clicked() {
                             let next = self
                                 .shell
                                 .theme_pref
@@ -1622,13 +1849,13 @@ impl eframe::App for RuhiStudioApp {
                 rud_button_bar(
                     ui,
                     |ui| {
-                        if ui.button("↺ 還原出廠預設值").clicked() {
+                        if ui.button(reset_btn_lbl).clicked() {
                             do_reset = true;
                         }
                     },
                     |ui| {
                         if ui
-                            .button(egui::RichText::new("  💾 儲存並套用設定  ").strong())
+                            .button(egui::RichText::new(save_btn_lbl).strong())
                             .clicked()
                         {
                             do_save = true;
@@ -1655,7 +1882,7 @@ impl eframe::App for RuhiStudioApp {
                     let selected = self.current_category == cat;
                     let resp = ui.selectable_label(
                         selected,
-                        egui::RichText::new(cat.sidebar_label()).size(14.0 * self.shell.ui_scale),
+                        egui::RichText::new(cat.sidebar_label_i18n(cur_ui_lang)).size(14.0 * self.shell.ui_scale),
                     );
                     if resp.clicked() {
                         self.select_category(cat);
@@ -1667,7 +1894,7 @@ impl eframe::App for RuhiStudioApp {
 
         // 右側主內容區
         egui::CentralPanel::default().show(ctx, |ui| {
-            let (title, desc) = self.current_category.page_header();
+            let (title, desc) = self.current_category.page_header_i18n(cur_ui_lang);
             ui.heading(egui::RichText::new(title).size(16.5 * self.shell.ui_scale).strong());
             ui.label(
                 egui::RichText::new(desc)
@@ -1964,6 +2191,7 @@ fn main() {
     let mut cor_arg = String::new();
     let mut file_arg = String::new();
     let mut pull_community_url = String::new();
+    let mut lang_arg = String::new();
 
     let mut i = 0;
     while i < args.len() {
@@ -2000,6 +2228,14 @@ fn main() {
                 i += 1;
             }
             "--pull-community" if i + 1 < args.len() => {
+                pull_community_url = args[i + 1].clone();
+                i += 1;
+            }
+            "--lang" | "-l" if i + 1 < args.len() => {
+                lang_arg = args[i + 1].clone();
+                i += 1;
+            }
+            "--pull-community-unused" => {
                 pull_community_url = args[i + 1].clone();
                 i += 1;
             }
@@ -2285,6 +2521,9 @@ fn main() {
     let _ = eframe::run_native(
         "RuhI（如喜）輸入法 — 現代化偏好設定中心",
         options,
-        Box::new(move |_cc| Ok(Box::new(RuhiStudioApp::new(initial_cat)))),
+        Box::new(move |_cc| {
+            let cli_lang = if lang_arg.is_empty() { None } else { Some(lang_arg.clone()) };
+            Ok(Box::new(RuhiStudioApp::new_with_lang(initial_cat, cli_lang)))
+        }),
     );
 }

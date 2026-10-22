@@ -6,7 +6,7 @@
 > **「如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。」**  
 > **RuhI**（**R**esponsive **U**niversal **H**uman **I**nput，梵語字根 *Ruh / Rūhi* 意為「萌芽、生長、向上攀升」），是一款面向 Windows 10/11 與 Linux、完全採用純 Rust 打造的次世代自適應通用人本輸入法與語意調校系統。
 
-[![Version](https://img.shields.io/badge/version-v0.4.0-purple.svg)]()
+[![Version](https://img.shields.io/badge/version-v0.5.5-purple.svg)]()
 [![Rust](https://img.shields.io/badge/language-Rust%202021-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2011%2F10%20%7C%20Linux%20(Fcitx5)-blue.svg)]()
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)

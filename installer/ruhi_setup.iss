@@ -2,7 +2,7 @@
 ; 符合 Windows 10 / 11 64 位元純 TSF 與 Win32 全生態相容性規範 (TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC)
 
 #define MyAppName "RuhI 如喜通用智慧型輸入法"
-#define MyAppVersion "0.5.0"
+#define MyAppVersion "0.5.5"
 #define MyAppPublisher "RuhOS Community"
 #define MyAppURL "https://github.com/Yuktesha/ruhi"
 #define MyAppExeName "ruhi-studio.exe"

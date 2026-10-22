@@ -2,8 +2,8 @@
   "compat_feeds": {
     "1": "https://raw.githubusercontent.com/Yuktesha/ruhi/main/ruhi_lexicon/data/tailcat_official_feed.json"
   },
-  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v0.5.0/RuhI_Setup_v0.5.0.exe",
-  "latest_version": "0.5.0",
+  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v0.5.5/RuhI_Setup_v0.5.5.exe",
+  "latest_version": "0.5.5",
   "min_compat_version": "0.4.0",
   "protocol": "RUHI_TAILCAT_FEDERATED_SEMANTIC_V1",
   "release_notes": "RuhI v0.5.0：新增韓文羅馬字（RR）輸入模式、阿南達瑪迦梵語羅馬拼音詞彙轉寫與歐語變音候選擴充；支援 Tailcat 動態派發雲端投遞端點與試算表讀寫權限分離；語意規則經 dev 集消融收斂。",

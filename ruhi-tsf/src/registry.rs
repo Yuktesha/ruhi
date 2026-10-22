@@ -12,6 +12,58 @@ use crate::guid::*;
 
 const DESCRIPTION_ZH: &str = "RuhI如喜通用智慧型輸入法";
 const DESCRIPTION_EN: &str = "RuhI Universal Smart IME";
+const DESCRIPTION_JA: &str = "RuhI 汎用スマート入力 (如喜)";
+const DESCRIPTION_KO: &str = "RuhI 범용 스마트 입력기 (如喜)";
+
+/// 支援穿透安裝之多語系 TSF 語言設定檔清單 `(LANGID, 顯示名稱)`
+pub const SUPPORTED_LANG_PROFILES: &[(u16, &str)] = &[
+    (0x0404, DESCRIPTION_ZH), // zh-TW (繁體中文 - 台灣)
+    (0x0C04, DESCRIPTION_ZH), // zh-HK (繁體中文 - 香港)
+    (0x0409, DESCRIPTION_EN), // en-US (English - United States)
+    (0x0809, DESCRIPTION_EN), // en-GB (English - United Kingdom)
+    (0x0411, DESCRIPTION_JA), // ja-JP (日本語)
+    (0x0412, DESCRIPTION_KO), // ko-KR (한국어)
+    (0x040C, DESCRIPTION_EN), // fr-FR (Français)
+    (0x0407, DESCRIPTION_EN), // de-DE (Deutsch)
+    (0x0C0A, DESCRIPTION_EN), // es-ES (Español)
+];
+
+/// 偵測指定 `LANGID` 是否已安裝於使用者目前之 Windows 系統鍵盤佈局或介面語系中
+unsafe fn is_langid_installed_on_system(target_langid: u16) -> bool {
+    if std::env::var("RUHI_REGISTER_ALL_LANGS")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+    {
+        return true;
+    }
+    let sys_ui_lang = GetUserDefaultUILanguage();
+    if sys_ui_lang == target_langid || (sys_ui_lang & 0x03FF) == (target_langid & 0x03FF) {
+        return true;
+    }
+    // 預設確保繁體中文 (0x0404) 與英文 (0x0409) 若存在於系統輸入清單即啟用；若系統為華語環境保底啟用 0x0404
+    if target_langid == 0x0404 && (sys_ui_lang & 0x03FF) == 0x04 {
+        return true;
+    }
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyboardLayoutList, HKL};
+    let count = GetKeyboardLayoutList(None);
+    if count > 0 {
+        let mut hkls = vec![HKL::default(); count as usize];
+        let fetched = GetKeyboardLayoutList(Some(&mut hkls));
+        for hkl in hkls.into_iter().take(fetched as usize) {
+            let hkl_langid = (hkl.0 as usize & 0xFFFF) as u16;
+            if hkl_langid == target_langid {
+                return true;
+            }
+            // 主語言相符且為該語系代表 LANGID (0x0404, 0x0409, 0x0411, 0x0412, 0x040C, 0x0407, 0x0C0A)
+            if (hkl_langid & 0x03FF) == (target_langid & 0x03FF)
+                && matches!(target_langid, 0x0404 | 0x0409 | 0x0411 | 0x0412 | 0x040C | 0x0407 | 0x0C0A)
+            {
+                return true;
+            }
+        }
+    }
+    target_langid == 0x0404
+}
 const LANG_CHINESE_TRADITIONAL: u16 = 0x0404; // zh-TW
 const LANG_ENGLISH_US: u16 = 0x0409;          // en-US
 
@@ -23,6 +75,8 @@ fn get_current_ui_desc() -> &'static str {
     let lang = unsafe { GetUserDefaultUILanguage() };
     match lang {
         0x0404 | 0x0c04 | 0x1404 => DESCRIPTION_ZH,
+        0x0411 => DESCRIPTION_JA,
+        0x0412 => DESCRIPTION_KO,
         _ => DESCRIPTION_EN,
     }
 }
@@ -132,7 +186,60 @@ pub unsafe fn register_server(hinstance: HMODULE) -> Result<()> {
         };
         let icon_u16: Vec<u16> = icon_path.encode_utf16().chain(Some(0)).collect();
 
-        // 1. 繁體中文環境 (zh-TW)：自適應正體國際通用名稱
+        // 1. 穿透註冊多語系 TSF Language Profiles（zh-TW / en-US / ja-JP / ko-KR / fr-FR / de-DE / es-ES）
+        //    - 對所有支援語系寫入 TSF Profile Catalog，讓任何語系使用者皆可於 Windows 語言選項中選取 RuhI；
+        //    - 對使用者系統目前已安裝之語言自動啟用 (EnableLanguageProfile = true)，未安裝之語言則設為 false 避免強制塞入工作列語言列。
+        let mgr_opt = profiles.cast::<ITfInputProcessorProfileMgr>().ok();
+        let icon_slice = if !icon_u16.is_empty() && icon_u16.last() == Some(&0) {
+            &icon_u16[..icon_u16.len() - 1]
+        } else {
+            &icon_u16[..]
+        };
+        for &(lang_id, profile_desc) in SUPPORTED_LANG_PROFILES {
+            let _ = profiles.RemoveLanguageProfile(
+                &CLSID_RUHI_TEXT_SERVICE,
+                lang_id,
+                &GUID_RUHI_PROFILE,
+            );
+            let enable_for_user = is_langid_installed_on_system(lang_id);
+            let desc_u16: Vec<u16> = profile_desc.encode_utf16().chain(Some(0)).collect();
+            let _ = profiles.AddLanguageProfile(
+                &CLSID_RUHI_TEXT_SERVICE,
+                lang_id,
+                &GUID_RUHI_PROFILE,
+                &desc_u16,
+                &icon_u16,
+                0,
+            );
+            let _ = profiles.EnableLanguageProfile(
+                &CLSID_RUHI_TEXT_SERVICE,
+                lang_id,
+                &GUID_RUHI_PROFILE,
+                enable_for_user,
+            );
+            if let Some(ref mgr) = mgr_opt {
+                use windows::Win32::UI::Input::KeyboardAndMouse::HKL;
+                let desc_slice = if !desc_u16.is_empty() && desc_u16.last() == Some(&0) {
+                    &desc_u16[..desc_u16.len() - 1]
+                } else {
+                    &desc_u16[..]
+                };
+                let _ = mgr.RegisterProfile(
+                    &CLSID_RUHI_TEXT_SERVICE,
+                    lang_id,
+                    &GUID_RUHI_PROFILE,
+                    desc_slice,
+                    icon_slice,
+                    0,
+                    HKL(0 as _),
+                    0,
+                    BOOL::from(enable_for_user),
+                    0,
+                );
+            }
+        }
+
+        // 保底相容原繁體中文 (zh-TW) 變數結構
         let desc_zh_u16: Vec<u16> = DESCRIPTION_ZH.encode_utf16().chain(Some(0)).collect();
         let _ = profiles.AddLanguageProfile(
             &CLSID_RUHI_TEXT_SERVICE,
@@ -358,6 +465,13 @@ pub unsafe fn unregister_server() -> Result<()> {
             LANG_ENGLISH_US,
             &GUID_RUHI_PROFILE,
         );
+        for &(lang_id, _) in SUPPORTED_LANG_PROFILES {
+            let _ = profiles.RemoveLanguageProfile(
+                &CLSID_RUHI_TEXT_SERVICE,
+                lang_id,
+                &GUID_RUHI_PROFILE,
+            );
+        }
         let _ = profiles.Unregister(&CLSID_RUHI_TEXT_SERVICE);
     }
 

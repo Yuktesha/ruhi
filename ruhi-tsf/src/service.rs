@@ -152,6 +152,8 @@ pub struct RuhiConfig {
     pub desk_opacity: u32,
     #[serde(default = "default_theme")]
     pub theme: String,
+    #[serde(default = "default_ui_lang")]
+    pub ui_lang: String,
     #[serde(default = "default_orientation")]
     pub orientation: String,
     #[serde(default = "default_user_dict_path")]
@@ -207,6 +209,7 @@ impl Default for RuhiConfig {
             candidate_font_size: default_candidate_font_size(),
             desk_opacity: default_desk_opacity(),
             theme: default_theme(),
+            ui_lang: default_ui_lang(),
             orientation: default_orientation(),
             user_dict_path: default_user_dict_path(),
             desk_x: default_desk_x(),
@@ -246,6 +249,111 @@ fn default_font_size() -> u32 { 32 }
 fn default_candidate_font_size() -> u32 { 24 }
 fn default_desk_opacity() -> u32 { 95 }
 fn default_theme() -> String { "system".to_string() }
+fn default_ui_lang() -> String { "auto".to_string() }
+
+static ACTIVE_TSF_LANGID: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
+
+pub fn get_active_tsf_langid() -> u16 {
+    ACTIVE_TSF_LANGID.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// 透過 TSF `ITfInputProcessorProfileMgr::GetActiveProfile` 查詢目前作用中之鍵盤設定檔 `LANGID`
+pub fn query_active_tsf_langid() -> u16 {
+    unsafe {
+        let _ = windows::Win32::System::Com::CoInitialize(None);
+        let mgr_res: Result<ITfInputProcessorProfileMgr> = windows::Win32::System::Com::CoCreateInstance(
+            &CLSID_TF_InputProcessorProfiles,
+            None,
+            windows::Win32::System::Com::CLSCTX_INPROC_SERVER,
+        );
+        if let Ok(mgr) = mgr_res {
+            let mut prof = TF_INPUTPROCESSORPROFILE::default();
+            if mgr.GetActiveProfile(&crate::guid::GUID_TFCAT_TIP_KEYBOARD, &mut prof).is_ok() {
+                if prof.clsid == crate::guid::CLSID_RUHI_TEXT_SERVICE && prof.langid != 0 {
+                    return prof.langid;
+                }
+            }
+        }
+        0
+    }
+}
+
+/// 將 Windows `LANGID` 轉換為標準介面語系代碼 (`"zh-TW"`, `"en-US"`, `"ja-JP"`, `"ko-KR"`)
+pub fn langid_to_ui_locale(langid: u16) -> &'static str {
+    match langid & 0x03FF {
+        0x04 => "zh-TW",
+        0x11 => "ja-JP",
+        0x12 => "ko-KR",
+        0x09 | 0x0C | 0x07 | 0x0A => "en-US",
+        _ => "en-US",
+    }
+}
+
+/// 解析目前實際生效之介面語系 (`"zh-TW"`, `"en-US"`, `"ja-JP"`, `"ko-KR"`)
+pub fn resolve_effective_ui_lang(configured_ui_lang: &str) -> &'static str {
+    let norm = configured_ui_lang.trim().to_ascii_lowercase();
+    match norm.as_str() {
+        "zh" | "zh-tw" | "zh_tw" | "zh-hant" => return "zh-TW",
+        "en" | "en-us" | "en_us" | "en-gb" => return "en-US",
+        "ja" | "ja-jp" | "ja_jp" | "jp" => return "ja-JP",
+        "ko" | "ko-kr" | "ko_kr" | "kr" => return "ko-KR",
+        _ => {}
+    }
+    let mut langid = get_active_tsf_langid();
+    if langid == 0 {
+        langid = query_active_tsf_langid();
+        if langid != 0 {
+            ACTIVE_TSF_LANGID.store(langid, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+    if langid != 0 {
+        return langid_to_ui_locale(langid);
+    }
+    extern "system" {
+        fn GetUserDefaultUILanguage() -> u16;
+    }
+    let sys_lang = unsafe { GetUserDefaultUILanguage() };
+    if sys_lang != 0 {
+        langid_to_ui_locale(sys_lang)
+    } else {
+        "zh-TW"
+    }
+}
+
+/// 當使用者從 Windows 語言選單切換不同語系入口之 RuhI 設定檔時，同步更新作用中語系與預設輸入模式
+pub fn sync_active_tsf_profile_locale(cfg: &mut RuhiConfig) {
+    let active_langid = query_active_tsf_langid();
+    if active_langid == 0 {
+        return;
+    }
+    let prev_langid = ACTIVE_TSF_LANGID.swap(active_langid, std::sync::atomic::Ordering::SeqCst);
+    let primary = active_langid & 0x03FF;
+    let prev_primary = prev_langid & 0x03FF;
+    // 若使用者從非中文語言入口（如英文、日文、韓文）啟動 RuhI，或在兩個不同語言入口間切換：
+    if prev_langid != active_langid && (primary != 0x04 || prev_primary != 0) {
+        let target_mode = match primary {
+            0x09 | 0x0C | 0x07 | 0x0A => Some("english"),
+            0x11 => Some("japanese"),
+            0x12 => Some("korean"),
+            0x04 => Some(
+                cfg.enabled_keyboard_modes
+                    .first()
+                    .map(|s| s.as_str())
+                    .unwrap_or("hsu"),
+            ),
+            _ => None,
+        };
+        if let Some(m) = target_mode {
+            let m_owned = m.to_string();
+            if !cfg.keyboard_mode.eq_ignore_ascii_case(&m_owned) {
+                let prev_kb = cfg.keyboard_mode.clone();
+                cfg.last_keyboard_mode = prev_kb.clone();
+                cfg.keyboard_mode = m_owned.clone();
+                crate::candidate_window::save_keyboard_mode_with_last(&m_owned, Some(&prev_kb));
+            }
+        }
+    }
+}
 fn default_orientation() -> String { "horizontal".to_string() }
 fn default_user_dict_path() -> String { "user_dict.tsv".to_string() }
 fn default_desk_x() -> i32 { 350 }
@@ -700,7 +808,13 @@ impl ITfLangBarItem_Impl for RuhiLangBarItemButton_Impl {
             (*pinfo).guidItem = GUID_LBI_INPUTMODE;
             (*pinfo).dwStyle = TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_SHOWNINTRAY;
             (*pinfo).ulSort = 0;
-            let desc: Vec<u16> = "RuhI 輸入模式".encode_utf16().collect();
+            let desc_str = match resolve_effective_ui_lang("auto") {
+                "en-US" => "RuhI Input Mode",
+                "ja-JP" => "RuhI 入力モード",
+                "ko-KR" => "RuhI 입력 모드",
+                _ => "RuhI 輸入模式",
+            };
+            let desc: Vec<u16> = desc_str.encode_utf16().collect();
             for (i, &c) in desc.iter().enumerate().take((*pinfo).szDescription.len() - 1) {
                 (*pinfo).szDescription[i] = c;
             }
@@ -720,8 +834,16 @@ impl ITfLangBarItem_Impl for RuhiLangBarItemButton_Impl {
     fn GetTooltipString(&self) -> Result<BSTR> {
         let paths = RuhiPaths::resolve();
         let cfg = load_ruhi_config(&paths);
-        let (badge, mode_name) = crate::candidate_window::get_mode_badge_and_name(&cfg.keyboard_mode, false);
-        Ok(BSTR::from(format!("RuhI 如喜 — {} ({}) [左鍵輪流切換／右鍵開啟選單]", mode_name, badge)))
+        let (_badge_unused, _mode_name_unused) = crate::candidate_window::get_mode_badge_and_name(&cfg.keyboard_mode, false);
+        let ui_lang = resolve_effective_ui_lang(&cfg.ui_lang);
+        let (badge, mode_name) = crate::candidate_window::get_mode_badge_and_name_i18n(&cfg.keyboard_mode, false, ui_lang);
+        let tip = match ui_lang {
+            "en-US" => format!("RuhI — {} ({}) [Left-click: Switch / Right-click: Menu]", mode_name, badge),
+            "ja-JP" => format!("RuhI 如喜 — {} ({}) [左クリック: 切替 / 右クリック: メニュー]", mode_name, badge),
+            "ko-KR" => format!("RuhI 루히 — {} ({}) [좌클릭: 전환 / 우클릭: 메뉴]", mode_name, badge),
+            _ => format!("RuhI 如喜 — {} ({}) [左鍵輪流切換／右鍵開啟選單]", mode_name, badge),
+        };
+        Ok(BSTR::from(tip))
     }
 }
 
@@ -743,7 +865,9 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
             let cfg = load_ruhi_config(&paths);
             let cur_kb = cfg.keyboard_mode.to_lowercase();
             let is_direct_en_caps = cfg.capslock_switch == "english_direct";
-            let items: &[(u32, &str, &str)] = &[
+            let ui_lang = resolve_effective_ui_lang(&cfg.ui_lang);
+            let items = crate::candidate_window::get_mode_menu_items_i18n(ui_lang);
+            let _unused_items: &[(u32, &str, &str)] = &[
                 (2001, "hsu", "許氏雙拼注音 (許)\tCtrl/Shift + CapsLock"),
                 (2005, "japanese", "日文羅馬字輸入 (日)\tCtrl/Shift + CapsLock"),
                 (2009, "korean", "韓文羅馬拼音輸入 (韓)\tCtrl/Shift + CapsLock"),
@@ -766,7 +890,43 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
                     let _ = menu.AddMenuItem(id, 0, null_bmp, null_bmp, &wide, std::ptr::null_mut());
                 }
                 let is_en_active = matches!(cur_kb.as_str(), "english" | "en" | "latin" | "western" | "euro" | "sanskrit");
-                let en_lbl = if is_direct_en_caps {
+                let (en_base_lbl, mru_prefix, tune_lbl, set_lbl, about_lbl) = match ui_lang {
+                    "en-US" => (
+                        "Pan-European / Roman (EU)",
+                        "Quick Toggle Last Two Modes",
+                        "Show/Hide Inline Tuner Bar (Tune ▾)",
+                        "Preferences Center (&S)...",
+                        "About RuhI (&A)",
+                    ),
+                    "ja-JP" => (
+                        "汎欧州／ローマ字モード (欧)",
+                        "直近 2 モードの高速切替",
+                        "インライン調整バーの表示／非表示 (調整 ▾)",
+                        "設定センター (&S)...",
+                        "RuhI について (&A)",
+                    ),
+                    "ko-KR" => (
+                        "범유럽 / 로마자 모드 (EU)",
+                        "최근 두 입력 모드 빠른 전환",
+                        "인라인 조정 바 표시/숨기기 (조정 ▾)",
+                        "환경설정 (&S)...",
+                        "RuhI 정보 (&A)",
+                    ),
+                    _ => (
+                        "泛歐／羅馬字模式 (歐)",
+                        "最後兩種輸入模式快速切換",
+                        "顯示／隱藏輸入座內嵌調校列 (調校 ▾)",
+                        "偏好設定中心 (&S)...",
+                        "關於 RuhI 如喜 (&A)",
+                    ),
+                };
+                let en_hotkey = if is_direct_en_caps { "CapsLock" } else { "Ctrl/Shift + CapsLock" };
+                let en_lbl = if is_en_active {
+                    format!("✓ {}\t{}", en_base_lbl, en_hotkey)
+                } else {
+                    format!("   {}\t{}", en_base_lbl, en_hotkey)
+                };
+                let _unused_en_lbl = if false {
                     if is_en_active {
                         "✓ 泛歐／羅馬字模式 (歐)\tCapsLock".to_string()
                     } else {
@@ -783,7 +943,7 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
                 let _ = menu.AddMenuItem(2006, 0, null_bmp, null_bmp, &en_wide, std::ptr::null_mut());
 
                 if !is_direct_en_caps {
-                    let (cur_badge, _) = crate::candidate_window::get_mode_badge_and_name(&cfg.keyboard_mode, false);
+                    let (cur_badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(&cfg.keyboard_mode, false, ui_lang);
                     let last_code = if cfg.last_keyboard_mode.eq_ignore_ascii_case(&cfg.keyboard_mode) {
                         if is_en_active {
                             cfg.enabled_keyboard_modes.first().map(|s| s.as_str()).unwrap_or("hsu")
@@ -793,18 +953,18 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
                     } else {
                         cfg.last_keyboard_mode.as_str()
                     };
-                    let (last_badge, _) = crate::candidate_window::get_mode_badge_and_name(last_code, false);
-                    let mru_lbl = format!("   最後兩種輸入模式快速切換 ({} ⇄ {})\tCapsLock", cur_badge, last_badge);
+                    let (last_badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(last_code, false, ui_lang);
+                    let mru_lbl = format!("   {} ({} ⇄ {})\tCapsLock", mru_prefix, cur_badge, last_badge);
                     let mru_wide: Vec<u16> = mru_lbl.encode_utf16().collect();
                     let _ = menu.AddMenuItem(2008, 0, null_bmp, null_bmp, &mru_wide, std::ptr::null_mut());
                 }
 
-                let tune_wide: Vec<u16> = "   顯示／隱藏輸入座內嵌調校列 (調校 ▾)".encode_utf16().collect();
+                let tune_wide: Vec<u16> = format!("   {}", tune_lbl).encode_utf16().collect();
                 let _ = menu.AddMenuItem(3001, 0, null_bmp, null_bmp, &tune_wide, std::ptr::null_mut());
 
-                let set_wide: Vec<u16> = "   偏好設定中心 (&S)...".encode_utf16().collect();
+                let set_wide: Vec<u16> = format!("   {}", set_lbl).encode_utf16().collect();
                 let _ = menu.AddMenuItem(1001, 0, null_bmp, null_bmp, &set_wide, std::ptr::null_mut());
-                let about_wide: Vec<u16> = "   關於 RuhI 如喜 (&A)".encode_utf16().collect();
+                let about_wide: Vec<u16> = format!("   {}", about_lbl).encode_utf16().collect();
                 let _ = menu.AddMenuItem(1002, 0, null_bmp, null_bmp, &about_wide, std::ptr::null_mut());
             }
         }
@@ -1044,6 +1204,13 @@ impl ITfTextInputProcessor_Impl for RuhiTextService_Impl {
             };
             *self.thread_mgr.lock().unwrap() = Some(tm.clone());
             *self.client_id.lock().unwrap() = tid;
+            if let Ok(mut cfg) = self.config.lock() {
+                sync_active_tsf_profile_locale(&mut cfg);
+                if let Ok(mut eng) = self.engine.lock() {
+                    eng.keyboard_mode = cfg.keyboard_mode.clone();
+                    eng.last_keyboard_mode = cfg.last_keyboard_mode.clone();
+                }
+            }
             {
                 let mut cw_guard = self.candidate_window.lock().unwrap();
                 if cw_guard.is_none() {
@@ -1166,7 +1333,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         let _ = eng.array30.table.load_tsv(&paths.array30);
                     }
                 }
-                let new_cfg = load_ruhi_config(&paths);
+                let mut new_cfg = load_ruhi_config(&paths);
+                sync_active_tsf_profile_locale(&mut new_cfg);
                 if let Ok(mut eng) = self.engine.lock() {
                     eng.keyboard_mode = new_cfg.keyboard_mode.clone();
                     eng.last_keyboard_mode = new_cfg.last_keyboard_mode.clone();
@@ -4399,7 +4567,8 @@ impl RuhiTextService_Impl {
                     };
                     *lock = Some((now, mtime));
                     if needs_reload {
-                        let new_cfg = load_ruhi_config(&paths);
+                        let mut new_cfg = load_ruhi_config(&paths);
+                sync_active_tsf_profile_locale(&mut new_cfg);
                         logger::log(&format!("Reloaded config: mode={}, keyboard={}, font_size={}", new_cfg.input_display_mode, new_cfg.keyboard_mode, new_cfg.font_size));
                         if let Ok(mut eng) = self.engine.lock() {
                             eng.keyboard_mode = new_cfg.keyboard_mode.clone();

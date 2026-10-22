@@ -22,7 +22,138 @@ const TIMER_HIDE_TOAST: usize = 2002;
 static LAST_TRAY_STATE: Mutex<(String, bool)> = Mutex::new((String::new(), false));
 static CURRENT_TRAY_HICON: Mutex<isize> = Mutex::new(0);
 
+pub fn current_effective_ui_lang() -> &'static str {
+    let cfg_lang = get_candidate_state()
+        .read()
+        .map(|s| s.ui_lang.clone())
+        .unwrap_or_else(|_| "auto".to_string());
+    crate::service::resolve_effective_ui_lang(&cfg_lang)
+}
+
+pub fn get_mode_badge_and_name_i18n(kb_mode: &str, is_caps: bool, ui_lang: &str) -> (&'static str, &'static str) {
+    match ui_lang {
+        "en-US" => {
+            if is_caps {
+                return ("EU", "Pan-European / Roman Mode");
+            }
+            match kb_mode.to_lowercase().as_str() {
+                "english" | "en" | "latin" | "western" | "euro" | "sanskrit" => ("EU", "Pan-European / Roman Mode"),
+                "hsu" => ("HSU", "Hsu Bopomofo"),
+                "japanese" | "jp" | "romaji" | "kana" => ("JA", "Japanese Romaji"),
+                "korean" | "ko" | "hangul" | "romaja" => ("KO", "Korean Romaja"),
+                "standard" | "daikien" | "dachen" | "bopomofo" => ("BPM", "Standard Bopomofo"),
+                "cangjie" => ("CJ", "Cangjie"),
+                "array30" | "ar30" => ("AR", "Array 30"),
+                "et26" | "eten26" => ("ET", "Eten 26 Bopomofo"),
+                "et41" => ("41", "Eten 41 Bopomofo"),
+                "pinyin" => ("PY", "Hanyu Pinyin"),
+                _ => ("ZH", "Chinese Input"),
+            }
+        }
+        "ja-JP" => {
+            if is_caps {
+                return ("欧", "汎欧州／ローマ字モード");
+            }
+            match kb_mode.to_lowercase().as_str() {
+                "english" | "en" | "latin" | "western" | "euro" | "sanskrit" => ("欧", "汎欧州／ローマ字モード"),
+                "hsu" => ("許", "許氏双拼注音"),
+                "japanese" | "jp" | "romaji" | "kana" => ("日", "日本語ローマ字"),
+                "korean" | "ko" | "hangul" | "romaja" => ("韓", "韓国語ローマ字"),
+                "standard" | "daikien" | "dachen" | "bopomofo" => ("注", "標準注音"),
+                "cangjie" => ("倉", "倉頡入力"),
+                "array30" | "ar30" => ("行", "行列 30"),
+                "et26" | "eten26" => ("倚", "倚天 26 鍵"),
+                "et41" => ("41", "倚天 41 鍵"),
+                "pinyin" => ("拼", "ピンイン"),
+                _ => ("中", "中国語入力"),
+            }
+        }
+        "ko-KR" => {
+            if is_caps {
+                return ("EU", "범유럽 / 로마자 모드");
+            }
+            match kb_mode.to_lowercase().as_str() {
+                "english" | "en" | "latin" | "western" | "euro" | "sanskrit" => ("EU", "범유럽 / 로마자 모드"),
+                "hsu" => ("許", "허씨 쌍핀 주음"),
+                "japanese" | "jp" | "romaji" | "kana" => ("日", "일본어 로마자"),
+                "korean" | "ko" | "hangul" | "romaja" => ("한", "한국어 로마자"),
+                "standard" | "daikien" | "dachen" | "bopomofo" => ("注", "표준 주음"),
+                "cangjie" => ("倉", "창힐 입력기"),
+                "array30" | "ar30" => ("行", "행렬 30"),
+                "et26" | "eten26" => ("倚", "이천 26키"),
+                "et41" => ("41", "이천 41키"),
+                "pinyin" => ("拼", "한어병음"),
+                _ => ("中", "중국어 입력"),
+            }
+        }
+        _ => {
+            if is_caps {
+                return ("歐", "泛歐／羅馬字模式");
+            }
+            match kb_mode.to_lowercase().as_str() {
+                "english" | "en" | "latin" | "western" | "euro" | "sanskrit" => ("歐", "泛歐／羅馬字模式"),
+                "hsu" => ("許", "許氏雙拼注音"),
+                "japanese" | "jp" | "romaji" | "kana" => ("日", "日文羅馬字"),
+                "korean" | "ko" | "hangul" | "romaja" => ("韓", "韓文羅馬拼音"),
+                "standard" | "daikien" | "dachen" | "bopomofo" => ("注", "標準大千注音"),
+                "cangjie" => ("倉", "倉頡輸入法"),
+                "array30" | "ar30" => ("行", "行列 30 輸入法"),
+                "et26" | "eten26" => ("倚", "倚天 26 鍵注音"),
+                "et41" => ("41", "倚天 41 鍵注音"),
+                "pinyin" => ("拼", "漢語拼音"),
+                _ => ("中", "中文輸入"),
+            }
+        }
+    }
+}
+
+pub fn get_mode_menu_items_i18n(ui_lang: &str) -> &'static [(u32, &'static str, &'static str)] {
+    match ui_lang {
+        "en-US" => &[
+            (2001, "hsu", "Hsu Bopomofo (HSU)\tCtrl/Shift + CapsLock"),
+            (2005, "japanese", "Japanese Romaji (JA)\tCtrl/Shift + CapsLock"),
+            (2009, "korean", "Korean Romaja (KO)\tCtrl/Shift + CapsLock"),
+            (2004, "cangjie", "Cangjie (CJ)\tCtrl/Shift + CapsLock"),
+            (2007, "array30", "Array 30 (AR)\tCtrl/Shift + CapsLock"),
+            (2002, "standard", "Standard Bopomofo (BPM)\tCtrl/Shift + CapsLock"),
+            (2003, "et26", "Eten 26 Bopomofo (ET)\tCtrl/Shift + CapsLock"),
+        ],
+        "ja-JP" => &[
+            (2001, "hsu", "許氏双拼注音 (許)\tCtrl/Shift + CapsLock"),
+            (2005, "japanese", "日本語ローマ字入力 (日)\tCtrl/Shift + CapsLock"),
+            (2009, "korean", "韓国語ローマ字入力 (韓)\tCtrl/Shift + CapsLock"),
+            (2004, "cangjie", "倉頡入力 (倉)\tCtrl/Shift + CapsLock"),
+            (2007, "array30", "行列 30 入力 (行)\tCtrl/Shift + CapsLock"),
+            (2002, "standard", "標準大千注音 (注)\tCtrl/Shift + CapsLock"),
+            (2003, "et26", "倚天 26 鍵注音 (倚)\tCtrl/Shift + CapsLock"),
+        ],
+        "ko-KR" => &[
+            (2001, "hsu", "허씨 쌍핀 주음 (許)\tCtrl/Shift + CapsLock"),
+            (2005, "japanese", "일본어 로마자 입력 (日)\tCtrl/Shift + CapsLock"),
+            (2009, "korean", "한국어 로마자 입력 (한)\tCtrl/Shift + CapsLock"),
+            (2004, "cangjie", "창힐 입력기 (倉)\tCtrl/Shift + CapsLock"),
+            (2007, "array30", "행렬 30 입력기 (行)\tCtrl/Shift + CapsLock"),
+            (2002, "standard", "표준 주음 (注)\tCtrl/Shift + CapsLock"),
+            (2003, "et26", "이천 26키 주음 (倚)\tCtrl/Shift + CapsLock"),
+        ],
+        _ => &[
+            (2001, "hsu", "許氏雙拼注音 (許)\tCtrl/Shift + CapsLock"),
+            (2005, "japanese", "日文羅馬字輸入 (日)\tCtrl/Shift + CapsLock"),
+            (2009, "korean", "韓文羅馬拼音輸入 (韓)\tCtrl/Shift + CapsLock"),
+            (2004, "cangjie", "倉頡輸入法 (倉)\tCtrl/Shift + CapsLock"),
+            (2007, "array30", "行列 30 輸入法 (行)\tCtrl/Shift + CapsLock"),
+            (2002, "standard", "標準大千注音 (注)\tCtrl/Shift + CapsLock"),
+            (2003, "et26", "倚天 26 鍵注音 (倚)\tCtrl/Shift + CapsLock"),
+        ],
+    }
+}
+
 pub fn get_mode_badge_and_name(kb_mode: &str, is_caps: bool) -> (&'static str, &'static str) {
+    get_mode_badge_and_name_i18n(kb_mode, is_caps, current_effective_ui_lang())
+}
+
+#[allow(dead_code)]
+fn _legacy_get_mode_badge_and_name(kb_mode: &str, is_caps: bool) -> (&'static str, &'static str) {
     if is_caps {
         return ("歐", "泛歐／羅馬字模式");
     }
@@ -294,6 +425,7 @@ pub struct CandidateState {
     pub enable_array30_coach: bool,
     pub array30_coach_hint: String,
     pub is_array30_live_preview: bool,
+    pub ui_lang: String,
 }
 
 static IS_DRAGGING: AtomicBool = AtomicBool::new(false);
@@ -342,6 +474,7 @@ fn get_candidate_state() -> &'static RwLock<CandidateState> {
             enable_array30_coach: false,
             array30_coach_hint: String::new(),
             is_array30_live_preview: false,
+            ui_lang: "auto".to_string(),
         })
     })
 }
@@ -455,6 +588,7 @@ impl CandidateWindow {
             state.fixed_y = cfg.desk_y;
             state.max_composition_chars = cfg.max_composition_chars.clamp(8, 80);
             state.enable_array30_coach = cfg.enable_array30_coach;
+            state.ui_lang = cfg.ui_lang.clone();
             if cfg.theme == "dark" {
                 state.is_dark_theme = true;
             } else if cfg.theme == "light" {
@@ -1285,7 +1419,11 @@ pub unsafe fn find_existing_studio_hwnd() -> Option<HWND> {
         let len = GetWindowTextW(hwnd, &mut buf);
         if len > 0 {
             let title = String::from_utf16_lossy(&buf[..len as usize]);
-            if title.starts_with("RuhI（如喜）輸入法 — 現代化偏好設定") {
+            if title.starts_with("RuhI（如喜）輸入法 — 現代化偏好設定")
+                || title.starts_with("RuhI Universal IME — Preferences")
+                || title.starts_with("RuhI（如喜）入力システム — 環境設定")
+                || title.starts_with("RuhI 범용 입력기 — 환경설정")
+            {
                 let out_ptr = lparam.0 as *mut HWND;
                 if !out_ptr.is_null() {
                     *out_ptr = hwnd;
@@ -1447,6 +1585,9 @@ fn launch_or_focus_studio(category: &str, pass_tuner_arg: bool) {
         if pass_tuner_arg {
             cmd.arg("--tuner");
         }
+        cmd.arg("--lang").arg(current_effective_ui_lang());
+        if false {
+        }
         let _ = cmd
             .current_dir(work_dir)
             .creation_flags(CREATE_NO_WINDOW)
@@ -1537,14 +1678,46 @@ pub fn show_about_dialog(hwnd: HWND) {
         ("hsu".to_string(), false)
     };
 
-    let (title, msg) = if is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
+    let ui_lang = current_effective_ui_lang();
+    let (title, msg) = if ui_lang == "en-US" || is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
         (
             "About RuhI",
-            "RuhI — Responsive Universal Human Input\nVersion: 0.5.0 (Release)\nFlowing like clouds and water, effortless and joyful."
+            "RuhI — Responsive Universal Human Input\nVersion: 0.5.5 (Release)\nFlowing like clouds and water, effortless and joyful."
         )
     } else {
         match kb_mode.as_str() {
             "japanese" | "kana" | "romaji" => (
+                "RuhI について",
+                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.5.5 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+            ),
+            "korean" | "ko" | "hangul" | "romaja" => (
+                "RuhI 정보",
+                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.5.5 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+            ),
+            "iast" | "sanskrit" => (
+                "About RuhI (IAST)",
+                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.5.5 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
+            ),
+            "thai" => (
+                "เกี่ยวกับ RuhI",
+                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.5.5 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
+            ),
+            _ if ui_lang == "ja-JP" => (
+                "RuhI について",
+                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.5.5 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+            ),
+            _ if ui_lang == "ko-KR" => (
+                "RuhI 정보",
+                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.5.5 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+            ),
+            // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列等）：
+            _ => (
+                "關於如喜",
+                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.5.5 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
+            ),
+        }
+    };
+    /*
                 "RuhI について",
                 "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.5.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
             ),
@@ -1568,6 +1741,7 @@ pub fn show_about_dialog(hwnd: HWND) {
         }
     };
 
+    */
     let title_wide: Vec<u16> = title.encode_utf16().chain(Some(0)).collect();
     let msg_wide: Vec<u16> = msg.encode_utf16().chain(Some(0)).collect();
 
@@ -1588,11 +1762,57 @@ fn get_context_menu_labels() -> (&'static str, &'static str, &'static str) {
         ("hsu".to_string(), false)
     };
 
+    let ui_lang = current_effective_ui_lang();
+    if ui_lang == "en-US" || is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
+        ("Preferences Center (&S)...", "Semantic Tuning Studio (&T)...", "About RuhI (&A)")
+    } else if ui_lang == "ja-JP" || matches!(kb_mode.as_str(), "japanese" | "kana" | "romaji") {
+        ("設定センター (&S)...", "意味チューニングスタジオ (&T)...", "RuhI について (&A)")
+    } else if ui_lang == "ko-KR" || matches!(kb_mode.as_str(), "korean" | "ko" | "hangul" | "romaja") {
+        ("환경설정 (&S)...", "의미 튜닝 스튜디오 (&T)...", "RuhI 정보 (&A)")
+    } else {
+        ("偏好設定中心 (&S)...", "語意調校工作室 (&T)...", "關於 RuhI 如喜 (&A)")
+    }
+}
+
+#[allow(dead_code)]
+fn _legacy_context_menu_labels(_kb_mode: String, _is_caps: bool) -> (&'static str, &'static str, &'static str) { ("", "", "") }
+/*
     if is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
         ("Preferences Center (&S)...", "Semantic Tuning Studio (&T)...", "About RuhI (&A)")
     } else {
         match kb_mode.as_str() {
-            "japanese" | "kana" | "romaji" => ("設定センター (&S)...", "意味チューニングスタジオ (&T)...", "RuhI について (&A)"),
+            "japanese" | "kana" | "romaji" => (
+                "RuhI について",
+                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.5.5 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+            ),
+            "korean" | "ko" | "hangul" | "romaja" => (
+                "RuhI 정보",
+                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.5.5 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+            ),
+            "iast" | "sanskrit" => (
+                "About RuhI (IAST)",
+                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.5.5 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
+            ),
+            "thai" => (
+                "เกี่ยวกับ RuhI",
+                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.5.5 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
+            ),
+            _ if ui_lang == "ja-JP" => (
+                "RuhI について",
+                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.5.5 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+            ),
+            _ if ui_lang == "ko-KR" => (
+                "RuhI 정보",
+                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.5.5 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+            ),
+            // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列等）：
+            _ => (
+                "關於如喜",
+                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.5.5 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
+            ),
+        }
+    };
+    // "設定センター (&S)...", "意味チューニングスタジオ (&T)...", "RuhI について (&A)"),
             "korean" | "ko" | "hangul" | "romaja" => ("환경설정 (&S)...", "의미 튜닝 스튜디오 (&T)...", "RuhI 정보 (&A)"),
             _ => ("偏好設定中心 (&S)...", "語意調校工作室 (&T)...", "關於 RuhI 如喜 (&A)"),
         }
@@ -1600,6 +1820,7 @@ fn get_context_menu_labels() -> (&'static str, &'static str, &'static str) {
 }
 
 
+*/
 unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
     let state = if let Ok(s) = get_candidate_state().read() {
         s.clone()
@@ -2182,7 +2403,58 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             let old_ft = SelectObject(mem_dc, tune_font);
 
             let groups: [(String, UiTuneAction, UiTuneAction); 5] = [
-                ("UI大小".to_string(), UiTuneAction::UiScaleDown, UiTuneAction::UiScaleUp),
+                (
+                    match crate::service::resolve_effective_ui_lang(&state.ui_lang) {
+                        "en-US" => "Scale".to_string(),
+                        "ja-JP" => "UIサイズ".to_string(),
+                        "ko-KR" => "UI크기".to_string(),
+                        _ => "UI大小".to_string(),
+                    },
+                    UiTuneAction::UiScaleDown,
+                    UiTuneAction::UiScaleUp,
+                ),
+                (
+                    match crate::service::resolve_effective_ui_lang(&state.ui_lang) {
+                        "en-US" => format!("Alpha {}%", state.desk_opacity),
+                        "ja-JP" => format!("不透明{}%", state.desk_opacity),
+                        "ko-KR" => format!("불투명{}%", state.desk_opacity),
+                        _ => format!("不透明{}%", state.desk_opacity),
+                    },
+                    UiTuneAction::OpacityDown,
+                    UiTuneAction::OpacityUp,
+                ),
+                (
+                    match crate::service::resolve_effective_ui_lang(&state.ui_lang) {
+                        "en-US" => format!("Text {}", state.font_size.round() as i32),
+                        "ja-JP" => format!("組字{}", state.font_size.round() as i32),
+                        "ko-KR" => format!("조합{}", state.font_size.round() as i32),
+                        _ => format!("座字{}", state.font_size.round() as i32),
+                    },
+                    UiTuneAction::DeskFontDown,
+                    UiTuneAction::DeskFontUp,
+                ),
+                (
+                    match crate::service::resolve_effective_ui_lang(&state.ui_lang) {
+                        "en-US" => format!("Cand {}", state.candidate_font_size.round() as i32),
+                        "ja-JP" => format!("候補{}", state.candidate_font_size.round() as i32),
+                        "ko-KR" => format!("후보{}", state.candidate_font_size.round() as i32),
+                        _ => format!("選字{}", state.candidate_font_size.round() as i32),
+                    },
+                    UiTuneAction::CandFontDown,
+                    UiTuneAction::CandFontUp,
+                ),
+                (
+                    match crate::service::resolve_effective_ui_lang(&state.ui_lang) {
+                        "en-US" => format!("Wrap {}", state.max_composition_chars),
+                        "ja-JP" => format!("1行{}字", state.max_composition_chars),
+                        "ko-KR" => format!("1줄{}자", state.max_composition_chars),
+                        _ => format!("單行{}字", state.max_composition_chars),
+                    },
+                    UiTuneAction::MaxCharsDown,
+                    UiTuneAction::MaxCharsUp,
+                ),
+            ];
+            let _unused_old_groups: [(String, UiTuneAction, UiTuneAction); 4] = [
                 (format!("不透明{}%", state.desk_opacity), UiTuneAction::OpacityDown, UiTuneAction::OpacityUp),
                 (format!("座字{}", state.font_size.round() as i32), UiTuneAction::DeskFontDown, UiTuneAction::DeskFontUp),
                 (format!("選字{}", state.candidate_font_size.round() as i32), UiTuneAction::CandFontDown, UiTuneAction::CandFontUp),
@@ -2278,7 +2550,54 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         let total_pages = if total_cands > 0 { (total_cands + page_sz - 1) / page_sz } else { 1 };
         let cur_page = (state.selected_index / page_sz) + 1;
 
-        let st_label = if state.selection_range.1 > state.selection_range.0 {
+        let eff_ui_lang = crate::service::resolve_effective_ui_lang(&state.ui_lang);
+        let st_label = match eff_ui_lang {
+            "en-US" => {
+                if state.selection_range.1 > state.selection_range.0 {
+                    "RuhI Desk  [Selected · Enter: Add / Shift+Enter: Hide]".to_string()
+                } else if state.is_cand_selecting && total_pages > 1 {
+                    format!("RuhI Desk  [Page {} / {} · PgUp/PgDn]", cur_page, total_pages)
+                } else if num_lines > 1 {
+                    format!("RuhI Desk  [Line {} · Max {} chars]", num_lines, max_line_chars)
+                } else {
+                    "RuhI Desk".to_string()
+                }
+            }
+            "ja-JP" => {
+                if state.selection_range.1 > state.selection_range.0 {
+                    "RuhI 入力座  [範囲選択中 · Enter 登録 / Shift+Enter 非表示]".to_string()
+                } else if state.is_cand_selecting && total_pages > 1 {
+                    format!("RuhI 入力座  [{} / {} 頁 · PgUp/PgDn]", cur_page, total_pages)
+                } else if num_lines > 1 {
+                    format!("RuhI 入力座  [{} 行目 · 1行 {} 字]", num_lines, max_line_chars)
+                } else {
+                    "RuhI 入力座".to_string()
+                }
+            }
+            "ko-KR" => {
+                if state.selection_range.1 > state.selection_range.0 {
+                    "RuhI 입력석  [범위 선택됨 · Enter 추가 / Shift+Enter 숨김]".to_string()
+                } else if state.is_cand_selecting && total_pages > 1 {
+                    format!("RuhI 입력석  [{} / {} 쪽 · PgUp/PgDn]", cur_page, total_pages)
+                } else if num_lines > 1 {
+                    format!("RuhI 입력석  [{}째 줄 · 1줄 {}자]", num_lines, max_line_chars)
+                } else {
+                    "RuhI 입력석".to_string()
+                }
+            }
+            _ => {
+                if state.selection_range.1 > state.selection_range.0 {
+                    "如喜輸入座  [已標記範圍 · Enter 加詞 / Shift+Enter 刪詞]".to_string()
+                } else if state.is_cand_selecting && total_pages > 1 {
+                    format!("如喜輸入座  [{} / {} 頁 · PgUp/PgDn 翻頁]", cur_page, total_pages)
+                } else if num_lines > 1 {
+                    format!("如喜輸入座  [第 {} 行 · 單行 {} 字]", num_lines, max_line_chars)
+                } else {
+                    "如喜輸入座".to_string()
+                }
+            }
+        };
+        let _unused_st_label = if state.selection_range.1 > state.selection_range.0 {
             "如喜輸入座  [已標記範圍 · Enter 加詞 / Shift+Enter 刪詞]".to_string()
         } else if state.is_cand_selecting && total_pages > 1 {
             format!("如喜輸入座  [{} / {} 頁 · PgUp/PgDn 翻頁]", cur_page, total_pages)
@@ -2306,7 +2625,12 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         DrawTextW(mem_dc, &mut gear_text, &mut gear_r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
         // 「調校 ▾ / ▴」按鈕：直接於輸入座 UI 展開或收合五合一即時外觀調校列
-        let tune_btn_label = if state.show_ui_tuner_bar { "調校▴" } else { "調校▾" };
+        let tune_btn_label = match eff_ui_lang {
+            "en-US" => if state.show_ui_tuner_bar { "Tune▴" } else { "Tune▾" },
+            "ja-JP" => if state.show_ui_tuner_bar { "調整▴" } else { "調整▾" },
+            "ko-KR" => if state.show_ui_tuner_bar { "조정▴" } else { "조정▾" },
+            _ => if state.show_ui_tuner_bar { "調校▴" } else { "調校▾" },
+        };
         let tune_wide_no_null: Vec<u16> = tune_btn_label.encode_utf16().collect();
         let mut sz_tune = SIZE::default();
         let _ = GetTextExtentPoint32W(mem_dc, &tune_wide_no_null, &mut sz_tune);
@@ -2338,7 +2662,14 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             "pinyin" => "拼",
             _ => "中",
         };
-        let mode_label = if state.is_caps_on { "半   歐".to_string() } else { format!("半   {}", kb_indicator) };
+        let (i18n_badge, _) = get_mode_badge_and_name_i18n(&state.keyboard_mode, state.is_caps_on, eff_ui_lang);
+        let hw_prefix = match eff_ui_lang {
+            "en-US" => "HW",
+            "ko-KR" => "반",
+            _ => "半",
+        };
+        let mode_label = format!("{}   {}", hw_prefix, i18n_badge);
+        let _unused_mode_label = if state.is_caps_on { "半   歐".to_string() } else { format!("半   {}", kb_indicator) };
         let mode_wide_no_null: Vec<u16> = mode_label.encode_utf16().collect();
         let mut sz_mode = SIZE::default();
         let _ = GetTextExtentPoint32W(mem_dc, &mode_wide_no_null, &mut sz_mode);
@@ -2572,7 +2903,12 @@ fn show_mode_toast_on_current_thread(mode_code: &str, pt_opt: Option<POINT>) {
                         .unwrap_or(true);
                     if is_idle {
                         let (badge, mode_name) = get_mode_badge_and_name(mode_code, false);
-                        let toast = format!("如喜輸入狀態  ➔  【 半  {} 】 {}", badge, mode_name);
+                        let toast = match current_effective_ui_lang() {
+                            "en-US" => format!("RuhI Mode  ➔  [ HW  {} ] {}", badge, mode_name),
+                            "ja-JP" => format!("RuhI 入力状態  ➔  【 半  {} 】 {}", badge, mode_name),
+                            "ko-KR" => format!("RuhI 입력 상태  ➔  【 반  {} 】 {}", badge, mode_name),
+                            _ => format!("如喜輸入狀態  ➔  【 半  {} 】 {}", badge, mode_name),
+                        };
                         let (dpi_scale, opacity) = if let Ok(mut state) = get_candidate_state().write() {
                             state.keyboard_mode = mode_code.to_string();
                             state.is_caps_on = false;
@@ -2732,7 +3068,9 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
 
     if let Ok(hmenu) = CreatePopupMenu() {
         if !hmenu.0.is_null() {
-            let items: &[(usize, &str, &str)] = &[
+            let menu_ui_lang = crate::service::resolve_effective_ui_lang(&latest_cfg.ui_lang);
+            let items = get_mode_menu_items_i18n(menu_ui_lang);
+            let _unused_items: &[(usize, &str, &str)] = &[
                 (2001, "hsu", "許氏雙拼注音 (許)\tCtrl/Shift + CapsLock"),
                 (2005, "japanese", "日文羅馬字輸入 (日)\tCtrl/Shift + CapsLock"),
                 (2009, "korean", "韓文羅馬拼音輸入 (韓)\tCtrl/Shift + CapsLock"),
@@ -2763,13 +3101,19 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 }
                 let wide: Vec<u16> = label.encode_utf16().chain(Some(0)).collect();
                 let flags = if is_active { MF_STRING | MF_CHECKED } else { MF_STRING };
-                let _ = AppendMenuW(hmenu, flags, id, PCWSTR(wide.as_ptr()));
+                let _ = AppendMenuW(hmenu, flags, id as usize, PCWSTR(wide.as_ptr()));
             }
             let _ = AppendMenuW(hmenu, MF_SEPARATOR, 0, PCWSTR::null());
 
             let is_en_active = matches!(cur_kb.as_str(), "english" | "en" | "latin" | "western" | "euro" | "sanskrit");
             let is_direct_en_caps = latest_cfg.capslock_switch == "english_direct";
-            let en_label = if is_direct_en_caps {
+            let en_label = match menu_ui_lang {
+                "en-US" => if is_direct_en_caps { "Pan-European / Roman (EU)\tCapsLock" } else { "Pan-European / Roman (EU)\tCtrl/Shift + CapsLock" },
+                "ja-JP" => if is_direct_en_caps { "汎欧州／ローマ字モード (欧)\tCapsLock" } else { "汎欧州／ローマ字モード (欧)\tCtrl/Shift + CapsLock" },
+                "ko-KR" => if is_direct_en_caps { "범유럽 / 로마자 모드 (EU)\tCapsLock" } else { "범유럽 / 로마자 모드 (EU)\tCtrl/Shift + CapsLock" },
+                _ => if is_direct_en_caps { "泛歐／羅馬字模式 (歐)\tCapsLock" } else { "泛歐／羅馬字模式 (歐)\tCtrl/Shift + CapsLock" },
+            };
+            let _unused_en_label = if is_direct_en_caps {
                 "泛歐／羅馬字模式 (歐)\tCapsLock"
             } else {
                 "泛歐／羅馬字模式 (歐)\tCtrl/Shift + CapsLock"
@@ -2791,15 +3135,40 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
             let (last_badge, _) = get_mode_badge_and_name(last_code, false);
 
             if !is_direct_en_caps {
-                let mru_label = format!("最後兩種輸入模式快速切換 ({} ⇄ {})\tCapsLock", cur_badge, last_badge);
+                let mru_label = match menu_ui_lang {
+                    "en-US" => format!("Quick Toggle Last Two Modes ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
+                    "ja-JP" => format!("直近 2 モードの高速切替 ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
+                    "ko-KR" => format!("최근 두 입력 모드 빠른 전환 ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
+                    _ => format!("最後兩種輸入模式快速切換 ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
+                };
                 let mru_wide: Vec<u16> = mru_label.encode_utf16().chain(Some(0)).collect();
                 let _ = AppendMenuW(hmenu, MF_STRING, 2008, PCWSTR(mru_wide.as_ptr()));
             }
 
             // CapsLock 按鍵功能快速設定子選單 (2011 / 2012)
             if let Ok(caps_cfg_menu) = CreatePopupMenu() {
-                let opt_direct: Vec<u16> = "泛歐／羅馬字模式 (歐)\t單按 CapsLock 直通泛歐模式".encode_utf16().chain(Some(0)).collect();
-                let opt_mru: Vec<u16> = format!("最後兩種輸入模式快速切換 ({} ⇄ {})\t單按 CapsLock 對切", cur_badge, last_badge).encode_utf16().chain(Some(0)).collect();
+                let (opt_direct_str, opt_mru_str) = match menu_ui_lang {
+                    "en-US" => (
+                        "Pan-European / Roman (EU)\tCapsLock direct to EU mode".to_string(),
+                        format!("Quick Toggle Last Two Modes ({} ⇄ {})\tCapsLock toggle", cur_badge, last_badge),
+                    ),
+                    "ja-JP" => (
+                        "汎欧州／ローマ字モード (欧)\tCapsLock 単押しで直行".to_string(),
+                        format!("直近 2 モードの高速切替 ({} ⇄ {})\tCapsLock 単押しで切替", cur_badge, last_badge),
+                    ),
+                    "ko-KR" => (
+                        "범유럽 / 로마자 모드 (EU)\tCapsLock 단독으로 직행".to_string(),
+                        format!("최근 두 입력 모드 빠른 전환 ({} ⇄ {})\tCapsLock 단독 전환", cur_badge, last_badge),
+                    ),
+                    _ => (
+                        "泛歐／羅馬字模式 (歐)\t單按 CapsLock 直通泛歐模式".to_string(),
+                        format!("最後兩種輸入模式快速切換 ({} ⇄ {})\t單按 CapsLock 對切", cur_badge, last_badge),
+                    ),
+                };
+                let opt_direct: Vec<u16> = opt_direct_str.encode_utf16().chain(Some(0)).collect();
+                let opt_mru: Vec<u16> = opt_mru_str.encode_utf16().chain(Some(0)).collect();
+                let _unused_opt_direct: Vec<u16> = "泛歐／羅馬字模式 (歐)\t單按 CapsLock 直通泛歐模式".encode_utf16().chain(Some(0)).collect();
+                let _unused_opt_mru: Vec<u16> = format!("最後兩種輸入模式快速切換 ({} ⇄ {})\t單按 CapsLock 對切", cur_badge, last_badge).encode_utf16().chain(Some(0)).collect();
                 let _ = AppendMenuW(
                     caps_cfg_menu,
                     if is_direct_en_caps { MF_STRING | MF_CHECKED } else { MF_STRING },
@@ -2812,7 +3181,13 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                     2012,
                     PCWSTR(opt_mru.as_ptr()),
                 );
-                let sub_title = if is_direct_en_caps {
+                let sub_title = match menu_ui_lang {
+                    "en-US" => if is_direct_en_caps { "CapsLock Behavior: Pan-European (EU)..." } else { "CapsLock Behavior: Quick Toggle Last Two Modes..." },
+                    "ja-JP" => if is_direct_en_caps { "CapsLock 設定：汎欧州／ローマ字モード (欧)..." } else { "CapsLock 設定：直近 2 モードの高速切替..." },
+                    "ko-KR" => if is_direct_en_caps { "CapsLock 설정: 범유럽 / 로마자 모드 (EU)..." } else { "CapsLock 설정: 최근 두 입력 모드 빠른 전환..." },
+                    _ => if is_direct_en_caps { "CapsLock 按鍵設定：泛歐／羅馬字模式 (歐)..." } else { "CapsLock 按鍵設定：最後兩種輸入模式快速切換..." },
+                };
+                let _unused_sub_title = if is_direct_en_caps {
                     "CapsLock 按鍵設定：泛歐／羅馬字模式 (歐)..."
                 } else {
                     "CapsLock 按鍵設定：最後兩種輸入模式快速切換..."
@@ -2824,7 +3199,13 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
             let _ = AppendMenuW(hmenu, MF_SEPARATOR, 0, PCWSTR::null());
 
             // ── 輸入座 UI 快速外觀調校子選單 ──
-            let toggle_bar_lbl: Vec<u16> = "顯示輸入座內嵌調校列 (調校 ▾)\t直接點擊 [-]/[+] 調整".encode_utf16().chain(Some(0)).collect();
+            let toggle_bar_str = match menu_ui_lang {
+                "en-US" => "Show Inline Tuner Bar (Tune ▾)\tClick [-]/[+] to adjust",
+                "ja-JP" => "入力座内の調整バーを表示 (調整 ▾)\t[-]/[+] で即時調整",
+                "ko-KR" => "입력석 내장 조정 바 표시 (조정 ▾)\t[-]/[+] 클릭으로 조정",
+                _ => "顯示輸入座內嵌調校列 (調校 ▾)\t直接點擊 [-]/[+] 調整",
+            };
+            let toggle_bar_lbl: Vec<u16> = toggle_bar_str.encode_utf16().chain(Some(0)).collect();
             let _ = AppendMenuW(
                 hmenu,
                 if cur_tuner_bar { MF_STRING | MF_CHECKED } else { MF_STRING },
@@ -2839,7 +3220,13 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                     let fl = if cur_op == pct { MF_STRING | MF_CHECKED } else { MF_STRING };
                     let _ = AppendMenuW(op_menu, fl, (3100 + pct) as usize, PCWSTR(lbl.as_ptr()));
                 }
-                let op_title: Vec<u16> = format!("輸入座不透明度 (目前 {}%)...", cur_op).encode_utf16().chain(Some(0)).collect();
+                let op_title_str = match menu_ui_lang {
+                    "en-US" => format!("Desk Opacity (Current {}%)...", cur_op),
+                    "ja-JP" => format!("入力座の不透明度 (現在 {}%)...", cur_op),
+                    "ko-KR" => format!("입력석 불투명도 (현재 {}%)...", cur_op),
+                    _ => format!("輸入座不透明度 (目前 {}%)...", cur_op),
+                };
+                let op_title: Vec<u16> = op_title_str.encode_utf16().chain(Some(0)).collect();
                 let _ = AppendMenuW(hmenu, MF_POPUP, op_menu.0 as usize, PCWSTR(op_title.as_ptr()));
             }
 
@@ -2850,7 +3237,13 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                     let fl = if cur_fs == px { MF_STRING | MF_CHECKED } else { MF_STRING };
                     let _ = AppendMenuW(fs_menu, fl, (3300 + px) as usize, PCWSTR(lbl.as_ptr()));
                 }
-                let fs_title: Vec<u16> = format!("輸入座字體大小 (目前 {} px)...", cur_fs).encode_utf16().chain(Some(0)).collect();
+                let fs_title_str = match menu_ui_lang {
+                    "en-US" => format!("Desk Font Size (Current {} px)...", cur_fs),
+                    "ja-JP" => format!("入力座の文字サイズ (現在 {} px)...", cur_fs),
+                    "ko-KR" => format!("입력석 글꼴 크기 (현재 {} px)...", cur_fs),
+                    _ => format!("輸入座字體大小 (目前 {} px)...", cur_fs),
+                };
+                let fs_title: Vec<u16> = fs_title_str.encode_utf16().chain(Some(0)).collect();
                 let _ = AppendMenuW(hmenu, MF_POPUP, fs_menu.0 as usize, PCWSTR(fs_title.as_ptr()));
             }
 
@@ -2861,18 +3254,36 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                     let fl = if cur_cfs == px { MF_STRING | MF_CHECKED } else { MF_STRING };
                     let _ = AppendMenuW(cfs_menu, fl, (3500 + px) as usize, PCWSTR(lbl.as_ptr()));
                 }
-                let cfs_title: Vec<u16> = format!("候選字體大小 (目前 {} px)...", cur_cfs).encode_utf16().chain(Some(0)).collect();
+                let cfs_title_str = match menu_ui_lang {
+                    "en-US" => format!("Candidate Font Size (Current {} px)...", cur_cfs),
+                    "ja-JP" => format!("候補の文字サイズ (現在 {} px)...", cur_cfs),
+                    "ko-KR" => format!("후보 글꼴 크기 (현재 {} px)...", cur_cfs),
+                    _ => format!("候選字體大小 (目前 {} px)...", cur_cfs),
+                };
+                let cfs_title: Vec<u16> = cfs_title_str.encode_utf16().chain(Some(0)).collect();
                 let _ = AppendMenuW(hmenu, MF_POPUP, cfs_menu.0 as usize, PCWSTR(cfs_title.as_ptr()));
             }
 
             // 4. 輸入座單行最大字數子選單 (3700 + chars)
             if let Ok(mc_menu) = CreatePopupMenu() {
                 for &ch_cnt in &[12usize, 16, 20, 25, 30, 35, 40, 50, 60, 80] {
-                    let lbl: Vec<u16> = format!("單行 {} 字 (超過自動換行)", ch_cnt).encode_utf16().chain(Some(0)).collect();
+                    let lbl_str = match menu_ui_lang {
+                        "en-US" => format!("{} CJK units per line (auto-wrap)", ch_cnt),
+                        "ja-JP" => format!("1行 {} 字 (自動折り返し)", ch_cnt),
+                        "ko-KR" => format!("1줄 {}자 (자동 줄바꿈)", ch_cnt),
+                        _ => format!("單行 {} 字 (超過自動換行)", ch_cnt),
+                    };
+                    let lbl: Vec<u16> = lbl_str.encode_utf16().chain(Some(0)).collect();
                     let fl = if cur_mc == ch_cnt { MF_STRING | MF_CHECKED } else { MF_STRING };
                     let _ = AppendMenuW(mc_menu, fl, 3700 + ch_cnt, PCWSTR(lbl.as_ptr()));
                 }
-                let mc_title: Vec<u16> = format!("輸入座單行最大字數 (目前 {} 字)...", cur_mc).encode_utf16().chain(Some(0)).collect();
+                let mc_title_str = match menu_ui_lang {
+                    "en-US" => format!("Max Width per Line (Current {})...", cur_mc),
+                    "ja-JP" => format!("1行の最大文字数 (現在 {} 字)...", cur_mc),
+                    "ko-KR" => format!("1줄 최대 글자 수 (현재 {}자)...", cur_mc),
+                    _ => format!("輸入座單行最大字數 (目前 {} 字)...", cur_mc),
+                };
+                let mc_title: Vec<u16> = mc_title_str.encode_utf16().chain(Some(0)).collect();
                 let _ = AppendMenuW(hmenu, MF_POPUP, mc_menu.0 as usize, PCWSTR(mc_title.as_ptr()));
             }
 

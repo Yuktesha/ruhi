@@ -26,6 +26,52 @@ pub struct AppearanceSettings {
     pub zoom_level: i32,
     pub geometry: String,
     pub sidebar_width: i32,
+    #[serde(default = "default_ui_lang")]
+    pub ui_lang: String,
+}
+
+fn default_ui_lang() -> String {
+    "auto".to_string()
+}
+
+/// 解析實際生效之介面語系 (`"zh-TW"`, `"en-US"`, `"ja-JP"`, `"ko-KR"`)
+pub fn resolve_effective_ui_lang(configured_ui_lang: &str) -> &'static str {
+    let trimmed = configured_ui_lang.trim().to_ascii_lowercase();
+    if trimmed.starts_with("zh") {
+        return "zh-TW";
+    }
+    if trimmed.starts_with("en") {
+        return "en-US";
+    }
+    if trimmed.starts_with("ja") || trimmed == "jp" {
+        return "ja-JP";
+    }
+    if trimmed.starts_with("ko") || trimmed == "kr" {
+        return "ko-KR";
+    }
+    #[cfg(target_os = "windows")]
+    unsafe {
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn GetUserDefaultUILanguage() -> u16;
+        }
+        let sys_lang = GetUserDefaultUILanguage();
+        match sys_lang & 0x03FF {
+            0x04 => "zh-TW",
+            0x11 => "ja-JP",
+            0x12 => "ko-KR",
+            0x09 | 0x0C | 0x07 | 0x0A => "en-US",
+            _ => "zh-TW",
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        "zh-TW"
+    }
+}
+
+#[allow(dead_code)]
+fn _unused_appearance_end() {
 }
 
 fn default_candidate_font_size() -> i32 {
@@ -51,6 +97,7 @@ impl Default for AppearanceSettings {
             zoom_level: 0,
             geometry: "1020x740".to_string(),
             sidebar_width: 260,
+            ui_lang: "auto".to_string(),
         }
     }
 }
@@ -438,6 +485,11 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
         if let Some(v) = app.get("sidebar_width").and_then(Value::as_i64) {
             settings.appearance.sidebar_width = (v as i32).clamp(180, 600);
         }
+        if let Some(v) = app.get("ui_lang").and_then(Value::as_str) {
+            if !v.trim().is_empty() {
+                settings.appearance.ui_lang = v.trim().to_string();
+            }
+        }
     }
 
     if let Some(kb) = val.get("keyboard").and_then(Value::as_object) {
@@ -557,6 +609,11 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
     }
     if let Some(v) = map.get("theme").and_then(Value::as_str) {
         settings.appearance.theme = v.to_string();
+    }
+    if let Some(v) = map.get("ui_lang").and_then(Value::as_str) {
+        if !v.trim().is_empty() {
+            settings.appearance.ui_lang = v.trim().to_string();
+        }
     }
     if let Some(v) = map.get("font_size").and_then(Value::as_i64) {
         settings.appearance.font_size = (v as i32).clamp(16, 96);
@@ -696,6 +753,7 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             json!(settings.appearance.orientation),
         );
         map.insert("theme".to_string(), json!(settings.appearance.theme));
+        map.insert("ui_lang".to_string(), json!(settings.appearance.ui_lang));
         map.insert(
             "font_size".to_string(),
             json!(settings.appearance.font_size),
