@@ -53,6 +53,8 @@ tsf_debug.log
 Thumbs.db
 
 # Agent & memory caches
+.agent/
+docs/AI_SEMANTIC_HANDOVER.md
 .codebase-memory/
 .system_generated/
 scratch/
