@@ -1892,6 +1892,9 @@ impl RuhiEngine {
     }
 
     pub fn pop_component(&mut self) -> EngineResponse {
+        if matches!(self.keyboard_mode.as_str(), "japanese" | "jp" | "romaji" | "korean" | "ko" | "hangul" | "romaja") {
+            return self.process_key_str("BackSpace");
+        }
         if !self.raw_ascii_buffer.is_empty() {
             self.raw_ascii_buffer.pop();
         }
@@ -1926,6 +1929,9 @@ impl RuhiEngine {
     }
 
     pub fn pop_syllable(&mut self) -> EngineResponse {
+        if matches!(self.keyboard_mode.as_str(), "japanese" | "jp" | "romaji" | "korean" | "ko" | "hangul" | "romaja") {
+            return self.process_key_str("Shift+BackSpace");
+        }
         if self.fsm.raw_keys.is_empty() {
             self.reset_buffer();
             return self.build_response("backspace", "");
@@ -1973,6 +1979,9 @@ impl RuhiEngine {
     }
 
     pub fn pop_word(&mut self) -> EngineResponse {
+        if matches!(self.keyboard_mode.as_str(), "japanese" | "jp" | "romaji" | "korean" | "ko" | "hangul" | "romaja") {
+            return self.process_key_str("Ctrl+BackSpace");
+        }
         if self.fsm.raw_keys.is_empty() {
             self.reset_buffer();
             return self.build_response("backspace", "");

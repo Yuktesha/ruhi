@@ -1764,6 +1764,131 @@ impl JapaneseEngine {
         format!("{}{}", self.hira_buffer, self.pending_romaji)
     }
 
+    /// Shift + Backspace：刪除最後一個假名音節（含拗音小假名 ゃ/ゅ/ょ/ぁ/ぃ/ぅ/ぇ/ぉ）或未決子音尾碼
+    pub fn pop_syllable(&mut self) -> EngineResponse {
+        if self.raw_romaji.is_empty() {
+            return EngineResponse {
+                action: "pass".to_string(),
+                mode: "japanese".to_string(),
+                preedit: String::new(),
+                composed: String::new(),
+                candidates: Vec::new(),
+                active_candidate: String::new(),
+                candidate_idx: 0,
+                cursor_pos: 0,
+                q_press_count: 0,
+                committed_chunk: String::new(),
+            };
+        }
+        if self.is_english_forced {
+            self.reset();
+            return EngineResponse {
+                action: "reset".to_string(),
+                mode: "japanese".to_string(),
+                preedit: String::new(),
+                composed: String::new(),
+                candidates: Vec::new(),
+                active_candidate: String::new(),
+                candidate_idx: 0,
+                cursor_pos: 0,
+                q_press_count: 0,
+                committed_chunk: String::new(),
+            };
+        }
+        let (init_hira, init_pend) = Self::convert_romaji_stream(&self.raw_romaji);
+        let hira_chars: Vec<char> = init_hira.chars().collect();
+        let target_hira_len = if !init_pend.is_empty() {
+            hira_chars.len()
+        } else if hira_chars.is_empty() {
+            0
+        } else {
+            let last_ch = hira_chars[hira_chars.len() - 1];
+            let drop_cnt = if hira_chars.len() >= 2
+                && matches!(last_ch, 'ゃ' | 'ゅ' | 'ょ' | 'ぁ' | 'ぃ' | 'ぅ' | 'ぇ' | 'ぉ')
+            {
+                2
+            } else {
+                1
+            };
+            hira_chars.len().saturating_sub(drop_cnt)
+        };
+        let target_hira: String = hira_chars[..target_hira_len].iter().collect();
+        while !self.raw_romaji.is_empty() {
+            self.raw_romaji.pop();
+            let (h, p) = Self::convert_romaji_stream(&self.raw_romaji);
+            if (p == "n" || p == "m") && format!("{}ん", h) == target_hira {
+                self.raw_romaji.pop();
+                self.raw_romaji.push_str("nn");
+                break;
+            }
+            if h.chars().count() <= target_hira_len && p.is_empty() {
+                break;
+            }
+        }
+        if self.raw_romaji.is_empty() {
+            self.reset();
+            return EngineResponse {
+                action: "reset".to_string(),
+                mode: "japanese".to_string(),
+                preedit: String::new(),
+                composed: String::new(),
+                candidates: Vec::new(),
+                active_candidate: String::new(),
+                candidate_idx: 0,
+                cursor_pos: 0,
+                q_press_count: 0,
+                committed_chunk: String::new(),
+            };
+        }
+        self.update_candidates();
+        let preedit = self.make_preedit();
+        let active = self.candidates.first().cloned().unwrap_or_default();
+        let cur_len = active.chars().count();
+        EngineResponse {
+            action: "compose".to_string(),
+            mode: "japanese".to_string(),
+            preedit,
+            composed: active.clone(),
+            candidates: self.candidates.clone(),
+            active_candidate: active,
+            candidate_idx: 0,
+            cursor_pos: cur_len,
+            q_press_count: 0,
+            committed_chunk: String::new(),
+        }
+    }
+
+    /// Ctrl + Backspace：清空當前正在組字中的整組日文語節緩衝區
+    pub fn pop_word(&mut self) -> EngineResponse {
+        if self.raw_romaji.is_empty() {
+            return EngineResponse {
+                action: "pass".to_string(),
+                mode: "japanese".to_string(),
+                preedit: String::new(),
+                composed: String::new(),
+                candidates: Vec::new(),
+                active_candidate: String::new(),
+                candidate_idx: 0,
+                cursor_pos: 0,
+                q_press_count: 0,
+                committed_chunk: String::new(),
+            };
+        }
+        self.reset();
+        EngineResponse {
+            action: "reset".to_string(),
+            mode: "japanese".to_string(),
+            preedit: String::new(),
+            composed: String::new(),
+            candidates: Vec::new(),
+            active_candidate: String::new(),
+            candidate_idx: 0,
+            cursor_pos: 0,
+            q_press_count: 0,
+            committed_chunk: String::new(),
+        }
+    }
+
     pub fn process_key(&mut self, ch: char) -> EngineResponse {
         match ch {
             ' ' => {
@@ -2038,7 +2163,9 @@ impl JapaneseEngine {
             "Space" => self.process_key(' '),
             "Return" | "Enter" => self.process_key('\n'),
             "BackSpace" | "backspace" | "\x08" => self.process_key('\x08'),
-            "Escape" => self.process_key('\x1b'),
+            "Shift+BackSpace" | "Shift+backspace" => self.pop_syllable(),
+            "Ctrl+BackSpace" | "Ctrl+backspace" => self.pop_word(),
+            "Escape" | "Esc" => self.process_key('\x1b'),
             "Down" | "down" => {
                 if !self.raw_romaji.is_empty() {
                     self.update_candidates();
@@ -2708,6 +2835,18 @@ mod tests {
         // (c) 2 假名精確名詞 + 格助詞邊界保護（不遭跨助詞模糊骨架誤吞）
         assert_eq!(jp.compose_kanji_sentence("はながきれいです"), "花が綺麗です");
         assert_eq!(jp.compose_kanji_sentence("えきにいきます"), "駅に行きます");
+
+        // (d) Shift+BackSpace 與 Ctrl+BackSpace 驗證
+        jp.reset();
+        for ch in "nihongo".chars() {
+            jp.process_key(ch);
+        }
+        assert_eq!(jp.hira_buffer, "にほんご");
+        let r_shift = jp.process_key_str("Shift+BackSpace");
+        assert_eq!(r_shift.preedit, "にほん");
+        let r_ctrl = jp.process_key_str("Ctrl+BackSpace");
+        assert_eq!(r_ctrl.action, "reset");
+        assert!(!jp.has_buffer());
     }
 }
 

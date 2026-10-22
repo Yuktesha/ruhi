@@ -488,6 +488,208 @@ impl CandidateWindow {
     }
 
     /// 計算如喜輸入座 (RuhI Floating Input Desk) 視窗幾何位置與多行自適應尺寸
+    /// 以 GDI 實際字型引擎測量單一字串之物理像素寬度
+    pub fn measure_gdi_text_px(text: &str, font_px: f32) -> i32 {
+        if text.is_empty() {
+            return 0;
+        }
+        unsafe {
+            let mem_dc = CreateCompatibleDC(HDC::default());
+            if mem_dc.0.is_null() {
+                return (text.chars().count() as f32 * font_px * 0.85).round() as i32;
+            }
+            let font_name: Vec<u16> = "Microsoft JhengHei UI".encode_utf16().chain(Some(0)).collect();
+            let font_h = -(font_px.round() as i32);
+            let font = CreateFontW(
+                font_h, 0, 0, 0,
+                FW_NORMAL.0 as i32, 0, 0, 0,
+                DEFAULT_CHARSET.0 as u32,
+                OUT_DEFAULT_PRECIS.0 as u32,
+                CLIP_DEFAULT_PRECIS.0 as u32,
+                CLEARTYPE_QUALITY.0 as u32,
+                DEFAULT_PITCH.0 as u32,
+                PCWSTR(font_name.as_ptr()),
+            );
+            let old_f = SelectObject(mem_dc, font);
+            let wide: Vec<u16> = text.encode_utf16().collect();
+            let mut sz = SIZE::default();
+            let _ = GetTextExtentPoint32W(mem_dc, &wide, &mut sz);
+            SelectObject(mem_dc, old_f);
+            let _ = DeleteObject(font);
+            let _ = DeleteDC(mem_dc);
+            sz.cx
+        }
+    }
+
+    /// 以單一漢字（漢字寬度單位）為基準，將組字文字流拆分為字素叢集並計算各叢集之「所在行號、行首布林值、像素寬度」，
+    /// 以及「總行數、單行最大實際像素寬度、單行漢字上限像素寬度」。
+    /// 解決歐文半形字元在固定字元數換算下造成輸入座右側兩倍空白膨脹與提早折行之問題。
+    pub fn layout_composition_clusters(comp_chars: &[char], font_px: f32, max_cjk_chars: usize) -> (Vec<(usize, usize, usize, bool, i32)>, usize, i32, i32) {
+        let is_combining = |c: char| -> bool { ('\u{0300}'..='\u{036F}').contains(&c) };
+        unsafe {
+            let mem_dc = CreateCompatibleDC(HDC::default());
+            let font_name: Vec<u16> = "Microsoft JhengHei UI".encode_utf16().chain(Some(0)).collect();
+            let font_h = -(font_px.round() as i32);
+            let font = CreateFontW(
+                font_h, 0, 0, 0,
+                FW_NORMAL.0 as i32, 0, 0, 0,
+                DEFAULT_CHARSET.0 as u32,
+                OUT_DEFAULT_PRECIS.0 as u32,
+                CLIP_DEFAULT_PRECIS.0 as u32,
+                CLEARTYPE_QUALITY.0 as u32,
+                DEFAULT_PITCH.0 as u32,
+                PCWSTR(font_name.as_ptr()),
+            );
+            let old_f = if !mem_dc.0.is_null() {
+                SelectObject(mem_dc, font)
+            } else {
+                HGDIOBJ::default()
+            };
+
+            let cjk_px = if !mem_dc.0.is_null() {
+                let sample: Vec<u16> = "漢".encode_utf16().collect();
+                let mut sz = SIZE::default();
+                let _ = GetTextExtentPoint32W(mem_dc, &sample, &mut sz);
+                sz.cx.max(font_px.round() as i32)
+            } else {
+                (font_px * 1.05).round() as i32
+            };
+            let max_line_px = (max_cjk_chars.clamp(8, 80) as i32 * cjk_px).max(cjk_px * 6);
+
+            let mut clusters = Vec::new();
+            let mut cur_line = 0usize;
+            let mut cur_line_px = 0i32;
+            let mut max_used_px = 0i32;
+
+            let mut i = 0usize;
+            while i < comp_chars.len() {
+                let mut cluster_end = i + 1;
+                while cluster_end < comp_chars.len() && is_combining(comp_chars[cluster_end]) {
+                    cluster_end += 1;
+                }
+                let cluster_str: String = comp_chars[i..cluster_end].iter().collect();
+                let cx = if !mem_dc.0.is_null() {
+                    let wide: Vec<u16> = cluster_str.encode_utf16().collect();
+                    let mut sz = SIZE::default();
+                    let _ = GetTextExtentPoint32W(mem_dc, &wide, &mut sz);
+                    sz.cx
+                } else {
+                    (font_px * 0.6).round() as i32
+                };
+
+                let is_line_start = if cur_line_px > 0 && cur_line_px + cx > max_line_px {
+                    cur_line += 1;
+                    cur_line_px = 0;
+                    true
+                } else {
+                    cur_line_px == 0
+                };
+                cur_line_px += cx;
+                if cur_line_px > max_used_px {
+                    max_used_px = cur_line_px;
+                }
+                clusters.push((i, cluster_end, cur_line, is_line_start, cx));
+                i = cluster_end;
+            }
+
+            if !mem_dc.0.is_null() {
+                SelectObject(mem_dc, old_f);
+                let _ = DeleteObject(font);
+                let _ = DeleteDC(mem_dc);
+            }
+
+            let num_lines = if clusters.is_empty() { 1 } else { cur_line + 1 };
+            let min_6_cjk_px = cjk_px * 6;
+            let effective_used_px = if num_lines > 1 {
+                max_line_px
+            } else {
+                max_used_px.max(min_6_cjk_px)
+            };
+            (clusters, num_lines, effective_used_px, max_line_px)
+        }
+    }
+
+    /// 測量當前分頁所有候選項目（如 `"a.候選詞"`）之各自像素寬度與單行總需求寬度
+    pub fn measure_page_candidates_px(state: &CandidateState, cand_font_px: f32, page_sz: usize) -> (Vec<(usize, String, i32)>, i32) {
+        let use_ar30_num_keys = state.is_array30_live_preview && !state.is_cand_selecting;
+        let asdf_keys = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
+        let cur_page = state.selected_index / page_sz.max(1);
+        let start_idx = cur_page * page_sz;
+        let gap_px = (16.0 * state.dpi_scale).round() as i32;
+        let mut items = Vec::new();
+        let mut single_row_total_px = (28.0 * state.dpi_scale).round() as i32;
+
+        unsafe {
+            let mem_dc = CreateCompatibleDC(HDC::default());
+            let font_name: Vec<u16> = "Microsoft JhengHei UI".encode_utf16().chain(Some(0)).collect();
+            let font_h = -(cand_font_px.round() as i32);
+            let font = CreateFontW(
+                font_h, 0, 0, 0,
+                FW_NORMAL.0 as i32, 0, 0, 0,
+                DEFAULT_CHARSET.0 as u32,
+                OUT_DEFAULT_PRECIS.0 as u32,
+                CLIP_DEFAULT_PRECIS.0 as u32,
+                CLEARTYPE_QUALITY.0 as u32,
+                DEFAULT_PITCH.0 as u32,
+                PCWSTR(font_name.as_ptr()),
+            );
+            let old_f = if !mem_dc.0.is_null() {
+                SelectObject(mem_dc, font)
+            } else {
+                HGDIOBJ::default()
+            };
+
+            for (page_offset, cand) in state.candidates.iter().skip(start_idx).take(page_sz).enumerate() {
+                let actual_idx = start_idx + page_offset;
+                let key_label = if use_ar30_num_keys {
+                    if page_offset == 9 { "0".to_string() } else { (page_offset + 1).to_string() }
+                } else if state.quick_key_mode == "asdf" {
+                    if page_offset < asdf_keys.len() { asdf_keys[page_offset].to_string() } else { " ".to_string() }
+                } else {
+                    (page_offset + 1).to_string()
+                };
+                let item_str = format!("{}.{}", key_label, cand);
+                let cx = if !mem_dc.0.is_null() {
+                    let wide: Vec<u16> = item_str.encode_utf16().collect();
+                    let mut sz = SIZE::default();
+                    let _ = GetTextExtentPoint32W(mem_dc, &wide, &mut sz);
+                    sz.cx
+                } else {
+                    (item_str.chars().count() as f32 * cand_font_px * 0.85).round() as i32
+                };
+                single_row_total_px += cx + gap_px;
+                items.push((actual_idx, item_str, cx));
+            }
+
+            if !mem_dc.0.is_null() {
+                SelectObject(mem_dc, old_f);
+                let _ = DeleteObject(font);
+                let _ = DeleteDC(mem_dc);
+            }
+        }
+        (items, single_row_total_px)
+    }
+
+    /// 當輸入座寬度確定後，計算候選欄需要幾行才可 100% 完整顯示所有候選詞（不截斷、不溢出邊界）
+    pub fn count_candidate_rows(items: &[(usize, String, i32)], inner_cand_width: i32, dpi_scale: f32) -> usize {
+        if items.is_empty() {
+            return 1;
+        }
+        let left_start = (12.0 * dpi_scale).round() as i32;
+        let right_limit = (inner_cand_width - (8.0 * dpi_scale).round() as i32).max(left_start + 60);
+        let gap_px = (16.0 * dpi_scale).round() as i32;
+        let mut rows = 1usize;
+        let mut cur_x = left_start;
+        for &(_, _, cx) in items {
+            if cur_x > left_start && cur_x + cx + 6 > right_limit {
+                rows += 1;
+                cur_x = left_start;
+            }
+            cur_x += cx + gap_px;
+        }
+        rows
+    }
+
     pub fn compute_desk_geometry(state: &CandidateState, caret_x: i32, caret_y: i32) -> (i32, i32, i32, i32) {
         let dpi_scale = state.dpi_scale;
         let show_cand_bar = (state.is_cand_selecting || state.is_array30_live_preview) && !state.candidates.is_empty();
@@ -495,33 +697,29 @@ impl CandidateWindow {
         let font_h = (state.font_size * 0.9 * dpi_scale).clamp(14.0 * dpi_scale, 90.0 * dpi_scale);
         let cand_font_h = (state.candidate_font_size * 0.9 * dpi_scale).clamp(13.0 * dpi_scale, 68.0 * dpi_scale);
 
-        let max_line_chars = state.max_composition_chars.clamp(8, 80);
-        let total_chars = state
-            .composition_text
-            .chars()
-            .filter(|&c| !('\u{0300}'..='\u{036F}').contains(&c))
-            .count();
-        let num_lines = if total_chars == 0 {
-            1
-        } else {
-            (total_chars + max_line_chars - 1) / max_line_chars
-        };
-        let single_line_chars = if num_lines > 1 {
-            max_line_chars
-        } else {
-            total_chars.max(6)
-        };
+        let ref_x = if state.input_display_mode == "floating_fixed" { state.fixed_x } else { caret_x };
+        let ref_y = if state.input_display_mode == "floating_fixed" { state.fixed_y } else { caret_y };
+        let (screen_l, screen_t, screen_r, screen_b) = Self::get_monitor_work_area(ref_x, ref_y);
+        let screen_avail_w = ((screen_r - screen_l) - 24).max(460) as f32;
 
-        let comp_w = (44.0 * dpi_scale) + (single_line_chars as f32 * font_h * 1.08);
-        let cur_page = state.selected_index / page_sz;
-        let page_items_count = state.candidates.iter().skip(cur_page * page_sz).take(page_sz).count();
+        let max_line_chars = state.max_composition_chars.clamp(8, 80);
+        let comp_chars: Vec<char> = state.composition_text.chars().collect();
+        let (_clusters, num_lines, max_used_px, max_line_px) =
+            Self::layout_composition_clusters(&comp_chars, font_h, max_line_chars);
+
+        let comp_w = (44.0 * dpi_scale) + (max_used_px as f32);
+        let (cand_items, cand_single_row_px) = if show_cand_bar {
+            Self::measure_page_candidates_px(state, cand_font_h, page_sz)
+        } else {
+            (Vec::new(), 0)
+        };
         let cand_w = if show_cand_bar {
-            (page_items_count.max(5) as f32 * (cand_font_h * 3.2 + 24.0 * dpi_scale)) + (60.0 * dpi_scale)
+            (cand_single_row_px as f32 + 24.0 * dpi_scale).min(screen_avail_w)
         } else {
             0.0
         };
         let coach_w = if !state.array30_coach_hint.is_empty() {
-            (state.array30_coach_hint.chars().count() as f32 * 13.5 * dpi_scale) + (48.0 * dpi_scale)
+            (Self::measure_gdi_text_px(&state.array30_coach_hint, 14.5 * dpi_scale) as f32) + (40.0 * dpi_scale)
         } else {
             0.0
         };
@@ -531,22 +729,32 @@ impl CandidateWindow {
             0.0
         };
 
-        let max_w_limit = ((max_line_chars.max(12) as f32 * font_h * 1.12) + 80.0 * dpi_scale)
+        let max_w_limit = ((max_line_px as f32) + 64.0 * dpi_scale)
             .max(cand_w)
             .max(coach_w)
             .max(tuner_w)
-            .max(460.0 * dpi_scale);
+            .max(460.0 * dpi_scale)
+            .min(screen_avail_w);
         let width = comp_w
             .max(cand_w)
             .max(coach_w)
             .max(tuner_w)
             .clamp(440.0 * dpi_scale, max_w_limit) as i32;
 
+        let pad_x = (8.0 * dpi_scale) as i32;
+        let inner_cand_w = (width - pad_x * 2).max(200);
+        let cand_rows = if show_cand_bar {
+            Self::count_candidate_rows(&cand_items, inner_cand_w, dpi_scale)
+        } else {
+            1
+        };
+
         let line_step_h = (font_h + 10.0 * dpi_scale).round() as i32;
         let row1_h = (num_lines as i32 * line_step_h) + (12.0 * dpi_scale) as i32; // 多行組字區高度
         let single_row1_h = line_step_h + (12.0 * dpi_scale) as i32;
+        let cand_row_step_h = (cand_font_h + 10.0 * dpi_scale).round() as i32;
         let row2_h = if show_cand_bar {
-            (cand_font_h + 18.0 * dpi_scale) as i32 // 候選欄高度（隨 candidate_font_size 自適應）
+            (cand_rows as i32 * cand_row_step_h) + (8.0 * dpi_scale) as i32 // 候選欄高度（支援多行折行自適應）
         } else {
             0
         };
@@ -565,9 +773,6 @@ impl CandidateWindow {
         let single_line_height = single_row1_h + row2_h + row_coach_h + row3_h + (16.0 * dpi_scale) as i32;
         let extra_grow_h = (height - single_line_height).max(0);
 
-        let ref_x = if state.input_display_mode == "floating_fixed" { state.fixed_x } else { caret_x };
-        let ref_y = if state.input_display_mode == "floating_fixed" { state.fixed_y } else { caret_y };
-        let (screen_l, screen_t, screen_r, screen_b) = Self::get_monitor_work_area(ref_x, ref_y);
         let min_x = screen_l + 8;
         let max_x = (screen_r - width - 8).max(min_x);
         let min_y = screen_t + 8;
@@ -575,7 +780,6 @@ impl CandidateWindow {
 
         let (final_x, final_y) = if state.input_display_mode == "floating_fixed" {
             let fx = state.fixed_x.clamp(min_x, max_x);
-            // 當輸入座位於螢幕下半部時，超過單行自動「往上」增加行數；位於上半部時自動「往下」增加行數
             let screen_mid_y = (screen_t + screen_b) / 2;
             let raw_fy = if state.fixed_y >= screen_mid_y {
                 state.fixed_y - extra_grow_h
@@ -585,7 +789,6 @@ impl CandidateWindow {
             let fy = raw_fy.clamp(min_y, max_y);
             (fx, fy)
         } else {
-            // floating_follow (游標跟隨)
             let fx = caret_x.clamp(min_x, max_x);
             let fy = if caret_y + height > screen_b - 20 {
                 (caret_y - height - 32).clamp(min_y, max_y)
@@ -715,68 +918,41 @@ impl CandidateWindow {
             let h = (32.0 * dpi_scale) as i32;
             (w, h)
         } else if orientation == "vertical" {
-            // 直向微軟新注音候選窗
-            let max_char_count = page_candidates.iter().map(|c| c.chars().count()).max().unwrap_or(2);
+            // 直向微軟新注音候選窗（以 GDI 實測最寬候選字詞寬度）
+            let max_cand_px = page_candidates
+                .iter()
+                .map(|c| Self::measure_gdi_text_px(c, item_font_h))
+                .max()
+                .unwrap_or(60);
             let num_col_w = 32.0 * dpi_scale;
-            let cand_col_w = (max_char_count as f32 * item_font_h * 1.15).max(60.0 * dpi_scale);
+            let cand_col_w = (max_cand_px as f32 + 16.0 * dpi_scale).max(60.0 * dpi_scale);
             let pad_x = 12.0 * dpi_scale;
-            let w = ((pad_x * 2.0 + num_col_w + cand_col_w).max(coach_w).max(160.0 * dpi_scale).min(960.0 * dpi_scale)) as i32;
+            let w = ((pad_x * 2.0 + num_col_w + cand_col_w).max(coach_w).max(160.0 * dpi_scale).min(1280.0 * dpi_scale)) as i32;
 
             let item_h = (item_font_h + 12.0 * dpi_scale) as i32;
             let pad_y = (8.0 * dpi_scale) as i32;
             let has_more_pages = candidates.len() > page_sz;
             let footer_h = if has_more_pages { (24.0 * dpi_scale) as i32 } else { 0 };
             let h = pad_y * 2 + (display_count as i32 * item_h) + footer_h + coach_h;
-            (w, h)
+            return self.finish_show_candidates_only(candidates, selected, page_start, w, h, x, y, dpi_scale, opacity);
         } else {
-            // 橫向微軟新注音候選窗（單行精巧流式卡片）
+            // 橫向微軟新注音候選窗（以 GDI 實測所有候選詞寬度，與繪製時之 cur_x 步進 100% 同步）
             let mut total_w = 20.0 * dpi_scale;
             for c in page_candidates {
-                let char_cnt = c.chars().count();
-                let item_w = (24.0 * dpi_scale) + (char_cnt as f32 * item_font_h * 1.1) + (16.0 * dpi_scale);
-                total_w += item_w;
+                let text_px = Self::measure_gdi_text_px(c, item_font_h) as f32;
+                let item_w = (24.0 * dpi_scale) + text_px + (12.0 * dpi_scale);
+                total_w += item_w + (6.0 * dpi_scale);
             }
             if candidates.len() > page_sz {
-                total_w += 65.0 * dpi_scale; // 頁碼指示空間
+                total_w += 68.0 * dpi_scale; // 頁碼指示空間
             }
-            let w = (total_w.max(coach_w).max(220.0 * dpi_scale).min(1100.0 * dpi_scale)) as i32;
+            let (scr_l, _, scr_r, _) = Self::get_monitor_work_area(x, y);
+            let max_scr_w = ((scr_r - scr_l) - 24).max(400) as f32;
+            let w = (total_w.max(coach_w).max(220.0 * dpi_scale).min(max_scr_w)) as i32;
             let h = (item_font_h + 20.0 * dpi_scale) as i32 + coach_h;
             (w, h)
         };
-
-        let (screen_l, screen_t, screen_r, screen_b) = Self::get_monitor_work_area(x, y);
-        let min_x = screen_l + 8;
-        let max_x = (screen_r - width - 8).max(min_x);
-        let min_y = screen_t + 8;
-        let max_y = (screen_b - height - 8).max(min_y);
-
-        let final_x = x.clamp(min_x, max_x);
-        // 微軟新注音選字窗在游標下方（約 +24px），若到底部則放上方
-        let caret_down_y = y + (24.0 * dpi_scale) as i32;
-        let final_y = if caret_down_y + height > screen_b - 12 {
-            (y - height - 8).clamp(min_y, max_y)
-        } else {
-            caret_down_y.clamp(min_y, max_y)
-        };
-
-        if let Ok(mut state) = get_candidate_state().write() {
-            state.candidates = candidates.to_vec();
-            state.selected_index = selected;
-            state.page_offset = page_start;
-            state.is_candidates_only = true;
-            state.composition_text.clear();
-        }
-
-        unsafe {
-            apply_window_opacity(self.hwnd, opacity);
-            let _ = SetWindowPos(
-                self.hwnd,
-                HWND_TOPMOST,
-                final_x, final_y, width, height,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW,
-            );
-            let _ = InvalidateRect(self.hwnd, None, true);
-        }
+        self.finish_show_candidates_only(candidates, selected, page_start, width, height, x, y, dpi_scale, opacity);
     }
 
     pub fn hide(&mut self) {
@@ -817,22 +993,86 @@ impl CandidateWindow {
         }
     }
 
-    pub fn set_selected(&mut self, index: usize) {
+    fn finish_show_candidates_only(
+        &mut self,
+        candidates: &[String],
+        selected: usize,
+        page_start: usize,
+        width: i32,
+        height: i32,
+        x: i32,
+        y: i32,
+        dpi_scale: f32,
+        opacity: u32,
+    ) {
+        let (screen_l, screen_t, screen_r, screen_b) = Self::get_monitor_work_area(x, y);
+        let min_x = screen_l + 8;
+        let max_x = (screen_r - width - 8).max(min_x);
+        let min_y = screen_t + 8;
+        let max_y = (screen_b - height - 8).max(min_y);
+
+        let final_x = x.clamp(min_x, max_x);
+        let caret_down_y = y + (24.0 * dpi_scale) as i32;
+        let final_y = if caret_down_y + height > screen_b - 12 {
+            (y - height - 8).clamp(min_y, max_y)
+        } else {
+            caret_down_y.clamp(min_y, max_y)
+        };
+
         if let Ok(mut state) = get_candidate_state().write() {
-            state.selected_index = index;
+            state.candidates = candidates.to_vec();
+            state.selected_index = selected;
+            state.page_offset = page_start;
+            state.is_candidates_only = true;
+            state.composition_text.clear();
+            if x > 0 && y > 0 {
+                state.last_caret_x = x;
+                state.last_caret_y = y;
+            }
         }
+
         unsafe {
+            apply_window_opacity(self.hwnd, opacity);
+            let _ = SetWindowPos(
+                self.hwnd,
+                HWND_TOPMOST,
+                final_x, final_y, width, height,
+                SWP_NOACTIVATE | SWP_SHOWWINDOW,
+            );
             let _ = InvalidateRect(self.hwnd, None, true);
         }
     }
 
+    pub fn set_selected(&mut self, index: usize) {
+        let is_cands_only = if let Ok(mut state) = get_candidate_state().write() {
+            state.selected_index = index;
+            state.is_candidates_only
+        } else {
+            true
+        };
+        unsafe {
+            if !is_cands_only {
+                relayout_and_repaint_window(self.hwnd);
+            } else {
+                let _ = InvalidateRect(self.hwnd, None, true);
+            }
+        }
+    }
+
     pub fn set_selected_with_coach(&mut self, index: usize, coach_hint: &str) {
-        if let Ok(mut state) = get_candidate_state().write() {
+        let is_cands_only = if let Ok(mut state) = get_candidate_state().write() {
             state.selected_index = index;
             state.array30_coach_hint = coach_hint.to_string();
-        }
+            state.is_candidates_only
+        } else {
+            true
+        };
         unsafe {
-            let _ = InvalidateRect(self.hwnd, None, true);
+            if !is_cands_only {
+                relayout_and_repaint_window(self.hwnd);
+            } else {
+                let _ = InvalidateRect(self.hwnd, None, true);
+            }
         }
     }
 
@@ -1564,8 +1804,10 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
             for i in page_start..page_end {
                 let idx = i - page_start;
-                let cand_chars = state.candidates[i].chars().count();
-                let item_w = (24.0 * state.dpi_scale) as i32 + (cand_chars as f32 * item_font_h * 1.1) as i32 + (16.0 * state.dpi_scale) as i32;
+                let cand_wide_measure: Vec<u16> = state.candidates[i].encode_utf16().collect();
+                let mut sz_cand = SIZE::default();
+                let _ = GetTextExtentPoint32W(mem_dc, &cand_wide_measure, &mut sz_cand);
+                let item_w = (24.0 * state.dpi_scale) as i32 + sz_cand.cx + (12.0 * state.dpi_scale) as i32;
                 let is_selected = i == state.selected_index;
 
                 if is_selected {
@@ -1671,14 +1913,9 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         let font_h = (state.font_size * 0.9 * state.dpi_scale).clamp(14.0 * state.dpi_scale, 90.0 * state.dpi_scale);
         let max_line_chars = state.max_composition_chars.clamp(8, 80);
         let comp_chars: Vec<char> = state.composition_text.chars().collect();
-        let is_combining = |c: char| -> bool { ('\u{0300}'..='\u{036F}').contains(&c) };
-        let total_chars = comp_chars.iter().filter(|&&c| !is_combining(c)).count();
-        let num_lines = if total_chars == 0 {
-            1
-        } else {
-            (total_chars + max_line_chars - 1) / max_line_chars
-        };
-        let line_step_h = (font_h + 10.0 * state.dpi_scale).round() as i32;
+        let (comp_clusters, num_lines, _max_used_px, _max_line_px) =
+            CandidateWindow::layout_composition_clusters(&comp_chars, font_h, max_line_chars);
+            let line_step_h = (font_h + 10.0 * state.dpi_scale).round() as i32;
         let comp_card_h = (num_lines as i32 * line_step_h) + (12.0 * state.dpi_scale) as i32;
         let comp_rect = RECT {
             left: pad_x,
@@ -1719,19 +1956,10 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
         // 以完整字素叢集（基底字母 + 緊隨之組合變音符號 U+0300..=U+036F）為單位繪製，
         // 避免 GDI 因逐一 char 拆開而使組合尖音符/底抑揚符與基底歐文字母分離錯位！
-        let mut visual_col = 0usize;
-        let mut i = 0usize;
-        while i < comp_chars.len() {
-            let mut cluster_end = i + 1;
-            while cluster_end < comp_chars.len() && is_combining(comp_chars[cluster_end]) {
-                cluster_end += 1;
-            }
-
-            let line_idx = visual_col / max_line_chars;
-            let col_idx = visual_col % max_line_chars;
+        for &(i, cluster_end, line_idx, is_line_start, _cx_est) in &comp_clusters {
             let line_top = base_top_y + (line_idx as i32 * line_step_h);
             let line_bottom = line_top + line_step_h;
-            if col_idx == 0 {
+            if is_line_start {
                 pen_x = base_left_x;
             }
             last_line_top = line_top;
@@ -1786,10 +2014,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             DrawTextW(mem_dc, &mut c_w, &mut r_ch, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
             pen_x += sz_ch.cx;
-            i = cluster_end;
-            visual_col += 1;
         }
-
         // 若游標在句尾
         if cur == comp_chars.len() {
             let caret_r = RECT {
@@ -1815,7 +2040,11 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
         if show_cand_panel {
             let cand_font_px = (state.candidate_font_size * 0.9 * state.dpi_scale).clamp(13.0 * state.dpi_scale, 68.0 * state.dpi_scale);
-            let cand_card_h = (cand_font_px + 18.0 * state.dpi_scale) as i32;
+            let (cand_items, _single_row_px) = CandidateWindow::measure_page_candidates_px(&state, cand_font_px, page_sz);
+            let inner_cand_w = (width - pad_x * 2).max(200);
+            let cand_rows = CandidateWindow::count_candidate_rows(&cand_items, inner_cand_w, state.dpi_scale);
+            let cand_row_step_h = (cand_font_px + 10.0 * state.dpi_scale).round() as i32;
+            let cand_card_h = (cand_rows as i32 * cand_row_step_h) + (8.0 * state.dpi_scale) as i32;
             let cand_rect = RECT {
                 left: pad_x,
                 top: cur_y,
@@ -1841,56 +2070,39 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             );
             let old_f2 = SelectObject(mem_dc, cand_font);
 
-            let asdf_keys = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
-            let mut cand_x = cand_rect.left + (12.0 * state.dpi_scale) as i32;
-
-            let cur_page = state.selected_index / page_sz;
-            let start_idx = cur_page * page_sz;
-            let page_cands: Vec<(usize, &String)> = state.candidates.iter()
-                .skip(start_idx)
-                .take(page_sz)
-                .enumerate()
-                .collect();
-
-            for (page_offset, cand) in page_cands {
-                let actual_idx = start_idx + page_offset;
-                let key_label = if use_ar30_num_keys {
-                    if page_offset == 9 { "0".to_string() } else { (page_offset + 1).to_string() }
-                } else if state.quick_key_mode == "asdf" {
-                    if page_offset < asdf_keys.len() { asdf_keys[page_offset].to_string() } else { " ".to_string() }
-                } else {
-                    (page_offset + 1).to_string()
-                };
-
-                let item_str = format!("{}.{}", key_label, cand);
+            let left_start_x = cand_rect.left + (12.0 * state.dpi_scale) as i32;
+            let right_limit_x = (cand_rect.right - (8.0 * state.dpi_scale) as i32).max(left_start_x + 60);
+            let mut cand_x = left_start_x;
+            let mut cand_row_idx = 0i32;
+            for (actual_idx, item_str, sz_cx) in cand_items {
+                if cand_x > left_start_x && cand_x + sz_cx + 6 > right_limit_x {
+                    cand_row_idx += 1;
+                    cand_x = left_start_x;
+                }
+                let row_top = cand_rect.top + (4.0 * state.dpi_scale) as i32 + (cand_row_idx * cand_row_step_h);
+                let row_bottom = row_top + cand_row_step_h;
                 let item_wide: Vec<u16> = item_str.encode_utf16().collect();
-                let mut sz_item = SIZE::default();
-                let _ = GetTextExtentPoint32W(mem_dc, &item_wide, &mut sz_item);
-
                 let is_sel = actual_idx == state.selected_index && state.is_cand_selecting;
                 let item_bg = RECT {
                     left: cand_x - 4,
-                    top: cand_rect.top + (4.0 * state.dpi_scale) as i32,
-                    right: cand_x + sz_item.cx + 6,
-                    bottom: cand_rect.bottom - (4.0 * state.dpi_scale) as i32,
+                    top: row_top,
+                    right: cand_x + sz_cx + 6,
+                    bottom: row_bottom,
                 };
-
                 if is_sel {
                     let sel_b = CreateSolidBrush(accent_blue);
                     FillRect(mem_dc, &item_bg, sel_b);
                     let _ = DeleteObject(sel_b);
                     SetTextColor(mem_dc, COLORREF(0x00FFFFFF));
                 } else {
-                    SetTextColor(mem_dc, ink_primary); // 純粹高雅的白字
+                    SetTextColor(mem_dc, ink_primary);
                 }
-
                 let mut w = item_wide;
                 w.push(0);
                 let mut r = item_bg;
                 r.left += 4;
                 DrawTextW(mem_dc, &mut w, &mut r, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-
-                cand_x += sz_item.cx + (16.0 * state.dpi_scale) as i32;
+                cand_x += sz_cx + (16.0 * state.dpi_scale) as i32;
             }
 
             SelectObject(mem_dc, old_f2);

@@ -1796,7 +1796,12 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         if !committed_chunk.is_empty() {
                             let c_chars: Vec<char> = committed_chunk.chars().collect();
                             let c_syls: Vec<Option<String>> = vec![None; c_chars.len()];
-                            self.splice_pending_chunk(&c_chars, &c_syls, &[]);
+                            let c_segs = if c_chars.len() > 1 && committed_chunk != " " {
+                                vec![(0, c_chars.len(), String::new(), committed_chunk.clone())]
+                            } else {
+                                Vec::new()
+                            };
+                            self.splice_pending_chunk(&c_chars, &c_syls, &c_segs);
                         }
                     } else {
                         self.insert_pending_char(' ', None);
@@ -2149,10 +2154,22 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 let eng_had_uncommitted = {
                     let mut engine = self.engine.lock().unwrap();
                     if engine.japanese.has_buffer() {
-                        let _ = engine.process_key('\x08');
+                        if is_ctrl {
+                            let _ = engine.process_key_str("Ctrl+BackSpace");
+                        } else if is_shift {
+                            let _ = engine.process_key_str("Shift+BackSpace");
+                        } else {
+                            let _ = engine.process_key('\x08');
+                        }
                         true
                     } else if engine.korean.has_buffer() {
-                        let _ = engine.process_key('\x08');
+                        if is_ctrl {
+                            let _ = engine.process_key_str("Ctrl+BackSpace");
+                        } else if is_shift {
+                            let _ = engine.process_key_str("Shift+BackSpace");
+                        } else {
+                            let _ = engine.process_key('\x08');
+                        }
                         true
                     } else if engine.cangjie.has_buffer() {
                         if is_ctrl || is_shift {
@@ -2187,7 +2204,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 if !eng_had_uncommitted {
                     self.consolidate_engine_to_pending();
                     let cur_val = *self.sentence_cursor.lock().unwrap();
-                    if cur_val > 0 {
+                    let is_ctrl_del = is_ctrl && self.consolidate_pending_ctrl_backspace(cur_val);
+                    if cur_val > 0 && !is_ctrl_del {
                         if is_ctrl {
                             let pending = self.pending_compose.lock().unwrap().clone();
                             let chars: Vec<char> = pending.chars().collect();
@@ -2268,7 +2286,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 let is_cand_sel_now = *self.candidate_selecting.lock().unwrap();
                 let has_engine_preedit = {
                     let engine = self.engine.lock().unwrap();
-                    engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer()
+                    engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer()
                 };
                 let has_pending = !self.pending_compose.lock().unwrap().is_empty();
 
@@ -2437,7 +2455,12 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         if !committed_chunk.is_empty() {
                             let c_chars: Vec<char> = committed_chunk.chars().collect();
                             let c_syls: Vec<Option<String>> = vec![None; c_chars.len()];
-                            self.splice_pending_chunk(&c_chars, &c_syls, &[]);
+                            let c_segs = if c_chars.len() > 1 && committed_chunk != " " {
+                                vec![(0, c_chars.len(), String::new(), committed_chunk.clone())]
+                            } else {
+                                Vec::new()
+                            };
+                            self.splice_pending_chunk(&c_chars, &c_syls, &c_segs);
                         }
 
                         self.sync_input_display(ctx)?;
@@ -2503,6 +2526,7 @@ impl RuhiTextService_Impl {
         #[derive(PartialEq, Eq, Clone, Copy)]
         enum Kind {
             AsciiWord,
+            HangulWord,
             Whitespace,
             Punct,
             CjkSingle,
@@ -2517,6 +2541,8 @@ impl RuhiTextService_Impl {
                 || ruhi::western::WesternEngine::strip_char_diacritic(ch).is_ascii_alphabetic()
             {
                 Kind::AsciiWord
+            } else if ('\u{AC00}'..='\u{D7A3}').contains(&ch) || ('\u{3131}'..='\u{318E}').contains(&ch) {
+                Kind::HangulWord
             } else if ch.is_whitespace() {
                 Kind::Whitespace
             } else if ch.is_ascii_punctuation() || "，。、！？：；（）「」『』—…～《》〈〉".contains(ch) {
@@ -2545,6 +2571,24 @@ impl RuhiTextService_Impl {
         }
 
         bset.into_iter().collect()
+    }
+
+    fn consolidate_pending_ctrl_backspace(&self, cur_val: usize) -> bool {
+        if cur_val == 0 {
+            return false;
+        }
+        let pending = self.pending_compose.lock().unwrap().clone();
+        let boundaries = self.get_word_boundaries(&pending);
+        let delete_start = Self::find_prev_word_boundary(&boundaries, &pending, cur_val);
+        let count_to_delete = cur_val.saturating_sub(delete_start).max(1);
+        for _ in 0..count_to_delete {
+            let cur_now = *self.sentence_cursor.lock().unwrap();
+            if cur_now > 0 {
+                self.remove_pending_char_at(cur_now - 1);
+                *self.sentence_cursor.lock().unwrap() = cur_now - 1;
+            }
+        }
+        true
     }
 
     fn find_prev_word_boundary(boundaries: &[usize], full_text: &str, cur: usize) -> usize {
@@ -4508,6 +4552,8 @@ impl RuhiTextService_Impl {
     }
 
     fn end_tsf_composition(&self, ctx: &ITfContext) -> Result<()> {
+        self.hide_candidate_window();
+        set_last_caret_pos(0, 0);
         set_last_caret_pos(0, 0);
         let client_id = *self.client_id.lock().unwrap();
         let sink: ITfCompositionSink = self.to_object().cast()?;

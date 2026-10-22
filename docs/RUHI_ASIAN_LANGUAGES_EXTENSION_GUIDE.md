@@ -222,3 +222,15 @@
 | **剪貼簿與復原** | `Ctrl + A` / `Ctrl + C` / `Ctrl + X` / `Ctrl + V`<br>`Ctrl + Z` / `Ctrl + Y` (`Ctrl + Shift + Z`) | 全選輸入座、複製選取（無選取時 `Ctrl + C` 為整句取消）、剪下選取、貼入游標處、以及跨語系編輯歷史之 Undo / Redo。 |
 | **雙軌選字連動** | `↓`（候選展開）<br>`↑`（模糊救援／預測） | 根據**游標當前所在詞段的語系與原始拼寫（`pending_segments` / `last_raw_ascii`）**或當前子引擎緩衝區，自動分派至對應語系的 `↓` 同音／切分候選與 `↑` 學習者模糊救援。 |
 | **全句確認上屏** | `Enter` | 將子引擎未決內容以 `Finalize` 模式結算併入輸入座後，將整條多語系句子一次性提交至目標應用程式。 |
+
+### 4. 跨語系輸入座與候選欄之 GDI 像素等價排版契約（Pixel-Equivalent Layout & Auto-Adaptive Candidate Width）
+
+由於輸入座與候選欄同時服務全形漢字／假名／諺文與半形歐文（含法、德、西、義、葡、越、梵文轉寫與外語整句候選），視窗寬度與換行邏輯嚴禁將 `char::count()` 直接乘以固定漢字寬度（否則輸入 20 個半形歐文字母時，視窗會按 20 個全形漢字寬度膨脹，造成歐文模式下右側出現約兩倍空白的失真現象）：
+
+1. **組字行寬度之漢字像素等價折算（`CandidateWindow::layout_composition_clusters`）**：
+   - 使用者設定之「單行最大字數（`max_composition_chars`）」定義為 **N 個全形漢字之等效像素寬度上限**（`max_line_px = max_cjk_chars * measure_gdi_text_px("漢", font_h)`）。
+   - 組字區以完整字素叢集（基底字元 + `U+0300..=U+036F` 組合變音符）為單位，透過 GDI `GetTextExtentPoint32W` 實測每個字素叢集的真實像素寬度 `cx`。
+   - 單行時視窗組字寬度緊貼實際已使用之像素寬度 `max_used_px`（保底 6 個漢字寬度）；當累積像素超過 `max_line_px` 時才自動換行，徹底消除歐文模式下視窗右側兩倍空白膨脹問題。
+2. **候選字詞寬度與多行自適應（`measure_page_candidates_px` & `count_candidate_rows`）**：
+   - 候選欄開啟或翻頁時（包含 `set_selected` / `set_selected_with_coach` 切換頁碼），必須透過 GDI 實測當前分頁每一筆 `"標籤.候選詞"` 的實際像素寬度總和，動態撐開輸入座與微軟新注音游標跟隨候選窗寬度。
+   - 若單頁候選字詞包含長詞或外語長句，使單行總像素寬度超過螢幕可用工作區寬度（`screen_avail_w`），輸入座候選欄自動折行（Multi-row Wrap）並動態增高 `cand_card_h`，確保所有候選字詞 100% 完整顯示、絕不截斷或超出邊框。

@@ -195,6 +195,213 @@ impl KoreanEngine {
             })
     }
 
+    /// Shift+BackSpace：退回最後 1 個完整諺文音節（或先清除尾端未完成相容字母）
+    pub fn pop_syllable(&mut self) -> EngineResponse {
+        if self.raw_romaja.is_empty() {
+            return EngineResponse {
+                action: "pass".to_string(),
+                mode: "korean".to_string(),
+                preedit: String::new(),
+                composed: String::new(),
+                candidates: Vec::new(),
+                active_candidate: String::new(),
+                candidate_idx: 0,
+                cursor_pos: 0,
+                q_press_count: 0,
+                committed_chunk: String::new(),
+            };
+        }
+        if self.is_english_forced {
+            self.reset();
+            return EngineResponse {
+                action: "reset".to_string(),
+                mode: "korean".to_string(),
+                preedit: String::new(),
+                composed: String::new(),
+                candidates: Vec::new(),
+                active_candidate: String::new(),
+                candidate_idx: 0,
+                cursor_pos: 0,
+                q_press_count: 0,
+                committed_chunk: String::new(),
+            };
+        }
+
+        while self.raw_romaja.ends_with('-') {
+            self.raw_romaja.pop();
+        }
+        let cur_parse = parse_nbest_with_lexicon(
+            &self.raw_romaja,
+            ParseMode::Preview,
+            1,
+            Some(&self.lexicon),
+        )
+        .into_iter()
+        .next();
+
+        let (target_len, target_last_syl) = match cur_parse {
+            Some(ref p) if !p.pending.is_empty() => {
+                if p.syllables.is_empty() {
+                    (0usize, None)
+                } else {
+                    (p.syllables.len(), p.syllables.last().cloned())
+                }
+            }
+            Some(ref p) => {
+                if p.syllables.len() <= 1 {
+                    (0usize, None)
+                } else {
+                    let tl = p.syllables.len() - 1;
+                    (tl, p.syllables.get(tl - 1).cloned())
+                }
+            }
+            None => (0usize, None),
+        };
+        if false {
+        let (_target_len, _target_last_t) = match cur_parse {
+            Some(ref p) if !p.pending.is_empty() => {
+                if p.syllables.is_empty() {
+                    (0usize, None)
+                } else {
+                    (p.syllables.len(), p.syllables.last().map(|s| s.t))
+                }
+            }
+            Some(ref p) => {
+                if p.syllables.len() <= 1 {
+                    (0usize, None)
+                } else {
+                    let tl = p.syllables.len() - 1;
+                    (tl, p.syllables.get(tl - 1).map(|s| s.t))
+                }
+            }
+            None => (0usize, None),
+        };
+
+        }
+        if target_len == 0 {
+            self.reset();
+            return EngineResponse {
+                action: "reset".to_string(),
+                mode: "korean".to_string(),
+                preedit: String::new(),
+                composed: String::new(),
+                candidates: Vec::new(),
+                active_candidate: String::new(),
+                candidate_idx: 0,
+                cursor_pos: 0,
+                q_press_count: 0,
+                committed_chunk: String::new(),
+            };
+        }
+
+        while !self.raw_romaja.is_empty() {
+            self.raw_romaja.pop();
+            while self.raw_romaja.ends_with('-') {
+                self.raw_romaja.pop();
+            }
+            if self.raw_romaja.is_empty() {
+                break;
+            }
+            if let Some(next_p) = parse_nbest_with_lexicon(
+                &self.raw_romaja,
+                ParseMode::Preview,
+                1,
+                Some(&self.lexicon),
+            )
+            .into_iter()
+            .next()
+            {
+                if next_p.pending.is_empty() && next_p.syllables.len() <= target_len {
+                if next_p.pending.is_empty() && next_p.syllables.len() <= target_len {
+                    let is_exact_target = next_p.syllables.len() < target_len
+                        || next_p.syllables.last().cloned() == target_last_syl;
+                    if is_exact_target {
+                        break;
+                    }
+                }
+                if false {
+                    let target_last_t: Option<u8> = None;
+                    let absorbed_onset_into_empty_coda = target_last_t == Some(0)
+                        && next_p.syllables.len() == target_len
+                        && next_p.syllables.last().map(|s| s.t) != Some(0);
+                    if !absorbed_onset_into_empty_coda {
+                        break;
+                    }
+                }
+                }
+            }
+        }
+
+        if self.raw_romaja.is_empty() {
+            self.reset();
+            return EngineResponse {
+                action: "reset".to_string(),
+                mode: "korean".to_string(),
+                preedit: String::new(),
+                composed: String::new(),
+                candidates: Vec::new(),
+                active_candidate: String::new(),
+                candidate_idx: 0,
+                cursor_pos: 0,
+                q_press_count: 0,
+                committed_chunk: String::new(),
+            };
+        }
+
+        self.is_english_forced = self.raw_romaja.chars().any(|c| c.is_ascii_uppercase());
+        self.update_candidates();
+        let preedit = self.make_preedit();
+        let active = self
+            .candidates
+            .first()
+            .cloned()
+            .unwrap_or_else(|| preedit.clone());
+        let cur_len = preedit.chars().count();
+        EngineResponse {
+            action: "compose".to_string(),
+            mode: "korean".to_string(),
+            preedit: preedit.clone(),
+            composed: preedit,
+            candidates: self.candidates.clone(),
+            active_candidate: active,
+            candidate_idx: 0,
+            cursor_pos: cur_len,
+            q_press_count: 0,
+            committed_chunk: String::new(),
+        }
+    }
+
+    /// Ctrl+BackSpace：一次清空當前未決韓文詞緩衝區
+    pub fn pop_word(&mut self) -> EngineResponse {
+        if self.raw_romaja.is_empty() {
+            return EngineResponse {
+                action: "pass".to_string(),
+                mode: "korean".to_string(),
+                preedit: String::new(),
+                composed: String::new(),
+                candidates: Vec::new(),
+                active_candidate: String::new(),
+                candidate_idx: 0,
+                cursor_pos: 0,
+                q_press_count: 0,
+                committed_chunk: String::new(),
+            };
+        }
+        self.reset();
+        EngineResponse {
+            action: "reset".to_string(),
+            mode: "korean".to_string(),
+            preedit: String::new(),
+            composed: String::new(),
+            candidates: Vec::new(),
+            active_candidate: String::new(),
+            candidate_idx: 0,
+            cursor_pos: 0,
+            q_press_count: 0,
+            committed_chunk: String::new(),
+        }
+    }
+
     pub fn process_key(&mut self, ch: char) -> EngineResponse {
         match ch {
             '\t' => {
@@ -460,6 +667,8 @@ impl KoreanEngine {
             "Space" => self.process_key(' '),
             "Return" | "Enter" => self.process_key('\n'),
             "BackSpace" | "backspace" | "\x08" => self.process_key('\x08'),
+            "Shift+BackSpace" | "Shift+backspace" => self.pop_syllable(),
+            "Ctrl+BackSpace" | "Ctrl+backspace" => self.pop_word(),
             "Escape" | "Esc" => self.process_key('\x1b'),
             "Down" | "down" => {
                 if !self.raw_romaja.is_empty() {
@@ -909,6 +1118,27 @@ mod tests {
         let r = eng.process_key('2');
         assert_eq!(r.action, "commit");
         assert_eq!(r.committed_chunk, "2");
+        assert!(!eng.has_buffer());
+
+        // Shift+BackSpace / Ctrl+BackSpace 驗證
+        for ch in "hangeul".chars() {
+            eng.process_key(ch);
+        }
+        assert_eq!(eng.make_preedit(), "한글");
+        let r_shift = eng.process_key_str("Shift+BackSpace");
+        assert_eq!(r_shift.preedit, "한");
+        assert!(eng.has_buffer());
+        let r_shift2 = eng.process_key_str("Shift+BackSpace");
+        assert_eq!(r_shift2.action, "reset");
+        assert!(!eng.has_buffer());
+
+        for ch in "annyeonghaseyo".chars() {
+            eng.process_key(ch);
+        }
+        let r_ctrl = eng.process_key_str("Ctrl+BackSpace");
+        assert_eq!(r_ctrl.action, "reset");
+        if false {
+    }
         assert!(!eng.has_buffer());
     }
 }
