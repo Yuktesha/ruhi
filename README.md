@@ -6,11 +6,12 @@
 > **「如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。」**  
 > **RuhI**（**R**esponsive **U**niversal **H**uman **I**nput，梵語字根 *Ruh / Rūhi* 意為「萌芽、生長、向上攀升」），是一款面向 Windows 10/11 與 Linux、完全採用純 Rust 打造的次世代自適應通用人本輸入法與語意調校系統。
 
-[![Version](https://img.shields.io/badge/version-v0.5.5-purple.svg)]()
+[![Version](https://img.shields.io/badge/version-v0.6.0-purple.svg)]()
 [![Rust](https://img.shields.io/badge/language-Rust%202021-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2011%2F10%20%7C%20Linux%20(Fcitx5)-blue.svg)]()
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-107%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-150%20passed-brightgreen.svg)]()
+[![LINE OpenChat](https://img.shields.io/badge/LINE%20%E7%A4%BE%E7%BE%A4-%E5%A6%82%E5%96%9C%E9%80%9A%E7%94%A8%E6%99%BA%E6%85%A7%E5%9E%8B%E8%BC%B8%E5%85%A5%E6%B3%95-00C300.svg)](https://line.me/ti/g2/iyLVoHye-Ho49K9SzQBaftTgFzej7stw9S1jSw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default)
 
 </div>
 
@@ -23,11 +24,15 @@
 * **安全、極速、零外洩**：記憶體安全保障，杜絕常年困擾輸入法的焦點卡死與記憶體洩漏；全本地計算，100% 捍衛擊鍵隱私；內建 Win32 密碼控制項（`ES_PASSWORD` / `EM_GETPASSWORDCHAR`）與現代 TSF `GUID_PROP_INPUTSCOPE`（`IS_PASSWORD` / `IS_PIN`）雙軌密碼欄偵測，聚焦密碼欄時自動放行英數直通且絕不記錄修訂日誌。
 * **全生態 Win32 深入相容**：零 ComCtl32 v6 靜態依賴，自動適配 LibreOffice、命令提示字元 `conhost.exe` 與現代 UWP / AppContainer 應用程式。
 
-### 2. ⚡ 極致許氏雙拼旗艦手感、倉頡與內建日文羅馬字
-* **音節有限狀態機 (FSM)**：針對許氏雙拼配列進行精緻化鍵位建模，實現流暢的長句直出與音節即時切分。
-* **倉頡五代原生支援**：無縫支援倉頡字根輸入，具備數字快速選字、`Z` 鍵萬用字元查詢與萬國歐文/英文智慧零切換。
-* **輕量級日文羅馬字引擎 (`JapaneseEngine`)**：免安裝龐大日語輸入法，原生支援 Hepburn / 訓令式羅馬字轉換平假名、片假名與漢字。
-* **正交雙軸切換**：`Caps Lock` 一鍵切換中西模式；`Ctrl+Caps Lock` 或點擊狀態標籤（`半 許` / `半 日`）在自選亞洲模式迴圈循環。
+### 2. ⚡ 極致許氏雙拼、智慧四角號碼（九宮格小鍵盤）、倉頡／行列 30 與日韓歐文多語引擎
+* **音節有限狀態機 (FSM)**：針對許氏雙拼、標準大千與倚天 26 鍵配列進行精緻化鍵位建模，實現流暢的長句直出與音節即時切分。
+* **如喜智慧型四角號碼輸入法 (`FourCornerEngine`，v0.6.0 全新推出)**：
+  * **104 鍵盤「九宮格編碼 × 主鍵盤直出英數」雙區平行免切換**：右側九宮格小鍵盤（`0`~`9`、`/`、`*`、`.`、`-`、`+`）專責四角漢字編碼與選單控制，左側主鍵盤區保持免切換直出一般英數字與半形符號，中英數混打零模式切換！
+  * **「單字 `XXXX`」與「`-` 詞前導 `-XXXX / -XXXXX / -XXXXXX`」零碰撞分流**：內建 76,299 筆三軌相容碼表（涵蓋 17,491 單字之 Unihan 標準碼、台灣正異體雙向共享、初學者免補 `0` 直覺寬容碼，以及 34,305 組二字詞 `-XXXX`、三字詞 `-XXXXX`、四字成語 `-XXXXXX` 簡碼矩陣）。
+  * **人體工學小鍵盤控制**：`/` 字詞選單（`1`~`0` 快選）、`*` 萬用字元、`.` 標點符號選單（`..` 直出逗號）、`-` 詞前導（選單中翻上一頁）、`+` 字詞分隔收攏至輸入座（選單中翻下一頁）、`Enter` 整句完稿上屏，並附帶 [4K 自適應互動拆角動畫教學與整串查碼器](docs/four_corner_tutorial_anim.html)。
+* **倉頡五代與行列 30 原生支援**：無縫支援倉頡字根與行列 30 座標字根輸入，具備首尾簡碼、數字快選與許氏打字即時反查教練提示。
+* **輕量級日文羅馬字 (`JapaneseEngine`) 與韓文標準羅馬拼音 (`KoreanEngine`)**：免切換安裝多套輸入法，原生支援日文平／片假名漢字轉換與韓文 Revised Romanization (RR) 11,172 音節代數合成。
+* **正交雙軸切換**：`Caps Lock` 一鍵快速對切最後兩個輸入模式；`Ctrl+Caps Lock` / `Shift+Caps Lock` 或點擊狀態標籤在自選模式迴圈循環。
 
 ### 3. 🎯 歐亞雙軌上下方向鍵按需預測（零日常打字干擾）
 * **`↓` 下方向鍵**：歐文模式自動展開多語系帶重音變音正字（`naive` ➔ `naïve`、`strasse` ➔ `Straße`）；日文模式展開平片假名與漢字候選。
@@ -130,10 +135,12 @@ cd ..
 
 ---
 
-## 🤝 參與貢獻 (Contributing)
+## 🤝 官方社群與參與貢獻 (Community & Contributing)
 
-我們熱烈歡迎社群貢獻！請在提交 Pull Request 之前詳閱 [CONTRIBUTING.md](CONTRIBUTING.md)。
-特別提醒：**本專案嚴格禁止人肉調整單字無上下文權重（嚴禁單字打地鼠）**。任何詞序或語句調優，必須依循 Layer 1 語法構式或 Layer 2 轉移引力擴充，並在 `ruhi-core/src/engine.rs` 補上對應單元測試確保 `cargo test` 100% 通過。
+* **💬 加入官方 LINE 社群**：歡迎加入 [**「如喜通用智慧型輸入法」LINE 社群**](https://line.me/ti/g2/iyLVoHye-Ho49K9SzQBaftTgFzej7stw9S1jSw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default)，與我們交流使用心得、回報同音選字案例、或參與新鍵盤配列與多語系擴充討論！
+  * 社群邀請連結：<https://line.me/ti/g2/iyLVoHye-Ho49K9SzQBaftTgFzej7stw9S1jSw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default>
+* **🛠️ 開源程式碼與語意規則貢獻**：我們熱烈歡迎社群貢獻！請在提交 Pull Request 之前詳閱 [CONTRIBUTING.md](CONTRIBUTING.md)。
+  特別提醒：**本專案嚴格禁止人肉調整單字無上下文權重（嚴禁單字打地鼠）**。任何詞序或語句調優，必須依循 Layer 1 語法構式或 Layer 2 轉移引力擴充，並在 `ruhi-core/src/engine.rs` 補上對應單元測試確保 `cargo test` 100% 通過。
 
 ---
 

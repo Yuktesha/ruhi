@@ -185,17 +185,27 @@ fn handle_get(
     if path == "/api/ai/status" {
         let mut conn = guard.consultant.test_connection();
         let eff_provider = guard.consultant.get_effective_provider();
-        let wizard_done = guard.consultant.get_bool("ai_wizard_completed", false);
-        let strategy = guard.consultant.get_str("ai_strategy", "remote_first");
+        let wizard_done = guard.consultant.get_bool("ai_wizard_completed", true);
+        let spec_status = guard.consultant.get_gemma4_specialist_status(Some(&guard.tuner));
+        let spec_ready = spec_status["installed"].as_bool().unwrap_or(false);
+        let strategy = guard.consultant.get_str(
+            "ai_strategy",
+            if spec_ready { "local_only" } else { "remote_first" },
+        );
         let offline_models = guard.consultant.read_offline_models();
         let ollama_paths = guard.consultant.find_ollama_paths();
         let has_key = guard.consultant.has_gemini_key();
-        let ai_prov = guard.consultant.get_str("ai_provider", "auto");
+        let ai_prov = guard.consultant.get_str(
+            "ai_provider",
+            if spec_ready { "gemma4_specialist" } else { "auto" },
+        );
         let gem_model = guard.consultant.get_str("gemini_model", "gemini-2.5-flash");
         let oll_url = guard
             .consultant
             .get_str("ollama_url", "http://127.0.0.1:11434");
-        let oll_model = guard.consultant.get_str("ollama_model", "");
+        let oll_model = guard
+            .consultant
+            .get_str("ollama_model", "ruhi-semantic-analyst-gemma4-lora");
 
         if let Some(obj) = conn.as_object_mut() {
             obj.insert("provider".to_string(), json!(eff_provider));
@@ -203,6 +213,7 @@ fn handle_get(
             obj.insert("strategy".to_string(), json!(strategy));
             obj.insert("offline_models".to_string(), json!(offline_models));
             obj.insert("ollama_paths".to_string(), ollama_paths);
+            obj.insert("gemma4_specialist".to_string(), spec_status);
             obj.insert(
                 "config".to_string(),
                 json!({
@@ -550,7 +561,7 @@ fn handle_post(
         let ollama_model = req_data
             .get("ollama_model")
             .and_then(Value::as_str)
-            .unwrap_or("gemma2");
+            .unwrap_or("ruhi-semantic-analyst-gemma4-lora");
         let openai_api_key = req_data
             .get("openai_api_key")
             .and_then(Value::as_str)
@@ -1075,6 +1086,76 @@ fn handle_post(
             stream,
             200,
             &json!({"status": "ok", "message": "已在桌面喚起 PowerShell 純綠推論引擎安裝精靈視窗！"}),
+        );
+    }
+
+    if path == "/api/ai/gemma4_evolution" {
+        let action = req_data
+            .get("action")
+            .and_then(Value::as_str)
+            .unwrap_or("check_and_build");
+        let root_dir = guard.tuner.root.clone();
+
+        if action == "launch_colab_ps1" {
+            let ps1_path = root_dir.join("雲端Colab微調Gemma4語意分析師.ps1");
+            if ps1_path.is_file() {
+                let _ = Command::new("cmd.exe")
+                    .args([
+                        "/c",
+                        "start",
+                        "RuhI Colab A100 Gemma 4 Training",
+                        "powershell.exe",
+                        "-NoExit",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-File",
+                        &ps1_path.to_string_lossy(),
+                    ])
+                    .current_dir(&root_dir)
+                    .spawn();
+                return send_json_response(
+                    stream,
+                    200,
+                    &json!({
+                        "status": "ok",
+                        "message": "🔥 已在桌面喚起「雲端Colab微調Gemma4語意分析師.ps1」獨立終端機視窗！"
+                    }),
+                );
+            } else {
+                return send_json_response(
+                    stream,
+                    404,
+                    &json!({
+                        "status": "error",
+                        "message": "找不到 雲端Colab微調Gemma4語意分析師.ps1"
+                    }),
+                );
+            }
+        }
+
+        // check_and_build: 產製最新訓練資料集並回傳最新 Gemma 4 特化模型與進化進度
+        let pipeline_py = root_dir.join("tools").join("colab_gemma4_pipeline.py");
+        if pipeline_py.is_file() {
+            let _ = Command::new("python")
+                .args([
+                    pipeline_py.to_string_lossy().as_ref(),
+                    "--build-dataset",
+                    "--check-evolution",
+                ])
+                .current_dir(&root_dir)
+                .output();
+        }
+        let spec_status = guard
+            .consultant
+            .get_gemma4_specialist_status(Some(&guard.tuner));
+        return send_json_response(
+            stream,
+            200,
+            &json!({
+                "status": "ok",
+                "gemma4_specialist": spec_status,
+                "message": "📦 已重新產製最新 Gemma 4 語意分析師訓練資料集並刷新進化累積進度！"
+            }),
         );
     }
 

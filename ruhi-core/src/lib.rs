@@ -8,6 +8,7 @@ pub mod templates;
 pub mod symbols;
 pub mod cangjie;
 pub mod array30;
+pub mod four_corner;
 pub mod japanese;
 pub mod korean;
 pub mod western;
@@ -17,6 +18,7 @@ pub use engine::{EngineResponse, RuhiEngine};
 pub use symbols::SymbolsManager;
 pub use cangjie::CangjieEngine;
 pub use array30::Array30Engine;
+pub use four_corner::FourCornerEngine;
 pub use japanese::JapaneseEngine;
 pub use korean::KoreanEngine;
 pub use western::WesternEngine;
@@ -145,6 +147,26 @@ pub extern "C" fn ruhi_engine_load_array30_tsv(engine: *mut RuhiEngine, path_cst
         if let Ok(path_str) = c_str.to_str() {
             let p = std::path::Path::new(path_str);
             match engine_ref.array30.table.load_tsv(p) {
+                Ok(count) => count as i32,
+                Err(_) => -2,
+            }
+        } else {
+            -3
+        }
+    })).unwrap_or(-99)
+}
+
+#[no_mangle]
+pub extern "C" fn ruhi_engine_load_four_corner_tsv(engine: *mut RuhiEngine, path_cstr: *const c_char) -> i32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if engine.is_null() || path_cstr.is_null() {
+            return -1;
+        }
+        let engine_ref = unsafe { &mut *engine };
+        let c_str = unsafe { CStr::from_ptr(path_cstr) };
+        if let Ok(path_str) = c_str.to_str() {
+            let p = std::path::Path::new(path_str);
+            match engine_ref.four_corner.load_tsv(p) {
                 Ok(count) => count as i32,
                 Err(_) => -2,
             }

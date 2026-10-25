@@ -44,6 +44,7 @@ pub fn get_mode_badge_and_name_i18n(kb_mode: &str, is_caps: bool, ui_lang: &str)
                 "standard" | "daikien" | "dachen" | "bopomofo" => ("BPM", "Standard Bopomofo"),
                 "cangjie" => ("CJ", "Cangjie"),
                 "array30" | "ar30" => ("AR", "Array 30"),
+                "four_corner" | "4corner" | "fc" => ("4C", "Four-Corner Numpad"),
                 "et26" | "eten26" => ("ET", "Eten 26 Bopomofo"),
                 "et41" => ("41", "Eten 41 Bopomofo"),
                 "pinyin" => ("PY", "Hanyu Pinyin"),
@@ -62,6 +63,7 @@ pub fn get_mode_badge_and_name_i18n(kb_mode: &str, is_caps: bool, ui_lang: &str)
                 "standard" | "daikien" | "dachen" | "bopomofo" => ("注", "標準注音"),
                 "cangjie" => ("倉", "倉頡入力"),
                 "array30" | "ar30" => ("行", "行列 30"),
+                "four_corner" | "4corner" | "fc" => ("四", "四角号碼（テンキー）"),
                 "et26" | "eten26" => ("倚", "倚天 26 鍵"),
                 "et41" => ("41", "倚天 41 鍵"),
                 "pinyin" => ("拼", "ピンイン"),
@@ -80,6 +82,7 @@ pub fn get_mode_badge_and_name_i18n(kb_mode: &str, is_caps: bool, ui_lang: &str)
                 "standard" | "daikien" | "dachen" | "bopomofo" => ("注", "표준 주음"),
                 "cangjie" => ("倉", "창힐 입력기"),
                 "array30" | "ar30" => ("行", "행렬 30"),
+                "four_corner" | "4corner" | "fc" => ("四", "사각호마 (숫자패드)"),
                 "et26" | "eten26" => ("倚", "이천 26키"),
                 "et41" => ("41", "이천 41키"),
                 "pinyin" => ("拼", "한어병음"),
@@ -98,6 +101,7 @@ pub fn get_mode_badge_and_name_i18n(kb_mode: &str, is_caps: bool, ui_lang: &str)
                 "standard" | "daikien" | "dachen" | "bopomofo" => ("注", "標準大千注音"),
                 "cangjie" => ("倉", "倉頡輸入法"),
                 "array30" | "ar30" => ("行", "行列 30 輸入法"),
+                "four_corner" | "4corner" | "fc" => ("四", "智慧型四角號碼 (4×5小鍵盤)"),
                 "et26" | "eten26" => ("倚", "倚天 26 鍵注音"),
                 "et41" => ("41", "倚天 41 鍵注音"),
                 "pinyin" => ("拼", "漢語拼音"),
@@ -115,6 +119,7 @@ pub fn get_mode_menu_items_i18n(ui_lang: &str) -> &'static [(u32, &'static str, 
             (2009, "korean", "Korean Romaja (KO)\tCtrl/Shift + CapsLock"),
             (2004, "cangjie", "Cangjie (CJ)\tCtrl/Shift + CapsLock"),
             (2007, "array30", "Array 30 (AR)\tCtrl/Shift + CapsLock"),
+            (2010, "four_corner", "Four-Corner 4x5 Numpad (4C)\tCtrl/Shift + CapsLock"),
             (2002, "standard", "Standard Bopomofo (BPM)\tCtrl/Shift + CapsLock"),
             (2003, "et26", "Eten 26 Bopomofo (ET)\tCtrl/Shift + CapsLock"),
         ],
@@ -124,6 +129,7 @@ pub fn get_mode_menu_items_i18n(ui_lang: &str) -> &'static [(u32, &'static str, 
             (2009, "korean", "韓国語ローマ字入力 (韓)\tCtrl/Shift + CapsLock"),
             (2004, "cangjie", "倉頡入力 (倉)\tCtrl/Shift + CapsLock"),
             (2007, "array30", "行列 30 入力 (行)\tCtrl/Shift + CapsLock"),
+            (2010, "four_corner", "スマート四角号碼 4×5 テンキー (四)\tCtrl/Shift + CapsLock"),
             (2002, "standard", "標準大千注音 (注)\tCtrl/Shift + CapsLock"),
             (2003, "et26", "倚天 26 鍵注音 (倚)\tCtrl/Shift + CapsLock"),
         ],
@@ -133,6 +139,7 @@ pub fn get_mode_menu_items_i18n(ui_lang: &str) -> &'static [(u32, &'static str, 
             (2009, "korean", "한국어 로마자 입력 (한)\tCtrl/Shift + CapsLock"),
             (2004, "cangjie", "창힐 입력기 (倉)\tCtrl/Shift + CapsLock"),
             (2007, "array30", "행렬 30 입력기 (行)\tCtrl/Shift + CapsLock"),
+            (2010, "four_corner", "스마트 사각호마 4×5 숫자패드 (四)\tCtrl/Shift + CapsLock"),
             (2002, "standard", "표준 주음 (注)\tCtrl/Shift + CapsLock"),
             (2003, "et26", "이천 26키 주음 (倚)\tCtrl/Shift + CapsLock"),
         ],
@@ -142,6 +149,7 @@ pub fn get_mode_menu_items_i18n(ui_lang: &str) -> &'static [(u32, &'static str, 
             (2009, "korean", "韓文羅馬拼音輸入 (韓)\tCtrl/Shift + CapsLock"),
             (2004, "cangjie", "倉頡輸入法 (倉)\tCtrl/Shift + CapsLock"),
             (2007, "array30", "行列 30 輸入法 (行)\tCtrl/Shift + CapsLock"),
+            (2010, "four_corner", "智慧型四角號碼 4×5 小鍵盤 (四)\tCtrl/Shift + CapsLock"),
             (2002, "standard", "標準大千注音 (注)\tCtrl/Shift + CapsLock"),
             (2003, "et26", "倚天 26 鍵注音 (倚)\tCtrl/Shift + CapsLock"),
         ],
@@ -208,7 +216,7 @@ pub unsafe fn create_mode_hicon(badge: &str, is_caps: bool) -> HICON {
     } else {
         match badge {
             "日" => COLORREF(0x005E3FDB), // 櫻緋紅 #DB3F5E（日文模式，一眼區分）
-            "行" | "倉" => COLORREF(0x0088940D), // 青松綠 #0D9488（字形模式）
+            "行" | "倉" | "四" | "4C" => COLORREF(0x0088940D), // 青松綠 #0D9488（字形模式）
             _ => COLORREF(0x00699605),    // 翠玉綠 #059669（許氏／注音模式）
         }
     };
@@ -2303,7 +2311,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 let row_top = cand_rect.top + (4.0 * state.dpi_scale) as i32 + (cand_row_idx * cand_row_step_h);
                 let row_bottom = row_top + cand_row_step_h;
                 let item_wide: Vec<u16> = item_str.encode_utf16().collect();
-                let is_sel = actual_idx == state.selected_index && state.is_cand_selecting;
+                let is_sel = actual_idx == state.selected_index && (state.is_cand_selecting || state.is_array30_live_preview);
                 let item_bg = RECT {
                     left: cand_x - 4,
                     top: row_top,
@@ -3331,6 +3339,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 2006 => Some("english"),
                 2007 => Some("array30"),
                 2009 => Some("korean"),
+                2010 => Some("four_corner"),
                 _ => None,
             };
             if let Some(m) = chosen_mode {

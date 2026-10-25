@@ -169,6 +169,8 @@ def main():
         "RUHI_MULTILINGUAL_EXPANSION_GUIDE_EN.md",
         "RUHI_WESTERN_INPUT_AND_MIXED_TYPING_BLUEPRINT.md",
         "RUHI_KOREAN_RR_HANDOVER.md",
+        "RUHI_FOUR_CORNER_NUMPAD_SPEC.md",
+        "four_corner_tutorial_anim.html",
     ]:
         src_doc = root / "docs" / doc_name
         if src_doc.exists():

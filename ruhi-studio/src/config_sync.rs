@@ -118,8 +118,14 @@ pub struct KeyboardSettings {
     pub q_cycle_max: i32,
     #[serde(default)]
     pub enable_array30_coach: bool,
+    #[serde(default = "default_four_corner_keymap")]
+    pub four_corner_keymap: String,
     #[serde(default = "default_last_keyboard_mode")]
     pub last_keyboard_mode: String,
+}
+
+fn default_four_corner_keymap() -> String {
+    "blind_closed_loop".to_string()
 }
 
 fn default_last_keyboard_mode() -> String {
@@ -141,18 +147,34 @@ impl Default for KeyboardSettings {
             punctuation_commit_mode: "A".to_string(),
             q_cycle_max: 3,
             enable_array30_coach: false,
+            four_corner_keymap: "blind_closed_loop".to_string(),
             last_keyboard_mode: "english".to_string(),
         }
     }
 }
 
-/// 現代漢語八大語法引擎設定 (`grammar`)
+/// 現代漢語八大語法引擎與語意調校工作室權限階層設定 (`grammar`)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GrammarSettings {
     pub enable_all_eight_phases: bool,
     pub enable_de_vs_de_translingual: bool,
     pub enable_colloquial_biases: bool,
     pub enable_hot_reload: bool,
+    /// 語意調校工作室三層分級模式：
+    /// - `"pure"` (Lv.1 一般使用者純享模式：隱藏複雜語意調校面板，僅保留一鍵匿名回報)
+    /// - `"expert_sandbox"` (Lv.2 進階專家沙盒模式：啟用語意調校工作室，所有規則須通過記憶體內 Viterbi 三重零迴歸沙盒驗證方可套用至本機個人層，附一鍵還原)
+    /// - `"maintainer"` (Lv.3 核心總工程師模式：完整開放全域 `patterns_user.jsonl`、Colab CLI 特化模型訓練管線與黃金基準入庫)
+    #[serde(default = "default_studio_access_tier")]
+    pub studio_access_tier: String,
+}
+
+pub fn default_studio_access_tier() -> String {
+    let root = resolve_ruhi_root();
+    if root.join("ruhi-core").is_dir() {
+        "maintainer".to_string()
+    } else {
+        "pure".to_string()
+    }
 }
 
 impl Default for GrammarSettings {
@@ -162,6 +184,7 @@ impl Default for GrammarSettings {
             enable_de_vs_de_translingual: true,
             enable_colloquial_biases: true,
             enable_hot_reload: true,
+            studio_access_tier: default_studio_access_tier(),
         }
     }
 }
@@ -540,6 +563,9 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
         if let Some(v) = kb.get("enable_array30_coach").and_then(Value::as_bool) {
             settings.keyboard.enable_array30_coach = v;
         }
+        if let Some(v) = kb.get("four_corner_keymap").and_then(Value::as_str) {
+            settings.keyboard.four_corner_keymap = v.to_string();
+        }
         if let Some(v) = kb.get("last_keyboard_mode").and_then(Value::as_str) {
             settings.keyboard.last_keyboard_mode = v.to_string();
         }
@@ -560,6 +586,12 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
         }
         if let Some(v) = gr.get("enable_hot_reload").and_then(Value::as_bool) {
             settings.grammar.enable_hot_reload = v;
+        }
+        if let Some(v) = gr.get("studio_access_tier").and_then(Value::as_str) {
+            let trimmed = v.trim();
+            if matches!(trimmed, "pure" | "expert_sandbox" | "maintainer") {
+                settings.grammar.studio_access_tier = trimmed.to_string();
+            }
         }
     }
 
@@ -649,6 +681,9 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
     if let Some(v) = map.get("enable_array30_coach").and_then(Value::as_bool) {
         settings.keyboard.enable_array30_coach = v;
     }
+    if let Some(v) = map.get("four_corner_keymap").and_then(Value::as_str) {
+        settings.keyboard.four_corner_keymap = v.to_string();
+    }
     if let Some(v) = map.get("telemetry_consent").and_then(Value::as_bool) {
         settings.ai_and_privacy.telemetry_consent = v;
     }
@@ -678,6 +713,12 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
     }
     if let Some(v) = map.get("last_tailcat_sync_timestamp").and_then(Value::as_u64) {
         settings.ai_and_privacy.last_tailcat_sync_timestamp = v;
+    }
+    if let Some(v) = map.get("studio_access_tier").and_then(Value::as_str) {
+        let trimmed = v.trim();
+        if matches!(trimmed, "pure" | "expert_sandbox" | "maintainer") {
+            settings.grammar.studio_access_tier = trimmed.to_string();
+        }
     }
 }
 
@@ -813,6 +854,10 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             json!(settings.keyboard.enable_array30_coach),
         );
         map.insert(
+            "four_corner_keymap".to_string(),
+            json!(settings.keyboard.four_corner_keymap),
+        );
+        map.insert(
             "enable_mixed_english".to_string(),
             json!(settings.keyboard.enable_mixed_english),
         );
@@ -861,6 +906,10 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
         map.insert(
             "last_tailcat_sync_timestamp".to_string(),
             json!(settings.ai_and_privacy.last_tailcat_sync_timestamp),
+        );
+        map.insert(
+            "studio_access_tier".to_string(),
+            json!(settings.grammar.studio_access_tier),
         );
 
         if let Ok(s) = serde_json::to_string_pretty(&Value::Object(map)) {

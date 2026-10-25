@@ -2,7 +2,7 @@
 ; 符合 Windows 10 / 11 64 位元純 TSF 與 Win32 全生態相容性規範 (TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC)
 
 #define MyAppName "RuhI 如喜通用智慧型輸入法"
-#define MyAppVersion "0.5.5"
+#define MyAppVersion "0.6.0"
 #define MyAppPublisher "RuhOS Community"
 #define MyAppURL "https://github.com/Yuktesha/ruhi"
 #define MyAppExeName "ruhi-studio.exe"
@@ -69,6 +69,8 @@ Source: "{#StageDir}\docs\RUHI_MULTILINGUAL_EXPANSION_GUIDE.md"; DestDir: "{app}
 Source: "{#StageDir}\docs\RUHI_MULTILINGUAL_EXPANSION_GUIDE_EN.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "{#StageDir}\docs\RUHI_WESTERN_INPUT_AND_MIXED_TYPING_BLUEPRINT.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "{#StageDir}\docs\RUHI_KOREAN_RR_HANDOVER.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#StageDir}\docs\RUHI_FOUR_CORNER_NUMPAD_SPEC.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#StageDir}\docs\four_corner_tutorial_anim.html"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "{#StageDir}\docs\TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 
 [Icons]

@@ -2,6 +2,8 @@
 
 感謝您對 **如喜（RuhI）通用智慧型輸入法** 的關注與支持！如喜致力於打造極致手感、毫秒級響應、跨語言、尊重隱私且具備計算語言學智慧的現代輸入底座。
 
+* **💬 官方討論與使用者交流社群**：[**「如喜通用智慧型輸入法」LINE 社群**](https://line.me/ti/g2/iyLVoHye-Ho49K9SzQBaftTgFzej7stw9S1jSw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default)（歡迎隨時加入回報實戰同音選字案例或討論架構）
+
 為了維護專案架構的純淨度、演算法的優雅性與整體穩定度，所有參與貢獻的開發者均必須恪守以下準則。
 
 ---

@@ -68,6 +68,7 @@ pub struct RuhiEngine {
     pub user_pinned: std::collections::HashMap<usize, String>,
     pub cangjie: crate::cangjie::CangjieEngine,
     pub array30: crate::array30::Array30Engine,
+    pub four_corner: crate::four_corner::FourCornerEngine,
     pub japanese: crate::japanese::JapaneseEngine,
     pub korean: crate::korean::KoreanEngine,
     pub keyboard_mode: String,
@@ -116,6 +117,7 @@ impl Default for RuhiEngine {
             user_pinned: std::collections::HashMap::new(),
             cangjie: crate::cangjie::CangjieEngine::new(),
             array30: crate::array30::Array30Engine::new(),
+            four_corner: crate::four_corner::FourCornerEngine::new(),
             japanese: crate::japanese::JapaneseEngine::new(),
             korean: crate::korean::KoreanEngine::new(),
             keyboard_mode: "hsu".to_string(),
@@ -222,6 +224,11 @@ impl RuhiEngine {
             let _ = engine.array30.table.load_tsv(&ar30_path);
         }
 
+        let fc_path = p.join("four_corner.tsv");
+        if fc_path.exists() {
+            let _ = engine.four_corner.load_tsv(&fc_path);
+        }
+
         let jp_path = p.join("japanese.tsv");
         if jp_path.exists() {
             let _ = engine.japanese.load_tsv(&jp_path);
@@ -297,6 +304,7 @@ impl RuhiEngine {
         self.fsm.reset();
         self.cangjie.reset();
         self.array30.reset();
+        self.four_corner.reset();
         self.japanese.reset();
         self.korean.reset();
         self.western.reset();
@@ -426,6 +434,7 @@ impl RuhiEngine {
             "jp" | "romaji" | "kana" => "japanese".to_string(),
             "ko" | "hangul" | "romaja" => "korean".to_string(),
             "ar30" => "array30".to_string(),
+            "4corner" | "fc" | "fourcorner" => "four_corner".to_string(),
             "en" | "latin" | "western" => "english".to_string(),
             other => other.to_string(),
         }
@@ -536,6 +545,7 @@ impl RuhiEngine {
             "et26" | "eten26" => "倚",
             "cangjie" => "倉",
             "array30" | "ar30" => "行",
+            "four_corner" | "4corner" | "fc" => "四",
             "japanese" | "jp" | "romaji" => "日",
             "korean" | "ko" | "hangul" | "romaja" => "韓",
             "english" | "en" | "latin" | "western" | "euro" | "sanskrit" => "歐",
@@ -990,6 +1000,15 @@ impl RuhiEngine {
             self.array30.candidate_idx = digit_idx;
             return Some(chosen);
         }
+        if matches!(self.keyboard_mode.as_str(), "four_corner" | "4corner" | "fc") && digit_idx < self.four_corner.candidates.len() {
+            let chosen = self.four_corner.candidates[digit_idx].clone();
+            self.composed_sentence = chosen.clone();
+            self.sentence_chars = chosen.chars().map(|c| c.to_string()).collect();
+            self.cursor_pos = self.sentence_chars.len();
+            self.candidate_cycle_idx = digit_idx;
+            self.four_corner.candidate_idx = digit_idx;
+            return Some(chosen);
+        }
         if digit_idx >= self.current_candidates.len() || self.sentence_chars.is_empty() {
             return None;
         }
@@ -1082,6 +1101,29 @@ impl RuhiEngine {
             self.cursor_pos = resp.cursor_pos;
             return resp;
         }
+        if matches!(self.keyboard_mode.as_str(), "four_corner" | "4corner" | "fc") {
+            let prev_ctx = self.last_committed_word.clone();
+            let resp = self.four_corner.process_key_str_with_context(
+                key_str,
+                Some(&prev_ctx),
+                Some(&mut self.transitions),
+                Some(&self.lexicon),
+            );
+            self.composed_sentence = resp.composed.clone();
+            self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+            self.current_candidates = resp.candidates.clone();
+            self.candidate_cycle_idx = resp.candidate_idx;
+            self.cursor_pos = resp.cursor_pos;
+            if resp.mode == "candidates" {
+                self.mode = EngineMode::CandidatePopup;
+            } else {
+                self.mode = EngineMode::Normal;
+            }
+            if !resp.committed_chunk.is_empty() {
+                self.record_committed(&resp.committed_chunk);
+            }
+            return resp;
+        }
         if key_str == "Down" || key_str == "down" {
             return self.open_down_arrow_candidates();
         }
@@ -1149,6 +1191,31 @@ impl RuhiEngine {
             self.current_candidates = resp.candidates.clone();
             self.candidate_cycle_idx = resp.candidate_idx;
             self.cursor_pos = resp.cursor_pos;
+            return resp;
+        }
+        if matches!(self.keyboard_mode.as_str(), "four_corner" | "4corner" | "fc") {
+            let prev_ctx = self.last_committed_word.clone();
+            let resp = self.four_corner.process_key_with_context(
+                key,
+                Some(&prev_ctx),
+                Some(&mut self.transitions),
+                Some(&self.lexicon),
+            );
+            if resp.action != "none" || !self.four_corner.has_buffer() {
+                self.composed_sentence = resp.composed.clone();
+                self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
+                self.current_candidates = resp.candidates.clone();
+                self.candidate_cycle_idx = resp.candidate_idx;
+                self.cursor_pos = resp.cursor_pos;
+                if resp.mode == "candidates" {
+                    self.mode = EngineMode::CandidatePopup;
+                } else {
+                    self.mode = EngineMode::Normal;
+                }
+            }
+            if !resp.committed_chunk.is_empty() {
+                self.record_committed(&resp.committed_chunk);
+            }
             return resp;
         }
         // 1. 波浪號 `~` ➔ 專業詞庫切換
@@ -6977,6 +7044,110 @@ mod tests {
         assert!(engine.composed_sentence.is_empty());
         assert!(engine.korean.raw_romaja.is_empty());
         assert!(engine.korean.candidates.is_empty());
+    }
+
+    #[test]
+    fn test_gan_en_na_jiu_shui_liang_jiao_hou_lai_chu_li() {
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+
+        // 正向驗證：離合動詞「睡 × 動量/時量中綴 × 覺」與時間連謂「後來處理」構式
+        let cases = [
+            ("cxajlekfjewjhojlidvxflef", "睡兩覺後來處理"),
+            ("nyjjeojcxajlekfjewjhojlidvxflef", "那就睡兩覺後來處理"),
+            ("gmfn ,nyjjeojcxajlekfjewjhojlidvxflef", "感恩，那就睡兩覺後來處理"),
+            ("gmfn nyjjeojcxajlekfjewjhojlidvxflef", "感恩那就睡兩覺後來處理"),
+            ("cxaje jewj", "睡一覺"),
+            ("cxajejjewj", "睡一覺"),
+            ("cxajggshwfjewj", "睡個好覺"),
+            ("cxajggjhwfjewj", "睡個好覺"),
+            ("maflafje xftewdjeojgl cen cunjlemjedaj", "每累積五條就更新訓練一次"),
+            ("xajmemfzijajxkjjej", "為免再次忘記"),
+        ];
+
+        for (keys, expected) in &cases {
+            engine.reset_buffer();
+            let mut out = String::new();
+            for c in keys.chars() {
+                let r = engine.process_key(c);
+                if !r.committed_chunk.is_empty() {
+                    out.push_str(&r.committed_chunk);
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            assert_eq!(out, *expected, "輸入按鍵 {} 應精確解碼為 {}", keys, expected);
+        }
+
+        // 對抗反例保護驗證：確保「繳稅 / 報稅」、「教兩位學生」、「叫兩個人來處理」零副作用
+        let counter_cases = [
+            ("jewfcxaj", "繳稅"),
+            ("bwjcxaj", "報稅"),
+            ("jewjlekfxajcuedcl ", "教兩位學生"),
+            ("jewjlekfggsrndlidvxflef", "叫兩個人來處理"),
+            ("maflejdsfl jelf", "美麗的風景"),
+            ("jgjxajmemftijkxy jk lgs", "這未免太誇張了"),
+        ];
+        for (keys, expected) in &counter_cases {
+            engine.reset_buffer();
+            let mut out = String::new();
+            for c in keys.chars() {
+                let r = engine.process_key(c);
+                if !r.committed_chunk.is_empty() {
+                    out.push_str(&r.committed_chunk);
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            assert_eq!(out, *expected, "對抗反例按鍵 {} 應保持 {}", keys, expected);
+        }
+    }
+
+    #[test]
+    fn test_four_corner_mode_integration() {
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+        engine.set_keyboard_mode("4corner");
+        assert_eq!(engine.keyboard_mode, "four_corner");
+        assert_eq!(engine.get_keyboard_mode_badge(), "四");
+
+        // 1. 雙字詞前兩角簡碼（帶 `-` 詞前導）：-2332 -> 台灣, -1072 -> 電腦
+        let mut committed = String::new();
+        for ch in "-2332+-1072+".chars() {
+            let r = engine.process_key(ch);
+            if !r.committed_chunk.is_empty() {
+                committed.push_str(&r.committed_chunk);
+            }
+        }
+        assert_eq!(committed, "台灣電腦");
+
+        // 2. 驗證正異體雙向共享：-4032 亦能命中「臺灣」與「台灣」
+        for ch in "-4032".chars() {
+            engine.process_key(ch);
+        }
+        assert!(engine.current_candidates.contains(&"臺灣".to_string()));
+        assert!(engine.current_candidates.contains(&"台灣".to_string()));
+        engine.reset_buffer();
+
+        // 3. 驗證 `.` 小鍵盤標點符號選單前導與 `..` 快速逗號
+        engine.process_key('.');
+        let r_comma = engine.process_key('.');
+        assert_eq!(r_comma.action, "commit_punctuation");
+        assert_eq!(r_comma.committed_chunk, "，");
+
+        // 4. 驗證三字詞 5 碼 (-50843 -> 輸入法) 與四字詞 6 碼 (-622612 -> 四角號碼) 及 `+` vs `Enter` 分流
+        let mut phrase_out = String::new();
+        for ch in "-50843+".chars() {
+            let r = engine.process_key(ch);
+            if !r.committed_chunk.is_empty() {
+                assert_eq!(r.action, "commit");
+                phrase_out.push_str(&r.committed_chunk);
+            }
+        }
+        for ch in "-622612\n".chars() {
+            let r = engine.process_key(ch);
+            if !r.committed_chunk.is_empty() {
+                assert_eq!(r.action, "commit_enter");
+                phrase_out.push_str(&r.committed_chunk);
+            }
+        }
+        assert_eq!(phrase_out, "輸入法四角號碼");
     }
 }
 

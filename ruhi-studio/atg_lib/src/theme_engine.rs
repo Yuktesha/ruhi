@@ -686,6 +686,7 @@ pub fn configure_cjk_fonts(ctx: &egui::Context) {
     }
 
     let candidate_sym_paths = [
+        "C:\\Windows\\Fonts\\malgun.ttf",
         "C:\\Windows\\Fonts\\seguisym.ttf",
         "C:\\Windows\\Fonts\\seguiemj.ttf",
     ];

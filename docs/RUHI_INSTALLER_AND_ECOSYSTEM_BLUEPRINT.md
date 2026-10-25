@@ -8,6 +8,8 @@
 
 ## 📑 目錄 (Table of Contents)
 
+- 💬 **官方交流社群**：[**「如喜通用智慧型輸入法」LINE 社群**](https://line.me/ti/g2/iyLVoHye-Ho49K9SzQBaftTgFzej7stw9S1jSw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default)
+
 1. [核心架構哲學與解耦願景](#1-核心架構哲學與解耦願景)
 2. [安裝模式與目標族群劃分 (Persona & Profiles)](#2-安裝模式與目標族群劃分-persona--profiles)
    - 2.1 繁體中文全能旗艦模式 (Traditional Chinese Universal)

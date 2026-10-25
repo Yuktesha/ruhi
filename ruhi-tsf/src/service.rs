@@ -122,7 +122,9 @@ pub fn is_focused_password_control() -> bool {
     }
 }
 
-static LAST_CONFIG_CHECK: Mutex<Option<(std::time::Instant, std::time::SystemTime)>> = Mutex::new(None);
+static LAST_CONFIG_CHECK: Mutex<Option<(std::time::Instant, std::time::SystemTime, RuhiConfig)>> = Mutex::new(None);
+static LAST_FC_MTIME: Mutex<Option<std::time::SystemTime>> = Mutex::new(None);
+static CURRENT_DLL_INSTANCES: Mutex<Option<std::collections::HashSet<usize>>> = Mutex::new(None);
 
 pub fn invalidate_config_cache() {
     if let Ok(mut lock) = LAST_CONFIG_CHECK.lock() {
@@ -130,7 +132,7 @@ pub fn invalidate_config_cache() {
     }
 }
 
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct RuhiConfig {
     #[serde(default = "default_keyboard_mode")]
     pub keyboard_mode: String,
@@ -182,6 +184,8 @@ pub struct RuhiConfig {
     pub confirm_suppress_word: bool,
     #[serde(default)]
     pub enable_array30_coach: bool,
+    #[serde(default = "default_four_corner_keymap")]
+    pub four_corner_keymap: String,
     #[serde(default = "default_telemetry_consent")]
     pub telemetry_consent: bool,
     #[serde(default = "default_upload_schedule")]
@@ -224,6 +228,7 @@ impl Default for RuhiConfig {
             confirm_add_word: default_confirm_add_word(),
             confirm_suppress_word: default_confirm_suppress_word(),
             enable_array30_coach: false,
+            four_corner_keymap: default_four_corner_keymap(),
             telemetry_consent: default_telemetry_consent(),
             upload_schedule: default_upload_schedule(),
             last_upload_timestamp: 0,
@@ -367,6 +372,7 @@ fn default_capslock_switch() -> String { "capital_lock".to_string() }
 fn default_capsule_mode() -> String { "mini_capsule".to_string() }
 fn default_confirm_add_word() -> bool { true }
 fn default_confirm_suppress_word() -> bool { true }
+fn default_four_corner_keymap() -> String { "blind_closed_loop".to_string() }
 
 #[derive(Debug, Clone)]
 pub struct RuhiPaths {
@@ -381,6 +387,7 @@ pub struct RuhiPaths {
     pub config: std::path::PathBuf,
     pub english: std::path::PathBuf,
     pub array30: std::path::PathBuf,
+    pub four_corner: std::path::PathBuf,
     pub deleted_dict: std::path::PathBuf,
     pub rules_json: std::path::PathBuf,
 }
@@ -475,6 +482,7 @@ impl RuhiPaths {
         let user_dict = sandbox_dir.join("user_dict.tsv");
         let english = find_file("lexicon_english.tsv");
         let array30 = find_file("array30.tsv");
+        let four_corner = find_file("four_corner.tsv");
         let deleted_dict = if sandbox_dir.join("deleted_dict.tsv").exists() {
             sandbox_dir.join("deleted_dict.tsv")
         } else {
@@ -498,6 +506,7 @@ impl RuhiPaths {
             config,
             english,
             array30,
+            four_corner,
             deleted_dict,
             rules_json,
         }
@@ -778,6 +787,63 @@ pub fn trigger_synthetic_caps_toggle() {
     }
 }
 
+static SUPPRESS_SYNTHETIC_NUMLOCK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static LAST_SYNTHETIC_NUMLOCK_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+pub fn is_synthetic_numlock_active() -> bool {
+    let last = LAST_SYNTHETIC_NUMLOCK_MS.load(std::sync::atomic::Ordering::SeqCst);
+    if last > 0 && now_epoch_ms().saturating_sub(last) < 85 {
+        true
+    } else {
+        SUPPRESS_SYNTHETIC_NUMLOCK.store(false, std::sync::atomic::Ordering::SeqCst);
+        false
+    }
+}
+
+/// 當四角號碼輸入法將九宮格左上角 `NumLock (0x90)` 攔截為 `Backspace` 時，
+/// 自動中和硬體 NumLock 燈號反轉，確保九宮格恆保數字輸入狀態
+pub fn trigger_synthetic_numlock_toggle() {
+    unsafe {
+        SUPPRESS_SYNTHETIC_NUMLOCK.store(true, std::sync::atomic::Ordering::SeqCst);
+        LAST_SYNTHETIC_NUMLOCK_MS.store(now_epoch_ms(), std::sync::atomic::Ordering::SeqCst);
+        keybd_event(0x90, 0x45, KEYEVENTF_EXTENDEDKEY, 0);
+        keybd_event(0x90, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+    }
+}
+
+/// 當四角輸入法啟用且組字緩衝區為空時，按下九宮格左上角 `NumLock` 直接向目標視窗送出 `Backspace`
+pub fn trigger_synthetic_backspace_to_window() {
+    unsafe {
+        keybd_event(VK_BACK.0 as u8, 0x0E, KEYBD_EVENT_FLAGS(0), 0);
+        keybd_event(VK_BACK.0 as u8, 0x0E, KEYEVENTF_KEYUP, 0);
+    }
+}
+
+/// 四角號碼模式下，將 104 鍵盤九宮格實體數字鍵（非 Extended 掃描碼 `0x47..=0x53`）
+/// 強制正規化為 `VK_NUMPAD0..9 (0x60..0x69)` 與 `VK_DECIMAL (0x6E)`，
+/// 徹底防止因 `NumLock` 狀態切換而導致小鍵盤退化為方向鍵
+pub fn normalize_four_corner_numpad_vk(vk: u32, lparam: isize) -> u32 {
+    let is_extended = ((lparam >> 24) & 1) != 0;
+    let scancode = ((lparam >> 16) & 0xFF) as u32;
+    if !is_extended {
+        match scancode {
+            0x52 => return 0x60, // Numpad 0
+            0x4F => return 0x61, // Numpad 1
+            0x50 => return 0x62, // Numpad 2
+            0x51 => return 0x63, // Numpad 3
+            0x4B => return 0x64, // Numpad 4
+            0x4C => return 0x65, // Numpad 5
+            0x4D => return 0x66, // Numpad 6
+            0x47 => return 0x67, // Numpad 7
+            0x48 => return 0x68, // Numpad 8
+            0x49 => return 0x69, // Numpad 9
+            0x53 => return 0x6E, // Numpad .
+            _ => {}
+        }
+    }
+    vk
+}
+
 thread_local! {
     static LANGBAR_SINKS: std::cell::RefCell<Vec<(u32, ITfLangBarItemSink)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
@@ -989,6 +1055,7 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
             2006 => Some("english"),
             2007 => Some("array30"),
             2009 => Some("korean"),
+            2010 => Some("four_corner"),
             _ => None,
         };
         if let Some(m) = chosen {
@@ -1123,6 +1190,7 @@ impl RuhiTextService {
         engine.mixed_english_mode = config.mixed_english_mode.clone();
         engine.mixed_english_min_len = config.mixed_english_min_len;
         engine.enable_array30_coach = config.enable_array30_coach;
+        engine.four_corner.keymap_profile = config.four_corner_keymap.clone();
         let shared_lex = get_shared_lexicon(&paths);
         engine.lexicon = (*shared_lex).clone();
 
@@ -1144,6 +1212,16 @@ impl RuhiTextService {
         if paths.array30.exists() && engine.array30.table.reverse_lookup('㐀').is_none() {
             let _ = engine.array30.table.load_tsv(&paths.array30);
         }
+        if paths.four_corner.exists() && engine.four_corner.table.code_to_entries.len() < 1000 {
+            let _ = engine.four_corner.load_tsv(&paths.four_corner);
+        }
+        if let Ok(fc_meta) = std::fs::metadata(&paths.four_corner) {
+            if let Ok(fc_mtime) = fc_meta.modified() {
+                if let Ok(mut fc_lock) = LAST_FC_MTIME.lock() {
+                    *fc_lock = Some(fc_mtime);
+                }
+            }
+        }
 
         logger::log(&format!("RuhiTextService::new() initialized with data_dir={:?}, punct_mode={}, quick_key={}",
             paths.data_dir, config.punctuation_commit_mode, config.candidate_quick_key));
@@ -1160,9 +1238,17 @@ impl RuhiTextService {
             }
         };
 
+        let client_id = Arc::new(Mutex::new(0));
+        let inst_key = Arc::as_ptr(&client_id) as usize;
+        if let Ok(mut guard) = CURRENT_DLL_INSTANCES.lock() {
+            guard
+                .get_or_insert_with(std::collections::HashSet::new)
+                .insert(inst_key);
+        }
+
         Self {
             thread_mgr: Arc::new(Mutex::new(None)),
-            client_id: Arc::new(Mutex::new(0)),
+            client_id,
             engine: Arc::new(Mutex::new(engine)),
             composition: Arc::new(Mutex::new(None)),
             thread_mgr_sink_cookie: Arc::new(Mutex::new(0)),
@@ -1189,11 +1275,143 @@ impl RuhiTextService {
             redo_stack: Arc::new(Mutex::new(Vec::new())),
         }
     }
+
+    #[allow(invalid_reference_casting)]
+    fn ensure_instance_upgraded(&self) {
+        let inst_key = Arc::as_ptr(&self.client_id) as usize;
+        let already_upgraded = {
+            if let Ok(mut guard) = CURRENT_DLL_INSTANCES.lock() {
+                let set = guard.get_or_insert_with(std::collections::HashSet::new);
+                if set.contains(&inst_key) {
+                    true
+                } else {
+                    set.insert(inst_key);
+                    false
+                }
+            } else {
+                true
+            }
+        };
+        if already_upgraded {
+            return;
+        }
+
+        logger::log(&format!(
+            "Hot-upgrading legacy RuhiTextService instance in-place (inst_key={:#x})...",
+            inst_key
+        ));
+
+        if let Ok(cw_guard) = self.candidate_window.lock() {
+            if let Some(ref w) = *cw_guard {
+                if !w.hwnd.0.is_null() {
+                    unsafe {
+                        let _ = KillTimer(w.hwnd, 2001);
+                        let _ = DestroyWindow(w.hwnd);
+                    }
+                }
+            }
+        }
+
+        let paths = RuhiPaths::resolve();
+        let mut config = load_ruhi_config(&paths);
+        sync_active_tsf_profile_locale(&mut config);
+        let del_words = crate::user_word_dialog::load_deleted_words(&paths);
+        let mut engine = RuhiEngine::new_with_data_dir(&paths.data_dir.to_string_lossy());
+        engine.keyboard_mode = config.keyboard_mode.clone();
+        engine.last_keyboard_mode = config.last_keyboard_mode.clone();
+        engine.set_enabled_keyboard_modes(config.enabled_keyboard_modes.clone());
+        engine.enable_mixed_english = config.enable_mixed_english;
+        engine.mixed_english_mode = config.mixed_english_mode.clone();
+        engine.mixed_english_min_len = config.mixed_english_min_len;
+        engine.enable_array30_coach = config.enable_array30_coach;
+        engine.four_corner.keymap_profile = config.four_corner_keymap.clone();
+        let shared_lex = get_shared_lexicon(&paths);
+        engine.lexicon = (*shared_lex).clone();
+
+        if paths.transitions.exists() {
+            if let Some(p_str) = paths.transitions.to_str() {
+                let _ = engine.transitions.load_tsv(p_str);
+            }
+        }
+        if paths.symbols.exists() {
+            if let Some(p_str) = paths.symbols.to_str() {
+                let _ = engine.symbols.load_tsv(p_str);
+            }
+        }
+        if paths.english.exists() {
+            if let Some(p_str) = paths.english.to_str() {
+                let _ = engine.western.load_tsv(p_str);
+            }
+        }
+        if paths.array30.exists() && engine.array30.table.reverse_lookup('㐀').is_none() {
+            let _ = engine.array30.table.load_tsv(&paths.array30);
+        }
+        if paths.four_corner.exists() && engine.four_corner.table.code_to_entries.len() < 1000 {
+            let _ = engine.four_corner.load_tsv(&paths.four_corner);
+        }
+
+        let cw = match crate::candidate_window::CandidateWindow::new() {
+            Ok(mut w) => {
+                w.apply_config(&config);
+                Some(w)
+            }
+            Err(_) => None,
+        };
+
+        unsafe {
+            std::ptr::write(&self.engine as *const _ as *mut _, Arc::new(Mutex::new(engine)));
+            std::ptr::write(&self.candidate_window as *const _ as *mut _, Arc::new(Mutex::new(cw)));
+            std::ptr::write(&self.pending_compose as *const _ as *mut _, Arc::new(Mutex::new(String::new())));
+            std::ptr::write(&self.sentence_cursor as *const _ as *mut _, Arc::new(Mutex::new(0usize)));
+            std::ptr::write(&self.candidate_selecting as *const _ as *mut _, Arc::new(Mutex::new(false)));
+            std::ptr::write(&self.active_candidates as *const _ as *mut _, Arc::new(Mutex::new(Vec::<String>::new())));
+            std::ptr::write(&self.selected_candidate_idx as *const _ as *mut _, Arc::new(Mutex::new(0usize)));
+            std::ptr::write(&self.target_char_idx as *const _ as *mut _, Arc::new(Mutex::new(0usize)));
+            std::ptr::write(&self.target_range as *const _ as *mut _, Arc::new(Mutex::new((0usize, 0usize))));
+            std::ptr::write(&self.config as *const _ as *mut _, Arc::new(Mutex::new(config)));
+            std::ptr::write(&self.sel_anchor as *const _ as *mut _, Arc::new(Mutex::new(None::<usize>)));
+            std::ptr::write(&self.insert_mode as *const _ as *mut _, Arc::new(Mutex::new(true)));
+            std::ptr::write(&self.q_press_count as *const _ as *mut _, Arc::new(Mutex::new(0usize)));
+            std::ptr::write(&self.q_last_char_idx as *const _ as *mut _, Arc::new(Mutex::new(None::<usize>)));
+            std::ptr::write(&self.pending_syllables as *const _ as *mut _, Arc::new(Mutex::new(Vec::<Option<String>>::new())));
+            std::ptr::write(&self.pending_segments as *const _ as *mut _, Arc::new(Mutex::new(Vec::<(usize, usize, String, String)>::new())));
+            std::ptr::write(&self.last_raw_ascii as *const _ as *mut _, Arc::new(Mutex::new(None::<(usize, usize, String)>)));
+            std::ptr::write(&self.manual_cuts as *const _ as *mut _, Arc::new(Mutex::new(std::collections::HashSet::<usize>::new())));
+            std::ptr::write(&self.deleted_words as *const _ as *mut _, Arc::new(Mutex::new(del_words)));
+            std::ptr::write(&self.undo_stack as *const _ as *mut _, Arc::new(Mutex::new(Vec::<EditorSnapshot>::new())));
+            std::ptr::write(&self.redo_stack as *const _ as *mut _, Arc::new(Mutex::new(Vec::<EditorSnapshot>::new())));
+        }
+
+        if let Ok(tm_guard) = self.thread_mgr.lock() {
+            if let Some(ref tm) = *tm_guard {
+                if let Ok(langbar_mgr) = tm.cast::<ITfLangBarItemMgr>() {
+                    unsafe {
+                        if let Ok(existing) = langbar_mgr.GetItem(&GUID_LBI_INPUTMODE) {
+                            let _ = langbar_mgr.RemoveItem(&existing);
+                        }
+                    }
+                    let btn: ITfLangBarItemButton = RuhiLangBarItemButton.into();
+                    if let Ok(item) = btn.cast::<ITfLangBarItem>() {
+                        unsafe {
+                            if langbar_mgr.AddItem(&item).is_ok() {
+                                let _ = item.Show(BOOL::from(true));
+                                std::ptr::write(&self.langbar_item as *const _ as *mut _, Arc::new(Mutex::new(Some(item))));
+                            }
+                        }
+                    }
+                    notify_langbar_mode_update();
+                }
+            }
+        }
+
+        logger::log("Hot-upgraded legacy RuhiTextService instance in-place successfully!");
+    }
 }
 
 impl ITfTextInputProcessor_Impl for RuhiTextService_Impl {
     fn Activate(&self, ptim: Option<&ITfThreadMgr>, tid: u32) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.ensure_instance_upgraded();
             logger::log(&format!("Activate called with tid = {}", tid));
             let tm = match ptim {
                 Some(t) => t,
@@ -1266,6 +1484,7 @@ impl ITfTextInputProcessor_Impl for RuhiTextService_Impl {
 
     fn Deactivate(&self) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.ensure_instance_upgraded();
             logger::log("Deactivate called.");
             self.hide_candidate_window();
             if let Ok(mut cw_guard) = self.candidate_window.lock() {
@@ -1309,6 +1528,7 @@ impl ITfTextInputProcessorEx_Impl for RuhiTextService_Impl {
 impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
     fn OnSetFocus(&self, fforeground: BOOL) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.ensure_instance_upgraded();
             if fforeground.as_bool() {
                 let paths = RuhiPaths::resolve();
                 let shared_lex = get_shared_lexicon(&paths);
@@ -1332,6 +1552,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     if paths.array30.exists() && eng.array30.table.reverse_lookup('㐀').is_none() {
                         let _ = eng.array30.table.load_tsv(&paths.array30);
                     }
+                    if paths.four_corner.exists() && eng.four_corner.table.code_to_entries.len() < 1000 {
+                        let _ = eng.four_corner.load_tsv(&paths.four_corner);
+                    }
                 }
                 let mut new_cfg = load_ruhi_config(&paths);
                 sync_active_tsf_profile_locale(&mut new_cfg);
@@ -1340,6 +1563,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     eng.last_keyboard_mode = new_cfg.last_keyboard_mode.clone();
                     eng.set_enabled_keyboard_modes(new_cfg.enabled_keyboard_modes.clone());
                     eng.enable_array30_coach = new_cfg.enable_array30_coach;
+                    eng.four_corner.keymap_profile = new_cfg.four_corner_keymap.clone();
                 }
                 if let Ok(mut cw_guard) = self.candidate_window.lock() {
                     if let Some(cw) = cw_guard.as_mut() {
@@ -1375,12 +1599,14 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 return Ok(BOOL::from(false));
             }
 
-            let (has_buffer, is_english_mode) = {
+            let (has_buffer, is_english_mode, is_four_corner_mode) = {
                 let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
                 let engine = self.engine.lock().unwrap();
-                let hb = pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer();
-                let is_en = matches!(engine.keyboard_mode.to_lowercase().as_str(), "english" | "en" | "latin" | "western");
-                (hb, is_en)
+                let hb = pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.four_corner.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer();
+                let lower_kb = engine.keyboard_mode.to_lowercase();
+                let is_en = matches!(lower_kb.as_str(), "english" | "en" | "latin" | "western");
+                let is_fc = matches!(lower_kb.as_str(), "four_corner" | "4corner" | "fc");
+                (hb, is_en, is_fc)
             };
 
             // Win32 與 TSF InputScope 密碼控制項隱私保護：若當前聚焦於密碼欄位且無未決組字，自動放行直通英數，絕不攔截組字或寫入修訂記錄
@@ -1423,13 +1649,19 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 if vk == VK_DOWN.0 as u32 || vk == VK_UP.0 as u32 || vk == VK_NEXT.0 as u32 || vk == VK_PRIOR.0 as u32 {
                     return Ok(BOOL::from(true));
                 }
+                if is_four_corner_mode && (vk == 0x6B || vk == 0x6D || (vk == 0xBB && is_shift) || (vk == 0xBD && !is_shift)) {
+                    return Ok(BOOL::from(true));
+                }
                 if quick_mode == "asdf" && map_asdf_to_idx(vk).is_some() && !is_shift {
                     return Ok(BOOL::from(true));
                 }
-                if quick_mode == "1234" && (0x31..=0x39).contains(&vk) && !is_shift {
+                if (quick_mode == "1234" || is_four_corner_mode)
+                    && ((0x30..=0x39).contains(&vk) || (0x60..=0x69).contains(&vk))
+                    && !is_shift
+                {
                     return Ok(BOOL::from(true));
                 }
-                if vk == VK_SPACE.0 as u32 || vk == VK_RETURN.0 as u32 || vk == VK_ESCAPE.0 as u32 {
+                if vk == VK_SPACE.0 as u32 || vk == VK_RETURN.0 as u32 || vk == VK_ESCAPE.0 as u32 || vk == 0x6B || (vk == 0xBB && is_shift) {
                     return Ok(BOOL::from(true));
                 }
             }
@@ -1464,7 +1696,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             }
 
             // 【自然輸入法關鍵修正】：Shift+字母直接納入組字流，絕不洩漏給外部應用程式
-            if is_shift && (0x41..=0x5A).contains(&vk) {
+            // （惟智慧四角模式下，主鍵盤區負責正常輸入一般英數字，無組字緩衝區時直接放行！）
+            if is_shift && (0x41..=0x5A).contains(&vk) && (!is_four_corner_mode || has_buffer) {
                 return Ok(BOOL::from(true));
             }
 
@@ -1487,7 +1720,24 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     eaten = true;  // 含 Shift 組合、PageUp/Down
                 }
             } else {
-                if is_punctuation_vk(vk, is_shift) {
+                if is_four_corner_mode {
+                    let is_direct_fc_punct = self
+                        .config
+                        .lock()
+                        .map(|c| c.four_corner_keymap == "direct_punct")
+                        .unwrap_or(false);
+                    if !is_direct_fc_punct && matches!(vk, 0x6B | 0x6F) {
+                        // 四角全盲打閉環模式下，當輸入座完全空白無組字時，小鍵盤 `+`(字詞分隔)、`/`(字詞選單) 直接放行；
+                        // 惟小鍵盤 `-`(0x6D 詞前導)、`.`(0x6E 標點選單前導)、`*`(0x6A 萬用字元) 及 `0~9`(0x60..=0x69) 必須攔截進入對應模式！
+                        eaten = false;
+                    } else if matches!(vk, 0x60..=0x6B | 0x6D..=0x6F) && !is_shift {
+                        // 九宮格小鍵盤專責四角編碼與選單控制
+                        eaten = true;
+                    } else {
+                        // 主鍵盤區（A~Z、上方橫排數字 0~9、主鍵盤符號）在無組字緩衝區時一律直接放行輸出正常英數字與符號！
+                        eaten = false;
+                    }
+                } else if is_punctuation_vk(vk, is_shift) {
                     eaten = true;
                 } else if (0x41..=0x5A).contains(&vk) {
                     eaten = true;
@@ -1554,12 +1804,14 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 return Ok(BOOL::from(true));
             }
 
-            let (has_buffer, is_english_mode) = {
+            let (has_buffer, is_english_mode, is_four_corner_mode) = {
                 let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
                 let engine = self.engine.lock().unwrap();
-                let hb = pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer();
-                let is_en = matches!(engine.keyboard_mode.to_lowercase().as_str(), "english" | "en" | "latin" | "western");
-                (hb, is_en)
+                let hb = pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.four_corner.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer();
+                let lower_kb = engine.keyboard_mode.to_lowercase();
+                let is_en = matches!(lower_kb.as_str(), "english" | "en" | "latin" | "western");
+                let is_fc = matches!(lower_kb.as_str(), "four_corner" | "4corner" | "fc");
+                (hb, is_en, is_fc)
             };
 
             // Win32 與 TSF InputScope 密碼控制項隱私保護：若當前聚焦於密碼欄位且無未決組字，自動放行直通英數，絕不攔截組字或寫入修訂記錄
@@ -1569,7 +1821,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
             // 當完全沒有組字緩衝區時，Backspace、Delete、Enter、Space、Tab、方向鍵等一律直接放行給目標視窗！
             if !has_buffer {
-                if vk == VK_RETURN.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_TAB.0 as u32 || vk == VK_ESCAPE.0 as u32 || vk == 0x6E {
+                if vk == VK_RETURN.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_TAB.0 as u32 || vk == VK_ESCAPE.0 as u32 || (vk == 0x6E && !is_four_corner_mode) {
                     return Ok(BOOL::from(false));
                 }
                 if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 || vk == VK_UP.0 as u32 || vk == VK_DOWN.0 as u32 || vk == VK_HOME.0 as u32 || vk == VK_END.0 as u32 || vk == VK_PRIOR.0 as u32 || vk == VK_NEXT.0 as u32 {
@@ -1781,8 +2033,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     return Ok(BOOL::from(true));
                 }
 
-                // Page Down 鍵 (VK_NEXT)：向下翻一頁 (9 個候選)
-                if vk == VK_NEXT.0 as u32 {
+                // Page Down 鍵 (VK_NEXT) 或四角模式下之 `+`：向下翻一頁 (9 個候選)
+                if vk == VK_NEXT.0 as u32 || (is_four_corner_mode && (vk == 0x6B || (vk == 0xBB && is_shift))) {
                     if cands_len > 0 {
                         let mut sel = self.selected_candidate_idx.lock().unwrap();
                         let cur_page = *sel / 9;
@@ -1796,8 +2048,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     return Ok(BOOL::from(true));
                 }
 
-                // Page Up 鍵 (VK_PRIOR)：向上翻一頁 (9 個候選)
-                if vk == VK_PRIOR.0 as u32 {
+                // Page Up 鍵 (VK_PRIOR) 或四角模式下之 `-`：向上翻一頁 (9 個候選)
+                if vk == VK_PRIOR.0 as u32 || (is_four_corner_mode && (vk == 0x6D || (vk == 0xBD && !is_shift))) {
                     if cands_len > 0 {
                         let mut sel = self.selected_candidate_idx.lock().unwrap();
                         let cur_page = *sel / 9;
@@ -1811,7 +2063,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     return Ok(BOOL::from(true));
                 }
 
-                let quick_idx = if quick_mode == "asdf" {
+                let quick_idx = if !is_four_corner_mode && quick_mode == "asdf" {
                     if !is_shift { map_asdf_to_idx(vk) } else { None }
                 } else if !is_shift && (0x31..=0x39).contains(&vk) {
                     Some((vk - 0x31) as usize)
@@ -1825,7 +2077,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     let cur_page = *self.selected_candidate_idx.lock().unwrap() / 9;
                     let target_cand = cur_page * 9 + q_idx;
                     if target_cand < cands_len { Some(target_cand) } else { None }
-                } else if vk == VK_SPACE.0 as u32 || vk == VK_RETURN.0 as u32 {
+                } else if vk == VK_SPACE.0 as u32 || vk == VK_RETURN.0 as u32 || vk == 0x6B || (vk == 0xBB && is_shift) {
                     let sel = *self.selected_candidate_idx.lock().unwrap();
                     if sel < cands_len { Some(sel) } else { None }
                 } else {
@@ -1901,7 +2153,12 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
                     *self.sel_anchor.lock().unwrap() = None;
                     *self.candidate_selecting.lock().unwrap() = false;
-                    self.sync_input_display(ctx)?;
+                    if is_four_corner_mode && vk == VK_RETURN.0 as u32 {
+                        // 四角號碼模式下，Enter 確認選字後立即將整句送出至目標視窗（`+` 則留在輸入座繼續組句）
+                        self.commit_current_composition(ctx)?;
+                    } else {
+                        self.sync_input_display(ctx)?;
+                    }
                     return Ok(BOOL::from(true));
                 }
 
@@ -1921,6 +2178,29 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 }
             }
 
+            // 2.2 智慧四角號碼模式 (four_corner) 雙區分工架構：
+            //     - 右側九宮格小鍵盤 (0x60..=0x6F) 專責四角編碼、`*` 萬用字元、`-` 詞前導、`+` 字詞分隔、`/` 字詞選單、`.` 標點選單。
+            //     - 左側主鍵盤區 (A~Z、上方橫排 0~9、主鍵盤符號) 負責正常輸入一般英數字與符號：
+            //       * 當無組字緩衝區 (!has_buffer) 時，主鍵盤按鍵直接放行至目標視窗 (Pass-through)，完全無須切換中英模式！
+            //       * 當輸入座有組字緩衝區 (has_buffer) 時，主鍵盤按鍵自動將未決四角碼收攏入座並直接追加英數字元，實現中英數無縫混打！
+            if is_four_corner_mode && !is_cand_sel {
+                let is_main_kb_printable = (0x41..=0x5A).contains(&vk)
+                    || (0x30..=0x39).contains(&vk)
+                    || matches!(vk, 0xBA..=0xC0 | 0xDB..=0xDF);
+                if is_main_kb_printable {
+                    if !has_buffer {
+                        return Ok(BOOL::from(false));
+                    }
+                    if let Some(ch) = map_vk_to_char(vk, is_shift) {
+                        self.delete_selection_if_any();
+                        self.consolidate_engine_to_pending();
+                        self.insert_pending_char(ch, None);
+                        self.sync_input_display(ctx)?;
+                        return Ok(BOOL::from(true));
+                    }
+                }
+            }
+
             // 2.5 空白鍵在無未決注音聲調時的處理 (例如先前輸入了「1.」或已確認詞句)
             // 絕不可將未處理的空白鍵外洩至目標視窗，必須納入組字緩衝區！
             // 日文模式下：
@@ -1928,20 +2208,31 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             // - 第 2 下 Space（當前詞彙已固定、無未決羅馬字時）：直接在輸入座長句中插入半形空格，無須切換至英文模式！
             // - 整句由 Enter（或句末標點 。/？/！）統一送出上屏！
             if vk == VK_SPACE.0 as u32 && has_buffer {
-                let (is_jp_mode, has_jp_buf, is_kr_mode, has_kr_buf, has_pending_fsm, is_latin, has_shape_buf) = {
+                let (is_jp_mode, has_jp_buf, is_kr_mode, has_kr_buf, has_fc_buf, has_pending_fsm, is_latin, has_shape_buf) = {
                     let engine = self.engine.lock().unwrap();
                     let jp_buf = engine.japanese.has_buffer();
                     let kr_buf = engine.korean.has_buffer();
+                    let fc_buf = engine.four_corner.has_buffer();
                     (
                         matches!(engine.keyboard_mode.as_str(), "japanese" | "jp" | "romaji"),
                         jp_buf,
                         matches!(engine.keyboard_mode.as_str(), "korean" | "ko" | "hangul" | "romaja"),
                         kr_buf,
+                        fc_buf,
                         engine.fsm.has_pending(),
                         engine.is_latin_mode,
-                        engine.cangjie.has_buffer() || engine.array30.has_buffer() || jp_buf || kr_buf,
+                        engine.cangjie.has_buffer() || engine.array30.has_buffer() || fc_buf || jp_buf || kr_buf,
                     )
                 };
+                if is_four_corner_mode {
+                    if has_fc_buf {
+                        self.consolidate_engine_to_pending();
+                    } else {
+                        self.insert_pending_char(' ', None);
+                    }
+                    self.sync_input_display(ctx)?;
+                    return Ok(BOOL::from(true));
+                }
                 if is_jp_mode {
                     if has_jp_buf {
                         self.consolidate_engine_to_pending();
@@ -2004,8 +2295,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 return Ok(BOOL::from(true));
             }
 
-            // 3.6 九宮格小數點 (0x6E / VK_DECIMAL) 永遠保持半形「.」
-            if vk == 0x6E && has_buffer {
+            // 3.6 九宮格小數點 (0x6E / VK_DECIMAL) 永遠保持半形「.」（惟智慧四角號碼模式下 `.` 為萬用字元／選字鍵，交由四角引擎處理）
+            if vk == 0x6E && has_buffer && !is_four_corner_mode {
                 self.consolidate_engine_to_pending();
                 self.insert_pending_char('.', None);
                 self.sync_input_display(ctx)?;
@@ -2111,8 +2402,45 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 *self.q_last_char_idx.lock().unwrap() = None;
             }
 
+            // 3.9 智慧四角號碼／行列 30 即時拆碼預覽翻頁與上下選字 (PgDn / PgUp / ↓ / ↑)
+            if is_four_corner_mode
+                && (vk == VK_NEXT.0 as u32 || vk == VK_PRIOR.0 as u32 || vk == VK_DOWN.0 as u32 || vk == VK_UP.0 as u32)
+            {
+                let handled_fc_nav = {
+                    let mut engine = self.engine.lock().unwrap();
+                    if engine.four_corner.has_buffer() {
+                        let key_str = match vk {
+                            v if v == VK_NEXT.0 as u32 => "PageDown",
+                            v if v == VK_PRIOR.0 as u32 => "PageUp",
+                            v if v == VK_DOWN.0 as u32 => "Down",
+                            _ => "Up",
+                        };
+                        let _ = engine.process_key_str(key_str);
+                        true
+                    } else {
+                        false
+                    }
+                };
+                if handled_fc_nav {
+                    self.sync_input_display(ctx)?;
+                    return Ok(BOOL::from(true));
+                }
+            }
+
+            // 四角全盲打閉環模式下，當四角碼緩衝區已空（剛按過 `+` 收攏字詞至輸入座）而輸入座尚有句子時：
+            // - 按小鍵盤 `/` (0x6F 字詞選單) 等同按 `↓` 開啟輸入座游標處字詞之候選視窗
+            // - 小鍵盤 `-` (0x6D) 保留作為下一個詞彙之「詞前導符號 (-)」，`*` (0x6A) 保留作為萬用字元
+            let (fc_slash_as_down, fc_minus_as_back) = if is_four_corner_mode && has_buffer {
+                let engine = self.engine.lock().unwrap();
+                let is_blind = engine.four_corner.keymap_profile != "direct_punct";
+                let no_fc_buf = !engine.four_corner.has_buffer();
+                (is_blind && no_fc_buf && vk == 0x6F, false)
+            } else {
+                (false, false)
+            };
+
             // 4. 方向鍵與全句游標穿透（徹底消除「結界」，游標自由穿梭標點與前後文字）
-            if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 || vk == VK_HOME.0 as u32 || vk == VK_END.0 as u32 || vk == VK_DOWN.0 as u32 || vk == VK_UP.0 as u32 {
+            if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 || vk == VK_HOME.0 as u32 || vk == VK_END.0 as u32 || vk == VK_DOWN.0 as u32 || vk == VK_UP.0 as u32 || fc_slash_as_down {
                 self.consolidate_engine_to_pending();
                 let (full_text, _) = self.get_full_display_and_cursor();
                 let total_chars = full_text.chars().count();
@@ -2234,8 +2562,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         return Ok(BOOL::from(true));
                     }
 
-                    // 4.5 向下方向鍵 ↓：精準開啟游標所在目標詞/字的候選座（含歐文重音變體與同形異體查詢）
-                    if vk == VK_DOWN.0 as u32 {
+                    // 4.5 向下方向鍵 ↓（或四角模式已收攏字詞後按 `/` 字詞選單）：精準開啟游標所在目標詞/字的候選座（含歐文重音變體與同形異體查詢）
+                    if vk == VK_DOWN.0 as u32 || fc_slash_as_down {
                         let cur = *self.sentence_cursor.lock().unwrap();
                         let (full_text, _) = self.get_full_display_and_cursor();
                         let (target_idx, target_range, cands) = self.detect_target_word_and_cands(&full_text, cur);
@@ -2287,7 +2615,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 }
                 let ar30_passthrough = {
                     let mut engine = self.engine.lock().unwrap();
-                    if engine.array30.has_buffer() {
+                    if engine.array30.has_buffer() || engine.four_corner.has_buffer() {
                         let resp = engine.process_key('\n');
                         Some(resp.committed_chunk)
                     } else {
@@ -2305,8 +2633,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 return Ok(BOOL::from(true));
             }
 
-            // 6.1 Backspace 退格鍵 (全句自由回退刪除 + 選取範圍刪除)
-            if vk == VK_BACK.0 as u32 {
+            // 6.1 Backspace 退格鍵 (全句自由回退刪除 + 選取範圍刪除；含四角模式無未決碼時之小鍵盤 `-` 退格)
+            if vk == VK_BACK.0 as u32 || fc_minus_as_back {
                 // 選取範圍刪除優先
                 if self.delete_selection_if_any() {
                     let (full, _) = self.get_full_display_and_cursor();
@@ -2349,6 +2677,15 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     } else if engine.array30.has_buffer() {
                         if is_ctrl || is_shift {
                             let _ = engine.array30.process_key_str("Shift+BackSpace");
+                            engine.composed_sentence.clear();
+                            engine.cursor_pos = 0;
+                        } else {
+                            let _ = engine.process_key('\x08');
+                        }
+                        true
+                    } else if engine.four_corner.has_buffer() {
+                        if is_ctrl || is_shift {
+                            let _ = engine.four_corner.process_key_str("Shift+BackSpace");
                             engine.composed_sentence.clear();
                             engine.cursor_pos = 0;
                         } else {
@@ -2454,7 +2791,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 let is_cand_sel_now = *self.candidate_selecting.lock().unwrap();
                 let has_engine_preedit = {
                     let engine = self.engine.lock().unwrap();
-                    engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer()
+                    engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || !engine.raw_ascii_buffer.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.four_corner.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer()
                 };
                 let has_pending = !self.pending_compose.lock().unwrap().is_empty();
 
@@ -2501,9 +2838,12 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     let is_kr_romaja_key = is_kr && engine.korean.has_buffer() && ch == '-';
                     let is_ar30 = matches!(engine.keyboard_mode.as_str(), "array30" | "ar30");
                     let is_ar30_key = is_ar30 && (matches!(ch, ',' | '.' | ';' | '/') || (engine.array30.has_buffer() && matches!(ch, '?' | '*' | '_' | '-')));
+                    let is_fc = matches!(engine.keyboard_mode.as_str(), "four_corner" | "4corner" | "fc");
+                    let is_fc_key = is_fc && (ch.is_ascii_digit() || matches!(ch, '+' | '*' | '/' | '-' | '.' | '?'));
                     let is_standard_bpm_punct = matches!(engine.keyboard_mode.as_str(), "standard" | "daikien")
                         && matches!(ch, ',' | '.' | ';' | '/' | '-');
                     let punct = !is_ar30_key
+                        && !is_fc_key
                         && !is_standard_bpm_punct
                         && !is_jp_romaji_key
                         && !is_kr_romaja_key
@@ -2521,12 +2861,15 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         && !engine.is_latin_mode
                         && !engine.cangjie.has_buffer()
                         && !engine.array30.has_buffer()
+                        && !engine.four_corner.has_buffer()
                         && !engine.japanese.has_buffer()
                         && engine.fsm.has_pending();
                     let digit_consolidate = ch.is_ascii_digit()
+                        && !is_fc
                         && !engine.is_latin_mode
                         && !engine.cangjie.has_buffer()
                         && !engine.array30.has_buffer()
+                        && !engine.four_corner.has_buffer()
                         && (!engine.fsm.syllables.is_empty() || engine.fsm.has_pending() || engine.japanese.has_buffer() || engine.korean.has_buffer());
                     if (punct_consolidate || digit_consolidate) && engine.fsm.has_pending() {
                         engine.fsm.commit_current('1');
@@ -2540,6 +2883,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 }
 
                 let mut engine = self.engine.lock().unwrap();
+                let fc_buf_before = engine.four_corner.buffer.clone();
                 let resp = engine.process_key(ch);
                 let action = resp.action;
                 let committed_chunk = resp.committed_chunk;
@@ -2613,9 +2957,19 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                                 eng.record_committed(&committed_chunk);
                             }
                         }
+                        let cur_before = *self.sentence_cursor.lock().unwrap();
                         let c_chars: Vec<char> = committed_chunk.chars().collect();
                         let c_syls: Vec<Option<String>> = vec![None; c_chars.len()];
-                        self.splice_pending_chunk(&c_chars, &c_syls, &[]);
+                        let c_segs = if c_chars.len() > 1 && committed_chunk != " " {
+                            vec![(0, c_chars.len(), committed_chunk.clone(), fc_buf_before.clone())]
+                        } else {
+                            Vec::new()
+                        };
+                        self.splice_pending_chunk(&c_chars, &c_syls, &c_segs);
+                        if !fc_buf_before.is_empty() && !c_chars.is_empty() {
+                            *self.last_raw_ascii.lock().unwrap() =
+                                Some((cur_before, cur_before + c_chars.len(), fc_buf_before));
+                        }
                         self.sync_input_display(ctx)?;
                     } else {
                         // 一般組字中：更新長句顯示，絕不主動彈出候選窗
@@ -3040,11 +3394,25 @@ impl RuhiTextService_Impl {
     fn consolidate_engine_to_pending(&self) {
         let engine = self.engine.lock().unwrap();
         let is_kr_chunk = engine.korean.has_buffer();
-        let has_composed = !engine.composed_sentence.is_empty() || is_kr_chunk;
+        let is_fc_chunk = engine.four_corner.has_buffer();
+        let has_composed = !engine.composed_sentence.is_empty() || is_kr_chunk || is_fc_chunk;
         let has_pending = engine.fsm.has_pending();
         if has_composed || has_pending {
             let composed_for_ctx = if is_kr_chunk {
                 engine.korean.finalized_commit_text()
+            } else if is_fc_chunk {
+                if (engine.four_corner.buffer == "-" || engine.four_corner.buffer == ".")
+                    && !engine.four_corner.is_selecting_candidate
+                {
+                    String::new()
+                } else {
+                    engine
+                        .four_corner
+                        .candidates
+                        .get(engine.four_corner.candidate_idx)
+                        .cloned()
+                        .unwrap_or_default()
+                }
             } else {
                 engine.composed_sentence.clone()
             };
@@ -3057,6 +3425,8 @@ impl RuhiTextService_Impl {
                 engine.cangjie.buffer.clone()
             } else if !engine.array30.buffer.is_empty() {
                 engine.array30.buffer.clone()
+            } else if !engine.four_corner.buffer.is_empty() {
+                engine.four_corner.buffer.clone()
             } else {
                 engine.raw_ascii_buffer.clone()
             };
@@ -3068,7 +3438,7 @@ impl RuhiTextService_Impl {
             let mut eng_segs: Vec<(usize, usize, String, String)> = engine.segments.iter()
                 .map(|n| (n.start_idx, n.end_idx, n.word.clone(), n.bopomofo.clone()))
                 .collect();
-            if (is_jp_chunk || is_kr_chunk) && eng_segs.is_empty() && eng_count > 0 {
+            if (is_jp_chunk || is_kr_chunk || (is_fc_chunk && eng_count > 1)) && eng_segs.is_empty() && eng_count > 0 {
                 eng_segs.push((0, eng_count, composed_for_ctx.clone(), raw_ascii.clone()));
             }
             if has_pending {
@@ -3739,6 +4109,32 @@ impl RuhiTextService_Impl {
                     ar_cands.retain(|c| !del_words.contains(c));
                     if !ar_cands.is_empty() {
                         return (raw_start, (raw_start, raw_end), ar_cands);
+                    }
+                }
+            }
+        }
+
+        // 0.6 智慧四角號碼模式 (`four_corner`)：若游標位於剛組出的詞或字上，優先提供同四角碼候選字詞，再補充同音字
+        if matches!(engine.keyboard_mode.as_str(), "four_corner" | "4corner" | "fc") && manual_range.is_none() {
+            if let Some((raw_start, raw_end, ref raw_ascii)) = *self.last_raw_ascii.lock().unwrap() {
+                if target_idx >= raw_start && target_idx < raw_end && raw_end <= chars.len() {
+                    let mut fc_cands: Vec<String> = engine
+                        .four_corner
+                        .table
+                        .lookup_exact(raw_ascii)
+                        .into_iter()
+                        .map(|e| e.text)
+                        .collect();
+                    let homo_cands = engine.lexicon.lookup_char_candidates_with_bpm(chars[target_idx], None);
+                    for hc in homo_cands {
+                        if !fc_cands.contains(&hc) {
+                            fc_cands.push(hc);
+                        }
+                    }
+                    let del_words = self.deleted_words.lock().unwrap();
+                    fc_cands.retain(|c| !del_words.contains(c));
+                    if !fc_cands.is_empty() {
+                        return (raw_start, (raw_start, raw_end), fc_cands);
                     }
                 }
             }
@@ -4454,6 +4850,16 @@ impl RuhiTextService_Impl {
     ) -> (String, bool, Vec<String>) {
         let engine = self.engine.lock().unwrap();
         let is_ar30_mode = matches!(engine.keyboard_mode.as_str(), "array30" | "ar30");
+        let is_fc_mode = matches!(engine.keyboard_mode.as_str(), "four_corner" | "4corner" | "fc");
+
+        // 0. 智慧四角號碼正在拆碼中：回傳即時 10 格候選預覽列與四角筆形拆解教練提示
+        if is_fc_mode && engine.four_corner.has_buffer() {
+            let live_cands = engine.four_corner.candidates.clone();
+            let is_live_preview = !is_cand_sel && !live_cands.is_empty();
+            let hint = engine.four_corner.get_live_coach_hint();
+            let display_cands = if is_cand_sel { cands.to_vec() } else { live_cands };
+            return (hint, is_live_preview, display_cands);
+        }
 
         // 1. 行列 30 正在拆碼中：回傳即時 10 格一二級簡碼／符號／萬用字元預覽列與拆碼提示
         if is_ar30_mode && engine.array30.has_buffer() {
@@ -4546,47 +4952,98 @@ impl RuhiTextService_Impl {
     }
 
     fn check_reload_config(&self) {
+        self.ensure_instance_upgraded();
         let now = std::time::Instant::now();
         let paths = RuhiPaths::resolve();
 
         let should_check = {
             let lock = LAST_CONFIG_CHECK.lock().unwrap();
             match *lock {
-                Some((last_instant, _)) => now.duration_since(last_instant).as_millis() > 300,
+                Some((last_instant, _, _)) => now.duration_since(last_instant).as_millis() > 300,
                 None => true,
             }
         };
 
         if should_check {
+            if let Ok(fc_meta) = std::fs::metadata(&paths.four_corner) {
+                if let Ok(fc_mtime) = fc_meta.modified() {
+                    let needs_fc_reload = {
+                        let mut fc_lock = LAST_FC_MTIME.lock().unwrap();
+                        let reload = match *fc_lock {
+                            Some(prev) => fc_mtime > prev,
+                            None => true,
+                        };
+                        *fc_lock = Some(fc_mtime);
+                        reload
+                    };
+                    if needs_fc_reload {
+                        if let Ok(mut eng) = self.engine.lock() {
+                            if let Ok(cnt) = eng.four_corner.load_tsv(&paths.four_corner) {
+                                logger::log(&format!(
+                                    "Hot-reloaded four_corner.tsv from {:?}: {} entries",
+                                    paths.four_corner, cnt
+                                ));
+                                if eng.four_corner.has_buffer() {
+                                    eng.four_corner.refresh_candidates(None, None, None);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if let Ok(metadata) = std::fs::metadata(&paths.config) {
                 if let Ok(mtime) = metadata.modified() {
                     let mut lock = LAST_CONFIG_CHECK.lock().unwrap();
-                    let needs_reload = match *lock {
-                        Some((_, prev_mtime)) => mtime > prev_mtime,
+                    let needs_disk_reload = match *lock {
+                        Some((_, prev_mtime, _)) => mtime != prev_mtime,
                         None => true,
                     };
-                    *lock = Some((now, mtime));
-                    if needs_reload {
+                    if needs_disk_reload {
                         let mut new_cfg = load_ruhi_config(&paths);
-                sync_active_tsf_profile_locale(&mut new_cfg);
-                        logger::log(&format!("Reloaded config: mode={}, keyboard={}, font_size={}", new_cfg.input_display_mode, new_cfg.keyboard_mode, new_cfg.font_size));
-                        if let Ok(mut eng) = self.engine.lock() {
-                            eng.keyboard_mode = new_cfg.keyboard_mode.clone();
-                            eng.last_keyboard_mode = new_cfg.last_keyboard_mode.clone();
-                            eng.set_enabled_keyboard_modes(new_cfg.enabled_keyboard_modes.clone());
-                            eng.enable_mixed_english = new_cfg.enable_mixed_english;
-                            eng.mixed_english_mode = new_cfg.mixed_english_mode.clone();
-                            eng.mixed_english_min_len = new_cfg.mixed_english_min_len;
-                            eng.enable_array30_coach = new_cfg.enable_array30_coach;
-                        }
-                        if let Ok(mut cw_guard) = self.candidate_window.lock() {
-                            if let Some(cw) = cw_guard.as_mut() {
-                                cw.apply_config(&new_cfg);
-                            }
-                        }
-                        *self.config.lock().unwrap() = new_cfg;
-                        notify_langbar_mode_update();
+                        sync_active_tsf_profile_locale(&mut new_cfg);
+                        logger::log(&format!(
+                            "Reloaded config: mode={}, keyboard={}, font_size={}",
+                            new_cfg.input_display_mode,
+                            new_cfg.keyboard_mode,
+                            new_cfg.font_size
+                        ));
+                        *lock = Some((now, mtime, new_cfg));
+                    } else if let Some(ref mut entry) = *lock {
+                        entry.0 = now;
                     }
+                }
+            }
+        }
+
+        if let Ok(lock) = LAST_CONFIG_CHECK.lock() {
+            if let Some((_, _, ref cached_cfg)) = *lock {
+                let needs_instance_sync = self
+                    .config
+                    .lock()
+                    .map(|c| &*c != cached_cfg)
+                    .unwrap_or(false);
+                if needs_instance_sync {
+                    let new_cfg = cached_cfg.clone();
+                    drop(lock);
+                    if let Ok(mut eng) = self.engine.lock() {
+                        eng.keyboard_mode = new_cfg.keyboard_mode.clone();
+                        eng.last_keyboard_mode = new_cfg.last_keyboard_mode.clone();
+                        eng.set_enabled_keyboard_modes(new_cfg.enabled_keyboard_modes.clone());
+                        eng.enable_mixed_english = new_cfg.enable_mixed_english;
+                        eng.mixed_english_mode = new_cfg.mixed_english_mode.clone();
+                        eng.mixed_english_min_len = new_cfg.mixed_english_min_len;
+                        eng.enable_array30_coach = new_cfg.enable_array30_coach;
+                        eng.four_corner.keymap_profile = new_cfg.four_corner_keymap.clone();
+                    }
+                    if let Ok(mut cw_guard) = self.candidate_window.lock() {
+                        if let Some(cw) = cw_guard.as_mut() {
+                            cw.apply_config(&new_cfg);
+                        }
+                    }
+                    if let Ok(mut cfg_guard) = self.config.lock() {
+                        *cfg_guard = new_cfg;
+                    }
+                    notify_langbar_mode_update();
                 }
             }
         }
@@ -4683,7 +5140,7 @@ impl RuhiTextService_Impl {
         let has_buffer = {
             let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
             let engine = self.engine.lock().unwrap();
-            pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer()
+            pending_len > 0 || engine.fsm.has_pending() || !engine.fsm.syllables.is_empty() || !engine.composed_sentence.is_empty() || engine.cangjie.has_buffer() || engine.array30.has_buffer() || engine.four_corner.has_buffer() || engine.japanese.has_buffer() || engine.korean.has_buffer()
         };
 
         if !has_buffer {
@@ -4696,7 +5153,16 @@ impl RuhiTextService_Impl {
         let is_cand_sel = *self.candidate_selecting.lock().unwrap();
         let target_idx = *self.target_char_idx.lock().unwrap();
         let cands = self.active_candidates.lock().unwrap().clone();
-        let sel_idx = *self.selected_candidate_idx.lock().unwrap();
+        let mut sel_idx = *self.selected_candidate_idx.lock().unwrap();
+        {
+            let engine = self.engine.lock().unwrap();
+            if matches!(engine.keyboard_mode.as_str(), "four_corner" | "4corner" | "fc")
+                && engine.four_corner.has_buffer()
+                && !is_cand_sel
+            {
+                sel_idx = engine.four_corner.candidate_idx;
+            }
+        }
         let raw_mode = self.config.lock().map(|c| c.input_display_mode.clone()).unwrap_or_else(|_| "smart_auto".to_string());
         let input_mode = match raw_mode.as_str() {
             "smart_auto" => {
@@ -4929,9 +5395,11 @@ impl ITfThreadMgrEventSink_Impl for RuhiTextService_Impl {
     }
     fn OnSetFocus(&self, pdimfocus: Option<&ITfDocumentMgr>, _pdimprevfocus: Option<&ITfDocumentMgr>) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.ensure_instance_upgraded();
             if pdimfocus.is_none() {
                 self.hide_candidate_window();
             } else {
+                self.check_reload_config();
                 notify_langbar_mode_update();
             }
             Ok(())
@@ -4948,6 +5416,7 @@ impl ITfThreadMgrEventSink_Impl for RuhiTextService_Impl {
 impl ITfCompositionSink_Impl for RuhiTextService_Impl {
     fn OnCompositionTerminated(&self, _ecwrite: u32, _pcomposition: Option<&ITfComposition>) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.ensure_instance_upgraded();
             if let Ok(mut comp) = self.composition.try_lock() {
                 *comp = None;
             }

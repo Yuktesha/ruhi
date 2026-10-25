@@ -3198,6 +3198,300 @@ impl TransitionEngine {
             }
         }
 
+        // 8. 離合詞動量與時量插入構式 `[睡/睡了/睡個] × [一/兩/三/幾/好幾/個/一個/兩個/場/一場/好/大/午/飽] × [覺(ㄐㄧㄠˋ)]` 與時間連謂構式 `[覺] ➔ [後/後來/之後/醒/再/才] ➔ [處理/說/看/做]`（防「稅 + 兩 + 教/叫」同音跨類搶佔，同時保護「繳稅/報稅」與「教/叫 + 兩個人」反例）：
+        let is_sleep_infix = |w: &str| {
+            matches!(
+                w,
+                "一" | "兩" | "三" | "幾" | "好幾" | "兩三" | "個" | "一個" | "兩個" | "幾個"
+                    | "場" | "一場" | "兩場" | "幾場" | "頓" | "一頓" | "一下" | "好" | "大"
+                    | "午" | "飽" | "個好" | "個大" | "個飽" | "個午"
+            )
+        };
+        if matches!(curr_word, "睡" | "稅" | "說" | "蛻") && curr_bopomofo.starts_with("ㄕㄨㄟ") {
+            let has_sleep_vo_frame = dag
+                .get(&end_idx)
+                .map(|ns| {
+                    ns.iter().any(|m1| {
+                        (matches!(m1.word.as_str(), "覺" | "一覺" | "好覺" | "大覺" | "午覺")
+                            && m1.bopomofo.contains("ㄐㄧㄠ"))
+                            || (is_sleep_infix(&m1.word)
+                                && dag
+                                    .get(&m1.end_idx)
+                                    .map(|after_m1| {
+                                        after_m1.iter().any(|m2| {
+                                            (matches!(
+                                                m2.word.as_str(),
+                                                "覺" | "好覺" | "大覺" | "午覺"
+                                            ) && m2.bopomofo.contains("ㄐㄧㄠ"))
+                                                || (is_sleep_infix(&m2.word)
+                                                    && dag
+                                                        .get(&m2.end_idx)
+                                                        .map(|after_m2| {
+                                                            after_m2.iter().any(|m3| {
+                                                                m3.word == "覺"
+                                                                    && m3.bopomofo.contains("ㄐㄧㄠ")
+                                                            })
+                                                        })
+                                                        .unwrap_or(false))
+                                        })
+                                    })
+                                    .unwrap_or(false))
+                    })
+                })
+                .unwrap_or(false);
+            let is_tax_verb_left = matches!(
+                prev_word,
+                "繳" | "納" | "報" | "扣" | "退" | "逃" | "漏" | "免" | "徵" | "收" | "課"
+                    | "所得" | "營業" | "房屋" | "地價" | "遺產" | "贈與" | "關"
+            );
+            if is_tax_verb_left {
+                if curr_word == "稅" {
+                    bonus += 36.0;
+                } else if curr_word == "睡" {
+                    bonus -= 34.0;
+                }
+            } else if has_sleep_vo_frame {
+                if curr_word == "睡" {
+                    bonus += 38.0;
+                } else {
+                    bonus -= 36.0;
+                }
+            }
+        }
+        if matches!(prev_word, "睡" | "睡了" | "睡個" | "先睡" | "再睡" | "去睡" | "多睡")
+            && is_sleep_infix(curr_word)
+        {
+            let next_is_jiao = dag
+                .get(&end_idx)
+                .map(|ns| {
+                    ns.iter().any(|m| {
+                        (matches!(m.word.as_str(), "覺" | "好覺" | "大覺" | "午覺")
+                            && m.bopomofo.contains("ㄐㄧㄠ"))
+                            || (is_sleep_infix(&m.word)
+                                && dag
+                                    .get(&m.end_idx)
+                                    .map(|after_m| {
+                                        after_m.iter().any(|m2| {
+                                            m2.word == "覺" && m2.bopomofo.contains("ㄐㄧㄠ")
+                                        })
+                                    })
+                                    .unwrap_or(false))
+                    })
+                })
+                .unwrap_or(false);
+            if next_is_jiao {
+                bonus += 34.0;
+            }
+        }
+        if curr_bopomofo.starts_with("ㄐㄧㄠ")
+            && matches!(
+                curr_word,
+                "覺" | "教" | "叫" | "校" | "較" | "轎" | "窖" | "酵" | "徼"
+            )
+        {
+            let in_sleep_vo_context = matches!(prev_word, "睡" | "睡了" | "睡個")
+                || (matches!(
+                    prev2_word,
+                    "睡" | "睡了" | "睡個" | "先睡" | "再睡" | "去睡" | "多睡"
+                ) && is_sleep_infix(prev_word))
+                || (matches!(prev3_word, "睡" | "睡了")
+                    && is_sleep_infix(prev2_word)
+                    && matches!(prev_word, "個" | "場" | "好" | "大" | "飽" | "午"));
+            if in_sleep_vo_context {
+                if curr_word == "覺" {
+                    bonus += 42.0;
+                } else {
+                    bonus -= 40.0;
+                }
+            } else if matches!(curr_word, "叫" | "教") {
+                let is_summon_complement = |w: &str| {
+                    matches!(
+                        w,
+                        "來" | "去" | "過來" | "過去" | "進來" | "出去" | "出來" | "起來"
+                            | "回家" | "別" | "不要" | "趕快" | "快點"
+                    )
+                };
+                let has_pivotal_summon_frame = dag
+                    .get(&end_idx)
+                    .map(|ns| {
+                        ns.iter().any(|m1| {
+                            matches!(m1.word.as_str(), "救護車" | "計程車" | "外送" | "警察")
+                                || (matches!(
+                                    m1.word.as_str(),
+                                    "他" | "她" | "你" | "他們" | "大家" | "人" | "個人" | "一個人" | "兩個人" | "幾個人"
+                                ) && dag
+                                    .get(&m1.end_idx)
+                                    .map(|after_m1| after_m1.iter().any(|m2| is_summon_complement(&m2.word)))
+                                    .unwrap_or(false))
+                                || (matches!(m1.word.as_str(), "一" | "兩" | "三" | "幾" | "一個" | "兩個" | "幾個")
+                                    && dag
+                                        .get(&m1.end_idx)
+                                        .map(|after_m1| {
+                                            after_m1.iter().any(|m2| {
+                                                matches!(m2.word.as_str(), "人" | "個人")
+                                                    && dag
+                                                        .get(&m2.end_idx)
+                                                        .map(|after_m2| {
+                                                            after_m2.iter().any(|m3| is_summon_complement(&m3.word))
+                                                        })
+                                                        .unwrap_or(false)
+                                            })
+                                        })
+                                        .unwrap_or(false))
+                        })
+                    })
+                    .unwrap_or(false);
+                if has_pivotal_summon_frame {
+                    if curr_word == "叫" {
+                        bonus += 34.0;
+                    } else {
+                        bonus -= 30.0;
+                    }
+                } else {
+                    let has_teaching_frame = prefix_words
+                        .iter()
+                        .rev()
+                        .take(4)
+                        .any(|&w| w.contains("老師") || w.contains("教授") || w.contains("教練"))
+                        || dag
+                            .get(&end_idx)
+                            .map(|ns| {
+                                ns.iter().any(|m1| {
+                                    matches!(
+                                        m1.word.as_str(),
+                                        "學生" | "書" | "課" | "兩位" | "幾位" | "大家" | "孩子"
+                                    ) || (matches!(m1.word.as_str(), "一" | "兩" | "三" | "幾")
+                                        && dag
+                                            .get(&m1.end_idx)
+                                            .map(|after_m1| {
+                                                after_m1.iter().any(|m2| {
+                                                    matches!(m2.word.as_str(), "位" | "班" | "堂" | "門")
+                                                })
+                                            })
+                                            .unwrap_or(false))
+                                })
+                            })
+                            .unwrap_or(false);
+                    if has_teaching_frame {
+                        if curr_word == "教" {
+                            bonus += 34.0;
+                        } else {
+                            bonus -= 28.0;
+                        }
+                    }
+                }
+            }
+        }
+        if prev_word.ends_with('覺')
+            && prefix_words.iter().rev().take(4).any(|&w| w.contains('睡'))
+            && matches!(
+                curr_word,
+                "後" | "後來" | "之後" | "以後" | "醒" | "醒來" | "再" | "才" | "就"
+            )
+        {
+            bonus += 28.0;
+        }
+
+        // =========================================================================
+        // 遍指條件與量化累積觸發構式：「每 × {累積, 累計, 增加, 新增, 完成, 執行, 訓練, 經過, 超過, 達到, 收集, 隔, 逢, 當}」
+        // 解決「好喔，每累積五條就更新訓練一次」因單字先驗「美(793) > 每(782)」誤選為「美累積」之同音競爭
+        // =========================================================================
+        let is_distributive_accum_verb = |w: &str| {
+            matches!(
+                w,
+                "累積" | "累計" | "增加" | "新增" | "完成" | "執行" | "訓練" | "經過"
+                    | "超過" | "達到" | "收集" | "隔" | "逢" | "當" | "點擊" | "輸入"
+                    | "更新" | "微調" | "擴充"
+            )
+        };
+        if curr_bopomofo == "ㄇㄟˇ" && matches!(curr_word, "每" | "美") {
+            let right_has_accum = dag
+                .get(&end_idx)
+                .map(|ns| {
+                    ns.iter().any(|m1| {
+                        is_distributive_accum_verb(&m1.word)
+                            || Self::is_verbal_qp_word(&m1.word)
+                            || (Self::is_verbal_numeral(&m1.word)
+                                && dag
+                                    .get(&m1.end_idx)
+                                    .map(|after_m1| {
+                                        after_m1.iter().any(|m2| {
+                                            Self::is_verbal_classifier(&m2.word)
+                                                || matches!(
+                                                    m2.word.as_str(),
+                                                    "條" | "筆" | "組" | "個" | "句" | "次" | "天" | "年"
+                                                )
+                                        })
+                                    })
+                                    .unwrap_or(false))
+                    })
+                })
+                .unwrap_or(false);
+            if right_has_accum {
+                if curr_word == "每" {
+                    bonus += 32.0;
+                } else {
+                    bonus -= 28.0;
+                }
+            }
+        }
+        if prev_word == "每" && is_distributive_accum_verb(curr_word) {
+            bonus += 30.0;
+        }
+
+        // =========================================================================
+        // 消極目的連詞「為免」vs. 程度評價副詞「未免」雙向句法分流構式
+        // 解決「感謝，為免再次忘記」因雙字詞「未免」先驗較高而誤選為「未免再次忘記」之同音競爭
+        // 同時嚴格保護「這未免太誇張了 / 未免過於草率」之程度評價副詞語境
+        // =========================================================================
+        let is_wei_mian_preventive_next = |w: &str| {
+            matches!(
+                w,
+                "再次" | "再度" | "又" | "再" | "忘記" | "遺忘" | "遺漏" | "誤會" | "混淆"
+                    | "發生" | "造成" | "影響" | "打擾" | "耽誤" | "浪費" | "錯失" | "向隅"
+                    | "麻煩" | "爭議" | "困擾" | "夜長夢多" | "節外生枝" | "重蹈覆轍" | "受騙"
+                    | "大家" | "使用者" | "日後" | "將來" | "往後" | "臨時"
+            )
+        };
+        let is_weimian_degree_next = |w: &str| {
+            matches!(
+                w,
+                "太" | "也太" | "過於" | "太過" | "有點" | "有些" | "過分" | "顯得" | "失之"
+                    | "令人" | "讓人"
+            ) || w.starts_with("太")
+        };
+        if matches!(curr_bopomofo, "ㄨㄟˋ ㄇㄧㄢˇ" | "ㄨㄟˊ ㄇㄧㄢˇ")
+            && matches!(curr_word, "為免" | "未免")
+        {
+            let right_is_preventive = dag
+                .get(&end_idx)
+                .map(|ns| ns.iter().any(|m| is_wei_mian_preventive_next(&m.word)))
+                .unwrap_or(false);
+            let right_is_degree = dag
+                .get(&end_idx)
+                .map(|ns| ns.iter().any(|m| is_weimian_degree_next(&m.word)))
+                .unwrap_or(false);
+            if right_is_preventive {
+                if curr_word == "為免" {
+                    bonus += 34.0;
+                } else {
+                    bonus -= 28.0;
+                }
+            } else if right_is_degree {
+                if curr_word == "未免" {
+                    bonus += 32.0;
+                } else {
+                    bonus -= 26.0;
+                }
+            }
+        }
+        if prev_word == "為免" && is_wei_mian_preventive_next(curr_word) {
+            bonus += 28.0;
+        }
+        if prev_word == "未免" && is_weimian_degree_next(curr_word) {
+            bonus += 28.0;
+        }
+
         self.apply_rule_score("construction_hierarchical_matrix", bonus)
     }
 }

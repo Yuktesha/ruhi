@@ -69,6 +69,13 @@ scripts/ruhi.ico
 /hot_reload.ps1
 /語意調校工作室.ps1
 /一鍵發布更新至GitHub.ps1
+/雲端Colab微調Gemma4語意分析師.ps1
+outputs/
+models/
+notebooks/
+tests/
+tools/
+ruhi_lexicon/data/gemma4_analyst_*.jsonl
 scripts/web/
 scripts/active_dll_path.txt
 active_dll_path.txt

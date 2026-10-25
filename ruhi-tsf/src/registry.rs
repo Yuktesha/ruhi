@@ -96,55 +96,50 @@ pub unsafe fn register_server(hinstance: HMODULE) -> Result<()> {
     let clsid_str = format!("{{{:?}}}", CLSID_RUHI_TEXT_SERVICE);
     let clsid_key_path = format!("CLSID\\{}", clsid_str);
 
-    // 1. Write HKCR\CLSID\{CLSID}
-    let mut clsid_key = HKEY::default();
-    let wide_key: Vec<u16> = clsid_key_path.encode_utf16().chain(Some(0)).collect();
-    RegCreateKeyW(
-        HKEY_CLASSES_ROOT,
-        PCWSTR(wide_key.as_ptr()),
-        &mut clsid_key,
-    ).ok()?;
-
+    // 1. Write HKCU\Software\Classes\CLSID\{CLSID} (免管理員權限必成) 與 HKCR\CLSID\{CLSID}
     let current_desc = get_current_ui_desc();
     let desc_wide: Vec<u16> = current_desc.encode_utf16().chain(Some(0)).collect();
-    RegSetValueExW(
-        clsid_key,
-        PCWSTR::null(),
-        0,
-        REG_SZ,
-        Some(std::slice::from_raw_parts(desc_wide.as_ptr() as *const u8, desc_wide.len() * 2)),
-    ).ok()?;
-
-    // 2. Write HKCR\CLSID\{CLSID}\InprocServer32
-    let mut inproc_key = HKEY::default();
     let inproc_path: Vec<u16> = "InprocServer32".encode_utf16().chain(Some(0)).collect();
-    RegCreateKeyW(
-        clsid_key,
-        PCWSTR(inproc_path.as_ptr()),
-        &mut inproc_key,
-    ).ok()?;
-
     let dll_path_wide: Vec<u16> = dll_path.encode_utf16().chain(Some(0)).collect();
-    RegSetValueExW(
-        inproc_key,
-        PCWSTR::null(),
-        0,
-        REG_SZ,
-        Some(std::slice::from_raw_parts(dll_path_wide.as_ptr() as *const u8, dll_path_wide.len() * 2)),
-    ).ok()?;
-
     let threading_model: Vec<u16> = "Apartment".encode_utf16().chain(Some(0)).collect();
     let thread_val_name: Vec<u16> = "ThreadingModel".encode_utf16().chain(Some(0)).collect();
-    RegSetValueExW(
-        inproc_key,
-        PCWSTR(thread_val_name.as_ptr()),
-        0,
-        REG_SZ,
-        Some(std::slice::from_raw_parts(threading_model.as_ptr() as *const u8, threading_model.len() * 2)),
-    ).ok()?;
 
-    let _ = RegCloseKey(inproc_key);
-    let _ = RegCloseKey(clsid_key);
+    let hkcu_clsid_path = format!("Software\\Classes\\CLSID\\{}", clsid_str);
+    for (root_hkey, sub_path) in [
+        (HKEY_CURRENT_USER, hkcu_clsid_path.as_str()),
+        (HKEY_CLASSES_ROOT, clsid_key_path.as_str()),
+    ] {
+        let mut clsid_key = HKEY::default();
+        let wide_key: Vec<u16> = sub_path.encode_utf16().chain(Some(0)).collect();
+        if RegCreateKeyW(root_hkey, PCWSTR(wide_key.as_ptr()), &mut clsid_key).is_ok() {
+            let _ = RegSetValueExW(
+                clsid_key,
+                PCWSTR::null(),
+                0,
+                REG_SZ,
+                Some(std::slice::from_raw_parts(desc_wide.as_ptr() as *const u8, desc_wide.len() * 2)),
+            );
+            let mut inproc_key = HKEY::default();
+            if RegCreateKeyW(clsid_key, PCWSTR(inproc_path.as_ptr()), &mut inproc_key).is_ok() {
+                let _ = RegSetValueExW(
+                    inproc_key,
+                    PCWSTR::null(),
+                    0,
+                    REG_SZ,
+                    Some(std::slice::from_raw_parts(dll_path_wide.as_ptr() as *const u8, dll_path_wide.len() * 2)),
+                );
+                let _ = RegSetValueExW(
+                    inproc_key,
+                    PCWSTR(thread_val_name.as_ptr()),
+                    0,
+                    REG_SZ,
+                    Some(std::slice::from_raw_parts(threading_model.as_ptr() as *const u8, threading_model.len() * 2)),
+                );
+                let _ = RegCloseKey(inproc_key);
+            }
+            let _ = RegCloseKey(clsid_key);
+        }
+    }
 
     // 3. Register with TSF Input Processor Profiles & Category Manager
     let _ = CoInitialize(None);

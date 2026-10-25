@@ -2,6 +2,7 @@
 **RuhI Computational Linguistics Architecture & AI Semantic Tuning Specification**
 
 - **文件版本**：v2.0 (Canonical Specification for Remote & Local LLMs)
+- **官方交流社群**：[**「如喜通用智慧型輸入法」LINE 社群**](https://line.me/ti/g2/iyLVoHye-Ho49K9SzQBaftTgFzej7stw9S1jSw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default)
 - **適用對象**：如喜語意調校工作室（`scripts/semantic_tuner.py`）、高階 AI 語意顧問（`scripts/ai_semantic_consultant.py`）、自建詞語意分析引擎（`ruhi_brain/semantic_analyst.py`）、以及任何接入之遠端或本地大型語言模型（Google Gemini、Google Gemma、OpenAI、Anthropic Claude、Llama.cpp）。
 - **核心宗旨**：將智慧型輸入法的語意調校主權交還給使用者，透過嚴謹的漢語構式語法（Construction Grammar）、條件二階轉移（Conditional Bigram Transitions）與詞彙凝聚力（Lexical Cohesion）機制，使任何遠端或本地 AI 皆能依循統一標準完成高品質語意診斷與規則修正。
 
