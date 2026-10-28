@@ -14,7 +14,7 @@
    - 雙字詞（4 碼）：首字前兩角 `1,2` (左上+右上) + 尾字前兩角 `1,2` (左上+右上)（如 `台灣` = `2332`、`電腦` = `1072`、`主權` = `0044`）
    - 三字詞（5 碼）：`首字(1,3) + 中字(1) + 尾字(2,4)`（左緣定錨＋中字首角＋右緣收尾，如 `輸入法` = `50843`、`台灣人` = `26300`）
    - 四字成語（6 碼）：`首字(1,3) + 中一(1) + 中二(1) + 尾字(2,4)`（`1,3[1×n]2,4` 結構，如 `四角號碼` = `622672`）
-5. 4×5 數字小鍵盤 `/` 標點符號速選碼（`/1`~`/0`）。
+5. 4×5 數字小鍵盤 `.` 標點符號速選碼（`.1`~`.0`）。
 """
 
 from __future__ import annotations
@@ -72,18 +72,18 @@ MANUAL_VARIANT_PAIRS: List[Tuple[str, str]] = [
     ("計畫", "計劃"),
 ]
 
-# 4×5 數字小鍵盤 `/` 引導之標點符號速選表
+# 4×5 數字小鍵盤 `.` 引導之標點符號速選表
 NUMPAD_SYMBOLS: List[Tuple[str, str, int]] = [
-    ("/1", "，", 999),
-    ("/2", "。", 998),
-    ("/3", "、", 997),
-    ("/4", "？", 996),
-    ("/5", "！", 995),
-    ("/6", "：", 994),
-    ("/7", "；", 993),
-    ("/8", "「」", 992),
-    ("/9", "（）", 991),
-    ("/0", "……", 990),
+    (".1", "，", 999),
+    (".2", "。", 998),
+    (".3", "、", 997),
+    (".4", "？", 996),
+    (".5", "！", 995),
+    (".6", "：", 994),
+    (".7", "；", 993),
+    (".8", "「」", 992),
+    (".9", "（）", 991),
+    (".0", "……", 990),
 ]
 
 
@@ -627,8 +627,8 @@ engine:
     - uniquifier
 
 speller:
-  alphabet: "0123456789/"
-  initials: "0123456789/"
+  alphabet: "0123456789.-*"
+  initials: "0123456789.-*"
   max_code_length: 8
   auto_select: false
 
@@ -645,8 +645,9 @@ key_binder:
   bindings:
     - { when: has_menu, accept: KP_Add, send: space }
     - { when: has_menu, accept: plus, send: space }
-    - { when: has_menu, accept: KP_Subtract, send: Page_Up }
-    - { when: has_menu, accept: KP_Multiply, send: Page_Down }
+    - { when: paging, accept: KP_Subtract, send: Page_Up }
+    - { when: paging, accept: KP_Add, send: Page_Down }
+    - { when: has_menu, accept: KP_Divide, send: Down }
 
 recognizer:
   import_preset: default

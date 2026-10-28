@@ -92,7 +92,7 @@ python scripts/build_tutorial_page.py
 ```
 - 產出檔案：
   - `ruhi_lexicon/data/four_corner.tsv`（76,299 筆條目，含 17,491 單字與 34,305 多字詞）
-  - `docs/four_corner_tutorial_anim.html`（4K 自適應雙欄互動拆角教學動畫與整串文字查碼器）
+  - `docs/ruhi_interactive_workbench.html`（4K 自適應雙欄跨輸入法互動拆碼教學與整串文字查碼工作台）
   - `dist/four_corner_schema/four_corner.schema.yaml` 與 `four_corner.dict.yaml`（供 Linux Fcitx5 / IBus Rime 與 Android Trime 掛載）
 
 ### 2. 執行 Rust 核心自動化單元測試

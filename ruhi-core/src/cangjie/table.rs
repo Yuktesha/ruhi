@@ -16,6 +16,7 @@ pub struct CangjieEntry {
 pub struct CangjieTable {
     pub map: HashMap<String, Vec<CangjieEntry>>,
     pub char_head_map: HashMap<char, Vec<char>>,
+    pub char_to_codes: HashMap<char, Vec<String>>,
 }
 
 impl Default for CangjieTable {
@@ -23,6 +24,7 @@ impl Default for CangjieTable {
         let mut table = Self {
             map: HashMap::new(),
             char_head_map: HashMap::new(),
+            char_to_codes: HashMap::new(),
         };
         table.load_builtin_defaults();
         table
@@ -42,8 +44,46 @@ impl CangjieTable {
                 if !heads.contains(&first_lower) {
                     heads.push(first_lower);
                 }
+                let code_lower = code.to_ascii_lowercase();
+                let codes = self.char_to_codes.entry(ch).or_default();
+                if !codes.contains(&code_lower) {
+                    codes.push(code_lower);
+                }
             }
         }
+    }
+
+    /// 查詢單一漢字之倉頡拆碼與字根說明（如 `'台'` -> `Some("IR [戈口]")`）
+    pub fn format_char_coach(&self, ch: char) -> Option<String> {
+        let codes = self.char_to_codes.get(&ch)?;
+        // 優先選擇標準倉頡全碼（若有多組且包含較長全碼，排在前方或併列顯示速成碼）
+        let mut sorted = codes.clone();
+        sorted.sort_by(|a, b| b.len().cmp(&a.len()).then_with(|| a.cmp(b)));
+        let primary = sorted.first()?;
+        let rads = Self::code_to_radicals(primary);
+        if sorted.len() > 1 {
+            let shortest = sorted.last().unwrap();
+            if shortest != primary {
+                return Some(format!(
+                    "{} [{}] (簡:{})",
+                    primary.to_ascii_uppercase(),
+                    rads,
+                    shortest.to_ascii_uppercase()
+                ));
+            }
+        }
+        Some(format!("{} [{}]", primary.to_ascii_uppercase(), rads))
+    }
+
+    /// 查詢字串之倉頡拆碼說明（供跨輸入法通用反查教練使用）
+    pub fn format_text_coach(&self, text: &str) -> String {
+        let mut parts = Vec::new();
+        for ch in text.chars() {
+            if let Some(c_info) = self.format_char_coach(ch) {
+                parts.push(format!("{}: {}", ch, c_info));
+            }
+        }
+        parts.join(" ｜ ")
     }
 
     /// 查詢倉頡多字詞頭碼（至少 3 字詞以上）：比對詞庫中每個漢字之倉頡首碼是否吻合 `headcode`

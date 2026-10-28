@@ -149579,8 +149579,8 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 尛	ㄇㄚˊ	100	mcbpmf_char	base
 蔴	ㄇㄚˊ	100	mcbpmf_char	base
 䲈	ㄇㄚˊ	100	mcbpmf_char	base
-幺	ㄇㄚˊ	100	mcbpmf_char	base
-幺	ㄧㄠ	1	mcbpmf_char	base
+幺	ㄧㄠ	399	mcbpmf_char	base
+幺	ㄇㄚˊ	35	mcbpmf_char	base
 庅	ㄇㄚˊ	100	mcbpmf_char	base
 蟇	ㄇㄚˊ	100	mcbpmf_char	base
 麽	ㄇㄚˊ	100	mcbpmf_char	base

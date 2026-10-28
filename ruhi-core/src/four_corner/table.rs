@@ -343,6 +343,137 @@ impl FourCornerTable {
         self.code_to_entries.get(code).cloned().unwrap_or_default()
     }
 
+    /// 取得 `.` 標點符號選單之完整 3 頁 30 組常用全形標點與成對括號／符號
+    pub fn default_punctuation_menu() -> Vec<String> {
+        vec![
+            // 第 1 頁 (1~0)：核心高頻句讀與引號括號
+            "，".to_string(),
+            "。".to_string(),
+            "、".to_string(),
+            "？".to_string(),
+            "！".to_string(),
+            "：".to_string(),
+            "；".to_string(),
+            "「」".to_string(),
+            "（）".to_string(),
+            "……".to_string(),
+            // 第 2 頁 (+ 翻下頁後 1~0)：單邊引號、書名號、方括號、破折號與連接號
+            "「".to_string(),
+            "」".to_string(),
+            "『』".to_string(),
+            "《》".to_string(),
+            "【】".to_string(),
+            "——".to_string(),
+            "～".to_string(),
+            "·".to_string(),
+            "（".to_string(),
+            "）".to_string(),
+            // 第 3 頁 (+ 再翻下頁後 1~0)：單書名號、中大括號與常用數學／商務符號
+            "〈〉".to_string(),
+            "［］".to_string(),
+            "｛｝".to_string(),
+            "＋".to_string(),
+            "－".to_string(),
+            "×".to_string(),
+            "÷".to_string(),
+            "＝".to_string(),
+            "％".to_string(),
+            "＠".to_string(),
+        ]
+    }
+
+    /// 取得 `-` 詞彙前導模式（尚未輸入數字時）之 20 組高頻多字詞預覽清單
+    pub fn default_word_mode_menu() -> Vec<String> {
+        vec![
+            // 第 1 頁 (1~0)
+            "台灣".to_string(),
+            "輸入法".to_string(),
+            "四角號碼".to_string(),
+            "主權".to_string(),
+            "電腦".to_string(),
+            "天才".to_string(),
+            "為什麼".to_string(),
+            "如喜".to_string(),
+            "我們".to_string(),
+            "自己".to_string(),
+            // 第 2 頁 (+ 翻下頁後 1~0)
+            "國家".to_string(),
+            "知道".to_string(),
+            "智慧".to_string(),
+            "時間".to_string(),
+            "可以".to_string(),
+            "現在".to_string(),
+            "這個".to_string(),
+            "因為".to_string(),
+            "所以".to_string(),
+            "一舉兩得".to_string(),
+        ]
+    }
+
+    /// 供 TSF 輸入座對已收攏之字／詞區塊按 `/` 或 `↓` 重新展開候選清單時調用：
+    /// 自動識別 `-` 詞前導模式、`.` 標點模式與萬用字元，並嚴格執行「單字 vs. 多字詞」分流過濾。
+    pub fn lookup_for_reselect(&self, raw_code: &str) -> Vec<String> {
+        let trimmed = raw_code.trim();
+        if trimmed.is_empty() {
+            return Vec::new();
+        }
+        if trimmed == "." {
+            return Self::default_punctuation_menu();
+        }
+        if trimmed == "-" {
+            return Self::default_word_mode_menu();
+        }
+
+        let is_word_mode = trimmed.starts_with('-');
+        let code_str = trimmed.trim_start_matches('-');
+        if code_str.is_empty() {
+            return Vec::new();
+        }
+
+        let has_wildcard =
+            code_str.contains('*') || code_str.contains('?') || code_str.contains('.');
+        let mut raw_entries = if has_wildcard {
+            self.lookup_wildcard(code_str, 48)
+        } else {
+            self.lookup_exact(code_str)
+        };
+
+        let has_exact_single = raw_entries.iter().any(|e| e.text.chars().count() == 1);
+        if is_word_mode {
+            raw_entries.retain(|e| e.text.chars().count() >= 2);
+        } else if has_exact_single {
+            raw_entries.retain(|e| e.text.chars().count() == 1);
+        }
+
+        if !has_wildcard && code_str.len() >= 4 && raw_entries.len() < 12 {
+            let fuzzy_hits = self.lookup_fuzzy(code_str, 20);
+            for h in fuzzy_hits {
+                let word_len = h.text.chars().count();
+                if is_word_mode && word_len < 2 {
+                    continue;
+                }
+                if !is_word_mode && has_exact_single && word_len != 1 {
+                    continue;
+                }
+                if !raw_entries.iter().any(|e| e.text == h.text) {
+                    raw_entries.push(h);
+                }
+            }
+        }
+
+        let mut out = Vec::new();
+        let mut seen = HashSet::new();
+        for e in raw_entries {
+            if seen.insert(e.text.clone()) {
+                out.push(e.text);
+                if out.len() >= 36 {
+                    break;
+                }
+            }
+        }
+        out
+    }
+
     /// 前綴聯想查詢（當輸入 1~3 碼或 4 碼欲補附角時提供即時高頻預覽）
     pub fn lookup_with_prefix(&self, prefix: &str, limit: usize) -> Vec<FourCornerEntry> {
         if prefix.is_empty() {

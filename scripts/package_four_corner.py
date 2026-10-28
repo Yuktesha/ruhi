@@ -29,7 +29,20 @@ if sys.platform == "win32":
         pass
 
 
-INSTALL_PS1_CONTENT = """. "C:\\ATGprjs\\_lib\\ps\\Ensure-Admin.ps1"
+INSTALL_PS1_CONTENT = """$libAdmin = Join-Path $PSScriptRoot "_lib\\ps\\Ensure-Admin.ps1"
+if (-not (Test-Path $libAdmin)) { $libAdmin = "C:\\ATGprjs\\_lib\\ps\\Ensure-Admin.ps1" }
+if (Test-Path $libAdmin) {
+    . $libAdmin
+} else {
+    $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
+    if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Host "正在請求系統管理員授權以註冊 TSF 系統服務..." -ForegroundColor Cyan
+        $argList = "-NoProfile -ExecutionPolicy Bypass -File `"" + $MyInvocation.MyCommand.Path + "`""
+        Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
+        exit
+    }
+}
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -53,13 +66,26 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "[2/2] 註冊完成！預設模式已設定為「四 (智慧型四角號碼 4×5 小鍵盤)」。" -ForegroundColor Green
-Write-Host "      - 單字輸入：取左上、右上、左下、右下 4 碼（如 2360 = 台、3212 = 灣）"
-Write-Host "      - 二字詞簡碼（4碼）：首字(1,2) + 尾字(1,2)（如 2332 = 台灣、0044 = 主權、1072 = 電腦）"
-Write-Host "      - 三／四字詞簡碼（5/6碼）：首字(1,3) + 中字(1)×n + 尾字(2,4)（如 50843 = 輸入法、622612 = 四角號碼）"
-Write-Host "      - 小鍵盤全盲打閉環：+ 字詞分界收攏至輸入座、Enter 整句完稿送出、* 進入選字模式、/ 標點面板、- 退格、. 萬用字元"
+Write-Host "      - 單字輸入（4碼）：取左上、右上、左下、右下 4 碼（如 2360 = 台、3212 = 灣、1040 = 要）"
+Write-Host "      - 二字詞輸入（-4碼）：按 - 詞前導 + 首字(1,2) + 尾字(1,2)（如 -2332 = 台灣、-0044 = 主權、-1040 = 天才）"
+Write-Host "      - 三／四字詞（-5/-6碼）：按 - 詞前導 + 首字(1,3) + 中字(1)×n + 尾字(2,4)（如 -50843 = 輸入法、-622612 = 四角號碼）"
+Write-Host "      - 小鍵盤全盲打閉環：- 詞前導/上頁、+ 字詞分隔/下頁、/ 字詞選單(1~0快選)、. 標點選單(30符號)、* 萬用字元、Enter 整句完稿"
 """
 
-UNINSTALL_PS1_CONTENT = """. "C:\\ATGprjs\\_lib\\ps\\Ensure-Admin.ps1"
+UNINSTALL_PS1_CONTENT = """$libAdmin = Join-Path $PSScriptRoot "_lib\\ps\\Ensure-Admin.ps1"
+if (-not (Test-Path $libAdmin)) { $libAdmin = "C:\\ATGprjs\\_lib\\ps\\Ensure-Admin.ps1" }
+if (Test-Path $libAdmin) {
+    . $libAdmin
+} else {
+    $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
+    if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Host "正在請求系統管理員授權以解除註冊 TSF 系統服務..." -ForegroundColor Cyan
+        $argList = "-NoProfile -ExecutionPolicy Bypass -File `"" + $MyInvocation.MyCommand.Path + "`""
+        Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
+        exit
+    }
+}
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -155,23 +181,36 @@ def main() -> int:
     if studio_src:
         shutil.copy2(studio_src, staging_win / "ruhi-studio.exe")
 
-    # 3. 複製四角號碼核心碼表與語境轉移資料檔
+    # 3. 複製四角號碼與跨輸入法核心碼表及語境轉移資料檔（longkan 已以二進位混淆內嵌於 DLL/EXE 中，嚴禁明文散佈）
     data_files = [
         "four_corner.tsv",
+        "array30.tsv",
+        "cangjie5.tsv",
         "transitions_user.tsv",
         "symbols.tsv",
         "lexicon_mcbopomofo.tsv",
+        "lexicon_domain.tsv",
+        "patterns_user.jsonl",
+        "rejected_readings.tsv",
     ]
     for df in data_files:
         src_f = repo_root / "ruhi_lexicon" / "data" / df
         if src_f.exists():
             shutil.copy2(src_f, staging_win / "data" / df)
 
+    lic_comm = repo_root / "LICENSE-COMMERCIAL.md"
+    if lic_comm.exists():
+        shutil.copy2(lic_comm, staging_win / "LICENSE-COMMERCIAL.md")
+
+    tutorial_html = repo_root / "docs" / "ruhi_interactive_workbench.html"
+    if tutorial_html.exists():
+        shutil.copy2(tutorial_html, staging_win / "互動教學與整串文字查碼器.html")
+
     # 4. 產生預設以 `four_corner` 為核心之 config.json 與 settings_config.json
     standalone_config = {
         "keyboard_mode": "four_corner",
         "last_keyboard_mode": "english",
-        "enabled_keyboard_modes": ["four_corner", "hsu"],
+        "enabled_keyboard_modes": ["four_corner", "longkan", "hsu"],
         "four_corner_keymap": "blind_closed_loop",
         "candidate_quick_key": "1234",
         "punctuation_commit_mode": "A",

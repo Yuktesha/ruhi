@@ -45,6 +45,7 @@ pub fn get_mode_badge_and_name_i18n(kb_mode: &str, is_caps: bool, ui_lang: &str)
                 "cangjie" => ("CJ", "Cangjie"),
                 "array30" | "ar30" => ("AR", "Array 30"),
                 "four_corner" | "4corner" | "fc" => ("4C", "Four-Corner Numpad"),
+                "longkan" | "lk" => ("LK", "Longkan Morpho-Phonetic 4-Code"),
                 "et26" | "eten26" => ("ET", "Eten 26 Bopomofo"),
                 "et41" => ("41", "Eten 41 Bopomofo"),
                 "pinyin" => ("PY", "Hanyu Pinyin"),
@@ -64,6 +65,7 @@ pub fn get_mode_badge_and_name_i18n(kb_mode: &str, is_caps: bool, ui_lang: &str)
                 "cangjie" => ("倉", "倉頡入力"),
                 "array30" | "ar30" => ("行", "行列 30"),
                 "four_corner" | "4corner" | "fc" => ("四", "四角号碼（テンキー）"),
+                "longkan" | "lk" => ("龍", "龍龕形音 4 碼"),
                 "et26" | "eten26" => ("倚", "倚天 26 鍵"),
                 "et41" => ("41", "倚天 41 鍵"),
                 "pinyin" => ("拼", "ピンイン"),
@@ -83,6 +85,7 @@ pub fn get_mode_badge_and_name_i18n(kb_mode: &str, is_caps: bool, ui_lang: &str)
                 "cangjie" => ("倉", "창힐 입력기"),
                 "array30" | "ar30" => ("行", "행렬 30"),
                 "four_corner" | "4corner" | "fc" => ("四", "사각호마 (숫자패드)"),
+                "longkan" | "lk" => ("龍", "용감형음 4마"),
                 "et26" | "eten26" => ("倚", "이천 26키"),
                 "et41" => ("41", "이천 41키"),
                 "pinyin" => ("拼", "한어병음"),
@@ -102,6 +105,7 @@ pub fn get_mode_badge_and_name_i18n(kb_mode: &str, is_caps: bool, ui_lang: &str)
                 "cangjie" => ("倉", "倉頡輸入法"),
                 "array30" | "ar30" => ("行", "行列 30 輸入法"),
                 "four_corner" | "4corner" | "fc" => ("四", "智慧型四角號碼 (4×5小鍵盤)"),
+                "longkan" | "lk" => ("龍", "龍龕形音輸入法 (4碼)"),
                 "et26" | "eten26" => ("倚", "倚天 26 鍵注音"),
                 "et41" => ("41", "倚天 41 鍵注音"),
                 "pinyin" => ("拼", "漢語拼音"),
@@ -120,6 +124,7 @@ pub fn get_mode_menu_items_i18n(ui_lang: &str) -> &'static [(u32, &'static str, 
             (2004, "cangjie", "Cangjie (CJ)\tCtrl/Shift + CapsLock"),
             (2007, "array30", "Array 30 (AR)\tCtrl/Shift + CapsLock"),
             (2010, "four_corner", "Four-Corner 4x5 Numpad (4C)\tCtrl/Shift + CapsLock"),
+            (2013, "longkan", "Longkan Morpho-Phonetic 4-Code (LK)\tCtrl/Shift + CapsLock"),
             (2002, "standard", "Standard Bopomofo (BPM)\tCtrl/Shift + CapsLock"),
             (2003, "et26", "Eten 26 Bopomofo (ET)\tCtrl/Shift + CapsLock"),
         ],
@@ -130,6 +135,7 @@ pub fn get_mode_menu_items_i18n(ui_lang: &str) -> &'static [(u32, &'static str, 
             (2004, "cangjie", "倉頡入力 (倉)\tCtrl/Shift + CapsLock"),
             (2007, "array30", "行列 30 入力 (行)\tCtrl/Shift + CapsLock"),
             (2010, "four_corner", "スマート四角号碼 4×5 テンキー (四)\tCtrl/Shift + CapsLock"),
+            (2013, "longkan", "龍龕形音 4 碼入力 (龍)\tCtrl/Shift + CapsLock"),
             (2002, "standard", "標準大千注音 (注)\tCtrl/Shift + CapsLock"),
             (2003, "et26", "倚天 26 鍵注音 (倚)\tCtrl/Shift + CapsLock"),
         ],
@@ -140,6 +146,7 @@ pub fn get_mode_menu_items_i18n(ui_lang: &str) -> &'static [(u32, &'static str, 
             (2004, "cangjie", "창힐 입력기 (倉)\tCtrl/Shift + CapsLock"),
             (2007, "array30", "행렬 30 입력기 (行)\tCtrl/Shift + CapsLock"),
             (2010, "four_corner", "스마트 사각호마 4×5 숫자패드 (四)\tCtrl/Shift + CapsLock"),
+            (2013, "longkan", "용감형음 4마 입력기 (龍)\tCtrl/Shift + CapsLock"),
             (2002, "standard", "표준 주음 (注)\tCtrl/Shift + CapsLock"),
             (2003, "et26", "이천 26키 주음 (倚)\tCtrl/Shift + CapsLock"),
         ],
@@ -150,6 +157,7 @@ pub fn get_mode_menu_items_i18n(ui_lang: &str) -> &'static [(u32, &'static str, 
             (2004, "cangjie", "倉頡輸入法 (倉)\tCtrl/Shift + CapsLock"),
             (2007, "array30", "行列 30 輸入法 (行)\tCtrl/Shift + CapsLock"),
             (2010, "four_corner", "智慧型四角號碼 4×5 小鍵盤 (四)\tCtrl/Shift + CapsLock"),
+            (2013, "longkan", "龍龕形音 4 碼輸入法 (龍)\tCtrl/Shift + CapsLock"),
             (2002, "standard", "標準大千注音 (注)\tCtrl/Shift + CapsLock"),
             (2003, "et26", "倚天 26 鍵注音 (倚)\tCtrl/Shift + CapsLock"),
         ],
@@ -216,7 +224,7 @@ pub unsafe fn create_mode_hicon(badge: &str, is_caps: bool) -> HICON {
     } else {
         match badge {
             "日" => COLORREF(0x005E3FDB), // 櫻緋紅 #DB3F5E（日文模式，一眼區分）
-            "行" | "倉" | "四" | "4C" => COLORREF(0x0088940D), // 青松綠 #0D9488（字形模式）
+            "行" | "倉" | "四" | "4C" | "龍" | "LK" => COLORREF(0x0088940D), // 青松綠 #0D9488（字形／形音模式）
             _ => COLORREF(0x00699605),    // 翠玉綠 #059669（許氏／注音模式）
         }
     };
@@ -753,7 +761,8 @@ impl CandidateWindow {
 
     /// 測量當前分頁所有候選項目（如 `"a.候選詞"`）之各自像素寬度與單行總需求寬度
     pub fn measure_page_candidates_px(state: &CandidateState, cand_font_px: f32, page_sz: usize) -> (Vec<(usize, String, i32)>, i32) {
-        let use_ar30_num_keys = state.is_array30_live_preview && !state.is_cand_selecting;
+        let is_fc_mode = matches!(state.keyboard_mode.to_lowercase().as_str(), "four_corner" | "4corner" | "fc");
+        let use_ar30_num_keys = is_fc_mode || (state.is_array30_live_preview && !state.is_cand_selecting);
         let asdf_keys = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
         let cur_page = state.selected_index / page_sz.max(1);
         let start_idx = cur_page * page_sz;
@@ -835,7 +844,8 @@ impl CandidateWindow {
     pub fn compute_desk_geometry(state: &CandidateState, caret_x: i32, caret_y: i32) -> (i32, i32, i32, i32) {
         let dpi_scale = state.dpi_scale;
         let show_cand_bar = (state.is_cand_selecting || state.is_array30_live_preview) && !state.candidates.is_empty();
-        let page_sz = if state.is_array30_live_preview && !state.is_cand_selecting { 10 } else { 9 };
+        let is_fc_mode = matches!(state.keyboard_mode.to_lowercase().as_str(), "four_corner" | "4corner" | "fc");
+        let page_sz = if is_fc_mode || (state.is_array30_live_preview && !state.is_cand_selecting) { 10 } else { 9 };
         let font_h = (state.font_size * 0.9 * dpi_scale).clamp(14.0 * dpi_scale, 90.0 * dpi_scale);
         let cand_font_h = (state.candidate_font_size * 0.9 * dpi_scale).clamp(13.0 * dpi_scale, 68.0 * dpi_scale);
 
@@ -1011,7 +1021,7 @@ impl CandidateWindow {
 
     /// 微軟新注音游標跟隨模式：僅在選字或開啟行列教練提示時彈出輕巧候選浮窗
     pub fn show_candidates_only(&mut self, candidates: &[String], selected: usize, x: i32, y: i32) {
-        let (dpi_scale, cand_font_size, orientation, coach_hint, is_ar30_preview, is_cand_sel, opacity) = if let Ok(s) = get_candidate_state().read() {
+        let (dpi_scale, cand_font_size, orientation, coach_hint, is_ar30_preview, is_cand_sel, opacity, is_fc_mode) = if let Ok(s) = get_candidate_state().read() {
             (
                 s.dpi_scale,
                 s.candidate_font_size,
@@ -1020,9 +1030,10 @@ impl CandidateWindow {
                 s.is_array30_live_preview,
                 s.is_cand_selecting,
                 s.desk_opacity,
+                matches!(s.keyboard_mode.to_lowercase().as_str(), "four_corner" | "4corner" | "fc"),
             )
         } else {
-            (1.0, 24.0, "horizontal".to_string(), String::new(), false, false, 95)
+            (1.0, 24.0, "horizontal".to_string(), String::new(), false, false, 95, false)
         };
 
         if candidates.is_empty() && coach_hint.is_empty() {
@@ -1041,7 +1052,7 @@ impl CandidateWindow {
             0
         };
 
-        let page_sz = if is_ar30_preview && !is_cand_sel { 10 } else { 9 };
+        let page_sz = if is_fc_mode || (is_ar30_preview && !is_cand_sel) { 10 } else { 9 };
         let cur_page = selected / page_sz;
         let page_start = cur_page * page_sz;
         let page_end = (page_start + page_sz).min(candidates.len());
@@ -1690,38 +1701,38 @@ pub fn show_about_dialog(hwnd: HWND) {
     let (title, msg) = if ui_lang == "en-US" || is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
         (
             "About RuhI",
-            "RuhI — Responsive Universal Human Input\nVersion: 0.5.5 (Release)\nFlowing like clouds and water, effortless and joyful."
+            "RuhI — Responsive Universal Human Input\nVersion: 0.7.0 (Release)\nFlowing like clouds and water, effortless and joyful."
         )
     } else {
         match kb_mode.as_str() {
             "japanese" | "kana" | "romaji" => (
                 "RuhI について",
-                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.5.5 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.7.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
             ),
             "korean" | "ko" | "hangul" | "romaja" => (
                 "RuhI 정보",
-                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.5.5 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.7.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
             ),
             "iast" | "sanskrit" => (
                 "About RuhI (IAST)",
-                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.5.5 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
+                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.7.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
             ),
             "thai" => (
                 "เกี่ยวกับ RuhI",
-                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.5.5 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
+                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.7.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
             ),
             _ if ui_lang == "ja-JP" => (
                 "RuhI について",
-                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.5.5 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.7.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
             ),
             _ if ui_lang == "ko-KR" => (
                 "RuhI 정보",
-                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.5.5 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.7.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
             ),
-            // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列等）：
+            // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列、四角、龍龕等）：
             _ => (
                 "關於如喜",
-                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.5.5 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
+                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.7.0 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
             ),
         }
     };
@@ -1901,7 +1912,8 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
     if state.is_candidates_only || state.input_display_mode == "inline_underline" {
         let has_coach = !state.array30_coach_hint.is_empty();
         let coach_h = if has_coach { (28.0 * state.dpi_scale) as i32 } else { 0 };
-        let use_ar30_num_keys = state.is_array30_live_preview && !state.is_cand_selecting;
+        let is_fc_mode = matches!(state.keyboard_mode.to_lowercase().as_str(), "four_corner" | "4corner" | "fc");
+        let use_ar30_num_keys = is_fc_mode || (state.is_array30_live_preview && !state.is_cand_selecting);
         let page_sz = if use_ar30_num_keys { 10 } else { 9 };
         let cur_page = state.selected_index / page_sz;
         let page_start = cur_page * page_sz;
@@ -2264,7 +2276,8 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
         // 2. 候選欄 (Candidate Panel) — 底色 bg_cand，候選字體大小獨立受 candidate_font_size 控制
         let show_cand_panel = (state.is_cand_selecting || state.is_array30_live_preview) && !state.candidates.is_empty();
-        let use_ar30_num_keys = state.is_array30_live_preview && !state.is_cand_selecting;
+        let is_fc_mode = matches!(state.keyboard_mode.to_lowercase().as_str(), "four_corner" | "4corner" | "fc");
+        let use_ar30_num_keys = is_fc_mode || (state.is_array30_live_preview && !state.is_cand_selecting);
         let page_sz = if use_ar30_num_keys { 10 } else { 9 };
 
         if show_cand_panel {
@@ -2665,6 +2678,8 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             "standard" | "daikien" | "dachen" | "bopomofo" => "注",
             "cangjie" => "倉",
             "array30" | "ar30" => "行",
+            "four_corner" | "4corner" | "fc" => "四",
+            "longkan" | "lk" => "龍",
             "et26" | "eten26" => "倚",
             "et41" => "41",
             "pinyin" => "拼",
@@ -2769,8 +2784,10 @@ pub fn save_keyboard_mode_with_last(mode: &str, last_mode: Option<&str>) {
             if let Ok(content) = std::fs::read_to_string(st_path) {
                 if let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&content) {
                     if let Some(kb) = val.get_mut("keyboard").and_then(|v| v.as_object_mut()) {
+                        kb.insert("layout".to_string(), serde_json::Value::from(mode));
                         kb.insert("default_mode".to_string(), serde_json::Value::from(mode));
                         if let Some(ref lm) = resolved_last {
+                            kb.insert("last_keyboard_mode".to_string(), serde_json::Value::from(lm.clone()));
                             kb.insert("last_mode".to_string(), serde_json::Value::from(lm.clone()));
                         }
                         if let Ok(new_content) = serde_json::to_string_pretty(&val) {
@@ -3092,21 +3109,10 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                     || (mode_code == "standard" && cur_kb == "daikien")
                     || (mode_code == "et26" && cur_kb == "eten26")
                     || (mode_code == "array30" && cur_kb == "ar30")
+                    || (mode_code == "four_corner" && (cur_kb == "4corner" || cur_kb == "fc"))
+                    || (mode_code == "longkan" && cur_kb == "lk")
                     || (mode_code == "japanese" && (cur_kb == "jp" || cur_kb == "romaji" || cur_kb == "kana"))
                     || (mode_code == "korean" && (cur_kb == "ko" || cur_kb == "hangul" || cur_kb == "romaja"));
-                let is_enabled_in_loop = enabled_modes.is_empty()
-                    || enabled_modes.iter().any(|m| {
-                        let m_low = m.to_lowercase();
-                        m_low == mode_code
-                            || (mode_code == "standard" && m_low == "daikien")
-                            || (mode_code == "et26" && m_low == "eten26")
-                            || (mode_code == "array30" && m_low == "ar30")
-                            || (mode_code == "japanese" && (m_low == "jp" || m_low == "romaji" || m_low == "kana"))
-                            || (mode_code == "korean" && (m_low == "ko" || m_low == "hangul" || m_low == "romaja"))
-                    });
-                if !is_enabled_in_loop && !is_active {
-                    continue;
-                }
                 let wide: Vec<u16> = label.encode_utf16().chain(Some(0)).collect();
                 let flags = if is_active { MF_STRING | MF_CHECKED } else { MF_STRING };
                 let _ = AppendMenuW(hmenu, flags, id as usize, PCWSTR(wide.as_ptr()));
@@ -3340,6 +3346,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 2007 => Some("array30"),
                 2009 => Some("korean"),
                 2010 => Some("four_corner"),
+                2013 => Some("longkan"),
                 _ => None,
             };
             if let Some(m) = chosen_mode {

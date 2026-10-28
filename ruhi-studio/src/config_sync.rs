@@ -118,10 +118,20 @@ pub struct KeyboardSettings {
     pub q_cycle_max: i32,
     #[serde(default)]
     pub enable_array30_coach: bool,
+    #[serde(default = "default_reverse_coach_target")]
+    pub reverse_coach_target: String,
     #[serde(default = "default_four_corner_keymap")]
     pub four_corner_keymap: String,
     #[serde(default = "default_last_keyboard_mode")]
     pub last_keyboard_mode: String,
+    #[serde(default = "default_aux_ime_mode")]
+    pub backtick_inline_mode: String,
+    #[serde(default = "default_aux_ime_mode")]
+    pub tilde_toggle_mode: String,
+}
+
+fn default_reverse_coach_target() -> String {
+    "none".to_string()
 }
 
 fn default_four_corner_keymap() -> String {
@@ -132,11 +142,19 @@ fn default_last_keyboard_mode() -> String {
     "english".to_string()
 }
 
+fn default_aux_ime_mode() -> String {
+    "longkan".to_string()
+}
+
 impl Default for KeyboardSettings {
     fn default() -> Self {
         Self {
             layout: "hsu".to_string(),
-            enabled_keyboard_modes: vec!["hsu".to_string(), "japanese".to_string()],
+            enabled_keyboard_modes: vec![
+                "hsu".to_string(),
+                "longkan".to_string(),
+                "japanese".to_string(),
+            ],
             space_behavior: "commit_first".to_string(),
             capslock_switch: "capital_lock".to_string(),
             candidate_keys: "123456789".to_string(),
@@ -147,8 +165,11 @@ impl Default for KeyboardSettings {
             punctuation_commit_mode: "A".to_string(),
             q_cycle_max: 3,
             enable_array30_coach: false,
+            reverse_coach_target: "none".to_string(),
             four_corner_keymap: "blind_closed_loop".to_string(),
             last_keyboard_mode: "english".to_string(),
+            backtick_inline_mode: "longkan".to_string(),
+            tilde_toggle_mode: "longkan".to_string(),
         }
     }
 }
@@ -562,12 +583,29 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
         }
         if let Some(v) = kb.get("enable_array30_coach").and_then(Value::as_bool) {
             settings.keyboard.enable_array30_coach = v;
+            if v && (settings.keyboard.reverse_coach_target.is_empty() || settings.keyboard.reverse_coach_target == "none") {
+                settings.keyboard.reverse_coach_target = "array30".to_string();
+            }
+        }
+        if let Some(v) = kb.get("reverse_coach_target").and_then(Value::as_str) {
+            settings.keyboard.reverse_coach_target = v.to_string();
+            settings.keyboard.enable_array30_coach = v == "array30";
         }
         if let Some(v) = kb.get("four_corner_keymap").and_then(Value::as_str) {
             settings.keyboard.four_corner_keymap = v.to_string();
         }
         if let Some(v) = kb.get("last_keyboard_mode").and_then(Value::as_str) {
             settings.keyboard.last_keyboard_mode = v.to_string();
+        }
+        if let Some(v) = kb.get("backtick_inline_mode").and_then(Value::as_str) {
+            if !v.trim().is_empty() {
+                settings.keyboard.backtick_inline_mode = v.trim().to_string();
+            }
+        }
+        if let Some(v) = kb.get("tilde_toggle_mode").and_then(Value::as_str) {
+            if !v.trim().is_empty() {
+                settings.keyboard.tilde_toggle_mode = v.trim().to_string();
+            }
         }
     }
 
@@ -666,8 +704,28 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
     if let Some(v) = map.get("keyboard_mode").and_then(Value::as_str) {
         settings.keyboard.layout = v.to_string();
     }
+    if let Some(arr) = map.get("enabled_keyboard_modes").and_then(Value::as_array) {
+        let modes: Vec<String> = arr
+            .iter()
+            .filter_map(Value::as_str)
+            .map(|s| s.to_string())
+            .collect();
+        if !modes.is_empty() {
+            settings.keyboard.enabled_keyboard_modes = modes;
+        }
+    }
     if let Some(v) = map.get("last_keyboard_mode").and_then(Value::as_str) {
         settings.keyboard.last_keyboard_mode = v.to_string();
+    }
+    if let Some(v) = map.get("backtick_inline_mode").and_then(Value::as_str) {
+        if !v.trim().is_empty() {
+            settings.keyboard.backtick_inline_mode = v.trim().to_string();
+        }
+    }
+    if let Some(v) = map.get("tilde_toggle_mode").and_then(Value::as_str) {
+        if !v.trim().is_empty() {
+            settings.keyboard.tilde_toggle_mode = v.trim().to_string();
+        }
     }
     if let Some(v) = map.get("capslock_switch").and_then(Value::as_str) {
         settings.keyboard.capslock_switch = v.to_string();
@@ -680,6 +738,13 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
     }
     if let Some(v) = map.get("enable_array30_coach").and_then(Value::as_bool) {
         settings.keyboard.enable_array30_coach = v;
+        if v && (settings.keyboard.reverse_coach_target.is_empty() || settings.keyboard.reverse_coach_target == "none") {
+            settings.keyboard.reverse_coach_target = "array30".to_string();
+        }
+    }
+    if let Some(v) = map.get("reverse_coach_target").and_then(Value::as_str) {
+        settings.keyboard.reverse_coach_target = v.to_string();
+        settings.keyboard.enable_array30_coach = v == "array30";
     }
     if let Some(v) = map.get("four_corner_keymap").and_then(Value::as_str) {
         settings.keyboard.four_corner_keymap = v.to_string();
@@ -834,6 +899,14 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             json!(settings.keyboard.enabled_keyboard_modes),
         );
         map.insert(
+            "backtick_inline_mode".to_string(),
+            json!(settings.keyboard.backtick_inline_mode),
+        );
+        map.insert(
+            "tilde_toggle_mode".to_string(),
+            json!(settings.keyboard.tilde_toggle_mode),
+        );
+        map.insert(
             "space_behavior".to_string(),
             json!(settings.keyboard.space_behavior),
         );
@@ -852,6 +925,10 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
         map.insert(
             "enable_array30_coach".to_string(),
             json!(settings.keyboard.enable_array30_coach),
+        );
+        map.insert(
+            "reverse_coach_target".to_string(),
+            json!(settings.keyboard.reverse_coach_target),
         );
         map.insert(
             "four_corner_keymap".to_string(),

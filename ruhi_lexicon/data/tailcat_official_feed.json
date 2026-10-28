@@ -2,11 +2,11 @@
   "compat_feeds": {
     "1": "https://raw.githubusercontent.com/Yuktesha/ruhi/main/ruhi_lexicon/data/tailcat_official_feed.json"
   },
-  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v0.6.0/RuhI_Setup_v0.6.0.exe",
-  "latest_version": "0.6.0",
+  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v0.7.0/RuhI_Setup_v0.7.0.exe",
+  "latest_version": "0.7.0",
   "min_compat_version": "0.4.0",
   "protocol": "RUHI_TAILCAT_FEDERATED_SEMANTIC_V1",
-  "release_notes": "RuhI v0.6.0：新增「如喜智慧型四角號碼輸入法（4×5 九宮格小鍵盤專責編碼 × 主鍵盤免切換直出英數）」、76,299 條三軌混合碼表（單字 XXXX 與 `-` 詞前導 `-XXXX / -XXXXX / -XXXXXX` 零碰撞分流）、4K 互動拆角教學工作台與計算語言學構式擴充。",
+  "release_notes": "RuhI v0.7.0：(1) 新增全新發明「龍龕形音輸入法」——完全不懂漢字的外國人可利用英文字母外型拼湊輸入漢字（如 OI=中、OOO=品、BD=明），並完全支援「有邊讀邊、沒邊念中間」的漢字部件發音組合成字（如 金+甫=鋪、合+龍=龕、言+身+寸=謝）；(2) 各輸入模組在同一個輸入座中滑順交互支援（單按 ` 臨時輸入單一字/詞後即刻返回、連按 `` 開啟自訂文字範本、單按 ~ 雙向切換輔助輸入法、連按 ~~ 開啟數字快打、Shift+← 標記 + Tab 事後拆字融合、Ctrl/Shift+CapsLock 切換順序手動排序）；(3) 7合1 跨輸入法反查教練與 4K 互動拆碼工作台。",
   "telemetry_intake_url": "https://script.google.com/macros/s/AKfycbzH-n5YhBFSUPZUiUWfZXw46qp9OYliLlnijGmHMpIs4F0Ve_2ZM6k2mNpeoSnU6NMt/exec",
   "rules": [
     {

@@ -5562,6 +5562,16 @@ mod tests {
     #[test]
     fn test_analogical_generalization_and_upsert_261019() {
         let mut tuner = SemanticTuner::new(None);
+        // 沙盒隔離：將寫入目標重導向至系統暫存目錄，嚴禁單元測試污染 Git 追蹤之正式詞庫檔
+        let sandbox_dir = std::env::temp_dir().join("ruhi_tuner_upsert_sandbox");
+        let _ = std::fs::create_dir_all(&sandbox_dir);
+        for fname in ["patterns_user.jsonl", "lexicon_domain.tsv", "transitions_user.tsv"] {
+            let src = tuner.data_dir.join(fname);
+            if src.is_file() {
+                let _ = std::fs::copy(&src, sandbox_dir.join(fname));
+            }
+        }
+        tuner.data_dir = sandbox_dir.clone();
         let pairs = [
             ("兜完攻了。", "都完工了。"),
             (
@@ -5654,13 +5664,15 @@ mod tests {
         assert!(suppressed >= 9, "Expected >=9 Type C suppressed colliding pairs via exclude_pairs, got {}", suppressed);
         assert_eq!(unsuppressed, 0, "Expected 0 unresolved active homophone collisions, got {:?}", audit["unsuppressed_collisions"]);
 
-        let mut consultant = crate::ai_consultant::AISemanticConsultant::new(Some(&tuner.root));
+        let sandbox_root = std::env::temp_dir().join("ruhi_consultant_handover_sandbox");
+        let _ = std::fs::create_dir_all(&sandbox_root);
+        let mut consultant = crate::ai_consultant::AISemanticConsultant::new(Some(&sandbox_root));
         let handover = consultant.get_recommended_models_and_handover_spec(&tuner);
         assert_eq!(handover["auto_delivered"], true);
         let delivered = handover["delivered_files"].as_array().unwrap();
         assert!(delivered.len() >= 3, "Expected 3 handover files auto-delivered to disk");
-        assert!(tuner.root.join("docs").join("AI_SEMANTIC_HANDOVER.md").is_file());
-        assert!(tuner.root.join(".agent").join("skills").join("ruhi-semantic-tuning").join("SKILL.md").is_file());
+        assert!(sandbox_root.join("docs").join("AI_SEMANTIC_HANDOVER.md").is_file());
+        assert!(sandbox_root.join(".agent").join("skills").join("ruhi-semantic-tuning").join("SKILL.md").is_file());
     }
 
     #[test]
@@ -5820,7 +5832,10 @@ mod tests {
 
     #[test]
     fn test_recent_txt_history_no_zombie_resurrection_261021() {
-        let tuner = SemanticTuner::new(None);
+        let mut tuner = SemanticTuner::new(None);
+        let sandbox_dir = std::env::temp_dir().join("ruhi_tuner_recent_txt_sandbox");
+        let _ = std::fs::create_dir_all(&sandbox_dir);
+        tuner.data_dir = sandbox_dir;
         // 清空後重新讀取，驗證絕不掃描桌面自動塞回『語意分析*.txt』
         let cleared = tuner.update_recent_txt_history("clear", "", "", 0);
         assert!(cleared.is_empty(), "Cleared recent txt history must remain empty on reload");

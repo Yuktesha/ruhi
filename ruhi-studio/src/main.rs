@@ -134,7 +134,7 @@ impl StudioCategory {
             ("en-US", StudioCategory::AppearanceThemeCapsule) => "└─ 🎭 Theme & Status Capsule",
             ("en-US", StudioCategory::KeyboardLayout) => "⌨ Keyboard & Eurasian Tree",
             ("en-US", StudioCategory::KeyboardCjkPhonetic) => "├─ 🔊 C: Phonetic (Bopomofo)",
-            ("en-US", StudioCategory::KeyboardCjkShape) => "├─ 🧩 C: Shape & Numeric",
+            ("en-US", StudioCategory::KeyboardCjkShape) => "├─ 🐉 C: Longkan, Shape & Num",
             ("en-US", StudioCategory::KeyboardJkEurasian) => "├─ 🌍 JK & Eurasian Tree",
             ("en-US", StudioCategory::KeyboardHotkeysPunct) => "└─ ⚡ Hotkeys & Punctuation",
             ("en-US", StudioCategory::MixedEnglish) => "🔤 Mixed Latin Input",
@@ -149,7 +149,7 @@ impl StudioCategory {
             ("ja-JP", StudioCategory::AppearanceThemeCapsule) => "└─ 🎭 テーマと状態カプセル",
             ("ja-JP", StudioCategory::KeyboardLayout) => "⌨ キー配列とユーラシア系統樹",
             ("ja-JP", StudioCategory::KeyboardCjkPhonetic) => "├─ 🔊 漢語(C)：表音・注音系",
-            ("ja-JP", StudioCategory::KeyboardCjkShape) => "├─ 🧩 漢語(C)：字形・数値コード",
+            ("ja-JP", StudioCategory::KeyboardCjkShape) => "├─ 🐉 漢語(C)：龍龕形音・字形コード",
             ("ja-JP", StudioCategory::KeyboardJkEurasian) => "├─ 🌍 日韓(JK)・欧亜全系統樹",
             ("ja-JP", StudioCategory::KeyboardHotkeysPunct) => "└─ ⚡ 切替キーと句読点設定",
             ("ja-JP", StudioCategory::MixedEnglish) => "🔤 欧文混在入力",
@@ -164,7 +164,7 @@ impl StudioCategory {
             ("ko-KR", StudioCategory::AppearanceThemeCapsule) => "└─ 🎭 테마 및 상태 캡슐",
             ("ko-KR", StudioCategory::KeyboardLayout) => "⌨ 키보드 배열 및 유라시아 트리",
             ("ko-KR", StudioCategory::KeyboardCjkPhonetic) => "├─ 🔊 한어(C): 표음/주음계",
-            ("ko-KR", StudioCategory::KeyboardCjkShape) => "├─ 🧩 한어(C): 자형/숫자코드",
+            ("ko-KR", StudioCategory::KeyboardCjkShape) => "├─ 🐉 한어(C): 용감형음/자형코드",
             ("ko-KR", StudioCategory::KeyboardJkEurasian) => "├─ 🌍 일한(JK) 및 유라시아 트리",
             ("ko-KR", StudioCategory::KeyboardHotkeysPunct) => "└─ ⚡ 빠른 전환 및 문장부호",
             ("ko-KR", StudioCategory::MixedEnglish) => "🔤 영문 혼용 입력",
@@ -180,7 +180,7 @@ impl StudioCategory {
                 StudioCategory::AppearanceThemeCapsule => "└─ 🎭 色彩主題與狀態指示",
                 StudioCategory::KeyboardLayout => "⌨ 鍵盤配置與常用鍵",
                 StudioCategory::KeyboardCjkPhonetic => "├─ 🔊 漢語(C)：音韻注音系",
-                StudioCategory::KeyboardCjkShape => "├─ 🧩 漢語(C)：字形與數位碼",
+                StudioCategory::KeyboardCjkShape => "├─ 🐉 漢語(C)：龍龕形音與字形碼",
                 StudioCategory::KeyboardJkEurasian => "├─ 🌍 日韓(JK)與歐亞全譜樹",
                 StudioCategory::KeyboardHotkeysPunct => "└─ ⚡ 快速切換與標點常用鍵",
                 StudioCategory::MixedEnglish => "🔤 許氏＋歐文混打",
@@ -199,7 +199,7 @@ impl StudioCategory {
             ("en-US", StudioCategory::AppearanceCandidateDesk) => "📐 Layout & Fonts",
             ("en-US", StudioCategory::AppearanceThemeCapsule) => "🎭 Theme & Capsule",
             ("en-US", StudioCategory::KeyboardCjkPhonetic) => "🔊 C: Phonetic",
-            ("en-US", StudioCategory::KeyboardCjkShape) => "🧩 C: Shape & Num",
+            ("en-US", StudioCategory::KeyboardCjkShape) => "🐉 C: Longkan & Shape",
             ("en-US", StudioCategory::KeyboardJkEurasian) => "🌍 JK & Eurasian Tree",
             ("en-US", StudioCategory::KeyboardHotkeysPunct) => "⚡ Hotkeys & Punct",
             ("ja-JP", StudioCategory::AppearanceLang) => "🌐 表示言語",
@@ -207,7 +207,7 @@ impl StudioCategory {
             ("ja-JP", StudioCategory::AppearanceCandidateDesk) => "📐 候補配列とフォント",
             ("ja-JP", StudioCategory::AppearanceThemeCapsule) => "🎭 テーマとカプセル",
             ("ja-JP", StudioCategory::KeyboardCjkPhonetic) => "🔊 漢語(C)：表音・注音",
-            ("ja-JP", StudioCategory::KeyboardCjkShape) => "🧩 漢語(C)：字形・数値",
+            ("ja-JP", StudioCategory::KeyboardCjkShape) => "🐉 漢語(C)：龍龕・字形",
             ("ja-JP", StudioCategory::KeyboardJkEurasian) => "🌍 日韓(JK)・欧亜系統樹",
             ("ja-JP", StudioCategory::KeyboardHotkeysPunct) => "⚡ 切替キーと句読点",
             ("ko-KR", StudioCategory::AppearanceLang) => "🌐 인터페이스 언어",
@@ -215,7 +215,7 @@ impl StudioCategory {
             ("ko-KR", StudioCategory::AppearanceCandidateDesk) => "📐 배열 및 글꼴 크기",
             ("ko-KR", StudioCategory::AppearanceThemeCapsule) => "🎭 테마 및 상태 캡슐",
             ("ko-KR", StudioCategory::KeyboardCjkPhonetic) => "🔊 한어(C): 표음/주음",
-            ("ko-KR", StudioCategory::KeyboardCjkShape) => "🧩 한어(C): 자형/숫자",
+            ("ko-KR", StudioCategory::KeyboardCjkShape) => "🐉 한어(C): 용감/자형",
             ("ko-KR", StudioCategory::KeyboardJkEurasian) => "🌍 일한(JK) 및 유라시아 트리",
             ("ko-KR", StudioCategory::KeyboardHotkeysPunct) => "⚡ 빠른 전환 및 문장부호",
             (_, StudioCategory::AppearanceLang) => "🌐 介面顯示語系",
@@ -223,7 +223,7 @@ impl StudioCategory {
             (_, StudioCategory::AppearanceCandidateDesk) => "📐 候選座排列與字體尺寸",
             (_, StudioCategory::AppearanceThemeCapsule) => "🎭 色彩主題與狀態指示",
             (_, StudioCategory::KeyboardCjkPhonetic) => "🔊 漢語(C)：音韻注音系",
-            (_, StudioCategory::KeyboardCjkShape) => "🧩 漢語(C)：字形與數位碼",
+            (_, StudioCategory::KeyboardCjkShape) => "🐉 漢語(C)：龍龕形音與字形碼",
             (_, StudioCategory::KeyboardJkEurasian) => "🌍 日韓(JK)與歐亞全譜樹",
             (_, StudioCategory::KeyboardHotkeysPunct) => "⚡ 快速切換與標點常用鍵",
             _ => self.sidebar_label_i18n(ui_lang),
@@ -491,6 +491,10 @@ pub struct RuhiStudioApp {
     pub last_wakeup_ts: u64,
     pub last_config_mtime: Option<std::time::SystemTime>,
     pub cli_lang_override: Option<String>,
+    // 九九圓滿 (81 日 & 81,000 字雙重達標) 試用與跨平台通行碼終身授權狀態
+    pub entitlement: ruhi::EntitlementManager,
+    pub passcode_input: String,
+    pub passcode_feedback: String,
 }
 
 impl RuhiStudioApp {
@@ -556,6 +560,9 @@ impl RuhiStudioApp {
             })
             .unwrap_or(0);
 
+        let entitlement = ruhi::EntitlementManager::new();
+        let passcode_input = entitlement.license_passcode.clone();
+
         Self {
             root_dir,
             data_dir,
@@ -583,6 +590,9 @@ impl RuhiStudioApp {
             last_wakeup_ts,
             last_config_mtime,
             cli_lang_override,
+            entitlement,
+            passcode_input,
+            passcode_feedback: String::new(),
         }
     }
 
@@ -1297,11 +1307,13 @@ impl RuhiStudioApp {
             "hsu" => "許氏雙拼注音 (許)",
             "standard" => "標準大千注音 (注)",
             "et26" => "倚天 26 鍵注音 (倚)",
+            "longkan" | "lk" => "龍龕形音 4 碼 (龍)",
             "array30" => "行列 30 (行)",
             "cangjie" => "倉頡 (倉)",
             "four_corner" => "四角號碼 4×5 (四)",
             "japanese" => "日文羅馬字 (日)",
             "korean" => "韓文羅馬拼音 (韓)",
+            "english" | "en" => "英數／歐文直通 (英)",
             _ => "自訂模式",
         }
     }
@@ -1334,7 +1346,7 @@ impl RuhiStudioApp {
         });
         ui.add_space(6.0);
 
-        // 頂部即時狀態條：顯示當前預設輸入法與快速切換迴圈成員
+        // 頂部即時狀態與一鍵切換控制條：支援直接下拉切換或單擊徽章切換當前預設輸入法（含龍龕形音 4 碼）
         egui::Frame::NONE
             .fill(palette.bg_surface.to_egui())
             .stroke(egui::Stroke::new(1.0_f32, palette.border.to_egui()))
@@ -1345,15 +1357,83 @@ impl RuhiStudioApp {
             ))
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
+                let mut quick_mode_changed = false;
                 ui.horizontal_wrapped(|ui| {
-                    let def_name = Self::mode_code_display_name(&self.settings.keyboard.layout);
                     ui.label(
-                        egui::RichText::new(format!("🎯 當前預設輸入法：{def_name}"))
-                            .size(12.5 * scale)
+                        egui::RichText::new("🎯 當前使用輸入法：")
+                            .size(12.8 * scale)
                             .strong()
                             .color(palette.accent.to_egui()),
                     );
-                    ui.add_space(12.0 * scale);
+                    let cur_def_name = Self::mode_code_display_name(&self.settings.keyboard.layout);
+                    egui::ComboBox::from_id_salt("ruhi_kb_branch_top_mode_combo")
+                        .selected_text(
+                            egui::RichText::new(cur_def_name)
+                                .size(12.8 * scale)
+                                .strong(),
+                        )
+                        .width(210.0 * scale)
+                        .show_ui(ui, |ui| {
+                            for (code, label) in [
+                                ("hsu", "許氏雙拼注音 (許)"),
+                                ("longkan", "🐉 龍龕形音 4 碼 (龍)［外國人友善］"),
+                                ("four_corner", "智慧型四角號碼 4×5 (四)"),
+                                ("array30", "行列 30 輸入法 (行)"),
+                                ("cangjie", "倉頡輸入法 (倉)"),
+                                ("standard", "標準大千注音 (注)"),
+                                ("et26", "倚天 26 鍵注音 (倚)"),
+                                ("japanese", "日文羅馬字 (日)"),
+                                ("korean", "韓文羅馬拼音 (韓)"),
+                            ] {
+                                if ui
+                                    .selectable_value(
+                                        &mut self.settings.keyboard.layout,
+                                        code.to_string(),
+                                        label,
+                                    )
+                                    .changed()
+                                {
+                                    quick_mode_changed = true;
+                                }
+                            }
+                        });
+
+                    ui.add_space(6.0 * scale);
+                    for (code, pill_lbl) in [
+                        ("hsu", "許 雙拼"),
+                        ("longkan", "🐉 龍 龍龕形音"),
+                        ("four_corner", "四 四角4×5"),
+                        ("array30", "行 行列30"),
+                        ("cangjie", "倉 倉頡"),
+                        ("standard", "注 大千"),
+                        ("et26", "倚 倚天26"),
+                        ("japanese", "日 日文"),
+                        ("korean", "韓 韓文"),
+                    ] {
+                        let is_cur = self.settings.keyboard.layout == code;
+                        if ui
+                            .selectable_label(
+                                is_cur,
+                                egui::RichText::new(pill_lbl).size(11.8 * scale).strong(),
+                            )
+                            .on_hover_text(format!(
+                                "一鍵切換當前輸入法為：{}",
+                                Self::mode_code_display_name(code)
+                            ))
+                            .clicked()
+                            && !is_cur
+                        {
+                            self.settings.keyboard.layout = code.to_string();
+                            quick_mode_changed = true;
+                        }
+                    }
+                });
+                if quick_mode_changed {
+                    self.auto_save_settings_quiet();
+                }
+
+                ui.add_space(3.0 * scale);
+                ui.horizontal_wrapped(|ui| {
                     let cycle_names: Vec<&str> = self
                         .settings
                         .keyboard
@@ -1368,9 +1448,11 @@ impl RuhiStudioApp {
                     };
                     ui.label(
                         egui::RichText::new(format!(
-                            "🔄 快速切換迴圈 (Ctrl/Shift+CapsLock)：{cycle_str}"
+                            "🔄 快速切換迴圈 (Ctrl/Shift+CapsLock)：{cycle_str} ｜ 臨時單字/詞 (`)：{} ｜ 雙向切換 (~)：{}",
+                            Self::mode_code_display_name(&self.settings.keyboard.backtick_inline_mode),
+                            Self::mode_code_display_name(&self.settings.keyboard.tilde_toggle_mode),
                         ))
-                        .size(12.0 * scale)
+                        .size(11.8 * scale)
                         .color(palette.fg_muted.to_egui()),
                     );
                 });
@@ -1555,7 +1637,7 @@ impl RuhiStudioApp {
                     ui.group(|ui| {
                         ui.set_min_width(ui.available_width());
                         ui.label(
-                            egui::RichText::new("↳ 許氏雙拼專屬進階調校（Q 鍵候選輪換 & 行列 30 反查教練）")
+                            egui::RichText::new("↳ 許氏雙拼專屬進階調校（Q 鍵快速候選輪換）")
                                 .size(13.0 * scale)
                                 .strong(),
                         );
@@ -1579,19 +1661,21 @@ impl RuhiStudioApp {
                             .size(11.8 * scale)
                             .color(palette.fg_muted.to_egui()),
                         );
-                        ui.add_space(6.0);
-                        if two_tier_checkbox(
-                            ui,
-                            &mut self.settings.keyboard.enable_array30_coach,
-                            "啟用「許氏注音 ➔ 行列 30」即時反查教練提示",
-                            "使用許氏注音打字時，於候選視窗同步顯示該漢字之行列 30 筆形座標（如 18=Z）與按鍵拆碼提示，邊工作邊自然熟悉行列 30。",
-                            &palette,
-                        ) {
-                            self.auto_save_settings_quiet();
-                        }
                     });
                 });
             });
+
+            ui.add_space(6.0);
+            self.render_universal_reverse_coach_panel(ui);
+
+            ui.add_space(8.0);
+            self.render_spectrum_method_node(
+                ui,
+                Some("longkan"),
+                "龍龕形音輸入法（Longkan Morpho-Phonetic 4-Code · 龍）",
+                "CJK ▸ C ▸ 形音雙拼＋象形＋部件×數字 4 碼",
+                "致敬西元 997 年行均《龍龕手鑑》之零死記形音輸入法：統一 4 碼定長正規化，原生雙軌相容「部首讀音雙拼＋聲符雙拼（如鋪=金km+甫fu➔kmfu／許氏jnfx、龕=合he+龍lo➔helo）」、「英文字母視覺象形＋聲符＋聲調補碼（如肴=乂x+有eo➔xeo/xeo2、凶=xu1、區=cpn3）」與「部件×數字（如區=cko3、品=ko3、森=mu3、協=tli3、蕊=wsm3）」。",
+            );
 
             ui.add_space(8.0);
             self.render_spectrum_method_node(
@@ -1650,14 +1734,25 @@ impl RuhiStudioApp {
     /// 鍵盤樹狀分枝二：🌏 CJK ▸ 🇹🇼 漢語(C)：字形與數位碼
     fn render_keyboard_cjk_shape_page(&mut self, ui: &mut egui::Ui) {
         self.render_keyboard_branch_switcher(ui);
-        let palette = self.shell.palette;
         let scale = self.shell.ui_scale;
 
         ui.group(|ui| {
             ui.set_min_width(ui.available_width());
-            ui.heading("🌏 東亞漢字文化圈 (CJK) ▸ 🇹🇼 漢語支 (C) ▸ 🧩 字形拆碼與數位檢字系 (Structural & Numeric)");
+            ui.heading("🌏 東亞漢字文化圈 (CJK) ▸ 🇹🇼 漢語支 (C) ▸ 🧩 字形拆碼與數位檢字系 (Structural, Morpho-Phonetic & Numeric)");
             ui.add_space(6.0);
 
+            self.render_spectrum_method_node(
+                ui,
+                Some("longkan"),
+                "龍龕形音輸入法（Longkan Morpho-Phonetic 4-Code · 龍）",
+                "CJK ▸ C ▸ 形音雙拼＋象形＋部件×數字 4 碼",
+                "致敬西元 997 年行均《龍龕手鑑》之零死記形音輸入法：統一 4 碼定長正規化，原生雙軌相容「部首讀音雙拼＋聲符雙拼（如鋪=金km+甫fu➔kmfu／許氏jnfx、龕=合he+龍lo➔helo）」、「英文字母視覺象形＋聲符＋聲調補碼（如肴=乂x+有eo➔xeo/xeo2、凶=xu1、區=cpn3）」與「部件×數字（如區=cko3、品=ko3、森=mu3、協=tli3、蕊=wsm3）」。",
+            );
+
+            ui.add_space(6.0);
+            self.render_entitlement_card(ui);
+
+            ui.add_space(8.0);
             self.render_spectrum_method_node(
                 ui,
                 Some("array30"),
@@ -1665,25 +1760,6 @@ impl RuhiStudioApp {
                 "CJK ▸ C ▸ 筆形座標字根",
                 "以 0~9 十種基本筆形搭配首尾座標定位於 30 鍵，內建一二級簡碼、?/* 萬用字元查詢與 W 鍵十類符號表。",
             );
-
-            ui.horizontal(|ui| {
-                ui.add_space(18.0 * scale);
-                ui.vertical(|ui| {
-                    ui.add_space(6.0);
-                    ui.group(|ui| {
-                        ui.set_min_width(ui.available_width());
-                        if two_tier_checkbox(
-                            ui,
-                            &mut self.settings.keyboard.enable_array30_coach,
-                            "↳ 啟用「許氏注音 ➔ 行列 30」即時反查教練提示",
-                            "專為文字型思考者設計：在使用許氏注音打字組字、選字或上屏時，於候選視窗同步顯示該漢字之行列 30 筆形座標（如 18=Z）與按鍵拆碼提示。",
-                            &palette,
-                        ) {
-                            self.auto_save_settings_quiet();
-                        }
-                    });
-                });
-            });
 
             ui.add_space(8.0);
             self.render_spectrum_method_node(
@@ -1700,7 +1776,7 @@ impl RuhiStudioApp {
                 Some("four_corner"),
                 "智慧型四角號碼（Four-Corner 4×5 Numpad · 四）",
                 "CJK ▸ C ▸ 4×5 數位小鍵盤",
-                "王雲五四角號碼數位化演進版：專為右側 4×5 數字小鍵盤單手盲打設計，支援前兩角雙字簡碼、正異體字形共享與「.」萬用字元查詢。",
+                "王雲五四角號碼數位化演進版：專為右側 4×5 數字小鍵盤單手盲打設計，支援「-」詞彙前導（二字 4 碼 -1,2+1,2 ／ 三字以上 -1,3[1×n]2,4）、正異體字形共享與「*」萬用字元查詢。",
             );
 
             // 四角號碼專屬子設定（4×5 小鍵盤外圍符號鍵行為）
@@ -1723,7 +1799,7 @@ impl RuhiStudioApp {
                             .radio_value(
                                 &mut self.settings.keyboard.four_corner_keymap,
                                 "blind_closed_loop".to_string(),
-                                "小鍵盤全盲打閉環（預設推薦：+確認首選、*次選與1~9選字、/標點速選面板、-快速退格、.萬用字元?）",
+                                "小鍵盤全盲打端到端流程（預設推薦：- 詞前導／上頁、+ 字詞分隔／下頁、/ 字詞選單、1~0 快選、. 30 標點選單、* 萬用字元、Enter 整句完稿）",
                             )
                             .changed()
                         {
@@ -1733,7 +1809,7 @@ impl RuhiStudioApp {
                             .radio_value(
                                 &mut self.settings.keyboard.four_corner_keymap,
                                 "direct_punct".to_string(),
-                                "小鍵盤直出標點模式（+確認首選、*直出「。」、/直出「，」、-直出「？」、.觸發1~9選字／萬用字元）",
+                                "小鍵盤直出標點模式（+ 確認首選、* 直出「。」、/ 直出「，」、- 直出「？」、. 觸發選字／萬用字元）",
                             )
                             .changed()
                         {
@@ -1745,6 +1821,9 @@ impl RuhiStudioApp {
                     });
                 });
             });
+
+            ui.add_space(8.0);
+            self.render_universal_reverse_coach_panel(ui);
 
             ui.add_space(10.0);
             egui::CollapsingHeader::new(
@@ -1774,6 +1853,115 @@ impl RuhiStudioApp {
         });
     }
 
+    /// 開啟「跨輸入法互動查碼與拆碼教學工作台」(`docs/ruhi_interactive_workbench.html`)
+    fn open_interactive_workbench(&mut self) {
+        let mut candidates = vec![
+            self.root_dir.join("docs").join("ruhi_interactive_workbench.html"),
+            self.root_dir.join("ruhi_interactive_workbench.html"),
+            self.root_dir.join("docs").join("four_corner_tutorial_anim.html"),
+            self.root_dir.join("four_corner_tutorial_anim.html"),
+        ];
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            let app_docs = PathBuf::from(appdata).join("Ruhi").join("docs");
+            candidates.push(app_docs.join("ruhi_interactive_workbench.html"));
+            candidates.push(app_docs.join("four_corner_tutorial_anim.html"));
+        }
+        if let Some(found) = candidates.into_iter().find(|p| p.is_file()) {
+            let path_str = found.to_string_lossy().to_string();
+            let _ = std::process::Command::new("cmd")
+                .args(["/c", "start", "", &path_str])
+                .spawn();
+            self.shell.toasts.success(format!(
+                "已於瀏覽器開啟跨輸入法互動查碼與教學工作台：{}",
+                path_str
+            ));
+        } else {
+            self.shell
+                .toasts
+                .error("找不到 docs/ruhi_interactive_workbench.html 互動工作台檔案。");
+        }
+    }
+
+    /// 通用可擴展跨輸入法反查教練與互動拆碼工作台面板
+    fn render_universal_reverse_coach_panel(&mut self, ui: &mut egui::Ui) {
+        let palette = self.shell.palette;
+        let scale = self.shell.ui_scale;
+
+        ui.group(|ui| {
+            ui.set_min_width(ui.available_width());
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    egui::RichText::new(
+                        "🎯 通用跨輸入法反查教練 ＆ 互動拆碼教學工作台 (Universal Cross-IME Reverse-Lookup)",
+                    )
+                    .size(13.5 * scale)
+                    .strong()
+                    .color(palette.accent.to_egui()),
+                );
+                if ui
+                    .button(
+                        egui::RichText::new("🎬 開啟跨輸入法互動查碼與拆碼教學工作台 (推薦主力工具)")
+                            .size(12.5 * scale)
+                            .strong(),
+                    )
+                    .clicked()
+                {
+                    self.open_interactive_workbench();
+                }
+            });
+
+            ui.add_space(4.0);
+            ui.label(
+                egui::RichText::new(
+                    "主力推薦：點擊上方按鈕開啟全螢幕視覺化「跨輸入法互動查碼與拆碼教學工作台（docs/ruhi_interactive_workbench.html）」，貼上任何單字或整串句子，即可依所選輸入法純淨檢視或同屏對照 7 大輸入法（龍龕形音 4 碼、智慧四角 4×5、行列 30、倉頡、許氏雙拼、標準大千、倚天 26 鍵）之拆碼步驟、相容碼思考推論與互動動畫，完全不佔用日常打字時的懸浮輸入座空間！",
+                )
+                .size(11.8 * scale)
+                .color(palette.fg_muted.to_egui()),
+            );
+
+            ui.add_space(6.0);
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    egui::RichText::new("↳ 懸浮輸入座底部即時反查提示目標（選用）：")
+                        .size(12.5 * scale)
+                        .strong(),
+                );
+                let mut cur_target = if !self.settings.keyboard.reverse_coach_target.is_empty()
+                    && self.settings.keyboard.reverse_coach_target != "none"
+                {
+                    self.settings.keyboard.reverse_coach_target.clone()
+                } else if self.settings.keyboard.enable_array30_coach {
+                    "array30".to_string()
+                } else {
+                    "none".to_string()
+                };
+
+                let options = [
+                    ("none", "關閉（推薦使用互動查碼工作台）"),
+                    ("longkan", "🐉 龍龕形音 (4碼)"),
+                    ("four_corner", "🔢 智慧型四角號碼 (4×5 小鍵盤)"),
+                    ("array30", "📐 行列 30 (筆形座標)"),
+                    ("cangjie", "🔤 倉頡輸入法 (哲理字根)"),
+                    ("hsu", "🎵 許氏雙拼注音"),
+                    ("standard", "🎹 標準大千注音"),
+                    ("et26", "⌨️ 倚天 26 鍵注音"),
+                ];
+
+                let mut changed = false;
+                for (id, label) in options {
+                    if ui.radio_value(&mut cur_target, id.to_string(), label).changed() {
+                        changed = true;
+                    }
+                }
+                if changed {
+                    self.settings.keyboard.reverse_coach_target = cur_target.clone();
+                    self.settings.keyboard.enable_array30_coach = cur_target == "array30";
+                    self.auto_save_settings_quiet();
+                }
+            });
+        });
+    }
+
     /// 鍵盤樹狀分枝三：🌍 日韓(JK)與歐亞全譜系樹狀圖 (Eurasian Full-Spectrum Tree)
     fn render_keyboard_jk_eurasian_page(&mut self, ui: &mut egui::Ui) {
         self.render_keyboard_branch_switcher(ui);
@@ -1795,7 +1983,7 @@ impl RuhiStudioApp {
             // I. 東亞漢字文化圈 (CJK Sphere)
             egui::CollapsingHeader::new(
                 egui::RichText::new(
-                    "🌏 I. 東亞漢字文化圈 (CJK Sphere — Sinitic, Japonic & Koreanic) ［8 項已掛載］",
+                    "🌏 I. 東亞漢字文化圈 (CJK Sphere — Sinitic, Japonic & Koreanic) ［9 項已掛載］",
                 )
                 .size(14.0 * scale)
                 .strong(),
@@ -1817,7 +2005,7 @@ impl RuhiStudioApp {
                         ui.horizontal_wrapped(|ui| {
                             ui.label(
                                 egui::RichText::new(
-                                    "🇹🇼 漢語支 (C — Sinitic)：已掛載 6 種輸入法（音韻注音系 3 種 ＋ 字形數位系 3 種）",
+                                    "🇹🇼 漢語支 (C — Sinitic)：已掛載 7 種輸入法（音韻注音系 3 種 ＋ 形音／字形數位系 4 種）",
                                 )
                                 .size(13.0 * scale)
                                 .strong(),
@@ -2003,18 +2191,114 @@ impl RuhiStudioApp {
 
         ui.group(|ui| {
             ui.set_min_width(ui.available_width());
-            ui.heading("🔄 快速切換迴圈總表（Caps Lock 對切 ／ Ctrl+CapsLock 往後 ／ Shift+CapsLock 往前）");
+            ui.heading("🔄 快速切換迴圈總表與手動排序（Caps Lock 對切 ／ Ctrl+CapsLock 往後 ／ Shift+CapsLock 往前）");
             ui.add_space(4.0);
             ui.label(
                 egui::RichText::new(
-                    "• 單按 Caps Lock：在最近使用的「最後兩個輸入模式」間快速對切（如 許⇄英、許⇄日、行⇄英）。\n• Ctrl + Caps Lock：在下方勾選之切換清單中「往後（下一個）」循環切換。\n• Shift + Caps Lock：在下方勾選之切換清單中「往前（上一個）」循環切換。",
+                    "• 單按 Caps Lock：在最近使用的「最後兩個輸入模式」間快速對切（如 許⇄英、許⇄日、行⇄英）。\n• Ctrl + Caps Lock：依下方「手動排序清單」順序「往後（下一個）」循環切換。\n• Shift + Caps Lock：依下方「手動排序清單」順序「往前（上一個）」循環切換。",
                 )
                 .color(palette.fg_muted.to_egui()),
             );
             ui.add_space(6.0);
 
+            let mut cycle_changed = false;
+
+            // 使用者手動排序區塊（支援 ▲ 上移 / ▼ 下移 / ⏫ 移至第一順 / ✖ 移出迴圈）
+            egui::Frame::NONE
+                .fill(palette.bg_surface.to_egui())
+                .stroke(egui::Stroke::new(1.0_f32, palette.border.to_egui()))
+                .corner_radius(egui::CornerRadius::same(6))
+                .inner_margin(egui::Margin::symmetric(10, 8))
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    ui.label(
+                        egui::RichText::new("📋 目前循環切換順序（當在三種以上輸入法間以 Shift+CapsLock ／ Ctrl+CapsLock 切換時，可手動調整順序）：")
+                            .strong()
+                            .color(palette.accent.to_egui()),
+                    );
+                    ui.add_space(4.0);
+                    let len = self.settings.keyboard.enabled_keyboard_modes.len();
+                    let mut swap_action: Option<(usize, usize)> = None;
+                    let mut move_top_action: Option<usize> = None;
+                    let mut remove_action: Option<usize> = None;
+
+                    for idx in 0..len {
+                        let m_code = self.settings.keyboard.enabled_keyboard_modes[idx].clone();
+                        let is_cur_layout = self.settings.keyboard.layout == m_code;
+                        ui.horizontal_wrapped(|ui| {
+                            ui.label(
+                                egui::RichText::new(format!("第 {} 順：", idx + 1))
+                                    .strong()
+                                    .color(palette.fg_muted.to_egui()),
+                            );
+                            ui.label(
+                                egui::RichText::new(Self::mode_code_display_name(&m_code))
+                                    .strong()
+                                    .color(if is_cur_layout {
+                                        palette.accent.to_egui()
+                                    } else {
+                                        palette.fg_bright.to_egui()
+                                    }),
+                            );
+                            if is_cur_layout {
+                                ui.label(
+                                    egui::RichText::new("［當前使用中］")
+                                        .color(palette.accent.to_egui()),
+                                );
+                            }
+                            ui.add_space(6.0);
+                            if ui
+                                .add_enabled(idx > 0, egui::Button::new("▲ 上移"))
+                                .on_hover_text("在 Shift/Ctrl + Caps Lock 循環順序中往前移一位")
+                                .clicked()
+                            {
+                                swap_action = Some((idx, idx - 1));
+                            }
+                            if ui
+                                .add_enabled(idx + 1 < len, egui::Button::new("▼ 下移"))
+                                .on_hover_text("在 Shift/Ctrl + Caps Lock 循環順序中往後移一位")
+                                .clicked()
+                            {
+                                swap_action = Some((idx, idx + 1));
+                            }
+                            if ui
+                                .add_enabled(idx > 0, egui::Button::new("⏫ 移至第一順"))
+                                .on_hover_text("直接移至循環清單第一位")
+                                .clicked()
+                            {
+                                move_top_action = Some(idx);
+                            }
+                            if ui
+                                .add_enabled(len > 1 && !is_cur_layout, egui::Button::new("✖ 移出"))
+                                .on_hover_text("從循環清單中移出（當前使用中的輸入法需先切換為其他模式方可移出）")
+                                .clicked()
+                            {
+                                remove_action = Some(idx);
+                            }
+                        });
+                    }
+
+                    if let Some((a, b)) = swap_action {
+                        self.settings.keyboard.enabled_keyboard_modes.swap(a, b);
+                        cycle_changed = true;
+                    } else if let Some(idx) = move_top_action {
+                        let item = self.settings.keyboard.enabled_keyboard_modes.remove(idx);
+                        self.settings.keyboard.enabled_keyboard_modes.insert(0, item);
+                        cycle_changed = true;
+                    } else if let Some(idx) = remove_action {
+                        self.settings.keyboard.enabled_keyboard_modes.remove(idx);
+                        ensure_keyboard_modes_consistent(&mut self.settings);
+                        cycle_changed = true;
+                    }
+                });
+
+            ui.add_space(8.0);
+            ui.label(egui::RichText::new("勾選納入循環切換之輸入法（勾選後將加入上方排序清單）：").strong());
+            ui.add_space(4.0);
+
             let mode_options = [
                 ("hsu", "許氏雙拼注音 (許) ［漢語 C ▸ 音韻系］"),
+                ("longkan", "🐉 龍龕形音 4 碼輸入法 (龍) ［漢語 C ▸ 形音雙拼＋象形＋部件×數字・外國人友善］"),
                 ("standard", "標準大千注音 (注) ［漢語 C ▸ 音韻系］"),
                 ("et26", "倚天 26 鍵注音 (倚) ［漢語 C ▸ 音韻系］"),
                 ("array30", "行列 30 輸入法 (行) ［漢語 C ▸ 字形系］"),
@@ -2022,8 +2306,8 @@ impl RuhiStudioApp {
                 ("four_corner", "智慧型四角號碼 4×5 小鍵盤 (四) ［漢語 C ▸ 數位系］"),
                 ("japanese", "日文羅馬字輸入 (日) ［日韓 JK ▸ 日本語族］"),
                 ("korean", "韓文羅馬拼音輸入 (韓) ［日韓 JK ▸ 韓語族］"),
+                ("english", "英數／歐文直通模式 (英) ［泛歐印歐語系 ▸ 拉丁直通］"),
             ];
-            let mut cycle_changed = false;
             for (m_code, m_label) in mode_options {
                 let mut enabled = self
                     .settings
@@ -2031,31 +2315,141 @@ impl RuhiStudioApp {
                     .enabled_keyboard_modes
                     .iter()
                     .any(|m| m == m_code);
-                if ui.checkbox(&mut enabled, m_label).changed() {
-                    if enabled {
-                        if !self
-                            .settings
-                            .keyboard
-                            .enabled_keyboard_modes
-                            .iter()
-                            .any(|m| m == m_code)
-                        {
+                ui.horizontal_wrapped(|ui| {
+                    if ui.checkbox(&mut enabled, m_label).changed() {
+                        if enabled {
+                            if !self
+                                .settings
+                                .keyboard
+                                .enabled_keyboard_modes
+                                .iter()
+                                .any(|m| m == m_code)
+                            {
+                                self.settings
+                                    .keyboard
+                                    .enabled_keyboard_modes
+                                    .push(m_code.to_string());
+                            }
+                        } else {
                             self.settings
                                 .keyboard
                                 .enabled_keyboard_modes
-                                .push(m_code.to_string());
+                                .retain(|m| m != m_code);
                         }
-                    } else {
-                        self.settings
-                            .keyboard
-                            .enabled_keyboard_modes
-                            .retain(|m| m != m_code);
+                        ensure_keyboard_modes_consistent(&mut self.settings);
+                        cycle_changed = true;
                     }
-                    ensure_keyboard_modes_consistent(&mut self.settings);
-                    cycle_changed = true;
-                }
+                    ui.add_space(8.0);
+                    if ui
+                        .radio_value(
+                            &mut self.settings.keyboard.layout,
+                            m_code.to_string(),
+                            "🔘 設為當前使用輸入法",
+                        )
+                        .changed()
+                    {
+                        ensure_keyboard_modes_consistent(&mut self.settings);
+                        cycle_changed = true;
+                    }
+                });
             }
             if cycle_changed {
+                self.auto_save_settings_quiet();
+            }
+        });
+
+        ui.add_space(10.0);
+
+        ui.group(|ui| {
+            ui.set_min_width(ui.available_width());
+            ui.heading("⚡ 通用「`」與「~」雙輔助輸入法與快打組態（一主二輔黃金三角）");
+            ui.add_space(4.0);
+            ui.label(
+                egui::RichText::new(
+                    "• 單按「`」（反引號）：從當前輸入法臨時借用下方設定之「單一字／詞輔助輸入法」，輸入單一字或單一詞彙送出後，即刻自動返回當前輸入法。\n• 連按兩下「`」x2：立即開啟「📋 使用者自訂文字範本」（templates.tsv 與常用日期簽名）。\n• 單按「~」（Shift + ` 波浪號）：從當前輸入法切換至下方設定之「持續切換輔助輸入法」，直到再次按下「~」即刻回到原輸入法。\n• 連按兩下「~」x2：立即開啟「🔢 數字快打模式」（輸入數字即時轉中文大小寫與財務大寫金額）。\n💡 配合 Caps Lock 原有對切功能，設定得當時可在「一種主要輸入法」與「另外兩種輔助輸入法」間瞬時切換！",
+                )
+                .color(palette.fg_muted.to_egui()),
+            );
+            ui.add_space(8.0);
+
+            let aux_options = [
+                ("longkan", "🐉 龍龕形音 4 碼輸入法 (龍)"),
+                ("hsu", "許氏雙拼注音 (許)"),
+                ("array30", "行列 30 輸入法 (行)"),
+                ("cangjie", "倉頡輸入法 (倉)"),
+                ("four_corner", "智慧型四角號碼 4×5 (四)"),
+                ("japanese", "日文羅馬字輸入 (日)"),
+                ("korean", "韓文羅馬拼音輸入 (韓)"),
+                ("standard", "標準大千注音 (注)"),
+                ("et26", "倚天 26 鍵注音 (倚)"),
+            ];
+            let mut aux_changed = false;
+
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    egui::RichText::new("單按「`」臨時單一字／詞輸入法：")
+                        .strong()
+                        .color(palette.accent.to_egui()),
+                );
+                egui::ComboBox::from_id_salt("ruhi_backtick_inline_mode_combo")
+                    .selected_text(Self::mode_code_display_name(
+                        &self.settings.keyboard.backtick_inline_mode,
+                    ))
+                    .width(240.0)
+                    .show_ui(ui, |ui| {
+                        for (code, label) in aux_options {
+                            if ui
+                                .selectable_value(
+                                    &mut self.settings.keyboard.backtick_inline_mode,
+                                    code.to_string(),
+                                    label,
+                                )
+                                .changed()
+                            {
+                                aux_changed = true;
+                            }
+                        }
+                    });
+                ui.label(
+                    egui::RichText::new("（輸入單字或按 `-` 打詞送出後即刻返回原輸入法；若與當前輸入法相同則自動退避互切）")
+                        .color(palette.fg_muted.to_egui()),
+                );
+            });
+
+            ui.add_space(6.0);
+
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    egui::RichText::new("單按「~」雙向切換輔助輸入法：")
+                        .strong()
+                        .color(palette.accent.to_egui()),
+                );
+                egui::ComboBox::from_id_salt("ruhi_tilde_toggle_mode_combo")
+                    .selected_text(Self::mode_code_display_name(
+                        &self.settings.keyboard.tilde_toggle_mode,
+                    ))
+                    .width(240.0)
+                    .show_ui(ui, |ui| {
+                        for (code, label) in aux_options {
+                            if ui
+                                .selectable_value(
+                                    &mut self.settings.keyboard.tilde_toggle_mode,
+                                    code.to_string(),
+                                    label,
+                                )
+                                .changed()
+                            {
+                                aux_changed = true;
+                            }
+                        }
+                    });
+                ui.label(
+                    egui::RichText::new("（按下 `~` 切換過去，再次按下 `~` 即刻返回原輸入法，且不影響 Caps Lock 對切記憶）")
+                        .color(palette.fg_muted.to_egui()),
+                );
+            });
+
+            if aux_changed {
                 self.auto_save_settings_quiet();
             }
         });
@@ -3118,8 +3512,291 @@ impl RuhiStudioApp {
         }
     }
 
+    fn render_entitlement_card(&mut self, ui: &mut egui::Ui) {
+        let palette = self.shell.palette;
+        let scale = self.shell.ui_scale;
+        let days = self.entitlement.days_elapsed();
+        let chars = self.entitlement.total_committed_chars;
+        let days_ratio = self.entitlement.days_progress_ratio();
+        let chars_ratio = self.entitlement.chars_progress_ratio();
+        let is_licensed = self.entitlement.is_licensed();
+        let is_expired_both = self.entitlement.is_trial_expired_both();
+
+        egui::Frame::group(ui.style())
+            .fill(palette.bg_surface.to_egui())
+            .stroke(egui::Stroke::new(
+                1.2_f32,
+                if is_licensed {
+                    egui::Color32::from_rgb(46, 204, 113)
+                } else if is_expired_both {
+                    egui::Color32::from_rgb(241, 196, 15)
+                } else {
+                    palette.accent.to_egui()
+                },
+            ))
+            .inner_margin(egui::Margin::symmetric(
+                (14.0 * scale).round() as i8,
+                (10.0 * scale).round() as i8,
+            ))
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(
+                        egui::RichText::new("🐉 九九圓滿（81 日 ＆ 81,000 字雙重達標）試用進度與跨平台終身授權")
+                            .size(14.0 * scale)
+                            .strong()
+                            .color(palette.fg_bright.to_egui()),
+                    );
+                });
+                ui.add_space(4.0);
+                ui.label(
+                    egui::RichText::new(self.entitlement.summary_badge_text())
+                        .size(12.5 * scale)
+                        .strong()
+                        .color(if is_licensed {
+                            egui::Color32::from_rgb(46, 204, 113)
+                        } else if is_expired_both {
+                            egui::Color32::from_rgb(241, 196, 15)
+                        } else {
+                            palette.accent.to_egui()
+                        }),
+                );
+                ui.add_space(6.0);
+                ui.label(
+                    egui::RichText::new(
+                        "• 試用終結與三階段九九階梯定價（1 AND 2 雙重圓滿・早買終身不加價）：\n  ⑴ 第一階（知音早鳥價 $0.99 / €0.99）：未同時滿「81 日 & 81,000 字」前購買，享 $0.99 終身鎖定資格；\n  ⑵ 第二階（九九圓滿價 $1.99 / €1.99）：滿「81 日 & 81,000 字」後至下一輪 2 倍條件（162 日 & 162,000 字）間；\n  ⑶ 第三階（雙重圓滿價 $2.99 / €2.99）：超過 2 倍條件（滿 162 日 & 162,000 字）後。",
+                    )
+                    .size(11.8 * scale)
+                    .color(palette.fg_muted.to_egui()),
+                );
+                ui.add_space(6.0);
+
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "第一重（9×9）日數：{} / {} 日",
+                            days,
+                            ruhi::TRIAL_TARGET_DAYS
+                        ))
+                        .size(12.0 * scale),
+                    );
+                    ui.add(
+                        egui::ProgressBar::new(days_ratio)
+                            .desired_width(165.0 * scale)
+                            .text(format!("{:.0}%", days_ratio * 100.0)),
+                    );
+                    ui.add_space(12.0 * scale);
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "第一重（9×9）字數：{} / {} 字",
+                            chars,
+                            ruhi::TRIAL_TARGET_CHARS
+                        ))
+                        .size(12.0 * scale),
+                    );
+                    ui.add(
+                        egui::ProgressBar::new(chars_ratio)
+                            .desired_width(165.0 * scale)
+                            .text(format!("{:.1}%", chars_ratio * 100.0)),
+                    );
+                });
+
+                if is_expired_both && !is_licensed {
+                    let t2_days_ratio = self.entitlement.tier2_days_progress_ratio();
+                    let t2_chars_ratio = self.entitlement.tier2_chars_progress_ratio();
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            egui::RichText::new(format!(
+                                "第二重（2×81）日數：{} / {} 日",
+                                days,
+                                ruhi::TIER2_TARGET_DAYS
+                            ))
+                            .size(12.0 * scale),
+                        );
+                        ui.add(
+                            egui::ProgressBar::new(t2_days_ratio)
+                                .desired_width(165.0 * scale)
+                                .text(format!("{:.0}%", t2_days_ratio * 100.0)),
+                        );
+                        ui.add_space(12.0 * scale);
+                        ui.label(
+                            egui::RichText::new(format!(
+                                "第二重（2×81）字數：{} / {} 字",
+                                chars,
+                                ruhi::TIER2_TARGET_CHARS
+                            ))
+                            .size(12.0 * scale),
+                        );
+                        ui.add(
+                            egui::ProgressBar::new(t2_chars_ratio)
+                                .desired_width(165.0 * scale)
+                                .text(format!("{:.1}%", t2_chars_ratio * 100.0)),
+                        );
+                    });
+                }
+
+                ui.add_space(6.0);
+                let dev_id = ruhi::EntitlementManager::machine_fingerprint();
+                ui.label(
+                    egui::RichText::new(format!(
+                        "💻 本機匿名硬體識別碼：{} ｜ 跨平台授權配額：每組通行碼最多綁定 {} 台個人裝置（同機重灌不扣額度）",
+                        dev_id,
+                        ruhi::entitlement::MAX_PERSONAL_DEVICES_PER_PASSCODE
+                    ))
+                    .size(11.8 * scale)
+                    .color(palette.fg_muted.to_egui()),
+                );
+
+                ui.add_space(6.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(
+                        egui::RichText::new("🔑 跨平台終身通行碼 (Passcode)：")
+                            .size(12.5 * scale)
+                            .strong(),
+                    );
+                    let resp = ui.add(
+                        egui::TextEdit::singleline(&mut self.passcode_input)
+                            .hint_text("RUHI-LK70-XXXX-XXXX-XXXX")
+                            .desired_width(230.0 * scale),
+                    );
+                    if ui
+                        .button(
+                            egui::RichText::new("✨ 驗證並啟用")
+                                .size(12.5 * scale)
+                                .strong(),
+                        )
+                        .clicked()
+                        || (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                    {
+                        if let Some(code) = ruhi::EntitlementManager::extract_passcode_from_text(&self.passcode_input) {
+                            self.passcode_input = code.clone();
+                            self.entitlement.activate_passcode(&code);
+                            self.passcode_feedback = format!(
+                                "✅ 恭喜！通行碼驗證通過，已綁定本機 ({}) 並永久解鎖「如喜・龍龕終身專業版」！",
+                                dev_id
+                            );
+                        } else {
+                            self.passcode_feedback =
+                                "❌ 通行碼格式或簽章不正確，請確認格式為 RUHI-LK70-XXXX-XXXX-XXXX。".to_string();
+                        }
+                    }
+
+                    if ui
+                        .button(
+                            egui::RichText::new("📋 一鍵從剪貼簿貼上並啟用")
+                                .size(12.2 * scale),
+                        )
+                        .on_hover_text("支援直接複製整封收據信或 LINE 訊息，系統將自動從剪貼簿抓出 RUHI-LK70-... 通行碼並立即解鎖")
+                        .clicked()
+                    {
+                        let clip_text = Command::new("powershell.exe")
+                            .args(["-NoProfile", "-Command", "Get-Clipboard -Raw"])
+                            .output()
+                            .ok()
+                            .and_then(|o| String::from_utf8(o.stdout).ok())
+                            .unwrap_or_default();
+                        if let Some(code) = ruhi::EntitlementManager::extract_passcode_from_text(&clip_text) {
+                            self.passcode_input = code.clone();
+                            self.entitlement.activate_passcode(&code);
+                            self.passcode_feedback = format!(
+                                "✅ 已從剪貼簿智慧擷取通行碼 ({}) 並永久解鎖本機 ({})！",
+                                code, dev_id
+                            );
+                        } else if !clip_text.trim().is_empty() {
+                            self.passcode_input = clip_text.trim().to_string();
+                            self.passcode_feedback =
+                                "⚠️ 剪貼簿中未偵測到有效之 RUHI-LK70-XXXX-XXXX-XXXX 通行碼。".to_string();
+                        } else {
+                            self.passcode_feedback = "⚠️ 剪貼簿目前為空。".to_string();
+                        }
+                    }
+
+                    if ui
+                        .button(egui::RichText::new("📥 匯入授權檔").size(12.2 * scale))
+                        .on_hover_text("自動從「下載 (Downloads)」、「桌面 (Desktop)」或程式目錄匯入 ruhi_license.json 授權證書檔")
+                        .clicked()
+                    {
+                        let mut candidates = vec![
+                            self.root_dir.join("ruhi_license.json"),
+                        ];
+                        if let Ok(profile) = std::env::var("USERPROFILE") {
+                            let p = PathBuf::from(profile);
+                            candidates.insert(0, p.join("Downloads").join("ruhi_license.json"));
+                            candidates.push(p.join("Desktop").join("ruhi_license.json"));
+                        }
+                        let mut imported = None;
+                        for cand in &candidates {
+                            if cand.exists() && self.entitlement.import_license_file(cand) {
+                                imported = Some(cand.clone());
+                                break;
+                            }
+                        }
+                        if let Some(path) = imported {
+                            self.passcode_input = self.entitlement.license_passcode.clone();
+                            self.passcode_feedback = format!(
+                                "✅ 已成功從授權證書檔 ({}) 匯入並啟用終身專業版！",
+                                path.display()
+                            );
+                        } else {
+                            self.passcode_feedback =
+                                "⚠️ 在「下載 (Downloads)」、「桌面」或程式目錄中找不到 ruhi_license.json 授權檔。".to_string();
+                        }
+                    }
+
+                    if is_licensed {
+                        if ui
+                            .button(egui::RichText::new("📤 匯出授權檔 (ruhi_license.json)").size(12.2 * scale))
+                            .on_hover_text("將授權證書匯出至「下載 (Downloads)」與程式目錄，方便直接複製檔案到其他電腦一鍵匯入")
+                            .clicked()
+                        {
+                            let mut saved_paths = Vec::new();
+                            let local_lic = self.root_dir.join("ruhi_license.json");
+                            if self.entitlement.export_license_file(&local_lic).is_ok() {
+                                saved_paths.push(local_lic.display().to_string());
+                            }
+                            if let Ok(profile) = std::env::var("USERPROFILE") {
+                                let dl_lic = PathBuf::from(profile).join("Downloads").join("ruhi_license.json");
+                                if self.entitlement.export_license_file(&dl_lic).is_ok() {
+                                    saved_paths.push(dl_lic.display().to_string());
+                                }
+                            }
+                            self.passcode_feedback = format!(
+                                "📤 已匯出跨裝置授權證書檔：{}（可直接複製到目標電腦按「📥 匯入授權檔」）",
+                                saved_paths.join(" 、 ")
+                            );
+                        }
+                        if ui
+                            .button(egui::RichText::new("📋 複製通行碼").size(12.2 * scale))
+                            .clicked()
+                        {
+                            ui.ctx().copy_text(self.entitlement.license_passcode.clone());
+                            self.passcode_feedback =
+                                "📋 已將通行碼複製到系統剪貼簿！".to_string();
+                        }
+                    }
+                });
+                if !self.passcode_feedback.is_empty() {
+                    ui.add_space(4.0);
+                    ui.label(
+                        egui::RichText::new(&self.passcode_feedback)
+                            .size(12.0 * scale)
+                            .strong()
+                            .color(if self.passcode_feedback.starts_with('✅') {
+                                egui::Color32::from_rgb(46, 204, 113)
+                            } else {
+                                egui::Color32::from_rgb(231, 76, 60)
+                            }),
+                    );
+                }
+            });
+    }
+
     fn render_about_page(&mut self, ui: &mut egui::Ui) {
         let palette = self.shell.palette;
+
+        self.render_entitlement_card(ui);
+        ui.add_space(10.0);
 
         ui.group(|ui| {
             ui.heading("品牌理念與精神哲學");
@@ -3153,7 +3830,7 @@ impl RuhiStudioApp {
             ui.heading("通用智慧型輸入法全語言藍圖（Universal Smart IME Roadmap）");
             ui.add_space(6.0);
             ui.label("1. 繁體中文注音體系：許氏鍵盤（首發）、標準大千、倚天 26 鍵、漢語拼音");
-            ui.label("2. 繁體中文形碼體系：倉頡（三代／五代）、大易、行列輸入法");
+            ui.label("2. 繁體中文形碼與數位體系：智慧型四角號碼（4×5 小鍵盤）、行列 30、倉頡（三代／五代）、大易");
             ui.label("3. 亞洲多語系輸入：日語假名/漢字、韓語諺文、泰語");
             ui.label("4. 專業學術標音符號：梵文天城體羅馬化（IAST）、台羅/白話字拼音");
             ui.label("5. 歐文多語言擴展：德文、法文、西文等特殊重音符號智慧組字");
@@ -3165,9 +3842,10 @@ impl RuhiStudioApp {
             ui.heading("系統狀態與全 Rust 原生架構資訊");
             ui.add_space(6.0);
             ui.label(
-                egui::RichText::new(
-                    "核心版本：RuhI v0.5.0 (100% Pure Rust — ruhi-core + ruhi-tsf + ruhi-studio + atg_lib)",
-                )
+                egui::RichText::new(format!(
+                    "核心版本：RuhI v{} (100% Pure Rust — ruhi-core + ruhi-tsf + ruhi-studio + atg_lib)",
+                    env!("CARGO_PKG_VERSION")
+                ))
                 .strong(),
             );
             ui.label(format!(
@@ -3419,6 +4097,52 @@ impl eframe::App for RuhiStudioApp {
                             );
                         if top_lang_changed {
                             self.cli_lang_override = None;
+                            self.auto_save_settings_quiet();
+                        }
+
+                        // 頂部標頭列直接輸入法快速切換下拉選單（無論在哪個設定分頁皆可一鍵切換至龍龕形音或任意輸入法）
+                        let mut top_mode_changed = false;
+                        let cur_mode_btn_text = format!(
+                            "🎯 {}",
+                            Self::mode_code_display_name(&self.settings.keyboard.layout)
+                        );
+                        egui::ComboBox::from_id_salt("ruhi_top_bar_quick_mode_switcher")
+                            .selected_text(
+                                egui::RichText::new(cur_mode_btn_text)
+                                    .size(13.0 * self.shell.ui_scale)
+                                    .strong()
+                                    .color(self.shell.palette.accent.to_egui()),
+                            )
+                            .width(196.0 * self.shell.ui_scale)
+                            .show_ui(ui, |ui| {
+                                for (code, label) in [
+                                    ("hsu", "🎵 許氏雙拼注音 (許)"),
+                                    ("longkan", "🐉 龍龕形音 4 碼 (龍)［外國人友善］"),
+                                    ("four_corner", "🔢 智慧型四角號碼 4×5 (四)"),
+                                    ("array30", "📐 行列 30 輸入法 (行)"),
+                                    ("cangjie", "🔤 倉頡輸入法 (倉)"),
+                                    ("standard", "🎹 標準大千注音 (注)"),
+                                    ("et26", "⌨ 倚天 26 鍵注音 (倚)"),
+                                    ("japanese", "🇯🇵 日文羅馬字 (日)"),
+                                    ("korean", "🇰🇷 韓文羅馬拼音 (韓)"),
+                                ] {
+                                    if ui
+                                        .selectable_value(
+                                            &mut self.settings.keyboard.layout,
+                                            code.to_string(),
+                                            label,
+                                        )
+                                        .changed()
+                                    {
+                                        top_mode_changed = true;
+                                    }
+                                }
+                            })
+                            .response
+                            .on_hover_text(
+                                "一鍵切換當前預設／使用中輸入法（支援龍龕形音 4 碼、許氏雙拼、四角 4×5、行列 30、倉頡、標準大千、日韓語等）",
+                            );
+                        if top_mode_changed {
                             self.auto_save_settings_quiet();
                         }
                     });

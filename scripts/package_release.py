@@ -131,6 +131,11 @@ def main():
             dst_item.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_item, dst_item)
 
+    # 確保龍龕形音 4 碼完整碼表 (longkan.tsv) 封裝進發布包 data/ 目錄（雖受 .gitignore 保護不推送至公開源碼庫，但正式安裝包必須內建）
+    lk_tsv = root / "ruhi_lexicon" / "data" / "longkan.tsv"
+    if lk_tsv.is_file():
+        shutil.copy2(lk_tsv, release_data / "longkan.tsv")
+
     # 複製設定範本（不含個人設定與雲端 Webhook 網址；安裝程式會以範本建立 config.json / settings_config.json）
     for f in ["settings_config.example.json", "config.example.json"]:
         for cand in [root / "installer" / f, root / f]:
@@ -170,7 +175,7 @@ def main():
         "RUHI_WESTERN_INPUT_AND_MIXED_TYPING_BLUEPRINT.md",
         "RUHI_KOREAN_RR_HANDOVER.md",
         "RUHI_FOUR_CORNER_NUMPAD_SPEC.md",
-        "four_corner_tutorial_anim.html",
+        "ruhi_interactive_workbench.html",
     ]:
         src_doc = root / "docs" / doc_name
         if src_doc.exists():

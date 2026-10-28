@@ -108,17 +108,4 @@ Write-Host "  ★ 直接按 [Win + 空白鍵] 即可切換至如喜輸入法開�
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 選擇性安裝本地 AI
-$setupAi = Join-Path $PSScriptRoot "安裝本地AI純綠推論引擎.ps1"
-if (-not (Test-Path $setupAi)) { $setupAi = Join-Path $installDir "安裝本地AI純綠推論引擎.ps1" }
-if (Test-Path $setupAi) {
-    Write-Host "【選擇性功能：本地純綠 AI 語意備援引擎】" -ForegroundColor Cyan
-    Write-Host "如喜日常打字 100% 由本地 Rust 高速運算，無需 AI 即完整可用。" -ForegroundColor Gray
-    Write-Host "若您欲啟用離線 Google Gemma 2 深度句法診斷與長詞萃取：" -ForegroundColor Gray
-    $userOpt = Read-Host "是否立即自動安裝純綠 Llama 引擎與 Google Gemma 2？(y/N) [預設 N]"
-    if ($userOpt -match '^(y|yes)$') {
-        & $setupAi
-    }
-}
-
 Read-Host "請按 Enter 鍵結束"

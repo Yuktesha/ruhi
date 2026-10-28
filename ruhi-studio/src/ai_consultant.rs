@@ -86,7 +86,7 @@ pub fn recommended_local_models() -> Vec<Value> {
             "display_name": "Google Gemma 4 12B Instruct Q4_K_M（本地深度語意調校主力）",
             "priority": 3,
             "ecosystem": "Google Gemma 4 開源生態（第一優先）",
-            "description": "支援純綠免安裝 llama.cpp (127.0.0.1:8080) 或 Ollama 驅動，繁體中文句法構式與陣列抽離能力穩定（建議 8GB+ VRAM）。"
+            "description": "由純綠免安裝 llama.cpp (127.0.0.1:8080) 驅動，零商業訂閱誘導，繁體中文句法構式與陣列抽離能力穩定（建議 8GB+ VRAM）。"
         }),
         json!({
             "name": "gemma4:e4b",
@@ -147,6 +147,14 @@ impl AISemanticConsultant {
         let config_path = root.join("config.json");
         let config = Self::load_config_map(&config_path);
         let mut green_ai = RuhAIEngine::new();
+        let gemma4_out_dir = root.join("outputs").join("gemma4_semantic_analyst");
+        let gemma4_gguf_dir = gemma4_out_dir.join("gguf");
+        if !green_ai.model_dirs.contains(&gemma4_out_dir) {
+            green_ai.model_dirs.insert(0, gemma4_out_dir);
+        }
+        if !green_ai.model_dirs.contains(&gemma4_gguf_dir) {
+            green_ai.model_dirs.insert(0, gemma4_gguf_dir);
+        }
         green_ai.scan_local_gguf_models();
 
         Self {
@@ -286,12 +294,12 @@ impl AISemanticConsultant {
         self.green_ai.refresh(true) == AIStatus::Online
     }
 
-    /// 探測本機 `127.0.0.1:11434` 服務
+    /// 相容舊版介面：一律導向純綠 `llama-server` (`127.0.0.1:8080`)，拒絕商業訂閱誘導之第三方背景服務
     pub fn probe_ollama(&self) -> bool {
-        probe_local_http_port(11434, "/api/tags")
+        probe_local_http_port(8080, "/health")
     }
 
-    /// 掃描本機已下載之特化版 Gemma 4、`.gguf` 與離線模型清單（特化版 Gemma 4 絕對置頂）
+    /// 掃描本機已下載之特化版 Gemma 4、`.gguf` 與純綠 `llama.cpp` 離線模型清單（特化版 Gemma 4 絕對置頂）
     pub fn read_offline_models(&mut self) -> Vec<String> {
         let mut priority_models = Vec::new();
         let out_dir = self.root.join("outputs").join("gemma4_semantic_analyst");
@@ -326,42 +334,6 @@ impl AISemanticConsultant {
             }
         }
 
-        if let Some(home) = dirs::home_dir() {
-            let ollama_lib = home
-                .join(".ollama")
-                .join("models")
-                .join("manifests")
-                .join("registry.ollama.ai")
-                .join("library");
-            if ollama_lib.is_dir() {
-                if let Ok(entries) = fs::read_dir(ollama_lib) {
-                    for entry in entries.flatten() {
-                        let p = entry.path();
-                        if p.is_dir() {
-                            let m_name = p
-                                .file_name()
-                                .and_then(|s| s.to_str())
-                                .unwrap_or("")
-                                .to_string();
-                            if let Ok(tags) = fs::read_dir(&p) {
-                                for tag in tags.flatten() {
-                                    if tag.path().is_file() {
-                                        let t_name = tag
-                                            .file_name()
-                                            .to_string_lossy()
-                                            .to_string();
-                                        let full = format!("{m_name}:{t_name}");
-                                        if !priority_models.contains(&full) {
-                                            other_models.push(full);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
         other_models.sort();
         other_models.dedup();
         priority_models.extend(other_models);
@@ -370,21 +342,11 @@ impl AISemanticConsultant {
 
     pub fn find_ollama_paths(&self) -> Value {
         let mut cli: Option<String> = None;
-        let mut app: Option<String> = None;
         let mut installed = self.has_local_gemma4_specialist();
 
-        if let Ok(local_app) = std::env::var("LOCALAPPDATA") {
-            let base = PathBuf::from(local_app).join("Programs").join("Ollama");
-            let app_p = base.join("ollama app.exe");
-            let cli_p = base.join("ollama.exe");
-            if app_p.is_file() {
-                app = Some(app_p.to_string_lossy().to_string());
-                installed = true;
-            }
-            if cli_p.is_file() {
-                cli = Some(cli_p.to_string_lossy().to_string());
-                installed = true;
-            }
+        if let Some(bin) = self.green_ai.find_green_llama_server_bin() {
+            cli = Some(bin.to_string_lossy().to_string());
+            installed = true;
         }
         if !self.green_ai.available_models.is_empty() {
             installed = true;
@@ -392,7 +354,7 @@ impl AISemanticConsultant {
 
         json!({
             "cli": cli,
-            "app": app,
+            "app": cli,
             "installed": installed
         })
     }
@@ -824,12 +786,12 @@ impl AISemanticConsultant {
             }
         }
 
-        // 2. 若本機純綠 llama-server 或 Ollama 尚未喚醒，自動按需啟動
-        if !self.probe_local_llama() && !self.probe_ollama() {
+        // 2. 若本機純綠 llama-server 尚未喚醒，自動按需啟動
+        if !self.probe_local_llama() {
             let _ = self.start_ollama_service();
         }
 
-        // 3. 嘗試本機推論引擎自然語言直通回覆
+        // 3. 嘗試本機純綠 llama-server 推論引擎自然語言直通回覆
         if self.probe_local_llama() {
             let res = self.green_ai.chat_query(
                 user_prompt,
@@ -848,19 +810,10 @@ impl AISemanticConsultant {
             }
         }
 
-        // 4. 嘗試本機 Ollama (127.0.0.1:11434) 自然語言直通回覆
-        if self.probe_ollama() {
-            let model = self.get_str("ollama_model", "gemma4:e4b");
-            let model_eff = if model.trim().is_empty() { "gemma4:e4b".to_string() } else { model };
-            if let Some(txt) = query_local_ollama_text(&model_eff, system_prompt, user_prompt) {
-                return Some((format!("本機離線模型 ({model_eff})"), txt));
-            }
-        }
-
         None
     }
 
-    /// 呼叫遠端或本地大型語言模型執行結構化 JSON 語言學推理（支援 Google Gemini API、本機純綠 llama-server 與本機 Ollama）
+    /// 呼叫遠端或本地大型語言模型執行結構化 JSON 語言學推理（支援 Google Gemini API 與本機純綠 llama-server）
     pub fn invoke_llm_json(&mut self, system_prompt: &str, user_prompt: &str) -> Option<(String, Value)> {
         let provider = self.get_effective_provider();
         if provider == "disabled" {
@@ -912,7 +865,7 @@ impl AISemanticConsultant {
             }
         }
 
-        // 2. 嘗試本機推論引擎
+        // 2. 嘗試本機純綠 llama-server 推論引擎
         if self.probe_local_llama() {
             let res = self.green_ai.chat_query(
                 user_prompt,
@@ -930,15 +883,6 @@ impl AISemanticConsultant {
                     };
                     return Some((label, data));
                 }
-            }
-        }
-
-        // 3. 嘗試本機 Ollama (127.0.0.1:11434)
-        if self.probe_ollama() {
-            let model = self.get_str("ollama_model", "gemma4:e4b");
-            let model_eff = if model.trim().is_empty() { "gemma4:e4b".to_string() } else { model };
-            if let Some(parsed) = query_local_ollama_json(&model_eff, system_prompt, user_prompt) {
-                return Some((format!("本機離線模型 ({model_eff})"), parsed));
             }
         }
 
@@ -2022,14 +1966,21 @@ description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、�
         );
 
         // 自動寫入實體檔案（免除使用者手動複製貼上）
-        let doc_path = tuner.root.join("docs").join("AI_SEMANTIC_HANDOVER.md");
-        let skill_path = tuner
+        let doc_path = self.root.join("docs").join("AI_SEMANTIC_HANDOVER.md");
+        let skill_path = self
             .root
             .join(".agent")
             .join("skills")
             .join("ruhi-semantic-tuning")
             .join("SKILL.md");
-        let context_json_path = tuner.data_dir.join("ai_handover_context.json");
+        let context_json_path = if self.root != tuner.root {
+            self.root
+                .join("ruhi_lexicon")
+                .join("data")
+                .join("ai_handover_context.json")
+        } else {
+            tuner.data_dir.join("ai_handover_context.json")
+        };
 
         let mut delivered_files = Vec::new();
         if let Some(parent) = doc_path.parent() {
@@ -2065,6 +2016,9 @@ description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、�
                 "suppress": ["需抑制之跨界同音假詞"]
             }
         });
+        if let Some(parent) = context_json_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
         if let Ok(pretty_json) = serde_json::to_string_pretty(&context_payload) {
             if fs::write(&context_json_path, pretty_json).is_ok() {
                 delivered_files.push(context_json_path.to_string_lossy().to_string());
@@ -2169,69 +2123,6 @@ fn curl_post_json(url: &str, payload: &Value, extra_headers: &[(&str, &str)]) ->
         return None;
     }
     Some(String::from_utf8_lossy(&output.stdout).to_string())
-}
-
-fn query_local_ollama_text(model: &str, system_prompt: &str, user_prompt: &str) -> Option<String> {
-    let payload = json!({
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "stream": false
-    });
-    let body = serde_json::to_vec(&payload).ok()?;
-    let addr: SocketAddr = "127.0.0.1:11434".parse().ok()?;
-    let mut stream = TcpStream::connect_timeout(&addr, Duration::from_millis(600)).ok()?;
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(22)));
-    let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
-    let req = format!(
-        "POST /api/chat HTTP/1.1\r\nHost: 127.0.0.1:11434\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        body.len()
-    );
-    stream.write_all(req.as_bytes()).ok()?;
-    stream.write_all(&body).ok()?;
-    let mut resp_bytes = Vec::new();
-    stream.read_to_end(&mut resp_bytes).ok()?;
-    let resp_str = String::from_utf8_lossy(&resp_bytes);
-    let (_, json_body) = resp_str.split_once("\r\n\r\n")?;
-    let v: Value = serde_json::from_str(json_body.trim()).ok()?;
-    let content = v.get("message")?.get("content")?.as_str()?.trim();
-    if content.is_empty() {
-        None
-    } else {
-        Some(content.to_string())
-    }
-}
-
-fn query_local_ollama_json(model: &str, system_prompt: &str, user_prompt: &str) -> Option<Value> {
-    let payload = json!({
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "format": "json",
-        "stream": false
-    });
-    let body = serde_json::to_vec(&payload).ok()?;
-    let addr: SocketAddr = "127.0.0.1:11434".parse().ok()?;
-    let mut stream = TcpStream::connect_timeout(&addr, Duration::from_millis(600)).ok()?;
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(18)));
-    let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
-    let req = format!(
-        "POST /api/chat HTTP/1.1\r\nHost: 127.0.0.1:11434\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        body.len()
-    );
-    stream.write_all(req.as_bytes()).ok()?;
-    stream.write_all(&body).ok()?;
-    let mut resp_bytes = Vec::new();
-    stream.read_to_end(&mut resp_bytes).ok()?;
-    let resp_str = String::from_utf8_lossy(&resp_bytes);
-    let (_, json_body) = resp_str.split_once("\r\n\r\n")?;
-    let v: Value = serde_json::from_str(json_body.trim()).ok()?;
-    let content = v.get("message")?.get("content")?.as_str()?;
-    parse_json_from_llm_text(content)
 }
 
 fn parse_json_from_llm_text(raw: &str) -> Option<Value> {

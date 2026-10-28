@@ -21,11 +21,11 @@ pub struct FourCornerEngine {
     pub candidates: Vec<String>,
     /// 當前高亮之候選索引
     pub candidate_idx: usize,
-    /// 是否處於數字鍵 (1~9) 選字鎖定模式（由 `*`、`↓` 或 `.` 觸發）
+    /// 是否處於數字鍵 (1~0) 選字鎖定模式（由 `/`、`↓`、`PgDn/PgUp` 或 `.` 觸發）
     pub is_selecting_candidate: bool,
     /// 小鍵盤外圍符號鍵配置方案：
-    /// - `"blind_closed_loop"`（預設）：全盲打閉環（`+`確認、`*`次選與選字、`/`標點選單、`-`退格、`.`萬用字元）
-    /// - `"direct_punct"`：直出標點模式（`+`確認、`*`句號、`/`逗號、`-`問號、`.`選字/萬用字元）
+    /// - `"blind_closed_loop"`（預設）：全盲打閉環（`-` 詞前導／選單上頁、`+` 字詞分隔／選單下頁、`/` 字詞選單、`1~0` 數字快選、`.` 標點選單、`*` 萬用字元、`Enter` 整句完稿）
+    /// - `"direct_punct"`：直出標點模式（`+` 確認首選、`*` 句號、`/` 逗號、`-` 問號、`.` 選字／萬用字元）
     pub keymap_profile: String,
     /// 最近一次上屏之字詞（供雙字／跨詞語境轉移消歧使用）
     pub last_committed_word: String,
@@ -74,11 +74,21 @@ impl FourCornerEngine {
         }
         if self.buffer == "." {
             let cur_page = (self.candidate_idx / 10) + 1;
-            if cur_page == 1 {
-                return "標點選單 [.1， .2。 .3、 .4？ .5！ · +下頁]".to_string();
-            } else {
-                return "標點選單(第2頁) [1「 2」 3『』 4《》 5【】 · -上頁]".to_string();
-            }
+            let total_pages = ((self.candidates.len() + 9) / 10).max(1);
+            return match cur_page {
+                1 => format!(
+                    "標點選單(第1/{}頁) [.1， .2。 .3、 .4？ .5！ · +下頁]",
+                    total_pages
+                ),
+                2 => format!(
+                    "標點選單(第2/{}頁) [1「 2」 3『』 4《》 5【】 · +下頁/-上頁]",
+                    total_pages
+                ),
+                _ => format!(
+                    "標點選單(第{}/{}頁) [1〈〉 2［］ 3｛｝ 4＋ 5－ · -上頁]",
+                    cur_page, total_pages
+                ),
+            };
         }
         if self.buffer == "-" {
             if self.is_selecting_candidate {
@@ -128,11 +138,21 @@ impl FourCornerEngine {
     pub fn get_live_coach_hint(&self) -> String {
         if self.buffer == "." {
             let cur_page = (self.candidate_idx / 10) + 1;
-            if cur_page == 1 {
-                return "🎯 標點選單（第 1/2 頁）：按 1(，) 2(。) 3(、) 4(？) 5(！) 6(：) 7(；) 8(「」) 9(（）) 0(……) · 按 + 翻下頁 · 再按 . 直出逗號".to_string();
-            } else {
-                return "🎯 標點選單（第 2/2 頁）：按 1(「) 2(」) 3(『』) 4(《》) 5(【】) 6(——) 7(～) 8(·) 9(（) 0(）) · 按 - 翻上頁".to_string();
-            }
+            let total_pages = ((self.candidates.len() + 9) / 10).max(1);
+            return match cur_page {
+                1 => format!(
+                    "🎯 標點選單（第 1/{} 頁）：按 1(，) 2(。) 3(、) 4(？) 5(！) 6(：) 7(；) 8(「」) 9(（）) 0(……) · 按 + 翻下頁 · 再按 . 直出逗號",
+                    total_pages
+                ),
+                2 => format!(
+                    "🎯 標點選單（第 2/{} 頁）：按 1(「) 2(」) 3(『』) 4(《》) 5(【】) 6(——) 7(～) 8(·) 9(（) 0(）) · 按 + 下頁 / - 上頁",
+                    total_pages
+                ),
+                _ => format!(
+                    "🎯 標點選單（第 {}/{} 頁）：按 1(〈〉) 2(［］) 3(｛｝) 4(＋) 5(－) 6(×) 7(÷) 8(＝) 9(％) 0(＠) · 按 - 翻上頁",
+                    cur_page, total_pages
+                ),
+            };
         }
         if self.buffer == "-" {
             if self.is_selecting_candidate {
@@ -197,62 +217,16 @@ impl FourCornerEngine {
             return;
         }
 
-        // 1. `.` 標點符號選單模式（支援第 1 頁與第 2 頁，以 `+`/`-` 翻頁、`1~0` 快選）
+        // 1. `.` 標點符號選單模式（支援完整 3 頁共 30 個常用標點與符號，以 `+`/`-` 翻頁、`1~0` 快選）
         if self.buffer == "." {
-            self.candidates = vec![
-                // 第 1 頁 (1~0)
-                "，".to_string(),
-                "。".to_string(),
-                "、".to_string(),
-                "？".to_string(),
-                "！".to_string(),
-                "：".to_string(),
-                "；".to_string(),
-                "「」".to_string(),
-                "（）".to_string(),
-                "……".to_string(),
-                // 第 2 頁 (+ 翻下頁後 1~0)
-                "「".to_string(),
-                "」".to_string(),
-                "『』".to_string(),
-                "《》".to_string(),
-                "【】".to_string(),
-                "——".to_string(),
-                "～".to_string(),
-                "·".to_string(),
-                "（".to_string(),
-                "）".to_string(),
-            ];
+            self.candidates = FourCornerTable::default_punctuation_menu();
             self.candidate_idx = 0;
             return;
         }
 
         // 1b. `-` 詞彙前導模式（尚未輸入數字時提供 20 組常用多字詞即時預覽，亦支援按 `/` 後以 `1~0` 快選與 `+`/`-` 翻頁）
         if self.buffer == "-" {
-            self.candidates = vec![
-                // 第 1 頁 (1~0)
-                "台灣".to_string(),
-                "輸入法".to_string(),
-                "四角號碼".to_string(),
-                "主權".to_string(),
-                "電腦".to_string(),
-                "天才".to_string(),
-                "為什麼".to_string(),
-                "如喜".to_string(),
-                "我們".to_string(),
-                "自己".to_string(),
-                // 第 2 頁 (+ 翻下頁後 1~0)
-                "國家".to_string(),
-                "知道".to_string(),
-                "智慧".to_string(),
-                "時間".to_string(),
-                "可以".to_string(),
-                "現在".to_string(),
-                "這個".to_string(),
-                "因為".to_string(),
-                "所以".to_string(),
-                "一舉兩得".to_string(),
-            ];
+            self.candidates = FourCornerTable::default_word_mode_menu();
             self.candidate_idx = 0;
             return;
         }
@@ -434,10 +408,10 @@ impl FourCornerEngine {
                 .then_with(|| a.1.cmp(&b.1))
         });
 
-        // 3. 若輸入數字長度 == 8（如連續盲打兩組 4 碼長詞串），優先合成雙詞連打首選句；
+        // 3. 若輸入數字長度 == 8（如連續盲打兩組 4 碼長詞串或雙單字串），優先合成雙詞／雙字連打首選句；
         //    若輸入數字長度 == 6，優先呈現原生 6 碼四字成語 (`scored`)，若無四字成語則嘗試 4+2 連打合成
         if code_str.len() == 8 && !has_wildcard {
-            if let Some(chained) = self.solve_multi_word_chain(&code_str) {
+            for chained in self.solve_multi_word_chain(&code_str, is_word_mode) {
                 if seen.insert(chained.clone()) {
                     self.candidates.push(chained);
                 }
@@ -454,7 +428,7 @@ impl FourCornerEngine {
         }
 
         if code_str.len() == 6 && !has_wildcard && self.candidates.is_empty() {
-            if let Some(chained) = self.solve_multi_word_chain(&code_str) {
+            for chained in self.solve_multi_word_chain(&code_str, is_word_mode) {
                 if seen.insert(chained.clone()) {
                     self.candidates.push(chained);
                 }
@@ -466,27 +440,91 @@ impl FourCornerEngine {
         }
     }
 
-    /// 針對 6 碼或 8 碼以上連續輸入（如 `"23321072"` ➔ `"台灣電腦"`）進行分段解碼合成
-    fn solve_multi_word_chain(&self, code: &str) -> Option<String> {
+    /// 針對 6 碼或 8 碼以上連續輸入（如 `"23321072"` / `"-23321072"` ➔ `"台灣電腦"`）進行分段解碼合成
+    fn solve_multi_word_chain(&self, code: &str, is_word_mode: bool) -> Vec<String> {
+        let mut results = Vec::new();
         if code.len() == 8 {
-            let left = self.table.lookup_exact(&code[0..4]);
-            let right = self.table.lookup_exact(&code[4..8]);
-            if let (Some(l), Some(r)) = (left.first(), right.first()) {
-                return Some(format!("{}{}", l.text, r.text));
+            let left_all = self.table.lookup_exact(&code[0..4]);
+            let right_all = self.table.lookup_exact(&code[4..8]);
+            let left_word = left_all.iter().find(|e| e.text.chars().count() >= 2);
+            let right_word = right_all.iter().find(|e| e.text.chars().count() >= 2);
+            let left_char = left_all.iter().find(|e| e.text.chars().count() == 1);
+            let right_char = right_all.iter().find(|e| e.text.chars().count() == 1);
+
+            if is_word_mode {
+                if let (Some(lw), Some(rw)) = (left_word, right_word) {
+                    results.push(format!("{}{}", lw.text, rw.text));
+                }
+                if let (Some(l), Some(r)) = (left_all.first(), right_all.first()) {
+                    let s = format!("{}{}", l.text, r.text);
+                    if !results.contains(&s) {
+                        results.push(s);
+                    }
+                }
+            } else {
+                let word_chain = match (left_word, right_word) {
+                    (Some(lw), Some(rw)) => Some((lw.weight + rw.weight, format!("{}{}", lw.text, rw.text))),
+                    _ => None,
+                };
+                let char_chain = match (left_char, right_char) {
+                    (Some(lc), Some(rc)) => Some((lc.weight + rc.weight, format!("{}{}", lc.text, rc.text))),
+                    _ => None,
+                };
+                // 若首段詞彙權重高於單字（如 2332 台灣 826 > 參 721），或僅有雙詞組合，雙詞連打排第一順位；同時保留雙單字組合供選取
+                let word_first = match (left_word, left_char) {
+                    (Some(lw), Some(lc)) => lw.weight >= lc.weight,
+                    (Some(_), None) => true,
+                    _ => false,
+                };
+                if word_first {
+                    if let Some((_, wc)) = word_chain {
+                        results.push(wc);
+                    }
+                    if let Some((_, cc)) = char_chain {
+                        if !results.contains(&cc) {
+                            results.push(cc);
+                        }
+                    }
+                } else {
+                    if let Some((_, cc)) = char_chain {
+                        results.push(cc);
+                    }
+                    if let Some((_, wc)) = word_chain {
+                        if !results.contains(&wc) {
+                            results.push(wc);
+                        }
+                    }
+                }
+                if results.is_empty() {
+                    if let (Some(l), Some(r)) = (left_all.first(), right_all.first()) {
+                        results.push(format!("{}{}", l.text, r.text));
+                    }
+                }
             }
         } else if code.len() == 6 {
             // 先檢查是否有原生 6 碼四字成語
-            if let Some(exact6) = self.table.lookup_exact(code).first() {
-                return Some(exact6.text.clone());
+            if let Some(exact6) = self
+                .table
+                .lookup_exact(code)
+                .into_iter()
+                .find(|e| !is_word_mode || e.text.chars().count() >= 2)
+            {
+                results.push(exact6.text);
+                return results;
             }
             // 否則嘗試 4 + 2（首詞 4 碼 + 次字前兩角首選）
             let left = self.table.lookup_exact(&code[0..4]);
-            let right = self.table.lookup_with_prefix(&code[4..6], 1);
-            if let (Some(l), Some(r)) = (left.first(), right.first()) {
-                return Some(format!("{}{}", l.text, r.text));
+            let right = self.table.lookup_with_prefix(&code[4..6], 4);
+            let l_pick = if is_word_mode {
+                left.iter().find(|e| e.text.chars().count() >= 2).or_else(|| left.first())
+            } else {
+                left.iter().find(|e| e.text.chars().count() == 1).or_else(|| left.first())
+            };
+            if let (Some(l), Some(r)) = (l_pick, right.first()) {
+                results.push(format!("{}{}", l.text, r.text));
             }
         }
-        None
+        results
     }
 
     /// 無外部語境之標準單鍵處理介面
@@ -1122,11 +1160,21 @@ mod tests {
 
         // 標點選單翻頁測試：`.` -> `+` (翻至第 2 頁) -> `4` (《》)
         eng.process_key('.');
+        assert_eq!(eng.candidates.len(), 30);
         eng.process_key('+');
         assert_eq!(eng.candidate_idx, 10);
         let resp_book = eng.process_key('4');
         assert_eq!(resp_book.action, "commit_punctuation");
         assert_eq!(resp_book.committed_chunk, "《》");
+
+        // 標點選單第 3 頁測試：`.` -> `+` -> `+` (翻至第 3 頁) -> `1` (〈〉) 與 `0` (＠)
+        eng.process_key('.');
+        eng.process_key('+');
+        eng.process_key('+');
+        assert_eq!(eng.candidate_idx, 20);
+        let resp_angle = eng.process_key('1');
+        assert_eq!(resp_angle.action, "commit_punctuation");
+        assert_eq!(resp_angle.committed_chunk, "〈〉");
 
         // 4. 測試 `*` 萬用字元查詢 ("23*0" -> 命中 "台" 2360)
         for ch in "23*0".chars() {
@@ -1152,11 +1200,32 @@ mod tests {
     #[test]
     fn test_four_corner_multi_word_chain() {
         let mut eng = FourCornerEngine::new();
-        // 連續輸入 8 碼：2332 (台灣) + 1072 (電腦) = 台灣電腦
+        let tsv_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../ruhi_lexicon/data/four_corner.tsv");
+        if tsv_path.exists() {
+            eng.load_tsv(&tsv_path).expect("載入 four_corner.tsv 失敗");
+        }
+        // 連續輸入 8 碼：-23321072 與 23321072 (台灣 2332 + 電腦 1072 = 台灣電腦)
+        for ch in "-23321072".chars() {
+            eng.process_key(ch);
+        }
+        assert_eq!(eng.candidates.first().map(|s| s.as_str()), Some("台灣電腦"));
+        eng.reset();
+
         for ch in "23321072".chars() {
             eng.process_key(ch);
         }
         assert_eq!(eng.candidates.first().map(|s| s.as_str()), Some("台灣電腦"));
+
+        // 驗證 lookup_for_reselect 對 `-` 詞前導與單字之精確分流
+        let reselect_word = eng.table.lookup_for_reselect("-2332");
+        assert!(!reselect_word.is_empty());
+        assert_eq!(reselect_word.first().map(|s| s.as_str()), Some("台灣"));
+        assert!(reselect_word.iter().all(|w| w.chars().count() >= 2));
+
+        let reselect_char = eng.table.lookup_for_reselect("1040");
+        assert!(!reselect_char.is_empty());
+        assert!(reselect_char.iter().all(|w| w.chars().count() == 1));
     }
 
     #[test]
