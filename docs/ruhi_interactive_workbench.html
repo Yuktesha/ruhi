@@ -882,7 +882,7 @@
   <header>
     <div>
       <h1><span class="badge-four" id="headerBadge">龍2.0</span> <span id="headerTitleText">如喜（RuhI）— 跨輸入法通用反查教練 ＆ 互動拆碼教學工作台</span></h1>
-      <p id="headerSubText">內建完整 545,778 筆<strong>龍龕形音 2.0 四軌詞庫</strong> ＋ 76,299 筆四角混合構詞碼表 ＋ <strong>全系統 7 大輸入法雙向反查與相容碼思考推論引擎</strong>！</p>
+      <p id="headerSubText">內建完整 356,536 筆（187,997 組編碼、13,000 單字、42,002 多字詞，經 scripts/longkan_stats.py 實測）<strong>龍龕形音 2.0 四軌詞庫</strong> ＋ 76,299 筆四角混合構詞碼表 ＋ <strong>全系統 7 大輸入法雙向反查與相容碼思考推論引擎</strong>！</p>
     </div>
     <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
       <div class="toolbar-box">
@@ -2352,7 +2352,7 @@ function updateModeSpecificChrome() {
   if (mode === "longkan") {
     hBadge.textContent = "龍2.0";
     hTitle.textContent = "如喜（RuhI）— 龍龕形音 2.0（四軌合一 ＆ 許氏雙向協同）互動拆碼教學工作台";
-    hSub.innerHTML = "內建完整 545,778 筆<strong>龍龕形音 2.0 四軌詞庫</strong>（<strong>軌道 H 許氏部件全拼 · 軌道 P 拼音部件全拼 · 軌道 V 徐冰式純視覺字母 · 軌道 A/C 雙拼與 C×N</strong>）＋ <strong>許氏注音雙向協同（<code>`</code> / <code>~</code> / Shift+←+Tab）</strong>！";
+    hSub.innerHTML = "內建完整 356,536 筆（187,997 組編碼、13,000 單字、42,002 多字詞，經 scripts/longkan_stats.py 實測）<strong>龍龕形音 2.0 四軌詞庫</strong>（<strong>軌道 H 許氏部件全拼 · 軌道 P 拼音部件全拼 · 軌道 V 徐冰式純視覺字母 · 軌道 A/C 雙拼與 C×N</strong>）＋ <strong>許氏注音雙向協同（<code>`</code> / <code>~</code> / Shift+←+Tab）</strong>！";
     hMotto.textContent = "🐉 龍龕 2.0 心法：免背縮碼直接打「部件許氏/拼音全碼」＋空白/聲調定界 ｜ 外國人零讀音看形狀打「軌道 V 視覺字母」｜ 許氏按 ` 臨時插字、Shift+←+Tab 事後合體熔煉";
     lTitle.textContent = "🔍 龍龕形音 2.0 逐字四軌反查 ＆ 思考推論教練（每字獨立成行，同時呈現軌道 H / P / V / A，點擊任一字列或字卡立即播放動畫）";
     chipsBox.innerHTML = `
@@ -2382,7 +2382,7 @@ function updateModeSpecificChrome() {
       : "如喜（RuhI）— 跨輸入法通用反查教練 ＆ 互動拆碼教學工作台";
     hSub.innerHTML = mode === "four_corner"
       ? "內建 76,299 筆四角混合構詞碼表（<strong>單字正統碼 · 直覺寬鬆容錯碼 · 二/三/四字詞 -前導連打</strong>）！"
-      : "內建完整 545,778 筆龍龕形音 2.0 四軌詞庫 ＋ 76,299 筆四角混合構詞碼表 ＋ <strong>全系統 7 大輸入法雙向反查引擎</strong>！";
+      : "內建完整 356,536 筆（187,997 組編碼、13,000 單字、42,002 多字詞，經 scripts/longkan_stats.py 實測）龍龕形音 2.0 四軌詞庫 ＋ 76,299 筆四角混合構詞碼表 ＋ <strong>全系統 7 大輸入法雙向反查引擎</strong>！";
     hMotto.textContent = "🔢 胡適口訣：橫一垂二三點捺，叉四插五方塊六，七角八八九是小，點下有橫變零頭";
     lTitle.textContent = mode === "four_corner"
       ? "🔍 智慧型四角號碼逐字拆解 ＆ 連打查詢器（每字獨立成行，點擊詞塊或字卡立即播放拆角動畫）"

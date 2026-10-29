@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 RuhI Project Contributors
+//
 //! # `reverse_coach` — 如喜 (RuhI) 通用可擴展跨輸入法反查教練與結構拆解引擎
 //!
 //! 遵循開放封閉原則 (Open-Closed Principle)，定義統一之 [`ReverseLookupProvider`] 介面：

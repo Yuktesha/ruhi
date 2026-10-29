@@ -131,10 +131,28 @@ def main():
             dst_item.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_item, dst_item)
 
-    # 確保龍龕形音 4 碼完整碼表 (longkan.tsv) 封裝進發布包 data/ 目錄（雖受 .gitignore 保護不推送至公開源碼庫，但正式安裝包必須內建）
+    # 確保龍龕形音 4 碼完整碼表 (longkan.tsv) 封裝進發布包，並一律於打包前由正本 longkan.tsv 即時重建最新指紋之 longkan.bin
     lk_tsv = root / "ruhi_lexicon" / "data" / "longkan.tsv"
+    lk_bin = root / "ruhi_lexicon" / "data" / "longkan.bin"
     if lk_tsv.is_file():
         shutil.copy2(lk_tsv, release_data / "longkan.tsv")
+        run_cmd(
+            [
+                "cargo",
+                "run",
+                "--release",
+                "--bin",
+                "ruhi_lkbin",
+                "--manifest-path",
+                str(root / "ruhi-core" / "Cargo.toml"),
+                "--",
+                str(lk_tsv),
+                str(lk_bin),
+            ],
+            cwd=root,
+        )
+    if lk_bin.is_file():
+        shutil.copy2(lk_bin, release_data / "longkan.bin")
 
     # 複製設定範本（不含個人設定與雲端 Webhook 網址；安裝程式會以範本建立 config.json / settings_config.json）
     for f in ["settings_config.example.json", "config.example.json"]:

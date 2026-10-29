@@ -1,0 +1,57 @@
+{
+  "baseline_without_transition_bonus": {
+    "avg_candidate_rank": 1.2675,
+    "coverage_percent": 99.9844,
+    "covered_chars": 44848,
+    "kspc": 4.9958,
+    "query_latency_us": {
+      "max_us": 45.4,
+      "mean_ms": 0.0026,
+      "mean_us": 2.6092,
+      "p50_us": 1.9,
+      "p95_us": 6.7,
+      "p99_ms": 0.0112,
+      "p99_us": 11.2
+    },
+    "reachable_rate_percent": 100.0,
+    "top1_hit_rate_percent": 84.4296,
+    "top1_hits": 37865,
+    "top5_hit_rate_percent": 99.3155,
+    "top9_hit_rate_percent": 99.8952,
+    "total_chars": 44855,
+    "total_keystrokes": 224087,
+    "use_transition_bonus": false
+  },
+  "dataset": "dev",
+  "first_load_ms": 0.0969,
+  "mmap_bytes": 31082824,
+  "mode": "longkan",
+  "total_sentences": 3640,
+  "transition_engine_net_diff": {
+    "avg_candidate_rank_delta": 0.0273,
+    "top1_hits_delta": -313
+  },
+  "with_transition_bonus": {
+    "avg_candidate_rank": 1.2948,
+    "coverage_percent": 99.9844,
+    "covered_chars": 44848,
+    "kspc": 4.9973,
+    "query_latency_us": {
+      "max_us": 279.8,
+      "mean_ms": 0.007,
+      "mean_us": 7.0159,
+      "p50_us": 4.2,
+      "p95_us": 20.9,
+      "p99_ms": 0.0385,
+      "p99_us": 38.5
+    },
+    "reachable_rate_percent": 100.0,
+    "top1_hit_rate_percent": 83.7317,
+    "top1_hits": 37552,
+    "top5_hit_rate_percent": 99.1661,
+    "top9_hit_rate_percent": 99.8105,
+    "total_chars": 44855,
+    "total_keystrokes": 224155,
+    "use_transition_bonus": true
+  }
+}

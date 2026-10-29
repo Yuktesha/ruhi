@@ -4,7 +4,7 @@ version = "1.0.0"
 edition = "2021"
 authors = ["A Solid GUI Studio (龜鋼A工作室)"]
 description = "ATGprjs / RuhOS 原生 Rust 公用核心與自適應 UI/UX 程式庫 (_lib_rs)"
-license = "Proprietary"
+license = "Apache-2.0"
 
 [lib]
 name = "atg_lib"

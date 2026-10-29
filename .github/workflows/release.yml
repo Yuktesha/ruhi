@@ -27,6 +27,10 @@ jobs:
       - name: Install Python dependencies
         run: pip install pefile
 
+      - name: Generate longkan.bin from canonical longkan.tsv
+        run: cargo run --release --bin ruhi_lkbin -- ../ruhi_lexicon/data/longkan.tsv
+        working-directory: ruhi-core
+
       - name: Run Core Tests
         run: cargo test --release
         working-directory: ruhi-core

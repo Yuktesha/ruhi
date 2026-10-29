@@ -22,6 +22,10 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
+      - name: Generate longkan.bin from canonical longkan.tsv
+        run: cargo run --release --bin ruhi_lkbin -- ../ruhi_lexicon/data/longkan.tsv
+        working-directory: ruhi-core
+
       - name: Run ruhi-core tests
         run: cargo test --verbose
         working-directory: ruhi-core

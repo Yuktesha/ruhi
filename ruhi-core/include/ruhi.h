@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
  * ruhi.h — RuhI (如喜・龍龕) Universal Input Method Engine C-ABI Header
  * Compatible with Xcode Swift Bridging Header / XCFramework module.modulemap / cbindgen
  */
@@ -33,12 +34,6 @@ int32_t ruhi_engine_load_four_corner_tsv(RuhiEngine* engine, const char* path_cs
 int32_t ruhi_engine_set_keyboard_mode(RuhiEngine* engine, const char* mode_cstr);
 char* ruhi_engine_process_key(RuhiEngine* engine, char key_code);
 char* ruhi_engine_process_key_str(RuhiEngine* engine, const char* key_cstr);
-
-/* === Nine-by-Nine (81 Days & 81,000 Chars) Trial & StoreKit 2 / Cross-Platform Entitlement === */
-int32_t ruhi_engine_set_entitlement_path(RuhiEngine* engine, const char* path_cstr);
-char* ruhi_engine_get_entitlement_json(RuhiEngine* engine);
-int32_t ruhi_engine_activate_passcode(RuhiEngine* engine, const char* passcode_cstr);
-char* ruhi_engine_issue_passcode_from_store_tx(RuhiEngine* engine, const char* tx_id_cstr);
 
 #ifdef __cplusplus
 }

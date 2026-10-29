@@ -115,15 +115,11 @@ pub struct RuhiEngine {
     pub manual_cuts: std::collections::HashSet<usize>,
     /// 當前候選窗作用之字元區間 (start_idx, end_idx)，支援單字、多字詞與變長歐文縮寫替換
     pub candidate_target_range: Option<(usize, usize)>,
-    /// 九九圓滿（滿 81 日 & 滿 81,000 字雙重達標）試用與跨平台通行碼終身授權管理員
-    pub entitlement: crate::entitlement::EntitlementManager,
 }
 
 impl Default for RuhiEngine {
     fn default() -> Self {
-        let entitlement = crate::entitlement::EntitlementManager::new();
-        let mut longkan = crate::longkan::LongkanEngine::new();
-        longkan.grace_degraded = entitlement.is_trial_expired_both();
+        let longkan = crate::longkan::LongkanEngine::new();
         Self {
             fsm: HsuFSM::new(),
             lexicon: LexiconManager::new(),
@@ -179,7 +175,6 @@ impl Default for RuhiEngine {
             pending_revisions: Vec::new(),
             manual_cuts: std::collections::HashSet::new(),
             candidate_target_range: None,
-            entitlement,
         }
     }
 }
@@ -273,10 +268,8 @@ impl RuhiEngine {
             let _ = engine.four_corner.load_tsv(&fc_path);
         }
 
-        let lk_path = p.join("longkan.tsv");
-        if lk_path.exists() {
-            let _ = engine.longkan.table.load_tsv(&lk_path);
-        }
+        // 龍龕形音碼表採用延遲載入 (Lazy Mmap)：僅記錄資料目錄路徑，待首次切入龍龕或反查時才映射 `longkan.bin`
+        engine.longkan.table.configure_data_dir(p);
 
         let jp_path = p.join("japanese.tsv");
         if jp_path.exists() {
@@ -1202,9 +1195,6 @@ impl RuhiEngine {
         if trimmed.is_empty() {
             return;
         }
-        // 自動累計九九圓滿（滿 81 日 & 滿 81,000 字雙重達標）字數統計，並同步更新優雅降級旗標
-        self.entitlement.record_committed_text(trimmed);
-        self.longkan.grace_degraded = self.entitlement.is_trial_expired_both();
 
         let last_ch = match trimmed.chars().last() {
             Some(c) => c,
@@ -2610,9 +2600,11 @@ impl RuhiEngine {
                         }
                         _ => {
                             if self.longkan.has_buffer() {
-                                let r = self
-                                    .longkan
-                                    .process_key_with_lexicon('\x08', Some(&self.lexicon));
+                                let r = self.longkan.process_key_with_context(
+                                    '\x08',
+                                    Some(&self.lexicon),
+                                    Some(&mut self.transitions),
+                                );
                                 self.current_candidates = r.candidates;
                                 self.candidate_cycle_idx = 0;
                             }
@@ -2848,9 +2840,11 @@ impl RuhiEngine {
                 _ => {
                     // 預設目標 `"longkan"`：支援單字與 `Tab`/`-` 多字詞臨打
                     if key == '\t' && !self.longkan.has_buffer() {
-                        let r = self
-                            .longkan
-                            .process_key_with_lexicon('\t', Some(&self.lexicon));
+                        let r = self.longkan.process_key_with_context(
+                            '\t',
+                            Some(&self.lexicon),
+                            Some(&mut self.transitions),
+                        );
                         self.current_candidates = r.candidates;
                         self.candidate_cycle_idx = r.candidate_idx;
                         return self.build_response("update_preedit", "");
@@ -2906,8 +2900,10 @@ impl RuhiEngine {
                         if (is_num_tone_delimiter || is_hsu_tone_delimiter) && probe_in_table {
                             self.longkan.buffer.push(key.to_ascii_lowercase());
                             self.longkan.buffer_cursor = self.longkan.buffer.len();
-                            self.longkan
-                                .update_candidates_with_lexicon(Some(&self.lexicon));
+                            self.longkan.update_candidates_with_context(
+                                Some(&self.lexicon),
+                                Some(&mut self.transitions),
+                            );
                         }
                         let chosen = self
                             .longkan
@@ -2942,9 +2938,11 @@ impl RuhiEngine {
                         );
                     }
 
-                    let resp = self
-                        .longkan
-                        .process_key_with_lexicon(key, Some(&self.lexicon));
+                    let resp = self.longkan.process_key_with_context(
+                        key,
+                        Some(&self.lexicon),
+                        Some(&mut self.transitions),
+                    );
                     if !resp.committed_chunk.is_empty() {
                         let lk_cands = vec![resp.committed_chunk.clone()];
                         self.inline_longkan_active = false;
@@ -3066,7 +3064,11 @@ impl RuhiEngine {
             return resp;
         }
         if matches!(self.keyboard_mode.as_str(), "longkan" | "lk") {
-            let resp = self.longkan.process_key_with_lexicon(key, Some(&self.lexicon));
+            let resp = self.longkan.process_key_with_context(
+                key,
+                Some(&self.lexicon),
+                Some(&mut self.transitions),
+            );
             self.composed_sentence = resp.composed.clone();
             self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
             self.current_candidates = resp.candidates.clone();

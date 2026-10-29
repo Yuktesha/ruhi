@@ -107,3 +107,9 @@ scripts/settings_config.json
 ruhi_lexicon/eval/*.tsv
 _private_commercial/
 LICENSE-COMMERCIAL.md
+
+# 龍龕形音二進位記憶體映射索引（由正本 longkan.tsv 衍生，透過 `cargo run --release --bin ruhi_lkbin` 產生，不入 Git 版控）
+**/longkan.bin
+ruhi_lexicon/data/longkan.bin
+scripts/data/longkan.bin
+data/longkan.bin

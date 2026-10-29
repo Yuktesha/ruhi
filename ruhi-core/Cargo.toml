@@ -4,6 +4,7 @@ version = "0.7.0"
 edition = "2021"
 authors = ["RuhOS Community", "大十"]
 description = "RuhI (如喜) Universal Chinese Input Method Engine - Pure Rust Core"
+license = "Apache-2.0"
 
 [lib]
 name = "ruhi"
@@ -27,6 +28,10 @@ path = "src/bin/cangjie_tester.rs"
 [[bin]]
 name = "ruhi_eval"
 path = "src/bin/ruhi_eval.rs"
+
+[[bin]]
+name = "ruhi_lkbin"
+path = "src/bin/ruhi_lkbin.rs"
 
 [profile.dev]
 debug = 0

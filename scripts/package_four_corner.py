@@ -198,9 +198,9 @@ def main() -> int:
         if src_f.exists():
             shutil.copy2(src_f, staging_win / "data" / df)
 
-    lic_comm = repo_root / "LICENSE-COMMERCIAL.md"
-    if lic_comm.exists():
-        shutil.copy2(lic_comm, staging_win / "LICENSE-COMMERCIAL.md")
+    lic_apache = repo_root / "LICENSE"
+    if lic_apache.exists():
+        shutil.copy2(lic_apache, staging_win / "LICENSE")
 
     tutorial_html = repo_root / "docs" / "ruhi_interactive_workbench.html"
     if tutorial_html.exists():

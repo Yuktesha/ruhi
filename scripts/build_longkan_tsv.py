@@ -1,30 +1,38 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 A Solid GUI Studio (龜鋼A工作室) / RuhI Contributors
+# Licensed under the Apache License, Version 2.0 (see LICENSE in repository root).
 """
-如喜 (RuhI) 龍龕形音輸入法 (Longkan Morpho-Phonetic 4-Code IME) 核心碼表編譯器
+如喜 (RuhI) 龍龕形音輸入法 (Longkan Morpho-Phonetic 4-Code IME) 核心碼表與二進位索引編譯器
 ================================================================================
 源自西元 997 年遼代高僧行均《龍龕手鑑》「打破說文死板部首、依視覺所見字形歸部並結合四聲檢字」之平民實用精神，
-結合現代計算語言學與資訊理論（實測單字資訊熵達 13.70 bits、雙字詞連打唯一率 98.79%）：
+整合多軌形音寬容編碼於單一碼表，並編譯為支援作業系統唯讀記憶體映射 (mmap) 之 RLKB0001 二進位格式。
 
-1. 一律補／縮為 4 碼定長框架（不足 4 碼時可按 Space 直接收攏，或補聲調碼滿 4 碼）：
-   - 軌道 A【有聲部首(2碼) + 聲符/部件音(2碼)】：
-     同時相容「國際羅馬拼音／台羅古音 2 碼」(如 鋪 = 金km + 甫fu -> kmfu；龕 = 合he + 龍lo -> helo/holg)
-     與「台灣許氏雙拼 2 碼」(如 鋪 = 金jn + 甫fx -> jnfx；龕 = 合hg + 龍ll -> hgll)。
-   - 軌道 B【英文字母視覺象形(1碼) + 聲符/部件音(2碼) + 第4碼補碼(Space / 12345 / dfjs)】：
-     針對「肴」(乂x + 有eo -> xeo / xeo2 / xeo3 / xeof)、「凶」(乂x + 凵u -> xu / xu1)、
-     「區」(匚c + 品pn -> cpn / cpn3 / cpnf)、「同」(冂n + 同to -> nto / nto2) 等視覺象形字頭。
-   - 軌道 C【部件 × 數字 (Component Multiplicity C × N)】：
-     針對重複部件字，如「區 = 匚(c) + 口(ko)×3 -> cko3」、「品 = 口(ko)×3 -> ko3 / ko33 / ko3f」、
-     「森 = 木(mu)×3 -> mu3 / mu31」、「林 = 木(mu)×2 -> mu2 / mu22」、「晶 = 日(ri)×3 -> ri3 / ri31」、
-     「協 = 十(t) + 力(li)×3 -> tli3 / tle3」、「蕊 = 艹(w) + 心(sm)×3 -> wsm3 / wxn3」。
-   - 軌道 D【高頻雙字詞與成語 4 碼簡碼】：
-     雙字詞取「首字前2碼 + 尾字前2碼」，四字成語取「四字首碼」。
+【上游輸入資料來源、版本與授權聲明（Upstream Data Provenance & Licensing）】：
+1. Unicode Unihan Database (`Unihan.zip`: `Unihan_IRGSources.txt`, `Unihan_DictionaryLikeData.txt`,
+   `Unihan_Readings.txt`, `Unihan_Variants.txt`)
+   - 來源：Unicode, Inc. (https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip)
+   - 用途：擷取 `kRSUnicode`（康熙部首與殘餘筆畫）、`kTotalStrokes`、`kPhonetic`（諧聲聲符系列）與正異體對應
+   - 授權：Unicode License v3（寬鬆開源授權，與 Apache License 2.0 完全相容）
+2. 小麥注音詞庫 (`ruhi_lexicon/data/lexicon_mcbopomofo.tsv`)
+   - 來源：OpenVanilla / McBopomofo Project
+   - 用途：基礎單字與常用詞彙注音讀音與先驗詞頻統計
+   - 授權：MIT License（與 Apache License 2.0 完全相容）
+3. 中華民國教育部《重編國語辭典修訂本》／《國語辭典簡編本》 (`ruhi_lexicon/data/lexicon_moe.tsv`)
+   - 來源：中華民國教育部國語推行委員會 / 國家教育研究院
+   - 用途：標準正體字讀音查核與詞條收錄參照
+   - 授權：政府資料開放授權條款 (OGDL 1.0) / CC BY-ND 3.0 TW（詳見 THIRD_PARTY_LICENSES.md）
+4. 本腳本內建之漢字部件拆解覆寫表 (`MULTI_COMP_OVERRIDE`、`CURATED_SPECIAL_CHARS`、`VISUAL_SHAPE_MAP`)
+   - 來源：如喜 (RuhI) 專案原創整理，完全不依賴任何 GPL 拆字表（已徹底移除 CHISE / CJKVI `ids.txt`）
+   - 授權：Apache License, Version 2.0
 """
 
 from __future__ import annotations
 
 import os
 import re
+import struct
 import sys
 import zipfile
 from collections import Counter, defaultdict
@@ -40,7 +48,6 @@ if sys.platform == "win32":
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 UNIHAN_ZIP = REPO_ROOT / "_archive" / "_external" / "four_corner_upstream" / "Unihan.zip"
-IDS_TXT = REPO_ROOT / "_archive" / "_external" / "ids.txt"
 LEXICON_DIR = REPO_ROOT / "ruhi_lexicon" / "data"
 
 KANGXI_RADICALS: Dict[int, str] = {
@@ -1103,6 +1110,47 @@ def main() -> int:
         "印": ["爪", "卩"],
         "即": ["艮", "卩"],
         "卸": ["午", "止", "卩"],
+        "看": ["手", "目"],
+        "拿": ["合", "手"],
+        "問": ["門", "口"],
+        "和": ["禾", "口"],
+        "到": ["至", "刀"],
+        "別": ["口", "力", "刀"],
+        "想": ["相", "心"],
+        "相": ["木", "目"],
+        "樹": ["木", "士", "豆", "寸"],
+        "識": ["言", "音", "戈"],
+        "吃": ["口", "乞"],
+        "再": ["一", "冉"],
+        "來": ["木", "人"],
+        "麼": ["麻", "么"],
+        "負": ["勹", "貝"],
+        "幼": ["幺", "力"],
+        "動": ["重", "力"],
+        "明": ["日", "月"],
+        "好": ["女", "子"],
+        "休": ["人", "木"],
+        "信": ["人", "言"],
+        "謝": ["言", "身", "寸"],
+        "喜": ["士", "豆", "口"],
+        "意": ["音", "心"],
+        "音": ["立", "日"],
+        "章": ["立", "早"],
+        "男": ["田", "力"],
+        "尖": ["小", "大"],
+        "歪": ["不", "正"],
+        "分": ["八", "刀"],
+        "切": ["七", "刀"],
+        "初": ["衣", "刀"],
+        "利": ["禾", "刀"],
+        "知": ["矢", "口"],
+        "如": ["女", "口"],
+        "名": ["夕", "口"],
+        "各": ["夂", "口"],
+        "加": ["力", "口"],
+        "告": ["牛", "口"],
+        "吉": ["士", "口"],
+        "古": ["十", "口"],
     }
     NO_DECOMPOSE_ATOMS: Set[str] = set("七九丸凡刀力方成司局毛电甩匕儿夕乃久乞也习勺勻勿")
     ATOMIC_READABLE: Set[str] = set(
@@ -1110,27 +1158,24 @@ def main() -> int:
         "包乞甫去旦巴半平正本末未丙央失冊永曲朱此求衣谷赤辛里"
     )
     STROKE_ONLY: Set[str] = set("丨丶丿乙亅乛𡿨乀乁𠃍𠂉𠂇㇏㇐㇑㇒㇓㇔㇕㇖㇗㇘㇙㇚㇛㇜㇝㇞㇟㇠")
-    IDS_OPS: Set[str] = set("⿰⿱⿲⿳⿴⿵⿶⿷⿸⿹⿺⿻")
-
-    ids_raw: Dict[str, str] = {}
-    if IDS_TXT.exists():
-        with open(IDS_TXT, "r", encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("#") or not line.strip():
-                    continue
-                p = line.strip().split("\t")
-                if len(p) >= 3:
-                    chosen = p[2]
-                    for cand in p[2:]:
-                        if "T" in cand:
-                            chosen = cand
-                            break
-                    chosen = re.sub(r"\[.*?\]", "", chosen)
-                    ids_raw[p[1]] = chosen
 
     def get_ids_children(ch_s: str) -> List[str]:
-        s = ids_raw.get(ch_s, "")
-        return [c for c in s if c not in IDS_OPS and not c.isascii() and not ("①" <= c <= "⑳")]
+        """純粹基於 Unihan (kRSUnicode + kPhonetic，Unicode License v3) 與內建 MULTI_COMP_OVERRIDE 推導漢字雙部件，零 GPL ids.txt 依賴。"""
+        if ch_s in MULTI_COMP_OVERRIDE:
+            return list(MULTI_COMP_OVERRIDE[ch_s])
+        r_id, r_res = rs_map.get(ch_s, (0, 0))
+        if r_id <= 0 or r_res <= 0:
+            return []
+        r_ch = KANGXI_RADICALS.get(r_id, "")
+        p_ids = phonetic_map.get(ch_s, [])
+        p_ch = series_root_char.get(p_ids[0], "") if p_ids else ""
+        if r_ch and p_ch and r_ch != ch_s and p_ch != ch_s and r_ch != p_ch:
+            # 唯有當聲符代表字之筆畫數與整字「除部首外之剩餘筆畫數 (r_res)」吻合（誤差 <= 1）且聲符本身為基礎可讀字根時，
+            # 該聲符方為整字之真實結構子部件（如 飽=食+包[5畫]、鋪=金+甫[7畫]），避免將同聲系兄弟字（如 餅 之同系字 併[8畫 != 6畫]）誤當作結構部件
+            p_strokes = strokes_map.get(p_ch, 99)
+            if abs(p_strokes - r_res) <= 1 and (p_ch in ATOMIC_READABLE or rs_map.get(p_ch, (0, 0))[1] == 0):
+                return [r_ch, p_ch]
+        return []
 
     def is_familiar_readable(c_s: str) -> bool:
         if c_s in RAD_TO_READABLE or c_s in ATOMIC_READABLE or c_s in COLLOQUIAL_RAD_BPM:
@@ -1656,13 +1701,107 @@ def main() -> int:
         if code_hsu not in (code_n2, code_phon):
             upsert_entry(code_hsu, w, wt + len_bonus - 50, kind_tag, f"許氏詞碼:{w}({code_hsu})")
 
-    # 排序並寫入開發者私有主檔與 Rust 編譯期混淆二進位檔 (longkan_embedded.bin)
+    # 確保所有 Rust 內建保底指標詞條同步收錄於主碼表與二進位索引中
+    RUST_BUILTIN_DEFAULTS = [
+        ("lnln", "龍", 2680, "curated", "獨體疊音:龍(ln)+龍(ln)"),
+        ("liln", "龍", 2660, "curated", "最簡部件:立(li)+龍(ln)"),
+        ("yeln", "龍", 2640, "curated", "最簡部件:月(ye)+龍(ln)"),
+        ("lxl2", "龍", 2620, "curated", "許氏友善:ㄌ(l)ㄨ(x)ㄥ(l)+2聲"),
+        ("kmfu", "鋪", 2600, "curated", "金(km)+甫(fu)"),
+        ("jnfx", "鋪", 2500, "curated", "金(jn)+甫(fx)"),
+        ("jenfx", "鋪", 2680, "curated", "許氏全拼:金(jen)+甫(fx)"),
+        ("jenfx1", "鋪", 2680, "curated", "許氏全拼:金(jen)+甫(fx)+1聲"),
+        ("jenfx4", "鋪", 2680, "curated", "許氏全拼:金(jen)+甫(fx)+4聲"),
+        ("jenfxj", "鋪", 2680, "curated", "許氏全拼:金(jen)+甫(fx)+4聲j"),
+        ("jinfu", "鋪", 2660, "curated", "拼音全拼:金(jin)+甫(fu)"),
+        ("ahem", "鋪", 2450, "curated", "視覺拆字:釒(ae)+甫(em)"),
+        ("holn", "龕", 2680, "curated", "最簡部件:合(ho)+龍(ln)"),
+        ("hgln", "龕", 2660, "curated", "許氏友善:合(hg)+龍(ln)"),
+        ("hglxl", "龕", 2700, "curated", "許氏全拼:合(hg)+龍(lxl)"),
+        ("hglxl1", "龕", 2700, "curated", "許氏全拼:合(hg)+龍(lxl)+1聲"),
+        ("helong", "龕", 2690, "curated", "拼音全拼:合(he)+龍(long)"),
+        ("helong1", "龕", 2690, "curated", "拼音全拼:合(he)+龍(long)+1聲"),
+        ("helo", "龕", 2550, "curated", "合(he)+龍(lo)"),
+        ("holg", "龕", 2540, "curated", "合(ho)+龍(lg)"),
+        ("hgll", "龕", 2530, "curated", "許氏雙拼:合(hg)+龍(ll)"),
+        ("aeod", "龕", 2480, "curated", "視覺拆字:合(aeo)+龍(d)"),
+        ("rue", "明", 2680, "curated", "許氏全拼:日(r)+月(ue)"),
+        ("rue2", "明", 2680, "curated", "許氏全拼:日(r)+月(ue)+2聲"),
+        ("rued", "明", 2680, "curated", "許氏全拼:日(r)+月(ue)+2聲d"),
+        ("reue", "明", 2670, "curated", "許氏相容:日(re)+月(ue)"),
+        ("riyue", "明", 2680, "curated", "拼音全拼:日(ri)+月(yue)"),
+        ("bode", "明", 2660, "curated", "視覺拆字:日(bo)+月(de)"),
+        ("bd", "明", 2620, "curated", "視覺簡碼:日(b)+月(d)"),
+        ("cko", "古", 2650, "curated", "許氏全拼:十(c)+口(ko)"),
+        ("ckof", "古", 2660, "curated", "許氏全拼:十(c)+口(ko)+3聲f"),
+        ("shikou", "古", 2650, "curated", "拼音全拼:十(shi)+口(kou)"),
+        ("tio", "古", 2640, "curated", "視覺拆字:十(ti)+口(o)"),
+        ("to", "古", 2600, "curated", "十(t)+口(o)+␣"),
+        ("oti", "叶", 2650, "curated", "視覺拆字:口(o)+十(ti)"),
+        ("txo", "杏", 2650, "curated", "視覺拆字:木(tx)+口(o)"),
+        ("otx", "呆", 2650, "curated", "視覺拆字:口(o)+木(tx)"),
+        ("atx", "休", 2640, "curated", "視覺拆字:亻(a)+木(tx)"),
+        ("xoje", "好", 2650, "curated", "視覺拆字:女(xo)+子(je)"),
+        ("txtx", "林", 2620, "curated", "視覺拆字:木(tx)+木(tx)"),
+        ("ttt", "森", 2620, "curated", "視覺拆字:木(t)×3+␣"),
+        ("ooo", "品", 2650, "curated", "視覺拆字:口(o)×3+␣"),
+        ("oi", "中", 2600, "curated", "視覺拆字:口(o)+丨(i)"),
+        ("cooo", "區", 2620, "curated", "視覺拆字:匚(c)+口×3(ooo)"),
+        ("jeje", "喆", 2680, "curated", "許氏全拼:吉(je)+吉(je)"),
+        ("jeje2", "喆", 2680, "curated", "許氏全拼:吉(je)+吉(je)+2聲"),
+        ("jejed", "喆", 2680, "curated", "許氏全拼:吉(je)+吉(je)+2聲d"),
+        ("jiji", "喆", 2680, "curated", "拼音全拼:吉(ji)+吉(ji)"),
+        ("emcnam", "謝", 2680, "curated", "許氏全拼:言(em)+身(cn)+寸(am)"),
+        ("emcnam4", "謝", 2680, "curated", "許氏全拼:言(em)+身(cn)+寸(am)+4聲"),
+        ("emcnamj", "謝", 2680, "curated", "許氏全拼:言(em)+身(cn)+寸(am)+4聲j"),
+        ("emam", "謝", 2660, "curated", "許氏首尾:言(em)+寸(am)"),
+        ("yanshencun", "謝", 2670, "curated", "拼音全拼:言(yan)+身(shen)+寸(cun)"),
+        ("cdoko", "喜", 2680, "curated", "許氏全拼:士(c)+豆(do)+口(ko)"),
+        ("cdoko3", "喜", 2680, "curated", "許氏全拼:士(c)+豆(do)+口(ko)+3聲"),
+        ("cdokof", "喜", 2680, "curated", "許氏全拼:士(c)+豆(do)+口(ko)+3聲f"),
+        ("shidoukou", "喜", 2670, "curated", "拼音全拼:士(shi)+豆(dou)+口(kou)"),
+        ("comx", "看", 2680, "curated", "許氏全拼:手(co)+目(mx)"),
+        ("comx4", "看", 2680, "curated", "許氏全拼:手(co)+目(mx)+4聲"),
+        ("comxj", "看", 2680, "curated", "許氏全拼:手(co)+目(mx)+4聲j"),
+        ("shoumu", "看", 2670, "curated", "拼音全拼:手(shou)+目(mu)"),
+        ("emx", "語", 2680, "curated", "許氏全拼:言(em)+吾(x)"),
+        ("emx3", "語", 2680, "curated", "許氏全拼:言(em)+吾(x)+3聲"),
+        ("emxf", "語", 2680, "curated", "許氏全拼:言(em)+吾(x)+3聲f"),
+        ("yanwu", "語", 2670, "curated", "拼音全拼:言(yan)+吾(wu)"),
+        ("jn3", "形", 2680, "curated", "最簡部件:井(jn)+彡(3畫)"),
+        ("jnsn", "形", 2660, "curated", "最簡部件:井(jn)+彡(sn)"),
+        ("jnse", "形", 2640, "curated", "許氏友善:井(jn)+形(se)"),
+        ("jncn", "形", 2620, "curated", "許氏友善:井(jn)+彡/形(cn)"),
+        ("lir4", "音", 2680, "curated", "最簡部件:立(li)+日(r)+4"),
+        ("inin", "音", 2660, "curated", "獨體疊音:音(in)+音(in)"),
+        ("seci", "法", 2680, "curated", "最簡部件:水(se)+去(ci)"),
+        ("sefa", "法", 2660, "curated", "最簡部件:水(se)+本音法(fa)"),
+        ("lnln", "龍龕", 2520, "phrase2", "首前2+尾後2:龍(ln)+龕(ln)"),
+        ("lnho", "龍龕", 2500, "phrase2", "部件詞碼:龍(ln)+龕(ho)"),
+        ("jnr4", "形音", 2520, "phrase2", "首前2+尾後2:形(jn)+音(r4)"),
+        ("jnin", "形音", 2500, "phrase2", "本音詞碼:形(jn)+音(in)"),
+        ("ceru", "輸入", 2520, "phrase2", "首前2+尾後2:輸(ce)+入(ru)"),
+        ("suru", "輸入", 2480, "phrase2", "本音詞碼:輸(su)+入(ru)"),
+        ("tawn", "台灣", 2520, "phrase2", "首前2+尾後2:台(ta)+灣(wn)"),
+        ("tixm", "台灣", 2480, "phrase2", "許氏詞碼:台(ti)+灣(xm)"),
+        ("cerci", "輸入法", 2580, "phrase3", "首前2+中1+尾後2:輸(ce)+入(r)+法(ci)"),
+        ("cerfa", "輸入法", 2560, "phrase3", "首前2+中1+尾後2:輸(ce)+入(r)+法(fa)"),
+        ("lnhjr4", "龍龕形音", 2620, "phrase4", "首前2+中1+尾後2:龍(ln)+龕(h)+形(j)+音(r4)"),
+        ("lnhjin", "龍龕形音", 2600, "phrase4", "首前2+中1+尾後2:龍(ln)+龕(h)+形(j)+音(in)"),
+        ("lnhjci", "龍龕形音法", 2640, "phrase5", "6碼封頂:龍(ln)+龕(h)+形(j)+…+法(ci)"),
+        ("lnhjlci", "龍龕形音法", 2640, "phrase5", "首前2+中1+尾後2:龍(ln)+龕(h)+形(j)+音(l)+法(ci)"),
+        ("lnhjlfa", "龍龕形音法", 2620, "phrase5", "首前2+中1+尾後2:龍(ln)+龕(h)+形(j)+音(l)+法(fa)"),
+    ]
+    for b_code, b_text, b_wt, b_kind, b_desc in RUST_BUILTIN_DEFAULTS:
+        upsert_entry(b_code, b_text, b_wt, b_kind, b_desc)
+
     sorted_rows = sorted(
         entries_map.items(),
         key=lambda item: (item[0][0], -item[1][0], item[0][1])
     )
 
     header = (
+        "# SPDX-License-Identifier: Apache-2.0\n"
         "# 如喜 (RuhI) 龍龕形音輸入法 (Longkan Morpho-Phonetic 4-Code IME) 核心碼表\n"
         "# 欄位格式：CODE<TAB>TEXT<TAB>WEIGHT<TAB>KIND<TAB>BREAKDOWN\n"
     )
@@ -1674,8 +1813,12 @@ def main() -> int:
         for (code, text), (wt, kind, bdesc) in sorted_rows:
             f.write(f"{code}\t{text}\t{wt}\t{kind}\t{bdesc}\n")
 
+    public_bin = LEXICON_DIR / "longkan.bin"
+    compile_rlkb_bin(sorted_rows, public_bin)
+
     print(f"[編譯完成] 龍龕形音輸入法碼表共 {len(sorted_rows):,} 筆條目")
     print(f"  -> 標準明文碼表: {public_tsv}")
+    print(f"  -> 二進位記憶體映射索引: {public_bin} ({public_bin.stat().st_size / (1024 * 1024):.2f} MB)")
     for sample_code in ["kmfu", "jnfx", "helo", "hgll", "xeo", "xeo2", "xeo3", "xeof", "xu", "xu1", "cpn", "cpn3", "cpnf", "cko3", "ko3", "mu3", "tli3", "wsm3"]:
         cands = [
             f"{txt}({bdesc})"
@@ -1685,6 +1828,256 @@ def main() -> int:
         print(f"  [{sample_code:<4}] -> {', '.join(cands)}")
 
     return 0
+
+
+KIND_NAME_LIST = [
+    "rad_phon",
+    "rad_char",
+    "rad2_phon1_tone",
+    "pict_3",
+    "pict_4",
+    "mult_c",
+    "visual_4",
+    "visual_3",
+    "visual_2",
+    "stroke_comp",
+    "latin_comp",
+    "hsu_tone4",
+    "hsu_full_comp",
+    "pinyin_full_comp",
+    "multi_comp",
+    "curated",
+    "builtin",
+    "phrase2",
+    "phrase3",
+    "phrase4",
+    "phrase5",
+    "phrase6",
+    "phrase_multi",
+    "other",
+]
+KIND_TO_ID = {name: idx for idx, name in enumerate(KIND_NAME_LIST)}
+
+
+def compile_rlkb_bin(
+    sorted_rows: List[Tuple[Tuple[str, str], Tuple[int, str, str]]],
+    bin_path: Path,
+) -> None:
+    """將排序後之龍龕詞條編譯為 RLKB0001 唯讀記憶體映射二進位格式（冷熱資料分離，拆字說明置於冷區尾部按需讀取）。"""
+    hot_pool = bytearray()
+    hot_offsets: Dict[str, Tuple[int, int]] = {}
+
+    def intern_hot(s: str) -> Tuple[int, int]:
+        if s in hot_offsets:
+            return hot_offsets[s]
+        b = s.encode("utf-8")
+        off = len(hot_pool)
+        hot_pool.extend(b)
+        hot_offsets[s] = (off, len(b))
+        return off, len(b)
+
+    cold_pool = bytearray()
+    cold_bd_offsets: Dict[str, int] = {}
+
+    def intern_cold_str(s: str) -> int:
+        if not s:
+            return 0xFFFFFFFF
+        if s in cold_bd_offsets:
+            return cold_bd_offsets[s]
+        b = s.encode("utf-8")
+        if len(b) > 65535:
+            b = b[:65535]
+        off = len(cold_pool)
+        cold_pool.extend(struct.pack("<H", len(b)))
+        cold_pool.extend(b)
+        cold_bd_offsets[s] = off
+        return off
+
+    # 1. Group by code and build reverse map
+    key_groups: Dict[str, List[Tuple[str, int, str, str]]] = defaultdict(list)
+    char_rev: Dict[str, Dict[str, object]] = {}
+
+    for (code, text), (wt, kind, bdesc) in sorted_rows:
+        c_lower = code.strip().lower()
+        t_clean = text.strip()
+        if not c_lower or not t_clean:
+            continue
+        k_clean = kind.strip()
+        b_clean = bdesc.strip()
+        key_groups[c_lower].append((t_clean, int(wt), k_clean, b_clean))
+
+        if len(t_clean) == 1:
+            is_pure_4alpha = len(c_lower) == 4 and c_lower.isalpha() and c_lower.isascii()
+            score = int(wt) + (1000 if k_clean == "curated" else 0) + (250 if is_pure_4alpha else 0)
+            if t_clean not in char_rev:
+                char_rev[t_clean] = {
+                    "primary_code": c_lower,
+                    "primary_score": score,
+                    "breakdown": b_clean,
+                    "alt_breakdowns": [],
+                }
+            else:
+                rev = char_rev[t_clean]
+                p_code = str(rev["primary_code"])
+                p_score = int(rev["primary_score"])  # type: ignore[arg-type]
+                alts: List[Tuple[str, str]] = rev["alt_breakdowns"]  # type: ignore[assignment]
+                if p_code == c_lower:
+                    if score > p_score:
+                        rev["primary_score"] = score
+                    if not rev["breakdown"] and b_clean:
+                        rev["breakdown"] = b_clean
+                elif score > p_score:
+                    old_code = p_code
+                    old_bdesc = str(rev["breakdown"])
+                    alts[:] = [(x, d) for (x, d) in alts if x != c_lower and x != old_code]
+                    alts.insert(0, (old_code, old_bdesc))
+                    rev["primary_code"] = c_lower
+                    rev["primary_score"] = score
+                    rev["breakdown"] = b_clean
+                elif not any(x == c_lower for (x, _) in alts):
+                    alts.append((c_lower, b_clean))
+
+    sorted_keys = sorted(key_groups.keys())
+    key_records_buf = bytearray()
+    entry_records_buf = bytearray()
+    total_entries = 0
+
+    for code in sorted_keys:
+        items = key_groups[code]
+        items.sort(key=lambda it: (-it[1], it[0]))
+        c_off, c_len = intern_hot(code)
+        flags = 0
+        first_idx = total_entries
+        for t_clean, wt, k_clean, b_clean in items:
+            ch_len = len(t_clean)
+            if ch_len == 1:
+                flags |= 0x0001
+            elif ch_len == 2:
+                flags |= 0x0002
+            elif ch_len >= 3:
+                flags |= 0x0002 | 0x0004
+            t_off, t_len = intern_hot(t_clean)
+            kind_id = KIND_TO_ID.get(k_clean, len(KIND_NAME_LIST) - 1)
+            bd_off = intern_cold_str(b_clean)
+            entry_records_buf.extend(
+                struct.pack(
+                    "<IHBBII",
+                    t_off,
+                    t_len,
+                    min(ch_len, 255),
+                    kind_id,
+                    max(0, wt),
+                    bd_off,
+                )
+            )
+            total_entries += 1
+        key_records_buf.extend(
+            struct.pack(
+                "<IHHII",
+                c_off,
+                c_len,
+                flags,
+                first_idx,
+                len(items),
+            )
+        )
+
+    # 2. Build sorted ReverseCharRecord array (20 bytes each: <IIHHII)
+    sorted_rev_chars = sorted(char_rev.keys(), key=lambda c: ord(c))
+    rev_records_buf = bytearray()
+    for ch in sorted_rev_chars:
+        rev = char_rev[ch]
+        p_code = str(rev["primary_code"])
+        p_score = int(rev["primary_score"])  # type: ignore[arg-type]
+        p_bd = str(rev["breakdown"])
+        alts: List[Tuple[str, str]] = rev["alt_breakdowns"]  # type: ignore[assignment]
+        p_off, p_len = intern_hot(p_code)
+
+        head_mask = 0
+        for cand_c in [p_code] + [ac for (ac, _) in alts]:
+            if cand_c:
+                c0 = ord(cand_c[0])
+                if ord("a") <= c0 <= ord("z"):
+                    head_mask |= 1 << (c0 - ord("a"))
+
+        cold_detail_off = len(cold_pool)
+        p_bd_bytes = p_bd.encode("utf-8")[:65535]
+        alt_slice = alts[:32]
+        cold_pool.extend(struct.pack("<IHH", p_score, len(p_bd_bytes), len(alt_slice)))
+        cold_pool.extend(p_bd_bytes)
+        for ac, abd in alt_slice:
+            ac_b = ac.encode("utf-8")[:255]
+            abd_b = abd.encode("utf-8")[:65535]
+            cold_pool.extend(struct.pack("<HH", len(ac_b), len(abd_b)))
+            cold_pool.extend(ac_b)
+            cold_pool.extend(abd_b)
+
+        rev_records_buf.extend(
+            struct.pack(
+                "<IIHHII",
+                ord(ch),
+                p_off,
+                p_len,
+                len(alt_slice),
+                head_mask,
+                cold_detail_off,
+            )
+        )
+
+    # Align offsets to 8 bytes
+    def align8(b: bytearray) -> None:
+        rem = len(b) % 8
+        if rem:
+            b.extend(b"\x00" * (8 - rem))
+
+    out = bytearray(64)  # placeholder for 64-byte header
+    keys_offset = len(out)
+    out.extend(key_records_buf)
+    align8(out)
+
+    entries_offset = len(out)
+    out.extend(entry_records_buf)
+    align8(out)
+
+    reverse_offset = len(out)
+    out.extend(rev_records_buf)
+    align8(out)
+
+    hot_strings_offset = len(out)
+    hot_strings_len = len(hot_pool)
+    out.extend(hot_pool)
+    align8(out)
+
+    cold_pool_offset = len(out)
+    cold_pool_len = len(cold_pool)
+    out.extend(cold_pool)
+
+    import zlib
+    tsv_sibling = bin_path.with_suffix(".tsv")
+    tsv_fingerprint = 0
+    if tsv_sibling.is_file():
+        norm_bytes = tsv_sibling.read_bytes().replace(b"\r", b"")
+        crc32_val = zlib.crc32(norm_bytes) & 0xFFFFFFFF
+        tsv_fingerprint = ((len(norm_bytes) & 0xFFFFFFFF) << 32) | crc32_val
+
+    header_bytes = struct.pack(
+        "<8sIIIIIIIIIIQQ",
+        b"RLKB0001",
+        len(sorted_keys),
+        total_entries,
+        len(sorted_rev_chars),
+        keys_offset,
+        entries_offset,
+        reverse_offset,
+        hot_strings_offset,
+        hot_strings_len,
+        cold_pool_offset,
+        cold_pool_len,
+        tsv_fingerprint,
+        0,
+    )
+    out[0:64] = header_bytes
+    bin_path.write_bytes(out)
 
 
 if __name__ == "__main__":

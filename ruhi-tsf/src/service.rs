@@ -1178,9 +1178,7 @@ impl RuhiTextService {
         if paths.four_corner.exists() && engine.four_corner.table.code_to_entries.len() < 1000 {
             let _ = engine.four_corner.load_tsv(&paths.four_corner);
         }
-        if paths.longkan.exists() && engine.longkan.table.map.len() < 1000 {
-            let _ = engine.longkan.table.load_tsv(&paths.longkan);
-        }
+        engine.longkan.table.configure_data_dir(&paths.data_dir);
         if let Ok(fc_meta) = std::fs::metadata(&paths.four_corner) {
             if let Ok(fc_mtime) = fc_meta.modified() {
                 if let Ok(mut fc_lock) = LAST_FC_MTIME.lock() {
@@ -1318,9 +1316,7 @@ impl RuhiTextService {
         if paths.four_corner.exists() && engine.four_corner.table.code_to_entries.len() < 1000 {
             let _ = engine.four_corner.load_tsv(&paths.four_corner);
         }
-        if paths.longkan.exists() && engine.longkan.table.map.len() < 1000 {
-            let _ = engine.longkan.table.load_tsv(&paths.longkan);
-        }
+        engine.longkan.table.configure_data_dir(&paths.data_dir);
 
         let cw = match crate::candidate_window::CandidateWindow::new() {
             Ok(mut w) => {

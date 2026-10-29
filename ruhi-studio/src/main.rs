@@ -491,10 +491,6 @@ pub struct RuhiStudioApp {
     pub last_wakeup_ts: u64,
     pub last_config_mtime: Option<std::time::SystemTime>,
     pub cli_lang_override: Option<String>,
-    // 九九圓滿 (81 日 & 81,000 字雙重達標) 試用與跨平台通行碼終身授權狀態
-    pub entitlement: ruhi::EntitlementManager,
-    pub passcode_input: String,
-    pub passcode_feedback: String,
 }
 
 impl RuhiStudioApp {
@@ -560,9 +556,6 @@ impl RuhiStudioApp {
             })
             .unwrap_or(0);
 
-        let entitlement = ruhi::EntitlementManager::new();
-        let passcode_input = entitlement.license_passcode.clone();
-
         Self {
             root_dir,
             data_dir,
@@ -590,9 +583,6 @@ impl RuhiStudioApp {
             last_wakeup_ts,
             last_config_mtime,
             cli_lang_override,
-            entitlement,
-            passcode_input,
-            passcode_feedback: String::new(),
         }
     }
 
@@ -1673,8 +1663,8 @@ impl RuhiStudioApp {
                 ui,
                 Some("longkan"),
                 "龍龕形音輸入法（Longkan Morpho-Phonetic 4-Code · 龍）",
-                "CJK ▸ C ▸ 形音雙拼＋象形＋部件×數字 4 碼",
-                "致敬西元 997 年行均《龍龕手鑑》之零死記形音輸入法：統一 4 碼定長正規化，原生雙軌相容「部首讀音雙拼＋聲符雙拼（如鋪=金km+甫fu➔kmfu／許氏jnfx、龕=合he+龍lo➔helo）」、「英文字母視覺象形＋聲符＋聲調補碼（如肴=乂x+有eo➔xeo/xeo2、凶=xu1、區=cpn3）」與「部件×數字（如區=cko3、品=ko3、森=mu3、協=tli3、蕊=wsm3）」。",
+                "CJK ▸ C ▸ 整合創新：形音雙拼＋象形＋部件×數字 4 碼",
+                "龍龕以形聲結構（形符＋聲符讀音）為核心，相容注音雙拼與漢語拼音，免切換模式即可以部件讀音組字，並提供輸入座內的事後部件融合（技術公開文件：DOI 10.5281/zenodo.23751480；經 scripts/longkan_stats.py 實測：356,536 筆碼表、187,997 組編碼、13,000 單字、42,002 多字詞、單字熵 16.38 bits）：原生相容「部首／部件讀音雙拼（如鋪=金km+甫fu➔kmfu／許氏jnfx、龕=合he+龍lo➔helo）」、「英文字母視覺象形＋聲符＋聲調補碼（如中=oi、品=ooo、肴=乂x+有eo➔xeo/xeo2）」與「部件×數字（如區=cko3、品=ko3、森=mu3、協=tli3、蕊=wsm3）」。",
             );
 
             ui.add_space(8.0);
@@ -1745,12 +1735,9 @@ impl RuhiStudioApp {
                 ui,
                 Some("longkan"),
                 "龍龕形音輸入法（Longkan Morpho-Phonetic 4-Code · 龍）",
-                "CJK ▸ C ▸ 形音雙拼＋象形＋部件×數字 4 碼",
-                "致敬西元 997 年行均《龍龕手鑑》之零死記形音輸入法：統一 4 碼定長正規化，原生雙軌相容「部首讀音雙拼＋聲符雙拼（如鋪=金km+甫fu➔kmfu／許氏jnfx、龕=合he+龍lo➔helo）」、「英文字母視覺象形＋聲符＋聲調補碼（如肴=乂x+有eo➔xeo/xeo2、凶=xu1、區=cpn3）」與「部件×數字（如區=cko3、品=ko3、森=mu3、協=tli3、蕊=wsm3）」。",
+                "CJK ▸ C ▸ 整合創新：形音雙拼＋象形＋部件×數字 4 碼",
+                "龍龕以形聲結構（形符＋聲符讀音）為核心，相容注音雙拼與漢語拼音，免切換模式即可以部件讀音組字，並提供輸入座內的事後部件融合（技術公開文件：DOI 10.5281/zenodo.23751480；經 scripts/longkan_stats.py 實測：356,536 筆碼表、187,997 組編碼、13,000 單字、42,002 多字詞、單字熵 16.38 bits）：原生相容「部首／部件讀音雙拼（如鋪=金km+甫fu➔kmfu／許氏jnfx、龕=合he+龍lo➔helo）」、「英文字母視覺象形＋聲符＋聲調補碼（如中=oi、品=ooo、肴=乂x+有eo➔xeo/xeo2）」與「部件×數字（如區=cko3、品=ko3、森=mu3、協=tli3、蕊=wsm3）」。",
             );
-
-            ui.add_space(6.0);
-            self.render_entitlement_card(ui);
 
             ui.add_space(8.0);
             self.render_spectrum_method_node(
@@ -3512,291 +3499,8 @@ impl RuhiStudioApp {
         }
     }
 
-    fn render_entitlement_card(&mut self, ui: &mut egui::Ui) {
-        let palette = self.shell.palette;
-        let scale = self.shell.ui_scale;
-        let days = self.entitlement.days_elapsed();
-        let chars = self.entitlement.total_committed_chars;
-        let days_ratio = self.entitlement.days_progress_ratio();
-        let chars_ratio = self.entitlement.chars_progress_ratio();
-        let is_licensed = self.entitlement.is_licensed();
-        let is_expired_both = self.entitlement.is_trial_expired_both();
-
-        egui::Frame::group(ui.style())
-            .fill(palette.bg_surface.to_egui())
-            .stroke(egui::Stroke::new(
-                1.2_f32,
-                if is_licensed {
-                    egui::Color32::from_rgb(46, 204, 113)
-                } else if is_expired_both {
-                    egui::Color32::from_rgb(241, 196, 15)
-                } else {
-                    palette.accent.to_egui()
-                },
-            ))
-            .inner_margin(egui::Margin::symmetric(
-                (14.0 * scale).round() as i8,
-                (10.0 * scale).round() as i8,
-            ))
-            .show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(
-                        egui::RichText::new("🐉 九九圓滿（81 日 ＆ 81,000 字雙重達標）試用進度與跨平台終身授權")
-                            .size(14.0 * scale)
-                            .strong()
-                            .color(palette.fg_bright.to_egui()),
-                    );
-                });
-                ui.add_space(4.0);
-                ui.label(
-                    egui::RichText::new(self.entitlement.summary_badge_text())
-                        .size(12.5 * scale)
-                        .strong()
-                        .color(if is_licensed {
-                            egui::Color32::from_rgb(46, 204, 113)
-                        } else if is_expired_both {
-                            egui::Color32::from_rgb(241, 196, 15)
-                        } else {
-                            palette.accent.to_egui()
-                        }),
-                );
-                ui.add_space(6.0);
-                ui.label(
-                    egui::RichText::new(
-                        "• 試用終結與三階段九九階梯定價（1 AND 2 雙重圓滿・早買終身不加價）：\n  ⑴ 第一階（知音早鳥價 $0.99 / €0.99）：未同時滿「81 日 & 81,000 字」前購買，享 $0.99 終身鎖定資格；\n  ⑵ 第二階（九九圓滿價 $1.99 / €1.99）：滿「81 日 & 81,000 字」後至下一輪 2 倍條件（162 日 & 162,000 字）間；\n  ⑶ 第三階（雙重圓滿價 $2.99 / €2.99）：超過 2 倍條件（滿 162 日 & 162,000 字）後。",
-                    )
-                    .size(11.8 * scale)
-                    .color(palette.fg_muted.to_egui()),
-                );
-                ui.add_space(6.0);
-
-                ui.horizontal(|ui| {
-                    ui.label(
-                        egui::RichText::new(format!(
-                            "第一重（9×9）日數：{} / {} 日",
-                            days,
-                            ruhi::TRIAL_TARGET_DAYS
-                        ))
-                        .size(12.0 * scale),
-                    );
-                    ui.add(
-                        egui::ProgressBar::new(days_ratio)
-                            .desired_width(165.0 * scale)
-                            .text(format!("{:.0}%", days_ratio * 100.0)),
-                    );
-                    ui.add_space(12.0 * scale);
-                    ui.label(
-                        egui::RichText::new(format!(
-                            "第一重（9×9）字數：{} / {} 字",
-                            chars,
-                            ruhi::TRIAL_TARGET_CHARS
-                        ))
-                        .size(12.0 * scale),
-                    );
-                    ui.add(
-                        egui::ProgressBar::new(chars_ratio)
-                            .desired_width(165.0 * scale)
-                            .text(format!("{:.1}%", chars_ratio * 100.0)),
-                    );
-                });
-
-                if is_expired_both && !is_licensed {
-                    let t2_days_ratio = self.entitlement.tier2_days_progress_ratio();
-                    let t2_chars_ratio = self.entitlement.tier2_chars_progress_ratio();
-                    ui.add_space(4.0);
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            egui::RichText::new(format!(
-                                "第二重（2×81）日數：{} / {} 日",
-                                days,
-                                ruhi::TIER2_TARGET_DAYS
-                            ))
-                            .size(12.0 * scale),
-                        );
-                        ui.add(
-                            egui::ProgressBar::new(t2_days_ratio)
-                                .desired_width(165.0 * scale)
-                                .text(format!("{:.0}%", t2_days_ratio * 100.0)),
-                        );
-                        ui.add_space(12.0 * scale);
-                        ui.label(
-                            egui::RichText::new(format!(
-                                "第二重（2×81）字數：{} / {} 字",
-                                chars,
-                                ruhi::TIER2_TARGET_CHARS
-                            ))
-                            .size(12.0 * scale),
-                        );
-                        ui.add(
-                            egui::ProgressBar::new(t2_chars_ratio)
-                                .desired_width(165.0 * scale)
-                                .text(format!("{:.1}%", t2_chars_ratio * 100.0)),
-                        );
-                    });
-                }
-
-                ui.add_space(6.0);
-                let dev_id = ruhi::EntitlementManager::machine_fingerprint();
-                ui.label(
-                    egui::RichText::new(format!(
-                        "💻 本機匿名硬體識別碼：{} ｜ 跨平台授權配額：每組通行碼最多綁定 {} 台個人裝置（同機重灌不扣額度）",
-                        dev_id,
-                        ruhi::entitlement::MAX_PERSONAL_DEVICES_PER_PASSCODE
-                    ))
-                    .size(11.8 * scale)
-                    .color(palette.fg_muted.to_egui()),
-                );
-
-                ui.add_space(6.0);
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(
-                        egui::RichText::new("🔑 跨平台終身通行碼 (Passcode)：")
-                            .size(12.5 * scale)
-                            .strong(),
-                    );
-                    let resp = ui.add(
-                        egui::TextEdit::singleline(&mut self.passcode_input)
-                            .hint_text("RUHI-LK70-XXXX-XXXX-XXXX")
-                            .desired_width(230.0 * scale),
-                    );
-                    if ui
-                        .button(
-                            egui::RichText::new("✨ 驗證並啟用")
-                                .size(12.5 * scale)
-                                .strong(),
-                        )
-                        .clicked()
-                        || (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                    {
-                        if let Some(code) = ruhi::EntitlementManager::extract_passcode_from_text(&self.passcode_input) {
-                            self.passcode_input = code.clone();
-                            self.entitlement.activate_passcode(&code);
-                            self.passcode_feedback = format!(
-                                "✅ 恭喜！通行碼驗證通過，已綁定本機 ({}) 並永久解鎖「如喜・龍龕終身專業版」！",
-                                dev_id
-                            );
-                        } else {
-                            self.passcode_feedback =
-                                "❌ 通行碼格式或簽章不正確，請確認格式為 RUHI-LK70-XXXX-XXXX-XXXX。".to_string();
-                        }
-                    }
-
-                    if ui
-                        .button(
-                            egui::RichText::new("📋 一鍵從剪貼簿貼上並啟用")
-                                .size(12.2 * scale),
-                        )
-                        .on_hover_text("支援直接複製整封收據信或 LINE 訊息，系統將自動從剪貼簿抓出 RUHI-LK70-... 通行碼並立即解鎖")
-                        .clicked()
-                    {
-                        let clip_text = Command::new("powershell.exe")
-                            .args(["-NoProfile", "-Command", "Get-Clipboard -Raw"])
-                            .output()
-                            .ok()
-                            .and_then(|o| String::from_utf8(o.stdout).ok())
-                            .unwrap_or_default();
-                        if let Some(code) = ruhi::EntitlementManager::extract_passcode_from_text(&clip_text) {
-                            self.passcode_input = code.clone();
-                            self.entitlement.activate_passcode(&code);
-                            self.passcode_feedback = format!(
-                                "✅ 已從剪貼簿智慧擷取通行碼 ({}) 並永久解鎖本機 ({})！",
-                                code, dev_id
-                            );
-                        } else if !clip_text.trim().is_empty() {
-                            self.passcode_input = clip_text.trim().to_string();
-                            self.passcode_feedback =
-                                "⚠️ 剪貼簿中未偵測到有效之 RUHI-LK70-XXXX-XXXX-XXXX 通行碼。".to_string();
-                        } else {
-                            self.passcode_feedback = "⚠️ 剪貼簿目前為空。".to_string();
-                        }
-                    }
-
-                    if ui
-                        .button(egui::RichText::new("📥 匯入授權檔").size(12.2 * scale))
-                        .on_hover_text("自動從「下載 (Downloads)」、「桌面 (Desktop)」或程式目錄匯入 ruhi_license.json 授權證書檔")
-                        .clicked()
-                    {
-                        let mut candidates = vec![
-                            self.root_dir.join("ruhi_license.json"),
-                        ];
-                        if let Ok(profile) = std::env::var("USERPROFILE") {
-                            let p = PathBuf::from(profile);
-                            candidates.insert(0, p.join("Downloads").join("ruhi_license.json"));
-                            candidates.push(p.join("Desktop").join("ruhi_license.json"));
-                        }
-                        let mut imported = None;
-                        for cand in &candidates {
-                            if cand.exists() && self.entitlement.import_license_file(cand) {
-                                imported = Some(cand.clone());
-                                break;
-                            }
-                        }
-                        if let Some(path) = imported {
-                            self.passcode_input = self.entitlement.license_passcode.clone();
-                            self.passcode_feedback = format!(
-                                "✅ 已成功從授權證書檔 ({}) 匯入並啟用終身專業版！",
-                                path.display()
-                            );
-                        } else {
-                            self.passcode_feedback =
-                                "⚠️ 在「下載 (Downloads)」、「桌面」或程式目錄中找不到 ruhi_license.json 授權檔。".to_string();
-                        }
-                    }
-
-                    if is_licensed {
-                        if ui
-                            .button(egui::RichText::new("📤 匯出授權檔 (ruhi_license.json)").size(12.2 * scale))
-                            .on_hover_text("將授權證書匯出至「下載 (Downloads)」與程式目錄，方便直接複製檔案到其他電腦一鍵匯入")
-                            .clicked()
-                        {
-                            let mut saved_paths = Vec::new();
-                            let local_lic = self.root_dir.join("ruhi_license.json");
-                            if self.entitlement.export_license_file(&local_lic).is_ok() {
-                                saved_paths.push(local_lic.display().to_string());
-                            }
-                            if let Ok(profile) = std::env::var("USERPROFILE") {
-                                let dl_lic = PathBuf::from(profile).join("Downloads").join("ruhi_license.json");
-                                if self.entitlement.export_license_file(&dl_lic).is_ok() {
-                                    saved_paths.push(dl_lic.display().to_string());
-                                }
-                            }
-                            self.passcode_feedback = format!(
-                                "📤 已匯出跨裝置授權證書檔：{}（可直接複製到目標電腦按「📥 匯入授權檔」）",
-                                saved_paths.join(" 、 ")
-                            );
-                        }
-                        if ui
-                            .button(egui::RichText::new("📋 複製通行碼").size(12.2 * scale))
-                            .clicked()
-                        {
-                            ui.ctx().copy_text(self.entitlement.license_passcode.clone());
-                            self.passcode_feedback =
-                                "📋 已將通行碼複製到系統剪貼簿！".to_string();
-                        }
-                    }
-                });
-                if !self.passcode_feedback.is_empty() {
-                    ui.add_space(4.0);
-                    ui.label(
-                        egui::RichText::new(&self.passcode_feedback)
-                            .size(12.0 * scale)
-                            .strong()
-                            .color(if self.passcode_feedback.starts_with('✅') {
-                                egui::Color32::from_rgb(46, 204, 113)
-                            } else {
-                                egui::Color32::from_rgb(231, 76, 60)
-                            }),
-                    );
-                }
-            });
-    }
-
     fn render_about_page(&mut self, ui: &mut egui::Ui) {
         let palette = self.shell.palette;
-
-        self.render_entitlement_card(ui);
-        ui.add_space(10.0);
 
         ui.group(|ui| {
             ui.heading("品牌理念與精神哲學");
@@ -3830,7 +3534,7 @@ impl RuhiStudioApp {
             ui.heading("通用智慧型輸入法全語言藍圖（Universal Smart IME Roadmap）");
             ui.add_space(6.0);
             ui.label("1. 繁體中文注音體系：許氏鍵盤（首發）、標準大千、倚天 26 鍵、漢語拼音");
-            ui.label("2. 繁體中文形碼與數位體系：智慧型四角號碼（4×5 小鍵盤）、行列 30、倉頡（三代／五代）、大易");
+            ui.label("2. 繁體中文形音、形碼與數位體系：龍龕形音（整合創新 4 碼／356,536 筆 Unihan 碼表）、智慧型四角號碼（4×5 小鍵盤）、行列 30、倉頡（三代／五代）、大易");
             ui.label("3. 亞洲多語系輸入：日語假名/漢字、韓語諺文、泰語");
             ui.label("4. 專業學術標音符號：梵文天城體羅馬化（IAST）、台羅/白話字拼音");
             ui.label("5. 歐文多語言擴展：德文、法文、西文等特殊重音符號智慧組字");

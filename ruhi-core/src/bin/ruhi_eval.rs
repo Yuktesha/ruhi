@@ -1817,11 +1817,237 @@ pub fn build_and_seal_evaluation_corpus(root: &Path, engine: &RuhiEngine) -> Val
     })
 }
 
+#[inline]
+fn round4_f64(v: f64) -> f64 {
+    (v * 10_000.0).round() / 10_000.0
+}
+
+fn summarize_latency_us(samples: &mut [f64]) -> serde_json::Value {
+    if samples.is_empty() {
+        return json!({
+            "mean_us": 0.0,
+            "p50_us": 0.0,
+            "p95_us": 0.0,
+            "p99_us": 0.0,
+            "max_us": 0.0,
+            "mean_ms": 0.0,
+            "p99_ms": 0.0
+        });
+    }
+    samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let n = samples.len();
+    let mean = samples.iter().sum::<f64>() / (n as f64);
+    let p50 = samples[n / 2];
+    let p95 = samples[((n as f64) * 0.95) as usize];
+    let p99 = samples[((n as f64) * 0.99) as usize];
+    let max_v = samples[n - 1];
+    json!({
+        "mean_us": round4_f64(mean),
+        "p50_us": round4_f64(p50),
+        "p95_us": round4_f64(p95),
+        "p99_us": round4_f64(p99),
+        "max_us": round4_f64(max_v),
+        "mean_ms": round4_f64(mean / 1000.0),
+        "p99_ms": round4_f64(p99 / 1000.0)
+    })
+}
+
+fn evaluate_longkan_mode(
+    engine: &mut RuhiEngine,
+    items: &[CorpusItem],
+    set_name: &str,
+) -> serde_json::Value {
+    let t_init = Instant::now();
+    engine.longkan.table.ensure_loaded();
+    let load_ms = t_init.elapsed().as_secs_f64() * 1000.0;
+
+    fn run_pass(
+        engine: &mut RuhiEngine,
+        items: &[CorpusItem],
+        use_transition_bonus: bool,
+    ) -> serde_json::Value {
+        engine.longkan.use_transition_bonus = use_transition_bonus;
+        let mut total_chars = 0usize;
+        let mut covered_chars = 0usize;
+        let mut top1_hits = 0usize;
+        let mut top5_hits = 0usize;
+        let mut top9_hits = 0usize;
+        let mut reachable_hits = 0usize;
+        let mut rank_sum = 0usize;
+        let mut total_keystrokes = 0usize;
+        let mut query_latencies_us: Vec<f64> = Vec::new();
+
+        for item in items {
+            let mut prev_committed: Option<String> = None;
+            for ch in item.text.chars() {
+                if ch.is_whitespace()
+                    || ('\u{3000}'..='\u{303F}').contains(&ch)
+                    || ('\u{FF00}'..='\u{FFEF}').contains(&ch)
+                {
+                    continue;
+                }
+                let s = ch.to_string();
+                total_chars += 1;
+                let primary_opt = engine
+                    .longkan
+                    .table
+                    .reverse_lookup_char(ch)
+                    .map(|info| info.primary_code);
+                let Some(code) = primary_opt else {
+                    total_keystrokes += 5;
+                    prev_committed = Some(s);
+                    continue;
+                };
+                if code.is_empty() {
+                    total_keystrokes += 5;
+                    prev_committed = Some(s);
+                    continue;
+                }
+                covered_chars += 1;
+
+                let t_q = Instant::now();
+                engine.longkan.reset();
+                engine.longkan.last_committed_word = prev_committed.clone().unwrap_or_default();
+                engine.longkan.buffer = code.clone();
+                engine.longkan.update_candidates_with_context(
+                    Some(&engine.lexicon),
+                    Some(&mut engine.transitions),
+                );
+                let elapsed_us = t_q.elapsed().as_secs_f64() * 1_000_000.0;
+                query_latencies_us.push(elapsed_us);
+
+                let rank_opt = engine
+                    .longkan
+                    .candidates
+                    .iter()
+                    .position(|c| c == &s)
+                    .map(|idx| idx + 1);
+
+                if let Some(rank) = rank_opt {
+                    reachable_hits += 1;
+                    rank_sum += rank;
+                    if rank == 1 {
+                        top1_hits += 1;
+                        total_keystrokes += code.len() + 1;
+                    } else if rank <= 5 {
+                        top5_hits += 1;
+                        top9_hits += 1;
+                        total_keystrokes += code.len() + 1;
+                    } else if rank <= 9 {
+                        top9_hits += 1;
+                        total_keystrokes += code.len() + 1;
+                    } else {
+                        let page_turns = (rank - 1) / 9;
+                        total_keystrokes += code.len() + page_turns + 1;
+                    }
+                } else {
+                    rank_sum += 20;
+                    total_keystrokes += code.len() + 3;
+                }
+                prev_committed = Some(s);
+            }
+        }
+
+        let denom = covered_chars.max(1) as f64;
+        let kspc = if total_chars > 0 {
+            total_keystrokes as f64 / total_chars as f64
+        } else {
+            0.0
+        };
+        let top1_rate = top1_hits as f64 / denom;
+        let top5_rate = (top1_hits + top5_hits) as f64 / denom;
+        let top9_rate = (top1_hits + top9_hits) as f64 / denom;
+        let avg_rank = rank_sum as f64 / denom;
+
+        json!({
+            "use_transition_bonus": use_transition_bonus,
+            "total_chars": total_chars,
+            "covered_chars": covered_chars,
+            "coverage_percent": round4_f64((covered_chars as f64 / total_chars.max(1) as f64) * 100.0),
+            "top1_hits": top1_hits,
+            "top1_hit_rate_percent": round4_f64(top1_rate * 100.0),
+            "top5_hit_rate_percent": round4_f64(top5_rate * 100.0),
+            "top9_hit_rate_percent": round4_f64(top9_rate * 100.0),
+            "reachable_rate_percent": round4_f64((reachable_hits as f64 / denom) * 100.0),
+            "avg_candidate_rank": round4_f64(avg_rank),
+            "total_keystrokes": total_keystrokes,
+            "kspc": round4_f64(kspc),
+            "query_latency_us": summarize_latency_us(&mut query_latencies_us),
+        })
+    }
+
+    let without_transitions = run_pass(engine, items, false);
+    let with_transitions = run_pass(engine, items, true);
+    engine.longkan.use_transition_bonus = false;
+
+    let top1_diff = with_transitions["top1_hits"].as_i64().unwrap_or(0)
+        - without_transitions["top1_hits"].as_i64().unwrap_or(0);
+    let rank_diff = with_transitions["avg_candidate_rank"].as_f64().unwrap_or(0.0)
+        - without_transitions["avg_candidate_rank"].as_f64().unwrap_or(0.0);
+
+    json!({
+        "mode": "longkan",
+        "dataset": set_name,
+        "total_sentences": items.len(),
+        "first_load_ms": round4_f64(load_ms),
+        "mmap_bytes": engine.longkan.table.mmap_bytes(),
+        "baseline_without_transition_bonus": without_transitions,
+        "with_transition_bonus": with_transitions,
+        "transition_engine_net_diff": {
+            "top1_hits_delta": top1_diff,
+            "avg_candidate_rank_delta": round4_f64(rank_diff),
+        }
+    })
+}
+
+fn run_longkan_benchmark(root: &Path) -> serde_json::Value {
+    let data_dir = root.join("ruhi_lexicon").join("data");
+    let t0 = Instant::now();
+    let engine = RuhiEngine::new_with_data_dir(&data_dir.to_string_lossy());
+    let init_unloaded_ms = t0.elapsed().as_secs_f64() * 1000.0;
+    let is_loaded_initially = engine.longkan.table.is_loaded();
+
+    let t_load = Instant::now();
+    engine.longkan.table.ensure_loaded();
+    let first_load_ms = t_load.elapsed().as_secs_f64() * 1000.0;
+    let mmap_bytes = engine.longkan.table.mmap_bytes();
+
+    let test_codes = ["j", "co", "koko", "s", "mu", "xnsn", "bdyd", "cocn", "j*n", "c?c*"];
+    let mut per_code_us = serde_json::Map::new();
+    for code in test_codes {
+        let mut samples = Vec::with_capacity(200);
+        for _ in 0..200 {
+            let t_q = Instant::now();
+            let cands = engine.longkan.table.lookup(code);
+            std::hint::black_box(&cands);
+            samples.push(t_q.elapsed().as_secs_f64() * 1_000_000.0);
+        }
+        let stats = summarize_latency_us(&mut samples);
+        per_code_us.insert(code.to_string(), stats);
+    }
+
+    json!({
+        "engine_init_without_longkan_ms": round4_f64(init_unloaded_ms),
+        "longkan_loaded_on_init": is_loaded_initially,
+        "longkan_first_load_ms": round4_f64(first_load_ms),
+        "longkan_mmap_bytes": mmap_bytes,
+        "longkan_mmap_mb": round4_f64(mmap_bytes as f64 / (1024.0 * 1024.0)),
+        "per_keystroke_query_latency": per_code_us,
+    })
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let root = resolve_ruhi_root();
     let data_dir = root.join("ruhi_lexicon").join("data");
-    let engine = RuhiEngine::new_with_data_dir(&data_dir.to_string_lossy());
+
+    if args.iter().any(|a| a == "--bench-longkan") {
+        let res = run_longkan_benchmark(&root);
+        println!("{}", serde_json::to_string_pretty(&res).unwrap());
+        return;
+    }
+
+    let mut engine = RuhiEngine::new_with_data_dir(&data_dir.to_string_lossy());
 
     if args.iter().any(|a| a == "--build-corpus") {
         let res = build_and_seal_evaluation_corpus(&root, &engine);
@@ -1830,6 +2056,7 @@ fn main() {
     }
 
     let mut set_name = "dev".to_string();
+    let mut mode_name = "bopomofo".to_string();
     let mut out_path: Option<PathBuf> = None;
     let mut baseline_path: Option<PathBuf> = None;
     let mut do_ablation = false;
@@ -1841,6 +2068,10 @@ fn main() {
         match args[i].as_str() {
             "--set" if i + 1 < args.len() => {
                 set_name = args[i + 1].clone();
+                i += 2;
+            }
+            "--mode" if i + 1 < args.len() => {
+                mode_name = args[i + 1].clone();
                 i += 2;
             }
             "--out" if i + 1 < args.len() => {
@@ -1882,6 +2113,18 @@ fn main() {
     }
 
     let raw_items = load_corpus_tsv(&corpus_path);
+
+    if mode_name == "longkan" {
+        let rep = evaluate_longkan_mode(&mut engine, &raw_items, &set_name);
+        if let Some(ref p) = out_path {
+            if let Some(parent) = p.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(p, serde_json::to_string_pretty(&rep).unwrap());
+        }
+        println!("{}", serde_json::to_string_pretty(&rep).unwrap());
+        return;
+    }
     let compiler = PhoneticCompiler::from_lexicon(&engine.lexicon);
     let compiled: Vec<CompiledSentence> = raw_items
         .iter()
