@@ -1523,9 +1523,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     if paths.four_corner.exists() && eng.four_corner.table.code_to_entries.len() < 1000 {
                         let _ = eng.four_corner.load_tsv(&paths.four_corner);
                     }
-                    if paths.longkan.exists() && eng.longkan.table.reverse_lookup('鋪').is_none() {
-                        let _ = eng.longkan.table.load_tsv(&paths.longkan);
-                    }
+                    eng.longkan.table.configure_data_dir(&paths.data_dir);
                 }
                 let mut new_cfg = load_ruhi_config(&paths);
                 sync_active_tsf_profile_locale(&mut new_cfg);
@@ -1572,7 +1570,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 return Ok(BOOL::from(false));
             }
 
-            let (has_buffer, is_english_mode, is_four_corner_mode) = {
+            let (has_buffer, is_english_mode, is_four_corner_mode, is_longkan_mode) = {
                 let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
                 let engine = self.engine.lock().unwrap();
                 let hb = pending_len > 0
@@ -1596,7 +1594,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 let lower_kb = engine.keyboard_mode.to_lowercase();
                 let is_en = matches!(lower_kb.as_str(), "english" | "en" | "latin" | "western");
                 let is_fc = matches!(lower_kb.as_str(), "four_corner" | "4corner" | "fc");
-                (hb, is_en, is_fc)
+                let is_lk = matches!(lower_kb.as_str(), "longkan" | "lk");
+                (hb, is_en, is_fc, is_lk)
             };
 
             // Win32 與 TSF InputScope 密碼控制項隱私保護：若當前聚焦於密碼欄位且無未決組字，自動放行直通英數，絕不攔截組字或寫入修訂記錄
@@ -1658,7 +1657,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
             // 當完全沒有組字緩衝區時，Backspace、Delete、Enter、Space、Tab、方向鍵等一律直接放行給目標視窗！
             if !has_buffer {
-                if vk == VK_RETURN.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_TAB.0 as u32 || vk == VK_ESCAPE.0 as u32 {
+                if vk == VK_RETURN.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_SPACE.0 as u32 || (vk == VK_TAB.0 as u32 && !is_longkan_mode) || vk == VK_ESCAPE.0 as u32 {
                     return Ok(BOOL::from(false));
                 }
                 if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 || vk == VK_UP.0 as u32 || vk == VK_DOWN.0 as u32 || vk == VK_HOME.0 as u32 || vk == VK_END.0 as u32 || vk == VK_PRIOR.0 as u32 || vk == VK_NEXT.0 as u32 {
@@ -1687,7 +1686,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         return Ok(BOOL::from(true));
                     }
                     if has_buffer {
-                        if vk == VK_RETURN.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_ESCAPE.0 as u32 || vk == VK_DELETE.0 as u32 {
+                        if vk == VK_RETURN.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_ESCAPE.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_TAB.0 as u32 {
                             return Ok(BOOL::from(true));
                         }
                         if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 || vk == VK_UP.0 as u32 || vk == VK_DOWN.0 as u32 || vk == VK_HOME.0 as u32 || vk == VK_END.0 as u32 || vk == VK_PRIOR.0 as u32 || vk == VK_NEXT.0 as u32 {
@@ -1710,7 +1709,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let mut eaten = false;
 
             if has_buffer {
-                if vk == VK_RETURN.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_ESCAPE.0 as u32 || vk == VK_DELETE.0 as u32 {
+                if vk == VK_RETURN.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_ESCAPE.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_TAB.0 as u32 {
                     eaten = true;
                 } else if vk == VK_INSERT.0 as u32 {
                     eaten = true;  // Insert 切換 INS/OVR
@@ -1727,6 +1726,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 }
             } else {
                 if vk == VK_OEM_3.0 as u32 {
+                    eaten = true;
+                } else if is_longkan_mode && vk == VK_TAB.0 as u32 {
                     eaten = true;
                 } else if is_four_corner_mode {
                     let is_direct_fc_punct = self
@@ -2376,9 +2377,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     self.hide_candidate_window();
                 }
 
-                let is_inline_lk_tab = {
+                let (is_inline_lk_tab, has_active_raw_sub_buf) = {
                     let eng = self.engine.lock().unwrap();
-                    eng.inline_longkan_active
+                    let inline_tab = eng.inline_longkan_active
                         && matches!(
                             eng.inline_target_mode.as_str(),
                             "longkan"
@@ -2398,8 +2399,89 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                                 | "daikien"
                                 | "et26"
                                 | "eten26"
-                        )
+                        );
+                    let raw_sub = eng.longkan.has_buffer()
+                        || (eng.inline_longkan_active && eng.has_inline_sub_buffer());
+                    (inline_tab, raw_sub)
                 };
+
+                // 優先檢查：若使用者已透過 Shift + ←/→ 標記了 2~4 個部件漢字（且無正在拼打的未決字根），
+                // 無論處於許氏注音、標準大千、龍龕形音或倉頡／行列模式，按 Tab 一律優先執行「事後部件熔煉合體」！
+                if !has_active_raw_sub_buf && self.get_manual_selection_range().is_some() {
+                    self.push_undo();
+                    self.consolidate_engine_to_pending();
+                    if let Some((start, end)) = self.get_manual_selection_range() {
+                        if end.saturating_sub(start) >= 2 && end.saturating_sub(start) <= 4 {
+                            let (fused_cands, fused_bpm) = {
+                                let pending_str = self.pending_compose.lock().unwrap().clone();
+                                let pending_chars: Vec<char> = pending_str.chars().collect();
+                                let pending_syls = self.pending_syllables.lock().unwrap().clone();
+                                let engine = self.engine.lock().unwrap();
+                                let mut hsu_syls = Vec::new();
+                                for idx in start..end {
+                                    let bpm_opt = pending_syls
+                                        .get(idx)
+                                        .and_then(|s| s.clone())
+                                        .or_else(|| {
+                                            pending_chars.get(idx).and_then(|ch| {
+                                                let s = ch.to_string();
+                                                engine
+                                                    .lexicon
+                                                    .word_index
+                                                    .get(&s)
+                                                    .and_then(|ids| {
+                                                        ids.iter()
+                                                            .filter_map(|&eid| engine.lexicon.entries.get(eid))
+                                                            .max_by(|a, b| {
+                                                                a.weight
+                                                                    .partial_cmp(&b.weight)
+                                                                    .unwrap_or(std::cmp::Ordering::Equal)
+                                                            })
+                                                    })
+                                                    .map(|e| e.bopomofo.clone())
+                                            })
+                                        });
+                                    if let Some(bpm) = bpm_opt {
+                                        if let Some(hs) = ruhi::fsm::HsuSyllable::from_bopomofo_display(&bpm) {
+                                            hsu_syls.push(hs);
+                                        }
+                                    }
+                                }
+                                let cands = if hsu_syls.len() == end - start {
+                                    engine.fuse_syllables_with_longkan(&hsu_syls)
+                                } else {
+                                    Vec::new()
+                                };
+                                let first_bpm = cands.first().and_then(|fc| {
+                                    engine
+                                        .lexicon
+                                        .word_index
+                                        .get(fc)
+                                        .and_then(|ids| {
+                                            ids.iter()
+                                                .filter_map(|&eid| engine.lexicon.entries.get(eid))
+                                                .max_by(|a, b| {
+                                                    a.weight
+                                                        .partial_cmp(&b.weight)
+                                                        .unwrap_or(std::cmp::Ordering::Equal)
+                                                })
+                                        })
+                                        .map(|e| e.bopomofo.clone())
+                                });
+                                (cands, first_bpm)
+                            };
+                            if let Some(first_cand) = fused_cands.first() {
+                                let rep_chars: Vec<char> = first_cand.chars().collect();
+                                self.replace_pending_range(start, end, &rep_chars, fused_bpm);
+                                *self.sel_anchor.lock().unwrap() = None;
+                                *self.sentence_cursor.lock().unwrap() = start + rep_chars.len();
+                                self.sync_input_display(ctx)?;
+                                return Ok(BOOL::from(true));
+                            }
+                        }
+                    }
+                }
+
                 if is_longkan_mode || is_inline_lk_tab {
                     let (action, committed_chunk, lk_buf_before, still_has_any) = {
                         let mut engine = self.engine.lock().unwrap();
@@ -2435,52 +2517,6 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
                 self.push_undo();
                 self.consolidate_engine_to_pending();
-                if let Some((start, end)) = self.get_manual_selection_range() {
-                    if end.saturating_sub(start) >= 2 && end.saturating_sub(start) <= 4 {
-                        let fused_cands = {
-                            let pending_str = self.pending_compose.lock().unwrap().clone();
-                            let pending_chars: Vec<char> = pending_str.chars().collect();
-                            let pending_syls = self.pending_syllables.lock().unwrap().clone();
-                            let engine = self.engine.lock().unwrap();
-                            let mut hsu_syls = Vec::new();
-                            for idx in start..end {
-                                let bpm_opt = pending_syls
-                                    .get(idx)
-                                    .and_then(|s| s.clone())
-                                    .or_else(|| {
-                                        pending_chars.get(idx).and_then(|ch| {
-                                            let s = ch.to_string();
-                                            engine
-                                                .lexicon
-                                                .word_index
-                                                .get(&s)
-                                                .and_then(|ids| ids.first())
-                                                .and_then(|&eid| engine.lexicon.entries.get(eid))
-                                                .map(|e| e.bopomofo.clone())
-                                        })
-                                    });
-                                if let Some(bpm) = bpm_opt {
-                                    if let Some(hs) = ruhi::fsm::HsuSyllable::from_bopomofo_display(&bpm) {
-                                        hsu_syls.push(hs);
-                                    }
-                                }
-                            }
-                            if hsu_syls.len() == end - start {
-                                engine.fuse_syllables_with_longkan(&hsu_syls)
-                            } else {
-                                Vec::new()
-                            }
-                        };
-                        if let Some(first_cand) = fused_cands.first() {
-                            let rep_chars: Vec<char> = first_cand.chars().collect();
-                            self.replace_pending_range(start, end, &rep_chars, None);
-                            *self.sel_anchor.lock().unwrap() = None;
-                            *self.sentence_cursor.lock().unwrap() = start + rep_chars.len();
-                            self.sync_input_display(ctx)?;
-                            return Ok(BOOL::from(true));
-                        }
-                    }
-                }
                 let cur = *self.sentence_cursor.lock().unwrap();
                 let (full_text, _) = self.get_full_display_and_cursor();
                 let total_chars = full_text.chars().count();
