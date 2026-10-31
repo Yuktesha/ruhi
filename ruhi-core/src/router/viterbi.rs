@@ -213,7 +213,12 @@ impl ViterbiRouter {
         if let Some((best_idx, best_state)) = trellis[n_syllables]
             .iter()
             .enumerate()
-            .max_by(|a, b| a.1.score.partial_cmp(&b.1.score).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.1.score
+                    .partial_cmp(&b.1.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| b.0.cmp(&a.0))
+            })
         {
             let final_score = best_state.score;
             let mut cur_boundary = n_syllables;
