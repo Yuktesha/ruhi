@@ -162,6 +162,9 @@ HERITAGE_RAD_ALIAS: Dict[str, List[str]] = {
     "乚": ["en", "n1", "nn", "yi", "ll", "zz"],
     "尢": ["an", "wn", "yo", "a1", "aa"],
     "儿": ["er", "rn", "r1", "rr"],
+    "阜": ["fu", "fx", "er", "ll"],
+    "邑": ["yi", "ee", "er", "ll"],
+    "夭": ["yo", "ao", "ya", "ew"],
     "重": ["zn", "jn", "cn", "zo", "jo", "co", "jl", "vl"],
     "長": ["cn", "zn", "jn", "vk", "jk"],
     "行": ["xn", "sn", "hn", "cl", "hl"],
@@ -1110,8 +1113,29 @@ def main() -> int:
             candidates = [m for m in members if not is_pure_simplified(m)] or members
         series_root_char[pid] = sorted(candidates, key=lambda c: (strokes_map.get(c, 99), -char_weight.get(c, 0)))[0]
 
+    POLYPHONIC_COMP_BPM: Dict[str, List[str]] = {
+        "長": ["ㄔㄤˊ", "ㄓㄤˇ"],
+        "重": ["ㄓㄨㄥˋ", "ㄔㄨㄥˊ"],
+        "行": ["ㄒㄧㄥˊ", "ㄏㄤˊ"],
+        "阜": ["ㄈㄨˋ", "ㄦˇ"],
+        "邑": ["ㄧˋ", "ㄦˇ"],
+        "樂": ["ㄌㄜˋ", "ㄩㄝˋ"],
+        "朝": ["ㄔㄠˊ", "ㄓㄠ"],
+        "曾": ["ㄘㄥˊ", "ㄗㄥ"],
+        "乘": ["ㄔㄥˊ", "ㄕㄥˋ"],
+        "便": ["ㄅㄧㄢˋ", "ㄆㄧㄢˊ"],
+    }
+
     def get_rad_bpm(rad_ch: str) -> str:
         return COLLOQUIAL_RAD_BPM.get(rad_ch, char_bpm.get(rad_ch, ""))
+
+    def get_rad_bpm_list(rad_ch: str) -> List[str]:
+        base = get_rad_bpm(rad_ch)
+        out: List[str] = [base] if base else []
+        for alt_b in POLYPHONIC_COMP_BPM.get(rad_ch, []):
+            if alt_b not in out:
+                out.append(alt_b)
+        return out
 
     def get_2key_variants(ch_or_rad: str) -> List[str]:
         bpm = get_rad_bpm(ch_or_rad)
@@ -1277,6 +1301,85 @@ def main() -> int:
         "告": ["牛", "口"],
         "吉": ["士", "口"],
         "古": ["十", "口"],
+    }
+    MULTI_COMP_ALT_LIST: Dict[str, List[List[str]]] = {
+        "吞": [["夭", "口"], ["天", "口"]],
+        "吳": [["口", "天"], ["口", "矢"]],
+        "洪": [["水", "共"]],
+        "陳": [["耳", "東"], ["阜", "東"]],
+        "龔": [["龍", "共"]],
+        "張": [["弓", "長"]],
+        "許": [["言", "午"]],
+        "李": [["木", "子"]],
+        "胡": [["古", "月"]],
+        "楊": [["木", "易"], ["木", "昜"]],
+        "章": [["立", "早"], ["音", "十"]],
+        "童": [["立", "里"]],
+        "鍾": [["金", "重"]],
+        "鐘": [["金", "童"]],
+        "程": [["禾", "呈"], ["禾", "口", "王"]],
+        "董": [["艸", "重"]],
+        "葉": [["艸", "世", "木"], ["艸", "枼"]],
+        "蕭": [["艸", "肅"]],
+        "蔣": [["艸", "將"]],
+        "蔡": [["艸", "祭"]],
+        "蘇": [["艸", "魚", "禾"], ["艸", "穌"]],
+        "藍": [["艸", "監"]],
+        "莊": [["艸", "壯"]],
+        "范": [["艸", "氾"], ["艸", "水", "巳"]],
+        "薛": [["艸", "辛"]],
+        "莫": [["艸", "日", "大"]],
+        "孫": [["子", "系"], ["子", "小"]],
+        "徐": [["雙", "余"], ["彳", "余"], ["行", "余"]],
+        "劉": [["卯", "金", "刀"], ["文", "金", "刀"], ["卯", "刀"], ["文", "刀"]],
+        "趙": [["走", "肖"]],
+        "魏": [["委", "鬼"], ["禾", "女", "鬼"]],
+        "郭": [["享", "耳"], ["享", "邑"]],
+        "鄭": [["奠", "耳"], ["關", "耳"], ["奠", "邑"]],
+        "鄧": [["登", "耳"], ["登", "邑"]],
+        "鄒": [["芻", "耳"], ["芻", "邑"]],
+        "邵": [["召", "耳"], ["召", "邑"]],
+        "邱": [["丘", "耳"], ["丘", "邑"]],
+        "阮": [["耳", "元"], ["阜", "元"]],
+        "陸": [["耳", "六"], ["耳", "坴"], ["阜", "坴"]],
+        "陶": [["耳", "包"], ["耳", "匋"], ["阜", "匋"]],
+        "陽": [["耳", "易"], ["阜", "易"]],
+        "馮": [["冰", "馬"], ["水", "馬"]],
+        "杜": [["木", "土"]],
+        "柯": [["木", "可"]],
+        "何": [["人", "可"]],
+        "伍": [["人", "五"]],
+        "任": [["人", "壬"]],
+        "侯": [["人", "矢"]],
+        "傅": [["人", "甫", "寸"], ["人", "專"]],
+        "余": [["人", "示"], ["人", "木"]],
+        "姚": [["女", "兆"]],
+        "姜": [["羊", "女"]],
+        "雷": [["雨", "田"]],
+        "霍": [["雨", "隹"]],
+        "鮑": [["魚", "包"]],
+        "賀": [["加", "貝"]],
+        "賈": [["西", "貝"]],
+        "費": [["弗", "貝"]],
+        "簡": [["竹", "間"], ["竹", "門", "日"]],
+        "聞": [["門", "耳"]],
+        "閻": [["門", "陷"]],
+        "關": [["門", "絲"]],
+        "羅": [["四", "維"], ["四", "糸", "隹"]],
+        "譚": [["言", "西", "早"], ["言", "覃"]],
+        "潘": [["水", "番"], ["水", "米", "田"]],
+        "湯": [["水", "易"]],
+        "汪": [["水", "王"]],
+        "江": [["水", "工"]],
+        "池": [["水", "也"]],
+        "沙": [["水", "少"]],
+        "沈": [["水", "尤"]],
+        "溫": [["水", "囚", "皿"], ["水", "日", "皿"]],
+        "游": [["水", "方", "子"]],
+        "涂": [["水", "余"]],
+        "呂": [["口", "口"], ["雙", "口"]],
+        "宋": [["宀", "木"]],
+        "宗": [["宀", "示"]],
     }
     NO_DECOMPOSE_ATOMS: Set[str] = set("七九丸凡刀力方成司局毛电甩匕儿夕乃久乞也习勺勻勿")
     ATOMIC_READABLE: Set[str] = set(
@@ -1683,70 +1786,88 @@ def main() -> int:
         full_comp_pairs: List[Tuple[str, str, int]] = []
         for comp1, comp2, _, bonus_top in stroke_pairs_to_emit:
             full_comp_pairs.append((comp1, comp2, bonus_top + 25))
+        for alt_seq in MULTI_COMP_ALT_LIST.get(ch, []):
+            if len(alt_seq) == 2:
+                pair_cand = (alt_seq[0], alt_seq[1])
+                if pair_cand not in [(a, b) for a, b, _ in full_comp_pairs]:
+                    full_comp_pairs.append((pair_cand[0], pair_cand[1], 275))
+            elif len(alt_seq) >= 3:
+                pair_cand = (alt_seq[0], alt_seq[-1])
+                if pair_cand not in [(a, b) for a, b, _ in full_comp_pairs]:
+                    full_comp_pairs.append((pair_cand[0], pair_cand[1], 273))
         if (rad_ch, phon_ch) not in [(a, b) for a, b, _ in full_comp_pairs]:
             full_comp_pairs.append((rad_ch, phon_ch, 195))
         if phon_ch != ch and (rad_ch, ch) not in [(a, b) for a, b, _ in full_comp_pairs]:
             full_comp_pairs.append((rad_ch, ch, 175))
 
         for comp1, comp2, f_bonus in full_comp_pairs:
-            b1 = get_rad_bpm(comp1)
-            b2 = get_rad_bpm(comp2)
-            h1 = bpm_to_hsu_full(b1)
-            h2 = bpm_to_hsu_full(b2)
-            if h1 and h2 and 2 <= len(h1 + h2) <= 8:
-                h_code = h1 + h2
-                h_desc = f"許氏全拼:{comp1}({h1})+{comp2}({h2})"
-                upsert_entry(h_code, ch, base_wt + f_bonus, "hsu_full_comp", h_desc)
-                if c_num_t:
-                    upsert_entry(
-                        f"{h_code}{c_num_t}",
-                        ch,
-                        base_wt + f_bonus + 15,
-                        "hsu_full_comp",
-                        f"{h_desc}+{c_num_t}聲",
-                    )
-                if c_key_t:
-                    upsert_entry(
-                        f"{h_code}{c_key_t}",
-                        ch,
-                        base_wt + f_bonus + 15,
-                        "hsu_full_comp",
-                        f"{h_desc}+{c_key_t}調",
-                    )
-            p1 = bpm_to_pinyin_full(b1)
-            p2 = bpm_to_pinyin_full(b2)
-            if p1 and p2 and 3 <= len(p1 + p2) <= 12:
-                p_code = p1 + p2
-                p_desc = f"拼音全拼:{comp1}({p1})+{comp2}({p2})"
-                upsert_entry(p_code, ch, base_wt + f_bonus - 5, "pinyin_full_comp", p_desc)
-                if c_num_t:
-                    upsert_entry(
-                        f"{p_code}{c_num_t}",
-                        ch,
-                        base_wt + f_bonus + 10,
-                        "pinyin_full_comp",
-                        f"{p_desc}+{c_num_t}聲",
-                    )
+            for b1 in get_rad_bpm_list(comp1):
+                for b2 in get_rad_bpm_list(comp2):
+                    h1 = bpm_to_hsu_full(b1)
+                    h2 = bpm_to_hsu_full(b2)
+                    if h1 and h2 and 2 <= len(h1 + h2) <= 8:
+                        h_code = h1 + h2
+                        h_desc = f"許氏全拼:{comp1}({h1})+{comp2}({h2})"
+                        upsert_entry(h_code, ch, base_wt + f_bonus, "hsu_full_comp", h_desc)
+                        if c_num_t:
+                            upsert_entry(
+                                f"{h_code}{c_num_t}",
+                                ch,
+                                base_wt + f_bonus + 15,
+                                "hsu_full_comp",
+                                f"{h_desc}+{c_num_t}聲",
+                            )
+                        if c_key_t:
+                            upsert_entry(
+                                f"{h_code}{c_key_t}",
+                                ch,
+                                base_wt + f_bonus + 15,
+                                "hsu_full_comp",
+                                f"{h_desc}+{c_key_t}調",
+                            )
+                    p1 = bpm_to_pinyin_full(b1)
+                    p2 = bpm_to_pinyin_full(b2)
+                    if p1 and p2 and 3 <= len(p1 + p2) <= 12:
+                        p_code = p1 + p2
+                        p_desc = f"拼音全拼:{comp1}({p1})+{comp2}({p2})"
+                        upsert_entry(p_code, ch, base_wt + f_bonus - 5, "pinyin_full_comp", p_desc)
+                        if c_num_t:
+                            upsert_entry(
+                                f"{p_code}{c_num_t}",
+                                ch,
+                                base_wt + f_bonus + 10,
+                                "pinyin_full_comp",
+                                f"{p_desc}+{c_num_t}聲",
+                            )
 
-        # 三部件全拼支援（如 謝 = 言(em)+身(cn)+寸(am) -> emcnam；喜 = 士(c)+豆(do)+口(ko) -> cdoko）
+        # 三部件全拼支援（如 謝 = 言(em)+身(cn)+寸(am) -> emcnam；喜 = 士(c)+豆(do)+口(ko) -> cdoko；劉 = 卯/文+金+刀）
+        tri_seqs: List[List[str]] = []
         if len(read_seq) == 3:
-            c1, c2, c3 = read_seq[0], read_seq[1], read_seq[2]
-            h1, h2, h3 = bpm_to_hsu_full(get_rad_bpm(c1)), bpm_to_hsu_full(get_rad_bpm(c2)), bpm_to_hsu_full(get_rad_bpm(c3))
-            if h1 and h2 and h3 and 3 <= len(h1 + h2 + h3) <= 10:
-                h3_code = h1 + h2 + h3
-                h3_desc = f"許氏三部件:{c1}({h1})+{c2}({h2})+{c3}({h3})"
-                upsert_entry(h3_code, ch, base_wt + 275, "hsu_full_comp", h3_desc)
-                if c_num_t:
-                    upsert_entry(f"{h3_code}{c_num_t}", ch, base_wt + 290, "hsu_full_comp", f"{h3_desc}+{c_num_t}聲")
-                if c_key_t:
-                    upsert_entry(f"{h3_code}{c_key_t}", ch, base_wt + 290, "hsu_full_comp", f"{h3_desc}+{c_key_t}調")
-            p1, p2, p3 = bpm_to_pinyin_full(get_rad_bpm(c1)), bpm_to_pinyin_full(get_rad_bpm(c2)), bpm_to_pinyin_full(get_rad_bpm(c3))
-            if p1 and p2 and p3 and 4 <= len(p1 + p2 + p3) <= 12:
-                p3_code = p1 + p2 + p3
-                p3_desc = f"拼音三部件:{c1}({p1})+{c2}({p2})+{c3}({p3})"
-                upsert_entry(p3_code, ch, base_wt + 270, "pinyin_full_comp", p3_desc)
-                if c_num_t:
-                    upsert_entry(f"{p3_code}{c_num_t}", ch, base_wt + 285, "pinyin_full_comp", f"{p3_desc}+{c_num_t}聲")
+            tri_seqs.append(read_seq)
+        for alt_seq in MULTI_COMP_ALT_LIST.get(ch, []):
+            if len(alt_seq) == 3 and alt_seq not in tri_seqs:
+                tri_seqs.append(alt_seq)
+        for tri in tri_seqs:
+            c1, c2, c3 = tri[0], tri[1], tri[2]
+            for b1 in get_rad_bpm_list(c1):
+                for b2 in get_rad_bpm_list(c2):
+                    for b3 in get_rad_bpm_list(c3):
+                        h1, h2, h3 = bpm_to_hsu_full(b1), bpm_to_hsu_full(b2), bpm_to_hsu_full(b3)
+                        if h1 and h2 and h3 and 3 <= len(h1 + h2 + h3) <= 10:
+                            h3_code = h1 + h2 + h3
+                            h3_desc = f"許氏三部件:{c1}({h1})+{c2}({h2})+{c3}({h3})"
+                            upsert_entry(h3_code, ch, base_wt + 275, "hsu_full_comp", h3_desc)
+                            if c_num_t:
+                                upsert_entry(f"{h3_code}{c_num_t}", ch, base_wt + 290, "hsu_full_comp", f"{h3_desc}+{c_num_t}聲")
+                            if c_key_t:
+                                upsert_entry(f"{h3_code}{c_key_t}", ch, base_wt + 290, "hsu_full_comp", f"{h3_desc}+{c_key_t}調")
+                        p1, p2, p3 = bpm_to_pinyin_full(b1), bpm_to_pinyin_full(b2), bpm_to_pinyin_full(b3)
+                        if p1 and p2 and p3 and 4 <= len(p1 + p2 + p3) <= 12:
+                            p3_code = p1 + p2 + p3
+                            p3_desc = f"拼音三部件:{c1}({p1})+{c2}({p2})+{c3}({p3})"
+                            upsert_entry(p3_code, ch, base_wt + 270, "pinyin_full_comp", p3_desc)
+                            if c_num_t:
+                                upsert_entry(f"{p3_code}{c_num_t}", ch, base_wt + 285, "pinyin_full_comp", f"{p3_desc}+{c_num_t}聲")
 
         # 軌道 V：徐冰《英文方塊字》式純視覺英文字母碼（外國人零讀音友善軌）
         v_code = decompose_visual_4(ch)
@@ -1938,6 +2059,14 @@ def main() -> int:
         ("lnhjci", "龍龕形音法", 2640, "phrase5", "6碼封頂:龍(ln)+龕(h)+形(j)+…+法(ci)"),
         ("lnhjlci", "龍龕形音法", 2640, "phrase5", "首前2+中1+尾後2:龍(ln)+龕(h)+形(j)+音(l)+法(ci)"),
         ("lnhjlfa", "龍龕形音法", 2620, "phrase5", "首前2+中1+尾後2:龍(ln)+龕(h)+形(j)+音(l)+法(fa)"),
+        ("hh2", "炎", 2550, "curated", "火(hh)×2+␣"),
+        ("hxh2", "炎", 2580, "curated", "火(hxh)×2+␣"),
+        ("hhhh", "炎", 2620, "curated", "許氏全拼:火(hh)×2"),
+        ("hxhhxh", "炎", 2640, "curated", "許氏全拼:火(hxh)×2"),
+        ("hh3", "焱", 2550, "curated", "火(hh)×3+␣"),
+        ("hxh3", "焱", 2580, "curated", "火(hxh)×3+␣"),
+        ("hhhhhh", "焱", 2640, "curated", "許氏全拼:火(hh)×3"),
+        ("hxhhxhhxh", "焱", 2660, "curated", "許氏全拼:火(hxh)×3"),
     ]
     for b_code, b_text, b_wt, b_kind, b_desc in RUST_BUILTIN_DEFAULTS:
         upsert_entry(b_code, b_text, b_wt, b_kind, b_desc)
@@ -2055,7 +2184,7 @@ def compile_rlkb_bin(
 
         if len(t_clean) == 1:
             is_pure_4alpha = len(c_lower) == 4 and c_lower.isalpha() and c_lower.isascii()
-            score = int(wt) + (1000 if k_clean == "curated" else 0) + (250 if is_pure_4alpha else 0)
+            score = int(wt) + (1000 if k_clean == "curated" else 0) + (1250 if is_pure_4alpha else 0)
             if t_clean not in char_rev:
                 char_rev[t_clean] = {
                     "primary_code": c_lower,

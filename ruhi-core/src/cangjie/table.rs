@@ -192,8 +192,12 @@ impl CangjieTable {
 
                 self.record_char_head(&code, &hanzi);
                 let entries = self.map.entry(code).or_default();
-                // 避免重複加入相同漢字
-                if !entries.iter().any(|e| e.hanzi == hanzi) {
+                // 若為內建基礎字根預設字，提升其權重以確保主字根（如 a=日、h=竹）優先於異體／部件（如 曰、丿）
+                if let Some(existing) = entries.iter_mut().find(|e| e.hanzi == hanzi) {
+                    if weight >= existing.weight {
+                        existing.weight = weight + 1;
+                    }
+                } else {
                     entries.push(CangjieEntry { hanzi, weight });
                     count += 1;
                 }

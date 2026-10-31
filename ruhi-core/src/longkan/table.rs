@@ -763,7 +763,7 @@ impl LongkanTable {
                     c_lower.len() == 4 && c_lower.chars().all(|c| c.is_ascii_alphabetic());
                 let score = weight
                     + if kind.trim() == "curated" { 1000 } else { 0 }
-                    + if is_pure_4alpha { 250 } else { 0 };
+                    + if is_pure_4alpha { 1250 } else { 0 };
                 let rev = self
                     .char_reverse
                     .entry(ch)
@@ -905,8 +905,61 @@ impl LongkanTable {
             ("bd", "明", 2620, "curated", "視覺簡碼:日(b)+月(d)"),
             ("cooo", "區", 2620, "curated", "視覺拆字:匚(c)+口×3(ooo)"),
             ("cko3", "區", 2600, "curated", "匚(c)+口(ko)×3"),
+            ("ko2", "回", 2620, "curated", "口(ko)×2+␣"),
+            ("koko", "回", 2620, "curated", "許氏全拼:口(ko)×2"),
+            ("ko2", "呂", 2550, "curated", "口(ko)×2+␣"),
+            ("koko", "呂", 2580, "curated", "許氏全拼:口(ko)×2"),
             ("ko3", "品", 2600, "curated", "口(ko)×3+␣"),
+            ("kokoko", "品", 2660, "curated", "許氏全拼:口(ko)×3"),
+            ("ko4", "器", 2600, "curated", "口(ko)×4+␣"),
+            ("kokokoko", "器", 2650, "curated", "許氏全拼:口(ko)×4"),
+            ("km3", "鑫", 2600, "curated", "金(km)×3+␣"),
+            ("jn3", "鑫", 2550, "curated", "金(jn)×3+␣"),
+            ("jenjenjen", "鑫", 2660, "curated", "許氏全拼:金(jen)×3"),
+            ("jnjnjn", "鑫", 2650, "curated", "許氏雙拼:金(jn)×3"),
+            ("mu2", "林", 2600, "curated", "木(mu)×2+␣"),
+            ("mx2", "林", 2550, "curated", "木(mx)×2+␣"),
+            ("mxmx", "林", 2640, "curated", "許氏全拼:木(mx)×2"),
             ("mu3", "森", 2600, "curated", "木(mu)×3+␣"),
+            ("mx3", "森", 2550, "curated", "木(mx)×3+␣"),
+            ("mxmxmx", "森", 2650, "curated", "許氏全拼:木(mx)×3"),
+            ("ri3", "晶", 2600, "curated", "日(ri)×3+␣"),
+            ("rr3", "晶", 2550, "curated", "日(rr)×3+␣"),
+            ("rrr", "晶", 2660, "curated", "許氏全拼:日(r)×3"),
+            ("su3", "淼", 2600, "curated", "水(su)×3+␣"),
+            ("ca3", "淼", 2550, "curated", "水(ca)×3+␣"),
+            ("cacaca", "淼", 2660, "curated", "許氏全拼:水(ca)×3"),
+            ("ho2", "炎", 2600, "curated", "火(ho)×2+␣"),
+            ("hh2", "炎", 2550, "curated", "火(hh)×2+␣"),
+            ("hxh2", "炎", 2580, "curated", "火(hxh)×2+␣"),
+            ("hoho", "炎", 2640, "curated", "許氏全拼:火(ho)×2"),
+            ("hhhh", "炎", 2620, "curated", "許氏全拼:火(hh)×2"),
+            ("hxhhxh", "炎", 2640, "curated", "許氏全拼:火(hxh)×2"),
+            ("ho3", "焱", 2600, "curated", "火(ho)×3+␣"),
+            ("hh3", "焱", 2550, "curated", "火(hh)×3+␣"),
+            ("hxh3", "焱", 2580, "curated", "火(hxh)×3+␣"),
+            ("hohoho", "焱", 2660, "curated", "許氏全拼:火(ho)×3"),
+            ("hhhhhh", "焱", 2640, "curated", "許氏全拼:火(hh)×3"),
+            ("hxhhxhhxh", "焱", 2660, "curated", "許氏全拼:火(hxh)×3"),
+            ("si3", "磊", 2600, "curated", "石(si)×3+␣"),
+            ("cc3", "磊", 2550, "curated", "石(cc)×3+␣"),
+            ("ccc", "磊", 2660, "curated", "許氏全拼:石(c)×3"),
+            ("rn2", "从", 2500, "curated", "人(rn)×2+␣"),
+            ("rnrn", "从", 2560, "curated", "許氏全拼:人(rn)×2"),
+            ("rn3", "眾", 2600, "curated", "人(rn)×3+␣"),
+            ("rnrnrn", "眾", 2660, "curated", "許氏全拼:人(rn)×3"),
+            ("tu2", "圭", 2600, "curated", "土(tu)×2+␣"),
+            ("txtx", "圭", 2580, "curated", "許氏全拼:土(tx)×2"),
+            ("tu3", "垚", 2600, "curated", "土(tu)×3+␣"),
+            ("txtxtx", "垚", 2650, "curated", "許氏全拼:土(tx)×3"),
+            ("yu2", "朋", 2600, "curated", "月(yu)×2+␣"),
+            ("ueue", "朋", 2640, "curated", "許氏全拼:月(ue)×2"),
+            ("ce3", "轟", 2600, "curated", "車(ce)×3+␣"),
+            ("vgvgvg", "轟", 2660, "curated", "許氏全拼:車(vg)×3"),
+            ("zv2", "雙", 2600, "curated", "隹(zv)×2+␣"),
+            ("jaja", "雙", 2640, "curated", "許氏全拼:隹(ja)×2"),
+            ("zi3", "矗", 2600, "curated", "直(zi)×3+␣"),
+            ("jjj", "矗", 2660, "curated", "許氏全拼:直(j)×3"),
         ];
         for &(code, text, weight, kind, bdesc) in builtins {
             self.insert_entry(code, text, weight, kind, bdesc);
@@ -1518,7 +1571,7 @@ pub fn compile_tsv_to_bin(tsv_path: &Path, bin_path: &Path) -> io::Result<usize>
                     c_lower.len() == 4 && c_lower.chars().all(|c| c.is_ascii_alphabetic());
                 let score = *wt
                     + if k_clean == "curated" { 1000 } else { 0 }
-                    + if is_pure_4alpha { 250 } else { 0 };
+                    + if is_pure_4alpha { 1250 } else { 0 };
                 let rev = char_rev.entry(ch).or_insert_with(|| LongkanReverseEntry {
                     primary_code: c_lower.clone(),
                     primary_score: score,

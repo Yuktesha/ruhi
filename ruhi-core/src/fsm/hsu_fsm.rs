@@ -61,6 +61,9 @@ impl HsuSyllable {
         if text.starts_with('˙') {
             tone = '5';
             text = &text['˙'.len_utf8()..];
+        } else if text.ends_with('˙') {
+            tone = '5';
+            text = &text[..text.len() - '˙'.len_utf8()];
         } else if text.ends_with('ˊ') {
             tone = '2';
             text = &text[..text.len() - 'ˊ'.len_utf8()];
@@ -253,7 +256,10 @@ impl HsuFSM {
             _ => None,
         };
         if let Some(iv) = init {
-            if !self.cur_initial.is_empty() || !self.cur_medial.is_empty() || !self.cur_final.is_empty() {
+            if !self.cur_medial.is_empty() || !self.cur_final.is_empty() {
+                return false;
+            }
+            if !self.cur_initial.is_empty() {
                 self.commit_current('1');
             }
             self.cur_initial = iv.to_string();
@@ -262,7 +268,7 @@ impl HsuFSM {
         }
         if let Some(mv) = med {
             if !self.cur_medial.is_empty() || !self.cur_final.is_empty() {
-                self.commit_current('1');
+                return false;
             }
             self.cur_medial = mv.to_string();
             self.raw_keys.push(k);
@@ -270,7 +276,7 @@ impl HsuFSM {
         }
         if let Some(fv) = fin {
             if !self.cur_final.is_empty() || (fv == "ㄦ" && (!self.cur_initial.is_empty() || !self.cur_medial.is_empty())) {
-                self.commit_current('1');
+                return false;
             }
             self.cur_final = fv.to_string();
             self.raw_keys.push(k);

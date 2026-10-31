@@ -127,7 +127,7 @@ static LAST_FC_MTIME: Mutex<Option<std::time::SystemTime>> = Mutex::new(None);
 static CURRENT_DLL_INSTANCES: Mutex<Option<std::collections::HashSet<usize>>> = Mutex::new(None);
 
 pub fn invalidate_config_cache() {
-    if let Ok(mut lock) = LAST_CONFIG_CHECK.lock() {
+    if let Ok(mut lock) = LAST_CONFIG_CHECK.try_lock() {
         *lock = None;
     }
 }
@@ -144,6 +144,8 @@ pub struct RuhiConfig {
     pub backtick_inline_mode: String,
     #[serde(default = "default_aux_mode")]
     pub tilde_toggle_mode: String,
+    #[serde(default = "default_aux_mode")]
+    pub shift_down_mode: String,
     #[serde(default = "default_candidate_quick_key")]
     pub candidate_quick_key: String,
     #[serde(default = "default_punctuation_commit_mode")]
@@ -178,6 +180,8 @@ pub struct RuhiConfig {
     pub mixed_english_mode: String,
     #[serde(default = "default_mixed_english_min_len")]
     pub mixed_english_min_len: usize,
+    #[serde(default = "default_mixed_typing_modes")]
+    pub mixed_typing_modes: Vec<String>,
     #[serde(default = "default_capslock_switch")]
     pub capslock_switch: String,
     #[serde(default = "default_capsule_mode")]
@@ -214,6 +218,7 @@ impl Default for RuhiConfig {
             enabled_keyboard_modes: default_enabled_keyboard_modes(),
             backtick_inline_mode: default_aux_mode(),
             tilde_toggle_mode: default_aux_mode(),
+            shift_down_mode: default_aux_mode(),
             candidate_quick_key: default_candidate_quick_key(),
             punctuation_commit_mode: default_punctuation_commit_mode(),
             input_display_mode: default_input_display_mode(),
@@ -231,6 +236,7 @@ impl Default for RuhiConfig {
             enable_mixed_english: default_enable_mixed_english(),
             mixed_english_mode: default_mixed_english_mode(),
             mixed_english_min_len: default_mixed_english_min_len(),
+            mixed_typing_modes: default_mixed_typing_modes(),
             capslock_switch: default_capslock_switch(),
             capsule_mode: default_capsule_mode(),
             confirm_add_word: default_confirm_add_word(),
@@ -276,7 +282,6 @@ pub fn get_active_tsf_langid() -> u16 {
 /// 透過 TSF `ITfInputProcessorProfileMgr::GetActiveProfile` 查詢目前作用中之鍵盤設定檔 `LANGID`
 pub fn query_active_tsf_langid() -> u16 {
     unsafe {
-        let _ = windows::Win32::System::Com::CoInitialize(None);
         let mgr_res: Result<ITfInputProcessorProfileMgr> = windows::Win32::System::Com::CoCreateInstance(
             &CLSID_TF_InputProcessorProfiles,
             None,
@@ -345,8 +350,9 @@ pub fn sync_active_tsf_profile_locale(cfg: &mut RuhiConfig) {
     let prev_langid = ACTIVE_TSF_LANGID.swap(active_langid, std::sync::atomic::Ordering::SeqCst);
     let primary = active_langid & 0x03FF;
     let prev_primary = prev_langid & 0x03FF;
-    // 若使用者從非中文語言入口（如英文、日文、韓文）啟動 RuhI，或在兩個不同語言入口間切換：
-    if prev_langid != active_langid && (primary != 0x04 || prev_primary != 0) {
+    // 僅當使用者明確在兩個不同語言入口間切換（prev_primary != 0 且 prev_langid != active_langid）時，才自動切換對應語系之鍵盤模式，
+    // 避免新程序或新 DLL 剛載入 (prev_langid == 0) 時覆寫使用者剛切換好的輸入模式或觸發重入鎖定。
+    if prev_primary != 0 && prev_langid != active_langid && prev_primary != primary {
         let target_mode = match primary {
             0x09 | 0x0C | 0x07 | 0x0A => Some("english"),
             0x11 => Some("japanese"),
@@ -379,6 +385,14 @@ fn default_q_cycle_max() -> usize { 3 }
 fn default_enable_mixed_english() -> bool { true }
 fn default_mixed_english_mode() -> String { "contextual_stream".to_string() }
 fn default_mixed_english_min_len() -> usize { 4 }
+fn default_mixed_typing_modes() -> Vec<String> {
+    vec![
+        "standard".to_string(),
+        "cangjie".to_string(),
+        "four_corner".to_string(),
+        "array30".to_string(),
+    ]
+}
 fn default_capslock_switch() -> String { "capital_lock".to_string() }
 fn default_capsule_mode() -> String { "mini_capsule".to_string() }
 fn default_confirm_add_word() -> bool { true }
@@ -433,14 +447,23 @@ impl RuhiPaths {
             dir.join("lexicon_mcbopomofo.tsv").exists() || dir.join("lexicon_moe.tsv").exists()
         };
 
+        let dll_parent = dll_dir
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| dll_dir.join(".."));
+        let dll_grandparent = dll_parent
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| dll_parent.join(".."));
+
         let data_dir = if dll_dir.join("data").is_dir() && has_full_lexicon(&dll_dir.join("data")) {
             dll_dir.join("data")
         } else if dll_dir.join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_dir.join("ruhi_lexicon").join("data")) {
             dll_dir.join("ruhi_lexicon").join("data")
-        } else if dll_dir.join("..").join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_dir.join("..").join("ruhi_lexicon").join("data")) {
-            dll_dir.join("..").join("ruhi_lexicon").join("data")
-        } else if dll_dir.join("..").join("..").join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_dir.join("..").join("..").join("ruhi_lexicon").join("data")) {
-            dll_dir.join("..").join("..").join("ruhi_lexicon").join("data")
+        } else if dll_parent.join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_parent.join("ruhi_lexicon").join("data")) {
+            dll_parent.join("ruhi_lexicon").join("data")
+        } else if dll_grandparent.join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_grandparent.join("ruhi_lexicon").join("data")) {
+            dll_grandparent.join("ruhi_lexicon").join("data")
         } else if appdata_ruhi.join("data").is_dir() && has_full_lexicon(&appdata_ruhi.join("data")) {
             appdata_ruhi.join("data")
         } else if dll_dir.join("data").is_dir() {
@@ -450,14 +473,14 @@ impl RuhiPaths {
         };
 
         // Resolve config/user directory (優先以專案根目錄為單一權威組態源，確保 scripts/ 與根目錄永不分裂)
-        let sandbox_dir = if dll_dir.join("..").join("config.json").exists() && dll_dir.join("..").join("ruhi_lexicon").is_dir() {
-            dll_dir.join("..")
+        let sandbox_dir = if dll_parent.join("config.json").exists() && dll_parent.join("ruhi_lexicon").is_dir() {
+            dll_parent.clone()
         } else if dll_dir.join("config.json").exists() {
             dll_dir.clone()
-        } else if dll_dir.join("..").join("config.json").exists() {
-            dll_dir.join("..")
-        } else if dll_dir.join("..").join("..").join("config.json").exists() {
-            dll_dir.join("..").join("..")
+        } else if dll_parent.join("config.json").exists() {
+            dll_parent.clone()
+        } else if dll_grandparent.join("config.json").exists() {
+            dll_grandparent.clone()
         } else {
             let _ = std::fs::create_dir_all(&appdata_ruhi);
             appdata_ruhi.clone()
@@ -807,15 +830,18 @@ thread_local! {
 static NEXT_LANGBAR_COOKIE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
 
 pub fn notify_langbar_mode_update() {
-    LANGBAR_SINKS.with(|sinks_cell| {
+    let sinks_snapshot: Vec<ITfLangBarItemSink> = LANGBAR_SINKS.with(|sinks_cell| {
         if let Ok(sinks) = sinks_cell.try_borrow() {
-            for (_, sink) in sinks.iter() {
-                unsafe {
-                    let _ = sink.OnUpdate(TF_LBI_ICON | TF_LBI_TEXT | TF_LBI_TOOLTIP | TF_LBI_STATUS);
-                }
-            }
+            sinks.iter().map(|(_, sink)| sink.clone()).collect()
+        } else {
+            Vec::new()
         }
     });
+    for sink in sinks_snapshot {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+            let _ = sink.OnUpdate(TF_LBI_ICON | TF_LBI_TEXT | TF_LBI_TOOLTIP | TF_LBI_STATUS);
+        }));
+    }
 }
 
 #[implement(ITfLangBarItemButton, ITfSource)]
@@ -823,26 +849,29 @@ pub struct RuhiLangBarItemButton;
 
 impl ITfLangBarItem_Impl for RuhiLangBarItemButton_Impl {
     fn GetInfo(&self, pinfo: *mut TF_LANGBARITEMINFO) -> Result<()> {
-        if pinfo.is_null() {
-            return Err(E_INVALIDARG.into());
-        }
-        unsafe {
-            (*pinfo).clsidService = crate::guid::CLSID_RUHI_TEXT_SERVICE;
-            (*pinfo).guidItem = GUID_LBI_INPUTMODE;
-            (*pinfo).dwStyle = TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_SHOWNINTRAY;
-            (*pinfo).ulSort = 0;
-            let desc_str = match resolve_effective_ui_lang("auto") {
-                "en-US" => "RuhI Input Mode",
-                "ja-JP" => "RuhI 入力モード",
-                "ko-KR" => "RuhI 입력 모드",
-                _ => "RuhI 輸入模式",
-            };
-            let desc: Vec<u16> = desc_str.encode_utf16().collect();
-            for (i, &c) in desc.iter().enumerate().take((*pinfo).szDescription.len() - 1) {
-                (*pinfo).szDescription[i] = c;
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if pinfo.is_null() {
+                return Err(E_INVALIDARG.into());
             }
-        }
-        Ok(())
+            unsafe {
+                (*pinfo).clsidService = crate::guid::CLSID_RUHI_TEXT_SERVICE;
+                (*pinfo).guidItem = GUID_LBI_INPUTMODE;
+                (*pinfo).dwStyle = TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_SHOWNINTRAY;
+                (*pinfo).ulSort = 0;
+                let desc_str = match resolve_effective_ui_lang("auto") {
+                    "en-US" => "RuhI Input Mode",
+                    "ja-JP" => "RuhI 入力モード",
+                    "ko-KR" => "RuhI 입력 모드",
+                    _ => "RuhI 輸入模式",
+                };
+                let desc: Vec<u16> = desc_str.encode_utf16().collect();
+                for (i, &c) in desc.iter().enumerate().take((*pinfo).szDescription.len() - 1) {
+                    (*pinfo).szDescription[i] = c;
+                }
+            }
+            Ok(())
+        }))
+        .unwrap_or_else(|_| Err(E_FAIL.into()))
     }
 
     fn GetStatus(&self) -> Result<u32> {
@@ -850,244 +879,258 @@ impl ITfLangBarItem_Impl for RuhiLangBarItemButton_Impl {
     }
 
     fn Show(&self, _fshow: BOOL) -> Result<()> {
-        notify_langbar_mode_update();
-        Ok(())
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            notify_langbar_mode_update();
+            Ok(())
+        }))
+        .unwrap_or_else(|_| Ok(()))
     }
 
     fn GetTooltipString(&self) -> Result<BSTR> {
-        let paths = RuhiPaths::resolve();
-        let cfg = load_ruhi_config(&paths);
-        let (_badge_unused, _mode_name_unused) = crate::candidate_window::get_mode_badge_and_name(&cfg.keyboard_mode, false);
-        let ui_lang = resolve_effective_ui_lang(&cfg.ui_lang);
-        let (badge, mode_name) = crate::candidate_window::get_mode_badge_and_name_i18n(&cfg.keyboard_mode, false, ui_lang);
-        let tip = match ui_lang {
-            "en-US" => format!("RuhI — {} ({}) [Left-click: Switch / Right-click: Menu]", mode_name, badge),
-            "ja-JP" => format!("RuhI 如喜 — {} ({}) [左クリック: 切替 / 右クリック: メニュー]", mode_name, badge),
-            "ko-KR" => format!("RuhI 루히 — {} ({}) [좌클릭: 전환 / 우클릭: 메뉴]", mode_name, badge),
-            _ => format!("RuhI 如喜 — {} ({}) [左鍵輪流切換／右鍵開啟選單]", mode_name, badge),
-        };
-        Ok(BSTR::from(tip))
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let paths = RuhiPaths::resolve();
+            let cfg = load_ruhi_config(&paths);
+            let ui_lang = resolve_effective_ui_lang(&cfg.ui_lang);
+            let (badge, mode_name) = crate::candidate_window::get_mode_badge_and_name_i18n(&cfg.keyboard_mode, false, ui_lang);
+            let tip = match ui_lang {
+                "en-US" => format!("RuhI — {} ({}) [Left-click: Switch / Right-click: Menu]", mode_name, badge),
+                "ja-JP" => format!("RuhI 如喜 — {} ({}) [左クリック: 切替 / 右クリック: メニュー]", mode_name, badge),
+                "ko-KR" => format!("RuhI 루히 — {} ({}) [좌클릭: 전환 / 우클릭: 메뉴]", mode_name, badge),
+                _ => format!("RuhI 如喜 — {} ({}) [左鍵輪流切換／右鍵開啟選單]", mode_name, badge),
+            };
+            Ok(BSTR::from(tip))
+        }))
+        .unwrap_or_else(|_| Ok(BSTR::from("RuhI")))
     }
 }
 
 impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
     fn OnClick(&self, click: TfLBIClick, pt: &POINT, _prcarea: *const RECT) -> Result<()> {
-        unsafe {
-            if click == TF_LBI_CLK_LEFT {
-                crate::candidate_window::cycle_next_keyboard_mode_global(Some(*pt));
-            } else {
-                crate::candidate_window::show_taskbar_ri_menu(Some(*pt));
+        let click_pt = *pt;
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            logger::log(&format!(
+                "RuhiLangBarItemButton::OnClick click={:?}, pt=({}, {})",
+                click.0, click_pt.x, click_pt.y
+            ));
+            unsafe {
+                if click == TF_LBI_CLK_LEFT {
+                    crate::candidate_window::cycle_next_keyboard_mode_global(Some(click_pt));
+                } else {
+                    crate::candidate_window::show_taskbar_ri_menu(Some(click_pt));
+                }
             }
-        }
-        Ok(())
+            Ok(())
+        }))
+        .unwrap_or_else(|_| Ok(()))
     }
 
     fn InitMenu(&self, pmenu: Option<&ITfMenu>) -> Result<()> {
-        if let Some(menu) = pmenu {
-            let paths = RuhiPaths::resolve();
-            let cfg = load_ruhi_config(&paths);
-            let cur_kb = cfg.keyboard_mode.to_lowercase();
-            let is_direct_en_caps = cfg.capslock_switch == "english_direct";
-            let ui_lang = resolve_effective_ui_lang(&cfg.ui_lang);
-            let items = crate::candidate_window::get_mode_menu_items_i18n(ui_lang);
-            let _unused_items: &[(u32, &str, &str)] = &[
-                (2001, "hsu", "許氏雙拼注音 (許)\tCtrl/Shift + CapsLock"),
-                (2005, "japanese", "日文羅馬字輸入 (日)\tCtrl/Shift + CapsLock"),
-                (2009, "korean", "韓文羅馬拼音輸入 (韓)\tCtrl/Shift + CapsLock"),
-                (2004, "cangjie", "倉頡輸入法 (倉)\tCtrl/Shift + CapsLock"),
-                (2007, "array30", "行列 30 輸入法 (行)\tCtrl/Shift + CapsLock"),
-                (2002, "standard", "標準大千注音 (注)\tCtrl/Shift + CapsLock"),
-                (2003, "et26", "倚天 26 鍵注音 (倚)\tCtrl/Shift + CapsLock"),
-            ];
-            let null_bmp = windows::Win32::Graphics::Gdi::HBITMAP::default();
-            unsafe {
-                for &(id, mode_code, label) in items {
-                    let is_active = cur_kb == mode_code
-                        || (mode_code == "japanese" && (cur_kb == "jp" || cur_kb == "romaji" || cur_kb == "kana"))
-                        || (mode_code == "korean" && (cur_kb == "ko" || cur_kb == "hangul" || cur_kb == "romaja"))
-                        || (mode_code == "array30" && cur_kb == "ar30")
-                        || (mode_code == "four_corner" && (cur_kb == "4corner" || cur_kb == "fc"))
-                        || (mode_code == "longkan" && cur_kb == "lk")
-                        || (mode_code == "standard" && cur_kb == "daikien")
-                        || (mode_code == "et26" && cur_kb == "eten26");
-                    let lbl = if is_active { format!("✓ {}", label) } else { format!("   {}", label) };
-                    let wide: Vec<u16> = lbl.encode_utf16().collect();
-                    let _ = menu.AddMenuItem(id, 0, null_bmp, null_bmp, &wide, std::ptr::null_mut());
-                }
-                let is_en_active = matches!(cur_kb.as_str(), "english" | "en" | "latin" | "western" | "euro" | "sanskrit");
-                let (en_base_lbl, mru_prefix, tune_lbl, set_lbl, about_lbl) = match ui_lang {
-                    "en-US" => (
-                        "Pan-European / Roman (EU)",
-                        "Quick Toggle Last Two Modes",
-                        "Show/Hide Inline Tuner Bar (Tune ▾)",
-                        "Preferences Center (&S)...",
-                        "About RuhI (&A)",
-                    ),
-                    "ja-JP" => (
-                        "汎欧州／ローマ字モード (欧)",
-                        "直近 2 モードの高速切替",
-                        "インライン調整バーの表示／非表示 (調整 ▾)",
-                        "設定センター (&S)...",
-                        "RuhI について (&A)",
-                    ),
-                    "ko-KR" => (
-                        "범유럽 / 로마자 모드 (EU)",
-                        "최근 두 입력 모드 빠른 전환",
-                        "인라인 조정 바 표시/숨기기 (조정 ▾)",
-                        "환경설정 (&S)...",
-                        "RuhI 정보 (&A)",
-                    ),
-                    _ => (
-                        "泛歐／羅馬字模式 (歐)",
-                        "最後兩種輸入模式快速切換",
-                        "顯示／隱藏輸入座內嵌調校列 (調校 ▾)",
-                        "偏好設定中心 (&S)...",
-                        "關於 RuhI 如喜 (&A)",
-                    ),
-                };
-                let en_hotkey = if is_direct_en_caps { "CapsLock" } else { "Ctrl/Shift + CapsLock" };
-                let en_lbl = if is_en_active {
-                    format!("✓ {}\t{}", en_base_lbl, en_hotkey)
-                } else {
-                    format!("   {}\t{}", en_base_lbl, en_hotkey)
-                };
-                let _unused_en_lbl = if false {
-                    if is_en_active {
-                        "✓ 泛歐／羅馬字模式 (歐)\tCapsLock".to_string()
-                    } else {
-                        "   泛歐／羅馬字模式 (歐)\tCapsLock".to_string()
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if let Some(menu) = pmenu {
+                let paths = RuhiPaths::resolve();
+                let cfg = load_ruhi_config(&paths);
+                let cur_kb = cfg.keyboard_mode.to_lowercase();
+                let is_direct_en_caps = cfg.capslock_switch == "english_direct";
+                let ui_lang = resolve_effective_ui_lang(&cfg.ui_lang);
+                let items = crate::candidate_window::get_mode_menu_items_i18n(ui_lang);
+                let null_bmp = windows::Win32::Graphics::Gdi::HBITMAP::default();
+                unsafe {
+                    for &(id, mode_code, label) in items {
+                        let is_active = cur_kb == mode_code
+                            || (mode_code == "japanese" && (cur_kb == "jp" || cur_kb == "romaji" || cur_kb == "kana"))
+                            || (mode_code == "korean" && (cur_kb == "ko" || cur_kb == "hangul" || cur_kb == "romaja"))
+                            || (mode_code == "array30" && cur_kb == "ar30")
+                            || (mode_code == "four_corner" && (cur_kb == "4corner" || cur_kb == "fc"))
+                            || (mode_code == "longkan" && cur_kb == "lk")
+                            || (mode_code == "standard" && cur_kb == "daikien")
+                            || (mode_code == "et26" && cur_kb == "eten26");
+                        let lbl = if is_active { format!("✓ {}", label) } else { format!("   {}", label) };
+                        let wide: Vec<u16> = lbl.encode_utf16().collect();
+                        let _ = menu.AddMenuItem(id, 0, null_bmp, null_bmp, &wide, std::ptr::null_mut());
                     }
-                } else {
-                    if is_en_active {
-                        "✓ 泛歐／羅馬字模式 (歐)\tCtrl/Shift + CapsLock".to_string()
-                    } else {
-                        "   泛歐／羅馬字模式 (歐)\tCtrl/Shift + CapsLock".to_string()
-                    }
-                };
-                let en_wide: Vec<u16> = en_lbl.encode_utf16().collect();
-                let _ = menu.AddMenuItem(2006, 0, null_bmp, null_bmp, &en_wide, std::ptr::null_mut());
-
-                if !is_direct_en_caps {
-                    let (cur_badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(&cfg.keyboard_mode, false, ui_lang);
-                    let last_code = if cfg.last_keyboard_mode.eq_ignore_ascii_case(&cfg.keyboard_mode) {
-                        if is_en_active {
-                            cfg.enabled_keyboard_modes.first().map(|s| s.as_str()).unwrap_or("hsu")
-                        } else {
-                            "english"
-                        }
-                    } else {
-                        cfg.last_keyboard_mode.as_str()
+                    let is_en_active = matches!(cur_kb.as_str(), "english" | "en" | "latin" | "western" | "euro" | "sanskrit");
+                    let (en_base_lbl, mru_prefix, tune_lbl, set_lbl, about_lbl) = match ui_lang {
+                        "en-US" => (
+                            "Pan-European / Roman (EU)",
+                            "Quick Toggle Last Two Modes",
+                            "Show/Hide Inline Tuner Bar (Tune ▾)",
+                            "Preferences Center (&S)...",
+                            "About RuhI (&A)",
+                        ),
+                        "ja-JP" => (
+                            "汎欧州／ローマ字モード (欧)",
+                            "直近 2 モードの高速切替",
+                            "インライン調整バーの表示／非表示 (調整 ▾)",
+                            "設定センター (&S)...",
+                            "RuhI について (&A)",
+                        ),
+                        "ko-KR" => (
+                            "범유럽 / 로마자 모드 (EU)",
+                            "최근 두 입력 모드 빠른 전환",
+                            "인라인 조정 바 표시/숨기기 (조정 ▾)",
+                            "환경설정 (&S)...",
+                            "RuhI 정보 (&A)",
+                        ),
+                        _ => (
+                            "泛歐／羅馬字模式 (歐)",
+                            "最後兩種輸入模式快速切換",
+                            "顯示／隱藏輸入座內嵌調校列 (調校 ▾)",
+                            "偏好設定中心 (&S)...",
+                            "關於 RuhI 如喜 (&A)",
+                        ),
                     };
-                    let (last_badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(last_code, false, ui_lang);
-                    let mru_lbl = format!("   {} ({} ⇄ {})\tCapsLock", mru_prefix, cur_badge, last_badge);
-                    let mru_wide: Vec<u16> = mru_lbl.encode_utf16().collect();
-                    let _ = menu.AddMenuItem(2008, 0, null_bmp, null_bmp, &mru_wide, std::ptr::null_mut());
+                    let en_hotkey = if is_direct_en_caps { "CapsLock" } else { "Ctrl/Shift + CapsLock" };
+                    let en_lbl = if is_en_active {
+                        format!("✓ {}\t{}", en_base_lbl, en_hotkey)
+                    } else {
+                        format!("   {}\t{}", en_base_lbl, en_hotkey)
+                    };
+                    let en_wide: Vec<u16> = en_lbl.encode_utf16().collect();
+                    let _ = menu.AddMenuItem(2006, 0, null_bmp, null_bmp, &en_wide, std::ptr::null_mut());
+
+                    if !is_direct_en_caps {
+                        let (cur_badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(&cfg.keyboard_mode, false, ui_lang);
+                        let last_code = if cfg.last_keyboard_mode.eq_ignore_ascii_case(&cfg.keyboard_mode) {
+                            if is_en_active {
+                                cfg.enabled_keyboard_modes.first().map(|s| s.as_str()).unwrap_or("hsu")
+                            } else {
+                                "english"
+                            }
+                        } else {
+                            cfg.last_keyboard_mode.as_str()
+                        };
+                        let (last_badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(last_code, false, ui_lang);
+                        let mru_lbl = format!("   {} ({} ⇄ {})\tCapsLock", mru_prefix, cur_badge, last_badge);
+                        let mru_wide: Vec<u16> = mru_lbl.encode_utf16().collect();
+                        let _ = menu.AddMenuItem(2008, 0, null_bmp, null_bmp, &mru_wide, std::ptr::null_mut());
+                    }
+
+                    let tune_wide: Vec<u16> = format!("   {}", tune_lbl).encode_utf16().collect();
+                    let _ = menu.AddMenuItem(3001, 0, null_bmp, null_bmp, &tune_wide, std::ptr::null_mut());
+
+                    let set_wide: Vec<u16> = format!("   {}", set_lbl).encode_utf16().collect();
+                    let _ = menu.AddMenuItem(1001, 0, null_bmp, null_bmp, &set_wide, std::ptr::null_mut());
+                    let about_wide: Vec<u16> = format!("   {}", about_lbl).encode_utf16().collect();
+                    let _ = menu.AddMenuItem(1002, 0, null_bmp, null_bmp, &about_wide, std::ptr::null_mut());
                 }
-
-                let tune_wide: Vec<u16> = format!("   {}", tune_lbl).encode_utf16().collect();
-                let _ = menu.AddMenuItem(3001, 0, null_bmp, null_bmp, &tune_wide, std::ptr::null_mut());
-
-                let set_wide: Vec<u16> = format!("   {}", set_lbl).encode_utf16().collect();
-                let _ = menu.AddMenuItem(1001, 0, null_bmp, null_bmp, &set_wide, std::ptr::null_mut());
-                let about_wide: Vec<u16> = format!("   {}", about_lbl).encode_utf16().collect();
-                let _ = menu.AddMenuItem(1002, 0, null_bmp, null_bmp, &about_wide, std::ptr::null_mut());
             }
-        }
-        Ok(())
+            Ok(())
+        }))
+        .unwrap_or_else(|_| Ok(()))
     }
 
     fn OnMenuSelect(&self, wid: u32) -> Result<()> {
-        let is_caps = unsafe { (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0 };
-        if wid == 2008 {
-            crate::candidate_window::toggle_last_two_keyboard_modes_global(None);
-            if is_caps {
-                trigger_synthetic_caps_toggle();
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            logger::log(&format!("RuhiLangBarItemButton::OnMenuSelect wid={}", wid));
+            let is_caps = unsafe { (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0 };
+            if wid == 2008 {
+                crate::candidate_window::toggle_last_two_keyboard_modes_global(None);
+                if is_caps {
+                    trigger_synthetic_caps_toggle();
+                }
+                return Ok(());
             }
-            return Ok(());
-        }
-        let chosen = match wid {
-            2001 => Some("hsu"),
-            2002 => Some("standard"),
-            2003 => Some("et26"),
-            2004 => Some("cangjie"),
-            2005 => Some("japanese"),
-            2006 => Some("english"),
-            2007 => Some("array30"),
-            2009 => Some("korean"),
-            2010 => Some("four_corner"),
-            2013 => Some("longkan"),
-            _ => None,
-        };
-        if let Some(m) = chosen {
-            crate::candidate_window::save_keyboard_mode(m);
-            if is_caps {
-                trigger_synthetic_caps_toggle();
+            let chosen = match wid {
+                2001 => Some("hsu"),
+                2002 => Some("standard"),
+                2003 => Some("et26"),
+                2004 => Some("cangjie"),
+                2005 => Some("japanese"),
+                2006 => Some("english"),
+                2007 => Some("array30"),
+                2009 => Some("korean"),
+                2010 => Some("four_corner"),
+                2013 => Some("longkan"),
+                _ => None,
+            };
+            if let Some(m) = chosen {
+                crate::candidate_window::save_keyboard_mode(m);
+                if is_caps {
+                    trigger_synthetic_caps_toggle();
+                }
+                notify_langbar_mode_update();
+            } else if wid == 3001 {
+                crate::candidate_window::toggle_ui_tuner_bar_global();
+            } else if wid == 1001 {
+                crate::candidate_window::launch_settings();
+            } else if wid == 1002 {
+                crate::candidate_window::show_about_dialog(HWND::default());
             }
-            notify_langbar_mode_update();
-        } else if wid == 3001 {
-            crate::candidate_window::toggle_ui_tuner_bar_global();
-        } else if wid == 1001 {
-            crate::candidate_window::launch_settings();
-        } else if wid == 1002 {
-            crate::candidate_window::show_about_dialog(HWND::default());
-        }
-        Ok(())
+            Ok(())
+        }))
+        .unwrap_or_else(|_| Ok(()))
     }
 
     fn GetIcon(&self) -> Result<HICON> {
-        let paths = RuhiPaths::resolve();
-        let cfg = load_ruhi_config(&paths);
-        let (badge, _) = crate::candidate_window::get_mode_badge_and_name(&cfg.keyboard_mode, false);
-        let hicon = unsafe { crate::candidate_window::create_mode_hicon(badge, false) };
-        Ok(hicon)
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let paths = RuhiPaths::resolve();
+            let cfg = load_ruhi_config(&paths);
+            let ui_lang = resolve_effective_ui_lang(&cfg.ui_lang);
+            let (badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(&cfg.keyboard_mode, false, ui_lang);
+            let hicon = unsafe { crate::candidate_window::create_mode_hicon(badge, false) };
+            Ok(hicon)
+        }))
+        .unwrap_or_else(|_| unsafe {
+            Ok(LoadIconW(None, IDI_APPLICATION).unwrap_or_default())
+        })
     }
 
     fn GetText(&self) -> Result<BSTR> {
-        let paths = RuhiPaths::resolve();
-        let cfg = load_ruhi_config(&paths);
-        let (badge, _) = crate::candidate_window::get_mode_badge_and_name(&cfg.keyboard_mode, false);
-        Ok(BSTR::from(badge))
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let paths = RuhiPaths::resolve();
+            let cfg = load_ruhi_config(&paths);
+            let ui_lang = resolve_effective_ui_lang(&cfg.ui_lang);
+            let (badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(&cfg.keyboard_mode, false, ui_lang);
+            Ok(BSTR::from(badge))
+        }))
+        .unwrap_or_else(|_| Ok(BSTR::from("許")))
     }
 }
 
 impl ITfSource_Impl for RuhiLangBarItemButton_Impl {
     fn AdviseSink(&self, riid: *const GUID, punk: Option<&IUnknown>) -> Result<u32> {
-        if riid.is_null() {
-            return Err(E_INVALIDARG.into());
-        }
-        let iid = unsafe { *riid };
-        if iid != ITfLangBarItemSink::IID {
-            return Err(E_NOINTERFACE.into());
-        }
-        let unk = punk.ok_or_else(|| Error::from_hresult(E_INVALIDARG))?;
-        let sink: ITfLangBarItemSink = unk.cast()?;
-        unsafe {
-            let _ = sink.OnUpdate(TF_LBI_ICON | TF_LBI_TEXT | TF_LBI_TOOLTIP | TF_LBI_STATUS);
-        }
-        let cookie = NEXT_LANGBAR_COOKIE.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        LANGBAR_SINKS.with(|sinks_cell| {
-            if let Ok(mut sinks) = sinks_cell.try_borrow_mut() {
-                sinks.push((cookie, sink));
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if riid.is_null() {
+                return Err(E_INVALIDARG.into());
             }
-        });
-        Ok(cookie)
+            let iid = unsafe { *riid };
+            if iid != ITfLangBarItemSink::IID {
+                return Err(E_NOINTERFACE.into());
+            }
+            let unk = punk.ok_or_else(|| Error::from_hresult(E_INVALIDARG))?;
+            let sink: ITfLangBarItemSink = unk.cast()?;
+            let cookie = NEXT_LANGBAR_COOKIE.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            LANGBAR_SINKS.with(|sinks_cell| {
+                if let Ok(mut sinks) = sinks_cell.try_borrow_mut() {
+                    sinks.push((cookie, sink.clone()));
+                }
+            });
+            unsafe {
+                let _ = sink.OnUpdate(TF_LBI_ICON | TF_LBI_TEXT | TF_LBI_TOOLTIP | TF_LBI_STATUS);
+            }
+            Ok(cookie)
+        }))
+        .unwrap_or_else(|_| Err(E_FAIL.into()))
     }
 
     fn UnadviseSink(&self, dwcookie: u32) -> Result<()> {
-        let mut removed = false;
-        LANGBAR_SINKS.with(|sinks_cell| {
-            if let Ok(mut sinks) = sinks_cell.try_borrow_mut() {
-                if let Some(pos) = sinks.iter().position(|(c, _)| *c == dwcookie) {
-                    sinks.remove(pos);
-                    removed = true;
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut removed = false;
+            LANGBAR_SINKS.with(|sinks_cell| {
+                if let Ok(mut sinks) = sinks_cell.try_borrow_mut() {
+                    if let Some(pos) = sinks.iter().position(|(c, _)| *c == dwcookie) {
+                        sinks.remove(pos);
+                        removed = true;
+                    }
                 }
+            });
+            if removed {
+                Ok(())
+            } else {
+                Err(OLE_E_NOCONNECTION.into())
             }
-        });
-        if removed {
-            Ok(())
-        } else {
-            Err(OLE_E_NOCONNECTION.into())
-        }
+        }))
+        .unwrap_or_else(|_| Err(E_FAIL.into()))
     }
 }
 
@@ -1099,6 +1142,7 @@ impl ITfSource_Impl for RuhiLangBarItemButton_Impl {
     ITfCompositionSink,
     ITfDisplayAttributeProvider
 )]
+#[repr(C)]
 pub struct RuhiTextService {
     thread_mgr: Arc<Mutex<Option<ITfThreadMgr>>>,
     client_id: Arc<Mutex<u32>>,
@@ -1148,9 +1192,11 @@ impl RuhiTextService {
         engine.set_enabled_keyboard_modes(config.enabled_keyboard_modes.clone());
         engine.backtick_inline_mode = config.backtick_inline_mode.clone();
         engine.tilde_toggle_mode = config.tilde_toggle_mode.clone();
+        engine.shift_down_mode = config.shift_down_mode.clone();
         engine.enable_mixed_english = config.enable_mixed_english;
         engine.mixed_english_mode = config.mixed_english_mode.clone();
         engine.mixed_english_min_len = config.mixed_english_min_len;
+        engine.set_mixed_typing_modes(config.mixed_typing_modes.clone());
         engine.enable_array30_coach = config.enable_array30_coach;
         engine.reverse_coach_target = config.reverse_coach_target.clone();
         engine.four_corner.keymap_profile = config.four_corner_keymap.clone();
@@ -1265,17 +1311,6 @@ impl RuhiTextService {
             inst_key
         ));
 
-        if let Ok(cw_guard) = self.candidate_window.lock() {
-            if let Some(ref w) = *cw_guard {
-                if !w.hwnd.0.is_null() {
-                    unsafe {
-                        let _ = KillTimer(w.hwnd, 2001);
-                        let _ = DestroyWindow(w.hwnd);
-                    }
-                }
-            }
-        }
-
         let paths = RuhiPaths::resolve();
         let mut config = load_ruhi_config(&paths);
         sync_active_tsf_profile_locale(&mut config);
@@ -1286,9 +1321,11 @@ impl RuhiTextService {
         engine.set_enabled_keyboard_modes(config.enabled_keyboard_modes.clone());
         engine.backtick_inline_mode = config.backtick_inline_mode.clone();
         engine.tilde_toggle_mode = config.tilde_toggle_mode.clone();
+        engine.shift_down_mode = config.shift_down_mode.clone();
         engine.enable_mixed_english = config.enable_mixed_english;
         engine.mixed_english_mode = config.mixed_english_mode.clone();
         engine.mixed_english_min_len = config.mixed_english_min_len;
+        engine.set_mixed_typing_modes(config.mixed_typing_modes.clone());
         engine.enable_array30_coach = config.enable_array30_coach;
         engine.reverse_coach_target = config.reverse_coach_target.clone();
         engine.four_corner.keymap_profile = config.four_corner_keymap.clone();
@@ -1327,27 +1364,28 @@ impl RuhiTextService {
         };
 
         unsafe {
-            std::ptr::write(&self.engine as *const _ as *mut _, Arc::new(Mutex::new(engine)));
-            std::ptr::write(&self.candidate_window as *const _ as *mut _, Arc::new(Mutex::new(cw)));
-            std::ptr::write(&self.pending_compose as *const _ as *mut _, Arc::new(Mutex::new(String::new())));
-            std::ptr::write(&self.sentence_cursor as *const _ as *mut _, Arc::new(Mutex::new(0usize)));
-            std::ptr::write(&self.candidate_selecting as *const _ as *mut _, Arc::new(Mutex::new(false)));
-            std::ptr::write(&self.active_candidates as *const _ as *mut _, Arc::new(Mutex::new(Vec::<String>::new())));
-            std::ptr::write(&self.selected_candidate_idx as *const _ as *mut _, Arc::new(Mutex::new(0usize)));
-            std::ptr::write(&self.target_char_idx as *const _ as *mut _, Arc::new(Mutex::new(0usize)));
-            std::ptr::write(&self.target_range as *const _ as *mut _, Arc::new(Mutex::new((0usize, 0usize))));
-            std::ptr::write(&self.config as *const _ as *mut _, Arc::new(Mutex::new(config)));
-            std::ptr::write(&self.sel_anchor as *const _ as *mut _, Arc::new(Mutex::new(None::<usize>)));
-            std::ptr::write(&self.insert_mode as *const _ as *mut _, Arc::new(Mutex::new(true)));
-            std::ptr::write(&self.q_press_count as *const _ as *mut _, Arc::new(Mutex::new(0usize)));
-            std::ptr::write(&self.q_last_char_idx as *const _ as *mut _, Arc::new(Mutex::new(None::<usize>)));
-            std::ptr::write(&self.pending_syllables as *const _ as *mut _, Arc::new(Mutex::new(Vec::<Option<String>>::new())));
-            std::ptr::write(&self.pending_segments as *const _ as *mut _, Arc::new(Mutex::new(Vec::<(usize, usize, String, String)>::new())));
-            std::ptr::write(&self.last_raw_ascii as *const _ as *mut _, Arc::new(Mutex::new(None::<(usize, usize, String)>)));
-            std::ptr::write(&self.manual_cuts as *const _ as *mut _, Arc::new(Mutex::new(std::collections::HashSet::<usize>::new())));
-            std::ptr::write(&self.deleted_words as *const _ as *mut _, Arc::new(Mutex::new(del_words)));
-            std::ptr::write(&self.undo_stack as *const _ as *mut _, Arc::new(Mutex::new(Vec::<EditorSnapshot>::new())));
-            std::ptr::write(&self.redo_stack as *const _ as *mut _, Arc::new(Mutex::new(Vec::<EditorSnapshot>::new())));
+            let self_mut = std::hint::black_box(self as *const Self as usize) as *mut Self;
+            std::ptr::write_volatile(&raw mut (*self_mut).engine, Arc::new(Mutex::new(engine)));
+            std::ptr::write_volatile(&raw mut (*self_mut).candidate_window, Arc::new(Mutex::new(cw)));
+            std::ptr::write_volatile(&raw mut (*self_mut).pending_compose, Arc::new(Mutex::new(String::new())));
+            std::ptr::write_volatile(&raw mut (*self_mut).sentence_cursor, Arc::new(Mutex::new(0usize)));
+            std::ptr::write_volatile(&raw mut (*self_mut).candidate_selecting, Arc::new(Mutex::new(false)));
+            std::ptr::write_volatile(&raw mut (*self_mut).active_candidates, Arc::new(Mutex::new(Vec::<String>::new())));
+            std::ptr::write_volatile(&raw mut (*self_mut).selected_candidate_idx, Arc::new(Mutex::new(0usize)));
+            std::ptr::write_volatile(&raw mut (*self_mut).target_char_idx, Arc::new(Mutex::new(0usize)));
+            std::ptr::write_volatile(&raw mut (*self_mut).target_range, Arc::new(Mutex::new((0usize, 0usize))));
+            std::ptr::write_volatile(&raw mut (*self_mut).config, Arc::new(Mutex::new(config)));
+            std::ptr::write_volatile(&raw mut (*self_mut).sel_anchor, Arc::new(Mutex::new(None::<usize>)));
+            std::ptr::write_volatile(&raw mut (*self_mut).insert_mode, Arc::new(Mutex::new(true)));
+            std::ptr::write_volatile(&raw mut (*self_mut).q_press_count, Arc::new(Mutex::new(0usize)));
+            std::ptr::write_volatile(&raw mut (*self_mut).q_last_char_idx, Arc::new(Mutex::new(None::<usize>)));
+            std::ptr::write_volatile(&raw mut (*self_mut).pending_syllables, Arc::new(Mutex::new(Vec::<Option<String>>::new())));
+            std::ptr::write_volatile(&raw mut (*self_mut).pending_segments, Arc::new(Mutex::new(Vec::<(usize, usize, String, String)>::new())));
+            std::ptr::write_volatile(&raw mut (*self_mut).last_raw_ascii, Arc::new(Mutex::new(None::<(usize, usize, String)>)));
+            std::ptr::write_volatile(&raw mut (*self_mut).manual_cuts, Arc::new(Mutex::new(std::collections::HashSet::<usize>::new())));
+            std::ptr::write_volatile(&raw mut (*self_mut).deleted_words, Arc::new(Mutex::new(del_words)));
+            std::ptr::write_volatile(&raw mut (*self_mut).undo_stack, Arc::new(Mutex::new(Vec::<EditorSnapshot>::new())));
+            std::ptr::write_volatile(&raw mut (*self_mut).redo_stack, Arc::new(Mutex::new(Vec::<EditorSnapshot>::new())));
         }
 
         if let Ok(tm_guard) = self.thread_mgr.lock() {
@@ -1363,7 +1401,8 @@ impl RuhiTextService {
                         unsafe {
                             if langbar_mgr.AddItem(&item).is_ok() {
                                 let _ = item.Show(BOOL::from(true));
-                                std::ptr::write(&self.langbar_item as *const _ as *mut _, Arc::new(Mutex::new(Some(item))));
+                                let self_mut = std::hint::black_box(self as *const Self as usize) as *mut Self;
+                                std::ptr::write_volatile(&raw mut (*self_mut).langbar_item, Arc::new(Mutex::new(Some(item))));
                             }
                         }
                     }
@@ -1452,29 +1491,29 @@ impl ITfTextInputProcessor_Impl for RuhiTextService_Impl {
 
     fn Deactivate(&self) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.ensure_instance_upgraded();
             logger::log("Deactivate called.");
             self.hide_candidate_window();
-            if let Ok(mut cw_guard) = self.candidate_window.lock() {
+            if let Ok(mut cw_guard) = self.candidate_window.try_lock() {
                 *cw_guard = None;
             }
             set_last_caret_pos(0, 0);
-            let tm_lock = self.thread_mgr.lock().unwrap();
-            if let Some(tm) = tm_lock.as_ref() {
-                let tid = *self.client_id.lock().unwrap();
-                if let Ok(keystroke_mgr) = tm.cast::<ITfKeystrokeMgr>() {
-                    unsafe { let _ = keystroke_mgr.UnadviseKeyEventSink(tid); }
-                }
-                if let Ok(source) = tm.cast::<ITfSource>() {
-                    let tm_cookie = *self.thread_mgr_sink_cookie.lock().unwrap();
-                    if tm_cookie != 0 {
-                        unsafe { let _ = source.UnadviseSink(tm_cookie); }
+            if let Ok(tm_lock) = self.thread_mgr.try_lock() {
+                if let Some(tm) = tm_lock.as_ref() {
+                    let tid = self.client_id.try_lock().map(|g| *g).unwrap_or(0);
+                    if let Ok(keystroke_mgr) = tm.cast::<ITfKeystrokeMgr>() {
+                        unsafe { let _ = keystroke_mgr.UnadviseKeyEventSink(tid); }
                     }
-                }
-                if let Ok(langbar_mgr) = tm.cast::<ITfLangBarItemMgr>() {
-                    if let Ok(mut guard) = self.langbar_item.lock() {
-                        if let Some(item) = guard.take() {
-                            unsafe { let _ = langbar_mgr.RemoveItem(&item); }
+                    if let Ok(source) = tm.cast::<ITfSource>() {
+                        let tm_cookie = self.thread_mgr_sink_cookie.try_lock().map(|g| *g).unwrap_or(0);
+                        if tm_cookie != 0 {
+                            unsafe { let _ = source.UnadviseSink(tm_cookie); }
+                        }
+                    }
+                    if let Ok(langbar_mgr) = tm.cast::<ITfLangBarItemMgr>() {
+                        if let Ok(mut guard) = self.langbar_item.try_lock() {
+                            if let Some(item) = guard.take() {
+                                unsafe { let _ = langbar_mgr.RemoveItem(&item); }
+                            }
                         }
                     }
                 }
@@ -1570,7 +1609,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 return Ok(BOOL::from(false));
             }
 
-            let (has_buffer, is_english_mode, is_four_corner_mode, is_longkan_mode) = {
+            let (has_buffer, is_english_mode, is_four_corner_mode, _is_longkan_mode) = {
                 let pending_len = self.pending_compose.lock().map(|p| p.chars().count()).unwrap_or(0);
                 let engine = self.engine.lock().unwrap();
                 let hb = pending_len > 0
@@ -1592,7 +1631,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                             | ruhi::engine::EngineMode::LexiconSwitch
                     );
                 let lower_kb = engine.keyboard_mode.to_lowercase();
-                let is_en = matches!(lower_kb.as_str(), "english" | "en" | "latin" | "western");
+                let is_en = matches!(lower_kb.as_str(), "english" | "en" | "latin" | "western" | "euro" | "sanskrit");
                 let is_fc = matches!(lower_kb.as_str(), "four_corner" | "4corner" | "fc");
                 let is_lk = matches!(lower_kb.as_str(), "longkan" | "lk");
                 (hb, is_en, is_fc, is_lk)
@@ -1615,11 +1654,13 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             }
 
             if is_ctrl {
-                // 優先檢查是否為符號組合鍵 (如 Ctrl+. 輸出刪節號 ……、Ctrl+, 輸出全形逗號等)
-                if let Some(combo) = map_vk_to_ctrl_combo(vk, is_shift) {
-                    let mut engine = self.engine.lock().unwrap();
-                    if engine.symbols.contains_key(&combo) {
-                        return Ok(BOOL::from(true));
+                // 優先檢查是否為符號組合鍵 (如 Ctrl+. 輸出刪節號 ……、Ctrl+, 輸出全形逗號等；惟歐文模式下絕不攔截 IDE/編輯器快捷鍵)
+                if !is_english_mode {
+                    if let Some(combo) = map_vk_to_ctrl_combo(vk, is_shift) {
+                        let mut engine = self.engine.lock().unwrap();
+                        if engine.symbols.contains_key(&combo) {
+                            return Ok(BOOL::from(true));
+                        }
                     }
                 }
 
@@ -1667,32 +1708,32 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
             // 【自然輸入法 UI/UX 精神】：英數／歐文模式 (english) 時，直接納入組字流中，絕不提前送出！
             if is_english_mode {
-                let is_en_special_or_tilde = {
+                let (is_en_inline_or_special, has_tilde_return) = {
                     let eng = self.engine.lock().unwrap();
-                    eng.inline_longkan_active
-                        || eng.tilde_return_mode.is_some()
+                    let special = eng.inline_longkan_active
                         || matches!(
                             eng.mode,
                             ruhi::engine::EngineMode::QuickNum
                                 | ruhi::engine::EngineMode::TemplateSelect
                                 | ruhi::engine::EngineMode::LexiconSwitch
-                        )
+                        );
+                    (special, eng.tilde_return_mode.is_some())
                 };
-                if is_en_special_or_tilde && vk == VK_OEM_3.0 as u32 {
+                if vk == VK_OEM_3.0 as u32 && (is_en_inline_or_special || (has_tilde_return && is_shift)) {
                     return Ok(BOOL::from(true));
                 }
-                if !is_en_special_or_tilde {
+                if !is_en_inline_or_special {
                     if (0x41..=0x5A).contains(&vk) {
                         return Ok(BOOL::from(true));
                     }
                     if has_buffer {
-                        if vk == VK_RETURN.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_ESCAPE.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_TAB.0 as u32 {
+                        if vk == VK_RETURN.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_ESCAPE.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_TAB.0 as u32 || vk == VK_INSERT.0 as u32 {
                             return Ok(BOOL::from(true));
                         }
                         if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 || vk == VK_UP.0 as u32 || vk == VK_DOWN.0 as u32 || vk == VK_HOME.0 as u32 || vk == VK_END.0 as u32 || vk == VK_PRIOR.0 as u32 || vk == VK_NEXT.0 as u32 {
                             return Ok(BOOL::from(true));
                         }
-                        if (0x30..=0x39).contains(&vk) || is_punctuation_vk(vk, is_shift) {
+                        if (0x30..=0x39).contains(&vk) || (0x60..=0x6F).contains(&vk) || vk == VK_OEM_3.0 as u32 || is_punctuation_vk(vk, is_shift) {
                             return Ok(BOOL::from(true));
                         }
                     }
@@ -1831,7 +1872,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                             | ruhi::engine::EngineMode::LexiconSwitch
                     );
                 let lower_kb = engine.keyboard_mode.to_lowercase();
-                let is_en = matches!(lower_kb.as_str(), "english" | "en" | "latin" | "western");
+                let is_en = matches!(lower_kb.as_str(), "english" | "en" | "latin" | "western" | "euro" | "sanskrit");
                 let is_fc = matches!(lower_kb.as_str(), "four_corner" | "4corner" | "fc");
                 let is_lk = matches!(lower_kb.as_str(), "longkan" | "lk");
                 (hb, is_en, is_fc, is_lk)
@@ -1842,7 +1883,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 return Ok(BOOL::from(false));
             }
 
-            // 當完全沒有組字緩衝區時，Backspace、Delete、Enter、Space、Tab、方向鍵等一律直接放行給目標視窗！
+            // 當完全沒有組字緩衝區時，Backspace、Delete、Enter、Space、Tab（龍龕模式除外，龍龕可按 Tab 引導詞彙簡碼模式）、方向鍵等一律直接放行給目標視窗！
             if !has_buffer {
                 if vk == VK_RETURN.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_TAB.0 as u32 || vk == VK_ESCAPE.0 as u32 || (vk == 0x6E && !is_four_corner_mode) {
                     return Ok(BOOL::from(false));
@@ -1865,13 +1906,15 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     )
             };
             if is_english_mode && !*self.candidate_selecting.lock().unwrap() && !is_en_inline_or_special {
-                if vk == VK_OEM_3.0 as u32 && self.engine.lock().map(|e| e.tilde_return_mode.is_some()).unwrap_or(false) {
-                    // 若由 `~` 臨時切換至英數模式，按 `~` / `` ` `` 交由下方引擎處理以返回原輸入法
+                let has_tilde_return = self.engine.lock().map(|e| e.tilde_return_mode.is_some()).unwrap_or(false);
+                if vk == VK_OEM_3.0 as u32 && has_tilde_return && is_shift {
+                    // 若由 `~` 臨時切換至英數模式，按 `~` (Shift + `) 交由下方引擎處理以返回原輸入法
                 } else {
                     if (0x41..=0x5A).contains(&vk) {
                         let base = vk as u8 as char;
                         let ch = if is_shift { base.to_ascii_uppercase() } else { base.to_ascii_lowercase() };
 
+                        self.delete_selection_if_any();
                         self.consolidate_engine_to_pending();
                         self.insert_pending_char(ch, None);
                         self.sync_input_display(ctx)?;
@@ -1879,22 +1922,29 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     }
 
                     if vk == VK_SPACE.0 as u32 && has_buffer {
+                        self.delete_selection_if_any();
                         self.consolidate_engine_to_pending();
                         self.insert_pending_char(' ', None);
                         self.sync_input_display(ctx)?;
                         return Ok(BOOL::from(true));
                     }
 
-                    if ((0x30..=0x39).contains(&vk) || (0x60..=0x69).contains(&vk) || vk == 0x6E || is_punctuation_vk(vk, is_shift)) && has_buffer {
-                        let ch = if vk == 0x6E {
-                            '.'
-                        } else {
-                            map_vk_to_char(vk, is_shift).unwrap_or(' ')
-                        };
-                        self.consolidate_engine_to_pending();
-                        self.insert_pending_char(ch, None);
-                        self.sync_input_display(ctx)?;
-                        return Ok(BOOL::from(true));
+                    if (0x30..=0x39).contains(&vk)
+                        || (0x60..=0x6F).contains(&vk)
+                        || vk == VK_OEM_3.0 as u32
+                        || is_punctuation_vk(vk, is_shift)
+                    {
+                        if !has_buffer {
+                            return Ok(BOOL::from(false));
+                        }
+                        if let Some(ch) = map_vk_to_char(vk, is_shift) {
+                            self.delete_selection_if_any();
+                            self.consolidate_engine_to_pending();
+                            self.insert_pending_char(ch, None);
+                            self.sync_input_display(ctx)?;
+                            return Ok(BOOL::from(true));
+                        }
+                        return Ok(BOOL::from(false));
                     }
                 }
             }
@@ -1904,47 +1954,49 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
             // 1. 處理 Ctrl 組合鍵與編輯器操作 (Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z, Ctrl+Y/R 等)
             if is_ctrl {
-                // 1.0 優先檢查 Ctrl 符號組合鍵 (如 Ctrl+. 輸出刪節號 ……、Ctrl+, 輸出全形逗號等)
-                if let Some(combo) = map_vk_to_ctrl_combo(vk, is_shift) {
-                    let has_symbol = {
-                        let mut engine = self.engine.lock().unwrap();
-                        engine.symbols.contains_key(&combo)
-                    };
+                // 1.0 優先檢查 Ctrl 符號組合鍵 (如 Ctrl+. 輸出刪節號 ……、Ctrl+, 輸出全形逗號等；惟歐文模式下絕不攔截 IDE/編輯器快捷鍵)
+                if !is_english_mode {
+                    if let Some(combo) = map_vk_to_ctrl_combo(vk, is_shift) {
+                        let has_symbol = {
+                            let mut engine = self.engine.lock().unwrap();
+                            engine.symbols.contains_key(&combo)
+                        };
 
-                    if has_symbol {
-                        self.consolidate_engine_to_pending();
+                        if has_symbol {
+                            self.consolidate_engine_to_pending();
 
-                        let mut engine = self.engine.lock().unwrap();
-                        let resp = engine.process_key_str(&combo);
-                        let committed_chunk = resp.committed_chunk;
-                        drop(engine);
+                            let mut engine = self.engine.lock().unwrap();
+                            let resp = engine.process_key_str(&combo);
+                            let committed_chunk = resp.committed_chunk;
+                            drop(engine);
 
-                        if !committed_chunk.is_empty() {
-                            self.push_undo();
+                            if !committed_chunk.is_empty() {
+                                self.push_undo();
 
-                            let is_sentence_terminator = matches!(committed_chunk.as_str(), "。" | "？" | "！" | "；" | "…" | "……" | "?" | "!");
-                            let should_keep_in_stream = match punct_mode.as_str() {
-                                "C" => true,
-                                "B" => !is_sentence_terminator,
-                                _ => false, // 模式 A：經典即時結算
-                            };
+                                let is_sentence_terminator = matches!(committed_chunk.as_str(), "。" | "？" | "！" | "；" | "…" | "……" | "?" | "!");
+                                let should_keep_in_stream = match punct_mode.as_str() {
+                                    "C" => true,
+                                    "B" => !is_sentence_terminator,
+                                    _ => false, // 模式 A：經典即時結算
+                                };
 
-                            if should_keep_in_stream {
-                                let p_chars: Vec<char> = committed_chunk.chars().collect();
-                                let p_syls: Vec<Option<String>> = vec![None; p_chars.len()];
-                                self.splice_pending_chunk(&p_chars, &p_syls, &[]);
-                                self.sync_input_display(ctx)?;
-                            } else {
-                                // 結算送出全句！
-                                let full = format!("{}{}", *self.pending_compose.lock().unwrap(), committed_chunk);
-                                self.clear_all_pending();
-                                *self.sentence_cursor.lock().unwrap() = 0;
-                                let c = full.chars().count();
-                                self.update_tsf_composition(ctx, &full, c, None, true)?;
-                                self.hide_candidate_window();
+                                if should_keep_in_stream {
+                                    let p_chars: Vec<char> = committed_chunk.chars().collect();
+                                    let p_syls: Vec<Option<String>> = vec![None; p_chars.len()];
+                                    self.splice_pending_chunk(&p_chars, &p_syls, &[]);
+                                    self.sync_input_display(ctx)?;
+                                } else {
+                                    // 結算送出全句！
+                                    let full = format!("{}{}", *self.pending_compose.lock().unwrap(), committed_chunk);
+                                    self.clear_all_pending();
+                                    *self.sentence_cursor.lock().unwrap() = 0;
+                                    let c = full.chars().count();
+                                    self.update_tsf_composition(ctx, &full, c, None, true)?;
+                                    self.hide_candidate_window();
+                                }
                             }
+                            return Ok(BOOL::from(true));
                         }
-                        return Ok(BOOL::from(true));
                     }
                 }
 
@@ -2046,8 +2098,60 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 let cands = self.active_candidates.lock().unwrap().clone();
                 let cands_len = cands.len();
 
-                // ↓ 下方向鍵：下一個候選
+                // 若在 Shift+↓ 跨輸入法查詢視窗中按下 Tab 鍵：即時循環切換跨查輸入模式並原地刷新候選字詞
+                if vk == VK_TAB.0 as u32 {
+                    let is_lk_popup = self
+                        .engine
+                        .lock()
+                        .map(|e| e.is_shift_down_longkan_popup())
+                        .unwrap_or(false);
+                    if is_lk_popup {
+                        let next_mode = self.engine.lock().unwrap().cycle_shift_down_mode();
+                        crate::candidate_window::save_shift_down_mode(&next_mode);
+                        let cur = *self.sentence_cursor.lock().unwrap();
+                        let (full_text, _) = self.get_full_display_and_cursor();
+                        let (target_idx, target_range, lk_cands) =
+                            self.detect_shift_down_longkan_target_and_cands(&full_text, cur);
+                        if !lk_cands.is_empty() {
+                            if let Ok(eng) = self.engine.lock() {
+                                eng.set_shift_down_longkan_popup(true);
+                            }
+                            *self.target_char_idx.lock().unwrap() = target_idx;
+                            *self.target_range.lock().unwrap() = target_range;
+                            *self.sentence_cursor.lock().unwrap() = target_idx;
+                            *self.selected_candidate_idx.lock().unwrap() = 0;
+                            *self.active_candidates.lock().unwrap() = lk_cands;
+                            self.sync_input_display(ctx)?;
+                        }
+                        return Ok(BOOL::from(true));
+                    }
+                }
+
+                // ↓ 下方向鍵：下一個候選（若尚未進入 Shift+↓ 跨查模式而此時按下 Shift+↓，則即時切換為跨輸入法候選清單）
                 if vk == VK_DOWN.0 as u32 {
+                    let is_lk_popup = self
+                        .engine
+                        .lock()
+                        .map(|e| e.is_shift_down_longkan_popup())
+                        .unwrap_or(false);
+                    if is_shift && !is_lk_popup {
+                        let cur = *self.sentence_cursor.lock().unwrap();
+                        let (full_text, _) = self.get_full_display_and_cursor();
+                        let (target_idx, target_range, lk_cands) =
+                            self.detect_shift_down_longkan_target_and_cands(&full_text, cur);
+                        if !lk_cands.is_empty() {
+                            if let Ok(eng) = self.engine.lock() {
+                                eng.set_shift_down_longkan_popup(true);
+                            }
+                            *self.target_char_idx.lock().unwrap() = target_idx;
+                            *self.target_range.lock().unwrap() = target_range;
+                            *self.sentence_cursor.lock().unwrap() = target_idx;
+                            *self.selected_candidate_idx.lock().unwrap() = 0;
+                            *self.active_candidates.lock().unwrap() = lk_cands;
+                            self.sync_input_display(ctx)?;
+                            return Ok(BOOL::from(true));
+                        }
+                    }
                     if cands_len > 0 {
                         let mut sel = self.selected_candidate_idx.lock().unwrap();
                         *sel = (*sel + 1) % cands_len;
@@ -2127,6 +2231,42 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
                 if let Some(cand_i) = chosen_cand_idx {
                     let chosen = &cands[cand_i];
+
+                    // 若目前為「Shift+↓ 跨輸入法查詢模式選擇器」（如已在龍龕模式按 Shift+↓ 彈出詢問選單）：
+                    // 選中目標輸入模式後，立即切換 shift_down_mode、寫入設定檔，並原地刷新為該模式之候選字詞！
+                    let is_picker = self
+                        .engine
+                        .lock()
+                        .map(|e| e.is_shift_down_mode_picker())
+                        .unwrap_or(false);
+                    if is_picker {
+                        if let Some(new_mode) = RuhiEngine::parse_shift_down_picker_candidate(chosen) {
+                            {
+                                let mut eng = self.engine.lock().unwrap();
+                                eng.shift_down_mode = new_mode.clone();
+                                eng.set_active_shift_down_mode_override(Some(new_mode.clone()));
+                                eng.set_shift_down_mode_picker(false);
+                                eng.set_shift_down_longkan_popup(true);
+                            }
+                            crate::candidate_window::save_shift_down_mode(&new_mode);
+                            let cur = *self.sentence_cursor.lock().unwrap();
+                            let (full_text, _) = self.get_full_display_and_cursor();
+                            let (target_idx, target_range, lk_cands) =
+                                self.detect_shift_down_longkan_target_and_cands(&full_text, cur);
+                            if let Ok(eng) = self.engine.lock() {
+                                eng.set_shift_down_longkan_popup(true);
+                                eng.set_shift_down_mode_picker(false);
+                            }
+                            *self.target_char_idx.lock().unwrap() = target_idx;
+                            *self.target_range.lock().unwrap() = target_range;
+                            *self.sentence_cursor.lock().unwrap() = target_idx;
+                            *self.selected_candidate_idx.lock().unwrap() = 0;
+                            *self.active_candidates.lock().unwrap() = lk_cands;
+                            self.sync_input_display(ctx)?;
+                            return Ok(BOOL::from(true));
+                        }
+                    }
+
                     let target_range = *self.target_range.lock().unwrap();
                     let target_idx = *self.target_char_idx.lock().unwrap();
                     let (full_text, _) = self.get_full_display_and_cursor();
@@ -2134,6 +2274,11 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
                     let target_len = target_range.1.saturating_sub(target_range.0);
                     let chosen_len = chosen.chars().count();
+                    let is_shift_down_lk = self
+                        .engine
+                        .lock()
+                        .map(|e| e.is_shift_down_longkan_popup())
+                        .unwrap_or(false);
 
                     let (replace_start, replace_end) = if target_len == 1 && chosen_len > 1 {
                         let seg_match = {
@@ -2153,7 +2298,11 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         }
                     } else if target_len >= 1
                         && target_range.1 <= chars.len()
-                        && (chosen_len == target_len || chosen_len > 1 || target_len == 1)
+                        && (chosen_len == target_len
+                            || chosen_len > 1
+                            || target_len == 1
+                            || is_shift_down_lk
+                            || self.get_manual_selection_range().is_some())
                     {
                         (target_range.0, target_range.1)
                     } else if target_idx < chars.len() {
@@ -2179,7 +2328,28 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     } else {
                         String::new()
                     };
-                    let char_syl = self.pending_syllables.lock().unwrap().get(target_idx).cloned().flatten();
+                    let mut char_syl = self.pending_syllables.lock().unwrap().get(target_idx).cloned().flatten();
+                    if (is_shift_down_lk || replace_end.saturating_sub(replace_start) != chosen_len) && chosen_len == 1 {
+                        if let Ok(eng) = self.engine.lock() {
+                            if let Some(found_bpm) = eng
+                                .lexicon
+                                .word_index
+                                .get(chosen)
+                                .and_then(|ids| {
+                                    ids.iter()
+                                        .filter_map(|&eid| eng.lexicon.entries.get(eid))
+                                        .max_by(|a, b| {
+                                            a.weight
+                                                .partial_cmp(&b.weight)
+                                                .unwrap_or(std::cmp::Ordering::Equal)
+                                        })
+                                })
+                                .map(|e| e.bopomofo.clone())
+                            {
+                                char_syl = Some(found_bpm);
+                            }
+                        }
+                    }
                     let bpm_str = char_syl.clone().unwrap_or_default();
 
                     if !rejected.is_empty() && rejected != *chosen {
@@ -2189,7 +2359,13 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
                     let replacement: Vec<char> = chosen.chars().collect();
                     self.replace_pending_range(replace_start, replace_end, &replacement, char_syl);
-                    self.engine.lock().unwrap().reset_buffer();
+                    {
+                        let mut eng = self.engine.lock().unwrap();
+                        eng.reset_buffer();
+                        if is_shift_down_lk && chosen_len == 1 {
+                            eng.set_last_fused_longkan(Some((replace_start, cands.clone())));
+                        }
+                    }
                     *self.sentence_cursor.lock().unwrap() = replace_start + chosen_len;
 
                     *self.sel_anchor.lock().unwrap() = None;
@@ -2204,6 +2380,11 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 }
 
                 if vk == VK_ESCAPE.0 as u32 {
+                    if let Ok(eng) = self.engine.lock() {
+                        eng.set_shift_down_longkan_popup(false);
+                        eng.set_shift_down_mode_picker(false);
+                        eng.set_active_shift_down_mode_override(None);
+                    }
                     *self.sel_anchor.lock().unwrap() = None;
                     *self.candidate_selecting.lock().unwrap() = false;
                     self.hide_candidate_window();
@@ -2213,6 +2394,11 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
                 // 若在候選窗開啟狀態下按下左/右/Home/End 方向鍵，立即關閉候選座並允許游標繼續移動！
                 if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 || vk == VK_HOME.0 as u32 || vk == VK_END.0 as u32 {
+                    if let Ok(eng) = self.engine.lock() {
+                        eng.set_shift_down_longkan_popup(false);
+                        eng.set_shift_down_mode_picker(false);
+                        eng.set_active_shift_down_mode_override(None);
+                    }
                     *self.candidate_selecting.lock().unwrap() = false;
                     self.hide_candidate_window();
                     // 不直接 return，放行給下方第 4 節處理游標移動
@@ -2232,11 +2418,20 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     if !has_buffer {
                         return Ok(BOOL::from(false));
                     }
-                    if let Some(ch) = map_vk_to_char(vk, is_shift) {
-                        self.delete_selection_if_any();
-                        self.consolidate_engine_to_pending();
-                        self.insert_pending_char(ch, None);
-                        self.sync_input_display(ctx)?;
+                    let is_fc_mixed = self
+                        .engine
+                        .lock()
+                        .map(|e| e.is_mixed_typing_enabled_for_mode("four_corner"))
+                        .unwrap_or(true);
+                    if is_fc_mixed {
+                        if let Some(ch) = map_vk_to_char(vk, is_shift) {
+                            self.delete_selection_if_any();
+                            self.consolidate_engine_to_pending();
+                            self.insert_pending_char(ch, None);
+                            self.sync_input_display(ctx)?;
+                            return Ok(BOOL::from(true));
+                        }
+                    } else {
                         return Ok(BOOL::from(true));
                     }
                 }
@@ -2339,7 +2534,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             }
 
             // 3. 【自然輸入法 Shift+大寫字母流】：混打模式放行進入引擎智慧判斷，關閉混打時則直接納入組字流
-            let is_mixed = self.config.lock().map(|c| c.enable_mixed_english).unwrap_or(true);
+            let is_mixed = self.engine.lock().map(|e| e.is_mixed_english_active()).unwrap_or(false);
             if !is_mixed && is_shift && (0x41..=0x5A).contains(&vk) {
                 let upper_char = (vk as u8 as char).to_ascii_uppercase();
                 self.consolidate_engine_to_pending();
@@ -2369,7 +2564,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             // 3.7 Tab 鍵：
             // - 龍龕形音模式 (is_longkan_mode)：作為詞彙簡碼模式（`🐉⇥詞:`）的引導與結束間隔符號，將組出的字詞收攏至如喜輸入座（`pending_compose`），待按 Enter 才送出至目標視窗
             // - 許氏注音模式：手動斷詞切換 (Manual Word Boundary Split / Cut)
-            if vk == VK_TAB.0 as u32 && has_buffer {
+            if vk == VK_TAB.0 as u32 && (has_buffer || is_longkan_mode) {
                 if *self.candidate_selecting.lock().unwrap() {
                     *self.candidate_selecting.lock().unwrap() = false;
                     self.hide_candidate_window();
@@ -2403,49 +2598,67 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     (inline_tab, raw_sub)
                 };
 
-                // 優先檢查：若使用者已透過 Shift + ←/→ 標記了 2~4 個部件漢字（且無正在拼打的未決字根），
+                // 優先檢查：若使用者已透過 Shift + ←/→ 標記了 2~4 個部件漢字（或剛輸入「口3」、「金3」等疊字倍數簡寫，且無正在拼打的未決字根），
                 // 無論處於許氏注音、標準大千、龍龕形音或倉頡／行列模式，按 Tab 一律優先執行「事後部件熔煉合體」！
-                if !has_active_raw_sub_buf && self.get_manual_selection_range().is_some() {
+                let has_mult_shorthand_before_cursor = if !has_active_raw_sub_buf && self.get_manual_selection_range().is_none() {
+                    self.consolidate_engine_to_pending();
+                    let cur = *self.sentence_cursor.lock().unwrap();
+                    let pending_str = self.pending_compose.lock().unwrap().clone();
+                    let pending_chars: Vec<char> = pending_str.chars().collect();
+                    let pending_syls = self.pending_syllables.lock().unwrap().clone();
+                    if cur >= 2 && cur <= pending_chars.len() && matches!(pending_chars[cur - 1], '2' | '3' | '4') {
+                        let engine = self.engine.lock().unwrap();
+                        engine.has_verified_longkan_component_fusion_for_slice(
+                            &pending_chars,
+                            &pending_syls,
+                            cur - 2,
+                            cur,
+                        )
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
+                if !has_active_raw_sub_buf && (self.get_manual_selection_range().is_some() || has_mult_shorthand_before_cursor) {
                     self.push_undo();
                     self.consolidate_engine_to_pending();
-                    if let Some((start, end)) = self.get_manual_selection_range() {
+                    let eff_sel_range = self.get_manual_selection_range().or_else(|| {
+                        let cur = *self.sentence_cursor.lock().unwrap();
+                        if has_mult_shorthand_before_cursor && cur >= 2 {
+                            Some((cur - 2, cur))
+                        } else {
+                            None
+                        }
+                    });
+                    if let Some((mut start, end)) = eff_sel_range {
+                        if end.saturating_sub(start) == 1 && start >= 1 {
+                            let pending_str = self.pending_compose.lock().unwrap().clone();
+                            let pending_chars: Vec<char> = pending_str.chars().collect();
+                            let pending_syls = self.pending_syllables.lock().unwrap().clone();
+                            let engine = self.engine.lock().unwrap();
+                            if engine.has_verified_longkan_component_fusion_for_slice(
+                                &pending_chars,
+                                &pending_syls,
+                                start - 1,
+                                end,
+                            ) {
+                                start -= 1;
+                            }
+                        }
                         if end.saturating_sub(start) >= 2 && end.saturating_sub(start) <= 4 {
                             let (fused_cands, fused_bpm) = {
                                 let pending_str = self.pending_compose.lock().unwrap().clone();
                                 let pending_chars: Vec<char> = pending_str.chars().collect();
                                 let pending_syls = self.pending_syllables.lock().unwrap().clone();
                                 let engine = self.engine.lock().unwrap();
-                                let mut hsu_syls = Vec::new();
-                                for idx in start..end {
-                                    let bpm_opt = pending_syls
-                                        .get(idx)
-                                        .and_then(|s| s.clone())
-                                        .or_else(|| {
-                                            pending_chars.get(idx).and_then(|ch| {
-                                                let s = ch.to_string();
-                                                engine
-                                                    .lexicon
-                                                    .word_index
-                                                    .get(&s)
-                                                    .and_then(|ids| {
-                                                        ids.iter()
-                                                            .filter_map(|&eid| engine.lexicon.entries.get(eid))
-                                                            .max_by(|a, b| {
-                                                                a.weight
-                                                                    .partial_cmp(&b.weight)
-                                                                    .unwrap_or(std::cmp::Ordering::Equal)
-                                                            })
-                                                    })
-                                                    .map(|e| e.bopomofo.clone())
-                                            })
-                                        });
-                                    if let Some(bpm) = bpm_opt {
-                                        if let Some(hs) = ruhi::fsm::HsuSyllable::from_bopomofo_display(&bpm) {
-                                            hsu_syls.push(hs);
-                                        }
-                                    }
-                                }
-                                let cands = if hsu_syls.len() == end - start {
+                                let hsu_syls = engine.slice_hsu_syllables(
+                                    &pending_chars,
+                                    &pending_syls,
+                                    start,
+                                    end,
+                                );
+                                let cands = if (2..=4).contains(&hsu_syls.len()) {
                                     engine.fuse_syllables_with_longkan(&hsu_syls)
                                 } else {
                                     Vec::new()
@@ -2471,6 +2684,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                             if let Some(first_cand) = fused_cands.first() {
                                 let rep_chars: Vec<char> = first_cand.chars().collect();
                                 self.replace_pending_range(start, end, &rep_chars, fused_bpm);
+                                if let Ok(eng) = self.engine.lock() {
+                                    eng.set_last_fused_longkan(Some((start, fused_cands.clone())));
+                                }
                                 *self.sel_anchor.lock().unwrap() = None;
                                 *self.sentence_cursor.lock().unwrap() = start + rep_chars.len();
                                 self.sync_input_display(ctx)?;
@@ -2840,11 +3056,33 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         return Ok(BOOL::from(true));
                     }
 
-                    // 4.5 向下方向鍵 ↓（或四角模式已收攏字詞後按 `/` 字詞選單）：精準開啟游標所在目標詞/字的候選座（含歐文重音變體與同形異體查詢）
+                    // 4.5 向下方向鍵 ↓（或四角模式已收攏字詞後按 `/` 字詞選單）：
+                    // - 若按 `Shift + ↓`：於任意輸入模式、任意字詞或標記區間喚起「龍龕形音」候選編碼字詞視窗
+                    // - 若單按 `↓`：精準開啟游標所在目標詞/字的同音／同碼候選座（含歐文重音變體與同形異體查詢）
                     if vk == VK_DOWN.0 as u32 || fc_slash_as_down {
                         let cur = *self.sentence_cursor.lock().unwrap();
                         let (full_text, _) = self.get_full_display_and_cursor();
-                        let (target_idx, target_range, cands) = self.detect_target_word_and_cands(&full_text, cur);
+                        let use_shift_down_lk = vk == VK_DOWN.0 as u32 && is_shift;
+                        let (target_idx, target_range, cands) = if use_shift_down_lk {
+                            let (ti, tr, lk_cands) =
+                                self.detect_shift_down_longkan_target_and_cands(&full_text, cur);
+                            if !lk_cands.is_empty() {
+                                if let Ok(eng) = self.engine.lock() {
+                                    eng.set_shift_down_longkan_popup(true);
+                                }
+                                (ti, tr, lk_cands)
+                            } else {
+                                if let Ok(eng) = self.engine.lock() {
+                                    eng.set_shift_down_longkan_popup(false);
+                                }
+                                self.detect_target_word_and_cands(&full_text, cur)
+                            }
+                        } else {
+                            if let Ok(eng) = self.engine.lock() {
+                                eng.set_shift_down_longkan_popup(false);
+                            }
+                            self.detect_target_word_and_cands(&full_text, cur)
+                        };
 
                         *self.target_char_idx.lock().unwrap() = target_idx;
                         *self.target_range.lock().unwrap() = target_range;
@@ -2896,7 +3134,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     if engine.mode == ruhi::engine::EngineMode::LexiconSwitch {
                         let _ = engine.process_key('\n');
                         Some(("switch_lexicon".to_string(), String::new()))
-                    } else if engine.array30.has_buffer()
+                    } else if engine.cangjie.has_buffer()
+                        || engine.array30.has_buffer()
                         || engine.four_corner.has_buffer()
                         || engine.longkan.has_buffer()
                         || engine.inline_longkan_active
@@ -2973,8 +3212,10 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     } else if engine.cangjie.has_buffer() {
                         if is_ctrl || is_shift {
                             let _ = engine.cangjie.process_key_str("Shift+BackSpace");
+                            engine.composed_sentence.clear();
+                            engine.cursor_pos = 0;
                         } else {
-                            let _ = engine.cangjie.process_key('\x08');
+                            let _ = engine.process_key('\x08');
                         }
                         true
                     } else if engine.array30.has_buffer() {
@@ -3213,8 +3454,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         && (engine.symbols.get_char(ch).is_some()
                             || (is_jp && matches!(ch, ',' | '.' | '?' | '!' | '[' | ']' | '(' | ')' | ':' | ';')));
                     let raw_lower = engine.raw_ascii_buffer.to_ascii_lowercase();
-                    let is_en_punct_token = engine.enable_mixed_english
-                        && engine.mixed_english_mode != "disabled"
+                    let is_en_punct_token = engine.is_mixed_english_active()
                         && (engine.is_latin_mode
                             || (!engine.has_any_compound_word()
                                 && engine.raw_ascii_buffer.len() >= 3
@@ -3816,10 +4056,15 @@ impl RuhiTextService_Impl {
         *self.candidate_selecting.lock().unwrap() = false;
         self.active_candidates.lock().unwrap().clear();
         *self.target_range.lock().unwrap() = (0, 0);
+        if let Ok(eng) = self.engine.lock() {
+            eng.set_last_fused_longkan(None);
+            eng.set_shift_down_longkan_popup(false);
+        }
     }
 
     fn consolidate_engine_to_pending(&self) {
         let engine = self.engine.lock().unwrap();
+        let saved_fused = engine.get_last_fused_longkan();
         let is_kr_chunk = engine.korean.has_buffer();
         let is_fc_chunk = engine.four_corner.has_buffer();
         let is_lk_chunk = engine.longkan.has_buffer();
@@ -3917,6 +4162,7 @@ impl RuhiTextService_Impl {
                 eng.record_committed(&composed_for_ctx);
             }
             eng.reset_buffer();
+            eng.set_last_fused_longkan(saved_fused);
         }
     }
 
@@ -4842,6 +5088,60 @@ impl RuhiTextService_Impl {
         }
     }
 
+    /// `Shift + ↓`：於任意輸入模式、任意游標字詞或標記區間喚起跨輸入法候選編碼字詞清單（預設龍龕形音，若衝突則彈出模式選擇器）
+    fn detect_shift_down_longkan_target_and_cands(
+        &self,
+        full_text: &str,
+        cur: usize,
+    ) -> (usize, (usize, usize), Vec<String>) {
+        let chars: Vec<char> = full_text.chars().collect();
+        if chars.is_empty() {
+            return (0, (0, 0), Vec::new());
+        }
+        let target_idx = if cur < chars.len() {
+            if chars[cur].is_whitespace() && cur > 0 {
+                let mut i = cur;
+                while i > 0 && chars[i].is_whitespace() {
+                    i -= 1;
+                }
+                i
+            } else {
+                cur
+            }
+        } else {
+            let mut i = chars.len() - 1;
+            while i > 0 && chars[i].is_whitespace() {
+                i -= 1;
+            }
+            i
+        };
+        let manual_range = self.get_manual_selection_range();
+        let pending_syls = self.pending_syllables.lock().unwrap().clone();
+        let engine = self.engine.lock().unwrap();
+        let cur_mode = RuhiEngine::normalize_keyboard_mode(&engine.keyboard_mode);
+        let cfg_mode = RuhiEngine::normalize_keyboard_mode(&engine.shift_down_mode);
+        if cur_mode == cfg_mode && engine.get_active_shift_down_mode_override().is_none() {
+            engine.set_shift_down_mode_picker(true);
+            let r_range = manual_range.unwrap_or((target_idx, (target_idx + 1).min(chars.len())));
+            let picker_cands: Vec<String> = engine
+                .get_shift_down_mode_picker_options()
+                .into_iter()
+                .map(|(_, label)| label)
+                .collect();
+            return (target_idx, r_range, picker_cands);
+        }
+        engine.set_shift_down_mode_picker(false);
+        let (r_idx, r_range, mut cands) = engine.compute_shift_down_longkan_for_slice(
+            &chars,
+            &pending_syls,
+            manual_range,
+            target_idx,
+        );
+        let del_words = self.deleted_words.lock().unwrap();
+        cands.retain(|c| !del_words.contains(c));
+        (r_idx, r_range, cands)
+    }
+
     /// 向上方向鍵 `↑`：歐漢日多軌智慧拼寫救援、多字詞頭碼展開與上下文近音模糊推理
     fn detect_up_arrow_target_and_cands(&self, full_text: &str, cur: usize) -> (usize, (usize, usize), Vec<String>) {
         let chars: Vec<char> = full_text.chars().collect();
@@ -5294,7 +5594,15 @@ impl RuhiTextService_Impl {
     fn update_candidate_selection_ui(&self, new_idx: usize, cands: &[String]) {
         let coach_hint = {
             let engine = self.engine.lock().unwrap();
-            if (engine.is_reverse_coach_enabled()
+            if engine.is_shift_down_mode_picker() {
+                let cur_name = RuhiEngine::mode_display_name(&engine.keyboard_mode);
+                format!(
+                    "💡 目前已在【{}】模式！請選擇 Shift+↓ 要跨查哪一種輸入模式的候選字詞（按數字/空白鍵或點選右側快切鈕）",
+                    cur_name
+                )
+            } else if engine.is_shift_down_longkan_popup() && new_idx < cands.len() {
+                engine.format_shift_down_coach_for_text(&cands[new_idx])
+            } else if (engine.is_reverse_coach_enabled()
                 || matches!(engine.keyboard_mode.as_str(), "array30" | "ar30" | "longkan" | "lk"))
                 && new_idx < cands.len()
             {
@@ -5325,6 +5633,7 @@ impl RuhiTextService_Impl {
         sel_range: Option<(usize, usize)>,
     ) -> (String, bool, Vec<String>) {
         let engine = self.engine.lock().unwrap();
+        let is_cj_mode = matches!(engine.keyboard_mode.as_str(), "cangjie" | "cj");
         let is_ar30_mode = matches!(engine.keyboard_mode.as_str(), "array30" | "ar30");
         let is_fc_mode = matches!(engine.keyboard_mode.as_str(), "four_corner" | "4corner" | "fc");
         let is_lk_mode = matches!(engine.keyboard_mode.as_str(), "longkan" | "lk");
@@ -5389,13 +5698,35 @@ impl RuhiTextService_Impl {
             return (hint, is_live_preview, live_cands);
         }
 
-        // 1. 行列 30 正在拆碼中：回傳即時 10 格一二級簡碼／符號／萬用字元預覽列與拆碼提示
+        // 1. 倉頡／行列 30 正在拆碼中：回傳即時候選預覽列與拆碼提示
+        if is_cj_mode && engine.cangjie.has_buffer() {
+            let live_cands = engine.cangjie.candidates.clone();
+            let is_live_preview = !is_cand_sel && !live_cands.is_empty();
+            let hint = engine.get_universal_coach_hint();
+            let display_cands = if is_cand_sel { cands.to_vec() } else { live_cands };
+            return (hint, is_live_preview, display_cands);
+        }
+
         if is_ar30_mode && engine.array30.has_buffer() {
             let live_cands = engine.array30.candidates.clone();
             let is_live_preview = !is_cand_sel && !live_cands.is_empty();
             let hint = engine.get_universal_coach_hint();
             let display_cands = if is_cand_sel { cands.to_vec() } else { live_cands };
             return (hint, is_live_preview, display_cands);
+        }
+
+        if engine.is_shift_down_mode_picker() && is_cand_sel {
+            let cur_name = RuhiEngine::mode_display_name(&engine.keyboard_mode);
+            let hint = format!(
+                "💡 目前已在【{}】模式！請選擇 Shift+↓ 要跨查哪一種輸入模式的候選字詞（按數字/空白鍵或點選右側快切鈕）",
+                cur_name
+            );
+            return (hint, false, cands.to_vec());
+        }
+
+        if engine.is_shift_down_longkan_popup() && is_cand_sel && sel_idx < cands.len() {
+            let hint = engine.format_shift_down_coach_for_text(&cands[sel_idx]);
+            return (hint, false, cands.to_vec());
         }
 
         if !engine.is_reverse_coach_enabled() && !is_ar30_mode && !is_lk_mode {
@@ -5521,23 +5852,31 @@ impl RuhiTextService_Impl {
             }
             if let Ok(metadata) = std::fs::metadata(&paths.config) {
                 if let Ok(mtime) = metadata.modified() {
-                    let mut lock = LAST_CONFIG_CHECK.lock().unwrap();
-                    let needs_disk_reload = match *lock {
-                        Some((_, prev_mtime, _)) => mtime != prev_mtime,
-                        None => true,
+                    let needs_disk_reload = if let Ok(mut lock) = LAST_CONFIG_CHECK.lock() {
+                        let reload = match *lock {
+                            Some((_, prev_mtime, _)) => mtime != prev_mtime,
+                            None => true,
+                        };
+                        if !reload {
+                            if let Some(ref mut entry) = *lock {
+                                entry.0 = now;
+                            }
+                        }
+                        reload
+                    } else {
+                        false
                     };
                     if needs_disk_reload {
-                        let mut new_cfg = load_ruhi_config(&paths);
-                        sync_active_tsf_profile_locale(&mut new_cfg);
+                        let new_cfg = load_ruhi_config(&paths);
                         logger::log(&format!(
                             "Reloaded config: mode={}, keyboard={}, font_size={}",
                             new_cfg.input_display_mode,
                             new_cfg.keyboard_mode,
                             new_cfg.font_size
                         ));
-                        *lock = Some((now, mtime, new_cfg));
-                    } else if let Some(ref mut entry) = *lock {
-                        entry.0 = now;
+                        if let Ok(mut lock) = LAST_CONFIG_CHECK.lock() {
+                            *lock = Some((now, mtime, new_cfg));
+                        }
                     }
                 }
             }
@@ -5558,10 +5897,12 @@ impl RuhiTextService_Impl {
                         eng.last_keyboard_mode = new_cfg.last_keyboard_mode.clone();
                         eng.backtick_inline_mode = new_cfg.backtick_inline_mode.clone();
                         eng.tilde_toggle_mode = new_cfg.tilde_toggle_mode.clone();
+                        eng.shift_down_mode = new_cfg.shift_down_mode.clone();
                         eng.set_enabled_keyboard_modes(new_cfg.enabled_keyboard_modes.clone());
                         eng.enable_mixed_english = new_cfg.enable_mixed_english;
                         eng.mixed_english_mode = new_cfg.mixed_english_mode.clone();
                         eng.mixed_english_min_len = new_cfg.mixed_english_min_len;
+                        eng.set_mixed_typing_modes(new_cfg.mixed_typing_modes.clone());
                         eng.enable_array30_coach = new_cfg.enable_array30_coach;
                         eng.reverse_coach_target = new_cfg.reverse_coach_target.clone();
                         eng.four_corner.keymap_profile = new_cfg.four_corner_keymap.clone();
@@ -5766,6 +6107,86 @@ impl RuhiTextService_Impl {
         };
 
         let sel_range = self.get_manual_selection_range();
+        let (is_shift_down_popup, eff_shift_down_mode) = {
+            let engine = self.engine.lock().unwrap();
+            (
+                is_cand_sel && engine.is_shift_down_longkan_popup(),
+                engine.effective_shift_down_mode(),
+            )
+        };
+        if is_shift_down_popup {
+            let eng_arc = self.engine.clone();
+            let syls_arc = self.pending_syllables.clone();
+            let del_arc = self.deleted_words.clone();
+            let active_cands_arc = self.active_candidates.clone();
+            let sel_idx_arc = self.selected_candidate_idx.clone();
+            let target_idx_arc = self.target_char_idx.clone();
+            let target_range_arc = self.target_range.clone();
+            let full_text_snap = full_text.clone();
+            let cur_snap = cur_pos;
+            let manual_range_snap = sel_range;
+            crate::candidate_window::register_shift_down_quick_switch_handler(move |new_mode: &str| {
+                let chars: Vec<char> = full_text_snap.chars().collect();
+                if chars.is_empty() {
+                    return None;
+                }
+                let target_i = if cur_snap < chars.len() {
+                    if chars[cur_snap].is_whitespace() && cur_snap > 0 {
+                        let mut i = cur_snap;
+                        while i > 0 && chars[i].is_whitespace() {
+                            i -= 1;
+                        }
+                        i
+                    } else {
+                        cur_snap
+                    }
+                } else {
+                    let mut i = chars.len() - 1;
+                    while i > 0 && chars[i].is_whitespace() {
+                        i -= 1;
+                    }
+                    i
+                };
+                let syls = syls_arc.lock().ok()?.clone();
+                let (r_idx, r_range, mut new_cands, coach_hint) = {
+                    let mut eng = eng_arc.lock().ok()?;
+                    let norm = RuhiEngine::normalize_keyboard_mode(new_mode);
+                    eng.shift_down_mode = norm.clone();
+                    eng.set_active_shift_down_mode_override(Some(norm));
+                    eng.set_shift_down_mode_picker(false);
+                    eng.set_shift_down_longkan_popup(true);
+                    let (ri, rr, cands_raw) = eng.compute_shift_down_longkan_for_slice(
+                        &chars,
+                        &syls,
+                        manual_range_snap,
+                        target_i,
+                    );
+                    let first_cand = cands_raw.first().cloned().unwrap_or_default();
+                    let hint = if !first_cand.is_empty() {
+                        eng.format_shift_down_coach_for_text(&first_cand)
+                    } else {
+                        String::new()
+                    };
+                    (ri, rr, cands_raw, hint)
+                };
+                if let Ok(del) = del_arc.lock() {
+                    new_cands.retain(|c| !del.contains(c));
+                }
+                if let Ok(mut ti) = target_idx_arc.lock() {
+                    *ti = r_idx;
+                }
+                if let Ok(mut tr) = target_range_arc.lock() {
+                    *tr = r_range;
+                }
+                if let Ok(mut si) = sel_idx_arc.lock() {
+                    *si = 0;
+                }
+                if let Ok(mut ac) = active_cands_arc.lock() {
+                    *ac = new_cands.clone();
+                }
+                Some((new_cands, coach_hint))
+            });
+        }
         let (coach_hint, is_ar30_live_preview, display_cands) =
             self.compute_coach_hint_and_preview(&full_text, cur_pos, is_cand_sel, &cands, sel_idx, sel_range);
 
@@ -5773,6 +6194,7 @@ impl RuhiTextService_Impl {
             self.update_tsf_composition(ctx, &full_text, cur_pos, sel_range, false)?;
             if let Ok(mut cw_guard) = self.candidate_window.lock() {
                 if let Some(cw) = cw_guard.as_mut() {
+                    cw.set_shift_down_popup_state(is_shift_down_popup, &eff_shift_down_mode);
                     cw.set_coach_hint(&coach_hint, is_ar30_live_preview);
                     if (is_cand_sel || is_ar30_live_preview) && !display_cands.is_empty() {
                         let (cx, cy) = Self::get_caret_screen_pos();
@@ -5828,6 +6250,7 @@ impl RuhiTextService_Impl {
 
             if let Ok(mut cw_guard) = self.candidate_window.lock() {
                 if let Some(cw) = cw_guard.as_mut() {
+                    cw.set_shift_down_popup_state(is_shift_down_popup, &eff_shift_down_mode);
                     cw.set_coach_hint(&coach_hint, is_ar30_live_preview);
                     cw.show_desk(&full_text, cur_pos, &pending_syl, &display_cands, sel_idx, is_cand_sel, target_idx, target_range, sel_range_pair, is_caps_on, cx, cy);
                 }
@@ -5987,7 +6410,6 @@ impl ITfThreadMgrEventSink_Impl for RuhiTextService_Impl {
 impl ITfCompositionSink_Impl for RuhiTextService_Impl {
     fn OnCompositionTerminated(&self, _ecwrite: u32, _pcomposition: Option<&ITfComposition>) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.ensure_instance_upgraded();
             if let Ok(mut comp) = self.composition.try_lock() {
                 *comp = None;
             }
@@ -6021,20 +6443,24 @@ impl ITfCompositionSink_Impl for RuhiTextService_Impl {
 
 impl ITfDisplayAttributeProvider_Impl for RuhiTextService_Impl {
     fn EnumDisplayAttributeInfo(&self) -> Result<IEnumTfDisplayAttributeInfo> {
-        Ok(crate::display_attribute::RuhiDisplayAttributeEnum::new().into())
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            Ok(crate::display_attribute::RuhiDisplayAttributeEnum::new().into())
+        })).unwrap_or_else(|_| Err(E_FAIL.into()))
     }
 
     fn GetDisplayAttributeInfo(&self, guid: *const GUID) -> Result<ITfDisplayAttributeInfo> {
-        if guid.is_null() {
-            return Err(E_INVALIDARG.into());
-        }
-        let g = unsafe { *guid };
-        if g == crate::guid::GUID_RUHI_DISPLAY_ATTR {
-            Ok(crate::display_attribute::RuhiDisplayAttributeInfo::new().into())
-        } else if g == crate::guid::GUID_RUHI_SELECTION_DISPLAY_ATTR {
-            Ok(crate::display_attribute::RuhiSelectionDisplayAttributeInfo::new().into())
-        } else {
-            Err(E_INVALIDARG.into())
-        }
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if guid.is_null() {
+                return Err(E_INVALIDARG.into());
+            }
+            let g = unsafe { *guid };
+            if g == crate::guid::GUID_RUHI_DISPLAY_ATTR {
+                Ok(crate::display_attribute::RuhiDisplayAttributeInfo::new().into())
+            } else if g == crate::guid::GUID_RUHI_SELECTION_DISPLAY_ATTR {
+                Ok(crate::display_attribute::RuhiSelectionDisplayAttributeInfo::new().into())
+            } else {
+                Err(E_INVALIDARG.into())
+            }
+        })).unwrap_or_else(|_| Err(E_FAIL.into()))
     }
 }
