@@ -51,9 +51,7 @@ pub fn start_web_studio(
     println!("========================================================================");
 
     if open_browser {
-        let _ = Command::new("cmd.exe")
-            .args(["/c", "start", "", &server_url])
-            .spawn();
+        let _ = crate::http_client::open_url_or_path(&server_url);
     }
 
     for stream in listener.incoming().flatten() {
@@ -1099,20 +1097,22 @@ fn handle_post(
         if action == "launch_colab_ps1" {
             let ps1_path = root_dir.join("雲端Colab微調Gemma4語意分析師.ps1");
             if ps1_path.is_file() {
-                let _ = Command::new("cmd.exe")
-                    .args([
-                        "/c",
-                        "start",
-                        "RuhI Colab A100 Gemma 4 Training",
-                        "powershell.exe",
-                        "-NoExit",
-                        "-ExecutionPolicy",
-                        "Bypass",
-                        "-File",
-                        &ps1_path.to_string_lossy(),
-                    ])
-                    .current_dir(&root_dir)
-                    .spawn();
+                #[cfg(target_os = "windows")]
+                {
+                    use std::os::windows::process::CommandExt;
+                    const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+                    let _ = Command::new("powershell.exe")
+                        .args([
+                            "-NoExit",
+                            "-ExecutionPolicy",
+                            "Bypass",
+                            "-File",
+                            &ps1_path.to_string_lossy(),
+                        ])
+                        .current_dir(&root_dir)
+                        .creation_flags(CREATE_NEW_CONSOLE)
+                        .spawn();
+                }
                 return send_json_response(
                     stream,
                     200,
@@ -1133,18 +1133,8 @@ fn handle_post(
             }
         }
 
-        // check_and_build: 產製最新訓練資料集並回傳最新 Gemma 4 特化模型與進化進度
-        let pipeline_py = root_dir.join("tools").join("colab_gemma4_pipeline.py");
-        if pipeline_py.is_file() {
-            let _ = Command::new("python")
-                .args([
-                    pipeline_py.to_string_lossy().as_ref(),
-                    "--build-dataset",
-                    "--check-evolution",
-                ])
-                .current_dir(&root_dir)
-                .output();
-        }
+        // check_and_build: 透過 Rust 原生引擎產製最新訓練資料集並回傳最新 Gemma 4 特化模型與進化進度
+        let dataset_stats = guard.tuner.build_gemma4_analyst_dataset();
         let spec_status = guard
             .consultant
             .get_gemma4_specialist_status(Some(&guard.tuner));
@@ -1153,6 +1143,7 @@ fn handle_post(
             200,
             &json!({
                 "status": "ok",
+                "dataset": dataset_stats,
                 "gemma4_specialist": spec_status,
                 "message": "📦 已重新產製最新 Gemma 4 語意分析師訓練資料集並刷新進化累積進度！"
             }),

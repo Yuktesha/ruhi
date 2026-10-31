@@ -182,13 +182,17 @@ impl RuhAIEngine {
 
     /// 探測本機 NVIDIA GPU 與視訊記憶體容量。
     pub fn probe_hardware_gpu(&mut self) -> &GpuHardwareInfo {
-        if let Ok(output) = Command::new("nvidia-smi")
-            .args([
-                "--query-gpu=name,memory.total,memory.free",
-                "--format=csv,noheader,nounits",
-            ])
-            .output()
+        let mut smi_cmd = Command::new("nvidia-smi");
+        smi_cmd.args([
+            "--query-gpu=name,memory.total,memory.free",
+            "--format=csv,noheader,nounits",
+        ]);
+        #[cfg(target_os = "windows")]
         {
+            use std::os::windows::process::CommandExt;
+            smi_cmd.creation_flags(0x08000000);
+        }
+        if let Ok(output) = smi_cmd.output() {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 if let Some(first_line) = stdout.lines().next() {
@@ -230,6 +234,10 @@ impl RuhAIEngine {
                     }
                     if fname.to_ascii_lowercase().contains("mmproj") {
                         mmproj_files.push(path);
+                    } else if fname.to_ascii_lowercase().ends_with("-lora.gguf")
+                        || fname.to_ascii_lowercase().contains("_lora.gguf")
+                    {
+                        continue;
                     } else {
                         gguf_files.push(path);
                     }
@@ -286,6 +294,18 @@ impl RuhAIEngine {
         gpu_layers: i32,
         ctx_size: u32,
     ) -> Result<(), String> {
+        self.spawn_green_server_with_lora(gguf_path, None, port, gpu_layers, ctx_size)
+    }
+
+    /// 按需啟動純綠版 `llama-server` 子程序載入指定 `.gguf` 基底模型與選配之 `.gguf` LoRA 權重配接器 (`--lora`)。
+    pub fn spawn_green_server_with_lora(
+        &mut self,
+        gguf_path: impl AsRef<Path>,
+        lora_path: Option<&Path>,
+        port: u16,
+        gpu_layers: i32,
+        ctx_size: u32,
+    ) -> Result<(), String> {
         self.stop_managed_server();
 
         let bin = self
@@ -306,9 +326,18 @@ impl RuhAIEngine {
             .arg("-ngl")
             .arg(gpu_layers.to_string())
             .arg("-c")
-            .arg(ctx_size.to_string())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
+            .arg(ctx_size.to_string());
+        if let Some(lp) = lora_path {
+            if lp.is_file() {
+                cmd.arg("--lora").arg(lp);
+            }
+        }
+        cmd.stdout(Stdio::null()).stderr(Stdio::null());
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000);
+        }
 
         let child = cmd
             .spawn()
@@ -476,6 +505,8 @@ impl RuhAIEngine {
             "model": model,
             "messages": messages,
             "temperature": 0.2,
+            "max_tokens": 320,
+            "n_predict": 320,
             "stream": false
         });
         if as_json {
@@ -723,6 +754,13 @@ pub fn select_preferred_model(
     if candidates.is_empty() {
         return None;
     }
+    if let Some(m) = candidates.iter().find(|m| {
+        active_vram.contains(*m)
+            && (m.to_ascii_lowercase().contains("gemma-4")
+                || m.to_ascii_lowercase().contains("gemma4"))
+    }) {
+        return Some(m.clone());
+    }
     if let Some(m) = candidates
         .iter()
         .find(|m| active_vram.contains(*m) && m.to_ascii_lowercase().contains("gemma"))
@@ -730,6 +768,12 @@ pub fn select_preferred_model(
         return Some(m.clone());
     }
     if let Some(m) = candidates.iter().find(|m| active_vram.contains(*m)) {
+        return Some(m.clone());
+    }
+    if let Some(m) = candidates.iter().find(|m| {
+        let lower = m.to_ascii_lowercase();
+        lower.contains("gemma-4") || lower.contains("gemma4")
+    }) {
         return Some(m.clone());
     }
     if let Some(m) = candidates

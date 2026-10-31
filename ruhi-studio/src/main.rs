@@ -1,3 +1,4 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 //! # `ruhi-studio` — RuhI（如喜）輸入法原生 Rust 現代化偏好設定與語意調校中心
 //!
 //! 基於 `atg_lib` (`C:\ATGprjs\_lib_rs`) 全域架構，一站式整合：
@@ -137,7 +138,7 @@ impl StudioCategory {
             ("en-US", StudioCategory::KeyboardCjkShape) => "├─ 🐉 C: Longkan, Shape & Num",
             ("en-US", StudioCategory::KeyboardJkEurasian) => "├─ 🌍 JK & Eurasian Tree",
             ("en-US", StudioCategory::KeyboardHotkeysPunct) => "└─ ⚡ Hotkeys & Punctuation",
-            ("en-US", StudioCategory::MixedEnglish) => "🔤 Mixed Latin Input",
+            ("en-US", StudioCategory::MixedEnglish) => "🔤 Eurasian Mixed Input",
             ("en-US", StudioCategory::Grammar) => "🧠 Semantic & Grammar",
             ("en-US", StudioCategory::AiAndPrivacy) => "🛡 Privacy & Cloud Sync",
             ("en-US", StudioCategory::SemanticTuner) => "🛠 Semantic Tuner (Dev)",
@@ -152,7 +153,7 @@ impl StudioCategory {
             ("ja-JP", StudioCategory::KeyboardCjkShape) => "├─ 🐉 漢語(C)：龍龕形音・字形コード",
             ("ja-JP", StudioCategory::KeyboardJkEurasian) => "├─ 🌍 日韓(JK)・欧亜全系統樹",
             ("ja-JP", StudioCategory::KeyboardHotkeysPunct) => "└─ ⚡ 切替キーと句読点設定",
-            ("ja-JP", StudioCategory::MixedEnglish) => "🔤 欧文混在入力",
+            ("ja-JP", StudioCategory::MixedEnglish) => "🔤 欧亜スマート混打",
             ("ja-JP", StudioCategory::Grammar) => "🧠 意味構造と文法重力",
             ("ja-JP", StudioCategory::AiAndPrivacy) => "🛡 プライバシーとクラウド同期",
             ("ja-JP", StudioCategory::SemanticTuner) => "🛠 意味チューニング (Dev)",
@@ -167,7 +168,7 @@ impl StudioCategory {
             ("ko-KR", StudioCategory::KeyboardCjkShape) => "├─ 🐉 한어(C): 용감형음/자형코드",
             ("ko-KR", StudioCategory::KeyboardJkEurasian) => "├─ 🌍 일한(JK) 및 유라시아 트리",
             ("ko-KR", StudioCategory::KeyboardHotkeysPunct) => "└─ ⚡ 빠른 전환 및 문장부호",
-            ("ko-KR", StudioCategory::MixedEnglish) => "🔤 영문 혼용 입력",
+            ("ko-KR", StudioCategory::MixedEnglish) => "🔤 유라시아 스마트 혼용",
             ("ko-KR", StudioCategory::Grammar) => "🧠 의미 구조 및 문법 중력",
             ("ko-KR", StudioCategory::AiAndPrivacy) => "🛡 개인정보 및 클라우드 동기화",
             ("ko-KR", StudioCategory::SemanticTuner) => "🛠 의미 튜닝 스튜디오 (Dev)",
@@ -183,7 +184,7 @@ impl StudioCategory {
                 StudioCategory::KeyboardCjkShape => "├─ 🐉 漢語(C)：龍龕形音與字形碼",
                 StudioCategory::KeyboardJkEurasian => "├─ 🌍 日韓(JK)與歐亞全譜樹",
                 StudioCategory::KeyboardHotkeysPunct => "└─ ⚡ 快速切換與標點常用鍵",
-                StudioCategory::MixedEnglish => "🔤 許氏＋歐文混打",
+                StudioCategory::MixedEnglish => "🔤 歐亞智慧混打",
                 StudioCategory::Grammar => "🧠 語意結構與語法引力",
                 StudioCategory::AiAndPrivacy => "🛡 隱私安全與雲端回饋",
                 StudioCategory::SemanticTuner => "🛠 語意調校工作室 (Dev)",
@@ -265,8 +266,8 @@ impl StudioCategory {
                 "Configure Caps Lock / Ctrl+CapsLock / Shift+CapsLock rotation cycle, Spacebar commit behavior, and Punctuation commit modes (A/B/C).",
             ),
             ("en-US", StudioCategory::MixedEnglish) => (
-                "🔤 Smart Mixed Latin & Cross-Language Input",
-                "Configure mixed Bopomofo/Latin arbitration, contextual stream mode, and universal semantic bridge.",
+                "🔤 Eurasian Smart Mixed Input Strategy",
+                "Configure orthogonal low-collision mixed input (Standard Daikien, Cangjie, Four-Corner, Array 30), contextual stream arbitration, and thresholds.",
             ),
             ("en-US", StudioCategory::Grammar) => (
                 "🧠 Syntactic Topology & Grammar Gravity Field",
@@ -317,8 +318,8 @@ impl StudioCategory {
                 "Caps Lock／Ctrl+CapsLock／Shift+CapsLock 切替サイクル、スペースキー動作、句読点確定モード（A/B/C）を設定します。",
             ),
             ("ja-JP", StudioCategory::MixedEnglish) => (
-                "🔤 欧文スマート混在入力戦略",
-                "注音／欧文スマート混在入力、文脈ストリームモード、長単語しきい値を設定します。",
+                "🔤 欧亜スマート混在入力戦略",
+                "低重碼・直交配列モード（標準大千注音・倉頡・四角号碼・行列30）の欧亜混打と仲裁ポリシーを設定します。",
             ),
             ("ja-JP", StudioCategory::Grammar) => (
                 "🧠 構文トポロジーと文法重力場",
@@ -369,8 +370,8 @@ impl StudioCategory {
                 "Caps Lock / Ctrl+CapsLock / Shift+CapsLock 순환 목록, 스페이스바 동작 및 문장부호 확정 모드(A/B/C)를 설정합니다.",
             ),
             ("ko-KR", StudioCategory::MixedEnglish) => (
-                "🔤 영문 스마트 혼용 입력 전략",
-                "주음/영문 스마트 혼용 입력, 문맥 스트림 모드 및 긴 단어 임계값을 설정합니다.",
+                "🔤 유라시아 스마트 혼용 입력 전략",
+                "저중복·직교 배열 모드(표준 대천 주음, 창힐, 사각호마, 행열 30)의 스마트 혼용 입력 및 중재 정책을 설정합니다.",
             ),
             ("ko-KR", StudioCategory::Grammar) => (
                 "🧠 구문 토폴로지 및 문법 중력장",
@@ -427,8 +428,8 @@ impl StudioCategory {
                 "設定 Caps Lock／Ctrl+CapsLock／Shift+CapsLock 循環切換清單、空白鍵組字行為與標點符號結算模式（A / B / C）。",
             ),
             StudioCategory::MixedEnglish => (
-                "🔤 許氏＋歐文智慧混打策略",
-                "配置許氏注音與歐文智慧混打、仲裁策略、語境串流模式與長詞門檻。",
+                "🔤 歐亞智慧混打策略",
+                "針對鍵位空間正交、低重碼率之輸入模式（標準大千注音、倉頡、智慧型四角號碼、行列 30）提供免切換歐亞混打；高重碼 26 鍵模式則由 Caps Lock 確定性切換守護。",
             ),
             StudioCategory::Grammar => (
                 "🧠 現代漢語八大語法引力場",
@@ -491,11 +492,13 @@ pub struct RuhiStudioApp {
     pub last_wakeup_ts: u64,
     pub last_config_mtime: Option<std::time::SystemTime>,
     pub cli_lang_override: Option<String>,
+    // 是否以獨立桌面版「如喜 AI 語意調校工作室」應用程式模式運行 (--tuner / --tuner-app)
+    pub standalone_tuner_mode: bool,
 }
 
 impl RuhiStudioApp {
     pub fn new(initial_category: StudioCategory) -> Self {
-        Self::new_with_lang(initial_category, None)
+        Self::new_with_mode(initial_category, None, false)
     }
 
     pub fn effective_ui_lang(&self) -> &'static str {
@@ -512,15 +515,30 @@ impl RuhiStudioApp {
     }
 
     pub fn new_with_lang(initial_category: StudioCategory, cli_lang_override: Option<String>) -> Self {
+        Self::new_with_mode(initial_category, cli_lang_override, false)
+    }
+
+    pub fn new_with_mode(
+        initial_category: StudioCategory,
+        cli_lang_override: Option<String>,
+        standalone_tuner_mode: bool,
+    ) -> Self {
         let root_dir = resolve_ruhi_root();
         let data_dir = resolve_data_dir(&root_dir);
         let settings = load_settings(&root_dir);
 
-        let mut shell = UniversalAppShell::new(
-            "ruhi_studio",
-            "RuhI（如喜）輸入法 — 現代化偏好設定中心",
-            Some(&root_dir),
-        );
+        let app_id = if standalone_tuner_mode {
+            "ruhi_semantic_tuner"
+        } else {
+            "ruhi_studio"
+        };
+        let win_title = if standalone_tuner_mode {
+            "🧬 如喜 (RuhI) — AI 神經符號語意調校工作室 (Gemma 4 E4B Specialist Studio)"
+        } else {
+            "RuhI（如喜）輸入法 — 現代化偏好設定中心"
+        };
+
+        let mut shell = UniversalAppShell::new(app_id, win_title, Some(&root_dir));
 
         let theme_pref = ThemePreference::from_code(&settings.appearance.theme);
         shell.set_theme_preference(theme_pref);
@@ -537,31 +555,38 @@ impl RuhiStudioApp {
             .collect();
         shell.ensure_sidebar_min_width(&nav_items);
 
-        let mut tuner = SemanticTuner::new(Some(&root_dir));
+        let tuner = SemanticTuner::new(Some(&root_dir));
         let consultant = AISemanticConsultant::new(Some(&root_dir));
-
-        let mut settings = settings;
-        let _ = tuner.maybe_run_scheduled_upload(&mut settings);
 
         let last_config_mtime = std::fs::metadata(root_dir.join("config.json"))
             .and_then(|m| m.modified())
             .ok();
-        let last_wakeup_ts = std::fs::read_to_string(root_dir.join("studio_wakeup.json"))
-            .ok()
-            .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-            .and_then(|v| {
-                v.get("ts")
-                    .or_else(|| v.get("timestamp"))
-                    .and_then(Value::as_u64)
-            })
-            .unwrap_or(0);
+        let last_wakeup_ts = [
+            root_dir.join("studio_wakeup.json"),
+            root_dir.join("dist").join("studio_wakeup.json"),
+            root_dir.join("scripts").join("studio_wakeup.json"),
+        ]
+        .iter()
+        .filter_map(|p| std::fs::read_to_string(p).ok())
+        .filter_map(|s| serde_json::from_str::<Value>(&s).ok())
+        .filter_map(|v| {
+            v.get("ts")
+                .or_else(|| v.get("timestamp"))
+                .and_then(Value::as_u64)
+        })
+        .max()
+        .unwrap_or(0);
 
         Self {
             root_dir,
             data_dir,
             shell,
             settings,
-            current_category: initial_category,
+            current_category: if standalone_tuner_mode {
+                StudioCategory::SemanticTuner
+            } else {
+                initial_category
+            },
             appearance_tree_expanded: true,
             keyboard_tree_expanded: true,
             tuner,
@@ -583,6 +608,7 @@ impl RuhiStudioApp {
             last_wakeup_ts,
             last_config_mtime,
             cli_lang_override,
+            standalone_tuner_mode,
         }
     }
 
@@ -1616,7 +1642,7 @@ impl RuhiStudioApp {
                 Some("hsu"),
                 "許氏雙拼注音（Hsu Bopomofo · 許）",
                 "CJK ▸ C ▸ 音韻雙拼",
-                "依聲韻出現頻率與手指人體工學配置於 26 字母鍵，盲打節奏最流暢，支援歐文智慧混打與 Q 鍵候選快切。",
+                "依聲韻出現頻率與手指人體工學配置於 26 字母鍵，盲打節奏最流暢，支援 Caps Lock 單鍵英數對切與 Q 鍵候選快切。",
             );
 
             // 許氏注音專屬子設定（直接巢狀掛載於許氏節點下方）
@@ -1673,7 +1699,7 @@ impl RuhiStudioApp {
                 Some("standard"),
                 "標準大千注音（Standard Daikien · 注）",
                 "CJK ▸ C ▸ 傳統標準",
-                "台灣通行最廣之 41 鍵標準大千注音排列，零學習門檻，完整共享如喜八大語法引擎與二階轉移引力場。",
+                "台灣通行最廣之 41 鍵標準大千注音排列，零學習門檻，支援 41 鍵音位正交之「歐亞智慧混打」並完整共享如喜八大語法引擎。",
             );
 
             ui.add_space(8.0);
@@ -1855,9 +1881,7 @@ impl RuhiStudioApp {
         }
         if let Some(found) = candidates.into_iter().find(|p| p.is_file()) {
             let path_str = found.to_string_lossy().to_string();
-            let _ = std::process::Command::new("cmd")
-                .args(["/c", "start", "", &path_str])
-                .spawn();
+            let _ = ruhi_studio::http_client::open_url_or_path(&path_str);
             self.shell.toasts.success(format!(
                 "已於瀏覽器開啟跨輸入法互動查碼與教學工作台：{}",
                 path_str
@@ -2124,19 +2148,19 @@ impl RuhiStudioApp {
                             );
                             ui.label(
                                 egui::RichText::new(
-                                    "［Pan-European ▸ Latin］英數／歐文直通與許氏智慧混打串流 (Latin Direct & Contextual Stream · 英)",
+                                    "［Pan-European ▸ Latin］英數／歐文直通與歐亞智慧混打串流 (Latin Direct & Eurasian Mixed Stream · 英)",
                                 )
                                 .size(13.5 * scale)
                                 .strong(),
                             );
-                            if ui.button("🔤 前往許氏＋歐文混打設定 ▸").clicked() {
+                            if ui.button("🔤 前往歐亞智慧混打設定 ▸").clicked() {
                                 self.current_category = StudioCategory::MixedEnglish;
                             }
                         });
                         ui.add_space(3.0);
                         ui.label(
                             egui::RichText::new(
-                                "已內建 Caps Lock 單鍵英數直通對切，以及免切換直接於許氏注音中混打英文詞彙與程式碼之語境串流仲裁器。",
+                                "已內建 Caps Lock 單鍵英數直通對切，並針對大千注音、倉頡、四角號碼、行列 30 等正交低重碼模式提供免切換歐亞智慧混打。",
                             )
                             .size(12.0 * scale)
                             .color(palette.fg_muted.to_egui()),
@@ -2436,6 +2460,39 @@ impl RuhiStudioApp {
                 );
             });
 
+            ui.add_space(6.0);
+
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    egui::RichText::new("按「Shift + ↓」跨輸入法組字／候選字詞查詢：")
+                        .strong()
+                        .color(palette.accent.to_egui()),
+                );
+                egui::ComboBox::from_id_salt("ruhi_shift_down_mode_combo")
+                    .selected_text(Self::mode_code_display_name(
+                        &self.settings.keyboard.shift_down_mode,
+                    ))
+                    .width(240.0)
+                    .show_ui(ui, |ui| {
+                        for (code, label) in aux_options {
+                            if ui
+                                .selectable_value(
+                                    &mut self.settings.keyboard.shift_down_mode,
+                                    code.to_string(),
+                                    label,
+                                )
+                                .changed()
+                            {
+                                aux_changed = true;
+                            }
+                        }
+                    });
+                ui.label(
+                    egui::RichText::new("（預設查詢龍龕形音組字詞；若當前已在該模式，按 Shift+↓ 將智慧彈出模式詢問選單，且候選窗右側提供快速切換鈕）")
+                        .color(palette.fg_muted.to_egui()),
+                );
+            });
+
             if aux_changed {
                 self.auto_save_settings_quiet();
             }
@@ -2558,56 +2615,155 @@ impl RuhiStudioApp {
 
     fn render_mixed_english_page(&mut self, ui: &mut egui::Ui) {
         let palette = self.shell.palette;
+        let scale = self.shell.ui_scale;
+        let mut changed = false;
 
         ui.group(|ui| {
-            ui.heading("許氏＋歐文智慧混打核心機制");
+            ui.set_min_width(ui.available_width());
+            ui.heading("歐亞智慧混打核心機制（Eurasian Smart Mixed Input）");
             ui.add_space(6.0);
-            two_tier_checkbox(
+            if two_tier_checkbox(
                 ui,
                 &mut self.settings.keyboard.enable_mixed_english,
-                "啟用許氏＋歐文智慧混打",
-                "非合法許氏注音組合直接當作歐文，Enter 直接上屏；無需切換輸入法即可自然敲出英文單字與程式碼。",
+                "啟用歐亞智慧混打總開關",
+                "於下方勾選之「鍵位正交／低重碼率」輸入模式中，免切換輸入法即可自然混打歐文單字、拉丁學術轉寫與程式碼；按 Enter 鍵可直接以歐文上屏。",
                 &palette,
+            ) {
+                changed = true;
+            }
+        });
+
+        ui.add_space(10.0);
+
+        ui.group(|ui| {
+            ui.set_min_width(ui.available_width());
+            ui.heading("適用之正交／低重碼率混打模式選擇");
+            ui.add_space(4.0);
+            ui.label(
+                egui::RichText::new(
+                    "以下四種輸入法具備「物理鍵區分離」、「41 鍵聲調正交」或「五碼長碼界限」之低重碼特性，能精確區辨漢字編碼與歐文詞彙：",
+                )
+                .size(12.2 * scale)
+                .color(palette.fg_muted.to_egui()),
+            );
+            ui.add_space(6.0);
+
+            let orthogonal_modes: [(&str, &str, &str); 4] = [
+                (
+                    "standard",
+                    "標準大千注音（41 鍵音位與聲調正交 · 推薦）",
+                    "大千注音之聲調鍵（空白鍵／6／3／4／7）獨立於字母區外；凡韻母或介音後未按聲調即連打字母（如 this、apple、hello、rust），或連續純聲母不構成漢語詞彙時，即 100% 確定性轉為歐文。",
+                ),
+                (
+                    "cangjie",
+                    "倉頡輸入法（五碼字根上限與大寫正交 · 推薦）",
+                    "標準倉頡重碼率極低且最長為 5 碼；凡輸入大寫字母開頭（如 GitHub、Rust）、長度超過 5 碼之單字（如 international）、無對應漢字之字母組合，或組字中按 Enter 鍵，皆直接輸出歐文。",
+                ),
+                (
+                    "four_corner",
+                    "智慧型四角號碼（右小鍵盤 × 左主鍵盤物理正交 · 推薦）",
+                    "右側 4×5 九宮格小鍵盤（0~9、.、+、-、*、/）專責四角號碼與標點檢索，左側主鍵盤（A~Z、橫排數字）100% 實體分離直出歐文與算式，達成零碰撞混打。",
+                ),
+                (
+                    "array30",
+                    "行列 30 輸入法（五碼上限與 Enter 歐文直通 · 推薦）",
+                    "行列 30 字根重碼率低且最長為 5 碼；輸入大寫字母、超過 5 碼之歐文單字自動轉為歐文，1~5 碼組字期間按 Enter 鍵亦可直接輸出原始英文字串。",
+                ),
+            ];
+
+            ui.add_enabled_ui(self.settings.keyboard.enable_mixed_english, |ui| {
+                for (idx, (mode_id, title, desc)) in orthogonal_modes.iter().enumerate() {
+                    let mut is_checked = self
+                        .settings
+                        .keyboard
+                        .mixed_typing_modes
+                        .iter()
+                        .any(|m| m.eq_ignore_ascii_case(mode_id));
+                    if two_tier_checkbox(ui, &mut is_checked, title, desc, &palette) {
+                        if is_checked {
+                            if !self
+                                .settings
+                                .keyboard
+                                .mixed_typing_modes
+                                .iter()
+                                .any(|m| m.eq_ignore_ascii_case(mode_id))
+                            {
+                                self.settings
+                                    .keyboard
+                                    .mixed_typing_modes
+                                    .push((*mode_id).to_string());
+                            }
+                        } else {
+                            self.settings
+                                .keyboard
+                                .mixed_typing_modes
+                                .retain(|m| !m.eq_ignore_ascii_case(mode_id));
+                        }
+                        changed = true;
+                    }
+                    if idx + 1 < orthogonal_modes.len() {
+                        ui.add_space(4.0);
+                    }
+                }
+            });
+
+            ui.add_space(8.0);
+            ui.separator();
+            ui.add_space(4.0);
+            ui.label(
+                egui::RichText::new(
+                    "💡 高重碼率 26 鍵模式之確定性保護（不強行啟用自動混打猜測）：\n\
+                     • 許氏雙拼注音 (`hsu`)、倚天 26 鍵 (`et26`)、龍龕形音 (`longkan`)、日韓羅馬字 (`japanese` / `korean`) 將全部音節與部件高度壓縮映射於 a~z 26 鍵，與歐文單字（如 is、as、to、do、he、me）高度重疊。\n\
+                     • 為徹底杜絕整句打字時發生「非預期覆寫」，上述高重碼 26 鍵模式不強行介入自動混打猜測；請直接使用單鍵 `Caps Lock`（或 `` ` `` / `~` 鍵）進行零延遲之確定性英數切換。",
+                )
+                .size(11.8 * scale)
+                .color(palette.fg_muted.to_egui()),
             );
         });
 
         ui.add_space(10.0);
 
         ui.group(|ui| {
-            ui.heading("混打仲裁策略與門檻");
+            ui.set_min_width(ui.available_width());
+            ui.heading("混打仲裁策略與門檻（適用於大千注音等音韻混打）");
             ui.add_space(6.0);
 
-            two_tier_radio(
+            if two_tier_radio(
                 ui,
                 &mut self.settings.keyboard.mixed_english_mode,
                 "contextual_stream".to_string(),
                 "語境串流模式（推薦）",
-                "首詞確認為歐文時開啟串流，放行後續 2~3 字詞；中文模式享有 100% 語境防護，杜絕非預期覆寫。",
+                "首詞確認為歐文時開啟串流，放行後續短詞；中文組字享有 100% 語境防護，杜絕非預期覆寫。",
                 &palette,
-            );
+            ) {
+                changed = true;
+            }
             ui.add_space(4.0);
 
-            two_tier_radio(
+            if two_tier_radio(
                 ui,
                 &mut self.settings.keyboard.mixed_english_mode,
                 "conservative".to_string(),
                 "保守模式",
-                "僅在大寫字母、駝峰命名 (CamelCase) 或特殊標識符時自動放行歐文。",
+                "僅在大寫字母、駝峰命名 (CamelCase)、音位配列違規或特殊識別符時自動轉為歐文。",
                 &palette,
-            );
+            ) {
+                changed = true;
+            }
             ui.add_space(4.0);
 
-            two_tier_radio(
+            if two_tier_radio(
                 ui,
                 &mut self.settings.keyboard.mixed_english_mode,
                 "min_length_only".to_string(),
                 "長詞門檻模式",
-                "連續未匹配字元長度達到門檻長度時，方強制轉為歐文串流。",
+                "連續未匹配字元長度達到門檻長度時，方轉為歐文串流。",
                 &palette,
-            );
+            ) {
+                changed = true;
+            }
 
             ui.add_space(8.0);
-            let scale = self.shell.ui_scale;
             if Self::render_slider_with_numeric_input(
                 ui,
                 "mixed_english_min_len",
@@ -2618,9 +2774,13 @@ impl RuhiStudioApp {
                 scale,
                 &mut self.slider_text_buffers,
             ) {
-                self.auto_save_settings_quiet();
+                changed = true;
             }
         });
+
+        if changed {
+            self.auto_save_settings_quiet();
+        }
     }
 
     fn render_grammar_page(&mut self, ui: &mut egui::Ui) {
@@ -2725,6 +2885,124 @@ impl RuhiStudioApp {
                 self.auto_save_settings_quiet();
             }
         });
+
+        if self.settings.grammar.studio_access_tier != "pure" {
+            ui.add_space(10.0);
+            self.render_semantic_tuner_launcher_card(ui);
+        }
+    }
+
+    /// 偏好設定中心內嵌之「獨立 AI 語意調校工作室」啟動面板（將複雜開發者工作室解耦為獨立桌面視窗與獨立 Web 介面）
+    fn render_semantic_tuner_launcher_card(&mut self, ui: &mut egui::Ui) {
+        let palette = self.shell.palette;
+        let scale = self.shell.ui_scale;
+
+        egui::Frame::NONE
+            .fill(palette.bg_surface.to_egui())
+            .stroke(egui::Stroke::new(1.5_f32, palette.accent.to_egui()))
+            .corner_radius(egui::CornerRadius::same(8))
+            .inner_margin(egui::Margin::symmetric(
+                (14.0 * scale).round() as i8,
+                (12.0 * scale).round() as i8,
+            ))
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                ui.heading(
+                    egui::RichText::new(
+                        "🧬 如喜 AI 神經符號語意調校工作室 — 獨立應用程式與 Web 介面啟動中心",
+                    )
+                    .size(16.0 * scale)
+                    .strong()
+                    .color(palette.accent.to_egui()),
+                );
+                ui.add_space(4.0);
+                ui.label(
+                    egui::RichText::new(
+                        "設計哲學：為保持「偏好設定中心」版面清爽純粹，龐大的計算語言學語意診斷、多組對照句批次對齊、Viterbi Trellis 動態規劃競爭快照與 Google Gemma 4 E4B 特化模型工作台已完全獨立為專屬應用程式與 Web 瀏覽器介面，透過下方按鈕即可一鍵喚起。",
+                    )
+                    .size(12.5 * scale)
+                    .color(palette.fg_main.to_egui()),
+                );
+
+                ui.add_space(8.0);
+                let spec_status = self
+                    .consultant
+                    .get_gemma4_specialist_status(Some(&self.tuner));
+                let has_lora = spec_status
+                    .get("has_lora_adapter")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                let base_model = spec_status
+                    .get("base_model")
+                    .and_then(Value::as_str)
+                    .unwrap_or("google/gemma-4-e4b-it");
+                let size_mb = spec_status
+                    .get("adapter_size_mb")
+                    .and_then(Value::as_f64)
+                    .unwrap_or(266.2);
+                let pattern_count = std::fs::read_to_string(&self.tuner.patterns_jsonl)
+                    .map(|s| s.lines().filter(|l| !l.trim().is_empty()).count())
+                    .unwrap_or(85);
+                ui.label(
+                    egui::RichText::new(format!(
+                        "📊 目前語意引擎狀態：Layer 1 多維槽位構式 {} 組 ｜ Layer 2 二階條件轉移 {} 條 ｜ Layer 3 領域複合詞 {} 詞 ｜ {}",
+                        pattern_count,
+                        self.tuner.user_transitions.len(),
+                        self.tuner.known_words.len(),
+                        if has_lora {
+                            format!("🟢 本機語意分析師特化版 {base_model} LoRA ({size_mb:.1} MB) 已就緒")
+                        } else {
+                            "🟡 本機 Gemma 4 LoRA 尚待下載".to_string()
+                        }
+                    ))
+                    .size(12.2 * scale)
+                    .strong()
+                    .color(palette.fg_bright.to_egui()),
+                );
+
+                ui.add_space(10.0);
+                ui.horizontal_wrapped(|ui| {
+                    if ui
+                        .add_sized(
+                            [360.0 * scale, 38.0 * scale],
+                            egui::Button::new(
+                                egui::RichText::new(
+                                    "🖥️ 啟動獨立桌面版「如喜 AI 語意調校工作室」應用程式",
+                                )
+                                .size(13.5 * scale)
+                                .strong(),
+                            ),
+                        )
+                        .on_hover_text(
+                            "開啟 1240×840 全寬度獨立桌面視窗（無設定側欄干擾，支援多組對照句毫秒級診斷與沙盒三重驗證）",
+                        )
+                        .clicked()
+                    {
+                        self.spawn_standalone_tuner_app();
+                    }
+
+                    ui.add_space(10.0 * scale);
+
+                    if ui
+                        .add_sized(
+                            [360.0 * scale, 38.0 * scale],
+                            egui::Button::new(
+                                egui::RichText::new(
+                                    "🌐 啟動獨立 Web 瀏覽器完整版「語意調校工作室」介面",
+                                )
+                                .size(13.5 * scale)
+                                .strong(),
+                            ),
+                        )
+                        .on_hover_text(
+                            "啟動本機 127.0.0.1:8765 語意調校伺服器並自動於預設瀏覽器開啟完整網頁版工作台",
+                        )
+                        .clicked()
+                    {
+                        self.spawn_web_studio_detached();
+                    }
+                });
+            });
     }
 
     fn render_ai_privacy_page(&mut self, ui: &mut egui::Ui) {
@@ -3031,18 +3309,20 @@ impl RuhiStudioApp {
             ui.add_space(6.0);
 
             ui.horizontal(|ui| {
-                ui.label("錯誤輸出句：");
+                ui.label("錯誤輸出句（支援多行多組）：");
                 ui.add(
-                    egui::TextEdit::singleline(&mut self.tune_error_input)
-                        .desired_width(420.0 * self.shell.ui_scale),
+                    egui::TextEdit::multiline(&mut self.tune_error_input)
+                        .desired_rows(2)
+                        .desired_width(480.0 * self.shell.ui_scale),
                 );
             });
             ui.add_space(4.0);
             ui.horizontal(|ui| {
-                ui.label("期望正確句：");
+                ui.label("期望正確句（支援多行多組）：");
                 ui.add(
-                    egui::TextEdit::singleline(&mut self.tune_correct_input)
-                        .desired_width(420.0 * self.shell.ui_scale),
+                    egui::TextEdit::multiline(&mut self.tune_correct_input)
+                        .desired_rows(2)
+                        .desired_width(480.0 * self.shell.ui_scale),
                 );
             });
 
@@ -3052,46 +3332,72 @@ impl RuhiStudioApp {
                     .button("🛡️ 執行 Viterbi 競爭快照與沙盒三重驗證後安全套用")
                     .clicked()
                 {
-                    let evo = self.tuner.run_autonomous_edge_evolution_step(
+                    let pairs = AISemanticConsultant::extract_pairs_from_dual_inputs(
                         &self.tune_error_input,
                         &self.tune_correct_input,
-                        true,
                     );
-                    let snap_md = evo["viterbi_snapshot"]["prompt_context_markdown"]
-                        .as_str()
-                        .unwrap_or("");
-                    let sb_summary = evo["sandbox_verification"]["summary"]
-                        .as_str()
-                        .unwrap_or("");
-                    let committed = evo["committed"].as_bool().unwrap_or(false);
-                    let evo_msg = evo["gemma4_evolution_status"]["message"]
-                        .as_str()
-                        .unwrap_or("");
-                    let should_train = evo["gemma4_evolution_status"]["should_trigger_training"]
-                        .as_bool()
-                        .unwrap_or(false);
-                    self.tune_output_log = format!(
-                        "【Viterbi Trellis 動態規劃競爭快照】\n{snap_md}\n\n【記憶體內沙盒三重驗證】\n{sb_summary}\n{}\n\n{evo_msg}",
+                    let mut log_sections = Vec::new();
+                    let mut any_committed = false;
+                    let mut any_should_train = false;
+
+                    for (idx, (e_line, c_line)) in pairs.iter().enumerate() {
+                        let evo = self
+                            .tuner
+                            .run_autonomous_edge_evolution_step(e_line, c_line, true);
+                        let snap_md = evo["viterbi_snapshot"]["prompt_context_markdown"]
+                            .as_str()
+                            .unwrap_or("");
+                        let sb_summary = evo["sandbox_verification"]["summary"]
+                            .as_str()
+                            .unwrap_or("");
+                        let committed = evo["committed"].as_bool().unwrap_or(false);
+                        let evo_msg = evo["gemma4_evolution_status"]["message"]
+                            .as_str()
+                            .unwrap_or("");
+                        let should_train = evo["gemma4_evolution_status"]["should_trigger_training"]
+                            .as_bool()
+                            .unwrap_or(false);
                         if committed {
-                            "✅ 沙盒三重驗證 100% 通過，已安全寫入構式與二階轉移規則！"
-                        } else {
-                            "⚠️ 沙盒攔截未通過之規則，本機正式詞庫保持 100% 原狀未受污染。"
+                            any_committed = true;
                         }
-                    );
-                    if committed {
                         if should_train {
+                            any_should_train = true;
+                        }
+                        let prefix = if pairs.len() > 1 {
+                            format!("=== 📌 第 {} 組對照句 ===\n", idx + 1)
+                        } else {
+                            String::new()
+                        };
+                        log_sections.push(format!(
+                            "{prefix}【Viterbi Trellis 動態規劃競爭快照】\n{snap_md}\n\n【記憶體內沙盒三重驗證】\n{sb_summary}\n{}\n{}",
+                            if committed {
+                                "✅ 沙盒三重驗證 100% 通過，已安全寫入構式與二階轉移規則！"
+                            } else {
+                                "⚠️ 沙盒攔截未通過之規則，本機正式詞庫保持 100% 原狀未受污染。"
+                            },
+                            if idx + 1 == pairs.len() && !evo_msg.is_empty() {
+                                format!("\n{evo_msg}")
+                            } else {
+                                String::new()
+                            }
+                        ));
+                    }
+
+                    self.tune_output_log = log_sections.join("\n\n");
+                    if any_committed {
+                        if any_should_train {
                             self.shell.toasts.warning(
-                                "🔔 新構式已累積滿 5 條！建議執行雲端 Colab A100 微調更新 Gemma 4 模型。".to_string(),
+                                "🔔 發現尚未特訓之新語意構式！建議立即執行雲端 Colab A100 微調更新 Gemma 4 模型。".to_string(),
                             );
                         } else {
                             self.shell
                                 .toasts
-                                .success("沙盒三重驗證 100% 通過並已安全套用！".to_string());
+                                .success(format!("已完成 {} 組對照句沙盒三重驗證並安全套用！", pairs.len()));
                         }
                     } else {
                         self.shell
                             .toasts
-                            .warning("沙盒偵測到迴歸風險，已自動隔離攔截！".to_string());
+                            .warning("沙盒偵測到迴歸風險或無需變更，已自動隔離保護！".to_string());
                     }
                 }
 
@@ -3099,46 +3405,51 @@ impl RuhiStudioApp {
                     .button("⚡ 立即對齊並注入二階轉移規則 (Layer 2 / Layer 3)")
                     .clicked()
                 {
-                    let diffs = self.tuner.align_sentence_pair(
+                    let pairs = AISemanticConsultant::extract_pairs_from_dual_inputs(
                         &self.tune_error_input,
                         &self.tune_correct_input,
-                        None,
-                        None,
                     );
                     let mut all_rules = Vec::new();
                     let mut oov_words = Vec::new();
                     let mut report_lines = Vec::new();
 
-                    for d in &diffs {
-                        let rej = d.get("rejected").and_then(Value::as_str).unwrap_or("");
-                        let acc = d.get("accepted").and_then(Value::as_str).unwrap_or("");
-                        let tax = d
-                            .get("error_taxonomy")
-                            .and_then(Value::as_str)
-                            .unwrap_or("");
-                        report_lines.push(format!("• 差異區塊：「{rej}」➔「{acc}」 ({tax})"));
-                        if let Some(ws) = d.get("oov_compound_words").and_then(Value::as_array) {
-                            oov_words.extend(ws.clone());
+                    for (idx, (e_line, c_line)) in pairs.iter().enumerate() {
+                        if pairs.len() > 1 {
+                            report_lines.push(format!("📌 第 {} 組：「{e_line}」➔「{c_line}」", idx + 1));
                         }
-                        let rules = self.tuner.synthesize_rules(d);
-                        for r in &rules {
-                            let p = r.get("prev").and_then(Value::as_str).unwrap_or("");
-                            let n = r.get("next").and_then(Value::as_str).unwrap_or("");
-                            let s = r.get("score").and_then(Value::as_f64).unwrap_or(28.0);
-                            report_lines.push(format!("  ➕ 二階轉移：[{p} ➔ {n}] (+{s:.1})"));
+                        let diffs = self.tuner.align_sentence_pair(e_line, c_line, None, None);
+                        for d in &diffs {
+                            let rej = d.get("rejected").and_then(Value::as_str).unwrap_or("");
+                            let acc = d.get("accepted").and_then(Value::as_str).unwrap_or("");
+                            let tax = d
+                                .get("error_taxonomy")
+                                .and_then(Value::as_str)
+                                .unwrap_or("");
+                            report_lines.push(format!("• 差異區塊：「{rej}」➔「{acc}」 ({tax})"));
+                            if let Some(ws) = d.get("oov_compound_words").and_then(Value::as_array) {
+                                oov_words.extend(ws.clone());
+                            }
+                            let rules = self.tuner.synthesize_rules(d);
+                            for r in &rules {
+                                let p = r.get("prev").and_then(Value::as_str).unwrap_or("");
+                                let n = r.get("next").and_then(Value::as_str).unwrap_or("");
+                                let s = r.get("score").and_then(Value::as_f64).unwrap_or(28.0);
+                                report_lines.push(format!("  ➕ 二階轉移：[{p} ➔ {n}] (+{s:.1})"));
+                            }
+                            all_rules.extend(rules);
                         }
-                        all_rules.extend(rules);
                     }
 
                     let w_added = self.tuner.append_words_to_domain_lexicon(&oov_words);
                     let r_added = self.tuner.append_rules_to_tsv(&all_rules);
                     report_lines.push(format!(
-                        "✅ 已成功寫入 {r_added} 條二階轉移規則與 {w_added} 個領域複合詞！"
+                        "✅ 已成功解析 {} 組對照句，寫入 {r_added} 條二階轉移規則與 {w_added} 個領域複合詞！",
+                        pairs.len()
                     ));
                     self.tune_output_log = report_lines.join("\n");
                     self.shell
                         .toasts
-                        .success(format!("已注入 {r_added} 條二階轉移規則！"));
+                        .success(format!("已解析 {} 組對照句並注入 {r_added} 條二階轉移規則！", pairs.len()));
                 }
 
                 if ui.button("✨ 昇華暫存修訂記錄 (Sublimate Revisions)").clicked() {
@@ -3263,8 +3574,8 @@ impl RuhiStudioApp {
             ui.add_space(6.0);
             ui.add(
                 egui::TextEdit::multiline(&mut self.nl_chat_input)
-                    .hint_text("在此輸入訊息，直接與對接之語言模型對話或討論語意調校結果...")
-                    .desired_rows(3)
+                    .hint_text("在此輸入訊息，或直接貼入 1 組或多組「錯誤輸出句／期望正確句」對照句（支援雙行交錯或 錯誤句 ➔ 正確句 格式），毫秒級逐組完整解析...")
+                    .desired_rows(4)
                     .desired_width(f32::INFINITY),
             );
 
@@ -3325,6 +3636,42 @@ impl RuhiStudioApp {
                     }
                 }
 
+                if ui.button("🧭 主動探勘漢語三十二大句式盲點").clicked() {
+                    let res = self.consultant.chat_with_model_for_tuning(
+                        "請啟動主動探勘漢語句式盲點",
+                        &self.tune_error_input,
+                        &self.tune_correct_input,
+                        "",
+                        "zh-TW",
+                        &self.tuner,
+                    );
+                    if res.get("status").and_then(Value::as_str) == Some("ok") {
+                        self.nl_chat_reply = res
+                            .get("reply")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_string();
+                        self.nl_pending_constructions = res
+                            .get("proposed_constructions")
+                            .and_then(Value::as_array)
+                            .cloned()
+                            .unwrap_or_default();
+                        self.nl_pending_rules = res
+                            .get("proposed_rules")
+                            .and_then(Value::as_array)
+                            .cloned()
+                            .unwrap_or_default();
+                        self.nl_pending_words = res
+                            .get("proposed_words")
+                            .and_then(Value::as_array)
+                            .cloned()
+                            .unwrap_or_default();
+                        self.shell
+                            .toasts
+                            .info("🧭 已完成漢語三十二大句法構式主動盲測探勘！");
+                    }
+                }
+
                 let has_proposals = !self.nl_pending_constructions.is_empty()
                     || !self.nl_pending_rules.is_empty()
                     || !self.nl_pending_words.is_empty();
@@ -3343,15 +3690,35 @@ impl RuhiStudioApp {
                     let bench = self.tuner.verify_golden_benchmark();
                     let passed = bench.get("passed").and_then(Value::as_i64).unwrap_or(30);
                     let total = bench.get("total").and_then(Value::as_i64).unwrap_or(30);
+                    let evo_after = self.tuner.check_gemma4_evolution_status(1);
+                    let evo_msg = evo_after
+                        .get("message")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
                     let summary = format!(
                         "✅ 已套用對話提煉成果：寫入 {p_added} 組槽位構式、{r_added} 條二階轉移、{w_added} 個領域詞條｜黃金基準驗證：{passed}/{total} 通過！"
                     );
                     self.nl_chat_reply.push_str("\n\n");
                     self.nl_chat_reply.push_str(&summary);
+                    if !evo_msg.is_empty() {
+                        self.nl_chat_reply.push_str("\n");
+                        self.nl_chat_reply.push_str(evo_msg);
+                    }
                     self.nl_pending_constructions.clear();
                     self.nl_pending_rules.clear();
                     self.nl_pending_words.clear();
-                    self.shell.toasts.success(summary);
+                    if p_added >= 1
+                        || evo_after
+                            .get("should_trigger_training")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(false)
+                    {
+                        self.shell.toasts.warning(format!(
+                            "{summary} 🔔 發現新語意構式，建議立即啟動雲端 Colab A100 微調！"
+                        ));
+                    } else {
+                        self.shell.toasts.success(summary);
+                    }
                 }
             });
 
@@ -3407,7 +3774,7 @@ impl RuhiStudioApp {
                     ))
                     .color(palette.fg_bright.to_egui()),
                 );
-                let evo_status = self.tuner.check_gemma4_evolution_status(5);
+                let evo_status = self.tuner.check_gemma4_evolution_status(1);
                 let evo_msg = evo_status
                     .get("message")
                     .and_then(Value::as_str)
@@ -3434,20 +3801,21 @@ impl RuhiStudioApp {
                         let ps1_path = self.root_dir.join("雲端Colab微調Gemma4語意分析師.ps1");
                         if ps1_path.is_file() {
                             #[cfg(target_os = "windows")]
-                            let _ = Command::new("cmd.exe")
-                                .args([
-                                    "/c",
-                                    "start",
-                                    "RuhI Colab A100 Gemma 4 Training",
-                                    "powershell.exe",
-                                    "-NoExit",
-                                    "-ExecutionPolicy",
-                                    "Bypass",
-                                    "-File",
-                                    &ps1_path.to_string_lossy(),
-                                ])
-                                .current_dir(&self.root_dir)
-                                .spawn();
+                            {
+                                use std::os::windows::process::CommandExt;
+                                const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+                                let _ = Command::new("powershell.exe")
+                                    .args([
+                                        "-NoExit",
+                                        "-ExecutionPolicy",
+                                        "Bypass",
+                                        "-File",
+                                        &ps1_path.to_string_lossy(),
+                                    ])
+                                    .current_dir(&self.root_dir)
+                                    .creation_flags(CREATE_NEW_CONSOLE)
+                                    .spawn();
+                            }
                             self.shell.toasts.info("已在獨立終端機視窗喚起雲端 Colab A100 微調腳本！".to_string());
                         } else {
                             self.shell.toasts.warning("找不到 雲端Colab微調Gemma4語意分析師.ps1".to_string());
@@ -3458,41 +3826,28 @@ impl RuhiStudioApp {
                         .button("📦 產製 Gemma 4 語意分析師訓練資料集 (JSONL)")
                         .clicked()
                     {
-                        let script = self.root_dir.join("tools").join("build_gemma4_analyst_dataset.py");
-                        if let Ok(out) = Command::new("python")
-                            .arg(&script)
-                            .current_dir(&self.root_dir)
-                            .output()
-                        {
-                            let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-                            let msg = if !stdout.is_empty() { stdout } else { stderr };
-                            self.tune_output_log = msg.clone();
-                            self.shell.toasts.success("已產製 Gemma 4 語意分析師訓練資料集！".to_string());
-                        }
+                        let stats = self.tuner.build_gemma4_analyst_dataset();
+                        self.tune_output_log =
+                            serde_json::to_string_pretty(&stats).unwrap_or_default();
+                        self.shell.toasts.success(
+                            "已透過 Rust 原生引擎產製 Gemma 4 語意分析師訓練資料集！".to_string(),
+                        );
                     }
 
                     if ui
                         .button("🚀 執行 Colab CLI 環境與管線自檢 (--status)")
                         .clicked()
                     {
-                        let script = self.root_dir.join("tools").join("colab_gemma4_pipeline.py");
-                        if let Ok(out) = Command::new("python")
-                            .args([script.to_string_lossy().as_ref(), "--status"])
-                            .current_dir(&self.root_dir)
-                            .output()
-                        {
-                            let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                            self.tune_output_log = stdout;
-                            self.shell.toasts.info("已更新 Colab CLI 管線狀態".to_string());
-                        }
+                        let status = self.tuner.get_colab_gemma4_pipeline_status();
+                        self.tune_output_log =
+                            serde_json::to_string_pretty(&status).unwrap_or_default();
+                        self.shell.toasts.info("已更新 Colab CLI 管線狀態".to_string());
                     }
 
                     if ui.button("📂 開啟 Colab 筆記本與訓練工具目錄").clicked() {
                         let nb_dir = self.root_dir.join("notebooks");
                         let target = if nb_dir.is_dir() { nb_dir } else { self.root_dir.join("tools") };
-                        #[cfg(target_os = "windows")]
-                        let _ = Command::new("explorer.exe").arg(&target).spawn();
+                        let _ = ruhi_studio::http_client::open_url_or_path(&target.to_string_lossy());
                     }
                 });
             });
@@ -3520,10 +3875,7 @@ impl RuhiStudioApp {
                 ui.label("• 官方社群：「如喜通用智慧型輸入法」LINE 社群");
                 if ui.button("💬 點擊開啟 LINE 社群邀請連結").clicked() {
                     let url = "https://line.me/ti/g2/iyLVoHye-Ho49K9SzQBaftTgFzej7stw9S1jSw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default";
-                    #[cfg(target_os = "windows")]
-                    let _ = Command::new("cmd.exe").args(["/c", "start", "", url]).spawn();
-                    #[cfg(not(target_os = "windows"))]
-                    let _ = Command::new("xdg-open").arg(url).spawn();
+                    let _ = ruhi_studio::http_client::open_url_or_path(url);
                 }
             });
         });
@@ -3581,24 +3933,51 @@ impl RuhiStudioApp {
         });
     }
 
-    fn spawn_web_studio_detached(&self) {
+    fn spawn_web_studio_detached(&mut self) {
         if let Ok(exe) = std::env::current_exe() {
+            let mut cmd = Command::new(&exe);
+            cmd.arg("--web").current_dir(&self.root_dir);
             #[cfg(target_os = "windows")]
-            let _ = Command::new("cmd.exe")
-                .args([
-                    "/c",
-                    "start",
-                    "RuhI Web Semantic Studio",
-                    &exe.to_string_lossy(),
-                    "--web",
-                ])
-                .current_dir(&self.root_dir)
-                .spawn();
-            #[cfg(not(target_os = "windows"))]
-            let _ = Command::new(&exe)
-                .arg("--web")
-                .current_dir(&self.root_dir)
-                .spawn();
+            {
+                use std::os::windows::process::CommandExt;
+                cmd.creation_flags(0x08000000);
+            }
+            let _ = cmd.spawn();
+            self.shell.toasts.success(
+                "🌐 已啟動獨立 Web 瀏覽器完整版「語意調校工作室」介面 (http://127.0.0.1:8765)！".to_string(),
+            );
+        }
+    }
+
+    fn spawn_standalone_tuner_app(&mut self) {
+        if let Ok(exe) = std::env::current_exe() {
+            let mut cmd = Command::new(&exe);
+            cmd.arg("--tuner-app").current_dir(&self.root_dir);
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                cmd.creation_flags(0x08000000);
+            }
+            let _ = cmd.spawn();
+            self.shell.toasts.success(
+                "🖥️ 已啟動獨立桌面版「如喜 AI 語意調校工作室」應用程式視窗！".to_string(),
+            );
+        }
+    }
+
+    fn spawn_preferences_app(&mut self) {
+        if let Ok(exe) = std::env::current_exe() {
+            let mut cmd = Command::new(&exe);
+            cmd.current_dir(&self.root_dir);
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                cmd.creation_flags(0x08000000);
+            }
+            let _ = cmd.spawn();
+            self.shell
+                .toasts
+                .info("⚙️ 已喚起「RuhI 現代化偏好設定中心」視窗！".to_string());
         }
     }
 }
@@ -3608,49 +3987,84 @@ impl eframe::App for RuhiStudioApp {
         self.shell.begin_frame(ctx);
 
         // 定期檢查單一實體喚醒訊號 (studio_wakeup.json) 與外部組態變更 (config.json)
-        if self.last_wakeup_check.elapsed() >= std::time::Duration::from_millis(200) {
+        if !self.standalone_tuner_mode
+            && self.last_wakeup_check.elapsed() >= std::time::Duration::from_millis(200)
+        {
             self.last_wakeup_check = std::time::Instant::now();
-            let wakeup_path = self.root_dir.join("studio_wakeup.json");
-            if let Ok(raw) = std::fs::read_to_string(&wakeup_path) {
-                if let Ok(val) = serde_json::from_str::<Value>(&raw) {
-                    let ts = val
-                        .get("ts")
-                        .or_else(|| val.get("timestamp"))
-                        .and_then(Value::as_u64)
-                        .unwrap_or(0);
-                    if ts > self.last_wakeup_ts {
-                        self.last_wakeup_ts = ts;
-                        if let Some(tab) = val
-                            .get("tab")
-                            .or_else(|| val.get("category"))
-                            .and_then(Value::as_str)
+            let wakeup_candidates = [
+                self.root_dir.join("studio_wakeup.json"),
+                self.root_dir.join("dist").join("studio_wakeup.json"),
+                self.root_dir.join("scripts").join("studio_wakeup.json"),
+            ];
+            let mut newest_val: Option<(u64, Value)> = None;
+            for wakeup_path in &wakeup_candidates {
+                if let Ok(raw) = std::fs::read_to_string(wakeup_path) {
+                    if let Ok(val) = serde_json::from_str::<Value>(&raw) {
+                        let ts = val
+                            .get("ts")
+                            .or_else(|| val.get("timestamp"))
+                            .and_then(Value::as_u64)
+                            .unwrap_or(0);
+                        if ts > self.last_wakeup_ts
+                            && newest_val.as_ref().map(|(best, _)| ts > *best).unwrap_or(true)
                         {
-                            match tab {
-                                "SemanticTuner" => {
-                                    self.current_category = StudioCategory::SemanticTuner
-                                }
-                                "Appearance" | "AppearanceLang" => {
-                                    self.appearance_tree_expanded = true;
-                                    self.current_category = StudioCategory::AppearanceLang;
-                                }
-                                "AppearanceInputMode" => {
-                                    self.appearance_tree_expanded = true;
-                                    self.current_category = StudioCategory::AppearanceInputMode;
-                                }
-                                "AppearanceCandidateDesk" => {
-                                    self.appearance_tree_expanded = true;
-                                    self.current_category = StudioCategory::AppearanceCandidateDesk;
-                                }
-                                "AppearanceThemeCapsule" => {
-                                    self.appearance_tree_expanded = true;
-                                    self.current_category = StudioCategory::AppearanceThemeCapsule;
-                                }
-                                _ => {}
-                            }
+                            newest_val = Some((ts, val));
                         }
-                        self.settings = load_settings(&self.root_dir);
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                    }
+                }
+            }
+            if let Some((ts, val)) = newest_val {
+                self.last_wakeup_ts = ts;
+                if let Some(tab) = val
+                    .get("tab")
+                    .or_else(|| val.get("category"))
+                    .and_then(Value::as_str)
+                {
+                    match tab {
+                        "SemanticTuner" => {
+                            self.current_category = StudioCategory::SemanticTuner
+                        }
+                        "Appearance" => {
+                            self.appearance_tree_expanded = true;
+                            self.current_category = StudioCategory::Appearance;
+                        }
+                        "AppearanceLang" => {
+                            self.appearance_tree_expanded = true;
+                            self.current_category = StudioCategory::AppearanceLang;
+                        }
+                        "AppearanceInputMode" => {
+                            self.appearance_tree_expanded = true;
+                            self.current_category = StudioCategory::AppearanceInputMode;
+                        }
+                        "AppearanceCandidateDesk" => {
+                            self.appearance_tree_expanded = true;
+                            self.current_category = StudioCategory::AppearanceCandidateDesk;
+                        }
+                        "AppearanceThemeCapsule" => {
+                            self.appearance_tree_expanded = true;
+                            self.current_category = StudioCategory::AppearanceThemeCapsule;
+                        }
+                        _ => {}
+                    }
+                }
+                self.settings = load_settings(&self.root_dir);
+                ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                #[cfg(target_os = "windows")]
+                unsafe {
+                    if let Some(hwnd) = find_any_studio_window_win32() {
+                        use windows_sys::Win32::UI::WindowsAndMessaging::{
+                            BringWindowToTop, IsIconic, SetForegroundWindow, ShowWindow,
+                            SW_RESTORE, SW_SHOW,
+                        };
+                        if IsIconic(hwnd) != 0 {
+                            ShowWindow(hwnd, SW_RESTORE);
+                        } else {
+                            ShowWindow(hwnd, SW_SHOW);
+                        }
+                        let _ = BringWindowToTop(hwnd);
+                        let _ = SetForegroundWindow(hwnd);
                     }
                 }
             }
@@ -3673,9 +4087,87 @@ impl eframe::App for RuhiStudioApp {
         }
 
         let cur_ui_lang = self.effective_ui_lang();
+        if self.standalone_tuner_mode {
+            let tuner_title = "🧬 如喜 (RuhI) — AI 神經符號語意調校工作室 (Gemma 4 E4B Specialist Studio)";
+            let tuner_sub = "100% 獨立全寬度語意分析工作台 · 雙向最大匹配詞界對齊 × 六大計算語言學病灶診斷 × 沙盒三重零迴歸驗證";
+            let zoom_btn_fmt = format!("🔍 縮放 {}% (Ctrl+0)", (self.shell.ui_scale * 100.0).round() as i32);
+            let theme_btn_lbl = "🎨 切換深淺色 (Ctrl+T)";
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(tuner_title.to_string()));
+
+            egui::TopBottomPanel::top("ruhi_tuner_standalone_top_bar")
+                .exact_height(58.0 * self.shell.ui_scale)
+                .show(ctx, |ui| {
+                    ui.horizontal_centered(|ui| {
+                        ui.add_space(8.0);
+                        ui.vertical(|ui| {
+                            ui.add_space(6.0);
+                            ui.label(
+                                egui::RichText::new(tuner_title)
+                                    .size(17.0 * self.shell.ui_scale)
+                                    .strong()
+                                    .color(self.shell.palette.accent.to_egui()),
+                            );
+                            ui.label(
+                                egui::RichText::new(tuner_sub)
+                                    .size(11.5 * self.shell.ui_scale)
+                                    .color(self.shell.palette.fg_muted.to_egui()),
+                            );
+                        });
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.add_space(10.0);
+                            if ui
+                                .button(zoom_btn_fmt)
+                                .on_hover_text("支援 Ctrl + 滑鼠滾輪 或 Ctrl + +/-/0 即時無段縮放")
+                                .clicked()
+                            {
+                                self.shell.set_ui_scale(1.0);
+                            }
+                            if ui.button(theme_btn_lbl).clicked() {
+                                let next = self
+                                    .shell
+                                    .theme_pref
+                                    .toggle_dark_light(self.shell.palette.is_dark);
+                                self.shell.set_theme_preference(next);
+                                self.settings.appearance.theme = next.as_code().to_string();
+                                self.auto_save_settings_quiet();
+                            }
+                            if ui
+                                .button("🌐 啟動 Web 瀏覽器完整版介面")
+                                .on_hover_text("於預設瀏覽器開啟 http://127.0.0.1:8765 完整網頁版工作台")
+                                .clicked()
+                            {
+                                self.spawn_web_studio_detached();
+                            }
+                            if ui
+                                .button("⚙️ 開啟偏好設定中心")
+                                .on_hover_text("開啟獨立的「RuhI 現代化偏好設定中心」視窗")
+                                .clicked()
+                            {
+                                self.spawn_preferences_app();
+                            }
+                        });
+                    });
+                });
+
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let panel_avail_w = ui.available_width();
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        let content_w = (panel_avail_w - 12.0 * self.shell.ui_scale).max(320.0);
+                        ui.set_max_width(content_w);
+                        ui.set_min_width(content_w);
+                        self.render_semantic_tuner_page(ui);
+                    });
+            });
+
+            self.shell.end_frame(ctx);
+            return;
+        }
+
         let (app_title, app_sub, zoom_btn_fmt, theme_btn_lbl, reset_btn_lbl, save_btn_lbl) = match cur_ui_lang {
             "en-US" => (
-                "RuhI Universal IME — Preferences & Semantic Studio",
+                "RuhI Universal IME — Preferences",
                 "Responsive Universal Human Input · 100% Native Rust + UniversalUI (atg_lib)",
                 format!("🔍 Zoom {}% (Ctrl+0)", (self.shell.ui_scale * 100.0).round() as i32),
                 "🎨 Theme (Ctrl+T)",
@@ -3848,6 +4340,20 @@ impl eframe::App for RuhiStudioApp {
                             );
                         if top_mode_changed {
                             self.auto_save_settings_quiet();
+                        }
+
+                        if self.settings.grammar.studio_access_tier != "pure" {
+                            if ui
+                                .button(
+                                    egui::RichText::new("🧬 啟動獨立語意調校工作室")
+                                        .size(12.5 * self.shell.ui_scale)
+                                        .strong(),
+                                )
+                                .on_hover_text("一鍵啟動獨立桌面版「如喜 AI 語意調校工作室」應用程式")
+                                .clicked()
+                            {
+                                self.spawn_standalone_tuner_app();
+                            }
                         }
                     });
                 });
@@ -4057,7 +4563,8 @@ impl eframe::App for RuhiStudioApp {
                         StudioCategory::MixedEnglish => self.render_mixed_english_page(ui),
                         StudioCategory::Grammar => self.render_grammar_page(ui),
                         StudioCategory::AiAndPrivacy => self.render_ai_privacy_page(ui),
-                        StudioCategory::SemanticTuner => self.render_semantic_tuner_page(ui),
+                        // 在偏好設定中心內，不再把龐大的語意調校工作室硬塞進狹窄分頁，改以清爽的「獨立應用程式與 Web 介面啟動中心」呈現
+                        StudioCategory::SemanticTuner => self.render_semantic_tuner_launcher_card(ui),
                         StudioCategory::About => self.render_about_page(ui),
                     }
                 });
@@ -4067,8 +4574,10 @@ impl eframe::App for RuhiStudioApp {
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        self.settings.appearance.sidebar_width = self.shell.sidebar_width.round() as i32;
-        let _ = save_settings(&self.root_dir, &mut self.settings);
+        if !self.standalone_tuner_mode {
+            self.settings.appearance.sidebar_width = self.shell.sidebar_width.round() as i32;
+            let _ = save_settings(&self.root_dir, &mut self.settings);
+        }
         self.shell.save_state();
     }
 }
@@ -4076,6 +4585,9 @@ impl eframe::App for RuhiStudioApp {
 /// 執行無頭自動化自我驗證 (`--test`)，驗證完成立即退出，絕不阻塞背景
 fn run_headless_self_test() -> i32 {
     let mut app = RuhiStudioApp::new(StudioCategory::Appearance);
+    let standalone_app = RuhiStudioApp::new_with_mode(StudioCategory::SemanticTuner, None, true);
+    assert!(standalone_app.standalone_tuner_mode);
+    assert_eq!(standalone_app.current_category, StudioCategory::SemanticTuner);
 
     // 1. 驗證全分類與「外觀與候選座」及「鍵盤配置與歐亞全譜樹」樹狀子分枝切換
     assert_eq!(StudioCategory::APPEARANCE_BRANCHES.len(), 4);
@@ -4262,10 +4774,104 @@ fn run_headless_self_test() -> i32 {
     assert_eq!(spec_status["has_lora_adapter"], true);
     assert_eq!(spec_status["base_model"], "google/gemma-4-e4b-it");
 
+    // 5h. 驗證在 AI 對話框指定語料檔路徑（如 `請依據 "C:\Users\Yuktesha\Desktop\語意分析.txt" 檢查目前的語意規則是否健全。`）時，直接讀取檔案並執行實況 Viterbi 體檢
+    let corpus_chat_res = app.consultant.chat_with_model_for_tuning(
+        r#"請依據 "C:\Users\Yuktesha\Desktop\語意分析.txt" 檢查目前的語意規則是否健全。"#,
+        "讓步董程式的人也能輕鬆上手",
+        "讓不懂程式的人也能輕鬆上手",
+        "",
+        "zh-TW",
+        &app.tuner,
+    );
+    assert_eq!(corpus_chat_res["status"], "ok");
+    let corpus_reply = corpus_chat_res["reply"].as_str().unwrap_or("");
+    println!("\n[AI Corpus Audit Reply]\n{}\n", corpus_reply);
+    assert!(
+        corpus_reply.contains("語意分析.txt") && !corpus_reply.contains("I am an AI and cannot"),
+        "Corpus file audit must read the file and reply in grounded Traditional Chinese without English disclaimer hallucinations"
+    );
+
+    // 5i. 驗證一次提供三組對照句時，3 組皆完整解析（第 1 組、第 2 組、第 3 組）且回應時間 < 200ms
+    let t0 = std::time::Instant::now();
+    let three_pairs_msg = "\
+1. 讓步董程式的人也能輕鬆上手
+讓不懂程式的人也能輕鬆上手
+2. 感恩，那就稅兩教後來處理
+感恩，那就睡兩覺後來處理
+3. 對於細節空會感到非常滿意
+對於細節控會感到非常滿意";
+    let multi_res = app.consultant.chat_with_model_for_tuning(
+        three_pairs_msg,
+        "",
+        "",
+        "",
+        "zh-TW",
+        &app.tuner,
+    );
+    let elapsed_ms = t0.elapsed().as_millis();
+    assert_eq!(multi_res["status"], "ok");
+    assert_eq!(multi_res["extracted_pairs_count"], 3);
+    let multi_reply = multi_res["reply"].as_str().unwrap_or("");
+    println!(
+        "\n[AI 3-Pair Batch Reply in {elapsed_ms} ms]\n{}\n",
+        multi_reply
+    );
+    assert!(
+        multi_reply.contains("第 1 組對照句診斷")
+            && multi_reply.contains("第 2 組對照句診斷")
+            && multi_reply.contains("第 3 組對照句診斷"),
+        "Must analyze all 3 contrast sentence pairs"
+    );
+    assert!(
+        multi_reply.contains("不懂") && multi_reply.contains("睡") && multi_reply.contains("細節控"),
+        "Must diagnose lesions from all 3 pairs"
+    );
+    assert!(
+        elapsed_ms < 500,
+        "3-pair diagnosis should be instantaneous (< 500ms), got {elapsed_ms}ms"
+    );
+
+    // 5j. 驗證使用者實測之四組對照句（書入髮辮➔輸入法變、奇妙方是➔奇妙方式、任醫書入魔是➔任一輸入模式、塌完承德➔他完成得）
+    let user_4_msg = "\
+我把書入髮辮聰明了
+我把輸入法變聰明了
+
+表演一個輸入法的奇妙方是給你看
+表演一個輸入法的奇妙方式給你看
+
+任醫書入魔是按右鍵
+任一輸入模式按右鍵
+
+請幫我檢查塌完承德對不對？
+請幫我檢查他完成得對不對？";
+    let user_4_res = app.consultant.chat_with_model_for_tuning(
+        user_4_msg,
+        "",
+        "",
+        "",
+        "zh-TW",
+        &app.tuner,
+    );
+    assert_eq!(user_4_res["status"], "ok");
+    assert_eq!(user_4_res["extracted_pairs_count"], 4);
+    let user_4_reply = user_4_res["reply"].as_str().unwrap_or("");
+    println!("\n[AI 4-Pair User Audit Reply]\n{}\n", user_4_reply);
+    for pid in [
+        "disposal_ba_causative_state_change_4d_array",
+        "modifier_abstract_method_noun_dative_3d_array",
+        "universal_determiner_renyi_input_mode_action_3d_array",
+        "verb_cheng_de_state_complement_eval_4d_array",
+    ] {
+        assert!(
+            user_4_reply.contains(pid),
+            "4-pair audit reply must synthesize specialized multi-slot construction `{pid}`"
+        );
+    }
+
     // 6. 驗證設定持久化與跨目錄同步
     app.save_all();
 
-    println!("[OK] RuhiStudioApp (Rust native atg_lib) rud() layout, theme, config sync, Tailcat gatekeeper, Gemma 4 Specialist telemetry, and 51-item Viterbi semantic tuner self-test passed!");
+    println!("[OK] RuhiStudioApp (Rust native atg_lib) rud() layout, theme, config sync, Tailcat gatekeeper, Gemma 4 Specialist telemetry, standalone tuner mode, and 51-item Viterbi semantic tuner self-test passed!");
     0
 }
 
@@ -4347,6 +4953,91 @@ fn run_interactive_cli(tuner: &mut SemanticTuner) -> i32 {
     0
 }
 
+#[cfg(target_os = "windows")]
+unsafe fn find_any_studio_window_win32() -> Option<windows_sys::Win32::Foundation::HWND> {
+    use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, FindWindowW, GetWindowTextW, IsWindow,
+    };
+
+    let exact_title: Vec<u16> = "RuhI（如喜）輸入法 — 現代化偏好設定中心\0"
+        .encode_utf16()
+        .collect();
+    let h = FindWindowW(std::ptr::null(), exact_title.as_ptr());
+    if !h.is_null() && IsWindow(h) != 0 {
+        return Some(h);
+    }
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let mut buf = [0u16; 256];
+        let len = GetWindowTextW(hwnd, buf.as_mut_ptr(), buf.len() as i32);
+        if len > 0 {
+            let title = String::from_utf16_lossy(&buf[..len as usize]);
+            if title.starts_with("RuhI（如喜）輸入法 — 現代化偏好設定")
+                || title.starts_with("RuhI Universal IME — Preferences")
+                || title.starts_with("RuhI（如喜）入力システム — 環境設定")
+                || title.starts_with("RuhI 범용 입력기 — 환경설정")
+            {
+                let out_ptr = lparam as *mut HWND;
+                if !out_ptr.is_null() {
+                    *out_ptr = hwnd;
+                }
+                return 0;
+            }
+        }
+        1
+    }
+
+    let mut found: HWND = std::ptr::null_mut();
+    let _ = EnumWindows(Some(enum_proc), &mut found as *mut HWND as LPARAM);
+    if !found.is_null() && IsWindow(found) != 0 {
+        Some(found)
+    } else {
+        None
+    }
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn find_any_tuner_window_win32() -> Option<windows_sys::Win32::Foundation::HWND> {
+    use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, FindWindowW, GetWindowTextW, IsWindow,
+    };
+
+    let exact_title: Vec<u16> =
+        "🧬 如喜 (RuhI) — AI 神經符號語意調校工作室 (Gemma 4 E4B Specialist Studio)\0"
+            .encode_utf16()
+            .collect();
+    let h = FindWindowW(std::ptr::null(), exact_title.as_ptr());
+    if !h.is_null() && IsWindow(h) != 0 {
+        return Some(h);
+    }
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let mut buf = [0u16; 256];
+        let len = GetWindowTextW(hwnd, buf.as_mut_ptr(), buf.len() as i32);
+        if len > 0 {
+            let title = String::from_utf16_lossy(&buf[..len as usize]);
+            if title.contains("AI 神經符號語意調校工作室") {
+                let out_ptr = lparam as *mut HWND;
+                if !out_ptr.is_null() {
+                    *out_ptr = hwnd;
+                }
+                return 0;
+            }
+        }
+        1
+    }
+
+    let mut found: HWND = std::ptr::null_mut();
+    let _ = EnumWindows(Some(enum_proc), &mut found as *mut HWND as LPARAM);
+    if !found.is_null() && IsWindow(found) != 0 {
+        Some(found)
+    } else {
+        None
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
@@ -4389,7 +5080,7 @@ fn main() {
                 mark_tuned_rows_arg = args[i + 1].clone();
                 i += 1;
             }
-            "--tuner" => is_tuner_gui = true,
+            "--tuner" | "--tuner-app" => is_tuner_gui = true,
             "--no-browser" => no_browser = true,
             "--port" if i + 1 < args.len() => {
                 port = args[i + 1].parse().unwrap_or(8765);
@@ -4425,204 +5116,227 @@ fn main() {
     }
 
     let root = resolve_ruhi_root();
-    let mut tuner = SemanticTuner::new(Some(&root));
+    let has_cli_action = is_export_tailcat_feed
+        || is_tailcat_sync
+        || is_upload_revisions
+        || is_fetch_cloud_sheet
+        || !mark_tuned_rows_arg.is_empty()
+        || !pull_community_url.is_empty()
+        || is_verify
+        || is_tailcat
+        || is_auto_align
+        || (!err_arg.is_empty() && !cor_arg.is_empty())
+        || (!file_arg.is_empty() && !is_web)
+        || is_cli
+        || is_web;
 
-    if is_export_tailcat_feed {
-        let feed = tuner.export_official_tailcat_feed();
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&json!({
-                "status": "ok",
-                "latest_version": feed["latest_version"],
-                "rules_count": feed["rules_count"],
-                "saved_to": root.join("ruhi_lexicon").join("data").join("tailcat_official_feed.json").to_string_lossy()
-            }))
-            .unwrap_or_default()
-        );
-        std::process::exit(0);
-    }
+    if has_cli_action {
+        let mut tuner = SemanticTuner::new(Some(&root));
 
-    if is_tailcat_sync {
-        let mut settings = load_settings(&root);
-        let feed_url = settings.ai_and_privacy.tailcat_feed_url.clone();
-        let update_mode = settings.ai_and_privacy.tailcat_update_mode.clone();
-        let sync_res = tuner.pull_community_rules_with_etag(&feed_url, false);
-        if sync_res.get("status").and_then(Value::as_str) == Some("ok")
-            || sync_res.get("status").and_then(Value::as_str) == Some("not_modified")
-        {
+        if is_export_tailcat_feed {
+            let feed = tuner.export_official_tailcat_feed();
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&json!({
+                    "status": "ok",
+                    "latest_version": feed["latest_version"],
+                    "rules_count": feed["rules_count"],
+                    "saved_to": root.join("ruhi_lexicon").join("data").join("tailcat_official_feed.json").to_string_lossy()
+                }))
+                .unwrap_or_default()
+            );
+            std::process::exit(0);
+        }
+
+        if is_tailcat_sync {
+            let mut settings = load_settings(&root);
+            let feed_url = settings.ai_and_privacy.tailcat_feed_url.clone();
+            let update_mode = settings.ai_and_privacy.tailcat_update_mode.clone();
             let now_ts = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
                 .unwrap_or(0);
             settings.ai_and_privacy.last_tailcat_sync_timestamp = now_ts;
             let _ = save_settings(&root, &mut settings);
-            let _ = tuner.handle_tailcat_version_upgrade(&sync_res, &update_mode);
-        }
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&sync_res).unwrap_or_default()
-        );
-        std::process::exit(0);
-    }
-
-    if is_upload_revisions {
-        let mut settings = load_settings(&root);
-        let res = tuner.upload_revisions_to_cloud_sheet(
-            &settings.ai_and_privacy.cloud_sheet_webhook_url,
-            settings.ai_and_privacy.zero_pii_gateway,
-        );
-        if res.get("status").and_then(Value::as_str) == Some("ok") {
-            if let Some(ts) = res.get("timestamp").and_then(Value::as_u64) {
-                settings.ai_and_privacy.last_upload_timestamp = ts;
-                let _ = save_settings(&root, &mut settings);
-            }
-        }
-        // 背景同步上傳時，若開啟 Tailcat 自動同步，一併執行 ETag 零流量詞庫熱更新與版本檢查
-        if settings.ai_and_privacy.tailcat_auto_sync
-            && settings.ai_and_privacy.tailcat_update_mode != "manual"
-        {
-            let feed_url = settings.ai_and_privacy.tailcat_feed_url.clone();
-            let update_mode = settings.ai_and_privacy.tailcat_update_mode.clone();
             let sync_res = tuner.pull_community_rules_with_etag(&feed_url, false);
             if sync_res.get("status").and_then(Value::as_str) == Some("ok")
                 || sync_res.get("status").and_then(Value::as_str) == Some("not_modified")
             {
-                let now_ts = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_secs())
-                    .unwrap_or(0);
-                settings.ai_and_privacy.last_tailcat_sync_timestamp = now_ts;
-                let _ = save_settings(&root, &mut settings);
                 let _ = tuner.handle_tailcat_version_upgrade(&sync_res, &update_mode);
             }
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&sync_res).unwrap_or_default()
+            );
+            std::process::exit(0);
         }
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&res).unwrap_or_default()
-        );
-        std::process::exit(0);
-    }
 
-    if is_fetch_cloud_sheet {
-        let settings = load_settings(&root);
-        let res = tuner.fetch_pending_revisions_from_cloud_sheet(
-            &settings.ai_and_privacy.cloud_sheet_webhook_url,
-        );
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&res).unwrap_or_default()
-        );
-        std::process::exit(0);
-    }
+        if is_upload_revisions {
+            let mut settings = load_settings(&root);
+            let now_ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            settings.ai_and_privacy.last_upload_timestamp = now_ts;
+            let _ = save_settings(&root, &mut settings);
 
-    if !mark_tuned_rows_arg.is_empty() {
-        let settings = load_settings(&root);
-        let rows: Vec<u64> = mark_tuned_rows_arg
-            .split(',')
-            .filter_map(|s| s.trim().parse::<u64>().ok())
-            .collect();
-        let res = tuner.mark_cloud_sheet_rows_tuned(
-            &settings.ai_and_privacy.cloud_sheet_webhook_url,
-            &rows,
-        );
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&res).unwrap_or_default()
-        );
-        std::process::exit(0);
-    }
-
-    if !pull_community_url.is_empty() {
-        let res = tuner.pull_community_rules_with_etag(&pull_community_url, false);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&res).unwrap_or_default()
-        );
-        std::process::exit(0);
-    }
-
-    if is_verify {
-        let res = tuner.verify_golden_benchmark();
-        println!(
-            "========================================================================\n  如喜輸入法 (RuhI) 黃金基準測試結果：{}/{} ({})\n========================================================================",
-            res["passed"],
-            res["total"],
-            res["pass_rate"].as_str().unwrap_or("100%")
-        );
-        std::process::exit(0);
-    }
-
-    if is_tailcat {
-        let sample = vec![
-            json!({"prev": "讓", "next": "不懂", "score": 26.0, "kind": "collocation"}),
-            json!({"prev": "不懂", "next": "程式", "score": 26.0, "kind": "collocation"}),
-        ];
-        let pkg = tuner.package_tailcat_proposal(&sample);
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&pkg).unwrap_or_default()
-        );
-        std::process::exit(0);
-    }
-
-    if is_auto_align {
-        let mut consultant = AISemanticConsultant::new(Some(&root));
-        let res = consultant.sublimate_revisions(&mut tuner);
-        println!(
-            "{}",
-            res["explanation"].as_str().unwrap_or("自動對齊昇華完成。")
-        );
-        std::process::exit(0);
-    }
-
-    if !err_arg.is_empty() && !cor_arg.is_empty() {
-        let diffs = tuner.align_sentence_pair(&err_arg, &cor_arg, None, None);
-        let mut all_rules = Vec::new();
-        let mut oov_words = Vec::new();
-        for d in &diffs {
-            if let Some(ws) = d.get("oov_compound_words").and_then(Value::as_array) {
-                oov_words.extend(ws.clone());
+            let res = tuner.upload_revisions_to_cloud_sheet(
+                &settings.ai_and_privacy.cloud_sheet_webhook_url,
+                settings.ai_and_privacy.zero_pii_gateway,
+            );
+            if let Some(ts) = res.get("timestamp").and_then(Value::as_u64) {
+                settings.ai_and_privacy.last_upload_timestamp = ts;
+                let _ = save_settings(&root, &mut settings);
             }
-            all_rules.extend(tuner.synthesize_rules(d));
-        }
-        let w_added = tuner.append_words_to_domain_lexicon(&oov_words);
-        let r_added = tuner.append_rules_to_tsv(&all_rules);
-        println!(
-            "✅ 對齊完成！已新增 {r_added} 條二階轉移規則與 {w_added} 個領域複合詞。"
-        );
-        std::process::exit(0);
-    }
-
-    if !file_arg.is_empty() && !is_web {
-        if let Some(p) = tuner.resolve_local_txt_file(&file_arg, &file_arg) {
-            let pairs = tuner.load_pairs_from_file(&p);
-            let mut all_rules = Vec::new();
-            for pair in &pairs {
-                let e = pair.get("error").and_then(Value::as_str).unwrap_or("");
-                let c = pair.get("correct").and_then(Value::as_str).unwrap_or("");
-                for d in tuner.align_sentence_pair(e, c, None, None) {
-                    all_rules.extend(tuner.synthesize_rules(&d));
+            // 背景同步上傳時，若開啟 Tailcat 自動同步且已達週期，一併執行 ETag 零流量詞庫熱更新與版本檢查
+            let interval_secs = match settings.ai_and_privacy.upload_schedule.as_str() {
+                "daily" => 86_400u64,
+                "weekly" => 604_800u64,
+                _ => 86_400u64,
+            };
+            if settings.ai_and_privacy.tailcat_auto_sync
+                && settings.ai_and_privacy.tailcat_update_mode != "manual"
+                && now_ts.saturating_sub(settings.ai_and_privacy.last_tailcat_sync_timestamp) >= interval_secs
+            {
+                settings.ai_and_privacy.last_tailcat_sync_timestamp = now_ts;
+                let _ = save_settings(&root, &mut settings);
+                let feed_url = settings.ai_and_privacy.tailcat_feed_url.clone();
+                let update_mode = settings.ai_and_privacy.tailcat_update_mode.clone();
+                let sync_res = tuner.pull_community_rules_with_etag(&feed_url, false);
+                if sync_res.get("status").and_then(Value::as_str) == Some("ok")
+                    || sync_res.get("status").and_then(Value::as_str) == Some("not_modified")
+                {
+                    let _ = tuner.handle_tailcat_version_upgrade(&sync_res, &update_mode);
                 }
             }
-            let added = tuner.append_rules_to_tsv(&all_rules);
-            println!("✅ 批次處理完成！已注入 {added} 條二階條件轉移規則。");
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&res).unwrap_or_default()
+            );
             std::process::exit(0);
-        } else {
-            eprintln!("❌ 找不到指定語料檔案：{file_arg}");
-            std::process::exit(1);
         }
-    }
 
-    if is_cli {
-        std::process::exit(run_interactive_cli(&mut tuner));
-    }
-
-    if is_web {
-        if let Err(e) = start_web_studio(tuner, port, file_arg, !no_browser) {
-            eprintln!("❌ Web 伺服器啟動失敗：{e}");
-            std::process::exit(1);
+        if is_fetch_cloud_sheet {
+            let settings = load_settings(&root);
+            let res = tuner.fetch_pending_revisions_from_cloud_sheet(
+                &settings.ai_and_privacy.cloud_sheet_webhook_url,
+            );
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&res).unwrap_or_default()
+            );
+            std::process::exit(0);
         }
-        return;
+
+        if !mark_tuned_rows_arg.is_empty() {
+            let settings = load_settings(&root);
+            let rows: Vec<u64> = mark_tuned_rows_arg
+                .split(',')
+                .filter_map(|s| s.trim().parse::<u64>().ok())
+                .collect();
+            let res = tuner.mark_cloud_sheet_rows_tuned(
+                &settings.ai_and_privacy.cloud_sheet_webhook_url,
+                &rows,
+            );
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&res).unwrap_or_default()
+            );
+            std::process::exit(0);
+        }
+
+        if !pull_community_url.is_empty() {
+            let res = tuner.pull_community_rules_with_etag(&pull_community_url, false);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&res).unwrap_or_default()
+            );
+            std::process::exit(0);
+        }
+
+        if is_verify {
+            let res = tuner.verify_golden_benchmark();
+            println!(
+                "========================================================================\n  如喜輸入法 (RuhI) 黃金基準測試結果：{}/{} ({})\n========================================================================",
+                res["passed"],
+                res["total"],
+                res["pass_rate"].as_str().unwrap_or("100%")
+            );
+            std::process::exit(0);
+        }
+
+        if is_tailcat {
+            let sample = vec![
+                json!({"prev": "讓", "next": "不懂", "score": 26.0, "kind": "collocation"}),
+                json!({"prev": "不懂", "next": "程式", "score": 26.0, "kind": "collocation"}),
+            ];
+            let pkg = tuner.package_tailcat_proposal(&sample);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&pkg).unwrap_or_default()
+            );
+            std::process::exit(0);
+        }
+
+        if is_auto_align {
+            let mut consultant = AISemanticConsultant::new(Some(&root));
+            let res = consultant.sublimate_revisions(&mut tuner);
+            println!(
+                "{}",
+                res["explanation"].as_str().unwrap_or("自動對齊昇華完成。")
+            );
+            std::process::exit(0);
+        }
+
+        if !err_arg.is_empty() && !cor_arg.is_empty() {
+            let diffs = tuner.align_sentence_pair(&err_arg, &cor_arg, None, None);
+            let mut all_rules = Vec::new();
+            let mut oov_words = Vec::new();
+            for d in &diffs {
+                if let Some(ws) = d.get("oov_compound_words").and_then(Value::as_array) {
+                    oov_words.extend(ws.clone());
+                }
+                all_rules.extend(tuner.synthesize_rules(d));
+            }
+            let w_added = tuner.append_words_to_domain_lexicon(&oov_words);
+            let r_added = tuner.append_rules_to_tsv(&all_rules);
+            println!(
+                "✅ 對齊完成！已新增 {r_added} 條二階轉移規則與 {w_added} 個領域複合詞。"
+            );
+            std::process::exit(0);
+        }
+
+        if !file_arg.is_empty() && !is_web {
+            if let Some(p) = tuner.resolve_local_txt_file(&file_arg, &file_arg) {
+                let pairs = tuner.load_pairs_from_file(&p);
+                let mut all_rules = Vec::new();
+                for pair in &pairs {
+                    let e = pair.get("error").and_then(Value::as_str).unwrap_or("");
+                    let c = pair.get("correct").and_then(Value::as_str).unwrap_or("");
+                    for d in tuner.align_sentence_pair(e, c, None, None) {
+                        all_rules.extend(tuner.synthesize_rules(&d));
+                    }
+                }
+                let added = tuner.append_rules_to_tsv(&all_rules);
+                println!("✅ 批次處理完成！已注入 {added} 條二階條件轉移規則。");
+                std::process::exit(0);
+            } else {
+                eprintln!("❌ 找不到指定語料檔案：{file_arg}");
+                std::process::exit(1);
+            }
+        }
+
+        if is_cli {
+            std::process::exit(run_interactive_cli(&mut tuner));
+        }
+
+        if is_web {
+            if let Err(e) = start_web_studio(tuner, port, file_arg, !no_browser) {
+                eprintln!("❌ Web 伺服器啟動失敗：{e}");
+                std::process::exit(1);
+            }
+            return;
+        }
     }
 
     let initial_cat = if is_tuner_gui {
@@ -4635,8 +5349,7 @@ fn main() {
     {
         use windows_sys::Win32::Foundation::ERROR_ALREADY_EXISTS;
         use windows_sys::Win32::UI::WindowsAndMessaging::{
-            BringWindowToTop, FindWindowW, IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE,
-            SW_SHOW,
+            BringWindowToTop, IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW,
         };
         #[link(name = "kernel32")]
         extern "system" {
@@ -4647,52 +5360,85 @@ fn main() {
             ) -> *mut std::ffi::c_void;
         }
 
-        let mutex_name: Vec<u16> = "Local\\RuhiStudioSingleInstanceMutex\0"
-            .encode_utf16()
-            .collect();
-        let title_w: Vec<u16> = "RuhI（如喜）輸入法 — 現代化偏好設定中心\0"
-            .encode_utf16()
-            .collect();
+        let mutex_str = if is_tuner_gui {
+            "Local\\RuhiSemanticTunerStandaloneMutex\0"
+        } else {
+            "Local\\RuhiStudioSingleInstanceMutex\0"
+        };
+        let mutex_name: Vec<u16> = mutex_str.encode_utf16().collect();
 
         unsafe {
             let _mutex = CreateMutexW(std::ptr::null(), 1, mutex_name.as_ptr());
             let already_exists =
                 windows_sys::Win32::Foundation::GetLastError() == ERROR_ALREADY_EXISTS;
-            let existing_hwnd = FindWindowW(std::ptr::null(), title_w.as_ptr());
-
-            if already_exists || !existing_hwnd.is_null() {
-                let ts = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_millis() as u64)
-                    .unwrap_or(1);
-                let tab_name = if is_tuner_gui {
-                    "SemanticTuner"
-                } else {
-                    "Appearance"
-                };
-                let payload = format!(r#"{{"tab":"{}","ts":{}}}"#, tab_name, ts);
-                let _ = std::fs::write(root.join("studio_wakeup.json"), &payload);
-                if let Some(parent) = root.parent() {
-                    let _ = std::fs::write(parent.join("studio_wakeup.json"), &payload);
-                }
-
-                if !existing_hwnd.is_null() {
-                    if IsIconic(existing_hwnd) != 0 {
-                        ShowWindow(existing_hwnd, SW_RESTORE);
+            let mut existing_hwnd = if is_tuner_gui {
+                find_any_tuner_window_win32()
+            } else {
+                find_any_studio_window_win32()
+            };
+            if already_exists && existing_hwnd.is_none() {
+                for _ in 0..6 {
+                    std::thread::sleep(std::time::Duration::from_millis(60));
+                    existing_hwnd = if is_tuner_gui {
+                        find_any_tuner_window_win32()
                     } else {
-                        ShowWindow(existing_hwnd, SW_SHOW);
+                        find_any_studio_window_win32()
+                    };
+                    if existing_hwnd.is_some() {
+                        break;
                     }
-                    let _ = BringWindowToTop(existing_hwnd);
-                    let _ = SetForegroundWindow(existing_hwnd);
                 }
+            }
+
+            if let Some(hwnd) = existing_hwnd {
+                if !is_tuner_gui {
+                    let ts = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as u64)
+                        .unwrap_or(1);
+                    let tab_name = "Appearance";
+                    let payload = format!(
+                        r#"{{"tab":"{}","category":"{}","ts":{},"timestamp":{}}}"#,
+                        tab_name, tab_name, ts, ts
+                    );
+                    for target in [
+                        root.join("studio_wakeup.json"),
+                        root.join("dist").join("studio_wakeup.json"),
+                        root.join("scripts").join("studio_wakeup.json"),
+                    ] {
+                        let _ = std::fs::write(target, &payload);
+                    }
+                    if let Some(parent) = root.parent() {
+                        let _ = std::fs::write(parent.join("studio_wakeup.json"), &payload);
+                    }
+                }
+
+                if IsIconic(hwnd) != 0 {
+                    ShowWindow(hwnd, SW_RESTORE);
+                } else {
+                    ShowWindow(hwnd, SW_SHOW);
+                }
+                let _ = BringWindowToTop(hwnd);
+                let _ = SetForegroundWindow(hwnd);
                 return;
             }
         }
     }
 
+    let win_title = if is_tuner_gui {
+        "🧬 如喜 (RuhI) — AI 神經符號語意調校工作室 (Gemma 4 E4B Specialist Studio)"
+    } else {
+        "RuhI（如喜）輸入法 — 現代化偏好設定中心"
+    };
+    let default_size = if is_tuner_gui {
+        [1240.0, 840.0]
+    } else {
+        [1020.0, 740.0]
+    };
+
     let mut viewport = egui::ViewportBuilder::default()
-        .with_title("RuhI（如喜）輸入法 — 現代化偏好設定中心")
-        .with_inner_size([1020.0, 740.0])
+        .with_title(win_title)
+        .with_inner_size(default_size)
         .with_min_inner_size([780.0, 540.0]);
     {
         const ICO_BYTES: &[u8] = include_bytes!("../../assets/ruhi.ico");
@@ -4708,11 +5454,15 @@ fn main() {
     };
 
     let _ = eframe::run_native(
-        "RuhI（如喜）輸入法 — 現代化偏好設定中心",
+        win_title,
         options,
         Box::new(move |_cc| {
             let cli_lang = if lang_arg.is_empty() { None } else { Some(lang_arg.clone()) };
-            Ok(Box::new(RuhiStudioApp::new_with_lang(initial_cat, cli_lang)))
+            Ok(Box::new(RuhiStudioApp::new_with_mode(
+                initial_cat,
+                cli_lang,
+                is_tuner_gui,
+            )))
         }),
     );
 }

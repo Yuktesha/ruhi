@@ -14,6 +14,7 @@
 //!    使用 Win32 核心可等待計時器 (`CreateWaitableTimerW` + `SetWaitableTimer(..., fResume = 1)`)，
 //!    可在系統進入 S3 睡眠後於指定秒數準時由硬體喚醒電腦。
 
+#[cfg(not(target_os = "windows"))]
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
@@ -77,14 +78,12 @@ pub fn turn_off_screen(lock: bool, delay_ms: u64) -> bool {
 /// 鎖定作業系統工作站 (`Win+L` / `loginctl lock-session`)。
 pub fn lock_workstation() -> bool {
     #[cfg(target_os = "windows")]
-    {
-        return Command::new("rundll32.exe")
-            .args(["user32.dll,LockWorkStation"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false);
+    unsafe {
+        #[link(name = "user32")]
+        extern "system" {
+            fn LockWorkStation() -> i32;
+        }
+        return LockWorkStation() != 0;
     }
 
     #[cfg(not(target_os = "windows"))]

@@ -208,7 +208,13 @@ try {
                 Get-ChildItem -Path "$canonicalDataDir\*" -File -Include "*.tsv", "*.jsonl", "*.json", "*.bin" -ErrorAction SilentlyContinue | ForEach-Object {
                     $destWFile = Join-Path $wTarget $_.Name
                     if ((-not (Test-Path $destWFile)) -or ($_.LastWriteTime -gt (Get-Item $destWFile).LastWriteTime)) {
-                        Copy-Item $_.FullName -Destination $destWFile -Force -ErrorAction SilentlyContinue
+                        try {
+                            Copy-Item $_.FullName -Destination $destWFile -Force -ErrorAction Stop
+                        } catch {
+                            $oldBin = "$destWFile.old_$stamp"
+                            Move-Item -Path $destWFile -Destination $oldBin -Force -ErrorAction SilentlyContinue
+                            Copy-Item $_.FullName -Destination $destWFile -Force -ErrorAction SilentlyContinue
+                        }
                     }
                 }
             }

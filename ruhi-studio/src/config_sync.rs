@@ -114,6 +114,8 @@ pub struct KeyboardSettings {
     pub enable_mixed_english: bool,
     pub mixed_english_mode: String,
     pub mixed_english_min_len: i32,
+    #[serde(default = "default_mixed_typing_modes")]
+    pub mixed_typing_modes: Vec<String>,
     pub punctuation_commit_mode: String,
     pub q_cycle_max: i32,
     #[serde(default)]
@@ -128,6 +130,8 @@ pub struct KeyboardSettings {
     pub backtick_inline_mode: String,
     #[serde(default = "default_aux_ime_mode")]
     pub tilde_toggle_mode: String,
+    #[serde(default = "default_aux_ime_mode")]
+    pub shift_down_mode: String,
 }
 
 fn default_reverse_coach_target() -> String {
@@ -146,6 +150,15 @@ fn default_aux_ime_mode() -> String {
     "longkan".to_string()
 }
 
+pub fn default_mixed_typing_modes() -> Vec<String> {
+    vec![
+        "standard".to_string(),
+        "cangjie".to_string(),
+        "four_corner".to_string(),
+        "array30".to_string(),
+    ]
+}
+
 impl Default for KeyboardSettings {
     fn default() -> Self {
         Self {
@@ -162,6 +175,7 @@ impl Default for KeyboardSettings {
             enable_mixed_english: true,
             mixed_english_mode: "contextual_stream".to_string(),
             mixed_english_min_len: 4,
+            mixed_typing_modes: default_mixed_typing_modes(),
             punctuation_commit_mode: "A".to_string(),
             q_cycle_max: 3,
             enable_array30_coach: false,
@@ -170,6 +184,7 @@ impl Default for KeyboardSettings {
             last_keyboard_mode: "english".to_string(),
             backtick_inline_mode: "longkan".to_string(),
             tilde_toggle_mode: "longkan".to_string(),
+            shift_down_mode: "longkan".to_string(),
         }
     }
 }
@@ -566,8 +581,19 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
         if let Some(v) = kb.get("backspace_mode").and_then(Value::as_str) {
             settings.keyboard.backspace_mode = v.to_string();
         }
-        if let Some(v) = kb.get("enable_mixed_english").and_then(Value::as_bool) {
-            settings.keyboard.enable_mixed_english = v;
+        if let Some(arr) = kb.get("mixed_typing_modes").and_then(Value::as_array) {
+            settings.keyboard.mixed_typing_modes = arr
+                .iter()
+                .filter_map(Value::as_str)
+                .map(|s| s.to_string())
+                .collect();
+            if let Some(v) = kb.get("enable_mixed_english").and_then(Value::as_bool) {
+                settings.keyboard.enable_mixed_english = v;
+            }
+        } else {
+            // 舊版設定檔自動升級至「歐亞智慧混打」：預設啟用正交低重碼四模式（標準大千、倉頡、四角、行列 30）
+            settings.keyboard.mixed_typing_modes = default_mixed_typing_modes();
+            settings.keyboard.enable_mixed_english = true;
         }
         if let Some(v) = kb.get("mixed_english_mode").and_then(Value::as_str) {
             settings.keyboard.mixed_english_mode = v.to_string();
@@ -605,6 +631,11 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
         if let Some(v) = kb.get("tilde_toggle_mode").and_then(Value::as_str) {
             if !v.trim().is_empty() {
                 settings.keyboard.tilde_toggle_mode = v.trim().to_string();
+            }
+        }
+        if let Some(v) = kb.get("shift_down_mode").and_then(Value::as_str) {
+            if !v.trim().is_empty() {
+                settings.keyboard.shift_down_mode = v.trim().to_string();
             }
         }
     }
@@ -727,6 +758,11 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
             settings.keyboard.tilde_toggle_mode = v.trim().to_string();
         }
     }
+    if let Some(v) = map.get("shift_down_mode").and_then(Value::as_str) {
+        if !v.trim().is_empty() {
+            settings.keyboard.shift_down_mode = v.trim().to_string();
+        }
+    }
     if let Some(v) = map.get("capslock_switch").and_then(Value::as_str) {
         settings.keyboard.capslock_switch = v.to_string();
     }
@@ -745,6 +781,16 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
     if let Some(v) = map.get("reverse_coach_target").and_then(Value::as_str) {
         settings.keyboard.reverse_coach_target = v.to_string();
         settings.keyboard.enable_array30_coach = v == "array30";
+    }
+    if let Some(arr) = map.get("mixed_typing_modes").and_then(Value::as_array) {
+        settings.keyboard.mixed_typing_modes = arr
+            .iter()
+            .filter_map(Value::as_str)
+            .map(|s| s.to_string())
+            .collect();
+        if let Some(v) = map.get("enable_mixed_english").and_then(Value::as_bool) {
+            settings.keyboard.enable_mixed_english = v;
+        }
     }
     if let Some(v) = map.get("four_corner_keymap").and_then(Value::as_str) {
         settings.keyboard.four_corner_keymap = v.to_string();
@@ -907,6 +953,10 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             json!(settings.keyboard.tilde_toggle_mode),
         );
         map.insert(
+            "shift_down_mode".to_string(),
+            json!(settings.keyboard.shift_down_mode),
+        );
+        map.insert(
             "space_behavior".to_string(),
             json!(settings.keyboard.space_behavior),
         );
@@ -945,6 +995,10 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
         map.insert(
             "mixed_english_min_len".to_string(),
             json!(settings.keyboard.mixed_english_min_len),
+        );
+        map.insert(
+            "mixed_typing_modes".to_string(),
+            json!(settings.keyboard.mixed_typing_modes),
         );
         if !settings.ai_and_privacy.ollama_model.is_empty() {
             map.insert(

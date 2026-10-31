@@ -8,5 +8,6 @@
 
 pub mod ai_consultant;
 pub mod config_sync;
+pub mod http_client;
 pub mod tuner;
 pub mod web_server;
