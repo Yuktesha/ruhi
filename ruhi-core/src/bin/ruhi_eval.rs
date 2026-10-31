@@ -88,6 +88,30 @@ pub struct EvalReport {
     pub sentence_results: Vec<SentenceEvalResult>,
 }
 
+/// 品質閘門基準彙總檔 (`eval_reports/dev_gate_baseline.json`)，不含任何句子原文
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GateBaselineSummary {
+    pub commit: String,
+    pub dataset: String,
+    pub total_sentences: usize,
+    pub total_chars: usize,
+    pub total_char_errors: usize,
+    pub cer: f64,
+    pub cer_percent: String,
+    pub exact_match_sentences: usize,
+    pub sentence_accuracy: f64,
+    pub sentence_accuracy_percent: String,
+    pub per_category: BTreeMap<String, CategoryMetrics>,
+}
+
+/// 本機逐句正誤紀錄 (`eval_reports/local/*.json`)，僅記錄句子編號與正誤，不含原文
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GateSentenceRecord {
+    pub id: String,
+    pub is_exact_match: bool,
+    pub char_errors: usize,
+}
+
 /// 高歧義單字破音字表（當在句子中以未消歧之孤立單字出現時，標記為具上游 Text-to-Bopomofo 破音歧義）
 const HIGH_AMBIGUITY_SINGLE_POLYPHONES: &str =
     "行長重還傳調彈種處數惡樂朝少將相為得地著了應當看難便更省率盛乾假背奇載轉差度露切落興號識稱給模曲會合解間好要見發正分過空教單";
@@ -2062,6 +2086,9 @@ fn main() {
     let mut do_ablation = false;
     let mut prune_harmful = false;
     let mut do_calibrate = false;
+    let mut do_gate = false;
+    let mut init_gate_baseline = false;
+    let mut commit_override: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -2081,6 +2108,18 @@ fn main() {
             "--baseline" if i + 1 < args.len() => {
                 baseline_path = Some(PathBuf::from(&args[i + 1]));
                 i += 2;
+            }
+            "--commit" if i + 1 < args.len() => {
+                commit_override = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--gate" => {
+                do_gate = true;
+                i += 1;
+            }
+            "--init-gate-baseline" | "--write-gate-baseline" => {
+                init_gate_baseline = true;
+                i += 1;
             }
             "--ablation" => {
                 do_ablation = true;
@@ -2177,8 +2216,252 @@ fn main() {
 
     // 評估語料不公開：輸出報告預設不含句子原文；僅 dev 集可加 `--with-text` 於本機做錯誤分析（test 集一律遮蔽）
     let with_text = args.iter().any(|a| a == "--with-text");
-    let hide_text = set_name == "test" || !with_text;
+    let hide_text = set_name == "test" || !with_text || do_gate || init_gate_baseline;
     let mut report = evaluate_compiled_dataset(&engine, &compiled, &set_name, hide_text);
+
+    if init_gate_baseline {
+        let target_bp = baseline_path
+            .clone()
+            .or_else(|| out_path.clone())
+            .unwrap_or_else(|| root.join("eval_reports").join("dev_gate_baseline.json"));
+        let commit_hash = commit_override.unwrap_or_else(|| {
+            std::process::Command::new("git")
+                .args(["rev-parse", "--short", "HEAD"])
+                .current_dir(&root)
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "dd8ea03".to_string())
+        });
+        let gate_summary = GateBaselineSummary {
+            commit: commit_hash,
+            dataset: report.dataset.clone(),
+            total_sentences: report.total_sentences,
+            total_chars: report.total_chars,
+            total_char_errors: report.total_char_errors,
+            cer: report.cer,
+            cer_percent: report.cer_percent.clone(),
+            exact_match_sentences: report.exact_match_sentences,
+            sentence_accuracy: report.sentence_accuracy,
+            sentence_accuracy_percent: report.sentence_accuracy_percent.clone(),
+            per_category: report.per_category.clone(),
+        };
+        if let Some(parent) = target_bp.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        fs::write(&target_bp, serde_json::to_string_pretty(&gate_summary).unwrap())
+            .expect("無法寫入 dev_gate_baseline.json");
+
+        let local_dir = root.join("eval_reports").join("local");
+        let _ = fs::create_dir_all(&local_dir);
+        let sent_records: Vec<GateSentenceRecord> = report
+            .sentence_results
+            .iter()
+            .map(|r| GateSentenceRecord {
+                id: r.id.clone(),
+                is_exact_match: r.is_exact_match,
+                char_errors: r.char_errors,
+            })
+            .collect();
+        let local_base_path = local_dir.join("dev_gate_baseline_sentences.json");
+        fs::write(
+            &local_base_path,
+            serde_json::to_string_pretty(&sent_records).unwrap(),
+        )
+        .expect("無法寫入 eval_reports/local/dev_gate_baseline_sentences.json");
+
+        println!("{}", serde_json::to_string_pretty(&gate_summary).unwrap());
+        return;
+    }
+
+    if do_gate {
+        let target_bp = baseline_path
+            .clone()
+            .unwrap_or_else(|| root.join("eval_reports").join("dev_gate_baseline.json"));
+        let Ok(bs_str) = fs::read_to_string(&target_bp) else {
+            eprintln!("錯誤：找不到品質閘門基準檔 {:?}", target_bp);
+            std::process::exit(1);
+        };
+        let Ok(base_sum) = serde_json::from_str::<GateBaselineSummary>(&bs_str) else {
+            eprintln!("錯誤：無法解析品質閘門基準檔 {:?}", target_bp);
+            std::process::exit(1);
+        };
+
+        let local_dir = root.join("eval_reports").join("local");
+        let _ = fs::create_dir_all(&local_dir);
+        let cur_records: Vec<GateSentenceRecord> = report
+            .sentence_results
+            .iter()
+            .map(|r| GateSentenceRecord {
+                id: r.id.clone(),
+                is_exact_match: r.is_exact_match,
+                char_errors: r.char_errors,
+            })
+            .collect();
+        let _ = fs::write(
+            local_dir.join("dev_gate_latest_sentences.json"),
+            serde_json::to_string_pretty(&cur_records).unwrap(),
+        );
+
+        let local_base_path = local_dir.join("dev_gate_baseline_sentences.json");
+        let base_records: Vec<GateSentenceRecord> = fs::read_to_string(&local_base_path)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
+        let base_map: HashMap<&str, &GateSentenceRecord> =
+            base_records.iter().map(|r| (r.id.as_str(), r)).collect();
+
+        let mut fixed_ids = Vec::new();
+        let mut broken_ids = Vec::new();
+        let mut char_improved_ids = Vec::new();
+        let mut char_degraded_ids = Vec::new();
+
+        for cur in &cur_records {
+            if let Some(old) = base_map.get(cur.id.as_str()) {
+                if !old.is_exact_match && cur.is_exact_match {
+                    fixed_ids.push(cur.id.clone());
+                } else if old.is_exact_match && !cur.is_exact_match {
+                    broken_ids.push(cur.id.clone());
+                }
+                if cur.char_errors < old.char_errors {
+                    char_improved_ids.push(cur.id.clone());
+                } else if cur.char_errors > old.char_errors {
+                    char_degraded_ids.push(cur.id.clone());
+                }
+            }
+        }
+        fixed_ids.sort();
+        broken_ids.sort();
+        char_improved_ids.sort();
+        char_degraded_ids.sort();
+
+        let b_fixed = fixed_ids.len();
+        let c_broken = broken_ids.len();
+        let discord_sum = b_fixed + c_broken;
+        let chi_square = if discord_sum > 0 {
+            let diff = (b_fixed as f64 - c_broken as f64).abs();
+            let num = (diff - 1.0).max(0.0);
+            (num * num) / (discord_sum as f64)
+        } else {
+            0.0
+        };
+        let p_value = if chi_square > 0.0 {
+            erfc_approx((chi_square / 2.0).sqrt())
+        } else {
+            1.0
+        };
+
+        let delta_cer_pp = (report.cer - base_sum.cer) * 100.0;
+        let delta_ser_pp = (report.sentence_accuracy - base_sum.sentence_accuracy) * 100.0;
+
+        let mut failure_reasons = Vec::new();
+        if delta_cer_pp > 0.05 + 1e-9 {
+            failure_reasons.push(format!(
+                "整體 CER 上升 {:.4} 個百分點（超過上限 +0.05 個百分點）",
+                delta_cer_pp
+            ));
+        }
+        if delta_ser_pp < -0.30 - 1e-9 {
+            failure_reasons.push(format!(
+                "整句正確率下降 {:.4} 個百分點（超過上限 -0.30 個百分點）",
+                -delta_ser_pp
+            ));
+        }
+
+        let mut per_cat_diff = serde_json::Map::new();
+        for (cat, cur_m) in &report.per_category {
+            if let Some(base_m) = base_sum.per_category.get(cat) {
+                let cat_delta_cer_pp = (cur_m.cer - base_m.cer) * 100.0;
+                let exceeded = cat_delta_cer_pp > 0.30 + 1e-9;
+                if exceeded {
+                    failure_reasons.push(format!(
+                        "類別 `{}` CER 上升 {:.4} 個百分點（超過上限 +0.30 個百分點）",
+                        cat, cat_delta_cer_pp
+                    ));
+                }
+                per_cat_diff.insert(
+                    cat.clone(),
+                    json!({
+                        "baseline_cer": base_m.cer,
+                        "baseline_cer_percent": base_m.cer_percent,
+                        "current_cer": cur_m.cer,
+                        "current_cer_percent": cur_m.cer_percent,
+                        "delta_cer_percentage_points": format!("{:+.4}%", cat_delta_cer_pp),
+                        "baseline_char_errors": base_m.char_errors,
+                        "current_char_errors": cur_m.char_errors,
+                        "delta_char_errors": (cur_m.char_errors as isize) - (base_m.char_errors as isize),
+                        "exceeded_threshold": exceeded
+                    }),
+                );
+            }
+        }
+
+        if c_broken > b_fixed {
+            failure_reasons.push(format!(
+                "弄壞的句數 ({}) 多於修好的句數 ({})",
+                c_broken, b_fixed
+            ));
+        }
+
+        let passed = failure_reasons.is_empty();
+        let gate_out = json!({
+            "gate_passed": passed,
+            "verdict": if passed { "PASS" } else { "FAIL" },
+            "failure_reasons": failure_reasons,
+            "baseline": {
+                "commit": base_sum.commit,
+                "dataset": base_sum.dataset,
+                "total_sentences": base_sum.total_sentences,
+                "total_chars": base_sum.total_chars,
+                "total_char_errors": base_sum.total_char_errors,
+                "cer": base_sum.cer,
+                "cer_percent": base_sum.cer_percent,
+                "exact_match_sentences": base_sum.exact_match_sentences,
+                "sentence_accuracy": base_sum.sentence_accuracy,
+                "sentence_accuracy_percent": base_sum.sentence_accuracy_percent
+            },
+            "current": {
+                "dataset": report.dataset,
+                "total_sentences": report.total_sentences,
+                "total_chars": report.total_chars,
+                "total_char_errors": report.total_char_errors,
+                "cer": report.cer,
+                "cer_percent": report.cer_percent,
+                "exact_match_sentences": report.exact_match_sentences,
+                "sentence_accuracy": report.sentence_accuracy,
+                "sentence_accuracy_percent": report.sentence_accuracy_percent
+            },
+            "diff": {
+                "delta_cer": report.cer - base_sum.cer,
+                "delta_cer_percentage_points": format!("{:+.4}%", delta_cer_pp),
+                "delta_char_errors": (report.total_char_errors as isize) - (base_sum.total_char_errors as isize),
+                "delta_sentence_accuracy": report.sentence_accuracy - base_sum.sentence_accuracy,
+                "delta_sentence_accuracy_percentage_points": format!("{:+.4}%", delta_ser_pp),
+                "delta_exact_match_sentences": (report.exact_match_sentences as isize) - (base_sum.exact_match_sentences as isize)
+            },
+            "per_category_diff": per_cat_diff,
+            "sentence_changes": {
+                "fixed_count": b_fixed,
+                "broken_count": c_broken,
+                "fixed_sentence_ids": fixed_ids,
+                "broken_sentence_ids": broken_ids,
+                "char_error_improved_count": char_improved_ids.len(),
+                "char_error_degraded_count": char_degraded_ids.len(),
+                "char_error_improved_ids": char_improved_ids,
+                "char_error_degraded_ids": char_degraded_ids,
+                "mcnemar_chi_square": round4_f64(chi_square),
+                "mcnemar_p_value": p_value
+            }
+        });
+
+        println!("{}", serde_json::to_string_pretty(&gate_out).unwrap());
+        if !passed {
+            std::process::exit(1);
+        }
+        return;
+    }
 
     if let Some(ref bp) = baseline_path {
         if let Ok(bs_str) = fs::read_to_string(bp) {

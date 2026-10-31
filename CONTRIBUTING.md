@@ -41,6 +41,43 @@
 
 ---
 
+## 🛡️ 強制品質閘門 (Quality Gate)
+
+為確保每次規則、詞庫或解碼邏輯變更均經過量化評測把關，本專案設有自動化品質閘門與 Git `pre-commit` hook：
+
+### 1. 安裝 Git pre-commit Hook
+初次複製儲存庫或開始開發前，請先安裝 `pre-commit` hook：
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install_git_hooks.ps1
+```
+* 當暫存區（staged）變更涉及評分相關檔案（`ruhi-core/src/router/**`、`ruhi-core/src/engine.rs`、`ruhi-core/src/lexicon/**`、`ruhi-core/src/fsm/**`、`ruhi_lexicon/data/*.tsv`、`ruhi_lexicon/data/*.jsonl`）時，`pre-commit` 會自動執行 `scripts/quality_gate.ps1`。
+* 其他檔案變更則自動執行 `cargo test`（`ruhi-core`）。
+* **嚴禁使用 `git commit --no-verify` 繞過品質閘門**。
+
+### 2. 手動執行品質閘門
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/quality_gate.ps1
+```
+`scripts/quality_gate.ps1` 會依序執行：
+1. `cargo test --release`（`ruhi-core` 單元測試全數通過）
+2. `cargo build --release`（`ruhi-tsf` 發行版編譯通過）
+3. `cargo run --release --bin ruhi_eval -- --gate --baseline ../eval_reports/dev_gate_baseline.json`
+
+### 3. 閘門判定標準與基準更新規則
+* **判定規則**（任一條成立即判定失敗，程序以非 0 狀態碼中止）：
+  * 整體 CER 上升超過 **0.05** 個百分點；
+  * 整句正確率下降超過 **0.30** 個百分點；
+  * 任一類別 CER 上升超過 **0.30** 個百分點；
+  * 弄壞的句數多於修好的句數。
+* **基準檔與本機逐句紀錄**：
+  * `eval_reports/dev_gate_baseline.json`：僅含彙總數據（整體 CER、整句正確率、各類別 CER、句數、字數與產生時的 commit 編號），不含任何句子原文，納入版本控制。
+  * `eval_reports/local/`：存放本機逐句正誤紀錄（僅含句子編號與正誤，不含句子原文），已列入 `.gitignore` 不入庫。
+* **基準更新規則**：
+  * 只有在品質閘門通過 **且** 開發集整體 CER 下降時，才可更新 `eval_reports/dev_gate_baseline.json`（執行 `cargo run --release --bin ruhi_eval -- --init-gate-baseline`），並與造成改善的修改放在同一個提交中。
+  * 盲測封存集（`test.tsv`）維持每個發布版本評估一次，且僅檢視彙總指標。
+
+---
+
 ## 🪟 Windows 與指令碼開發規範
 
 1. **全面揚棄 `.bat` / `.cmd` 批次檔**：
