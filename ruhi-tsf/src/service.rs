@@ -1657,7 +1657,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
             // 當完全沒有組字緩衝區時，Backspace、Delete、Enter、Space、Tab、方向鍵等一律直接放行給目標視窗！
             if !has_buffer {
-                if vk == VK_RETURN.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_SPACE.0 as u32 || (vk == VK_TAB.0 as u32 && !is_longkan_mode) || vk == VK_ESCAPE.0 as u32 {
+                if vk == VK_RETURN.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_TAB.0 as u32 || vk == VK_ESCAPE.0 as u32 {
                     return Ok(BOOL::from(false));
                 }
                 if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 || vk == VK_UP.0 as u32 || vk == VK_DOWN.0 as u32 || vk == VK_HOME.0 as u32 || vk == VK_END.0 as u32 || vk == VK_PRIOR.0 as u32 || vk == VK_NEXT.0 as u32 {
@@ -1726,8 +1726,6 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 }
             } else {
                 if vk == VK_OEM_3.0 as u32 {
-                    eaten = true;
-                } else if is_longkan_mode && vk == VK_TAB.0 as u32 {
                     eaten = true;
                 } else if is_four_corner_mode {
                     let is_direct_fc_punct = self
@@ -1844,9 +1842,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 return Ok(BOOL::from(false));
             }
 
-            // 當完全沒有組字緩衝區時，Backspace、Delete、Enter、Space、Tab（龍龕模式除外，龍龕可按 Tab 引導詞彙簡碼模式）、方向鍵等一律直接放行給目標視窗！
+            // 當完全沒有組字緩衝區時，Backspace、Delete、Enter、Space、Tab、方向鍵等一律直接放行給目標視窗！
             if !has_buffer {
-                if vk == VK_RETURN.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_SPACE.0 as u32 || (vk == VK_TAB.0 as u32 && !is_longkan_mode) || vk == VK_ESCAPE.0 as u32 || (vk == 0x6E && !is_four_corner_mode) {
+                if vk == VK_RETURN.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_TAB.0 as u32 || vk == VK_ESCAPE.0 as u32 || (vk == 0x6E && !is_four_corner_mode) {
                     return Ok(BOOL::from(false));
                 }
                 if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 || vk == VK_UP.0 as u32 || vk == VK_DOWN.0 as u32 || vk == VK_HOME.0 as u32 || vk == VK_END.0 as u32 || vk == VK_PRIOR.0 as u32 || vk == VK_NEXT.0 as u32 {
@@ -2371,7 +2369,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             // 3.7 Tab 鍵：
             // - 龍龕形音模式 (is_longkan_mode)：作為詞彙簡碼模式（`🐉⇥詞:`）的引導與結束間隔符號，將組出的字詞收攏至如喜輸入座（`pending_compose`），待按 Enter 才送出至目標視窗
             // - 許氏注音模式：手動斷詞切換 (Manual Word Boundary Split / Cut)
-            if vk == VK_TAB.0 as u32 && (has_buffer || is_longkan_mode) {
+            if vk == VK_TAB.0 as u32 && has_buffer {
                 if *self.candidate_selecting.lock().unwrap() {
                     *self.candidate_selecting.lock().unwrap() = false;
                     self.hide_candidate_window();

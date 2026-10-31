@@ -251,13 +251,16 @@ impl LongkanEngine {
             return self.build_compose_response();
         }
 
-        // 5B. 104 主鍵盤 Tab ('\t')（或 '-'）作為詞彙簡碼輸入的間隔（引導與結束）符號 + 游標詞界補按機制：
+        // 5B. '-' 作為詞彙簡碼輸入的前導符號，Tab ('\t') 作為非空緩衝區時的結束符號与游標詞界補按機制：
         //     - 規範簡碼公式：第一字前兩碼 + 中間字第一碼們 + 最後一字後兩碼（2字詞4碼、3字詞5碼、4字詞6碼）
-        //     1. 空緩衝區時按 Tab 或 '-'：引導開啟 Tab 詞彙簡碼模式（`🐉⇥詞:`）
-        //     2. 已在 Tab 詞彙簡碼模式（`self.buffer.starts_with('-')`）時按 Tab：作為結束符號，將詞彙候選直接上屏並結束詞彙模式
-        //     3. 單字模式下：
-        //        - 若忘記先按 Tab，將文字游標移至詞界開頭（`self.buffer_cursor == 0`）按 Tab（或直接按 '-'）：於詞界處補入前導符切換為詞彙簡碼模式
+        //     1. 空緩衝區時：按 Tab 直接放行（不進入詞彙模式）；按 '-' 引導開啟詞彙簡碼模式（`🐉⇥詞:`）
+        //     2. 已在詞彙簡碼模式（`self.buffer.starts_with('-')`）時按 Tab：作為結束符號，將詞彙候選直接上屏並結束詞彙模式
+        //     3. 單字模式下（緩衝區非空）：
+        //        - 若忘記先按 '-'，將文字游標移至詞界開頭（`self.buffer_cursor == 0`）補按 Tab（或直接按 '-'）：於詞界處補入前導符切換為詞彙簡碼模式
         //        - 若游標在緩衝區末端（`self.buffer_cursor > 0`）按 Tab：遵循許氏鍵盤直覺作為「詞界阻斷符號」，將當前單字確認上屏
+        if ch == '\t' && self.buffer.is_empty() {
+            return Self::pass_response("\t");
+        }
         if ch == '\t' || (ch == '-' && !self.is_english_forced) {
             if self.buffer.is_empty() {
                 self.buffer.push('-');
@@ -755,35 +758,40 @@ mod tests {
     #[test]
     fn test_longkan_word_prefix_and_tab_mode() {
         let mut engine = LongkanEngine::new();
-        // 1. Tab 作為詞彙簡碼引導與結束符號（統一 N+2 公式：第一字前兩碼 + 中間字第一碼們 + 最後一字後兩碼）：
-        //    - 2字詞（4碼）：`\tceru\t` -> 「輸入」、`\tlnho ` / `\tlnln\t` -> 「龍龕」、`\tjnr4\t` -> 「形音」、`\ttawn\t` -> 「台灣」
-        assert_eq!(type_seq(&mut engine, "\tceru\t").committed_chunk, "輸入");
-        assert_eq!(type_seq(&mut engine, "\tsuru ").committed_chunk, "輸入");
-        assert_eq!(type_seq(&mut engine, "\tlnln\t").committed_chunk, "龍龕");
-        assert_eq!(type_seq(&mut engine, "\tjnr4\t").committed_chunk, "形音");
-        assert_eq!(type_seq(&mut engine, "\ttawn\t").committed_chunk, "台灣");
+        // 0. 空緩衝區收到 `\t` 時直接放行，不進入詞彙模式
+        let r_empty_tab = engine.process_key('\t');
+        assert_eq!(r_empty_tab.action, "pass");
+        assert!(!engine.has_buffer());
 
-        //    - 3字詞（5碼）：`\tcerci\t` / `\tcerfa\t` -> 「輸入法」
-        assert_eq!(type_seq(&mut engine, "\tcerci\t").committed_chunk, "輸入法");
-        assert_eq!(type_seq(&mut engine, "\tcerfa ").committed_chunk, "輸入法");
+        // 1. `-` 作為詞彙簡碼前導符號，`\t` 或空白作為結束符號（統一 N+2 公式：第一字前兩碼 + 中間字第一碼們 + 最後一字後兩碼）：
+        //    - 2字詞（4碼）：`-ceru\t` -> 「輸入」、`-lnho ` / `-lnln\t` -> 「龍龕」、`-jnr4\t` -> 「形音」、`-tawn\t` -> 「台灣」
+        assert_eq!(type_seq(&mut engine, "-ceru\t").committed_chunk, "輸入");
+        assert_eq!(type_seq(&mut engine, "-suru ").committed_chunk, "輸入");
+        assert_eq!(type_seq(&mut engine, "-lnln\t").committed_chunk, "龍龕");
+        assert_eq!(type_seq(&mut engine, "-jnr4\t").committed_chunk, "形音");
+        assert_eq!(type_seq(&mut engine, "-tawn\t").committed_chunk, "台灣");
 
-        //    - 4字詞（6碼）：`\tlnhjr4\t` / `\tlnhjin\t` -> 「龍龕形音」
+        //    - 3字詞（5碼）：`-cerci\t` / `-cerfa ` -> 「輸入法」
+        assert_eq!(type_seq(&mut engine, "-cerci\t").committed_chunk, "輸入法");
+        assert_eq!(type_seq(&mut engine, "-cerfa ").committed_chunk, "輸入法");
+
+        //    - 4字詞（6碼）：`-lnhjr4\t` / `-lnhjin ` -> 「龍龕形音」
         assert_eq!(
-            type_seq(&mut engine, "\tlnhjr4\t").committed_chunk,
+            type_seq(&mut engine, "-lnhjr4\t").committed_chunk,
             "龍龕形音"
         );
         assert_eq!(
-            type_seq(&mut engine, "\tlnhjin ").committed_chunk,
+            type_seq(&mut engine, "-lnhjin ").committed_chunk,
             "龍龕形音"
         );
 
-        //    - 5字詞（7碼 N+2 或 6碼封頂）：`\tlnhjlci\t` / `\tlnhjci\t` -> 「龍龕形音法」
+        //    - 5字詞（7碼 N+2 或 6碼封頂）：`-lnhjlci\t` / `-lnhjci\t` -> 「龍龕形音法」
         assert_eq!(
-            type_seq(&mut engine, "\tlnhjlci\t").committed_chunk,
+            type_seq(&mut engine, "-lnhjlci\t").committed_chunk,
             "龍龕形音法"
         );
         assert_eq!(
-            type_seq(&mut engine, "\tlnhjci\t").committed_chunk,
+            type_seq(&mut engine, "-lnhjci\t").committed_chunk,
             "龍龕形音法"
         );
 
@@ -846,13 +854,13 @@ mod tests {
 
         // 單字輸入
         assert_eq!(type_seq(&mut engine, "kmfu ").committed_chunk, "鋪");
-        // 雙字詞 Tab / '-' 簡碼
-        assert_eq!(type_seq(&mut engine, "\ttawn\t").committed_chunk, "台灣");
+        // 雙字詞 '-' 簡碼
+        assert_eq!(type_seq(&mut engine, "-tawn\t").committed_chunk, "台灣");
         assert_eq!(type_seq(&mut engine, "-ceru ").committed_chunk, "輸入");
-        // 三字詞與四字詞以上長詞 Tab / '-' 簡碼
-        assert_eq!(type_seq(&mut engine, "\tcerci\t").committed_chunk, "輸入法");
+        // 三字詞與四字詞以上長詞 '-' 簡碼
+        assert_eq!(type_seq(&mut engine, "-cerci\t").committed_chunk, "輸入法");
         assert_eq!(
-            type_seq(&mut engine, "\tlnhjr4\t").committed_chunk,
+            type_seq(&mut engine, "-lnhjr4\t").committed_chunk,
             "龍龕形音"
         );
     }

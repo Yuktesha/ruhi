@@ -2838,17 +2838,7 @@ impl RuhiEngine {
                     return self.build_response("update_preedit", "");
                 }
                 _ => {
-                    // 預設目標 `"longkan"`：支援單字與 `Tab`/`-` 多字詞臨打
-                    if key == '\t' && !self.longkan.has_buffer() {
-                        let r = self.longkan.process_key_with_context(
-                            '\t',
-                            Some(&self.lexicon),
-                            Some(&mut self.transitions),
-                        );
-                        self.current_candidates = r.candidates;
-                        self.candidate_cycle_idx = r.candidate_idx;
-                        return self.build_response("update_preedit", "");
-                    }
+                    // 預設目標 `"longkan"`：支援單字與 `-` 多字詞臨打
                     let is_phrase_buf = self.longkan.buffer.starts_with('-');
                     let buf_len = self.longkan.buffer.trim_start_matches('-').len();
                     let lower_buf = self.longkan.buffer.to_ascii_lowercase();
@@ -9199,7 +9189,7 @@ mod tests {
         engine.process_key('~');
         assert_eq!(engine.keyboard_mode, "longkan");
         let mut tilde_out = String::new();
-        for ch in "jenfx hglxl \tcerci\t".chars() {
+        for ch in "jenfx hglxl -cerci\t".chars() {
             let r = engine.process_key(ch);
             if !r.committed_chunk.is_empty() {
                 tilde_out.push_str(&r.committed_chunk);
@@ -9382,8 +9372,8 @@ mod tests {
         engine.backtick_inline_mode = "longkan".to_string();
         engine.tilde_toggle_mode = "array30".to_string();
 
-        // 1. 許氏注音單按 `` ` `` 臨時插入龍龕 2.0「多字詞」（`Tab` + `cerci` + `Space` ➔ `輸入法`），即刻返回許氏注音
-        for ch in "xhfmns`\tcerci ".chars() {
+        // 1. 許氏注音單按 `` ` `` 臨時插入龍龕 2.0「多字詞」（`-` + `cerci` + `Space` ➔ `輸入法`），即刻返回許氏注音
+        for ch in "xhfmns`-cerci ".chars() {
             engine.process_key(ch);
         }
         assert_eq!(engine.keyboard_mode, "hsu");
