@@ -206,14 +206,15 @@ try {
         foreach ($wTarget in $workspaceDataTargets) {
             if (Test-Path $wTarget) {
                 Get-ChildItem -Path "$canonicalDataDir\*" -File -Include "*.tsv", "*.jsonl", "*.json", "*.bin" -ErrorAction SilentlyContinue | ForEach-Object {
-                    $destWFile = Join-Path $wTarget $_.Name
-                    if ((-not (Test-Path $destWFile)) -or ($_.LastWriteTime -gt (Get-Item $destWFile).LastWriteTime)) {
+                    $srcFile = $_
+                    $destWFile = Join-Path $wTarget $srcFile.Name
+                    if ((-not (Test-Path $destWFile)) -or ($srcFile.LastWriteTime -gt (Get-Item $destWFile).LastWriteTime)) {
                         try {
-                            Copy-Item $_.FullName -Destination $destWFile -Force -ErrorAction Stop
+                            Copy-Item $srcFile.FullName -Destination $destWFile -Force -ErrorAction Stop
                         } catch {
-                            $oldBin = "$destWFile.old_$stamp"
+                            $oldBin = "$destWFile.old_$timestamp"
                             Move-Item -Path $destWFile -Destination $oldBin -Force -ErrorAction SilentlyContinue
-                            Copy-Item $_.FullName -Destination $destWFile -Force -ErrorAction SilentlyContinue
+                            Copy-Item $srcFile.FullName -Destination $destWFile -Force -ErrorAction SilentlyContinue
                         }
                     }
                 }
