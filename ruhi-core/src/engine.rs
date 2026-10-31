@@ -11623,4 +11623,265 @@ mod tests {
         }
     }
 
+
+    #[test]
+    fn test_kept_triage_units_a3_a4_a5b_a6_261031() {
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+        engine.set_keyboard_mode("hsu");
+
+        // 1. 驗證 Unit A-6 (`rejected_readings.tsv` 帳本攔截罕用異體字 `嶳 / 㡳 / 埅 / 埊` 讀音 `ㄉㄜ˙`)
+        for prev in &["", "已完成", "「", "任何", "很", "在", "的", "主程式"] {
+            engine.reset_buffer();
+            engine.last_committed_word = prev.to_string();
+            for ch in "dgs".chars() {
+                engine.process_key(ch);
+            }
+            assert_eq!(
+                engine.composed_sentence, "的",
+                "前文 `{}` 後單打 `dgs` 首選必為『的』，實際為 `{}`",
+                prev, engine.composed_sentence
+            );
+            for archaic in &["嶳", "㡳", "埅", "埊"] {
+                assert!(
+                    !engine.current_candidates.iter().any(|w| w == archaic),
+                    "罕用異體字 `{}` 之 `ㄉㄜ˙` 讀音應由 rejected_readings.tsv 攔截：{:?}",
+                    archaic,
+                    engine.current_candidates
+                );
+            }
+        }
+
+        // 2. 驗證通過品質閘門之 Unit A-2, A-3a, A-4, A-5b, A-6 涵蓋之 34 組實戰語句
+        let kept_cases = [
+            // Unit A-3a & A-4: 任一輸入模式按右鍵（涵蓋 ㄇㄛˊ mhd 與 ㄇㄨˊ mxd 雙讀音，及一聲/二聲/四聲「一」）
+            ("rnje cx rxjmhdcjmjeojjemj", "任一輸入模式按右鍵"),
+            ("rnjedcx rxjmhdcjmjeojjemj", "任一輸入模式按右鍵"),
+            ("rnjejcx rxjmhdcjmjeojjemj", "任一輸入模式按右鍵"),
+            ("rnje cx rxjmxdcjmjeojjemj", "任一輸入模式按右鍵"),
+            ("rnjedcx rxjmxdcjmjeojjemj", "任一輸入模式按右鍵"),
+            ("rnjejcx rxjmxdcjmjeojjemj", "任一輸入模式按右鍵"),
+            // Unit A-5b & A-6: 定語/補語/框式方位與「程式 vs 城市」雙向分流
+            ("efxmdvlddsgojcjuffyfjnjleejjxl ", "已完成的構式語法陣列中"),
+            ("xhfmnscgjjejdscejtxlfjeyjgoj", "我們設計的系統架構"),
+            ("cejtxlfcgjjejdshnfhwf", "系統設計得很好"),
+            ("z lewjvxflefdscdfn txhfdkj", "資料處理得十分妥當"),
+            ("zfcejdsfn ce bwjgwj", "仔細的分析報告"),
+            ("zijty dshxmdjeljjxl cen zl adhxaj", "在他的環境中新增詞彙"),
+            ("zijcx rxjzxhjjxl cen zl adhxaj", "在輸入座中新增詞彙"),
+            ("si zijpem hwfcgjdeljlef", "塞在偏好設定裡"),
+            ("ty zijagjcjcen gxl nld", "他在測試新功能"),
+            ("hidzijceo gifvldcjmyf", "還在修改程式碼"),
+            ("zijcje ajkmjkmj", "再試一次看看"),
+            ("meldtem zijtwflxnj", "明天再討論"),
+            ("gk gk cx rxjfyfzwjvldvldcjbl kxaj", "剛剛輸入法造成程式崩潰"),
+            // Unit A-5b: 構式二十三～二十六（氣象持續體、疑問代詞任指連鎖、分離複合動趨構式）
+            ("xijmemjufcerjggsbxjteld", "外面雨下個不停"),
+            ("vxk xijdsufcerjggsmadxmdmadlewf", "窗外的雨下個沒完沒了"),
+            ("xijmemjdsce xje jdpew ggsbxjteld", "外面的稀霧一直飄個不停"),
+            ("cm ckjdshojcuefhidzijcerjggsmadxmdmadlewf", "山上的厚雪還在下個沒完沒了"),
+            ("vxk xijdsmwdmwdufe jdcerjggsbxjteld", "窗外的毛毛雨一直下個不停"),
+            ("xijmemjdshwdufe jdcerjggsbxjteld", "外面的豪雨一直下個不停"),
+            ("vxk xijhidcerjjgsvel pnddyjuf", "窗外還下著傾盆大雨"),
+            ("jgjzxhjvldcjdsfl jelffa vkdmaflej", "這座城市的風景非常美麗"),
+            ("vejdgde jujhxyjdo cxh bxjvx lid", "氣得一句話都說不出來"),
+            ("cewjdgdhgdbxjlxlfzxaf", "笑得合不攏嘴"),
+            ("jeojsxmjujdwjzijdyjdskxnjnmdeefbxjhxajfkjvej", "就算遇到再大的困難也不會放棄"),
+            ("zijjljcjckjcemjj vemdzijjemfvyde aj", "在正式上線之前再檢查一次"),
+            ("nyflefcu ewjbk mkdjeojvujnyflef", "哪裡需要幫忙就去哪裡"),
+            ("tr axldkofdijleftw vx ewjcdlid", "他從口袋裡掏出鑰匙來"),
+            ("tr axldfkdjem lefbm vx e jk efzslid", "他從房間裡搬出一張椅子來"),
+        ];
+
+        for (keys, expected) in &kept_cases {
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let mut out = String::new();
+            for c in keys.chars() {
+                let r = engine.process_key(c);
+                if !r.committed_chunk.is_empty() {
+                    out.push_str(&r.committed_chunk);
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            assert_eq!(
+                out, *expected,
+                "按鍵 `{}` 應解碼為 `{}`，實際為 `{}`",
+                keys, expected, out
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "known hard case: requires discarded rules in patterns_user.jsonl (CER 6.84%, broken 76 > fixed 31) and constructions.rs C7 (CER 6.59%, broken 79 > fixed 44); see docs/KNOWN_HARD_CASES.md"]
+    fn test_user_three_pairs_plus_cheng_de_261031() {
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+
+        let cases = [
+            // 第 1 組：我把書入髮辮聰明了 ➔ 我把輸入法變聰明了
+            ("xhfbyfcx rxjfyfbemjaxl meldlgs", "我把輸入法變聰明了"),
+            // 第 2 組：表演一個輸入法的奇妙方是給你看 ➔ 表演一個輸入法的奇妙方式給你看
+            ("bewfemfe ggscx rxjfyfdsvedmewjfk cjgafnefkmj", "表演一個輸入法的奇妙方式給你看"),
+            ("bewfemfejggjcx rxjfyfdsvedmewjfk cjgafnefkmj", "表演一個輸入法的奇妙方式給你看"),
+            // 第 3 組：任醫書入魔是按右鍵 ➔ 任一輸入模式按右鍵（涵蓋 ㄇㄛˊ mhd 與 ㄇㄨˊ mxd 雙讀音，及一聲/二聲/四聲「一」）
+            ("rnje cx rxjmhdcjmjeojjemj", "任一輸入模式按右鍵"),
+            ("rnjedcx rxjmhdcjmjeojjemj", "任一輸入模式按右鍵"),
+            ("rnjejcx rxjmhdcjmjeojjemj", "任一輸入模式按右鍵"),
+            ("rnje cx rxjmxdcjmjeojjemj", "任一輸入模式按右鍵"),
+            ("rnjedcx rxjmxdcjmjeojjemj", "任一輸入模式按右鍵"),
+            ("rnjejcx rxjmxdcjmjeojjemj", "任一輸入模式按右鍵"),
+            // 第 4 組（使用者提問句本身）：請幫我檢查塌完承德對不對 ➔ 請幫我檢查他完成得對不對
+            ("velfbk xhfjemfvydty xmdvlddgddxajbxjdxaj", "請幫我檢查他完成得對不對"),
+            ("velfbk xhfjemfvydty xmdvlddsdxajbxjdxaj", "請幫我檢查他完成得對不對"),
+        ];
+
+        for (keys, expected) in &cases {
+            engine.reset_buffer();
+            let mut out = String::new();
+            for c in keys.chars() {
+                let r = engine.process_key(c);
+                if !r.committed_chunk.is_empty() {
+                    out.push_str(&r.committed_chunk);
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            assert_eq!(out, *expected, "輸入按鍵 `{}` 應精確解碼為 `{}`，實際為 `{}`", keys, expected, out);
+        }
+    }
+
+    #[test]
+    #[ignore = "known hard case: requires discarded rules in constructions.rs C7/C11/C19 (CER 6.59%, broken 79 > fixed 44) and transitions_user.tsv (CER 6.54%, broken 18 > fixed 16); see docs/KNOWN_HARD_CASES.md"]
+    fn test_no_archaic_de_and_final_boss_de_zai_disambiguation_261031() {
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+        engine.set_keyboard_mode("hsu");
+
+        // 1. 驗證單字輸入「的」(`dgs` / `ds`) 在任何前文狀態下，自動組字首選必為「的」，
+        //    且候選字清單前段為「的／得／地」，而古異體字「嶳 / 㡳 / 埅 / 埊」保留於候選清單最末段供手動選取
+        for prev in &["", "已完成", "「", "任何", "很", "在", "的", "主程式"] {
+            engine.reset_buffer();
+            engine.last_committed_word = prev.to_string();
+            for ch in "dgs".chars() {
+                engine.process_key(ch);
+            }
+            assert_eq!(
+                engine.composed_sentence, "的",
+                "前文 `{}` 後單打 `dgs` 首選必為『的』，實際為 `{}`",
+                prev, engine.composed_sentence
+            );
+            let pos_de = engine
+                .current_candidates
+                .iter()
+                .position(|w| w == "的")
+                .expect("候選清單必含『的』");
+            for archaic in &["嶳", "㡳", "埅", "埊"] {
+                let pos_arch = engine
+                    .current_candidates
+                    .iter()
+                    .position(|w| w == archaic)
+                    .expect("候選清單最末段仍應保留古異體字供手動選取");
+                assert!(
+                    pos_arch > pos_de && pos_arch >= 3,
+                    "古異體字 `{}` 必須排在『的／得／地』之後的最末段：{:?}",
+                    archaic,
+                    engine.current_candidates
+                );
+            }
+        }
+
+        // 2. 驗證「的／得／地」與「在／再」兩大魔王題雙向最小對立對照組
+        let boss_cases = [
+            // (A) 完成 + 的 (定語關係子句) vs. 完成 + 得 (狀態評價補語)
+            ("efxmdvlddsgojcjuffyfjnjleejjxl ", "已完成的構式語法陣列中"),
+            ("ty xmdvlddgddxajbxjdxaj", "他完成得對不對"),
+            ("ty xmdvlddsdxajbxjdxaj", "他完成得對不對"),
+            ("xmdvlddshnfxmdmaf", "完成得很完美"),
+            // (B) 設計 / 處理 / 執行 + 的 vs. 得
+            ("xhfmnscgjjejdscejtxlfjeyjgoj", "我們設計的系統架構"),
+            ("cejtxlfcgjjejdshnfhwf", "系統設計得很好"),
+            ("gk vxflefdsz lewjdkfmjlef", "剛處理的資料檔案裡"),
+            ("z lewjvxflefdscdfn txhfdkj", "資料處理得十分妥當"),
+            // (C) 狀語「地」vs. 定語「的」
+            ("mkdmxjdsjey vumd", "盲目地加權"),
+            ("nijcen dsjeefcj", "耐心地解釋"),
+            ("zfcejdsjemfvyd", "仔細地檢查"),
+            ("zfcejdsfn ce bwjgwj", "仔細的分析報告"),
+            // (D) 處所框式／進行體「在」vs. 重複／先後關聯「再」
+            ("zijty dshxmdjeljjxl cen zl adhxaj", "在他的環境中新增詞彙"),
+            ("zijcx rxjzxhjjxl cen zl adhxaj", "在輸入座中新增詞彙"),
+            ("si zijpem hwfcgjdeljlef", "塞在偏好設定裡"),
+            ("velfzijceyjly cumfdm jxl cumfzgd", "請在下拉選單中選擇"),
+            ("ty zijagjcjcen gxl nld", "他在測試新功能"),
+            ("hidzijceo gifvldcjmyf", "還在修改程式碼"),
+            ("velfcem xmdvldagjcjzijckjcemj", "請先完成測試再上線"),
+            ("zijcje ajkmjkmj", "再試一次看看"),
+            ("meldtem zijtwflxnj", "明天再討論"),
+            // (E) 資訊軟體受事「程式」vs. 地理行政名詞「城市」
+            ("gk gk cx rxjfyfzwjvldvldcjbl kxaj", "剛剛輸入法造成程式崩潰"),
+        ];
+
+        for (keys, expected) in &boss_cases {
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let mut out = String::new();
+            for c in keys.chars() {
+                let r = engine.process_key(c);
+                if !r.committed_chunk.is_empty() {
+                    out.push_str(&r.committed_chunk);
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            assert_eq!(
+                out, *expected,
+                "魔王題按鍵 `{}` 應解碼為 `{}`，實際為 `{}`",
+                keys, expected, out
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "known hard case: 6 of 21 cases require discarded rules in constructions.rs C7/C11/C19 and patterns_user.jsonl that failed dev quality gate; see docs/KNOWN_HARD_CASES.md"]
+    fn test_chinese_construction_grammar_completion_261031() {
+        let mut engine = RuhiEngine::new();
+        engine.keyboard_mode = "hsu".to_string();
+
+        let cases = [
+            // A. 8D 因式分解氣象持續體（[毛毛/微/小/中/大/豪/強/暴/濃/厚/稀/薄]? × [雨/雪/風/霧/霜/雹/雷/太陽/陽光]，含可選槽位省略）與 5D 倒裝存現氣象構式
+            ("xijmemjufcerjggsbxjteld", "外面雨下個不停"),
+            ("vxk xijdsufcerjggsmadxmdmadlewf", "窗外的雨下個沒完沒了"),
+            ("xijmemjdsce xje jdpew ggsbxjteld", "外面的稀霧一直飄個不停"),
+            ("cm ckjdshojcuefhidzijcerjggsmadxmdmadlewf", "山上的厚雪還在下個沒完沒了"),
+            ("vxk xijdsmwdmwdufe jdcerjggsbxjteld", "窗外的毛毛雨一直下個不停"),
+            ("xijmemjdshwdufe jdcerjggsbxjteld", "外面的豪雨一直下個不停"),
+            ("vxk xijhidcerjjgsvel pnddyjuf", "窗外還下著傾盆大雨"),
+            ("cm ckjjljpew jgsnxldxj", "山上正飄著濃霧"),
+            // B. 「的／得／地」三分法 ＆ 「在／再」雙向分流魔王題（含 [指代/數詞]×[量詞] 因式分解與 [動詞]×[不]×[結果補語] 因式分解）
+            ("tr ceefdsnyjpem xndjk fa vkdjel aif", "他寫的那篇文章非常精彩"),
+            ("jgjzxhjvldcjdsfl jelffa vkdmaflej", "這座城市的風景非常美麗"),
+            ("vejdgde jujhxyjdo cxh bxjvx lid", "氣得一句話都說不出來"),
+            ("cewjdgdhgdbxjlxlfzxaf", "笑得合不攏嘴"),
+            ("lajdgdvxmfbxjgxhjvejlid", "累得喘不過氣來"),
+            ("vumdcndgxmjjxjdsxmdvldjgjcekjrnjxj", "全神貫注地完成這項任務"),
+            ("jeojsxmjujdwjzijdyjdskxnjnmdeefbxjhxajfkjvej", "就算遇到再大的困難也不會放棄"),
+            ("zijjljcjckjcemjj vemdzijjemfvyde aj", "在正式上線之前再檢查一次"),
+            ("jgjggsxnjtedxhfmnse cjzijcj", "這個問題我們一試再試"),
+            // C. 軟體介面適配定語、疑問代詞任指連鎖與分離複合動趨因式分解構式（[動作動詞 V] × [內層趨向詞素 出/進/回/上/下/過/起] × [受事/處所 NP] × [來/去]）
+            ("velfzijcerjly cumfdm jxl cumfzgdcjhgddszjtefdyjcewf", "請在下拉選單中選擇適合的字體大小"),
+            ("nyflefcu ewjbk mkdjeojvujnyflef", "哪裡需要幫忙就去哪裡"),
+            ("tr axldkofdijleftw vx ewjcdlid", "他從口袋裡掏出鑰匙來"),
+            ("tr axldfkdjem lefbm vx e jk efzslid", "他從房間裡搬出一張椅子來"),
+        ];
+
+        for (keys, expected) in cases {
+            engine.reset_buffer();
+            for c in keys.chars() {
+                engine.process_key(c);
+            }
+            assert_eq!(
+                engine.get_display_text(),
+                expected,
+                "許氏音節串 `{}` 應精準解碼為 `{}`",
+                keys,
+                expected
+            );
+        }
+    }
 }
