@@ -52,7 +52,11 @@ pub enum WordPattern {
 }
 
 fn is_rare_impostor(word: &str) -> bool {
-    matches!(word, "婑" | "倭" | "䂺" | "婐" | "捰" | "𣇫" | "蟆" | "俛" | "犋" | "不憤")
+    matches!(
+        word,
+        "婑" | "倭" | "䂺" | "婐" | "捰" | "𣇫" | "蟆" | "俛" | "犋" | "不憤"
+            | "嶳" | "㡳" | "埅" | "埊" | "㑘" | "価" | "吔"
+    )
 }
 
 impl WordPattern {
@@ -5493,22 +5497,172 @@ impl TransitionEngine {
 
                 let mut chain_registered_first_pair = false;
                 if pat.slots.len() >= 3 {
-                    for w in 0..=pat.slots.len() - 3 {
-                        let s0: HashSet<String> = pat.slots[w]
-                            .iter()
-                            .map(|word| word.trim().to_string())
-                            .filter(|word| Self::is_valid_cjk_token(word))
-                            .collect();
-                        let s1: HashSet<String> = pat.slots[w + 1]
-                            .iter()
-                            .map(|word| word.trim().to_string())
-                            .filter(|word| Self::is_valid_cjk_token(word))
-                            .collect();
-                        let s2: HashSet<String> = pat.slots[w + 2]
-                            .iter()
-                            .map(|word| word.trim().to_string())
-                            .filter(|word| Self::is_valid_cjk_token(word))
-                            .collect();
+                    let raw_slots: Vec<Vec<String>> = pat
+                        .slots
+                        .iter()
+                        .map(|sl| {
+                            sl.iter()
+                                .map(|w| w.trim().to_string())
+                                .filter(|w| Self::is_valid_cjk_token(w))
+                                .collect()
+                        })
+                        .collect();
+
+                    // 因式分解複合詞雙態展開（Factorized Modifier/Stem × Head/Suffix Dual-Mode Expansion）：
+                    // 當可選修飾語槽位 m (optional_slots 含 m，如 [毛毛/微/小/中/大/豪/強/暴/濃/厚/稀/薄/冰]) 或必選詞根槽位 m（如 [拿/掏/走/搬] × [出/進/回/上/下]、[文字/語音/視覺] × [型]、[這/那/一/幾] × [篇/雙/座/個/本/把]）緊接後綴／中心語槽位 m+1 時：
+                    // 1. 雙節點分離路徑 (Node(m) -> Node(m+1)) 使用純原子 `raw_slots[m+1]`（避免產生「大 ➔ 大雨」或「拿 ➔ 拿出」重疊）；
+                    // 2. 單節點凝聚路徑（跳過可選 m 使用 `coalesced_slots[m+1]`；或將必選詞根 m 併入 m+1 使用 `only_coalesced_slots[m+1]`），同時支援詞庫已成詞之合成節點與未成詞之雙節點分離路徑！
+                    let mut coalesced_slots = raw_slots.clone();
+                    let mut only_coalesced_slots: Vec<Vec<String>> = vec![Vec::new(); raw_slots.len()];
+                    let mut factorized_mod_indices = HashSet::new();
+                    let mut bound_head_slot_indices = HashSet::new();
+                    for m in 0..raw_slots.len().saturating_sub(1) {
+                        let mod_slot = &raw_slots[m];
+                        let head_slot = &raw_slots[m + 1];
+                        let is_pure_particle_or_adverb = mod_slot.iter().all(|w| {
+                            matches!(
+                                w.as_str(),
+                                "的" | "之" | "得" | "地" | "個" | "著" | "了" | "一直" | "還在"
+                                    | "持續" | "不斷" | "依然" | "總是" | "還是" | "突然" | "開始"
+                                    | "還" | "正" | "與" | "和" | "及" | "或" | "跟" | "比"
+                                    | "可以" | "能" | "能夠" | "把" | "將" | "先" | "已經"
+                                    | "幾乎" | "快" | "快要" | "差點" | "全都" | "通通" | "完全"
+                            )
+                        });
+                        let is_weather_head_slot = !head_slot.is_empty()
+                            && head_slot.iter().all(|w| {
+                                matches!(
+                                    w.as_str(),
+                                    "雨" | "雪" | "風" | "霧" | "霜" | "雹" | "雷" | "太陽" | "陽光"
+                                )
+                            });
+                        let is_mandatory_bound_head = !head_slot.is_empty()
+                            && head_slot.iter().all(|w| {
+                                matches!(
+                                    w.as_str(),
+                                    "型" | "類" | "素" | "檔" | "好" | "光" | "光光" | "到" | "出"
+                                        | "進" | "回" | "上" | "下" | "過" | "起" | "篇" | "雙"
+                                        | "套" | "份" | "段" | "座" | "個" | "種" | "部" | "場"
+                                        | "首" | "本" | "把" | "筆" | "項" | "次" | "遍" | "趟"
+                                        | "句" | "條" | "件" | "張" | "支" | "間" | "層" | "些"
+                                        | "點" | "杯" | "碗" | "壺" | "瓶" | "罐" | "盤" | "住"
+                                        | "死" | "鍵" | "鈕" | "裡" | "中" | "內" | "法" | "式"
+                                        | "工" | "成" | "畢" | "結" | "稿" | "賽" | "完" | "選"
+                                        | "取" | "天" | "年" | "步" | "代" | "版" | "屆" | "頓"
+                                        | "陣"
+                                )
+                            });
+                        let should_factorize = if pat.optional_slots.contains(&m) {
+                            !is_pure_particle_or_adverb
+                                && mod_slot.iter().all(|w| w.chars().count() <= 3)
+                                && (is_weather_head_slot || is_mandatory_bound_head)
+                        } else {
+                            !is_pure_particle_or_adverb
+                                && mod_slot.iter().all(|w| w.chars().count() <= 2)
+                                && is_mandatory_bound_head
+                        };
+                        if should_factorize {
+                            factorized_mod_indices.insert(m);
+                            if is_mandatory_bound_head {
+                                bound_head_slot_indices.insert(m + 1);
+                            }
+                            let mut expanded = coalesced_slots[m + 1].clone();
+                            let mut pure_comp = Vec::new();
+                            for mw in mod_slot {
+                                for hw in head_slot {
+                                    if !self.excluded_pairs.contains(&(mw.clone(), hw.clone())) {
+                                        let comp = format!("{mw}{hw}");
+                                        if !expanded.contains(&comp) {
+                                            expanded.push(comp.clone());
+                                        }
+                                        if !pure_comp.contains(&comp) {
+                                            pure_comp.push(comp);
+                                        }
+                                    }
+                                }
+                            }
+                            coalesced_slots[m + 1] = expanded;
+                            only_coalesced_slots[m + 1] = pure_comp;
+                        }
+                    }
+
+                    let resolve_target_slot_words =
+                        |idx: usize, prev_idx: usize| -> &[String] {
+                            if idx > 0 && factorized_mod_indices.contains(&(idx - 1)) {
+                                if prev_idx == idx - 1 {
+                                    &raw_slots[idx]
+                                } else if bound_head_slot_indices.contains(&idx)
+                                    && !only_coalesced_slots[idx].is_empty()
+                                {
+                                    &only_coalesced_slots[idx]
+                                } else {
+                                    &coalesced_slots[idx]
+                                }
+                            } else {
+                                &coalesced_slots[idx]
+                            }
+                        };
+
+                    let resolve_source_slot_words = |idx: usize, is_bigram_left: bool| -> &[String] {
+                        let raw_is_bare_particle = !raw_slots[idx].is_empty()
+                            && raw_slots[idx].iter().all(|w| {
+                                matches!(
+                                    w.as_str(),
+                                    "到" | "的" | "之" | "得" | "地" | "了" | "過" | "著" | "不"
+                                )
+                            });
+                        if (raw_is_bare_particle || (is_bigram_left && bound_head_slot_indices.contains(&idx)))
+                            && !only_coalesced_slots[idx].is_empty()
+                        {
+                            &only_coalesced_slots[idx]
+                        } else {
+                            &coalesced_slots[idx]
+                        }
+                    };
+
+                    // 收集所有合法的連續／跨可選槽位／跨分解詞根槽位三元組索引 (i0, i1, i2)
+                    let mut trigram_index_triplets = Vec::new();
+                    for i0 in 0..raw_slots.len() {
+                        let mut i1 = i0 + 1;
+                        let mut must_land_i1 = false;
+                        while i1 < raw_slots.len() {
+                            let mut i2 = i1 + 1;
+                            let mut must_land_i2 = false;
+                            while i2 < raw_slots.len() {
+                                trigram_index_triplets.push((i0, i1, i2));
+                                if must_land_i2 {
+                                    break;
+                                }
+                                if pat.optional_slots.contains(&i2) {
+                                    i2 += 1;
+                                } else if factorized_mod_indices.contains(&i2) {
+                                    must_land_i2 = true;
+                                    i2 += 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                            if must_land_i1 {
+                                break;
+                            }
+                            if pat.optional_slots.contains(&i1) {
+                                i1 += 1;
+                            } else if factorized_mod_indices.contains(&i1) {
+                                must_land_i1 = true;
+                                i1 += 1;
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+
+                    for (idx_pos, (i0, i1, i2)) in trigram_index_triplets.into_iter().enumerate() {
+                        let s0: HashSet<String> =
+                            resolve_source_slot_words(i0, false).iter().cloned().collect();
+                        let s1: HashSet<String> =
+                            resolve_target_slot_words(i1, i0).iter().cloned().collect();
+                        let s2: HashSet<String> =
+                            resolve_target_slot_words(i2, i1).iter().cloned().collect();
                         if !s0.is_empty() && !s1.is_empty() && !s2.is_empty() {
                             self.user_trigram_patterns.push(TrigramSlotPattern {
                                 slot0: s0,
@@ -5517,34 +5671,31 @@ impl TransitionEngine {
                                 bonus: safe_bonus,
                                 name: label.clone(),
                             });
-                            if w == 0 {
+                            if idx_pos == 0 {
                                 count += 1;
                             }
                         }
                     }
-                    // 若為無 target/preferred 之多維槽位鏈（如 [A_arr, B_arr, C_arr, D_arr]），
-                    // 自動將相鄰槽位對 (slots[i] × slots[i+1]) 及可選槽位跨接 (slots[i] × slots[i+2]) 註冊為 O(1) 陣列規則
+
+                    // 若為無 target/preferred 之多維槽位鏈（如 [A_arr, B_arr, C_arr, D_arr, ...]），
+                    // 自動將相鄰槽位對 (slots[i] × slots[i+1]) 及可選／分解槽位跨接 (slots[i] × slots[next_idx+1]) 註冊為 O(1) 陣列規則
                     if pat.target.is_empty() && pat.preferred.is_empty() {
-                        let cleaned_slots: Vec<Vec<String>> = pat
-                            .slots
-                            .iter()
-                            .map(|sl| {
-                                sl.iter()
-                                    .map(|w| w.trim().to_string())
-                                    .filter(|w| Self::is_valid_cjk_token(w))
-                                    .collect()
-                            })
-                            .collect();
-                        for i in 0..cleaned_slots.len().saturating_sub(1) {
-                            let left = &cleaned_slots[i];
-                            let right = &cleaned_slots[i + 1];
+                        for i in 0..raw_slots.len().saturating_sub(1) {
+                            let left = resolve_source_slot_words(i, true);
+                            let right = resolve_target_slot_words(i + 1, i);
                             let left_is_pure_coordinator_or_particle = left.iter().all(|w| {
                                 matches!(
                                     w.as_str(),
-                                    "與" | "和" | "及" | "或" | "跟" | "的" | "之" | "得" | "到"
+                                    "與" | "和" | "及" | "或" | "跟" | "的" | "之" | "得" | "到" | "不"
                                 )
                             });
-                            if !left.is_empty() && !right.is_empty() && !left_is_pure_coordinator_or_particle {
+                            let right_is_middle_de_particle = i + 1 < raw_slots.len().saturating_sub(1)
+                                && right.iter().all(|w| matches!(w.as_str(), "得" | "地" | "的" | "之" | "不"));
+                            if !left.is_empty()
+                                && !right.is_empty()
+                                && !left_is_pure_coordinator_or_particle
+                                && !right_is_middle_de_particle
+                            {
                                 if i == 0 && pat.prev_slot == pat.slots[0] && pat.next_slot == pat.slots[1] {
                                     chain_registered_first_pair = true;
                                 }
@@ -5552,35 +5703,48 @@ impl TransitionEngine {
                                     prev_pattern: if left.len() == 1 {
                                         WordPattern::Exact(left[0].clone())
                                     } else {
-                                        WordPattern::OneOf(left.clone())
+                                        WordPattern::OneOf(left.to_vec())
                                     },
                                     curr_pattern: if right.len() == 1 {
                                         WordPattern::Exact(right[0].clone())
                                     } else {
-                                        WordPattern::OneOf(right.clone())
+                                        WordPattern::OneOf(right.to_vec())
                                     },
                                     bonus: safe_bonus,
                                     name: format!("user_chain:{}:{}->{}", label, i, i + 1),
                                 });
                             }
-                            if pat.optional_slots.contains(&(i + 1)) && i + 2 < cleaned_slots.len() {
-                                let skip_right = &cleaned_slots[i + 2];
-                                if !left.is_empty() && !skip_right.is_empty() {
+                            let mut next_idx = i + 1;
+                            let mut must_land_next = false;
+                            while next_idx + 1 < raw_slots.len() {
+                                if must_land_next {
+                                    break;
+                                }
+                                if pat.optional_slots.contains(&next_idx) {
+                                    // 可選槽位，可繼續往後跨接
+                                } else if factorized_mod_indices.contains(&next_idx) {
+                                    must_land_next = true;
+                                } else {
+                                    break;
+                                }
+                                let skip_right = resolve_target_slot_words(next_idx + 1, i);
+                                if !left.is_empty() && !skip_right.is_empty() && !left_is_pure_coordinator_or_particle {
                                     self.grammar_rules.push(GrammarRule {
                                         prev_pattern: if left.len() == 1 {
                                             WordPattern::Exact(left[0].clone())
                                         } else {
-                                            WordPattern::OneOf(left.clone())
+                                            WordPattern::OneOf(left.to_vec())
                                         },
                                         curr_pattern: if skip_right.len() == 1 {
                                             WordPattern::Exact(skip_right[0].clone())
                                         } else {
-                                            WordPattern::OneOf(skip_right.clone())
+                                            WordPattern::OneOf(skip_right.to_vec())
                                         },
                                         bonus: safe_bonus,
-                                        name: format!("user_chain_opt:{}:{}->{}", label, i, i + 2),
+                                        name: format!("user_chain_opt:{}:{}->{}", label, i, next_idx + 1),
                                     });
                                 }
+                                next_idx += 1;
                             }
                         }
                     }
@@ -5945,6 +6109,20 @@ impl TransitionEngine {
                     continue;
                 }
                 // ── 讀音錨定檢查 (Phonetic Anchoring Guards) ──
+                // -1. 單字輕聲音節（含 `˙`）在現代漢語中恆為助詞／語氣詞／詞綴，絕不可冒充通配實詞 (`ContentWord` / `Nominal`) 領取語法加分（防罕用輕聲異體字如 `嶳 ㄉㄜ˙` 劫掠 `的`）
+                if rule.bonus > 0.0
+                    && curr_bopomofo.contains('˙')
+                    && curr_word.chars().count() == 1
+                    && matches!(
+                        rule.curr_pattern,
+                        WordPattern::ContentWord
+                            | WordPattern::CompoundContentWord
+                            | WordPattern::ContentWordExcept(_)
+                            | WordPattern::Nominal
+                    )
+                {
+                    continue;
+                }
                 // 0. 通用破音虛詞「形音義一體」讀音門檻（防止次要破音如 的(ㄉㄧˋ/ㄉㄧˊ)、會(ㄎㄨㄞˋ/ㄏㄨㄟˇ)、要(ㄧㄠ)、沒(ㄇㄛˋ)、更(ㄍㄥ/ㄐㄧㄥ)、被(ㄆㄧ)、從(ㄘㄨㄥ/ㄗㄨㄥˋ)、與(ㄩˋ)、幾(ㄐㄧ)、句(ㄍㄡ)、那(ㄋㄚˇ)、都(ㄉㄨ)、還(ㄏㄨㄢˊ)、種(ㄓㄨㄥˋ) 冒領語法構式加分）
                 if rule.bonus > 0.0 {
                     let is_bad_polyphone = |w: &str, bpm: &str, rname: &str| -> bool {
@@ -6218,7 +6396,12 @@ impl TransitionEngine {
                     .chars()
                     .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
             let is_political_abbr = matches!(prev_word, "kmt" | "dpp" | "ccp" | "gop");
-            if (is_ascii_word && !is_political_abbr) || matches!(prev_word, "圖" | "音" | "影片" | "封存") {
+            if (is_ascii_word && !is_political_abbr)
+                || matches!(
+                    prev_word,
+                    "圖" | "音" | "錄音" | "音訊" | "影片" | "封存" | "文字" | "設定" | "執行" | "壓縮"
+                )
+            {
                 if curr_word == "檔" {
                     bonus += self.apply_rule_score("morph_media_file_dang", 35.0);
                 } else {
@@ -6228,7 +6411,11 @@ impl TransitionEngine {
         }
 
         // 7. 全稱限定詞「任何」後接名詞／實詞雙向語法構式（排除標點與純助詞），以及三聲「ㄋㄚˇ」嚴禁出指代詞「那」
-        if prev_word == "任何" && !curr_word.is_empty() && !matches!(curr_word, "的" | "了" | "嗎" | "呢" | "吧" | "啊") {
+        if prev_word == "任何"
+            && !curr_word.is_empty()
+            && !curr_bopomofo.contains('˙')
+            && !matches!(curr_word, "的" | "得" | "地" | "了" | "嗎" | "呢" | "吧" | "啊")
+        {
             bonus += self.apply_rule_score("morph_renhe_nominal", 32.0);
         }
         if (curr_word == "那" || curr_word.starts_with('那')) && curr_bopomofo.starts_with("ㄋㄚˇ") {
