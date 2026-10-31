@@ -43,13 +43,21 @@ impl RuhiEditSession {
 
 impl ITfEditSession_Impl for RuhiEditSession_Impl {
     fn DoEditSession(&self, ec: u32) -> Result<()> {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.do_edit_session_inner(ec)
+        })).unwrap_or_else(|_| Err(windows::Win32::Foundation::E_FAIL.into()))
+    }
+}
+
+impl RuhiEditSession {
+    fn do_edit_session_inner(&self, ec: u32) -> Result<()> {
         match &self.action {
             EditSessionAction::UpdateComposition { text, cursor_pos, selection, is_commit } => {
                 let text_wide: Vec<u16> = text.encode_utf16().collect();
 
                 if *is_commit {
                     let comp_to_end = {
-                        let mut comp_lock = self.composition_holder.lock().unwrap();
+                        let mut comp_lock = self.composition_holder.lock().unwrap_or_else(|e| e.into_inner());
                         comp_lock.take()
                     };
 
