@@ -11,7 +11,7 @@
   "custom_model": "gemma-2-2b-it",
   "desk_opacity": 50,
   "enable_array30_coach": false,
-  "enable_mixed_english": false,
+  "enable_mixed_english": true,
   "enabled_keyboard_modes": [
     "hsu",
     "japanese"
@@ -27,6 +27,12 @@
   "max_composition_chars": 36,
   "mixed_english_min_len": 4,
   "mixed_english_mode": "contextual_stream",
+  "mixed_typing_modes": [
+    "standard",
+    "cangjie",
+    "four_corner",
+    "array30"
+  ],
   "ollama_model": "gemma4:12b",
   "ollama_url": "http://127.0.0.1:11434",
   "openai_model": "gpt-4o-mini",

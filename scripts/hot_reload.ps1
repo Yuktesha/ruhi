@@ -205,7 +205,7 @@ try {
     if (Test-Path $canonicalDataDir) {
         foreach ($wTarget in $workspaceDataTargets) {
             if (Test-Path $wTarget) {
-                Get-ChildItem -Path $canonicalDataDir -File -Include "*.tsv", "*.jsonl", "*.json" -ErrorAction SilentlyContinue | ForEach-Object {
+                Get-ChildItem -Path "$canonicalDataDir\*" -File -Include "*.tsv", "*.jsonl", "*.json", "*.bin" -ErrorAction SilentlyContinue | ForEach-Object {
                     $destWFile = Join-Path $wTarget $_.Name
                     if ((-not (Test-Path $destWFile)) -or ($_.LastWriteTime -gt (Get-Item $destWFile).LastWriteTime)) {
                         Copy-Item $_.FullName -Destination $destWFile -Force -ErrorAction SilentlyContinue
@@ -215,7 +215,7 @@ try {
         }
     }
 } finally {
-    Start-Process "ctfmon.exe"
+    try { Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = "ctfmon.exe" } -ErrorAction Stop | Out-Null } catch { Start-Process "ctfmon.exe" }
     Start-Sleep -Milliseconds 150
 
     # 透過 TSF EnableLanguageProfile 雙向廣播與進程內橋接，使所有執行中視窗立即切換至新版 DLL 並刷新右下角狀態圖示
@@ -454,7 +454,7 @@ public class RuhiLiveBridge {
         ulong uTextLo = baseAddr + (ulong)textLo;
         ulong uTextHi = baseAddr + (ulong)textHi;
         int limit = rdataSize - 37 * 8;
-        int[] unpatchedSlots = new int[] { 0, 1, 2, 5, 6, 7, 11, 12, 13, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36 };
+        int[] unpatchedSlots = new int[] { 0, 1, 2, 5, 6, 7, 11, 12, 13, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 32, 33, 34 };
         for (int off = 0; off <= limit; off += 8) {
             ulong p23 = BitConverter.ToUInt64(rdata, off + 23 * 8);
             if (p23 < uTextLo || p23 >= uTextHi) continue;
@@ -535,7 +535,7 @@ public class RuhiLiveBridge {
             byte[] newBuf = new byte[37 * 8];
             if (!ReadProcessMemory(hProc, oldVtblAddr, oldBuf, (uint)oldBuf.Length, out read)) return false;
             if (!ReadProcessMemory(hProc, newVtblAddr, newBuf, (uint)newBuf.Length, out read)) return false;
-            int[] slotsToPatch = new int[] { 3, 4, 8, 9, 10, 14, 15, 16, 17, 18, 19, 25 };
+            int[] slotsToPatch = new int[] { 3, 4, 8, 9, 10, 14, 15, 16, 17, 18, 19, 25, 31, 35, 36 };
             foreach (int s in slotsToPatch) {
                 Array.Copy(newBuf, s * 8, oldBuf, s * 8, 8);
             }
