@@ -517,6 +517,7 @@ impl HsuFSM {
                 "ㄏ" => { init.clear(); fin = "ㄛ".to_string(); }
                 "ㄇ" => { init.clear(); fin = "ㄢ".to_string(); }
                 "ㄋ" => { init.clear(); fin = "ㄣ".to_string(); }
+                "ㄎ" => { init.clear(); fin = "ㄤ".to_string(); }
                 _ => {}
             }
         }
