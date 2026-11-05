@@ -1,24 +1,19 @@
-//! # `ai_consultant` — 如喜神經符號融合 AI 語意顧問 (Rust 原生版)
+//! # `ai_consultant` — 如喜計算語言學多維構式與雲端 AI 語意調校顧問 (Rust 原生版)
 //!
-//! 完整移植並升級原 Python 版 `scripts/ai_semantic_consultant.py`：
-//! 1. **Google 技術生態絕對優先**：優先支援 Google Gemini API (`gemini-2.5-flash`) 與純綠免安裝版 `llama.cpp` (`atg_lib::ai_engine::RuhAIEngine` 驅動之本地 Google Gemma `.gguf` 模型)。
-//! 2. **100% 離線神經符號融合保底**：當處於無網路或未啟動大型語言模型之純離線環境時，自動以內建計算語言學雙向詞網與六大病灶分類學完成精準診斷、專業文獻詞彙萃取、Tailcat 提案安全審計與修訂歷史昇華。
+//! 1. **100% 確定性計算語言學與多維構式引擎**：內建雙向最大匹配 (`BiMM`) + 最長共同子序列 (`LCS`) 詞界對齊、六大病灶分類學、多維槽位構式因式分解、跨標點/對偶拓撲算子與三階段 Viterbi 沙盒驗證。
+//! 2. **前沿雲端巨型模型交接協定 (Handover Protocol)**：支援匯出標準 AI/SI 語意調校交接規格書，供前沿雲端推理模型（如 Google Gemini 高階模型）協作打磨高維度語言學構式。
 
-use atg_lib::ai_engine::{AIStatus, RuhAIEngine};
 use serde_json::{json, Map, Value};
 use std::collections::HashSet;
 use std::fs;
-use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use crate::tuner::{
     common_typo_map, is_syntactic_phrase_or_clitic, is_valid_chinese_token, SemanticTuner,
     ZeroPiiPrivacyFilter,
 };
 
-/// 推薦雲端大 AI / SI 模型清單（Google Gemini 生態第一優先，歐美模型第二順位）
+/// 推薦雲端前沿 AI / SI 模型清單（Google Gemini 生態第一優先，歐美模型第二順位）
 pub fn recommended_cloud_models() -> Vec<Value> {
     vec![
         json!({
@@ -60,82 +55,11 @@ pub fn recommended_cloud_models() -> Vec<Value> {
     ]
 }
 
-/// 推薦本地離線純綠模型清單（Google Gemma 4 生態第一優先，歐美開源第二順位）
-pub fn recommended_local_models() -> Vec<Value> {
-    vec![
-        json!({
-            "name": "ruhi-semantic-analyst-gemma4:latest",
-            "tag": "ruhi-semantic-analyst-gemma4-e4b-Q4_K_M.gguf",
-            "display_name": "Google Gemma 4 如喜漢語語意分析師特化模型（Colab AI Ultra 微調首選）",
-            "priority": 1,
-            "ecosystem": "Google Gemma 4 開源生態（第一優先）",
-            "description": "經 Google Colab CLI (A100/H100) 以如喜黃金構式與對抗反例集 QLoRA 微調之專用模型，支援 Hybrid Thinking (<think>) 與結構化 JSON 構式輸出。"
-        }),
-        json!({
-            "name": "gemma4:26b-a4b",
-            "tag": "gemma-4-26b-a4b-it-Q4_K_M.gguf",
-            "display_name": "Google Gemma 4 26B-A4B MoE Instruct（Active 4B 專家混合旗艦）",
-            "priority": 2,
-            "ecosystem": "Google Gemma 4 開源生態（第一優先）",
-            "description": "總參數 26B、推論僅活化 4B 參數之 MoE 架構，具備 256K 超長上下文與原生 System Prompt / JSON Schema 能力，兼具高階推理品質與 4B 級高速回應。"
-        }),
-        json!({
-            "name": "gemma4:12b",
-            "tag": "gemma-4-12b-it-Q4_K_M.gguf",
-            "display_name": "Google Gemma 4 12B Instruct Q4_K_M（本地深度語意調校主力）",
-            "priority": 3,
-            "ecosystem": "Google Gemma 4 開源生態（第一優先）",
-            "description": "由純綠免安裝 llama.cpp (127.0.0.1:8080) 驅動，零商業訂閱誘導，繁體中文句法構式與陣列抽離能力穩定（建議 8GB+ VRAM）。"
-        }),
-        json!({
-            "name": "gemma4:e4b",
-            "tag": "gemma-4-e4b-it-Q4_K_M.gguf",
-            "display_name": "Google Gemma 4 E4B Instruct Q4_K_M（個人端自主演化常駐首選）",
-            "priority": 4,
-            "ecosystem": "Google Gemma 4 開源生態（第一優先）",
-            "description": "128K 上下文、記憶體佔用僅約 3GB，適合未來個人端背景自主語意分析與即時對照句診斷。"
-        }),
-        json!({
-            "name": "gemma4:e2b",
-            "tag": "gemma-4-e2b-it-Q4_K_M.gguf",
-            "display_name": "Google Gemma 4 E2B Instruct Q4_K_M（超輕量邊緣運算首選）",
-            "priority": 5,
-            "ecosystem": "Google Gemma 4 開源生態（第一優先）",
-            "description": "極低資源消耗之邊緣端模型，適合輕薄筆電離線二階轉移與構式快篩。"
-        }),
-        json!({
-            "name": "gemma3:12b",
-            "tag": "gemma-3-12b-it-Q4_K_M.gguf",
-            "display_name": "Google Gemma 3 12B Instruct Q4_K_M（前代穩定開源主力）",
-            "priority": 6,
-            "ecosystem": "Google 開源生態（第一優先）",
-            "description": "Google 官方開源模型，由純綠開源 Llama 引擎驅動，零商業廣告與審查干擾。"
-        }),
-        json!({
-            "name": "llama3.2:3b",
-            "tag": "llama3.2:3b",
-            "display_name": "Meta Llama 3.2 3B Instruct（歐美優質開源備援）",
-            "priority": 7,
-            "ecosystem": "歐美開源生態（第二順位）",
-            "description": "Meta 歐美開源架構，推論速度極快，適合離線二階搭配提煉。"
-        }),
-        json!({
-            "name": "mistral-nemo:latest",
-            "tag": "mistral-nemo:latest",
-            "display_name": "Mistral Nemo 12B Instruct（歐洲開源備援）",
-            "priority": 8,
-            "ecosystem": "歐美開源生態（第二順位）",
-            "description": "法國 Mistral AI 與 NVIDIA 合作開源模型，多語結構化指令遵循穩定。"
-        }),
-    ]
-}
-
-/// 高階神經符號 AI 語意顧問 (`AISemanticConsultant`)
+/// 計算語言學多維構式與語意調校顧問 (`AISemanticConsultant`)
 pub struct AISemanticConsultant {
     pub root: PathBuf,
     pub config_path: PathBuf,
     pub config: Map<String, Value>,
-    pub green_ai: RuhAIEngine,
 }
 
 impl AISemanticConsultant {
@@ -145,22 +69,11 @@ impl AISemanticConsultant {
             .unwrap_or_else(crate::config_sync::resolve_ruhi_root);
         let config_path = root.join("config.json");
         let config = Self::load_config_map(&config_path);
-        let mut green_ai = RuhAIEngine::new();
-        let gemma4_out_dir = root.join("outputs").join("gemma4_semantic_analyst");
-        let gemma4_gguf_dir = gemma4_out_dir.join("gguf");
-        if !green_ai.model_dirs.contains(&gemma4_out_dir) {
-            green_ai.model_dirs.insert(0, gemma4_out_dir);
-        }
-        if !green_ai.model_dirs.contains(&gemma4_gguf_dir) {
-            green_ai.model_dirs.insert(0, gemma4_gguf_dir);
-        }
-        green_ai.scan_local_gguf_models();
 
         Self {
             root,
             config_path,
             config,
-            green_ai,
         }
     }
 
@@ -203,164 +116,6 @@ impl AISemanticConsultant {
             .unwrap_or(default)
     }
 
-    /// 檢查本機是否已具備雲端 Colab A100 微調完成之「如喜語意分析師特化版 Google Gemma 4」權重
-    pub fn has_local_gemma4_specialist(&self) -> bool {
-        let out_dir = self.root.join("outputs").join("gemma4_semantic_analyst");
-        let lora_safetensors = out_dir
-            .join("ruhi-semantic-analyst-gemma4-lora")
-            .join("adapter_model.safetensors");
-        let gguf_file = out_dir.join("ruhi-semantic-analyst-gemma4-e4b-Q4_K_M.gguf");
-        lora_safetensors.is_file() || gguf_file.is_file()
-    }
-
-    /// 取得「如喜語意分析師特化版 Google Gemma 4」完整訓練履歷、權重狀態與單一新構式即刻進化進度
-    pub fn get_gemma4_specialist_status(&self, tuner: Option<&SemanticTuner>) -> Value {
-        let out_dir = self.root.join("outputs").join("gemma4_semantic_analyst");
-        let lora_dir = out_dir.join("ruhi-semantic-analyst-gemma4-lora");
-        let lora_safetensors = lora_dir.join("adapter_model.safetensors");
-        let gguf_file = out_dir.join("ruhi-semantic-analyst-gemma4-e4b-Q4_K_M.gguf");
-        let lora_gguf_file = out_dir.join("ruhi-semantic-analyst-gemma4-lora.gguf");
-        let summary_path = out_dir.join("training_summary.json");
-
-        let lora_exists = lora_safetensors.is_file() || lora_gguf_file.is_file();
-        let gguf_exists = gguf_file.is_file() || lora_gguf_file.is_file();
-        let installed = lora_exists || gguf_exists;
-        let adapter_size_mb = lora_safetensors
-            .metadata()
-            .map(|m| (m.len() as f64 / (1024.0 * 1024.0) * 10.0).round() / 10.0)
-            .unwrap_or(0.0);
-
-        let mut base_model = "google/gemma-4-e4b-it".to_string();
-        let mut gpu = "NVIDIA A100-SXM4-80GB".to_string();
-        let mut training_loss = 2.7730_f64;
-        let mut train_samples = 61_u64;
-        let mut eval_samples = 15_u64;
-        let mut elapsed_seconds = 747.7_f64;
-
-        if summary_path.is_file() {
-            if let Ok(raw) = fs::read_to_string(&summary_path) {
-                if let Ok(val) = serde_json::from_str::<Value>(&raw) {
-                    if let Some(bm) = val.get("base_model").and_then(Value::as_str) {
-                        base_model = bm.to_string();
-                    }
-                    if let Some(g) = val.get("gpu").and_then(Value::as_str) {
-                        gpu = g.to_string();
-                    }
-                    if let Some(loss) = val.get("training_loss").and_then(Value::as_f64) {
-                        training_loss = (loss * 10000.0).round() / 10000.0;
-                    }
-                    if let Some(ts) = val.get("train_samples").and_then(Value::as_u64) {
-                        train_samples = ts;
-                    }
-                    if let Some(es) = val.get("eval_samples").and_then(Value::as_u64) {
-                        eval_samples = es;
-                    }
-                    if let Some(el) = val.get("elapsed_seconds").and_then(Value::as_f64) {
-                        elapsed_seconds = (el * 10.0).round() / 10.0;
-                    }
-                }
-            }
-        }
-
-        let evolution = if let Some(t) = tuner {
-            t.check_gemma4_evolution_status(1)
-        } else {
-            let fallback_tuner = SemanticTuner::new(Some(&self.root));
-            fallback_tuner.check_gemma4_evolution_status(1)
-        };
-
-        json!({
-            "installed": installed,
-            "lora_ready": lora_exists,
-            "has_lora_adapter": lora_exists,
-            "gguf_ready": gguf_exists,
-            "model_id": "ruhi-semantic-analyst-gemma4-lora",
-            "display_name": "🧬 如喜語意分析師特化版 Google Gemma 4 (E4B QLoRA)",
-            "base_model": base_model,
-            "gpu": gpu,
-            "gpu_trained_on": gpu,
-            "training_loss": training_loss,
-            "train_samples": train_samples,
-            "eval_samples": eval_samples,
-            "elapsed_seconds": elapsed_seconds,
-            "adapter_size_mb": adapter_size_mb,
-            "lora_dir": "outputs/gemma4_semantic_analyst/ruhi-semantic-analyst-gemma4-lora",
-            "evolution": evolution
-        })
-    }
-
-    /// 探測本機純綠 `llama-server` (`127.0.0.1:8080`)
-    pub fn probe_local_llama(&mut self) -> bool {
-        self.green_ai.refresh(true) == AIStatus::Online
-    }
-
-    /// 相容舊版介面：一律導向純綠 `llama-server` (`127.0.0.1:8080`)，拒絕商業訂閱誘導之第三方背景服務
-    pub fn probe_ollama(&self) -> bool {
-        probe_local_http_port(8080, "/health")
-    }
-
-    /// 掃描本機已下載之特化版 Gemma 4、`.gguf` 與純綠 `llama.cpp` 離線模型清單（特化版 Gemma 4 絕對置頂）
-    pub fn read_offline_models(&mut self) -> Vec<String> {
-        let mut priority_models = Vec::new();
-        let out_dir = self.root.join("outputs").join("gemma4_semantic_analyst");
-        if out_dir
-            .join("ruhi-semantic-analyst-gemma4-lora")
-            .join("adapter_model.safetensors")
-            .is_file()
-        {
-            priority_models.push("ruhi-semantic-analyst-gemma4-lora".to_string());
-        }
-        if let Ok(entries) = fs::read_dir(&out_dir) {
-            for entry in entries.flatten() {
-                let p = entry.path();
-                if p.is_file() {
-                    if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
-                        if ext.eq_ignore_ascii_case("gguf") {
-                            if let Some(fname) = p.file_name().and_then(|f| f.to_str()) {
-                                if !fname.to_ascii_lowercase().ends_with("-lora.gguf") {
-                                    priority_models.push(format!("gguf:{fname}"));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let mut other_models = Vec::new();
-        self.green_ai.scan_local_gguf_models();
-        for name in self.green_ai.available_models.keys() {
-            let tag = format!("gguf:{name}");
-            if !priority_models.contains(&tag) {
-                other_models.push(tag);
-            }
-        }
-
-        other_models.sort();
-        other_models.dedup();
-        priority_models.extend(other_models);
-        priority_models
-    }
-
-    pub fn find_ollama_paths(&self) -> Value {
-        let mut cli: Option<String> = None;
-        let mut installed = self.has_local_gemma4_specialist();
-
-        if let Some(bin) = self.green_ai.find_green_llama_server_bin() {
-            cli = Some(bin.to_string_lossy().to_string());
-            installed = true;
-        }
-        if !self.green_ai.available_models.is_empty() {
-            installed = true;
-        }
-
-        json!({
-            "cli": cli,
-            "app": cli,
-            "installed": installed
-        })
-    }
-
     pub fn has_gemini_key(&self) -> bool {
         let env_k = std::env::var("GEMINI_API_KEY").unwrap_or_default();
         let cfg_k = self.get_str("gemini_api_key", "");
@@ -368,100 +123,21 @@ impl AISemanticConsultant {
     }
 
     pub fn get_effective_provider(&mut self) -> String {
-        let provider = self.get_str("ai_provider", "gemma4_specialist");
-        if provider == "gemma4_specialist" {
-            return "gemma4_specialist".to_string();
-        }
-        if provider == "ollama" {
-            if self.has_local_gemma4_specialist() {
-                let m = self.get_str("ollama_model", "ruhi-semantic-analyst-gemma4-lora");
-                if m.contains("ruhi-semantic-analyst-gemma4") || m.is_empty() {
-                    return "gemma4_specialist".to_string();
-                }
-            }
-            if self.probe_local_llama() {
-                return "local_llama".to_string();
-            }
-            return "ollama".to_string();
-        }
-        if provider == "gemini" {
-            if self.has_gemini_key() {
-                return "gemini".to_string();
-            }
-            if self.has_local_gemma4_specialist() {
-                return "gemma4_specialist".to_string();
-            }
+        let provider = self.get_str("ai_provider", "deterministic");
+        if provider == "gemini" && self.has_gemini_key() {
             return "gemini".to_string();
         }
-        if matches!(
-            provider.as_str(),
-            "openai" | "claude" | "custom" | "local_llama" | "disabled"
-        ) {
+        if matches!(provider.as_str(), "openai" | "claude" | "custom" | "disabled") {
             return provider;
-        }
-
-        // auto 模式：本機若已安裝如喜語意分析師特化版 Gemma 4，直接優先掛載特化模型（或結合 Gemini）
-        if self.has_local_gemma4_specialist() {
-            return "gemma4_specialist".to_string();
         }
         if self.has_gemini_key() {
             return "gemini".to_string();
         }
-        if self.probe_local_llama() {
-            return "local_llama".to_string();
-        }
-        if self.probe_ollama() {
-            return "ollama".to_string();
-        }
-        "gemini_free_ready".to_string()
+        "deterministic".to_string()
     }
 
     pub fn test_connection(&mut self) -> Value {
         let provider = self.get_effective_provider();
-        let spec = self.get_gemma4_specialist_status(None);
-        if provider == "gemma4_specialist" && spec["installed"].as_bool().unwrap_or(false) {
-            let badge = spec["evolution"]["progress_badge"]
-                .as_str()
-                .unwrap_or("2 / 5");
-            let loss = spec["training_loss"].as_f64().unwrap_or(2.773);
-            return json!({
-                "status": "ok",
-                "is_running": true,
-                "provider": "gemma4_specialist",
-                "model": "ruhi-semantic-analyst-gemma4-lora",
-                "has_internet": true,
-                "gemma4_specialist": spec,
-                "message": format!("🧬 已掛載如喜語意分析師特化版 Google Gemma 4 E4B (A100 微調 Loss {loss:.4} · 進化累積 {badge})")
-            });
-        }
-        if provider == "local_llama" {
-            let model = self
-                .green_ai
-                .active_chat_model
-                .clone()
-                .unwrap_or_else(|| "gemma-gguf".to_string());
-            return json!({
-                "status": "ok",
-                "is_running": true,
-                "provider": "local_llama",
-                "model": model,
-                "has_internet": true,
-                "gemma4_specialist": spec,
-                "message": format!("🟢 已連線至本機純綠 llama-server ({model})")
-            });
-        }
-        if provider == "ollama" && self.probe_ollama() {
-            let m = self.get_str("ollama_model", "ruhi-semantic-analyst-gemma4-lora");
-            return json!({
-                "status": "ok",
-                "is_running": true,
-                "provider": "ollama",
-                "model": m,
-                "has_internet": true,
-                "gemma4_specialist": spec,
-                "message": format!("🟢 已連線至本機推論服務 ({m})")
-            });
-        }
         if provider == "gemini" && self.has_gemini_key() {
             let m = self.get_str("gemini_model", "gemini-2.5-flash");
             return json!({
@@ -470,59 +146,32 @@ impl AISemanticConsultant {
                 "provider": "gemini",
                 "model": m,
                 "has_internet": true,
-                "gemma4_specialist": spec,
-                "message": format!("🟢 Google Gemini API 已就緒 ({m})")
+                "message": format!("🟢 確定性計算語言學引擎 + Google Gemini API 已就緒 ({m})")
             });
         }
-        if spec["installed"].as_bool().unwrap_or(false) {
-            let badge = spec["evolution"]["progress_badge"]
-                .as_str()
-                .unwrap_or("2 / 5");
-            return json!({
-                "status": "ok",
-                "is_running": true,
-                "provider": "gemma4_specialist",
-                "model": "ruhi-semantic-analyst-gemma4-lora",
-                "has_internet": true,
-                "gemma4_specialist": spec,
-                "message": format!("🧬 本機已備妥如喜語意分析師特化版 Google Gemma 4 E4B (進化進度 {badge})")
-            });
-        }
-
         json!({
-            "status": "gemini_free_ready",
-            "provider": "gemini",
+            "status": "ok",
+            "is_running": true,
+            "provider": "deterministic",
+            "model": "ruhi-deterministic-construction-engine",
             "has_internet": true,
-            "gemma4_specialist": spec,
-            "message": "已啟用計算語言學確定性引擎！可掛載如喜語意分析師特化版 Gemma 4 或設定 Google Gemini API。"
+            "message": "🟢 已啟用內建確定性計算語言學與多維構式引擎"
         })
     }
 
     pub fn get_ai_wizard_status(&mut self) -> Value {
-        let offline_models = self.read_offline_models();
-        let ollama_paths = self.find_ollama_paths();
-        let spec = self.get_gemma4_specialist_status(None);
-        let spec_ready = spec["installed"].as_bool().unwrap_or(false);
-        let ollama_running = spec_ready || self.probe_local_llama() || self.probe_ollama();
         let provider = self.get_effective_provider();
-
         json!({
             "wizard_completed": self.get_bool("ai_wizard_completed", true),
-            "ai_strategy": self.get_str("ai_strategy", if spec_ready { "local_only" } else { "remote_first" }),
+            "ai_strategy": self.get_str("ai_strategy", "deterministic"),
             "provider": provider,
             "has_internet": true,
             "has_gemini_key": self.has_gemini_key(),
             "has_openai_key": !self.get_str("openai_api_key", "").is_empty(),
             "has_claude_key": !self.get_str("claude_api_key", "").is_empty(),
-            "ollama_running": ollama_running,
-            "ollama_installed": ollama_paths.get("installed").and_then(Value::as_bool).unwrap_or(false),
-            "offline_models": offline_models,
-            "gemma4_specialist": spec,
             "config": {
-                "ai_provider": self.get_str("ai_provider", if spec_ready { "gemma4_specialist" } else { "auto" }),
+                "ai_provider": self.get_str("ai_provider", "deterministic"),
                 "gemini_model": self.get_str("gemini_model", "gemini-2.5-flash"),
-                "ollama_url": self.get_str("ollama_url", "http://127.0.0.1:11434"),
-                "ollama_model": self.get_str("ollama_model", "ruhi-semantic-analyst-gemma4-lora"),
                 "openai_model": self.get_str("openai_model", "gpt-4o-mini"),
                 "claude_model": self.get_str("claude_model", "claude-3-5-sonnet-20241022"),
                 "custom_base_url": self.get_str("custom_base_url", "https://api.openai.com/v1"),
@@ -531,54 +180,12 @@ impl AISemanticConsultant {
         })
     }
 
-    pub fn check_local_model_recommendations(&mut self) -> Value {
-        let skip_prompt = self.get_bool("skip_local_model_upgrade_prompt", false);
-        let installed_models = self.read_offline_models();
-        let ollama_status = self.find_ollama_paths();
-        let spec = self.get_gemma4_specialist_status(None);
-        let spec_ready = spec["installed"].as_bool().unwrap_or(false);
-        let has_gemma4 = spec_ready
-            || installed_models
-                .iter()
-                .any(|m| m.to_ascii_lowercase().contains("gemma4") || m.to_ascii_lowercase().contains("gemma-4"));
-        let recs = recommended_local_models();
-        let best = recs[0].clone();
-        let need_prompt = !skip_prompt && !has_gemma4;
-        let reason = if need_prompt {
-            "建議啟用「如喜語意分析師特化版 Google Gemma 4 (E4B QLoRA)」，在本地執行深度語法構式解析與發現新構式即刻進化閉環。"
-        } else {
-            ""
-        };
-
-        json!({
-            "skip_prompt": skip_prompt,
-            "need_prompt": need_prompt,
-            "reason": reason,
-            "installed_models": installed_models,
-            "recommended_models": recs,
-            "best_recommendation": best,
-            "gemma4_specialist": spec,
-            "ollama_installed": ollama_status.get("installed").and_then(Value::as_bool).unwrap_or(false),
-            "ollama_running": spec_ready || self.probe_local_llama() || self.probe_ollama()
-        })
-    }
-
-    pub fn set_local_model_prompt_preference(&mut self, skip_prompt: bool) -> bool {
-        self.config.insert(
-            "skip_local_model_upgrade_prompt".to_string(),
-            json!(skip_prompt),
-        );
-        self.save_config()
-    }
-
     #[allow(clippy::too_many_arguments)]
     pub fn save_ai_settings(
         &mut self,
         provider: &str,
         gemini_api_key: &str,
         gemini_model: &str,
-        ollama_url: &str,
-        ollama_model: &str,
         openai_api_key: &str,
         openai_model: &str,
         claude_api_key: &str,
@@ -595,13 +202,6 @@ impl AISemanticConsultant {
         if !gemini_model.is_empty() {
             self.config
                 .insert("gemini_model".to_string(), json!(gemini_model));
-        }
-        if !ollama_url.is_empty() {
-            self.config.insert("ollama_url".to_string(), json!(ollama_url));
-        }
-        if !ollama_model.is_empty() {
-            self.config
-                .insert("ollama_model".to_string(), json!(ollama_model));
         }
         if !openai_api_key.is_empty() {
             self.config
@@ -640,8 +240,6 @@ impl AISemanticConsultant {
         strategy: &str,
         gemini_api_key: &str,
         gemini_model: &str,
-        ollama_url: &str,
-        ollama_model: &str,
         remote_provider: &str,
         openai_api_key: &str,
         openai_model: &str,
@@ -657,21 +255,12 @@ impl AISemanticConsultant {
             .insert("ai_strategy".to_string(), json!(strategy));
         let provider = match strategy {
             "remote_first" => remote_provider,
-            "local_only" => {
-                if self.has_local_gemma4_specialist() {
-                    "gemma4_specialist"
-                } else {
-                    "ollama"
-                }
-            }
-            _ => "disabled",
+            _ => "deterministic",
         };
         self.save_ai_settings(
             provider,
             gemini_api_key,
             gemini_model,
-            ollama_url,
-            ollama_model,
             openai_api_key,
             openai_model,
             claude_api_key,
@@ -680,220 +269,6 @@ impl AISemanticConsultant {
             custom_api_key,
             custom_model,
         )
-    }
-
-    pub fn start_ollama_service(&mut self) -> bool {
-        if self.probe_local_llama() || self.probe_ollama() {
-            return true;
-        }
-        self.green_ai.scan_local_gguf_models();
-        let best_gguf = self
-            .green_ai
-            .available_models
-            .iter()
-            .find(|(k, _)| {
-                let lower = k.to_ascii_lowercase();
-                lower.contains("gemma-4") || lower.contains("gemma4")
-            })
-            .or_else(|| {
-                self.green_ai
-                    .available_models
-                    .iter()
-                    .find(|(k, _)| k.to_ascii_lowercase().contains("gemma"))
-            })
-            .or_else(|| self.green_ai.available_models.iter().next())
-            .and_then(|(_, info)| info.gguf_path.clone());
-        if let Some(gguf_path) = best_gguf {
-            let is_gemma4 = gguf_path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .map(|s| {
-                    let l = s.to_ascii_lowercase();
-                    l.contains("gemma-4") || l.contains("gemma4")
-                })
-                .unwrap_or(false);
-            let lora_gguf_candidate = self
-                .root
-                .join("outputs")
-                .join("gemma4_semantic_analyst")
-                .join("ruhi-semantic-analyst-gemma4-lora.gguf");
-            let lora_opt = if is_gemma4 && lora_gguf_candidate.is_file() {
-                Some(lora_gguf_candidate.as_path())
-            } else {
-                None
-            };
-            if self
-                .green_ai
-                .spawn_green_server_with_lora(&gguf_path, lora_opt, 8080, 99, 2048)
-                .is_ok()
-            {
-                for _ in 0..12 {
-                    std::thread::sleep(Duration::from_millis(300));
-                    if self.probe_local_llama() {
-                        return true;
-                    }
-                }
-            }
-        }
-        false
-    }
-
-    /// 呼叫對接之遠端或本機大型語言模型進行自然語言對話（由模型直接以自身語氣回覆使用者）
-    pub fn invoke_llm_chat(&mut self, system_prompt: &str, user_prompt: &str) -> Option<(String, String)> {
-        let provider = self.get_effective_provider();
-        if provider == "disabled" {
-            return None;
-        }
-
-        // 1. 優先嘗試 Google Gemini API (若已設定金鑰)
-        if (provider == "gemini" || provider == "auto" || provider == "gemini_free_ready") && self.has_gemini_key() {
-            let env_k = std::env::var("GEMINI_API_KEY").unwrap_or_default();
-            let cfg_k = self.get_str("gemini_api_key", "");
-            let api_key = if !env_k.trim().is_empty() {
-                env_k.trim().to_string()
-            } else {
-                cfg_k.trim().to_string()
-            };
-            let model = self.get_str("gemini_model", "gemini-2.5-flash");
-            let url = format!(
-                "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-            );
-            let payload = json!({
-                "systemInstruction": {
-                    "parts": [{ "text": system_prompt }]
-                },
-                "contents": [{
-                    "role": "user",
-                    "parts": [{ "text": user_prompt }]
-                }],
-                "generationConfig": {
-                    "temperature": 0.4
-                }
-            });
-            if let Some(raw_out) = curl_post_json(&url, &payload, &[]) {
-                if let Ok(resp_json) = serde_json::from_str::<Value>(&raw_out) {
-                    if let Some(text) = resp_json
-                        .get("candidates")
-                        .and_then(|c| c.get(0))
-                        .and_then(|c0| c0.get("content"))
-                        .and_then(|cnt| cnt.get("parts"))
-                        .and_then(|p| p.get(0))
-                        .and_then(|p0| p0.get("text"))
-                        .and_then(Value::as_str)
-                    {
-                        let trimmed = text.trim();
-                        if !trimmed.is_empty() {
-                            return Some((format!("Google Gemini ({model})"), trimmed.to_string()));
-                        }
-                    }
-                }
-            }
-        }
-
-        // 2. 若本機純綠 llama-server 尚未喚醒，自動按需啟動
-        if !self.probe_local_llama() {
-            let _ = self.start_ollama_service();
-        }
-
-        // 3. 嘗試本機純綠 llama-server 推論引擎自然語言直通回覆
-        if self.probe_local_llama() {
-            let res = self.green_ai.chat_query(
-                user_prompt,
-                system_prompt,
-                None,
-                false,
-                Duration::from_secs(40),
-            );
-            if res.ok && !res.text.trim().is_empty() {
-                let cleaned = clean_gemma4_thought_tags(res.text.trim());
-                if !cleaned.is_empty() {
-                    let label = if self.has_local_gemma4_specialist() {
-                        "如喜語意分析師特化版 Gemma 4 E4B (ruhi-semantic-analyst-gemma4-lora)".to_string()
-                    } else {
-                        format!("本機純綠 Llama ({})", res.model)
-                    };
-                    return Some((label, cleaned));
-                }
-            }
-        }
-
-        None
-    }
-
-    /// 呼叫遠端或本地大型語言模型執行結構化 JSON 語言學推理（支援 Google Gemini API 與本機純綠 llama-server）
-    pub fn invoke_llm_json(&mut self, system_prompt: &str, user_prompt: &str) -> Option<(String, Value)> {
-        let provider = self.get_effective_provider();
-        if provider == "disabled" {
-            return None;
-        }
-
-        // 1. 優先嘗試 Google Gemini API (若已設定金鑰)
-        if (provider == "gemini" || provider == "auto" || provider == "gemini_free_ready") && self.has_gemini_key() {
-            let env_k = std::env::var("GEMINI_API_KEY").unwrap_or_default();
-            let cfg_k = self.get_str("gemini_api_key", "");
-            let api_key = if !env_k.trim().is_empty() {
-                env_k.trim().to_string()
-            } else {
-                cfg_k.trim().to_string()
-            };
-            let model = self.get_str("gemini_model", "gemini-2.5-flash");
-            let url = format!(
-                "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-            );
-            let payload = json!({
-                "systemInstruction": {
-                    "parts": [{ "text": system_prompt }]
-                },
-                "contents": [{
-                    "role": "user",
-                    "parts": [{ "text": user_prompt }]
-                }],
-                "generationConfig": {
-                    "temperature": 0.2,
-                    "responseMimeType": "application/json"
-                }
-            });
-            if let Some(raw_out) = curl_post_json(&url, &payload, &[]) {
-                if let Ok(resp_json) = serde_json::from_str::<Value>(&raw_out) {
-                    if let Some(text) = resp_json
-                        .get("candidates")
-                        .and_then(|c| c.get(0))
-                        .and_then(|c0| c0.get("content"))
-                        .and_then(|cnt| cnt.get("parts"))
-                        .and_then(|p| p.get(0))
-                        .and_then(|p0| p0.get("text"))
-                        .and_then(Value::as_str)
-                    {
-                        if let Some(parsed) = parse_json_from_llm_text(text) {
-                            return Some((format!("Google Gemini ({model})"), parsed));
-                        }
-                    }
-                }
-            }
-        }
-
-        // 2. 嘗試本機純綠 llama-server 推論引擎
-        if self.probe_local_llama() {
-            let res = self.green_ai.chat_query(
-                user_prompt,
-                system_prompt,
-                None,
-                true,
-                Duration::from_secs(18),
-            );
-            if res.ok {
-                if let Some(data) = res.data.or_else(|| parse_json_from_llm_text(&res.text)) {
-                    let label = if self.has_local_gemma4_specialist() {
-                        "如喜語意分析師特化版 Gemma 4 E4B (ruhi-semantic-analyst-gemma4-lora)".to_string()
-                    } else {
-                        format!("本機純綠 Llama ({})", res.model)
-                    };
-                    return Some((label, data));
-                }
-            }
-        }
-
-        None
     }
 
     /// 批次診斷錯誤句與正確句對，驅動遠端/本地 AI 理解對照句並執行「舉一反三」全詞庫同構掃描 (`diagnose_sentence_pairs_batch`)
@@ -1078,7 +453,7 @@ impl AISemanticConsultant {
 
         // ── 執行「舉一反三」全詞庫同構掃描與遠端/本地 AI 深度類推擴充 ──
         let analog_scan = tuner.scan_analogous_cases_across_lexicon(&all_sym_diffs);
-        let mut scanned_families = analog_scan
+        let scanned_families = analog_scan
             .get("scanned_families")
             .and_then(Value::as_array)
             .cloned()
@@ -1107,77 +482,7 @@ impl AISemanticConsultant {
             }
         }
 
-        // 嘗試呼叫遠端 Gemini 或本機 Gemma / Ollama 進行深層「舉一反三」推理補充
-        let mut llm_engine_used: Option<String> = None;
-        if !items.is_empty() {
-            let sys_prompt = "你是如喜 (RuhI) 智慧注音輸入法的計算語言學與漢語句法專家。請根據使用者提供的『錯誤句 ➔ 正確句』對照，找出 Viterbi 解碼選錯字或跨詞界劫掠的根本原因，並執行『舉一反三』：列出同構型、同詞綴或同語法槽位的類推詞彙與集合槽位構式。嚴禁調整單字全域先驗權重。請回傳 JSON 格式：{\"llm_insight\": \"深層句法與舉一反三總結\", \"analogous_words\": [{\"word\": \"詞彙\", \"category\": \"分類\", \"reason\": \"舉一反三原因\"}], \"analogous_constructions\": [{\"pattern_id\": \"英文ID\", \"name\": \"構式名稱\", \"formula\": \"[{槽位A}] → [{槽位B}]\", \"prev_slot\": [\"詞1\", \"詞2\"], \"next_slot\": [\"詞3\", \"詞4\"], \"suppress\": [\"錯詞\"], \"bonus\": 30.0}]}";
-            let pairs_brief: Vec<Value> = items
-                .iter()
-                .map(|it| {
-                    json!({
-                        "error": it.get("error"),
-                        "correct": it.get("correct"),
-                        "symbolic_cause": it.get("root_cause")
-                    })
-                })
-                .collect();
-            let usr_prompt = format!(
-                "請針對以下對照句進行深層語意理解與『舉一反三』同構擴充（使用台灣正體中文術語）：\n{}",
-                serde_json::to_string_pretty(&pairs_brief).unwrap_or_default()
-            );
-            if let Some((engine_name, llm_json)) = self.invoke_llm_json(sys_prompt, &usr_prompt) {
-                llm_engine_used = Some(engine_name.clone());
-                if let Some(insight) = llm_json.get("llm_insight").and_then(Value::as_str) {
-                    if !insight.trim().is_empty() {
-                        scanned_families.insert(
-                            0,
-                            json!({
-                                "trigger": format!("🤖 {} 深層語意與舉一反三推理", engine_name),
-                                "family_name": "大型語言模型跨語境同構類推",
-                                "vulnerability_mechanism": insight.trim(),
-                                "scanned_siblings": [],
-                                "action": "已將 AI 類推之同構詞族與語法槽位併入知識庫。"
-                            }),
-                        );
-                    }
-                }
-                if let Some(llm_words) = llm_json.get("analogous_words").and_then(Value::as_array) {
-                    for w in llm_words {
-                        let w_str = w
-                            .get("word")
-                            .and_then(Value::as_str)
-                            .unwrap_or("")
-                            .trim();
-                        if (2..=5).contains(&w_str.chars().count())
-                            && is_valid_chinese_token(w_str)
-                            && !is_syntactic_phrase_or_clitic(w_str)
-                            && seen_words.insert(w_str.to_string())
-                        {
-                            all_rec_words.push(w_str.to_string());
-                            all_rec_word_objs.push(json!({
-                                "word": w_str,
-                                "bopomofo": tuner.get_bopomofo(w_str),
-                                "weight": 1580,
-                                "category": w.get("category").and_then(Value::as_str).unwrap_or("AI舉一反三擴充詞"),
-                                "reason": w.get("reason").and_then(Value::as_str).unwrap_or("AI 舉一反三同構詞彙擴充")
-                            }));
-                        }
-                    }
-                }
-                if let Some(llm_cs) = llm_json.get("analogous_constructions").and_then(Value::as_array) {
-                    for c in llm_cs {
-                        let pid = c
-                            .get("pattern_id")
-                            .and_then(Value::as_str)
-                            .unwrap_or("")
-                            .trim();
-                        if !pid.is_empty() && seen_constructions.insert(pid.to_string()) {
-                            all_rec_constructions.push(c.clone());
-                        }
-                    }
-                }
-            }
-        }
+        let llm_engine_used: Option<String> = None;
 
         let mut single = items.first().cloned().unwrap_or_else(|| json!({}));
         if single.get("recommended_lexicon_words").is_some() {
@@ -1799,7 +1104,7 @@ impl AISemanticConsultant {
     }
 
     /// 自然語言互動調校對話引擎 (`chat_with_model_for_tuning`)
-    /// 讓對接之 AI 語言模型（Google Gemini、本機純綠 Gemma GGUF、Ollama）直接以自身語氣回覆使用者，
+    /// 透過內建確定性計算語言學與多維構式分析引擎直接回覆使用者，
     /// 並在討論具體調校案例時同步提煉可一鍵套用之三層語意規則（Layer 1 槽位陣列 / Layer 2 二階轉移 / Layer 3 原子詞根）。
     pub fn chat_with_model_for_tuning(
         &mut self,
@@ -1841,11 +1146,7 @@ impl AISemanticConsultant {
                     idx + 1
                 ));
             }
-            let engine_label = if self.has_local_gemma4_specialist() {
-                "如喜語意分析師特化版 Gemma 4 E4B (ruhi-semantic-analyst-gemma4-lora)"
-            } else {
-                "內建神經符號計算語言學引擎"
-            };
+            let engine_label = "內建確定性計算語言學與多維構式引擎";
             let reply = format!(
                 "🤖 【{engine_label}】：\n\
                 已啟動 **「漢語三十二大句法構式主動探勘引擎」**，將 **{total_probed} 組** 跨句式探針自動轉為許氏鍵盤音節並送入實況 `RuhiEngine` Viterbi 解碼器盲測：\n\n\
@@ -2035,11 +1336,7 @@ impl AISemanticConsultant {
                 ));
             }
 
-            let engine_label = if self.has_local_gemma4_specialist() {
-                "如喜語意分析師特化版 Gemma 4 E4B (ruhi-semantic-analyst-gemma4-lora)"
-            } else {
-                "內建神經符號計算語言學引擎"
-            };
+            let engine_label = "內建確定性計算語言學與多維構式引擎";
             let full_reply = format!("🤖 【{engine_label}】：\n{}", report_sections.join("\n\n"));
 
             let first_unres_err = unresolved_details
@@ -2136,11 +1433,7 @@ impl AISemanticConsultant {
                 let sb_summary = assim["viterbi_sandbox_verification"]["summary"]
                     .as_str()
                     .unwrap_or("");
-                let engine_label = if self.has_local_gemma4_specialist() {
-                    "如喜語意分析師特化版 Gemma 4 E4B (ruhi-semantic-analyst-gemma4-lora)"
-                } else {
-                    "內建神經符號計算語言學引擎"
-                };
+                let engine_label = "內建確定性計算語言學與多維構式引擎";
                 let slot_lines: Vec<String> = matched
                     .iter()
                     .map(|c| {
@@ -2490,14 +1783,10 @@ impl AISemanticConsultant {
             layer2_lines.push(format!("  • Layer 2 二階轉移：`[{rp} ➔ {rn}]` (+{sc:.1}，{cmt})"));
         }
 
-        let specialist_label = if self.has_local_gemma4_specialist() {
-            "如喜語意分析師特化版 Gemma 4 E4B (ruhi-semantic-analyst-gemma4-lora)"
-        } else {
-            "內建神經符號計算語言學引擎"
-        };
+        let specialist_label = "內建確定性計算語言學與多維構式引擎";
 
         // ── 極速毫秒級結構化推理路徑：當輸入包含 1 組或多組對照句（或明確構式提煉）時，
-        // 直接輸出完整涵蓋每一組對照句之 Gemma 4 形式語言學四步推理與三層語意規則，零延遲回應 (< 20ms) ──
+        // 直接輸出完整涵蓋每一組對照句之形式語言學四步推理與三層語意規則，零延遲回應 (< 20ms) ──
         if !per_pair_reports.is_empty() || !proposed_constructions.is_empty() || !proposed_rules.is_empty() {
             let pair_cnt = target_pairs.len();
             let lesion_cnt = active_diffs.len();
@@ -2572,88 +1861,36 @@ impl AISemanticConsultant {
             });
         }
 
-        // 若為自我介紹或詢問模型身分，且已備妥本機特化版 Gemma 4，直接零延遲回覆模型自我介紹與即時規則庫統計
-        if is_greeting_or_intro && self.has_local_gemma4_specialist() {
-            let inv = tuner.get_rule_inventory_summary();
-            let pat_total = inv["patterns_user_jsonl"]["total_patterns"].as_u64().unwrap_or(0);
-            let trans_total = inv["transitions_user_tsv"]["total_bigram_rules"].as_u64().unwrap_or(0);
-            let dom_total = inv["lexicon_domain_tsv"]["total_irreducible_entries"].as_u64().unwrap_or(0);
-            let reply_text = format!(
+        let inv = tuner.get_rule_inventory_summary();
+        let bench = tuner.verify_golden_benchmark();
+        let pat_total = inv["patterns_user_jsonl"]["total_patterns"].as_u64().unwrap_or(0);
+        let trans_total = inv["transitions_user_tsv"]["total_bigram_rules"].as_u64().unwrap_or(0);
+        let dom_total = inv["lexicon_domain_tsv"]["total_irreducible_entries"].as_u64().unwrap_or(0);
+        let b_pass = bench["passed"].as_u64().unwrap_or(51);
+        let b_tot = bench["total"].as_u64().unwrap_or(51);
+
+        let reply_text = if is_greeting_or_intro {
+            format!(
                 "🤖 【{specialist_label}】：\n\
-                您好！我是專為 **如喜輸入法 (RuhI — 如雲行水流自在歡喜)** 微調特訓的本地語意分析師模型。\n\n\
+                您好！我是 **如喜輸入法 (RuhI — 如雲行水流自在歡喜)** 的內建確定性計算語言學與多維構式語意調校引擎。\n\n\
                 **📌 核心能力與目前知識庫規模**：\n\
-                1. **支援單組與多組對照句批次診斷**：您可在對話框一次貼入 1 組、3 組或多組「錯誤輸出句／期望正確句」，我會在毫秒內逐組完成雙向詞界對齊與同音競爭病灶定位。\n\
-                2. **三層語意規則合成**：目前規則庫已納管 **Layer 1 多維槽位構式陣列 {pat_total} 組**、**Layer 2 二階條件轉移 {trans_total} 條**、**Layer 3 領域原子複合詞 {dom_total} 筆**。\n\
-                3. **語料檔實況 Viterbi 體檢**：您也可直接指定語料檔路徑（如 `\"C:\\Users\\Yuktesha\\Desktop\\語意分析.txt\"`）進行全檔實況解碼健全度檢查。\n\
+                1. **支援單組與多組對照句批次診斷**：您可在對話框一次貼入 1 組或多組「錯誤輸出句／期望正確句」，系統將於毫秒內逐組完成雙向詞界對齊與同音競爭病灶定位。\n\
+                2. **三層語意規則合成**：目前規則庫已納管 **Layer 1 多維槽位構式陣列 {pat_total} 組**、**Layer 2 二階條件轉移 {trans_total} 條**、**Layer 3 領域原子複合詞 {dom_total} 筆**（黃金基準 {b_pass}/{b_tot} 100% 通過）。\n\
+                3. **語料檔實況 Viterbi 體檢**：您可直接指定語料檔路徑（如 `\"C:\\Users\\Yuktesha\\Desktop\\語意分析.txt\"`）進行全檔實況解碼健全度檢查。\n\
                 4. **嚴守單字先驗獨立鐵律**：100% 不調動單字無上下文全域權重，杜絕連鎖副作用。"
-            );
-            return json!({
-                "status": "ok",
-                "engine": specialist_label,
-                "target_lang": lang_label,
-                "user_message": msg_trim,
-                "extracted_error": "",
-                "extracted_correct": "",
-                "extracted_pairs_count": 0,
-                "reply": reply_text,
-                "viterbi_snapshot": json!({}),
-                "sandbox_verification": json!({}),
-                "proposed_constructions": [],
-                "proposed_rules": [],
-                "proposed_words": [],
-                "proposal_counts": {
-                    "constructions": 0,
-                    "rules": 0,
-                    "words": 0
-                }
-            });
-        }
-
-        // 一般開放式自然語言提問：呼叫對接之遠端或本機大型語言模型（Google Gemini / 本機純綠 Gemma GGUF）回覆
-        let chat_sys_prompt = "你是對接於「如喜輸入法 (RuhI — 如雲行水流自在歡喜) · 語意調校工作室」的計算語言學與輸入法引擎調校顧問。請使用清晰、精煉的台灣繁體中文回答，並遵循如喜三層語意架構（Layer 1 多維槽位構式陣列 `patterns_user.jsonl`、Layer 2 二階條件轉移 `transitions_user.tsv`、Layer 3 領域原子詞根 `lexicon_domain.tsv`，且嚴禁調整單字全域先驗權重）。";
-        let chat_usr_prompt = msg_trim.to_string();
-
-        let mut engine_used = specialist_label.to_string();
-        let mut reply_text = String::new();
-
-        if let Some((llm_name, llm_reply)) = self.invoke_llm_chat(chat_sys_prompt, &chat_usr_prompt) {
-            engine_used = llm_name.clone();
-            let raw_reply = llm_reply.trim();
-            let has_english_or_disclaimer_hallucination = raw_reply.contains("I understand you're looking")
-                || raw_reply.contains("I am an AI and cannot")
-                || raw_reply.contains("Disclaimer:")
-                || raw_reply.contains("\"slot1\"");
-
-            if has_english_or_disclaimer_hallucination {
-                let inv = tuner.get_rule_inventory_summary();
-                let bench = tuner.verify_golden_benchmark();
-                let pat_total = inv["patterns_user_jsonl"]["total_patterns"].as_u64().unwrap_or(0);
-                let trans_total = inv["transitions_user_tsv"]["total_bigram_rules"].as_u64().unwrap_or(0);
-                let dom_total = inv["lexicon_domain_tsv"]["total_irreducible_entries"].as_u64().unwrap_or(0);
-                let b_pass = bench["passed"].as_u64().unwrap_or(51);
-                let b_tot = bench["total"].as_u64().unwrap_or(51);
-                reply_text = format!(
-                    "🤖 【{llm_name}】：\n已由如喜三層語意規則庫與 Viterbi 解碼引擎完成即時盤點：\n\
-                    • **Layer 1 多維槽位構式陣列 (`patterns_user.jsonl`)**：共 {pat_total} 組構式（0 處未解決同音對衝）\n\
-                    • **Layer 2 二階條件轉移 (`transitions_user.tsv`)**：共 {trans_total} 條語法轉移規則\n\
-                    • **Layer 3 領域原子複合詞 (`lexicon_domain.tsv`)**：共 {dom_total} 筆實詞\n\
-                    • **黃金基準驗證 (`GOLDEN_BENCHMARK`)**：{b_pass} / {b_tot} (100.0%) 通過\n\n\
-                    您可直接貼入單組或多組「錯誤輸出句／期望正確句」雙行對照，或指定對照語料檔路徑進行實況 Viterbi 解碼體檢。"
-                );
-            } else {
-                reply_text = format!("🤖 【{llm_name}】：\n{raw_reply}");
-            }
-        }
-
-        if reply_text.is_empty() {
-            reply_text = format!(
-                "🤖 【{specialist_label}】：\n已收到您的訊息：「{msg_trim}」。您可在對話框中直接貼入 1 組或多組「錯誤輸出句／期望正確句」對照句（支援雙行交錯或 `錯誤句 ➔ 正確句` 格式），系統將於毫秒內逐組執行雙向詞界對齊並提煉三層語意規則。"
-            );
-        }
+            )
+        } else {
+            format!(
+                "🤖 【{specialist_label}】：\n\
+                已收到您的訊息：「{msg_trim}」。\n\
+                • 目前規則庫狀態：Layer 1 多維槽位構式 **{pat_total} 組** ｜ Layer 2 二階條件轉移 **{trans_total} 條** ｜ Layer 3 領域複合詞 **{dom_total} 筆** ｜ 黃金基準 **{b_pass}/{b_tot} (100.0%)**。\n\
+                • 您可在對話框中直接貼入 1 組或多組「錯誤輸出句／期望正確句」對照句（支援雙行交錯或 `錯誤句 ➔ 正確句` 格式），或指定 `.txt` 語料檔路徑執行實況 Viterbi 體檢。"
+            )
+        };
 
         json!({
             "status": "ok",
-            "engine": engine_used,
+            "engine": specialist_label,
             "target_lang": lang_label,
             "user_message": msg_trim,
             "extracted_error": all_extracted_errors,
@@ -2680,7 +1917,6 @@ impl AISemanticConsultant {
         let collision_audit = inventory["patterns_user_jsonl"]["array_collision_audit"].clone();
         let active_provider = self.get_effective_provider();
         let cloud_models = recommended_cloud_models();
-        let local_models = recommended_local_models();
 
         let handover_markdown = format!(
 r#"# 如喜輸入法 (RuhI) · 語意調校工作室 AI / SI 自動交付任務規格書 (Handover Specification v2.8)
@@ -2820,7 +2056,6 @@ description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、�
             "delivered_files": delivered_files,
             "active_provider": active_provider,
             "recommended_cloud_models": cloud_models,
-            "recommended_local_models": local_models,
             "live_inventory": inventory,
             "hierarchy_depth_analysis": {
                 "optimal_levels": "2 至 3 層 (Level 1: A×B 構詞陣列, Level 2: [A×B]×[C×D] 短語構式陣列, Level 3: 子句邊界錨定 + Type A/B/C 三路同音對衝分流)",
@@ -2853,120 +2088,5 @@ description: 如喜輸入法 (RuhI) 計算語言學三層語意陣列調校、�
             }
         })
     }
-}
-
-fn probe_local_http_port(port: u16, path: &str) -> bool {
-    let addr_str = format!("127.0.0.1:{port}");
-    let Ok(mut addrs) = addr_str.to_socket_addrs() else {
-        return false;
-    };
-    let Some(SocketAddr::V4(v4)) = addrs.find(|a| a.is_ipv4()) else {
-        return false;
-    };
-    let Ok(mut stream) = TcpStream::connect_timeout(&SocketAddr::V4(v4), Duration::from_millis(250))
-    else {
-        return false;
-    };
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(350)));
-    let _ = stream.set_write_timeout(Some(Duration::from_millis(250)));
-    let req = format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
-    if stream.write_all(req.as_bytes()).is_err() {
-        return false;
-    }
-    let mut buf = [0u8; 128];
-    let Ok(n) = stream.read(&mut buf) else {
-        return false;
-    };
-    let head = String::from_utf8_lossy(&buf[..n]);
-    head.contains("200 OK")
-}
-
-fn curl_post_json(url: &str, payload: &Value, extra_headers: &[(&str, &str)]) -> Option<String> {
-    let resp = crate::http_client::http_post_json(url, payload, extra_headers, 18).ok()?;
-    if resp.status >= 200 && resp.status < 300 {
-        Some(resp.text())
-    } else {
-        None
-    }
-}
-
-fn parse_json_from_llm_text(raw: &str) -> Option<Value> {
-    let trimmed = raw.trim();
-    if let Ok(v) = serde_json::from_str::<Value>(trimmed) {
-        return Some(v);
-    }
-    let start = trimmed.find('{')?;
-    let end = trimmed.rfind('}')?;
-    if end > start {
-        serde_json::from_str::<Value>(&trimmed[start..=end]).ok()
-    } else {
-        None
-    }
-}
-
-/// 清理 Google Gemma 4 Hybrid Thinking 標記 (`<|channel>thought...<channel|>` 與 `<think>...</think>`)，
-/// 並將推理鏈與後續結構化內容轉換為清晰易讀的繁體中文條列。
-fn clean_gemma4_thought_tags(raw: &str) -> String {
-    let mut s = raw.trim().to_string();
-    // 移除空白或前導之 <|channel>thought ... <channel|> 區塊
-    if let Some(ch_start) = s.find("<|channel>thought") {
-        if let Some(ch_end) = s[ch_start..].find("<channel|>") {
-            let thought_inner = s[ch_start + "<|channel>thought".len()..ch_start + ch_end].trim();
-            let after_ch = s[ch_start + ch_end + "<channel|>".len()..].trim();
-            if thought_inner.is_empty() {
-                s = after_ch.to_string();
-            } else if !after_ch.is_empty() {
-                s = format!("**🧠 Gemma 4 形式語言學推理鏈**：\n{thought_inner}\n\n{after_ch}");
-            } else {
-                s = thought_inner.to_string();
-            }
-        }
-    }
-    if let Some(t_start) = s.find("<think>") {
-        if let Some(t_end) = s[t_start..].find("</think>") {
-            let think_inner = s[t_start + "<think>".len()..t_start + t_end].trim();
-            let after_think = s[t_start + t_end + "</think>".len()..].trim();
-            if think_inner.is_empty() {
-                s = after_think.to_string();
-            } else if after_think.starts_with('{') {
-                if let Some(parsed) = parse_json_from_llm_text(after_think) {
-                    let tax = parsed
-                        .get("error_taxonomy")
-                        .and_then(Value::as_str)
-                        .unwrap_or("");
-                    let rc = parsed
-                        .get("root_cause")
-                        .and_then(Value::as_str)
-                        .unwrap_or("");
-                    let proof = parsed
-                        .get("unigram_safety_proof")
-                        .and_then(Value::as_str)
-                        .unwrap_or("");
-                    let mut summary_lines = Vec::new();
-                    if !tax.is_empty() {
-                        summary_lines.push(format!("• **病灶分類**：{tax}"));
-                    }
-                    if !rc.is_empty() {
-                        summary_lines.push(format!("• **根因診斷**：{rc}"));
-                    }
-                    if !proof.is_empty() {
-                        summary_lines.push(format!("• **單字先驗獨立保證**：{proof}"));
-                    }
-                    if !summary_lines.is_empty() {
-                        return format!(
-                            "**🧠 Gemma 4 形式語言學四步推理**：\n{think_inner}\n\n**📋 結構化診斷結論**：\n{}",
-                            summary_lines.join("\n")
-                        );
-                    }
-                }
-                s = format!("**🧠 Gemma 4 形式語言學四步推理**：\n{think_inner}\n\n{after_think}");
-            } else if !after_think.is_empty() {
-                s = format!("**🧠 Gemma 4 形式語言學四步推理**：\n{think_inner}\n\n{after_think}");
-            } else {
-                s = think_inner.to_string();
-            }
-        }
-    }
-    s.trim().to_string()
 }
 

@@ -533,7 +533,7 @@ impl RuhiStudioApp {
             "ruhi_studio"
         };
         let win_title = if standalone_tuner_mode {
-            "🧬 如喜 (RuhI) — AI 神經符號語意調校工作室 (Gemma 4 E4B Specialist Studio)"
+            "🛠 如喜 (RuhI) — 計算語言學多維構式語意調校工作室"
         } else {
             "RuhI（如喜）輸入法 — 現代化偏好設定中心"
         };
@@ -1330,6 +1330,7 @@ impl RuhiStudioApp {
             "japanese" => "日文羅馬字 (日)",
             "korean" => "韓文羅馬拼音 (韓)",
             "english" | "en" => "英數／歐文直通 (英)",
+            "punct" | "symbol" | "tilde" | "fullwidth" | "none" => "〰 直出全形波浪號「～」",
             _ => "自訂模式",
         }
     }
@@ -2431,7 +2432,7 @@ impl RuhiStudioApp {
 
             ui.horizontal_wrapped(|ui| {
                 ui.label(
-                    egui::RichText::new("單按「~」雙向切換輔助輸入法：")
+                    egui::RichText::new("單按「~」（Shift + `）按鍵行為：")
                         .strong()
                         .color(palette.accent.to_egui()),
                 );
@@ -2441,6 +2442,16 @@ impl RuhiStudioApp {
                     ))
                     .width(240.0)
                     .show_ui(ui, |ui| {
+                        if ui
+                            .selectable_value(
+                                &mut self.settings.keyboard.tilde_toggle_mode,
+                                "punct".to_string(),
+                                "〰 直出全形波浪號「～」（預設推薦）",
+                            )
+                            .changed()
+                        {
+                            aux_changed = true;
+                        }
                         for (code, label) in aux_options {
                             if ui
                                 .selectable_value(
@@ -2455,7 +2466,7 @@ impl RuhiStudioApp {
                         }
                     });
                 ui.label(
-                    egui::RichText::new("（按下 `~` 切換過去，再次按下 `~` 即刻返回原輸入法，且不影響 Caps Lock 對切記憶）")
+                    egui::RichText::new("（預設直接輸出中文全形「～」；若選輔助輸入法則按 `~` 雙向對切，且隨時可用 `Ctrl + ` ` 或 `Ctrl + ~` 直出全形「～」）")
                         .color(palette.fg_muted.to_egui()),
                 );
             });
@@ -2560,6 +2571,28 @@ impl RuhiStudioApp {
             {
                 key_changed = true;
             }
+            ui.add_space(6.0);
+            ui.separator();
+            ui.add_space(4.0);
+            ui.label(egui::RichText::new("半形 (半) ⇄ 全形 (全) 切換行為：").strong());
+            if ui
+                .checkbox(
+                    &mut self.settings.keyboard.shift_space_toggle_fullwidth,
+                    "啟用 Shift + Space 快速切換「半形 (半) ⇄ 全形 (全)」模式（切換時同步更新輸入座【 半 許 】／【 全 許 】指示器）",
+                )
+                .changed()
+            {
+                key_changed = true;
+            }
+            if ui
+                .checkbox(
+                    &mut self.settings.keyboard.fullwidth_mode,
+                    "目前啟用「全形模式（全）」（英文字母、數字與空白一律以全形 ＳＩ、１２３ 輸出）",
+                )
+                .changed()
+            {
+                key_changed = true;
+            }
             if key_changed {
                 self.auto_save_settings_quiet();
             }
@@ -2569,7 +2602,7 @@ impl RuhiStudioApp {
 
         ui.group(|ui| {
             ui.set_min_width(ui.available_width());
-            ui.heading("📝 標點符號結算行為（微軟新注音 vs 自然長句風格）");
+            ui.heading("📝 標點符號結算行為與半形／全形標點寬度策略");
             ui.add_space(6.0);
 
             let mut punct_changed = false;
@@ -2607,6 +2640,36 @@ impl RuhiStudioApp {
             ) {
                 punct_changed = true;
             }
+
+            ui.add_space(8.0);
+            ui.separator();
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new("半形注音（【 半 許 】／【 半 注 】）下之標點符號寬度策略：").strong());
+            ui.add_space(4.0);
+
+            if two_tier_radio(
+                ui,
+                &mut self.settings.keyboard.halfwidth_punct_mode,
+                "fullwidth".to_string(),
+                "半形注音預設輸出中文全形標點（「，」、「。」・傳統中文輸入法預設）",
+                "處於「半形」注音模式時，英數維持半形（SI, 123），標點符號鍵預設輸出中文全形標點（「，」、「。」、「；」）。",
+                &palette,
+            ) {
+                punct_changed = true;
+            }
+            ui.add_space(4.0);
+
+            if two_tier_radio(
+                ui,
+                &mut self.settings.keyboard.halfwidth_punct_mode,
+                "consistent".to_string(),
+                "半形與全形指示器嚴格一致（「半 許」輸出半形 , . ；「全 許」輸出全形 ， 。）",
+                "恢復【 半 許 】字面一致性：在半形模式下標點鍵輸出半形標點（, .）；需要全形標點時按 Shift + Space 切換至【 全 許 】即可輸出全形標點（， 。）。",
+                &palette,
+            ) {
+                punct_changed = true;
+            }
+
             if punct_changed {
                 self.auto_save_settings_quiet();
             }
@@ -2874,8 +2937,8 @@ impl RuhiStudioApp {
                 ui,
                 &mut self.settings.grammar.studio_access_tier,
                 "maintainer".to_string(),
-                "Lv.3 核心總工程師模式（開發工作區預設・完整開放構式陣列與 Colab CLI 訓練管線）",
-                "完整開放全域 patterns_user.jsonl 多維槽位陣列編輯、黃金基準集入庫、Google Colab CLI (AI Ultra A100/H100) 特化模型微調與 Tailcat 發布。",
+                "Lv.3 核心總工程師模式（開發工作區預設・完整開放全域構式陣列與黃金基準入庫）",
+                "完整開放全域 patterns_user.jsonl 多維槽位陣列編輯、黃金基準集入庫與 Tailcat 規則包發布。",
                 &palette,
             ) {
                 tier_changed = true;
@@ -2918,42 +2981,22 @@ impl RuhiStudioApp {
                 ui.add_space(4.0);
                 ui.label(
                     egui::RichText::new(
-                        "設計哲學：為保持「偏好設定中心」版面清爽純粹，龐大的計算語言學語意診斷、多組對照句批次對齊、Viterbi Trellis 動態規劃競爭快照與 Google Gemma 4 E4B 特化模型工作台已完全獨立為專屬應用程式與 Web 瀏覽器介面，透過下方按鈕即可一鍵喚起。",
+                        "設計哲學：為保持「偏好設定中心」版面清爽純粹，龐大的計算語言學語意診斷、多組對照句批次對齊、多維構式因式分解與 Viterbi Trellis 動態規劃競爭快照工作台已完全獨立為專屬應用程式與 Web 瀏覽器介面，透過下方按鈕即可一鍵喚起。",
                     )
                     .size(12.5 * scale)
                     .color(palette.fg_main.to_egui()),
                 );
 
                 ui.add_space(8.0);
-                let spec_status = self
-                    .consultant
-                    .get_gemma4_specialist_status(Some(&self.tuner));
-                let has_lora = spec_status
-                    .get("has_lora_adapter")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false);
-                let base_model = spec_status
-                    .get("base_model")
-                    .and_then(Value::as_str)
-                    .unwrap_or("google/gemma-4-e4b-it");
-                let size_mb = spec_status
-                    .get("adapter_size_mb")
-                    .and_then(Value::as_f64)
-                    .unwrap_or(266.2);
                 let pattern_count = std::fs::read_to_string(&self.tuner.patterns_jsonl)
                     .map(|s| s.lines().filter(|l| !l.trim().is_empty()).count())
                     .unwrap_or(85);
                 ui.label(
                     egui::RichText::new(format!(
-                        "📊 目前語意引擎狀態：Layer 1 多維槽位構式 {} 組 ｜ Layer 2 二階條件轉移 {} 條 ｜ Layer 3 領域複合詞 {} 詞 ｜ {}",
+                        "📊 目前語意引擎狀態：Layer 1 多維槽位構式 {} 組 ｜ Layer 2 二階條件轉移 {} 條 ｜ Layer 3 領域複合詞 {} 詞 ｜ 🟢 確定性計算語言學與多維拓撲引擎已就緒",
                         pattern_count,
                         self.tuner.user_transitions.len(),
-                        self.tuner.known_words.len(),
-                        if has_lora {
-                            format!("🟢 本機語意分析師特化版 {base_model} LoRA ({size_mb:.1} MB) 已就緒")
-                        } else {
-                            "🟡 本機 Gemma 4 LoRA 尚待下載".to_string()
-                        }
+                        self.tuner.known_words.len()
                     ))
                     .size(12.2 * scale)
                     .strong()
@@ -3280,7 +3323,7 @@ impl RuhiStudioApp {
                 let tier_badge = match self.settings.grammar.studio_access_tier.as_str() {
                     "pure" => "🟢 Lv.1 純享模式",
                     "expert_sandbox" => "🛡️ Lv.2 進階專家沙盒模式（強制三重零迴歸驗證）",
-                    _ => "👑 Lv.3 核心總工程師模式（完整構式陣列 + Colab AI Ultra 管線）",
+                    _ => "👑 Lv.3 核心總工程師模式（完整多維構式陣列與全域黃金基準驗證）",
                 };
                 ui.label(egui::RichText::new(format!("目前權限層級：{tier_badge}")).strong());
                 if ui
@@ -3338,7 +3381,6 @@ impl RuhiStudioApp {
                     );
                     let mut log_sections = Vec::new();
                     let mut any_committed = false;
-                    let mut any_should_train = false;
 
                     for (idx, (e_line, c_line)) in pairs.iter().enumerate() {
                         let evo = self
@@ -3351,17 +3393,8 @@ impl RuhiStudioApp {
                             .as_str()
                             .unwrap_or("");
                         let committed = evo["committed"].as_bool().unwrap_or(false);
-                        let evo_msg = evo["gemma4_evolution_status"]["message"]
-                            .as_str()
-                            .unwrap_or("");
-                        let should_train = evo["gemma4_evolution_status"]["should_trigger_training"]
-                            .as_bool()
-                            .unwrap_or(false);
                         if committed {
                             any_committed = true;
-                        }
-                        if should_train {
-                            any_should_train = true;
                         }
                         let prefix = if pairs.len() > 1 {
                             format!("=== 📌 第 {} 組對照句 ===\n", idx + 1)
@@ -3369,31 +3402,20 @@ impl RuhiStudioApp {
                             String::new()
                         };
                         log_sections.push(format!(
-                            "{prefix}【Viterbi Trellis 動態規劃競爭快照】\n{snap_md}\n\n【記憶體內沙盒三重驗證】\n{sb_summary}\n{}\n{}",
+                            "{prefix}【Viterbi Trellis 動態規劃競爭快照】\n{snap_md}\n\n【記憶體內沙盒三重驗證】\n{sb_summary}\n{}",
                             if committed {
                                 "✅ 沙盒三重驗證 100% 通過，已安全寫入構式與二階轉移規則！"
                             } else {
                                 "⚠️ 沙盒攔截未通過之規則，本機正式詞庫保持 100% 原狀未受污染。"
-                            },
-                            if idx + 1 == pairs.len() && !evo_msg.is_empty() {
-                                format!("\n{evo_msg}")
-                            } else {
-                                String::new()
                             }
                         ));
                     }
 
                     self.tune_output_log = log_sections.join("\n\n");
                     if any_committed {
-                        if any_should_train {
-                            self.shell.toasts.warning(
-                                "🔔 發現尚未特訓之新語意構式！建議立即執行雲端 Colab A100 微調更新 Gemma 4 模型。".to_string(),
-                            );
-                        } else {
-                            self.shell
-                                .toasts
-                                .success(format!("已完成 {} 組對照句沙盒三重驗證並安全套用！", pairs.len()));
-                        }
+                        self.shell
+                            .toasts
+                            .success(format!("已完成 {} 組對照句沙盒三重驗證並安全套用！", pairs.len()));
                     } else {
                         self.shell
                             .toasts
@@ -3690,35 +3712,15 @@ impl RuhiStudioApp {
                     let bench = self.tuner.verify_golden_benchmark();
                     let passed = bench.get("passed").and_then(Value::as_i64).unwrap_or(30);
                     let total = bench.get("total").and_then(Value::as_i64).unwrap_or(30);
-                    let evo_after = self.tuner.check_gemma4_evolution_status(1);
-                    let evo_msg = evo_after
-                        .get("message")
-                        .and_then(Value::as_str)
-                        .unwrap_or("");
                     let summary = format!(
                         "✅ 已套用對話提煉成果：寫入 {p_added} 組槽位構式、{r_added} 條二階轉移、{w_added} 個領域詞條｜黃金基準驗證：{passed}/{total} 通過！"
                     );
                     self.nl_chat_reply.push_str("\n\n");
                     self.nl_chat_reply.push_str(&summary);
-                    if !evo_msg.is_empty() {
-                        self.nl_chat_reply.push_str("\n");
-                        self.nl_chat_reply.push_str(evo_msg);
-                    }
                     self.nl_pending_constructions.clear();
                     self.nl_pending_rules.clear();
                     self.nl_pending_words.clear();
-                    if p_added >= 1
-                        || evo_after
-                            .get("should_trigger_training")
-                            .and_then(Value::as_bool)
-                            .unwrap_or(false)
-                    {
-                        self.shell.toasts.warning(format!(
-                            "{summary} 🔔 發現新語意構式，建議立即啟動雲端 Colab A100 微調！"
-                        ));
-                    } else {
-                        self.shell.toasts.success(summary);
-                    }
+                    self.shell.toasts.success(summary);
                 }
             });
 
@@ -3729,129 +3731,6 @@ impl RuhiStudioApp {
                 );
             }
         });
-
-        if self.settings.grammar.studio_access_tier == "maintainer" {
-            ui.add_space(10.0);
-            ui.group(|ui| {
-                ui.heading("🧬 如喜語意分析師特化版 Google Gemma 4 與雲端 Colab A100 特訓進化中樞");
-                ui.add_space(6.0);
-                let spec_status = self
-                    .consultant
-                    .get_gemma4_specialist_status(Some(&self.tuner));
-                let has_lora = spec_status
-                    .get("has_lora_adapter")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false);
-                let base_model = spec_status
-                    .get("base_model")
-                    .and_then(Value::as_str)
-                    .unwrap_or("google/gemma-4-e4b-it");
-                let gpu_name = spec_status
-                    .get("gpu")
-                    .and_then(Value::as_str)
-                    .unwrap_or("NVIDIA A100-SXM4-80GB");
-                let loss_val = spec_status
-                    .get("training_loss")
-                    .and_then(Value::as_f64)
-                    .unwrap_or(2.773);
-                let size_mb = spec_status
-                    .get("adapter_size_mb")
-                    .and_then(Value::as_f64)
-                    .unwrap_or(266.2);
-                let train_cnt = spec_status
-                    .get("train_samples")
-                    .and_then(Value::as_u64)
-                    .unwrap_or(61);
-                let eval_cnt = spec_status
-                    .get("eval_samples")
-                    .and_then(Value::as_u64)
-                    .unwrap_or(15);
-
-                ui.label(
-                    egui::RichText::new(format!(
-                        "{} 基底模型：{base_model} ｜ 訓練環境：{gpu_name} (Loss = {loss_val:.4}) ｜ 權重：{size_mb:.1} MB ｜ 資料集：{train_cnt} 訓練 + {eval_cnt} 對抗反例",
-                        if has_lora { "🟢 本機特化權重已就緒" } else { "🟡 尚待訓練下載" }
-                    ))
-                    .color(palette.fg_bright.to_egui()),
-                );
-                let evo_status = self.tuner.check_gemma4_evolution_status(1);
-                let evo_msg = evo_status
-                    .get("message")
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
-                let should_trigger = evo_status
-                    .get("should_trigger_training")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false);
-                ui.label(
-                    egui::RichText::new(evo_msg)
-                        .strong()
-                        .color(if should_trigger {
-                            palette.accent.to_egui()
-                        } else {
-                            palette.fg_bright.to_egui()
-                        }),
-                );
-                ui.add_space(6.0);
-                ui.horizontal_wrapped(|ui| {
-                    if ui
-                        .button("🔥 立即啟動雲端 Colab A100 微調進化 (雲端Colab微調Gemma4語意分析師.ps1)")
-                        .clicked()
-                    {
-                        let ps1_path = self.root_dir.join("雲端Colab微調Gemma4語意分析師.ps1");
-                        if ps1_path.is_file() {
-                            #[cfg(target_os = "windows")]
-                            {
-                                use std::os::windows::process::CommandExt;
-                                const CREATE_NEW_CONSOLE: u32 = 0x00000010;
-                                let _ = Command::new("powershell.exe")
-                                    .args([
-                                        "-NoExit",
-                                        "-ExecutionPolicy",
-                                        "Bypass",
-                                        "-File",
-                                        &ps1_path.to_string_lossy(),
-                                    ])
-                                    .current_dir(&self.root_dir)
-                                    .creation_flags(CREATE_NEW_CONSOLE)
-                                    .spawn();
-                            }
-                            self.shell.toasts.info("已在獨立終端機視窗喚起雲端 Colab A100 微調腳本！".to_string());
-                        } else {
-                            self.shell.toasts.warning("找不到 雲端Colab微調Gemma4語意分析師.ps1".to_string());
-                        }
-                    }
-
-                    if ui
-                        .button("📦 產製 Gemma 4 語意分析師訓練資料集 (JSONL)")
-                        .clicked()
-                    {
-                        let stats = self.tuner.build_gemma4_analyst_dataset();
-                        self.tune_output_log =
-                            serde_json::to_string_pretty(&stats).unwrap_or_default();
-                        self.shell.toasts.success(
-                            "已透過 Rust 原生引擎產製 Gemma 4 語意分析師訓練資料集！".to_string(),
-                        );
-                    }
-
-                    if ui
-                        .button("🚀 執行 Colab CLI 環境與管線自檢 (--status)")
-                        .clicked()
-                    {
-                        let status = self.tuner.get_colab_gemma4_pipeline_status();
-                        self.tune_output_log =
-                            serde_json::to_string_pretty(&status).unwrap_or_default();
-                        self.shell.toasts.info("已更新 Colab CLI 管線狀態".to_string());
-                    }
-
-                    if ui.button("📂 開啟 Colab 筆記本與訓練工具目錄").clicked() {
-                        let nb_dir = self.root_dir.join("notebooks");
-                        let target = if nb_dir.is_dir() { nb_dir } else { self.root_dir.join("tools") };
-                        let _ = ruhi_studio::http_client::open_url_or_path(&target.to_string_lossy());
-                    }
-                });
-            });
-        }
     }
 
     fn render_about_page(&mut self, ui: &mut egui::Ui) {
@@ -3935,14 +3814,7 @@ impl RuhiStudioApp {
 
     fn spawn_web_studio_detached(&mut self) {
         if let Ok(exe) = std::env::current_exe() {
-            let mut cmd = Command::new(&exe);
-            cmd.arg("--web").current_dir(&self.root_dir);
-            #[cfg(target_os = "windows")]
-            {
-                use std::os::windows::process::CommandExt;
-                cmd.creation_flags(0x08000000);
-            }
-            let _ = cmd.spawn();
+            let _ = spawn_detached_no_inherit(&exe, &["--web"], &self.root_dir);
             self.shell.toasts.success(
                 "🌐 已啟動獨立 Web 瀏覽器完整版「語意調校工作室」介面 (http://127.0.0.1:8765)！".to_string(),
             );
@@ -3951,14 +3823,7 @@ impl RuhiStudioApp {
 
     fn spawn_standalone_tuner_app(&mut self) {
         if let Ok(exe) = std::env::current_exe() {
-            let mut cmd = Command::new(&exe);
-            cmd.arg("--tuner-app").current_dir(&self.root_dir);
-            #[cfg(target_os = "windows")]
-            {
-                use std::os::windows::process::CommandExt;
-                cmd.creation_flags(0x08000000);
-            }
-            let _ = cmd.spawn();
+            let _ = spawn_detached_no_inherit(&exe, &["--tuner-app"], &self.root_dir);
             self.shell.toasts.success(
                 "🖥️ 已啟動獨立桌面版「如喜 AI 語意調校工作室」應用程式視窗！".to_string(),
             );
@@ -3967,18 +3832,137 @@ impl RuhiStudioApp {
 
     fn spawn_preferences_app(&mut self) {
         if let Ok(exe) = std::env::current_exe() {
-            let mut cmd = Command::new(&exe);
-            cmd.current_dir(&self.root_dir);
-            #[cfg(target_os = "windows")]
-            {
-                use std::os::windows::process::CommandExt;
-                cmd.creation_flags(0x08000000);
-            }
-            let _ = cmd.spawn();
+            let _ = spawn_detached_no_inherit(&exe, &[], &self.root_dir);
             self.shell
                 .toasts
                 .info("⚙️ 已喚起「RuhI 現代化偏好設定中心」視窗！".to_string());
         }
+    }
+}
+
+/// 啟動不繼承父程序控制代碼 (`bInheritHandles = FALSE`) 之獨立子程序
+fn spawn_detached_no_inherit(
+    exe: &std::path::Path,
+    args: &[&str],
+    work_dir: &std::path::Path,
+) -> std::io::Result<()> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::ffi::OsStrExt;
+
+        #[repr(C)]
+        struct StartupInfoW {
+            cb: u32,
+            lp_reserved: *mut u16,
+            lp_desktop: *mut u16,
+            lp_title: *mut u16,
+            dw_x: u32,
+            dw_y: u32,
+            dw_x_size: u32,
+            dw_y_size: u32,
+            dw_x_count_chars: u32,
+            dw_y_count_chars: u32,
+            dw_fill_attribute: u32,
+            dw_flags: u32,
+            w_show_window: u16,
+            cb_reserved2: u16,
+            lp_reserved2: *mut u8,
+            h_std_input: isize,
+            h_std_output: isize,
+            h_std_error: isize,
+        }
+
+        #[repr(C)]
+        struct ProcessInformation {
+            h_process: isize,
+            h_thread: isize,
+            dw_process_id: u32,
+            dw_thread_id: u32,
+        }
+
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn CreateProcessW(
+                lp_application_name: *const u16,
+                lp_command_line: *mut u16,
+                lp_process_attributes: *const core::ffi::c_void,
+                lp_thread_attributes: *const core::ffi::c_void,
+                b_inherit_handles: i32,
+                dw_creation_flags: u32,
+                lp_environment: *const core::ffi::c_void,
+                lp_current_directory: *const u16,
+                lp_startup_info: *const StartupInfoW,
+                lp_process_information: *mut ProcessInformation,
+            ) -> i32;
+            fn CloseHandle(h_object: isize) -> i32;
+        }
+
+        let mut cmd_str = format!("\"{}\"", exe.display());
+        for a in args {
+            cmd_str.push(' ');
+            if a.contains(' ') || a.contains('"') {
+                cmd_str.push('"');
+                cmd_str.push_str(&a.replace('"', "\\\""));
+                cmd_str.push('"');
+            } else {
+                cmd_str.push_str(a);
+            }
+        }
+
+        let app_w: Vec<u16> = exe.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+        let mut cmd_w: Vec<u16> = std::ffi::OsStr::new(&cmd_str)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let dir_w: Vec<u16> = work_dir
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        let mut si: StartupInfoW = unsafe { std::mem::zeroed() };
+        si.cb = std::mem::size_of::<StartupInfoW>() as u32;
+        let mut pi: ProcessInformation = unsafe { std::mem::zeroed() };
+
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+
+        let ok = unsafe {
+            CreateProcessW(
+                app_w.as_ptr(),
+                cmd_w.as_mut_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                0, // bInheritHandles = FALSE
+                CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP,
+                std::ptr::null(),
+                if work_dir.is_dir() {
+                    dir_w.as_ptr()
+                } else {
+                    std::ptr::null()
+                },
+                &si,
+                &mut pi,
+            )
+        };
+        if ok == 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        unsafe {
+            if pi.h_thread != 0 {
+                CloseHandle(pi.h_thread);
+            }
+            if pi.h_process != 0 {
+                CloseHandle(pi.h_process);
+            }
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut cmd = Command::new(exe);
+        cmd.args(args).current_dir(work_dir);
+        cmd.spawn().map(|_| ())
     }
 }
 
@@ -4088,7 +4072,7 @@ impl eframe::App for RuhiStudioApp {
 
         let cur_ui_lang = self.effective_ui_lang();
         if self.standalone_tuner_mode {
-            let tuner_title = "🧬 如喜 (RuhI) — AI 神經符號語意調校工作室 (Gemma 4 E4B Specialist Studio)";
+            let tuner_title = "🛠 如喜 (RuhI) — 計算語言學多維構式語意調校工作室";
             let tuner_sub = "100% 獨立全寬度語意分析工作台 · 雙向最大匹配詞界對齊 × 六大計算語言學病灶診斷 × 沙盒三重零迴歸驗證";
             let zoom_btn_fmt = format!("🔍 縮放 {}% (Ctrl+0)", (self.shell.ui_scale * 100.0).round() as i32);
             let theme_btn_lbl = "🎨 切換深淺色 (Ctrl+T)";
@@ -4757,23 +4741,6 @@ fn run_headless_self_test() -> i32 {
     );
     assert_eq!(sleep_vo_res["sandbox_verification"]["passed_all"], true);
 
-    // 5g. 驗證如喜語意分析師特化版 Google Gemma 4 本機權重偵測與 5 條構式進化閉環狀態
-    assert!(
-        app.consultant.has_local_gemma4_specialist(),
-        "Local Gemma 4 semantic analyst LoRA weights must be detected"
-    );
-    let models = app.consultant.read_offline_models();
-    assert_eq!(
-        models.first().map(String::as_str),
-        Some("ruhi-semantic-analyst-gemma4-lora"),
-        "ruhi-semantic-analyst-gemma4-lora must be prioritized at index 0 of offline_models"
-    );
-    let spec_status = app
-        .consultant
-        .get_gemma4_specialist_status(Some(&app.tuner));
-    assert_eq!(spec_status["has_lora_adapter"], true);
-    assert_eq!(spec_status["base_model"], "google/gemma-4-e4b-it");
-
     // 5h. 驗證在 AI 對話框指定語料檔路徑（如 `請依據 "C:\Users\Yuktesha\Desktop\語意分析.txt" 檢查目前的語意規則是否健全。`）時，直接讀取檔案並執行實況 Viterbi 體檢
     let corpus_chat_res = app.consultant.chat_with_model_for_tuning(
         r#"請依據 "C:\Users\Yuktesha\Desktop\語意分析.txt" 檢查目前的語意規則是否健全。"#,
@@ -4871,7 +4838,7 @@ fn run_headless_self_test() -> i32 {
     // 6. 驗證設定持久化與跨目錄同步
     app.save_all();
 
-    println!("[OK] RuhiStudioApp (Rust native atg_lib) rud() layout, theme, config sync, Tailcat gatekeeper, Gemma 4 Specialist telemetry, standalone tuner mode, and 51-item Viterbi semantic tuner self-test passed!");
+    println!("[OK] RuhiStudioApp (Rust native atg_lib) rud() layout, theme, config sync, Tailcat gatekeeper, standalone tuner mode, and 51-item Viterbi semantic tuner self-test passed!");
     0
 }
 
@@ -5005,7 +4972,7 @@ unsafe fn find_any_tuner_window_win32() -> Option<windows_sys::Win32::Foundation
     };
 
     let exact_title: Vec<u16> =
-        "🧬 如喜 (RuhI) — AI 神經符號語意調校工作室 (Gemma 4 E4B Specialist Studio)\0"
+        "🛠 如喜 (RuhI) — 計算語言學多維構式語意調校工作室\0"
             .encode_utf16()
             .collect();
     let h = FindWindowW(std::ptr::null(), exact_title.as_ptr());
@@ -5018,7 +4985,7 @@ unsafe fn find_any_tuner_window_win32() -> Option<windows_sys::Win32::Foundation
         let len = GetWindowTextW(hwnd, buf.as_mut_ptr(), buf.len() as i32);
         if len > 0 {
             let title = String::from_utf16_lossy(&buf[..len as usize]);
-            if title.contains("AI 神經符號語意調校工作室") {
+            if title.contains("語意調校工作室") {
                 let out_ptr = lparam as *mut HWND;
                 if !out_ptr.is_null() {
                     *out_ptr = hwnd;
@@ -5426,7 +5393,7 @@ fn main() {
     }
 
     let win_title = if is_tuner_gui {
-        "🧬 如喜 (RuhI) — AI 神經符號語意調校工作室 (Gemma 4 E4B Specialist Studio)"
+        "🛠 如喜 (RuhI) — 計算語言學多維構式語意調校工作室"
     } else {
         "RuhI（如喜）輸入法 — 現代化偏好設定中心"
     };
