@@ -42,7 +42,11 @@ impl ViterbiRouter {
         }
 
         let mut trellis: Vec<Vec<TrellisState>> = vec![Vec::new(); n_syllables + 1];
-        let initial_word = prefix_word.unwrap_or("");
+        let raw_prefix = prefix_word.unwrap_or("");
+        let (geo_ctx_prefix, initial_word) = match raw_prefix.rsplit_once('\t') {
+            Some((geo_ctx, last_w)) => (geo_ctx, last_w),
+            None => ("", raw_prefix),
+        };
         let dummy = LatticeNode::new(0, 0, initial_word, 1, "");
         trellis[0].push(TrellisState {
             node: dummy,
@@ -132,6 +136,10 @@ impl ViterbiRouter {
                                         lookback_buf[MAX_LOOKBACK - 1 - lb_count] = st0.node.word.as_str();
                                         lb_count += 1;
                                     }
+                                }
+                                if !geo_ctx_prefix.is_empty() && cur_b == 0 && lb_count < MAX_LOOKBACK {
+                                    lookback_buf[MAX_LOOKBACK - 1 - lb_count] = geo_ctx_prefix;
+                                    lb_count += 1;
                                 }
                                 let lookback_slice = &lookback_buf[MAX_LOOKBACK - lb_count..MAX_LOOKBACK];
                                 b += engine.calculate_vo_lookback_bonus(lookback_slice, &node.word);
@@ -268,6 +276,18 @@ impl ViterbiRouter {
         transitions: Option<&mut super::transitions::TransitionEngine>,
         target_chars: &[char],
     ) -> Option<(Vec<LatticeNode>, f64)> {
+        self.solve_forced_alignment_with_prefix(n_syllables, dag, transitions, target_chars, None)
+    }
+
+    /// 帶前綴語境之強制對齊 (Forced Alignment with Prefix Context)
+    pub fn solve_forced_alignment_with_prefix(
+        &self,
+        n_syllables: usize,
+        dag: &HashMap<usize, Vec<LatticeNode>>,
+        transitions: Option<&mut super::transitions::TransitionEngine>,
+        target_chars: &[char],
+        prefix_word: Option<&str>,
+    ) -> Option<(Vec<LatticeNode>, f64)> {
         if target_chars.len() != n_syllables || n_syllables == 0 {
             return None;
         }
@@ -290,7 +310,8 @@ impl ViterbiRouter {
                 constrained_dag.insert(start_idx, valid);
             }
         }
-        let (path, score) = self.solve_best_path(n_syllables, &constrained_dag, transitions);
+        let (path, score) =
+            self.solve_best_path_with_prefix(n_syllables, &constrained_dag, transitions, prefix_word);
         let joined: String = path.iter().map(|n| n.word.as_str()).collect();
         let target_str: String = target_chars.iter().collect();
         if !path.is_empty() && joined == target_str {

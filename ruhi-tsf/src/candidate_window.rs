@@ -445,6 +445,7 @@ pub struct CandidateState {
     pub shift_down_mode: String,
     pub shift_down_mode_buttons: Vec<(RECT, String)>,
     pub ui_lang: String,
+    pub is_fullwidth: bool,
 }
 
 static IS_DRAGGING: AtomicBool = AtomicBool::new(false);
@@ -508,6 +509,7 @@ fn get_candidate_state() -> &'static RwLock<CandidateState> {
             shift_down_mode: "longkan".to_string(),
             shift_down_mode_buttons: Vec::new(),
             ui_lang: "auto".to_string(),
+            is_fullwidth: false,
         })
     })
 }
@@ -652,6 +654,7 @@ impl CandidateWindow {
             state.enable_array30_coach = cfg.enable_array30_coach;
             state.shift_down_mode = cfg.shift_down_mode.clone();
             state.ui_lang = cfg.ui_lang.clone();
+            state.is_fullwidth = cfg.fullwidth_mode;
             if cfg.theme == "dark" {
                 state.is_dark_theme = true;
             } else if cfg.theme == "light" {
@@ -1199,10 +1202,15 @@ impl CandidateWindow {
         }
     }
 
-    /// 切換輸入模式時（無組字狀態下）短暫顯示 1.2 秒的狀態膠囊提示，讓使用者即時確認已切換至何種輸入狀態
+    /// 切換輸入模式或半全形時（無組字狀態下）短暫顯示 1.2 秒的狀態膠囊提示，讓使用者即時確認已切換至何種輸入狀態
     pub fn show_mode_toast(&mut self, mode_code: &str, is_caps: bool, x: i32, y: i32) {
         let (badge, mode_name) = get_mode_badge_and_name(mode_code, is_caps);
-        let toast = format!("如喜輸入狀態  ➔  【 半  {} 】 {}", badge, mode_name);
+        let is_fw = get_candidate_state()
+            .read()
+            .map(|s| s.is_fullwidth)
+            .unwrap_or(false);
+        let width_tag = if is_fw { "全" } else { "半" };
+        let toast = format!("如喜輸入狀態  ➔  【 {}  {} 】 {}", width_tag, badge, mode_name);
         if let Ok(mut state) = get_candidate_state().write() {
             state.keyboard_mode = mode_code.to_string();
             state.is_caps_on = is_caps;
@@ -1657,9 +1665,6 @@ fn resolve_trusted_studio_exe(paths: &crate::service::RuhiPaths) -> Option<std::
 }
 
 fn launch_or_focus_studio(category: &str, pass_tuner_arg: bool) {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-
     let paths = crate::service::RuhiPaths::resolve();
     write_studio_wakeup_signal(&paths, category);
 
@@ -1684,20 +1689,18 @@ fn launch_or_focus_studio(category: &str, pass_tuner_arg: bool) {
         } else {
             rust_exe.parent().unwrap_or(&paths.sandbox_dir)
         };
-        let mut cmd = std::process::Command::new(&rust_exe);
+        let lang = current_effective_ui_lang();
+        let mut args: Vec<&str> = Vec::new();
         if pass_tuner_arg {
-            cmd.arg("--tuner");
+            args.push("--tuner");
         }
-        cmd.arg("--lang").arg(current_effective_ui_lang());
-        match cmd
-            .current_dir(work_dir)
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn()
-        {
-            Ok(child) => {
+        args.push("--lang");
+        args.push(lang);
+        match spawn_process_no_inherit(&rust_exe, &args, work_dir) {
+            Ok(pid) => {
                 logger::log(&format!(
-                    "launch_or_focus_studio: spawned child pid={}",
-                    child.id()
+                    "launch_or_focus_studio: spawned child pid={} (bInheritHandles=FALSE)",
+                    pid
                 ));
             }
             Err(e) => {
@@ -1711,6 +1714,128 @@ fn launch_or_focus_studio(category: &str, pass_tuner_arg: bool) {
     }
 
     logger::log("launch_or_focus_studio: ruhi-studio.exe not found in trusted installation path!");
+}
+
+/// 使用 Win32 `CreateProcessW` 並強制指定 `bInheritHandles = FALSE (0)` 啟動獨立子程序，
+/// 徹底阻絕宿主應用程式（例如 `Notepad.exe`）之 `TabState` / `WindowState` 檔案鎖與執行緒控制代碼洩漏至子程序。
+fn spawn_process_no_inherit(
+    exe: &std::path::Path,
+    args: &[&str],
+    work_dir: &std::path::Path,
+) -> std::result::Result<u32, String> {
+    use std::os::windows::ffi::OsStrExt;
+
+    #[repr(C)]
+    struct StartupInfoW {
+        cb: u32,
+        lp_reserved: *mut u16,
+        lp_desktop: *mut u16,
+        lp_title: *mut u16,
+        dw_x: u32,
+        dw_y: u32,
+        dw_x_size: u32,
+        dw_y_size: u32,
+        dw_x_count_chars: u32,
+        dw_y_count_chars: u32,
+        dw_fill_attribute: u32,
+        dw_flags: u32,
+        w_show_window: u16,
+        cb_reserved2: u16,
+        lp_reserved2: *mut u8,
+        h_std_input: isize,
+        h_std_output: isize,
+        h_std_error: isize,
+    }
+
+    #[repr(C)]
+    struct ProcessInformation {
+        h_process: isize,
+        h_thread: isize,
+        dw_process_id: u32,
+        dw_thread_id: u32,
+    }
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn CreateProcessW(
+            lp_application_name: *const u16,
+            lp_command_line: *mut u16,
+            lp_process_attributes: *const core::ffi::c_void,
+            lp_thread_attributes: *const core::ffi::c_void,
+            b_inherit_handles: i32,
+            dw_creation_flags: u32,
+            lp_environment: *const core::ffi::c_void,
+            lp_current_directory: *const u16,
+            lp_startup_info: *const StartupInfoW,
+            lp_process_information: *mut ProcessInformation,
+        ) -> i32;
+        fn CloseHandle(h_object: isize) -> i32;
+        fn GetLastError() -> u32;
+    }
+
+    let mut cmd_str = format!("\"{}\"", exe.display());
+    for a in args {
+        cmd_str.push(' ');
+        if a.contains(' ') || a.contains('"') {
+            cmd_str.push('"');
+            cmd_str.push_str(&a.replace('"', "\\\""));
+            cmd_str.push('"');
+        } else {
+            cmd_str.push_str(a);
+        }
+    }
+
+    let app_w: Vec<u16> = exe.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+    let mut cmd_w: Vec<u16> = std::ffi::OsStr::new(&cmd_str)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let dir_w: Vec<u16> = work_dir
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    let mut si: StartupInfoW = unsafe { std::mem::zeroed() };
+    si.cb = std::mem::size_of::<StartupInfoW>() as u32;
+    let mut pi: ProcessInformation = unsafe { std::mem::zeroed() };
+
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+
+    let ok = unsafe {
+        CreateProcessW(
+            app_w.as_ptr(),
+            cmd_w.as_mut_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            0, // bInheritHandles = FALSE: 嚴禁繼承任何宿主程序控制代碼
+            CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP,
+            std::ptr::null(),
+            if work_dir.is_dir() {
+                dir_w.as_ptr()
+            } else {
+                std::ptr::null()
+            },
+            &si,
+            &mut pi,
+        )
+    };
+
+    if ok == 0 {
+        let err = unsafe { GetLastError() };
+        return Err(format!("CreateProcessW failed with Win32 error {}", err));
+    }
+
+    unsafe {
+        if pi.h_thread != 0 {
+            CloseHandle(pi.h_thread);
+        }
+        if pi.h_process != 0 {
+            CloseHandle(pi.h_process);
+        }
+    }
+    Ok(pi.dw_process_id)
 }
 
 pub fn launch_settings() {
@@ -1802,8 +1927,6 @@ pub fn maybe_spawn_background_telemetry_upload(paths: &crate::service::RuhiPaths
     }
     let _ = std::fs::write(&lock_file, now_ts.to_string());
 
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
     if let Some(rust_exe) = resolve_trusted_studio_exe(paths) {
         let work_dir = rust_exe.parent().unwrap_or(&paths.sandbox_dir);
         let cli_flag = if need_upload {
@@ -1811,11 +1934,7 @@ pub fn maybe_spawn_background_telemetry_upload(paths: &crate::service::RuhiPaths
         } else {
             "--tailcat-sync"
         };
-        let _ = std::process::Command::new(&rust_exe)
-            .arg(cli_flag)
-            .current_dir(work_dir)
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn();
+        let _ = spawn_process_no_inherit(&rust_exe, &[cli_flag], work_dir);
     }
 }
 
@@ -2992,13 +3111,21 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             _ => "中",
         };
         let (i18n_badge, _) = get_mode_badge_and_name_i18n(&state.keyboard_mode, state.is_caps_on, eff_ui_lang);
-        let hw_prefix = match eff_ui_lang {
-            "en-US" => "HW",
-            "ko-KR" => "반",
-            _ => "半",
+        let hw_prefix = if state.is_fullwidth {
+            match eff_ui_lang {
+                "en-US" => "FW",
+                "ko-KR" => "전",
+                _ => "全",
+            }
+        } else {
+            match eff_ui_lang {
+                "en-US" => "HW",
+                "ko-KR" => "반",
+                _ => "半",
+            }
         };
         let mode_label = format!("{}   {}", hw_prefix, i18n_badge);
-        let _unused_mode_label = if state.is_caps_on { "半   歐".to_string() } else { format!("半   {}", kb_indicator) };
+        let _unused_mode_label = if state.is_caps_on { format!("{}   歐", hw_prefix) } else { format!("{}   {}", hw_prefix, kb_indicator) };
         let mode_wide_no_null: Vec<u16> = mode_label.encode_utf16().collect();
         let mut sz_mode = SIZE::default();
         let _ = GetTextExtentPoint32W(mem_dc, &mode_wide_no_null, &mut sz_mode);
@@ -3208,6 +3335,55 @@ pub fn save_capslock_switch_mode(capslock_switch: &str) {
     broadcast_tray_update();
 }
 
+pub fn save_fullwidth_mode(fullwidth: bool) {
+    if let Ok(mut state) = get_candidate_state().write() {
+        state.is_fullwidth = fullwidth;
+    }
+    let paths = crate::service::RuhiPaths::resolve();
+    let mut flat_targets = vec![
+        paths.config.clone(),
+        paths.sandbox_dir.join("scripts").join("config.json"),
+        paths.sandbox_dir.join("dist").join("config.json"),
+    ];
+    flat_targets.dedup();
+    for cfg_path in &flat_targets {
+        if cfg_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(cfg_path) {
+                if let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    val["fullwidth_mode"] = serde_json::Value::from(fullwidth);
+                    if let Ok(new_content) = serde_json::to_string_pretty(&val) {
+                        let _ = std::fs::write(cfg_path, new_content);
+                    }
+                }
+            }
+        }
+    }
+
+    let mut studio_targets = vec![
+        paths.sandbox_dir.join("settings_config.json"),
+        paths.sandbox_dir.join("scripts").join("settings_config.json"),
+        paths.sandbox_dir.join("dist").join("settings_config.json"),
+    ];
+    studio_targets.dedup();
+    for st_path in &studio_targets {
+        if st_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(st_path) {
+                if let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(kb) = val.get_mut("keyboard").and_then(|v| v.as_object_mut()) {
+                        kb.insert("fullwidth_mode".to_string(), serde_json::Value::from(fullwidth));
+                        if let Ok(new_content) = serde_json::to_string_pretty(&val) {
+                            let _ = std::fs::write(st_path, new_content);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    crate::service::invalidate_config_cache();
+    broadcast_tray_update();
+}
+
 /// 滑鼠左鍵點擊右下角狀態圖示（許／英／日）或輸入座狀態徽章時，直接輪流切換至下一個輸入模式
 pub fn cycle_next_keyboard_mode_global(pt_opt: Option<POINT>) {
     let paths = crate::service::RuhiPaths::resolve();
@@ -3287,11 +3463,15 @@ fn show_mode_toast_on_current_thread(mode_code: &str, pt_opt: Option<POINT>) {
                         .unwrap_or(true);
                     if is_idle {
                         let (badge, mode_name) = get_mode_badge_and_name(mode_code, false);
+                        let is_fw = get_candidate_state()
+                            .read()
+                            .map(|s| s.is_fullwidth)
+                            .unwrap_or(false);
                         let toast = match current_effective_ui_lang() {
-                            "en-US" => format!("RuhI Mode  ➔  [ HW  {} ] {}", badge, mode_name),
-                            "ja-JP" => format!("RuhI 入力状態  ➔  【 半  {} 】 {}", badge, mode_name),
-                            "ko-KR" => format!("RuhI 입력 상태  ➔  【 반  {} 】 {}", badge, mode_name),
-                            _ => format!("如喜輸入狀態  ➔  【 半  {} 】 {}", badge, mode_name),
+                            "en-US" => format!("RuhI Mode  ➔  [ {}  {} ] {}", if is_fw { "FW" } else { "HW" }, badge, mode_name),
+                            "ja-JP" => format!("RuhI 入力状態  ➔  【 {}  {} 】 {}", if is_fw { "全" } else { "半" }, badge, mode_name),
+                            "ko-KR" => format!("RuhI 입력 상태  ➔  【 {}  {} 】 {}", if is_fw { "전" } else { "반" }, badge, mode_name),
+                            _ => format!("如喜輸入狀態  ➔  【 {}  {} 】 {}", if is_fw { "全" } else { "半" }, badge, mode_name),
                         };
                         let (dpi_scale, opacity) = if let Ok(mut state) = get_candidate_state().write() {
                             state.keyboard_mode = mode_code.to_string();

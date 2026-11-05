@@ -1177,7 +1177,170 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             }
         }
 
+        // 5. 若為 4 字對角線重疊構式（如 `一試再試` / `做好做滿` / `走來走去`），附加同音對角諧音組合
+        if char_count == 4 {
+            let w_chars: Vec<char> = word.chars().collect();
+            let syl_opts: Vec<Option<String>> = if let Some(b) = preferred_bpm {
+                let parts: Vec<&str> = b.split_whitespace().collect();
+                if parts.len() == 4 {
+                    parts.into_iter().map(|s| Some(s.to_string())).collect()
+                } else {
+                    vec![None; 4]
+                }
+            } else {
+                vec![None; 4]
+            };
+            if let Some((_, diag_puns)) = self.lookup_diagonal_pun_constructions(&w_chars, &syl_opts, 0) {
+                for pun in diag_puns {
+                    if !results.contains(&pun) {
+                        results.push(pun);
+                    }
+                }
+            }
+        }
+
         results
+    }
+
+    /// 拓撲結構 II — 對角線恆等流形（$\Delta = \{(x, y) \mid x = y\}$）之台灣諧音魂候選展開器：
+    /// 當游標所在之 4 字構式符合對角線重疊骨架：
+    ///   - Frame A: `一 + X + 再 + X`（如 `一試再試` ➔ `一試再試`, `一事再事`, `一世再世`, `一室再室`, `一式再式`, `一視再視`, `一是再是`...）
+    ///   - Frame B: `X + 好 + X + 滿`（如 `做好做滿` ➔ `做好做滿`, `坐好坐滿`, `作好作滿`, `座好座滿`...）
+    ///   - Frame C: `X + 來 + X + 去`（如 `走來走去` / `看來看去` / `算來算去` ➔ 同音對角諧音組合）
+    /// 保持首選為正統動詞構式，同時將同音對角組合納入候選字詞列，滿足台灣使用者諧音雙關選詞需求。
+    pub fn lookup_diagonal_pun_constructions(
+        &self,
+        chars: &[char],
+        syllables: &[Option<String>],
+        cursor_idx: usize,
+    ) -> Option<((usize, usize), Vec<String>)> {
+        if chars.len() < 4 {
+            return None;
+        }
+        let cur = cursor_idx.min(chars.len() - 1);
+        let ont = crate::router::morpheme_ontology::MorphemeOntology::global();
+        use crate::router::morpheme_ontology::MorphemeClass as MC;
+
+        for s in 0..=chars.len() - 4 {
+            if cur < s || cur >= s + 4 {
+                continue;
+            }
+            let c0 = chars[s];
+            let c1 = chars[s + 1];
+            let c2 = chars[s + 2];
+            let c3 = chars[s + 3];
+
+            let syl_eq = |idx_a: usize, idx_b: usize, ch_a: char, ch_b: char| -> Option<String> {
+                let sa = syllables.get(idx_a).and_then(|o| o.as_deref());
+                let sb = syllables.get(idx_b).and_then(|o| o.as_deref());
+                if let (Some(ba), Some(bb)) = (sa, sb) {
+                    if ba == bb && !ba.is_empty() {
+                        return Some(ba.to_string());
+                    }
+                }
+                if ch_a == ch_b {
+                    if let Some(b) = sa.or(sb) {
+                        if !b.is_empty() {
+                            return Some(b.to_string());
+                        }
+                    }
+                    let ch_s = ch_a.to_string();
+                    if let Some(ids) = self.word_index.get(&ch_s) {
+                        if let Some(&first_id) = ids.first() {
+                            return Some(self.entries[first_id].bopomofo.clone());
+                        }
+                    }
+                }
+                None
+            };
+
+            // Frame A: `一 + X + 再 + X`
+            if c0 == '一' && c2 == '再' {
+                if let Some(x_bpm) = syl_eq(s + 1, s + 3, c1, c3) {
+                    let mut scored_x: Vec<(String, f64)> = Vec::new();
+                    for e in self.lookup_bopomofo(&x_bpm, true) {
+                        if e.word.chars().count() != 1 || e.word == "稔" {
+                            continue;
+                        }
+                        let yi_x = format!("一{}", e.word);
+                        let yi_x_w = self.max_compound_weight(&yi_x);
+                        let is_rep_v = ont.has_class(&e.word, MC::RepeatableActionVerb);
+                        if !is_rep_v && yi_x_w == 0 && e.weight < 450 {
+                            continue;
+                        }
+                        let mut score = e.weight as f64;
+                        if is_rep_v {
+                            score += 5000.0;
+                        } else if yi_x_w > 0
+                            || matches!(
+                                e.word.as_str(),
+                                "事" | "世" | "室" | "式" | "視" | "市" | "是" | "勢" | "適" | "釋"
+                            )
+                        {
+                            score += 2000.0 + (yi_x_w as f64);
+                        }
+                        if !scored_x.iter().any(|(w, _)| w == &e.word) {
+                            scored_x.push((e.word.clone(), score));
+                        }
+                    }
+                    scored_x.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                    let mut puns: Vec<String> = Vec::new();
+                    let orig_4: String = chars[s..s + 4].iter().collect();
+                    if c1 == c3 {
+                        puns.push(orig_4);
+                    }
+                    for (x, _) in scored_x.into_iter().take(12) {
+                        let cand = format!("一{}再{}", x, x);
+                        if !puns.contains(&cand) {
+                            puns.push(cand);
+                        }
+                    }
+                    if puns.len() >= 2 {
+                        return Some(((s, s + 4), puns));
+                    }
+                }
+            }
+
+            // Frame B: `X + 好 + X + 滿` / Frame C: `X + 來 + X + 去`
+            let frame_pair: Option<(&str, &str)> = if c1 == '好' && c3 == '滿' {
+                Some(("好", "滿"))
+            } else if c1 == '來' && c3 == '去' {
+                Some(("來", "去"))
+            } else {
+                None
+            };
+            if let Some((mid, tail)) = frame_pair {
+                if let Some(x_bpm) = syl_eq(s, s + 2, c0, c2) {
+                    let mut scored_x: Vec<(String, f64)> = Vec::new();
+                    for e in self.lookup_bopomofo(&x_bpm, true) {
+                        if e.word.chars().count() != 1 || e.weight < 420 {
+                            continue;
+                        }
+                        let is_rep_v = ont.has_class(&e.word, MC::RepeatableActionVerb);
+                        let score = (e.weight as f64) + if is_rep_v { 3000.0 } else { 0.0 };
+                        if !scored_x.iter().any(|(w, _)| w == &e.word) {
+                            scored_x.push((e.word.clone(), score));
+                        }
+                    }
+                    scored_x.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                    let mut puns: Vec<String> = Vec::new();
+                    let orig_4: String = chars[s..s + 4].iter().collect();
+                    if c0 == c2 {
+                        puns.push(orig_4);
+                    }
+                    for (x, _) in scored_x.into_iter().take(10) {
+                        let cand = format!("{}{}{}{}", x, mid, x, tail);
+                        if !puns.contains(&cand) {
+                            puns.push(cand);
+                        }
+                    }
+                    if puns.len() >= 2 {
+                        return Some(((s, s + 4), puns));
+                    }
+                }
+            }
+        }
+        None
     }
 
     pub fn lookup_word_homophones(&self, word: &str) -> Vec<String> {

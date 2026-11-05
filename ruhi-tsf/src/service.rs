@@ -125,6 +125,7 @@ pub fn is_focused_password_control() -> bool {
 static LAST_CONFIG_CHECK: Mutex<Option<(std::time::Instant, std::time::SystemTime, RuhiConfig)>> = Mutex::new(None);
 static LAST_FC_MTIME: Mutex<Option<std::time::SystemTime>> = Mutex::new(None);
 static CURRENT_DLL_INSTANCES: Mutex<Option<std::collections::HashSet<usize>>> = Mutex::new(None);
+static INSTANCE_LEX_MTIMES: Mutex<Option<std::collections::HashMap<usize, std::time::SystemTime>>> = Mutex::new(None);
 
 pub fn invalidate_config_cache() {
     if let Ok(mut lock) = LAST_CONFIG_CHECK.try_lock() {
@@ -142,7 +143,7 @@ pub struct RuhiConfig {
     pub enabled_keyboard_modes: Vec<String>,
     #[serde(default = "default_aux_mode")]
     pub backtick_inline_mode: String,
-    #[serde(default = "default_aux_mode")]
+    #[serde(default = "default_tilde_toggle_mode")]
     pub tilde_toggle_mode: String,
     #[serde(default = "default_aux_mode")]
     pub shift_down_mode: String,
@@ -208,6 +209,12 @@ pub struct RuhiConfig {
     pub tailcat_update_mode: String,
     #[serde(default)]
     pub last_tailcat_sync_timestamp: u64,
+    #[serde(default)]
+    pub fullwidth_mode: bool,
+    #[serde(default = "default_shift_space_toggle_fullwidth")]
+    pub shift_space_toggle_fullwidth: bool,
+    #[serde(default = "default_halfwidth_punct_mode")]
+    pub halfwidth_punct_mode: String,
 }
 
 impl Default for RuhiConfig {
@@ -217,7 +224,7 @@ impl Default for RuhiConfig {
             last_keyboard_mode: default_last_keyboard_mode(),
             enabled_keyboard_modes: default_enabled_keyboard_modes(),
             backtick_inline_mode: default_aux_mode(),
-            tilde_toggle_mode: default_aux_mode(),
+            tilde_toggle_mode: default_tilde_toggle_mode(),
             shift_down_mode: default_aux_mode(),
             candidate_quick_key: default_candidate_quick_key(),
             punctuation_commit_mode: default_punctuation_commit_mode(),
@@ -250,10 +257,15 @@ impl Default for RuhiConfig {
             tailcat_auto_sync: default_tailcat_auto_sync(),
             tailcat_update_mode: default_tailcat_update_mode(),
             last_tailcat_sync_timestamp: 0,
+            fullwidth_mode: false,
+            shift_space_toggle_fullwidth: default_shift_space_toggle_fullwidth(),
+            halfwidth_punct_mode: default_halfwidth_punct_mode(),
         }
     }
 }
 
+fn default_shift_space_toggle_fullwidth() -> bool { true }
+fn default_halfwidth_punct_mode() -> String { "fullwidth".to_string() }
 fn default_telemetry_consent() -> bool { false }
 fn default_reverse_coach_target() -> String { "none".to_string() }
 fn default_tailcat_auto_sync() -> bool { true }
@@ -264,6 +276,7 @@ fn default_keyboard_mode() -> String { "hsu".to_string() }
 fn default_last_keyboard_mode() -> String { "english".to_string() }
 fn default_enabled_keyboard_modes() -> Vec<String> { vec!["hsu".to_string(), "japanese".to_string()] }
 fn default_aux_mode() -> String { "longkan".to_string() }
+fn default_tilde_toggle_mode() -> String { "punct".to_string() }
 fn default_candidate_quick_key() -> String { "asdf".to_string() }
 fn default_punctuation_commit_mode() -> String { "A".to_string() }
 fn default_input_display_mode() -> String { "smart_auto".to_string() }
@@ -456,14 +469,14 @@ impl RuhiPaths {
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| dll_parent.join(".."));
 
-        let data_dir = if dll_dir.join("data").is_dir() && has_full_lexicon(&dll_dir.join("data")) {
-            dll_dir.join("data")
+        let data_dir = if dll_parent.join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_parent.join("ruhi_lexicon").join("data")) {
+            dll_parent.join("ruhi_lexicon").join("data")
         } else if dll_dir.join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_dir.join("ruhi_lexicon").join("data")) {
             dll_dir.join("ruhi_lexicon").join("data")
-        } else if dll_parent.join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_parent.join("ruhi_lexicon").join("data")) {
-            dll_parent.join("ruhi_lexicon").join("data")
         } else if dll_grandparent.join("ruhi_lexicon").join("data").is_dir() && has_full_lexicon(&dll_grandparent.join("ruhi_lexicon").join("data")) {
             dll_grandparent.join("ruhi_lexicon").join("data")
+        } else if dll_dir.join("data").is_dir() && has_full_lexicon(&dll_dir.join("data")) {
+            dll_dir.join("data")
         } else if appdata_ruhi.join("data").is_dir() && has_full_lexicon(&appdata_ruhi.join("data")) {
             appdata_ruhi.join("data")
         } else if dll_dir.join("data").is_dir() {
@@ -551,11 +564,35 @@ impl RuhiPaths {
 }
 
 pub fn load_ruhi_config(paths: &RuhiPaths) -> RuhiConfig {
-    if paths.config.exists() {
-        if let Ok(content) = std::fs::read_to_string(&paths.config) {
-            if let Ok(cfg) = serde_json::from_str::<RuhiConfig>(&content) {
-                logger::log(&format!("Loaded config from {:?}: punct_mode={}, quick_key={}", paths.config, cfg.punctuation_commit_mode, cfg.candidate_quick_key));
-                return cfg;
+    let now = std::time::Instant::now();
+    if let Ok(lock) = LAST_CONFIG_CHECK.lock() {
+        if let Some((last_instant, _, ref cached_cfg)) = *lock {
+            if now.duration_since(last_instant).as_millis() <= 300 {
+                return cached_cfg.clone();
+            }
+        }
+    }
+    if let Ok(metadata) = std::fs::metadata(&paths.config) {
+        if let Ok(mtime) = metadata.modified() {
+            if let Ok(mut lock) = LAST_CONFIG_CHECK.lock() {
+                if let Some((ref mut last_instant, prev_mtime, ref cached_cfg)) = *lock {
+                    if mtime == prev_mtime {
+                        *last_instant = now;
+                        return cached_cfg.clone();
+                    }
+                }
+            }
+            if let Ok(content) = std::fs::read_to_string(&paths.config) {
+                if let Ok(cfg) = serde_json::from_str::<RuhiConfig>(&content) {
+                    logger::log(&format!(
+                        "Loaded config from {:?}: punct_mode={}, quick_key={}",
+                        paths.config, cfg.punctuation_commit_mode, cfg.candidate_quick_key
+                    ));
+                    if let Ok(mut lock) = LAST_CONFIG_CHECK.lock() {
+                        *lock = Some((now, mtime, cfg.clone()));
+                    }
+                    return cfg;
+                }
             }
         }
     }
@@ -576,6 +613,7 @@ pub fn save_ruhi_config(paths: &RuhiPaths, config: &RuhiConfig) {
                 let _ = std::fs::write(t, &json);
             }
         }
+        invalidate_config_cache();
         logger::log(&format!("Saved updated RuhiConfig to {:?}", paths.config));
     }
 }
@@ -595,7 +633,7 @@ fn get_lexicon_mtime(paths: &RuhiPaths) -> std::time::SystemTime {
     max_time
 }
 
-fn load_all_lexicons(paths: &RuhiPaths) -> Arc<LexiconManager> {
+fn load_all_lexicons(paths: &RuhiPaths) -> (std::time::SystemTime, Arc<LexiconManager>) {
     let mut mgr = LexiconManager::new();
     let mut loaded_count = 0;
 
@@ -632,16 +670,16 @@ fn load_all_lexicons(paths: &RuhiPaths) -> Arc<LexiconManager> {
             logger::log(&format!("Loaded user_dict lexicon: {} entries from {:?}", cnt, user_dict_file));
         }
     }
+    let mtime = get_lexicon_mtime(paths);
     logger::log(&format!("Total loaded lexicon entries: {}", loaded_count));
-    Arc::new(mgr)
+    (mtime, Arc::new(mgr))
 }
 
 static SHARED_LEXICON: OnceLock<std::sync::RwLock<(std::time::SystemTime, Arc<LexiconManager>)>> = OnceLock::new();
 
-fn get_shared_lexicon(paths: &RuhiPaths) -> Arc<LexiconManager> {
+fn get_shared_lexicon_with_mtime(paths: &RuhiPaths) -> (std::time::SystemTime, Arc<LexiconManager>) {
     let holder = SHARED_LEXICON.get_or_init(|| {
-        let mtime = get_lexicon_mtime(paths);
-        let mgr = load_all_lexicons(paths);
+        let (mtime, mgr) = load_all_lexicons(paths);
         std::sync::RwLock::new((mtime, mgr))
     });
 
@@ -652,25 +690,30 @@ fn get_shared_lexicon(paths: &RuhiPaths) -> Arc<LexiconManager> {
             if let Ok(mut write_guard) = holder.write() {
                 if current_mtime > write_guard.0 {
                     logger::log(&format!("Detected modified lexicon file(s) (mtime={:?}), reloading...", current_mtime));
-                    let mgr = load_all_lexicons(paths);
-                    *write_guard = (current_mtime, mgr);
+                    let (mtime, mgr) = load_all_lexicons(paths);
+                    *write_guard = (mtime, mgr);
                 }
             }
         }
     }
 
-    holder.read().map(|g| g.1.clone()).unwrap_or_else(|_| Arc::new(LexiconManager::new()))
+    holder
+        .read()
+        .map(|g| (g.0, g.1.clone()))
+        .unwrap_or_else(|_| (std::time::SystemTime::UNIX_EPOCH, Arc::new(LexiconManager::new())))
+}
+
+fn get_shared_lexicon(paths: &RuhiPaths) -> Arc<LexiconManager> {
+    get_shared_lexicon_with_mtime(paths).1
 }
 
 pub fn force_reload_lexicon(paths: &RuhiPaths) -> Arc<LexiconManager> {
     let holder = SHARED_LEXICON.get_or_init(|| {
-        let mtime = get_lexicon_mtime(paths);
-        let mgr = load_all_lexicons(paths);
+        let (mtime, mgr) = load_all_lexicons(paths);
         std::sync::RwLock::new((mtime, mgr))
     });
     if let Ok(mut write_guard) = holder.write() {
-        let mgr = load_all_lexicons(paths);
-        let mtime = get_lexicon_mtime(paths);
+        let (mtime, mgr) = load_all_lexicons(paths);
         *write_guard = (mtime, mgr);
         logger::log(&format!("Force reloaded shared lexicon ({} entries)", write_guard.1.entries.len()));
         return write_guard.1.clone();
@@ -719,6 +762,8 @@ fn map_vk_to_ctrl_combo(vk: u32, is_shift: bool) -> Option<String> {
         0xDB => Some("["),
         0xDD => Some("]"),
         0xDC => Some("\\"),
+        0xC0 => Some("`"),
+        0x31 => Some("1"),
         _ => None,
     };
 
@@ -1186,7 +1231,7 @@ impl RuhiTextService {
         let paths = RuhiPaths::resolve();
         let config = load_ruhi_config(&paths);
         let del_words = crate::user_word_dialog::load_deleted_words(&paths);
-        let mut engine = RuhiEngine::new_with_data_dir(&paths.data_dir.to_string_lossy());
+        let mut engine = RuhiEngine::new_without_core_lexicon(&paths.data_dir.to_string_lossy());
         engine.keyboard_mode = config.keyboard_mode.clone();
         engine.last_keyboard_mode = config.last_keyboard_mode.clone();
         engine.set_enabled_keyboard_modes(config.enabled_keyboard_modes.clone());
@@ -1200,29 +1245,16 @@ impl RuhiTextService {
         engine.enable_array30_coach = config.enable_array30_coach;
         engine.reverse_coach_target = config.reverse_coach_target.clone();
         engine.four_corner.keymap_profile = config.four_corner_keymap.clone();
-        let shared_lex = get_shared_lexicon(&paths);
+        engine.fullwidth_mode = config.fullwidth_mode;
+        engine.shift_space_toggle_fullwidth = config.shift_space_toggle_fullwidth;
+        engine.halfwidth_punct_mode = config.halfwidth_punct_mode.clone();
+        let (lex_mtime, shared_lex) = get_shared_lexicon_with_mtime(&paths);
         engine.lexicon = (*shared_lex).clone();
 
-        if paths.transitions.exists() {
+        if paths.transitions.exists() && paths.transitions != paths.data_dir.join("transitions_user.tsv") {
             if let Some(p_str) = paths.transitions.to_str() {
                 let _ = engine.transitions.load_tsv(p_str);
             }
-        }
-        if paths.symbols.exists() {
-            if let Some(p_str) = paths.symbols.to_str() {
-                let _ = engine.symbols.load_tsv(p_str);
-            }
-        }
-        if paths.english.exists() {
-            if let Some(p_str) = paths.english.to_str() {
-                let _ = engine.western.load_tsv(p_str);
-            }
-        }
-        if paths.array30.exists() && engine.array30.table.reverse_lookup('㐀').is_none() {
-            let _ = engine.array30.table.load_tsv(&paths.array30);
-        }
-        if paths.four_corner.exists() && engine.four_corner.table.code_to_entries.len() < 1000 {
-            let _ = engine.four_corner.load_tsv(&paths.four_corner);
         }
         engine.longkan.table.configure_data_dir(&paths.data_dir);
         if let Ok(fc_meta) = std::fs::metadata(&paths.four_corner) {
@@ -1254,6 +1286,11 @@ impl RuhiTextService {
             guard
                 .get_or_insert_with(std::collections::HashSet::new)
                 .insert(inst_key);
+        }
+        if let Ok(mut mguard) = INSTANCE_LEX_MTIMES.lock() {
+            mguard
+                .get_or_insert_with(std::collections::HashMap::new)
+                .insert(inst_key, lex_mtime);
         }
 
         Self {
@@ -1315,7 +1352,7 @@ impl RuhiTextService {
         let mut config = load_ruhi_config(&paths);
         sync_active_tsf_profile_locale(&mut config);
         let del_words = crate::user_word_dialog::load_deleted_words(&paths);
-        let mut engine = RuhiEngine::new_with_data_dir(&paths.data_dir.to_string_lossy());
+        let mut engine = RuhiEngine::new_without_core_lexicon(&paths.data_dir.to_string_lossy());
         engine.keyboard_mode = config.keyboard_mode.clone();
         engine.last_keyboard_mode = config.last_keyboard_mode.clone();
         engine.set_enabled_keyboard_modes(config.enabled_keyboard_modes.clone());
@@ -1329,29 +1366,21 @@ impl RuhiTextService {
         engine.enable_array30_coach = config.enable_array30_coach;
         engine.reverse_coach_target = config.reverse_coach_target.clone();
         engine.four_corner.keymap_profile = config.four_corner_keymap.clone();
-        let shared_lex = get_shared_lexicon(&paths);
+        engine.fullwidth_mode = config.fullwidth_mode;
+        engine.shift_space_toggle_fullwidth = config.shift_space_toggle_fullwidth;
+        engine.halfwidth_punct_mode = config.halfwidth_punct_mode.clone();
+        let (lex_mtime, shared_lex) = get_shared_lexicon_with_mtime(&paths);
         engine.lexicon = (*shared_lex).clone();
+        if let Ok(mut guard) = INSTANCE_LEX_MTIMES.lock() {
+            guard
+                .get_or_insert_with(std::collections::HashMap::new)
+                .insert(inst_key, lex_mtime);
+        }
 
         if paths.transitions.exists() {
             if let Some(p_str) = paths.transitions.to_str() {
                 let _ = engine.transitions.load_tsv(p_str);
             }
-        }
-        if paths.symbols.exists() {
-            if let Some(p_str) = paths.symbols.to_str() {
-                let _ = engine.symbols.load_tsv(p_str);
-            }
-        }
-        if paths.english.exists() {
-            if let Some(p_str) = paths.english.to_str() {
-                let _ = engine.western.load_tsv(p_str);
-            }
-        }
-        if paths.array30.exists() && engine.array30.table.reverse_lookup('㐀').is_none() {
-            let _ = engine.array30.table.load_tsv(&paths.array30);
-        }
-        if paths.four_corner.exists() && engine.four_corner.table.code_to_entries.len() < 1000 {
-            let _ = engine.four_corner.load_tsv(&paths.four_corner);
         }
         engine.longkan.table.configure_data_dir(&paths.data_dir);
 
@@ -1492,6 +1521,12 @@ impl ITfTextInputProcessor_Impl for RuhiTextService_Impl {
     fn Deactivate(&self) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             logger::log("Deactivate called.");
+            let inst_key = Arc::as_ptr(&self.client_id) as usize;
+            if let Ok(mut guard) = INSTANCE_LEX_MTIMES.try_lock() {
+                if let Some(map) = guard.as_mut() {
+                    map.remove(&inst_key);
+                }
+            }
             self.hide_candidate_window();
             if let Ok(mut cw_guard) = self.candidate_window.try_lock() {
                 *cw_guard = None;
@@ -1538,24 +1573,24 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             self.ensure_instance_upgraded();
             if fforeground.as_bool() {
                 let paths = RuhiPaths::resolve();
-                let shared_lex = get_shared_lexicon(&paths);
+                let (lex_mtime, shared_lex) = get_shared_lexicon_with_mtime(&paths);
+                let inst_key = Arc::as_ptr(&self.client_id) as usize;
+                let need_lex_clone = if let Ok(guard) = INSTANCE_LEX_MTIMES.lock() {
+                    guard.as_ref().and_then(|m| m.get(&inst_key).copied()) != Some(lex_mtime)
+                } else {
+                    true
+                };
                 if let Ok(mut eng) = self.engine.lock() {
-                    eng.lexicon = (*shared_lex).clone();
-                    if paths.transitions.exists() {
-                        if let Some(p_str) = paths.transitions.to_str() {
-                            let _ = eng.transitions.load_tsv(p_str);
+                    if need_lex_clone || eng.lexicon.entries.is_empty() {
+                        eng.lexicon = (*shared_lex).clone();
+                        if let Ok(mut guard) = INSTANCE_LEX_MTIMES.lock() {
+                            guard
+                                .get_or_insert_with(std::collections::HashMap::new)
+                                .insert(inst_key, lex_mtime);
                         }
                     }
-                    if paths.symbols.exists() {
-                        if let Some(p_str) = paths.symbols.to_str() {
-                            let _ = eng.symbols.load_tsv(p_str);
-                        }
-                    }
-                    if paths.english.exists() {
-                        if let Some(p_str) = paths.english.to_str() {
-                            let _ = eng.western.load_tsv(p_str);
-                        }
-                    }
+                    eng.transitions.maybe_reload();
+                    eng.symbols.maybe_reload();
                     if paths.array30.exists() && eng.array30.table.reverse_lookup('㐀').is_none() {
                         let _ = eng.array30.table.load_tsv(&paths.array30);
                     }
@@ -1574,6 +1609,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     eng.tilde_toggle_mode = new_cfg.tilde_toggle_mode.clone();
                     eng.enable_array30_coach = new_cfg.enable_array30_coach;
                     eng.four_corner.keymap_profile = new_cfg.four_corner_keymap.clone();
+                    eng.fullwidth_mode = new_cfg.fullwidth_mode;
+                    eng.shift_space_toggle_fullwidth = new_cfg.shift_space_toggle_fullwidth;
+                    eng.halfwidth_punct_mode = new_cfg.halfwidth_punct_mode.clone();
                 }
                 if let Ok(mut cw_guard) = self.candidate_window.lock() {
                     if let Some(cw) = cw_guard.as_mut() {
@@ -1653,6 +1691,18 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 return Ok(BOOL::from(true));
             }
 
+            // Shift + Space：半形 (`半`) 與全形 (`全`) 模式切換
+            if vk == VK_SPACE.0 as u32 && is_shift && !is_ctrl && !is_alt {
+                let allow_shift_space = self
+                    .config
+                    .lock()
+                    .map(|c| c.shift_space_toggle_fullwidth)
+                    .unwrap_or(true);
+                if allow_shift_space {
+                    return Ok(BOOL::from(true));
+                }
+            }
+
             if is_ctrl {
                 // 優先檢查是否為符號組合鍵 (如 Ctrl+. 輸出刪節號 ……、Ctrl+, 輸出全形逗號等；惟歐文模式下絕不攔截 IDE/編輯器快捷鍵)
                 if !is_english_mode {
@@ -1697,7 +1747,12 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             }
 
             // 當完全沒有組字緩衝區時，Backspace、Delete、Enter、Space、Tab、方向鍵等一律直接放行給目標視窗！
+            // （惟全形模式下單按 Space 需攔截以輸出全形空白「　」）
+            let is_fullwidth = self.config.lock().map(|c| c.fullwidth_mode).unwrap_or(false);
             if !has_buffer {
+                if vk == VK_SPACE.0 as u32 && is_fullwidth && !is_shift && !is_ctrl && !is_alt {
+                    return Ok(BOOL::from(true));
+                }
                 if vk == VK_RETURN.0 as u32 || vk == VK_BACK.0 as u32 || vk == VK_DELETE.0 as u32 || vk == VK_SPACE.0 as u32 || vk == VK_TAB.0 as u32 || vk == VK_ESCAPE.0 as u32 {
                     return Ok(BOOL::from(false));
                 }
@@ -1789,6 +1844,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     eaten = true;
                 } else if (0x41..=0x5A).contains(&vk) {
                     eaten = true;
+                } else if is_fullwidth && ((0x30..=0x39).contains(&vk) || (0x60..=0x69).contains(&vk)) && !is_shift {
+                    eaten = true;
                 } else {
                     eaten = false;
                 }
@@ -1824,6 +1881,44 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
             if is_alt {
                 return Ok(BOOL::from(false));
+            }
+
+            // Shift + Space：半形 (`半`) 與全形 (`全`) 模式切換
+            if vk == VK_SPACE.0 as u32 && is_shift && !is_ctrl && !is_alt {
+                let allow_shift_space = self
+                    .config
+                    .lock()
+                    .map(|c| c.shift_space_toggle_fullwidth)
+                    .unwrap_or(true);
+                if allow_shift_space {
+                    let (new_fw, cur_kb_mode) = {
+                        let mut eng = self.engine.lock().unwrap();
+                        eng.fullwidth_mode = !eng.fullwidth_mode;
+                        (eng.fullwidth_mode, eng.keyboard_mode.clone())
+                    };
+                    if let Ok(mut cfg) = self.config.lock() {
+                        cfg.fullwidth_mode = new_fw;
+                        if let Ok(mut cw_guard) = self.candidate_window.lock() {
+                            if let Some(cw) = cw_guard.as_mut() {
+                                cw.apply_config(&cfg);
+                            }
+                        }
+                    }
+                    crate::candidate_window::save_fullwidth_mode(new_fw);
+                    let (full, _) = self.get_full_display_and_cursor();
+                    if !full.is_empty() {
+                        self.sync_input_display(ctx)?;
+                    } else {
+                        let (cx, cy) = Self::get_caret_screen_pos();
+                        if let Ok(mut cw_guard) = self.candidate_window.lock() {
+                            if let Some(cw) = cw_guard.as_mut() {
+                                cw.show_mode_toast(&cur_kb_mode, is_caps_on, cx, cy);
+                            }
+                        }
+                    }
+                    notify_langbar_mode_update();
+                    return Ok(BOOL::from(true));
+                }
             }
 
             // Caps Lock 三向智慧切換處理：
@@ -1921,7 +2016,14 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         return Ok(BOOL::from(true));
                     }
 
-                    if vk == VK_SPACE.0 as u32 && has_buffer {
+                    if vk == VK_SPACE.0 as u32 && !has_buffer && !is_shift && !is_ctrl && !is_alt {
+                let is_fw = self.config.lock().map(|c| c.fullwidth_mode).unwrap_or(false);
+                if is_fw {
+                    self.update_tsf_composition(ctx, "\u{3000}", 1, None, true)?;
+                    return Ok(BOOL::from(true));
+                }
+            }
+            if vk == VK_SPACE.0 as u32 && has_buffer {
                         self.delete_selection_if_any();
                         self.consolidate_engine_to_pending();
                         self.insert_pending_char(' ', None);
@@ -2443,6 +2545,13 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             // - 第 1 下 Space（有未決羅馬字緩衝區時）：作為詞彙間隔，將當前日文詞彙（如 watashiwa ➔ 私は）固定至輸入座長句流，不送出亦不插入空白，方便繼續拼打下一個詞組成完整長句！
             // - 第 2 下 Space（當前詞彙已固定、無未決羅馬字時）：直接在輸入座長句中插入半形空格，無須切換至英文模式！
             // - 整句由 Enter（或句末標點 。/？/！）統一送出上屏！
+            if vk == VK_SPACE.0 as u32 && !has_buffer && !is_shift && !is_ctrl && !is_alt {
+                let is_fw = self.config.lock().map(|c| c.fullwidth_mode).unwrap_or(false);
+                if is_fw {
+                    self.update_tsf_composition(ctx, "\u{3000}", 1, None, true)?;
+                    return Ok(BOOL::from(true));
+                }
+            }
             if vk == VK_SPACE.0 as u32 && has_buffer {
                 let (is_jp_mode, has_jp_buf, is_kr_mode, has_kr_buf, has_fc_buf, has_lk_buf, has_pending_fsm, is_latin, has_shape_buf, passthrough_to_engine) = {
                     let engine = self.engine.lock().unwrap();
@@ -2534,9 +2643,18 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             }
 
             // 3. 【自然輸入法 Shift+大寫字母流】：混打模式放行進入引擎智慧判斷，關閉混打時則直接納入組字流
-            let is_mixed = self.engine.lock().map(|e| e.is_mixed_english_active()).unwrap_or(false);
+            let (is_mixed, is_fw_upper) = self
+                .engine
+                .lock()
+                .map(|e| (e.is_mixed_english_active(), e.fullwidth_mode))
+                .unwrap_or((false, false));
             if !is_mixed && is_shift && (0x41..=0x5A).contains(&vk) {
-                let upper_char = (vk as u8 as char).to_ascii_uppercase();
+                let base_upper = (vk as u8 as char).to_ascii_uppercase();
+                let upper_char = if is_fw_upper {
+                    ruhi::engine::RuhiEngine::to_fullwidth_ascii(base_upper)
+                } else {
+                    base_upper
+                };
                 self.consolidate_engine_to_pending();
                 self.insert_pending_char(upper_char, None);
                 self.sync_input_display(ctx)?;
@@ -2745,19 +2863,33 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             }
 
             // 3.8 Q 鍵快速候選字輪換 (Q-Key Quick Candidate Cycle)
-            // 游標所在處單字快速切換：若是排序1直接跳排序2，最多循環 q_cycle_max 次後自動彈出候選座
+            // 游標所在處單字／雙字同音詞快速切換：若是排序1直接跳排序2，最多循環 q_cycle_max 次後自動彈出候選座
+            // （惟許氏注音下若正在輸入聲母 ㄓ(j) / ㄔ(v) / ㄕ(c)，按 q 為轉化為 ㄐ / ㄑ / ㄒ 之合法雙拼鍵，必須放行至引擎！）
             let kb_mode = self.config.lock().map(|c| c.keyboard_mode.clone()).unwrap_or_else(|_| "hsu".to_string());
-            let is_inline_lk_or_special_mode = {
+            let (is_inline_lk_or_special_mode, is_hsu_jqx_transform) = {
                 let engine = self.engine.lock().unwrap();
-                engine.inline_longkan_active
+                let special = engine.inline_longkan_active
                     || matches!(
                         engine.mode,
                         ruhi::engine::EngineMode::QuickNum
                             | ruhi::engine::EngineMode::TemplateSelect
                             | ruhi::engine::EngineMode::LexiconSwitch
-                    )
+                    );
+                let jqx = engine.fsm.has_pending()
+                    && matches!(engine.fsm.cur_initial.as_str(), "ㄓ" | "ㄔ" | "ㄕ")
+                    && engine.fsm.cur_medial.is_empty()
+                    && engine.fsm.cur_final.is_empty();
+                (special, jqx)
             };
-            if vk == 0x51 && !is_shift && !is_ctrl && !is_alt && has_buffer && kb_mode == "hsu" && !is_inline_lk_or_special_mode {
+            if vk == 0x51
+                && !is_shift
+                && !is_ctrl
+                && !is_alt
+                && has_buffer
+                && kb_mode == "hsu"
+                && !is_inline_lk_or_special_mode
+                && !is_hsu_jqx_transform
+            {
                 self.consolidate_engine_to_pending();
                 let (full_text, _) = self.get_full_display_and_cursor();
                 let chars: Vec<char> = full_text.chars().collect();
@@ -2782,31 +2914,71 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         *last_idx = Some(target_idx);
                     }
 
+                    // 檢查 target_idx 是否落在多字詞區間（如「證明」⇄「正名」）：若有同音多字詞，優先輪換多字詞！
+                    let matched_seg: Option<(usize, usize, String, String)> = {
+                        let segs = self.pending_segments.lock().unwrap();
+                        segs.iter()
+                            .find(|s| target_idx >= s.0 && target_idx < s.1 && (s.1 - s.0) >= 2)
+                            .cloned()
+                    };
+
                     let target_char = chars[target_idx];
                     let char_syl = self.pending_syllables.lock().unwrap().get(target_idx).cloned().flatten();
-                    let engine = self.engine.lock().unwrap();
-                    let mut cands = engine.lexicon.lookup_char_candidates_with_bpm(target_char, char_syl.as_deref());
-                    if cands.is_empty() && (target_char.is_ascii_alphabetic() || ruhi::western::WesternEngine::strip_char_diacritic(target_char).is_ascii_alphabetic()) {
-                        cands = engine.western.lookup_down_arrow_candidates(&target_char.to_string(), Some(target_char));
-                    }
-                    drop(engine);
+                    let (word_cands_opt, cands) = {
+                        let engine = self.engine.lock().unwrap();
+                        let w_cands = matched_seg.as_ref().and_then(|(s, e, w, bpm)| {
+                            let mut wc = engine.lexicon.lookup_word_homophones_with_bpm(w, Some(bpm));
+                            let del_words = self.deleted_words.lock().unwrap();
+                            wc.retain(|c| !del_words.contains(c));
+                            if wc.len() >= 2 {
+                                Some((*s, *e, bpm.clone(), wc))
+                            } else {
+                                None
+                            }
+                        });
+                        let mut ch_cands = engine.lexicon.lookup_char_candidates_with_bpm(target_char, char_syl.as_deref());
+                        if ch_cands.is_empty() && (target_char.is_ascii_alphabetic() || ruhi::western::WesternEngine::strip_char_diacritic(target_char).is_ascii_alphabetic()) {
+                            ch_cands = engine.western.lookup_down_arrow_candidates(&target_char.to_string(), Some(target_char));
+                        }
+                        (w_cands, ch_cands)
+                    };
 
                     if *q_count >= q_max {
-                        // 超過上限次數：重設計數並自動開啟選字座 (等同按下 ↓)
+                        // 超過上限次數：重設計數並自動開啟選字座 (等同按下 ↓，支援同音多字詞與單字清單)
                         *q_count = 0;
                         *last_idx = None;
                         drop(q_count);
                         drop(last_idx);
 
-                        *self.target_char_idx.lock().unwrap() = target_idx;
-                        *self.target_range.lock().unwrap() = (target_idx, (target_idx + 1).min(chars.len()));
-                        *self.sentence_cursor.lock().unwrap() = target_idx;
+                        let (t_idx, t_range, full_cands) = self.detect_target_word_and_cands(&full_text, cur);
+                        *self.target_char_idx.lock().unwrap() = t_idx;
+                        *self.target_range.lock().unwrap() = t_range;
+                        *self.sentence_cursor.lock().unwrap() = t_idx;
 
-                        if !cands.is_empty() {
+                        if !full_cands.is_empty() {
                             *self.selected_candidate_idx.lock().unwrap() = 0;
-                            *self.active_candidates.lock().unwrap() = cands;
+                            *self.active_candidates.lock().unwrap() = full_cands;
                             *self.candidate_selecting.lock().unwrap() = true;
                         }
+                        self.sync_input_display(ctx)?;
+                        return Ok(BOOL::from(true));
+                    } else if let Some((seg_start, seg_end, seg_bpm, w_cands)) = word_cands_opt {
+                        let cur_seg_str: String = chars[seg_start..seg_end.min(chars.len())].iter().collect();
+                        let cur_rank = w_cands.iter().position(|c| c == &cur_seg_str);
+                        let next_idx = match cur_rank {
+                            Some(r) => (r + 1) % w_cands.len(),
+                            None => 1 % w_cands.len(),
+                        };
+                        let next_word = &w_cands[next_idx];
+                        let next_chars: Vec<char> = next_word.chars().collect();
+                        self.replace_pending_range(seg_start, seg_end, &next_chars, Some(seg_bpm.clone()));
+                        if let Ok(mut segs) = self.pending_segments.lock() {
+                            if let Some(seg) = segs.iter_mut().find(|s| s.0 == seg_start && s.1 == seg_end) {
+                                seg.2 = next_word.clone();
+                            }
+                        }
+                        drop(q_count);
+                        drop(last_idx);
                         self.sync_input_display(ctx)?;
                         return Ok(BOOL::from(true));
                     } else if !cands.is_empty() {
@@ -3440,18 +3612,34 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                             | ruhi::engine::EngineMode::TemplateSelect
                             | ruhi::engine::EngineMode::LexiconSwitch
                     );
+                    let tilde_is_punct = matches!(
+                        engine.tilde_toggle_mode.trim().to_ascii_lowercase().as_str(),
+                        "punct" | "symbol" | "tilde" | "fullwidth" | "none" | ""
+                    ) && engine.tilde_return_mode.is_none();
                     let is_lk_key = (is_lk && (engine.longkan.has_buffer() || engine.inline_longkan_active) && (ch.is_ascii_digit() || matches!(ch, '?' | '*' | '`')))
                         || is_special_mode
-                        || matches!(ch, '`' | '~');
+                        || ch == '`'
+                        || (ch == '~' && !tilde_is_punct);
                     let is_standard_bpm_punct = matches!(engine.keyboard_mode.as_str(), "standard" | "daikien")
                         && matches!(ch, ',' | '.' | ';' | '/' | '-');
+                    let is_inline_digit_op = !engine.fullwidth_mode
+                        && !is_standard_bpm_punct
+                        && !engine.fsm.has_pending()
+                        && engine
+                            .composed_sentence
+                            .chars()
+                            .last()
+                            .map(|c| c.is_ascii_digit())
+                            .unwrap_or(false)
+                        && matches!(ch, '.' | '%' | '+' | '*' | '=' | ':');
                     let punct = !is_ar30_key
                         && !is_fc_key
                         && !is_lk_key
                         && !is_standard_bpm_punct
+                        && !is_inline_digit_op
                         && !is_jp_romaji_key
                         && !is_kr_romaja_key
-                        && (engine.symbols.get_char(ch).is_some()
+                        && (engine.resolve_punctuation_char(ch).is_some()
                             || (is_jp && matches!(ch, ',' | '.' | '?' | '!' | '[' | ']' | '(' | ')' | ':' | ';')));
                     let raw_lower = engine.raw_ascii_buffer.to_ascii_lowercase();
                     let is_en_punct_token = engine.is_mixed_english_active()
@@ -3484,7 +3672,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     (punct, digit_consolidate)
                 };
                 let is_stream_mode = punct_mode == "B" || punct_mode == "C";
-                let should_consolidate_before_tilde = ch == '~' && {
+                let should_consolidate_before_tilde = ch == '~' && !is_punct && {
                     let eng = self.engine.lock().unwrap();
                     !eng.inline_longkan_active
                         && !matches!(
@@ -4907,8 +5095,8 @@ impl RuhiTextService_Impl {
                     '：' | ':' => vec!["：".into(), ":".into(), "；".into(), ";".into()],
                     '；' | ';' => vec!["；".into(), ";".into(), "：".into(), ":".into()],
                     '…' => vec!["……".into(), "…".into(), "⋯".into(), "...".into()],
-                    '—' | '-' | '─' => vec!["──".into(), "——".into(), "—".into(), "─".into(), "－".into(), "-".into(), "～".into(), "~".into(), "＿".into(), "_".into()],
-                    '～' | '~' => vec!["～".into(), "~".into(), "—".into(), "──".into()],
+                    '—' | '-' | '─' => vec!["──".into(), "——".into(), "—".into(), "─".into(), "～".into(), "~".into(), "－".into(), "-".into(), "＿".into(), "_".into()],
+                    '～' | '~' => vec!["～".into(), "~".into(), "～～".into(), "〰".into(), "〜".into(), "—".into(), "──".into(), "——".into(), "－".into(), "-".into()],
                     '「' | '『' => vec!["「".into(), "『".into(), "“".into(), "‘".into(), "\"".into(), "'".into(), "《".into(), "〈".into(), "【".into(), "〔".into(), "（".into()],
                     '」' | '』' => vec!["」".into(), "』".into(), "”".into(), "’".into(), "\"".into(), "'".into(), "》".into(), "〉".into(), "】".into(), "〕".into(), "）".into()],
                     '《' | '〈' | '<' => vec!["《".into(), "〈".into(), "「".into(), "『".into(), "【".into(), "〔".into(), "<".into()],
@@ -4947,6 +5135,26 @@ impl RuhiTextService_Impl {
                 let ch_cands = engine.western.lookup_down_arrow_candidates(&ch.to_string(), Some(ch));
                 if !ch_cands.is_empty() {
                     return (target_idx, (target_idx, target_idx + 1), ch_cands);
+                }
+            }
+
+            // ── 拓撲結構 II 對角線恆等流形諧音雙關候選（如「一試再試」➔「一事再事／一世再世／一室再室」）──
+            {
+                let syls_snapshot = self.pending_syllables.lock().unwrap().clone();
+                if let Some(((d_start, d_end), mut diag_cands)) =
+                    engine.lexicon.lookup_diagonal_pun_constructions(&chars, &syls_snapshot, target_idx)
+                {
+                    if target_idx == d_start || target_idx + 1 == d_end {
+                        let char_syl = syls_snapshot.get(target_idx).cloned().flatten();
+                        for c in engine.lexicon.lookup_char_candidates_with_bpm(chars[target_idx], char_syl.as_deref()) {
+                            if !diag_cands.contains(&c) {
+                                diag_cands.push(c);
+                            }
+                        }
+                        let del_words = self.deleted_words.lock().unwrap();
+                        diag_cands.retain(|c| !del_words.contains(c));
+                        return (target_idx, (d_start, d_end), diag_cands);
+                    }
                 }
             }
 
@@ -5906,6 +6114,9 @@ impl RuhiTextService_Impl {
                         eng.enable_array30_coach = new_cfg.enable_array30_coach;
                         eng.reverse_coach_target = new_cfg.reverse_coach_target.clone();
                         eng.four_corner.keymap_profile = new_cfg.four_corner_keymap.clone();
+                        eng.fullwidth_mode = new_cfg.fullwidth_mode;
+                        eng.shift_space_toggle_fullwidth = new_cfg.shift_space_toggle_fullwidth;
+                        eng.halfwidth_punct_mode = new_cfg.halfwidth_punct_mode.clone();
                     }
                     if let Ok(mut cw_guard) = self.candidate_window.lock() {
                         if let Some(cw) = cw_guard.as_mut() {

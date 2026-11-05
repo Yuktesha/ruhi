@@ -45,8 +45,6 @@
   },
   "ai_and_privacy": {
     "zero_pii_gateway": true,
-    "ollama_model": "gemma4:12b",
-    "enable_cloud_colab": true,
     "telemetry_consent": false,
     "upload_schedule": "weekly",
     "cloud_sheet_webhook_url": "https://script.google.com/macros/s/AKfycbzH-n5YhBFSUPZUiUWfZXw46qp9OYliLlnijGmHMpIs4F0Ve_2ZM6k2mNpeoSnU6NMt/exec",

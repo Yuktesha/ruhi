@@ -66,3 +66,18 @@
 | 4 | `vumdcndgxmjjxjdsxmdvldjgjcekjrnjxj` | `全神貫注地完成這項任務` | `全神貫注的完成這項任務` | `全神貫注 + 地 + 完成` vs. `全神貫注 + 的 + 完成` | 成語狀語後接 `ㄉㄜ˙`（`ds`）時，「地 vs. 的」受構式十九 `C04` 控制；`Unit A-5a` 改動 `C04` 於開發集造成顯著副作用。 |
 | 5 | `jgjggsxnjtedxhfmnse cjzijcj` | `這個問題我們一試再試` | `這個問題我們一事再事` | `一試再試` vs. `一事再事` | 單音節動詞「試（`ㄕˋ`）」與高先驗名詞「事（`ㄕˋ`）」在對稱框架 `[一 + X + 再 + X]` 中同音競爭，兩個「事」同樣滿足字形對稱條件 `X_1 == X_2`；原依賴 `Unit A-3c`（`patterns_user.jsonl`）硬編碼詞條。 |
 | 6 | `velfzijcerjly cumfdm jxl cumfzgdcjhgddszjtefdyjcewf` | `請在下拉選單中選擇適合的字體大小` | `請再下拉選單中選擇適合的字體大小` | `請 + 在 + 下拉選單中` vs. `請 + 再` | 後段「選擇適合的字體大小」已由保留之 `Unit A-5b`（構式二十六）成功解出，惟句首「請在 vs. 請再」同 2.2 第 8 項，依賴已捨棄之 `Unit A-5a` 構式十一改動。 |
+
+---
+
+## 3. 2026-11-05 分流新增之困難案例（`wip/2026-11-05-unreviewed`）
+
+依修訂版交接提示詞第三節，`wip/2026-11-05-unreviewed`（commit `c135e1c`）中 `constructions.rs` 新增之 4,464 條加減分有 94.8% 超過 `|score| <= 35` 上限，且多以三字以上句子片段作為語境條件，未移植。以下新增測試所需之選字規則均來自該批未移植規則，故標記為 `#[ignore = "known hard case: ..."]`：
+
+| 測試 | 內容 | 目前實際輸出（節錄） | 未通過原因 |
+|---|---|---|---|
+| `test_lyric_narrative_and_comma_parallel_discourse_261101` | 歌詞句「再高的牆擋不住溫柔」、「流向亮起來的街頭」及燈具／火源衍生句 | `再高的強擋不住溫柔`、`流向量起來的街頭` | 依賴 Section 24～30 之高分構式（多數 \|score\| ≥ 60） |
+| `test_nine_topological_structures_valence_relativization_quantifier_serial_261101` | 處置式、關係子句、全稱量化、連謂句（如「把燈點亮」） | `把登點亮` | 同上 |
+| `test_diagonal_pun_candidates_and_gongshi_weihe_disambiguation_261101` | 「一試再試」首選與諧音候選、「公式／為何」消歧 | 首選為 `一事再事` | 首選依賴未移植規則；諧音候選展開功能（`lookup_diagonal_pun_constructions`）本身已移植 |
+| `test_user_clauses_si_geo_postal_and_meizhou_261103` | 使用者實戰分句（「川普正名」、「剩下最後1%的每週額度」、門牌地址與 3+3 郵遞區號等） | `川普證明` | 依賴未移植規則；自 `test_shift_space_fullwidth_and_punct_consistency_and_si_sentence_261103` 拆出，半全形功能部分仍為常駐測試 |
+
+另外，`test_kept_triage_units_a3_a4_a5b_a6_261031` 在保全分支中被追加兩句歌詞案例；該兩句已移除，恢復為 10/31 分流後之內容（既有案例與預期值未變）。
