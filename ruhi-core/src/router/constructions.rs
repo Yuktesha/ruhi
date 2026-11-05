@@ -4350,6 +4350,47 @@ impl TransitionEngine {
             }
         }
 
+        // =========================================================================
+        // 31. 語境分岔構式（2026-11-05，分數上限 35；左右語意類別一律引用 morpheme_ontology.json）
+        //     原則：左右兩側語意場同時成立才加分；僅單側成立或無語境時 bonus = 0，回歸詞庫統計頻率。
+        // =========================================================================
+        {
+            use super::morpheme_ontology::{MorphemeClass as MC, MorphemeOntology};
+            let ont = MorphemeOntology::global();
+            let right_nodes: &[LatticeNode] = dag.get(&end_idx).map(|v| v.as_slice()).unwrap_or(&[]);
+            // 右側為輸入段尾（其後通常緊接阿拉伯數字、百分比或標點，這些字元不進入詞網格）
+            let right_is_segment_end = right_nodes.is_empty();
+            let right_any = |cls: MC| right_nodes.iter().any(|m| ont.has_class(&m.word, cls));
+            let is_numeral_lead = |w: &str| {
+                w.chars().next().map_or(false, |c| {
+                    c.is_ascii_digit()
+                        || ('０'..='９').contains(&c)
+                        || "一二三四五六七八九十百千萬兩幾半零".contains(c)
+                })
+            };
+            let right_is_quantity = right_nodes
+                .iter()
+                .any(|m| is_numeral_lead(&m.word) || ont.has_class(&m.word, MC::QuantityExprWord));
+            let prev_is_number_de = prev_word == "的"
+                && prev2_word.chars().last().map_or(false, |c| {
+                    c.is_ascii_digit() || ('０'..='９').contains(&c) || c == '%' || c == '％'
+                });
+
+            // 31-1. 「每週 vs 美洲」：右鄰為週期排程／配額名詞 ➔ 每週；左鄰為美洲方位修飾或右鄰為地理中心語 ➔ 美洲
+            if !self.is_rule_disabled("ctx31_meizhou") && matches!(curr_word, "每週" | "每周" | "美洲") {
+                let temporal_right = right_any(MC::PeriodicScheduleNoun);
+                let temporal_left = prev_is_number_de || matches!(prev_word, "剩下" | "最後" | "僅剩" | "只剩");
+                let geo_left = ont.has_class(prev_word, MC::AmericasGeoMod);
+                let geo_right = right_any(MC::AmericasGeoHead);
+                if temporal_right && !geo_left {
+                    let s = if temporal_left { 32.0 } else { 24.0 };
+                    if curr_word != "美洲" { bonus += s; } else { bonus -= s; }
+                } else if geo_left || geo_right {
+                    if curr_word == "美洲" { bonus += 24.0; } else { bonus -= 24.0; }
+                }
+            }
+        }
+
         self.apply_rule_score("construction_hierarchical_matrix", bonus)
     }
 }

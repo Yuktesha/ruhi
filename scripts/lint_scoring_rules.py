@@ -36,7 +36,7 @@ SCORING_PATHS = [
 ]
 
 RE_BONUS = re.compile(r"\bbonus\s*[+-]=\s*([0-9]+(?:\.[0-9]+)?)")
-RE_SCORE_FIELD = re.compile(r"\"?score\"?\s*[:=]\s*(-?[0-9]+(?:\.[0-9]+)?)")
+RE_SCORE_FIELD = re.compile(r"\"?(?:score|bonus)\"?\s*[:=]\s*(-?[0-9]+(?:\.[0-9]+)?)")
 RE_CTX_LINE = re.compile(r"\b(prev_word|prev_clean|prev2_word|prev3_word|rw|next_word|nw)\b")
 RE_LONG_CJK = re.compile(r"\"([\u3400-\u9fff\uf900-\ufaff]{3,})\"")
 

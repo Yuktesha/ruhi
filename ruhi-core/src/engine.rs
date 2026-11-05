@@ -12725,4 +12725,36 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_ctx31_meizhou_weekly_vs_americas_261105() {
+        // 「每週 vs 美洲」：右鄰週期排程／配額名詞 ➔ 每週；美洲方位修飾或地理中心語 ➔ 美洲
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+        engine.keyboard_mode = "hsu".to_string();
+        fn decode(engine: &mut RuhiEngine, keys: &str) -> String {
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let mut out = String::new();
+            for c in keys.chars() {
+                let r = engine.process_key(c);
+                if !r.committed_chunk.is_empty() {
+                    out.push_str(&r.committed_chunk);
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            out
+        }
+        let cases = [
+            ("cljceyjzxajhoj1%dgsmafjo gddxj", "剩下最後1%的每週額度"),
+            ("mafjo lejhxaj", "每週例會"),
+            ("mafjo do hxajki hxaj", "每週都會開會"),
+            ("bafmafjo ", "北美洲"),
+            ("nmdmafjo gxhdjey ", "南美洲國家"),
+        ];
+        for (keys, expected) in cases {
+            let out = decode(&mut engine, keys);
+            assert_eq!(out, expected, "按鍵 `{keys}` 應解碼為「{expected}」，實際為「{out}」");
+        }
+    }
+
 }

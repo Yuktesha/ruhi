@@ -6,7 +6,7 @@ use std::sync::OnceLock;
 const BUILTIN_MORPHEME_ONTOLOGY_JSON: &str =
     include_str!("../../../ruhi_lexicon/data/morpheme_ontology.json");
 
-/// 漢語語素語意本體分類枚舉（對應 64-bit `MorphemeSemanticMask` 位元索引 0..=43）
+/// 漢語語素語意本體分類枚舉（對應 64-bit `MorphemeSemanticMask` 位元索引 0..=57）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u32)]
 pub enum MorphemeClass {
@@ -55,6 +55,19 @@ pub enum MorphemeClass {
     SerialMotionV1 = 42,
     BoundHeadMorpheme = 43,
     RepeatableActionVerb = 44,
+    PeriodicScheduleNoun = 45,
+    AmericasGeoMod = 46,
+    AmericasGeoHead = 47,
+    ResourceStockNoun = 48,
+    RestrictiveAdv = 49,
+    CompetitionMetricNoun = 50,
+    CompetitionDegreeAdv = 51,
+    NewStartVerb = 52,
+    NewObjectNoun = 53,
+    WaitConditionNoun = 54,
+    WaitResultVerb = 55,
+    TemporalPostposition = 56,
+    QuantityExprWord = 57,
 }
 
 impl MorphemeClass {
@@ -110,6 +123,19 @@ impl MorphemeClass {
             Self::SerialMotionV1 => "SerialMotionV1",
             Self::BoundHeadMorpheme => "BoundHeadMorpheme",
             Self::RepeatableActionVerb => "RepeatableActionVerb",
+            Self::PeriodicScheduleNoun => "PeriodicScheduleNoun",
+            Self::AmericasGeoMod => "AmericasGeoMod",
+            Self::AmericasGeoHead => "AmericasGeoHead",
+            Self::ResourceStockNoun => "ResourceStockNoun",
+            Self::RestrictiveAdv => "RestrictiveAdv",
+            Self::CompetitionMetricNoun => "CompetitionMetricNoun",
+            Self::CompetitionDegreeAdv => "CompetitionDegreeAdv",
+            Self::NewStartVerb => "NewStartVerb",
+            Self::NewObjectNoun => "NewObjectNoun",
+            Self::WaitConditionNoun => "WaitConditionNoun",
+            Self::WaitResultVerb => "WaitResultVerb",
+            Self::TemporalPostposition => "TemporalPostposition",
+            Self::QuantityExprWord => "QuantityExprWord",
         }
     }
 
@@ -160,6 +186,19 @@ impl MorphemeClass {
             "SerialMotionV1" => Some(Self::SerialMotionV1),
             "BoundHeadMorpheme" => Some(Self::BoundHeadMorpheme),
             "RepeatableActionVerb" => Some(Self::RepeatableActionVerb),
+            "PeriodicScheduleNoun" => Some(Self::PeriodicScheduleNoun),
+            "AmericasGeoMod" => Some(Self::AmericasGeoMod),
+            "AmericasGeoHead" => Some(Self::AmericasGeoHead),
+            "ResourceStockNoun" => Some(Self::ResourceStockNoun),
+            "RestrictiveAdv" => Some(Self::RestrictiveAdv),
+            "CompetitionMetricNoun" => Some(Self::CompetitionMetricNoun),
+            "CompetitionDegreeAdv" => Some(Self::CompetitionDegreeAdv),
+            "NewStartVerb" => Some(Self::NewStartVerb),
+            "NewObjectNoun" => Some(Self::NewObjectNoun),
+            "WaitConditionNoun" => Some(Self::WaitConditionNoun),
+            "WaitResultVerb" => Some(Self::WaitResultVerb),
+            "TemporalPostposition" => Some(Self::TemporalPostposition),
+            "QuantityExprWord" => Some(Self::QuantityExprWord),
             _ => None,
         }
     }
