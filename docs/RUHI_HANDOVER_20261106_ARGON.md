@@ -9,13 +9,13 @@
 
 | 項目 | 數值 |
 |---|---|
-| 工作分支 | `triage/2026-10-31`，HEAD `36ccd77`（尚未合併回 `main`，未推送） |
+| 工作分支 | `triage/2026-10-31`（尚未合併回 `main`，未推送；最新 commit 請以 `git log -1` 為準） |
 | 保全分支 | `wip/2026-10-31-unreviewed`、`wip/2026-11-05-unreviewed`（`c135e1c`），僅存本機，**不得刪除** |
 | 開發集 CER | **6.32%**（2,836／44,855），整句正確率 56.26% |
 | 閘門基準 | `eval_reports/dev_gate_baseline.json`（label `triage-1105-A4`，與目前數值相同） |
-| ruhi-core 測試 | 167 通過／0 失敗／7 忽略 |
+| ruhi-core 測試 | 168 通過／0 失敗／7 忽略 |
 | ruhi-studio 測試 | 14 通過／1 失敗／1 忽略（失敗項目見「三、2」） |
-| `ruhi_tsf.dll` | 已於 2026-11-06 00:26 建置（含所有 ruhi-core 修改），尚待專案負責人執行 `hot_reload.ps1` |
+| `ruhi_tsf.dll` | 已於 2026-11-06 07:30 建置並由專案負責人熱重載；地址解碼已實測正確 |
 
 2026-11-05 分流結果與逐單位數據，請見 `docs/WIP_TRIAGE_REPORT_20261105.md`。新增之語境分岔規則位於 `ruhi-core/src/router/constructions.rs` 的「Section 31」（`ctx31-1`～`ctx31-4`），語意類別位於 `ruhi_lexicon/data/morpheme_ontology.json`（bit 45～57）。
 
@@ -36,7 +36,20 @@
 
 ## 三、待辦事項（依優先順序）
 
-0. **【已於 2026-11-06 修正】門牌地址解碼錯誤，候選列沒有 3+3 郵遞區號**
+0. **【最優先】3+3 郵遞區號候選：引擎可產生，但使用者在實際打字時叫不出來**
+   - 現況（`b6ddbae`）：地址解碼已正確，專案負責人實測「基隆市中正區和憲里1鄰和一路13號」無誤；但專案負責人回報**不知道如何叫出 3+3 郵遞區號**。
+   - 引擎行為（已以單元測試驗證）：`update_active_candidates()` 會把 `resolve_active_postal_code()` 的結果（如「202008 基隆市中正區和憲里1鄰和一路13號」）插入候選清單第 3 位；`open_down_arrow_candidates()`（↓）的候選中可見。
+   - 推測原因（**尚未驗證，請先確認**）：
+     1. 許氏模式輸入阿拉伯數字時，前面的中文會先送出（`record_committed`），輸入座只剩最後一段（例：只剩「號」）。使用者必須在按 Enter 送出**之前**、游標停在最後一段時按 ↓，才看得到郵遞區號候選；這個操作沒有任何提示，也沒有寫進使用說明。
+     2. 若在此時選取郵遞區號候選，`select_candidate` 只會替換輸入座內的「號」，但前面的地址已經送出，最終文字很可能變成「基隆市…13202008 基隆市…13號」（地址重複）。請用單元測試確認。
+   - 可考慮的作法（須先向專案負責人確認設計，擇一或並用）：
+     - 甲：候選列提供獨立項目「〔202008〕」，選取後只輸出郵遞區號本身，不重複地址（TSF 已送出的文字無法回頭修改，故不能在地址前方補插）；
+     - 乙：在 TSF 候選視窗以註解方式顯示郵遞區號，僅供查看，不作為可選文字；
+     - 丙：數字輸入不再提前送出前面的中文，讓整段地址留在輸入座，選取時可整段替換為「郵遞區號＋地址」（影響範圍較大，需完整回歸測試）；
+     - 不論採用何者，都要在 README／使用說明寫明叫出方式。
+   - 驗收：專案負責人能在 Notepad++ 實際叫出並插入郵遞區號，且地址不重複；開發集 CER 不得上升。
+
+   **已完成之部分修正（2026-11-06，`b6ddbae`）**：`constructions.rs` Section 30 加回地理知識樹計分呼叫（總貢獻 `clamp` 於 ±35，可用 `RUHI_DISABLE_RULES=geo_hierarchy` 停用），修正「和獻禮／合一路」誤解；`engine.rs` 新增 `merge_with_overlap`，修正地址錨點跨片段累積重複。開發集 CER 不變（6.32%，0／0）。常駐測試：`test_geo_hierarchy_address_decoding_and_postal_candidate_261106`。以下保留原始分析供參考。
    - 修正內容：`constructions.rs` Section 30 加回地理知識樹計分呼叫，總貢獻限制在 ±35（`clamp`），可用 `RUHI_DISABLE_RULES=geo_hierarchy` 停用；`engine.rs` 新增 `merge_with_overlap`，修正地址錨點跨提交片段累積時的重複（原先郵遞區號候選顯示為「…和一路1鄰和一路13號」）。開發集 CER 不變（6.32%，0／0）。常駐測試：`test_geo_hierarchy_address_decoding_and_postal_candidate_261106`。以下保留原始分析供參考。
    - 現象：輸入「基隆市中正區和憲里1鄰和一路13號」，實際輸出「基隆市中正區和獻禮1鄰合一路13號」；不論游標在哪裡按方向鍵，候選列都沒有郵遞區號。
    - 根因：2026-11-05 分流時，地理知識樹被歸為「不影響選字」的 B1 單位移植，但它的條件式喚醒計分是在 `wip/2026-11-05-unreviewed` 的 `constructions.rs` Section 30 呼叫的，也就是 `bonus += CjkGeoHierarchy::global().score_geo_hierarchy_bonus(prefix_words, curr_word, curr_bopomofo, end_idx, dag);`。該段隨 Section 24～30 整批捨棄，所以下層的里、路名沒有被喚醒。路名解錯後，`resolve_active_postal_code()` 比對不到地址，郵遞區號候選也就不會出現。
