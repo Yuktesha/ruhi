@@ -311,6 +311,7 @@ impl TransitionEngine {
             "行", "列", "頁", "篇", "章", "節", "段", "條", "款", "項", "筆", "欄", "格",
             "個", "位", "名", "人", "次", "回", "下", "遍", "趟", "場", "屆", "期", "聲",
             "級", "等", "層", "樓", "室", "房", "廳", "衛", "戶", "家", "所", "處", "棟",
+            "鄰", "巷", "弄", "衖",
             "座", "間", "台", "部", "輛", "架", "艘", "班", "支", "枝", "根", "張", "片",
             "顆", "粒", "滴", "杯", "碗", "盤", "皿", "瓶", "罐", "盒", "包", "袋", "箱",
             "籃", "桶", "本", "冊", "卷", "集", "首", "幅", "件", "套", "組", "批", "雙",
@@ -1333,7 +1334,7 @@ impl TransitionEngine {
         let degree_advs = vec!["很", "非常", "特別", "十分", "太", "真", "挺", "極為", "超", "多", "多麼"];
         let safe_num_cls_compounds: Vec<String> = vec![
             "一個", "兩個", "三個", "這個", "那個", "哪個", "每個", "某個", "幾個", "半個",
-            "一種", "這種", "那種", "哪種", "隻",
+            "一種", "這種", "那種", "哪種",
         ]
         .into_iter()
         .map(|s| s.to_string())
@@ -3839,7 +3840,7 @@ impl TransitionEngine {
 
         // 7. 指示量詞複合詞 (`這個/那個/每個/哪個/幾個/一個/兩個`) ➔ 「字」vs「自」消歧：
         let det_ge_modifiers = vec![
-            "個", "這個", "那個", "每個", "哪個", "幾個", "一個", "兩個", "三個", "半個", "整", "整個",
+            "整",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(det_ge_modifiers.iter().map(|s| s.to_string()).collect()),
@@ -5529,33 +5530,27 @@ impl TransitionEngine {
                                     | "幾乎" | "快" | "快要" | "差點" | "全都" | "通通" | "完全"
                             )
                         });
+                        let ont = crate::router::morpheme_ontology::MorphemeOntology::global();
+                        use crate::router::morpheme_ontology::{MorphemeClass, LUMINOUS_HEAD_MASK};
                         let is_weather_head_slot = !head_slot.is_empty()
+                            && head_slot.iter().all(|w| ont.is_weather_head(w.as_str()));
+                        let is_luminous_head_slot = !head_slot.is_empty()
                             && head_slot.iter().all(|w| {
-                                matches!(
+                                ont.has_any_class(
                                     w.as_str(),
-                                    "雨" | "雪" | "風" | "霧" | "霜" | "雹" | "雷" | "太陽" | "陽光"
+                                    LUMINOUS_HEAD_MASK | MorphemeClass::BarrierHead.bit(),
                                 )
                             });
                         let is_mandatory_bound_head = !head_slot.is_empty()
                             && head_slot.iter().all(|w| {
-                                matches!(
-                                    w.as_str(),
-                                    "型" | "類" | "素" | "檔" | "好" | "光" | "光光" | "到" | "出"
-                                        | "進" | "回" | "上" | "下" | "過" | "起" | "篇" | "雙"
-                                        | "套" | "份" | "段" | "座" | "個" | "種" | "部" | "場"
-                                        | "首" | "本" | "把" | "筆" | "項" | "次" | "遍" | "趟"
-                                        | "句" | "條" | "件" | "張" | "支" | "間" | "層" | "些"
-                                        | "點" | "杯" | "碗" | "壺" | "瓶" | "罐" | "盤" | "住"
-                                        | "死" | "鍵" | "鈕" | "裡" | "中" | "內" | "法" | "式"
-                                        | "工" | "成" | "畢" | "結" | "稿" | "賽" | "完" | "選"
-                                        | "取" | "天" | "年" | "步" | "代" | "版" | "屆" | "頓"
-                                        | "陣"
-                                )
+                                ont.has_class(w.as_str(), MorphemeClass::BoundHeadMorpheme)
                             });
                         let should_factorize = if pat.optional_slots.contains(&m) {
                             !is_pure_particle_or_adverb
                                 && mod_slot.iter().all(|w| w.chars().count() <= 3)
-                                && (is_weather_head_slot || is_mandatory_bound_head)
+                                && (is_weather_head_slot
+                                    || is_luminous_head_slot
+                                    || is_mandatory_bound_head)
                         } else {
                             !is_pure_particle_or_adverb
                                 && mod_slot.iter().all(|w| w.chars().count() <= 2)
@@ -5608,7 +5603,7 @@ impl TransitionEngine {
                             && raw_slots[idx].iter().all(|w| {
                                 matches!(
                                     w.as_str(),
-                                    "到" | "的" | "之" | "得" | "地" | "了" | "過" | "著" | "不"
+                                    "到" | "向" | "的" | "之" | "得" | "地" | "了" | "過" | "著" | "不"
                                 )
                             });
                         if (raw_is_bare_particle || (is_bigram_left && bound_head_slot_indices.contains(&idx)))
