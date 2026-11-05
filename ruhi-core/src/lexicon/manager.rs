@@ -56,6 +56,18 @@ impl LexiconEntry {
         if chars.len() != syls.len() {
             return None;
         }
+        if chars.len() == 2 && chars[0] == chars[1] {
+            let s0 = syls[0];
+            let s1 = syls[1];
+            if Self::strip_tones(s0) == Self::strip_tones(s1) {
+                if s1.starts_with('˙') && !s0.starts_with('˙') {
+                    return Some(format!("{s0} {s0}"));
+                }
+                if s0.ends_with('ˊ') && s1.ends_with('ˇ') {
+                    return Some(format!("{s1} {s1}"));
+                }
+            }
+        }
         let mut changed = false;
         let mut out_syls: Vec<String> = Vec::with_capacity(syls.len());
         for (ch, &syl) in chars.iter().zip(syls.iter()) {
@@ -469,6 +481,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             | ("底", "˙ㄉㄜ")
             | ("底", "ㄉㄜ˙")
             | ("比", "ㄆㄧˊ")
+            | ("比", "ㄅㄧˋ")
             | ("吃", "ㄐㄧˊ")
             | ("騎", "ㄐㄧˋ")
             | ("杷", "ㄅㄚ")
@@ -482,6 +495,14 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             | ("有庳", _)
             | ("汙庳", _)
             | ("庳", _)
+            | ("闞闞", _)
+            | ("宅", "ㄓㄜˋ")
+            | ("宅到", _)
+            | ("暴", "ㄆㄨˋ")
+            | ("喔", "ㄨㄛˋ")
+            | ("雨", "ㄩˋ")
+            | ("㳀", _)
+            | ("𩟂", _)
     )
 }
 

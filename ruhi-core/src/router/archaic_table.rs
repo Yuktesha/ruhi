@@ -1803,6 +1803,7 @@ pub fn is_archaic_polyphonic(word: &str, bopomofo: &str) -> bool {
     if word.chars().count() != 1 {
         return false;
     }
+    if matches!((word, bopomofo), ("說", "ㄩㄝˋ") | ("說", "ㄕㄨㄟˋ") | ("無", "ㄇㄛˊ") | ("上", "ㄕㄤˇ") | ("日", "ㄇㄧˋ") | ("六", "ㄌㄨˋ") | ("紅", "ㄍㄨㄥ") | ("導", "ㄉㄠˋ") | ("滑", "ㄍㄨˇ")) { return true; }
     ARCHAIC_POLYPHONICS.binary_search_by(|&(w, b)| {
         match w.cmp(word) {
             std::cmp::Ordering::Equal => b.cmp(bopomofo),
