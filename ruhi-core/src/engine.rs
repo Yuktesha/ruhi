@@ -12832,4 +12832,37 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_ctx31_dai_wait_circumfix_261105() {
+        // 時間／條件環綴框「待 + X + (V) + 後／時」；反例「代表、帶來、危殆」不受影響
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+        engine.keyboard_mode = "hsu".to_string();
+        fn decode(engine: &mut RuhiEngine, keys: &str) -> String {
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let mut out = String::new();
+            for c in keys.chars() {
+                let r = engine.process_key(c);
+                if !r.committed_chunk.is_empty() {
+                    out.push_str(&r.committed_chunk);
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            out
+        }
+        let cases = [
+            ("dijgddxjhxa fxjhojjdceld", "待額度恢復後執行"),
+            ("dijcejtxlfxnfdeljhoj", "待系統穩定後"),
+            ("dijfl ufsmjvujj hoj", "待風雨散去之後"),
+            ("dijvuejrnjxmdvldcdtxl j ", "待確認完成時通知"),
+            ("dijxkflxjhxa fxjcd", "待網路恢復時"),
+            ("dijbewfcejtxlf", "代表系統"),
+            ("dijlidhwfjxmf", "帶來好轉"),
+            ("veldkxkjxaddij", "情況危殆"),
+        ];
+        for (keys, expected) in cases {
+            let out = decode(&mut engine, keys);
+            assert_eq!(out, expected, "按鍵 `{keys}` 應解碼為「{expected}」，實際為「{out}」");
+        }
+    }
 }

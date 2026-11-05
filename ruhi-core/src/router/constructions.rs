@@ -4412,6 +4412,55 @@ impl TransitionEngine {
                     if curr_word == "新" { bonus += 30.0; } else { bonus -= 30.0; }
                 }
             }
+
+            // 31-4. 時間／條件環綴框 `[待] + X(條件名詞) + (V_結果)? + [後/時/之後]`（右側最多 4 個節點內閉合）
+            if !self.is_rule_disabled("ctx31_dai") && matches!(curr_word, "待" | "代" | "帶" | "殆" | "戴" | "貸" | "袋" | "怠") {
+                let mut closes = false;
+                for x in right_nodes.iter().filter(|m| ont.has_class(&m.word, MC::WaitConditionNoun)) {
+                    // 自 X 之後向右搜尋：允許 0～2 個中介節點（其中可含結果動詞），第 1～3 步內遇到後置詞即閉合
+                    let mut frontier: Vec<usize> = vec![x.end_idx];
+                    for _step in 0..3 {
+                        let mut next = Vec::new();
+                        for idx in &frontier {
+                            if let Some(ns) = dag.get(idx) {
+                                for n in ns {
+                                    if ont.has_class(&n.word, MC::TemporalPostposition)
+                                        || (n.word.chars().count() >= 2
+                                            && n.word.ends_with('後')
+                                            && ont.has_class(n.word.trim_end_matches('後'), MC::WaitResultVerb))
+                                    {
+                                        closes = true;
+                                    } else if n.word.chars().count() <= 3 {
+                                        next.push(n.end_idx);
+                                    }
+                                }
+                            }
+                        }
+                        if closes {
+                            break;
+                        }
+                        next.sort_unstable();
+                        next.dedup();
+                        frontier = next;
+                    }
+                    if closes {
+                        break;
+                    }
+                }
+                if closes {
+                    if curr_word == "待" { bonus += 30.0; } else { bonus -= 30.0; }
+                }
+            }
+            // 31-4b. 環綴框右界標：前文 5 詞內有「待」，且左鄰為條件名詞或結果動詞 ➔ 後置詞「後／時」優先於同音字
+            if !self.is_rule_disabled("ctx31_dai") && matches!(curr_word, "後" | "厚" | "候" | "吼" | "時" | "實" | "食" | "石" | "十") {
+                let n = prefix_words.len();
+                let has_dai = prefix_words[n.saturating_sub(5)..].iter().any(|w| *w == "待");
+                let left_ok = ont.has_class(prev_word, MC::WaitResultVerb)
+                    || ont.has_class(prev_word, MC::WaitConditionNoun);
+                if has_dai && left_ok {
+                    if matches!(curr_word, "後" | "時") { bonus += 24.0; } else { bonus -= 24.0; }
+                }
+            }
         }
 
         self.apply_rule_score("construction_hierarchical_matrix", bonus)
