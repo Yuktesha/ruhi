@@ -12798,4 +12798,38 @@ mod tests {
 
     }
 
+    #[test]
+    fn test_ctx31_xin_new_vs_heart_261105() {
+        // 「新 vs 心」：左鄰開啟／建立類動詞 × 右鄰文件／階段／介面名詞 ➔ 新；反例「用心、信心、心得」不受影響
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+        engine.keyboard_mode = "hsu".to_string();
+        fn decode(engine: &mut RuhiEngine, keys: &str) -> String {
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let mut out = String::new();
+            for c in keys.chars() {
+                let r = engine.process_key(c);
+                if !r.committed_chunk.is_empty() {
+                    out.push_str(&r.committed_chunk);
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            out
+        }
+        let cases = [
+            ("velfcem ceefceyjcen dxajhxyjjew jee tedcjad", "請先寫下新對話交接提示詞"),
+            ("ceefceyjcen dxajhxyj", "寫下新對話"),
+            ("ki vefcen fn eej", "開啟新分頁"),
+            ("mijrxjcen jee dxmj", "邁入新階段"),
+            ("jemjlejcen jxm mj", "建立新專案"),
+            ("uljcen dxajdij", "用心對待"),
+            ("vxl mmfcenjcen ", "充滿信心"),
+            ("ceefceyjcen dgd", "寫下心得"),
+        ];
+        for (keys, expected) in cases {
+            let out = decode(&mut engine, keys);
+            assert_eq!(out, expected, "按鍵 `{keys}` 應解碼為「{expected}」，實際為「{out}」");
+        }
+    }
+
 }

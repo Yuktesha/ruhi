@@ -4405,6 +4405,13 @@ impl TransitionEngine {
                     if curr_word == "勝" { bonus += 30.0; } else { bonus -= 30.0; }
                 }
             }
+
+            // 31-3. 「新 vs 心」：左鄰開啟／建立類動詞 × 右鄰文件／階段／介面名詞 ➔ 新
+            if !self.is_rule_disabled("ctx31_xin") && matches!(curr_word, "新" | "心" | "欣" | "辛" | "薪") {
+                if ont.has_class(prev_word, MC::NewStartVerb) && right_any(MC::NewObjectNoun) {
+                    if curr_word == "新" { bonus += 30.0; } else { bonus -= 30.0; }
+                }
+            }
         }
 
         self.apply_rule_score("construction_hierarchical_matrix", bonus)
