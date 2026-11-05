@@ -12757,4 +12757,45 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_ctx31_sheng_remaining_vs_winning_261105() {
+        // 「剩 vs 勝」：左鄰資源存量名詞／限定副詞 × 右鄰數量 ➔ 剩；左鄰競賽評比名詞／勝負程度副詞 ➔ 勝
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+        engine.keyboard_mode = "hsu".to_string();
+        fn decode(engine: &mut RuhiEngine, keys: &str) -> String {
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let mut out = String::new();
+            for c in keys.chars() {
+                let r = engine.process_key(c);
+                if !r.committed_chunk.is_empty() {
+                    out.push_str(&r.committed_chunk);
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            out
+        }
+        let cases = [
+            ("gddxjclj1%", "額度剩1%"),
+            ("jenfclj1%", "僅剩1%"),
+            ("jejejtefhidcljbxddwjedbmj", "記憶體還剩不到一半"),
+            ("ujsxmjcljzxajhojejdemf", "預算剩最後一點"),
+            ("demjlekjjfcljedbmj", "電量只剩一半"),
+            ("fn cxjclj1%", "分數勝1%"),
+            ("cemfcljdxajcof", "險勝對手"),
+            ("menddewjcewfcljsm ggjbiffn demf", "民調小勝三個百分點"),
+            ("dgdpewjlujcljgxhjdxajcof", "得票率勝過對手"),
+        ];
+        for (keys, expected) in cases {
+            let out = decode(&mut engine, keys);
+            assert_eq!(out, expected, "按鍵 `{keys}` 應解碼為「{expected}」，實際為「{out}」");
+        }
+        // 全形模式：數字與百分比輸出為全形「１％」，「剩」之判斷不受影響
+        engine.fullwidth_mode = true;
+        let out = decode(&mut engine, "jenfclj1%");
+        assert_eq!(out, "僅剩１％", "全形模式下 `jenfclj1%` 應解碼為「僅剩１％」，實際為「{out}」");
+        engine.fullwidth_mode = false;
+
+    }
+
 }

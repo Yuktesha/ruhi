@@ -4389,6 +4389,22 @@ impl TransitionEngine {
                     if curr_word == "美洲" { bonus += 24.0; } else { bonus -= 24.0; }
                 }
             }
+
+            // 31-2. 「剩 vs 勝」雙線性分岔：左鄰資源存量名詞／限定副詞 × 右鄰數量 ➔ 剩；左鄰競賽評比名詞／勝負程度副詞 × 右鄰數量或對手 ➔ 勝
+            if !self.is_rule_disabled("ctx31_sheng") && matches!(curr_word, "剩" | "勝") {
+                let right_ok = right_is_quantity || right_is_segment_end;
+                let stock_left = ont.has_class(prev_word, MC::ResourceStockNoun)
+                    || ont.has_class(prev_word, MC::RestrictiveAdv);
+                let contest_left = ont.has_class(prev_word, MC::CompetitionMetricNoun)
+                    || ont.has_class(prev_word, MC::CompetitionDegreeAdv);
+                let contest_right = right_ok
+                    || right_nodes.iter().any(|m| matches!(m.word.as_str(), "對手" | "過" | "出" | "選" | "訴"));
+                if stock_left && !contest_left && right_ok {
+                    if curr_word == "剩" { bonus += 30.0; } else { bonus -= 30.0; }
+                } else if contest_left && !stock_left && contest_right {
+                    if curr_word == "勝" { bonus += 30.0; } else { bonus -= 30.0; }
+                }
+            }
         }
 
         self.apply_rule_score("construction_hierarchical_matrix", bonus)
