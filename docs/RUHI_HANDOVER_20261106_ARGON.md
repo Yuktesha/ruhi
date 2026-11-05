@@ -36,7 +36,8 @@
 
 ## 三、待辦事項（依優先順序）
 
-0. **【最優先，專案負責人實測回報之缺陷】門牌地址解碼錯誤，候選列沒有 3+3 郵遞區號**
+0. **【已於 2026-11-06 修正】門牌地址解碼錯誤，候選列沒有 3+3 郵遞區號**
+   - 修正內容：`constructions.rs` Section 30 加回地理知識樹計分呼叫，總貢獻限制在 ±35（`clamp`），可用 `RUHI_DISABLE_RULES=geo_hierarchy` 停用；`engine.rs` 新增 `merge_with_overlap`，修正地址錨點跨提交片段累積時的重複（原先郵遞區號候選顯示為「…和一路1鄰和一路13號」）。開發集 CER 不變（6.32%，0／0）。常駐測試：`test_geo_hierarchy_address_decoding_and_postal_candidate_261106`。以下保留原始分析供參考。
    - 現象：輸入「基隆市中正區和憲里1鄰和一路13號」，實際輸出「基隆市中正區和獻禮1鄰合一路13號」；不論游標在哪裡按方向鍵，候選列都沒有郵遞區號。
    - 根因：2026-11-05 分流時，地理知識樹被歸為「不影響選字」的 B1 單位移植，但它的條件式喚醒計分是在 `wip/2026-11-05-unreviewed` 的 `constructions.rs` Section 30 呼叫的，也就是 `bonus += CjkGeoHierarchy::global().score_geo_hierarchy_bonus(prefix_words, curr_word, curr_bopomofo, end_idx, dag);`。該段隨 Section 24～30 整批捨棄，所以下層的里、路名沒有被喚醒。路名解錯後，`resolve_active_postal_code()` 比對不到地址，郵遞區號候選也就不會出現。
    - 限制：`ruhi-core/src/router/geo_hierarchy.rs` 的 `score_geo_hierarchy_bonus` 內部分數為 62～95，違反 \|score\| ≤ 35 上限。

@@ -1876,10 +1876,7 @@ impl RuhiEngine {
                 })
                 .collect();
             if !cjk_in_trimmed.is_empty() {
-                let mut candidate_geo = self.active_geo_context.clone();
-                if !candidate_geo.ends_with(&cjk_in_trimmed) {
-                    candidate_geo.push_str(&cjk_in_trimmed);
-                }
+                let candidate_geo = Self::merge_with_overlap(&self.active_geo_context, &cjk_in_trimmed);
                 if !crate::router::geo_hierarchy::CjkGeoHierarchy::global()
                     .collect_active_anchors(&[candidate_geo.as_str()])
                     .is_empty()
@@ -5911,13 +5908,28 @@ impl RuhiEngine {
         }
     }
 
+    /// 串接兩段文字並去除重疊部分：取 `head` 尾端與 `tail` 開頭相同之最長片段只保留一次
+    /// （例如「…和憲里1鄰和一路」＋「1鄰和一路13」➔「…和憲里1鄰和一路13」），避免地址錨點重複累積
+    pub fn merge_with_overlap(head: &str, tail: &str) -> String {
+        let h: Vec<char> = head.chars().collect();
+        let t: Vec<char> = tail.chars().collect();
+        let max_ov = h.len().min(t.len());
+        let overlap = (1..=max_ov)
+            .rev()
+            .find(|&k| h[h.len() - k..] == t[..k])
+            .unwrap_or(0);
+        let mut s = head.to_string();
+        s.extend(t[overlap..].iter());
+        s
+    }
+
     pub fn resolve_active_postal_code(
         &self,
     ) -> Option<crate::router::geo_hierarchy::GeoPostalMatch> {
         let full_query = if !self.active_geo_context.is_empty()
             && !self.composed_sentence.contains(&self.active_geo_context)
         {
-            format!("{}{}", self.active_geo_context, self.composed_sentence)
+            Self::merge_with_overlap(&self.active_geo_context, &self.composed_sentence)
         } else {
             self.composed_sentence.clone()
         };
@@ -12864,5 +12876,34 @@ mod tests {
             let out = decode(&mut engine, keys);
             assert_eq!(out, expected, "按鍵 `{keys}` 應解碼為「{expected}」，實際為「{out}」");
         }
+    }
+
+    #[test]
+    fn test_geo_hierarchy_address_decoding_and_postal_candidate_261106() {
+        // 條件式地理知識樹：門牌地址應正確解碼（和憲里／和一路，不得出現「和獻禮／合一路」），
+        // 並於候選列提供 3+3 郵遞區號格式，且地址不得重複
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+        engine.keyboard_mode = "hsu".to_string();
+        engine.reset_buffer();
+        engine.last_committed_word.clear();
+        engine.active_geo_context.clear();
+        let mut out = String::new();
+        for c in "je lxldcjjxl jljvu hgdcemjlef1lendhgde lxj13hwj".chars() {
+            let r = engine.process_key(c);
+            if !r.committed_chunk.is_empty() {
+                out.push_str(&r.committed_chunk);
+            }
+        }
+        out.push_str(&engine.get_display_text());
+        assert_eq!(out, "基隆市中正區和憲里1鄰和一路13號");
+        let postal = engine.resolve_active_postal_code().expect("應成功解析 3+3 郵遞區號");
+        assert_eq!(postal.postal_code, "202008");
+        assert_eq!(postal.formatted_with_postal.matches("和一路").count(), 1, "郵遞區號候選之地址不得重複：{}", postal.formatted_with_postal);
+        let down = engine.open_down_arrow_candidates();
+        assert!(
+            down.candidates.iter().any(|c| c.contains("202008")),
+            "↓ 候選列應包含 3+3 郵遞區號格式，實際：{:?}",
+            down.candidates
+        );
     }
 }
