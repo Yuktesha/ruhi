@@ -36,6 +36,16 @@
 
 ## 三、待辦事項（依優先順序）
 
+0. **【最優先，專案負責人實測回報之缺陷】門牌地址解碼錯誤，候選列沒有 3+3 郵遞區號**
+   - 現象：輸入「基隆市中正區和憲里1鄰和一路13號」，實際輸出「基隆市中正區和獻禮1鄰合一路13號」；不論游標在哪裡按方向鍵，候選列都沒有郵遞區號。
+   - 根因：2026-11-05 分流時，地理知識樹被歸為「不影響選字」的 B1 單位移植，但它的條件式喚醒計分是在 `wip/2026-11-05-unreviewed` 的 `constructions.rs` Section 30 呼叫的，也就是 `bonus += CjkGeoHierarchy::global().score_geo_hierarchy_bonus(prefix_words, curr_word, curr_bopomofo, end_idx, dag);`。該段隨 Section 24～30 整批捨棄，所以下層的里、路名沒有被喚醒。路名解錯後，`resolve_active_postal_code()` 比對不到地址，郵遞區號候選也就不會出現。
+   - 限制：`ruhi-core/src/router/geo_hierarchy.rs` 的 `score_geo_hierarchy_bonus` 內部分數為 62～95，違反 \|score\| ≤ 35 上限。
+   - 作法：
+     1. 在 `constructions.rs` Section 31 之前加回上述呼叫，並加上 `!self.is_rule_disabled("geo_hierarchy")` 開關。
+     2. 先把 `score_geo_hierarchy_bonus` 內所有加減分改為不超過 ±35（可等比縮放），用許氏按鍵實測地址句是否正確解碼，並確認候選列出現郵遞區號；地址按鍵可參考 `engine.rs` 測試 `test_user_clauses_si_geo_postal_and_meizhou_261103`。
+     3. 若 ±35 以內無法正確解碼，**停下來回報**實測數據，由專案負責人決定是否給予「休眠式專有名詞知識樹」例外，不得自行超過上限。
+     4. 單獨成為一個單位，通過閘門（CER 不得上升）後提交；把該地址案例從忽略測試移回常駐測試，並更新 `KNOWN_HARD_CASES.md` 第 3 節。
+
 1. **【需專案負責人同意後才能開始】typing.tw 盲測集**（修訂版第五節）
    - 擷取前先確認使用條款與 `robots.txt`。語料存於 `ruhi_lexicon/eval/typing_tw.tsv`，並加入 `.gitignore`，不得寫入任何入庫檔案。
    - 為 `ruhi_eval` 新增 `--set typing_tw`，只輸出彙總指標。
