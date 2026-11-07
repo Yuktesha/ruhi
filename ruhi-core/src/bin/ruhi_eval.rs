@@ -83,6 +83,8 @@ pub struct EvalReport {
     pub unreachable_gold_audit: Value,
     pub latency_us: Value,
     pub per_category: BTreeMap<String, CategoryMetrics>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub top_homophone_char_errors: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mcnemar_comparison: Option<Value>,
     pub sentence_results: Vec<SentenceEvalResult>,
@@ -535,6 +537,7 @@ pub fn evaluate_compiled_dataset(
     let chunk_size = (compiled.len() + n_threads - 1) / n_threads.max(1);
 
     let mut all_results: Vec<SentenceEvalResult> = Vec::with_capacity(compiled.len());
+    let mut char_confusion_counts: HashMap<(char, char), usize> = HashMap::new();
 
     if chunk_size == 0 {
         return EvalReport {
@@ -551,6 +554,7 @@ pub fn evaluate_compiled_dataset(
             unreachable_gold_audit: json!({}),
             latency_us: json!({}),
             per_category: BTreeMap::new(),
+            top_homophone_char_errors: Vec::new(),
             mcnemar_comparison: None,
             sentence_results: Vec::new(),
         };
@@ -562,6 +566,7 @@ pub fn evaluate_compiled_dataset(
             let mut worker_engine = base_engine.clone();
             handles.push(s.spawn(move || {
                 let mut local_out = Vec::with_capacity(chunk.len());
+                let mut local_confusions: HashMap<(char, char), usize> = HashMap::new();
                 let dag_builder = LatticeDAG::new(&worker_engine.lexicon);
                 for cs in chunk {
                     let t0 = Instant::now();
@@ -577,6 +582,14 @@ pub fn evaluate_compiled_dataset(
                     let char_len = gold.chars().count();
                     let char_errors = char_levenshtein(&pred, gold);
                     let is_exact_match = char_errors == 0;
+
+                    if !is_exact_match && pred.chars().count() == char_len {
+                        for (p_ch, g_ch) in pred.chars().zip(gold.chars()) {
+                            if p_ch != g_ch {
+                                *local_confusions.entry((p_ch, g_ch)).or_insert(0) += 1;
+                            }
+                        }
+                    }
 
                     let target_chars: Vec<char> = gold.chars().collect();
                     let is_gold_reachable = if is_exact_match {
@@ -606,15 +619,33 @@ pub fn evaluate_compiled_dataset(
                         latency_us: elapsed_us,
                     });
                 }
-                local_out
+                (local_out, local_confusions)
             }));
         }
         for h in handles {
-            if let Ok(part) = h.join() {
+            if let Ok((part, part_conf)) = h.join() {
                 all_results.extend(part);
+                for (pair, cnt) in part_conf {
+                    *char_confusion_counts.entry(pair).or_insert(0) += cnt;
+                }
             }
         }
     });
+
+    let mut sorted_confusions: Vec<((char, char), usize)> =
+        char_confusion_counts.into_iter().collect();
+    sorted_confusions.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    let top_homophone_char_errors: Vec<Value> = sorted_confusions
+        .into_iter()
+        .take(20)
+        .map(|((wrong_ch, gold_ch), count)| {
+            json!({
+                "wrong_char": wrong_ch.to_string(),
+                "gold_char": gold_ch.to_string(),
+                "count": count
+            })
+        })
+        .collect();
 
     let total_sentences = all_results.len();
     let total_chars: usize = all_results.iter().map(|r| r.char_len).sum();
@@ -779,6 +810,7 @@ pub fn evaluate_compiled_dataset(
             "p99_ms": format!("{:.3} ms", p99 as f64 / 1000.0)
         }),
         per_category,
+        top_homophone_char_errors,
         mcnemar_comparison: None,
         sentence_results: all_results,
     }
@@ -2171,8 +2203,8 @@ fn main() {
         .collect();
 
     if do_ablation {
-        if set_name == "test" {
-            eprintln!("錯誤：嚴禁在盲測集 (test.tsv) 上執行規則消融分析！");
+        if set_name == "test" || set_name == "typing_tw" {
+            eprintln!("錯誤：嚴禁在盲測集 ({}.tsv) 上執行規則消融分析！", set_name);
             std::process::exit(1);
         }
         let rep = run_ablation_study(&engine, &compiled, prune_harmful, &root);
@@ -2199,8 +2231,8 @@ fn main() {
     }
 
     if do_calibrate {
-        if set_name == "test" {
-            eprintln!("錯誤：嚴禁在盲測集 (test.tsv) 上執行權重校準！");
+        if set_name == "test" || set_name == "typing_tw" {
+            eprintln!("錯誤：嚴禁在盲測集 ({}.tsv) 上執行權重校準！", set_name);
             std::process::exit(1);
         }
         let rep = run_perceptron_calibration(&engine, &compiled, &root);
@@ -2214,9 +2246,10 @@ fn main() {
         return;
     }
 
-    // 評估語料不公開：輸出報告預設不含句子原文；僅 dev 集可加 `--with-text` 於本機做錯誤分析（test 集一律遮蔽）
+    // 評估語料不公開：輸出報告預設不含句子原文；僅 dev 集可加 `--with-text` 於本機做錯誤分析（test 與 typing_tw 集一律遮蔽）
     let with_text = args.iter().any(|a| a == "--with-text");
-    let hide_text = set_name == "test" || !with_text || do_gate || init_gate_baseline;
+    let hide_text =
+        set_name == "test" || set_name == "typing_tw" || !with_text || do_gate || init_gate_baseline;
     let mut report = evaluate_compiled_dataset(&engine, &compiled, &set_name, hide_text);
 
     if init_gate_baseline {
@@ -2476,7 +2509,24 @@ fn main() {
         if let Some(parent) = p.parent() {
             let _ = fs::create_dir_all(parent);
         }
-        let _ = fs::write(p, serde_json::to_string_pretty(&report).unwrap());
+        if set_name == "typing_tw" {
+            let blind_summary = json!({
+                "dataset": report.dataset,
+                "total_sentences": report.total_sentences,
+                "total_chars": report.total_chars,
+                "total_char_errors": report.total_char_errors,
+                "cer": report.cer,
+                "cer_percent": report.cer_percent,
+                "exact_match_sentences": report.exact_match_sentences,
+                "sentence_accuracy": report.sentence_accuracy,
+                "sentence_accuracy_percent": report.sentence_accuracy_percent,
+                "per_category": report.per_category,
+                "top_20_homophone_char_errors": report.top_homophone_char_errors
+            });
+            let _ = fs::write(p, serde_json::to_string_pretty(&blind_summary).unwrap());
+        } else {
+            let _ = fs::write(p, serde_json::to_string_pretty(&report).unwrap());
+        }
     }
 
     // 終端機輸出摘要（不含逐句明細，確保終端機乾淨且盲測集絕對保密）
@@ -2494,6 +2544,7 @@ fn main() {
         "unreachable_gold_audit": report.unreachable_gold_audit,
         "latency_us": report.latency_us,
         "per_category": report.per_category,
+        "top_20_homophone_char_errors": report.top_homophone_char_errors,
         "mcnemar_comparison": report.mcnemar_comparison
     });
     println!("{}", serde_json::to_string_pretty(&summary).unwrap());
