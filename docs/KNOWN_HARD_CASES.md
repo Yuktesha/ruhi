@@ -79,5 +79,6 @@
 | `test_nine_topological_structures_valence_relativization_quantifier_serial_261101` | 處置式、關係子句、全稱量化、連謂句（如「把燈點亮」） | `把登點亮` | 同上 |
 | `test_diagonal_pun_candidates_and_gongshi_weihe_disambiguation_261101` | 「一試再試」首選與諧音候選、「公式／為何」消歧 | 首選為 `一事再事` | 首選依賴未移植規則；諧音候選展開功能（`lookup_diagonal_pun_constructions`）本身已移植 |
 | `test_user_clauses_si_geo_postal_and_meizhou_261103` | 使用者實戰分句（「川普正名」、「剩下最後1%的每週額度」、門牌地址與 3+3 郵遞區號等） | `川普證明` | 依賴未移植規則；自 `test_shift_space_fullwidth_and_punct_consistency_and_si_sentence_261103` 拆出，半全形功能部分仍為常駐測試 |
+| `test_slot_assimilation_into_existing_7d_constructions_261031`（`ruhi-studio/src/tuner.rs`） | 驗證新詞「太魯閣」、「拉拉山」、「語意構式」同化至 `meteorological_subject_yu_continuous_aspect_7d_array` 與 `attributive_wancheng_de_noun_4d_array` | `matched_existing_constructions` 未命中上述兩模板 | 該兩條模板屬於 2026-11-05 分流捨棄之 `Unit A2`（`patterns_user.jsonl` 91 條模板，造成 `dev` CER 由 `6.32%` 退步至 `6.45%`、`fixed=15, broken=33`），正式資料檔未收錄 |
 
 另外，`test_kept_triage_units_a3_a4_a5b_a6_261031` 在保全分支中被追加兩句歌詞案例；該兩句已移除，恢復為 10/31 分流後之內容（既有案例與預期值未變）。

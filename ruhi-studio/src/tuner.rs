@@ -6188,24 +6188,77 @@ impl SemanticTuner {
         })
     }
 
-    /// 解析本機 `語意分析*.txt` 批次語料檔路徑
+    /// 解析本機 `語意分析*.txt` 批次語料檔路徑（僅允許專案目錄、`data_dir`、系統暫存目錄或使用者桌面下之 `.txt` 檔案，攔截路徑穿越與任意檔案讀取）
     pub fn resolve_local_txt_file(&self, target_path: &str, target_name: &str) -> Option<PathBuf> {
-        if !target_path.trim().is_empty() {
-            let p = PathBuf::from(target_path.trim());
-            if p.is_file() {
-                return Some(p);
+        let has_parent_traversal = |s: &str| -> bool {
+            Path::new(s)
+                .components()
+                .any(|c| matches!(c, std::path::Component::ParentDir))
+        };
+        let is_txt_extension = |p: &Path| -> bool {
+            p.extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.eq_ignore_ascii_case("txt"))
+                .unwrap_or(false)
+        };
+
+        let mut allowed_roots = vec![
+            self.root.clone(),
+            self.data_dir.clone(),
+            std::env::temp_dir(),
+        ];
+        if let Some(home) = dirs::home_dir() {
+            allowed_roots.push(home.join("Desktop"));
+        }
+        let canonical_roots: Vec<PathBuf> = allowed_roots
+            .iter()
+            .filter_map(|r| fs::canonicalize(r).ok())
+            .collect();
+
+        let is_within_allowed_roots = |p: &Path| -> Option<PathBuf> {
+            if !is_txt_extension(p) || !p.is_file() {
+                return None;
+            }
+            let canon = fs::canonicalize(p).ok()?;
+            if canonical_roots.iter().any(|root| canon.starts_with(root)) {
+                Some(p.to_path_buf())
+            } else {
+                None
+            }
+        };
+
+        let trimmed_path = target_path.trim();
+        if !trimmed_path.is_empty() {
+            let p = PathBuf::from(trimmed_path);
+            if has_parent_traversal(trimmed_path) || !is_txt_extension(&p) {
+                return None;
+            }
+            if let Some(valid) = is_within_allowed_roots(&p) {
+                return Some(valid);
+            }
+            if target_name.trim().is_empty() {
+                return None;
             }
         }
+
         let fname = if !target_name.trim().is_empty() {
             target_name.trim()
         } else {
             "語意分析.txt"
         };
+        if has_parent_traversal(fname)
+            || fname.contains('/')
+            || fname.contains('\\')
+            || fname.contains(':')
+            || !is_txt_extension(Path::new(fname))
+        {
+            return None;
+        }
 
         let mut search_dirs = vec![
             self.root.clone(),
             self.root.join("scripts"),
-            PathBuf::from(r"C:\Users\Yuktesha\Desktop"),
+            self.data_dir.clone(),
         ];
         if let Some(home) = dirs::home_dir() {
             search_dirs.push(home.join("Desktop"));
@@ -6213,8 +6266,8 @@ impl SemanticTuner {
 
         for d in search_dirs {
             let cand = d.join(fname);
-            if cand.is_file() {
-                return Some(cand);
+            if let Some(valid) = is_within_allowed_roots(&cand) {
+                return Some(valid);
             }
         }
         None
@@ -7904,6 +7957,66 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_local_txt_file_security_bounds_261107() {
+        let mut tuner = SemanticTuner::new(None);
+        let sandbox_dir = std::env::temp_dir().join("ruhi_txt_security_sandbox");
+        let _ = std::fs::create_dir_all(&sandbox_dir);
+        tuner.data_dir = sandbox_dir.clone();
+
+        let valid_txt = sandbox_dir.join("valid_pairs.txt");
+        let _ = std::fs::write(&valid_txt, "錯句 ➔ 正句\n");
+        let non_txt = sandbox_dir.join("secret.json");
+        let _ = std::fs::write(&non_txt, "{\"secret\": true}\n");
+
+        // 1. 合法的沙箱 .txt 檔案可正常解析
+        assert!(
+            tuner
+                .resolve_local_txt_file(&valid_txt.to_string_lossy(), "")
+                .is_some(),
+            "Valid .txt inside allowed directory should resolve"
+        );
+        assert!(
+            tuner.resolve_local_txt_file("", "valid_pairs.txt").is_some(),
+            "Valid .txt filename inside data_dir should resolve"
+        );
+
+        // 2. 非 .txt 副檔名一律拒絕
+        assert!(
+            tuner
+                .resolve_local_txt_file(&non_txt.to_string_lossy(), "")
+                .is_none(),
+            "Non-.txt file must be rejected"
+        );
+        assert!(
+            tuner
+                .resolve_local_txt_file(&tuner.root.join("Cargo.toml").to_string_lossy(), "")
+                .is_none(),
+            "Cargo.toml must be rejected"
+        );
+
+        // 3. 含 `..` 路徑穿越或目錄分隔符之檔名一律拒絕
+        assert!(
+            tuner
+                .resolve_local_txt_file("../valid_pairs.txt", "")
+                .is_none(),
+            "Path traversal in target_path must be rejected"
+        );
+        assert!(
+            tuner
+                .resolve_local_txt_file("", "../valid_pairs.txt")
+                .is_none(),
+            "Path traversal in target_name must be rejected"
+        );
+        assert!(
+            tuner
+                .resolve_local_txt_file("", "sub/valid_pairs.txt")
+                .is_none(),
+            "Directory separator in target_name must be rejected"
+        );
+    }
+
+    #[test]
+    #[ignore = "known hard case: depends on meteorological_subject_yu_continuous_aspect_7d_array and attributive_wancheng_de_noun_4d_array in patterns_user.jsonl discarded in 2026-11-05 triage; see docs/KNOWN_HARD_CASES.md"]
     fn test_slot_assimilation_into_existing_7d_constructions_261031() {
         let mut tuner = SemanticTuner::new(None);
         let sandbox_dir = std::env::temp_dir().join("ruhi_slot_assimilation_sandbox");

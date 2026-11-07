@@ -108,6 +108,13 @@ fn handle_http_connection(
     };
 
     let header_str = String::from_utf8_lossy(&buffer[..h_end]);
+    if !is_allowed_loopback_request(&header_str) {
+        return send_json_response(
+            &mut stream,
+            403,
+            &json!({"error": "Forbidden: Cross-origin or non-loopback request blocked"}),
+        );
+    }
     let first_line = header_str.lines().next().unwrap_or("");
     let mut parts = first_line.split_whitespace();
     let method = parts.next().unwrap_or("GET");
@@ -995,6 +1002,45 @@ fn handle_post(
     send_json_response(stream, 404, &json!({"error": "Not Found"}))
 }
 
+fn is_allowed_loopback_host(host: &str) -> bool {
+    let h = host.trim().to_ascii_lowercase();
+    h == "127.0.0.1"
+        || h == "localhost"
+        || h == "[::1]"
+        || h.starts_with("127.0.0.1:")
+        || h.starts_with("localhost:")
+        || h.starts_with("[::1]:")
+}
+
+fn is_allowed_loopback_origin(origin: &str) -> bool {
+    let o = origin.trim().to_ascii_lowercase();
+    if let Some(rest) = o.strip_prefix("http://") {
+        is_allowed_loopback_host(rest)
+    } else {
+        false
+    }
+}
+
+fn is_allowed_loopback_request(header_str: &str) -> bool {
+    for line in header_str.lines().skip(1) {
+        if let Some((k, v)) = line.split_once(':') {
+            let key = k.trim();
+            let val = v.trim();
+            if key.eq_ignore_ascii_case("host") && !val.is_empty() && !is_allowed_loopback_host(val)
+            {
+                return false;
+            }
+            if key.eq_ignore_ascii_case("origin")
+                && !val.is_empty()
+                && !is_allowed_loopback_origin(val)
+            {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 fn send_json_response(
     stream: &mut TcpStream,
     status_code: u16,
@@ -1002,13 +1048,14 @@ fn send_json_response(
 ) -> Result<(), std::io::Error> {
     let status_text = match status_code {
         200 => "OK",
+        403 => "Forbidden",
         404 => "Not Found",
         405 => "Method Not Allowed",
         _ => "Internal Server Error",
     };
     let body = serde_json::to_vec(payload).unwrap_or_else(|_| b"{}".to_vec());
     let header = format!(
-        "HTTP/1.1 {status_code} {status_text}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 {status_code} {status_text}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         body.len()
     );
     stream.write_all(header.as_bytes())?;
@@ -1020,4 +1067,27 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .position(|window| window == needle)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_loopback_host_and_origin_validation_261107() {
+        let ok_req = "POST /api/tune/load_file HTTP/1.1\r\nHost: 127.0.0.1:8765\r\nOrigin: http://127.0.0.1:8765\r\n\r\n";
+        assert!(is_allowed_loopback_request(ok_req));
+
+        let ok_localhost = "GET /api/rules HTTP/1.1\r\nHost: localhost:8765\r\nOrigin: http://localhost:8765\r\n\r\n";
+        assert!(is_allowed_loopback_request(ok_localhost));
+
+        let bad_origin = "POST /api/ai/quick_auth_gemini HTTP/1.1\r\nHost: 127.0.0.1:8765\r\nOrigin: https://evil.example.com\r\n\r\n";
+        assert!(!is_allowed_loopback_request(bad_origin));
+
+        let null_origin = "POST /api/tune/load_file HTTP/1.1\r\nHost: 127.0.0.1:8765\r\nOrigin: null\r\n\r\n";
+        assert!(!is_allowed_loopback_request(null_origin));
+
+        let dns_rebind = "GET /api/rules HTTP/1.1\r\nHost: attacker.com\r\n\r\n";
+        assert!(!is_allowed_loopback_request(dns_rebind));
+    }
 }
