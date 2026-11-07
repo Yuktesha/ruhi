@@ -562,6 +562,26 @@ impl TransitionEngine {
                 bonus += 28.0;
             }
         }
+        if prev_word == "大" && curr_word.chars().count() == 1 {
+            let next_has_te_x = dag
+                .get(&end_idx)
+                .map(|ns| {
+                    ns.iter().any(|m| {
+                        m.word == "特"
+                            && dag
+                                .get(&m.end_idx)
+                                .map(|after| after.iter().any(|x| x.word == curr_word))
+                                .unwrap_or(false)
+                    })
+                })
+                .unwrap_or(false);
+            if next_has_te_x {
+                bonus += 16.0;
+            }
+        }
+        if prev2_word == "上" && prev_word == "加" && curr_word == prev3_word && !curr_word.is_empty() {
+            bonus += 24.0;
+        }
         if prev3_word == "大" && prev_word == "特" && curr_word == prev2_word && curr_word.chars().count() == 1 {
             bonus += 30.0;
         }
@@ -1938,6 +1958,8 @@ impl TransitionEngine {
                             m.word.as_str(),
                             "有數" | "有底" | "有鬼" | "有事" | "有" | "想" | "難過" | "高興"
                                 | "清楚" | "明白" | "不安" | "害怕" | "很" | "卻" | "都" | "也"
+                                | "對" | "怎麼" | "千萬" | "不要" | "不" | "沒" | "總" | "總是"
+                                | "常" | "一直" | "覺得" | "認為"
                         )
                     })
                 })
@@ -1950,7 +1972,9 @@ impl TransitionEngine {
                             m.word.as_str(),
                             "學" | "學家" | "醫生" | "醫師" | "師" | "諮商" | "輔導" | "治療"
                                 | "準備" | "狀態" | "壓力" | "健康" | "建設" | "素質" | "戰"
-                                | "測驗" | "陰影" | "創傷" | "作用" | "因素"
+                                | "測驗" | "陰影" | "創傷" | "作用" | "因素" | "上" | "發展"
+                                | "擴展" | "基礎" | "感覺" | "存在" | "反作用" | "及" | "問題"
+                                | "層面"
                         )
                     })
                 })
@@ -2546,14 +2570,26 @@ impl TransitionEngine {
                             "已有" | "既有" | "現有" | "過去" | "傳統" | "文獻" | "基礎" | "頭"
                                 | "零" | "小" | "此" | "現在" | "今天" | "昨天" | "明天" | "以前"
                                 | "那時" | "這裡" | "那裡" | "哪裡" | "中" | "內" | "外" | "上"
-                                | "下" | "前" | "後" | "來" | "未" | "不" | "沒" | "事" | "政"
+                                | "下" | "前" | "後" | "來" | "未" | "不" | "沒"
                         )
                     })
                 })
                 .unwrap_or(false);
             let prev_is_numeral = WordPattern::is_numeric_token(prev_word)
                 || matches!(prev_word, "一" | "兩" | "幾" | "數" | "草" | "花" | "樹" | "灌木");
-            if (prev_is_clause_boundary || next_is_source_np) && !prev_is_numeral {
+            let shatters_cong_compound = end_idx >= 1
+                && dag
+                    .get(&(end_idx - 1))
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            matches!(
+                                m.word.as_str(),
+                                "從事" | "從政" | "從業" | "從容" | "從軍" | "從醫" | "從商"
+                            )
+                        })
+                    })
+                    .unwrap_or(false);
+            if (prev_is_clause_boundary || next_is_source_np) && !prev_is_numeral && !shatters_cong_compound {
                 if curr_word == "從" {
                     bonus += 36.0;
                 } else if curr_word == "叢" {
@@ -3933,7 +3969,7 @@ impl TransitionEngine {
 
         // ── 構式二十六：選擇／採用＋「適合／合適」屬性定語構式 ＆ 複句關聯框架（之所以…是因為／既然…就／寧可…也不） ──
         // 1. `[選擇/挑選/選取/找到/尋找/採用/換成/使用/設定/搭配/提供/推薦] × [適合/合適/適當] × [的/自己]`（防「選擇適合的」誤選為「選擇是合的」）
-        if matches!(curr_word, "適合" | "合適" | "是合" | "事合" | "式合" | "室合") {
+        if matches!(curr_word, "適合" | "合適" | "是合" | "事合" | "式合" | "室合" | "是和") {
             let left_is_select_verb = matches!(
                 prev_word,
                 "選擇" | "挑選" | "選取" | "選" | "挑" | "找到" | "尋找" | "找" | "採用" | "換成"
@@ -3947,6 +3983,8 @@ impl TransitionEngine {
                         matches!(
                             m.word.as_str(),
                             "的" | "自己" | "你" | "您" | "他" | "她" | "我們" | "大家" | "使用者"
+                                | "用來" | "學習" | "擔當" | "觀察" | "發展" | "閱讀" | "居住"
+                                | "工作" | "培養" | "修行" | "生長" | "生存"
                         )
                     })
                 })
@@ -4472,6 +4510,88 @@ impl TransitionEngine {
                 }
             }
         }
+
+            // 31-5. 詞界與補語／定語結構防劫掠守門（因式分解右鄰驗證）：
+            // (a) 可能補語與飽足補語「V + 得 + 補語」：僅當右鄰確實為可能／結果補語時才賦予「得」+28.0
+            let right_nodes_31_5: &[LatticeNode] = dag.get(&end_idx).map(|v| v.as_slice()).unwrap_or(&[]);
+            if curr_word == "得" {
+                let is_pot_or_sat_v = matches!(
+                    prev_word,
+                    "看" | "聽" | "讀" | "寫" | "說" | "算" | "想" | "記" | "認" | "猜" | "弄"
+                        | "搞" | "分" | "做" | "受" | "吃" | "合" | "忘" | "拿" | "睡" | "買"
+                        | "走" | "追" | "配" | "顧" | "找" | "學" | "用" | "穿" | "搬" | "喝"
+                        | "忍" | "逃" | "比" | "談" | "玩" | "坐" | "唱" | "騎" | "逛" | "泡"
+                        | "聊" | "笑" | "氣" | "打" | "充" | "領" | "灌" | "餵" | "塞" | "分辨"
+                        | "區分" | "判斷" | "解釋" | "說明" | "分析" | "處理" | "表達" | "描述"
+                );
+                let has_pot_comp = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "懂" | "見" | "清" | "起" | "出" | "完" | "好" | "下" | "了"
+                            | "飽" | "來" | "通" | "動" | "著" | "住" | "上" | "過" | "開"
+                            | "掉" | "進" | "回" | "準" | "穩"
+                    )
+                }) && !right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "過程" | "過去" | "過度" | "動靜" | "動作" | "動態" | "動機" | "動物"
+                    )
+                });
+                if is_pot_or_sat_v && has_pot_comp {
+                    bonus += 28.0;
+                }
+            }
+            // (b) 「所 + V + 的」名物化定語構式：鎖定「的」，抑制「得／地」
+            if matches!(curr_word, "的" | "得" | "地")
+                && (prev_word == "所" || prev2_word == "所" || (prev_word.chars().count() == 2 && prev_word.starts_with('所')))
+            {
+                if curr_word == "的" {
+                    bonus += 24.0;
+                } else {
+                    bonus -= 24.0;
+                }
+            }
+            // (c) 結構助詞「的」後接雙字名詞「事物／事情／世界／事業／事實／適合」防「的+是」拆詞劫掠
+            if prev_word == "的" && curr_word == "是" && end_idx >= 1 {
+                let shatters_shi_compound = dag
+                    .get(&(end_idx - 1))
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            m.word.chars().count() >= 2
+                                && matches!(
+                                    m.word.as_str(),
+                                    "事物" | "事情" | "事業" | "事實" | "事件" | "事故" | "事務"
+                                        | "世界" | "世人" | "世間" | "世代" | "世俗" | "適合"
+                                        | "適當" | "適應" | "視覺" | "視野" | "視角" | "市場"
+                                )
+                        })
+                    })
+                    .unwrap_or(false);
+                if shatters_shi_compound {
+                    bonus -= 28.0;
+                }
+            }
+            // (d) 時間後置標記「時」防拆碎「十X（十八／十個／十種）」與「實X（實體／實現／實際）」雙字詞
+            if curr_word == "時" && prev_word.chars().count() >= 2 && end_idx >= 1 {
+                let shatters_shi2_compound = dag
+                    .get(&(end_idx - 1))
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            matches!(
+                                m.word.as_str(),
+                                "十個" | "十種" | "十八" | "十二" | "十五" | "十年" | "十月"
+                                    | "十萬" | "十分" | "實體" | "實現" | "實際" | "實踐"
+                                    | "實在" | "實驗" | "實力" | "實質" | "實施" | "實行"
+                                    | "實況" | "實相" | "實證" | "時候" | "時間" | "時代"
+                                    | "時尚" | "時事" | "石頭" | "食物" | "食品"
+                            )
+                        })
+                    })
+                    .unwrap_or(false);
+                if shatters_shi2_compound {
+                    bonus -= 26.0;
+                }
+            }
 
         self.apply_rule_score("construction_hierarchical_matrix", bonus)
     }

@@ -807,7 +807,7 @@ impl TransitionEngine {
             "世界", "國家", "社會", "公司", "單位", "學校", "城市", "家庭", "團體", "組織", "故事",
             "回憶", "夢想", "希望", "願望", "目標", "責任", "使命", "成果", "作品", "文章", "言語",
             "話語", "面孔", "神情", "態度", "目光", "眼神", "心情", "感受", "思想", "觀點", "看法",
-            "裡", "外", "內", "中", "上", "下", "前", "後", "旁",
+            "裡", "外", "內", "中", "上", "下", "前", "後", "旁", "決心", "信念", "信心", "意志",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("地".to_string()),
@@ -819,7 +819,7 @@ impl TransitionEngine {
         // 2. 結構助詞「地」正向引力：地 ➔ 動作動詞（勇敢地向前走、慢慢地走、認真地思考、高興地說）
         let de_action_verbs = vec![
             "向前走", "向前", "走", "跑", "跳", "飛", "說", "看", "聽", "做", "想", "寫", "笑", "哭",
-            "喊", "叫", "問", "答", "前進", "邁進", "奔跑", "奮鬥", "生活", "工作", "思考", "前行",
+            "喊", "叫", "問", "答", "邁進", "奔跑", "奮鬥", "思考", "前行",
             "離去", "離開", "站著", "坐著", "走著", "躺著", "凝視", "端詳", "等待", "尋找",
             "堅持", "流淌", "歌唱", "揮手", "招手", "微笑", "點頭", "搖頭", "出發", "走去", "跑去",
             "跳躍", "飛翔", "漫步", "穿行", "摸索", "攀登", "跋涉", "迎向", "走向", "奔向", "衝向",
@@ -2282,11 +2282,11 @@ impl TransitionEngine {
 
         // 1. 方位後置詞構式: 實詞(非方位詞與時間名詞「時」「實」本身) + {裡/外/內/中/上/下/前/後/旁/之中/裡面/外面/中間/底下/身上/手裡/心裡/心中}
         let locatives = vec![
-            "裡", "外", "內", "中", "上", "下", "前", "後", "旁",
-            "之中", "裡面", "外面", "中間", "底下", "身上", "手裡", "心裡", "心中",
+            "裡", "外", "內", "中", "上", "下", "前", "後", "旁", "決心", "信念", "信心", "意志",
+            "之中", "裡面", "外面", "中間", "底下", "身上", "手裡", "心中",
         ];
         let non_locative_stems = vec![
-            "裡", "外", "內", "中", "上", "下", "前", "後", "旁", "時", "實", "全",
+            "裡", "外", "內", "中", "上", "下", "前", "後", "旁", "決心", "信念", "信心", "意志", "時", "實", "全",
         ].into_iter().map(|s| s.to_string()).collect();
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::ContentWordExcept(non_locative_stems),
@@ -4234,7 +4234,7 @@ impl TransitionEngine {
         ].iter().map(|s| s.to_string()).collect();
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(pot_verbs.clone()),
-            curr_pattern: WordPattern::OneOf(vec!["得".to_string(), "不".to_string()]),
+            curr_pattern: WordPattern::Exact("不".to_string()),
             bonus: 28.0,
             name: "potential_verb_de_bu_array".to_string(),
         });
@@ -4377,7 +4377,7 @@ impl TransitionEngine {
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(satiation_verbs_single.clone()),
-            curr_pattern: WordPattern::OneOf(vec!["到".to_string(), "得".to_string()]),
+            curr_pattern: WordPattern::Exact("到".to_string()),
             bonus: 26.0,
             name: "satiation_verb_dao_de_array".to_string(),
         });
@@ -6161,7 +6161,13 @@ impl TransitionEngine {
                 }
 
                 // 1. 連詞「和」：二元無條件規則僅開放台灣口語連詞讀音 ㄏㄢˋ（讀 ㄏㄜˊ 時由 constructions.rs 三元並列構式驗證前後皆為名詞且不拆碎雙字詞後給分）
-                if rule.name.starts_with("nominal_conjunction_he")
+                if (rule.name.starts_with("nominal_conjunction_he")
+                    || (rule.name == "modal_auxiliary_preposition_bridge" && curr_word == "和")
+                    || (rule.name == "jia_content"
+                        && !curr_word.starts_with([
+                            '一', '二', '兩', '三', '四', '五', '六', '七', '八', '九', '十', '幾', '百', '千', '萬', '半',
+                        ]))
+                    || rule.name == "da_content")
                     && !curr_bopomofo.starts_with("ㄏㄢ")
                 {
                     continue;
@@ -6243,6 +6249,8 @@ impl TransitionEngine {
                 if rule.name == "temporal_event_shi" {
                     let non_temporal_prev = [
                         "很多", "許多", "不少", "一些", "幾個", "無數", "非常", "太", "特別", "這", "那", "的",
+                        "所有", "在此", "用在", "並非", "二個", "兩個", "每一", "每個", "一個", "這個", "那個",
+                        "哪個", "任何", "各種", "其他", "某些", "同時", "當時", "那時", "有時", "平時", "何時",
                     ];
                     if non_temporal_prev.contains(&prev_word) {
                         continue;
@@ -6250,7 +6258,10 @@ impl TransitionEngine {
                 }
 
                 // 6. 句末疑問助詞「嗎」：必須讀輕聲 ˙ㄇㄚ 或一聲 ㄇㄚ，排除三聲 ㄇㄚˇ（嗎啡）
-                if rule.name == "sentence_final_particle" && curr_word == "嗎" && curr_bopomofo.contains('ˇ') {
+                if rule.name == "sentence_final_particle"
+                    && ((curr_word == "嗎" && curr_bopomofo.contains('ˇ'))
+                        || (curr_word == "囉" && curr_bopomofo.contains('ˊ')))
+                {
                     continue;
                 }
 
