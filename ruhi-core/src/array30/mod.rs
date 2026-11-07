@@ -37,6 +37,8 @@ pub struct Array30Engine {
     pub buffer: String,
     /// 是否已進入英文直通模式（例如超過 5 碼純英文或首字母大寫）
     pub is_english_forced: bool,
+    /// 是否啟用歐亞智慧混打（大寫與超長碼自動轉為歐文直通）
+    pub enable_mixed_english: bool,
     /// 當前即時預覽的候選字清單
     pub candidates: Vec<String>,
     pub candidate_idx: usize,
@@ -50,6 +52,7 @@ impl Default for Array30Engine {
             transitions: TransitionEngine::new(),
             buffer: String::new(),
             is_english_forced: false,
+            enable_mixed_english: true,
             candidates: Vec::new(),
             candidate_idx: 0,
             last_committed_word: String::new(),
@@ -294,10 +297,15 @@ impl Array30Engine {
 
         // 7. 行列 30 標準字根鍵 ('a'..'z', ',', '.', '/', ';') 或大寫英文字母 ('A'..'Z')
         if is_array30_radical_key(ch) || ch.is_ascii_uppercase() {
-            if ch.is_ascii_uppercase() {
+            if ch.is_ascii_uppercase() && self.enable_mixed_english {
                 self.is_english_forced = true;
             }
-            self.buffer.push(ch);
+            let push_ch = if self.enable_mixed_english {
+                ch
+            } else {
+                ch.to_ascii_lowercase()
+            };
+            self.buffer.push(push_ch);
             self.update_candidates_with_lexicon(lexicon);
             return self.build_compose_response();
         }
@@ -415,10 +423,11 @@ impl Array30Engine {
             .chars()
             .any(|c| matches!(c, ',' | '.' | '/' | ';' | '?' | '*'));
 
-        // 若含大寫字母，或超過 5 碼且全為純英文字母（不含 , . / ; ? *），自動轉為英文直通模式
-        if has_uppercase
-            || self.is_english_forced
-            || (self.buffer.len() > MAX_ARRAY30_CODE_LEN && !has_array_punct_or_wildcard)
+        // 若啟用歐亞智慧混打，含大寫字母，或超過 5 碼且全為純英文字母（不含 , . / ; ? *），自動轉為英文直通模式
+        if self.enable_mixed_english
+            && (has_uppercase
+                || self.is_english_forced
+                || (self.buffer.len() > MAX_ARRAY30_CODE_LEN && !has_array_punct_or_wildcard))
         {
             self.is_english_forced = true;
             self.candidates = vec![self.buffer.clone()];

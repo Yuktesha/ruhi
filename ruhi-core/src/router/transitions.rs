@@ -52,7 +52,11 @@ pub enum WordPattern {
 }
 
 fn is_rare_impostor(word: &str) -> bool {
-    matches!(word, "婑" | "倭" | "䂺" | "婐" | "捰" | "𣇫" | "蟆" | "俛" | "犋" | "不憤")
+    matches!(
+        word,
+        "婑" | "倭" | "䂺" | "婐" | "捰" | "𣇫" | "蟆" | "俛" | "犋" | "不憤"
+            | "嶳" | "㡳" | "埅" | "埊" | "㑘" | "価" | "吔"
+    )
 }
 
 impl WordPattern {
@@ -307,6 +311,7 @@ impl TransitionEngine {
             "行", "列", "頁", "篇", "章", "節", "段", "條", "款", "項", "筆", "欄", "格",
             "個", "位", "名", "人", "次", "回", "下", "遍", "趟", "場", "屆", "期", "聲",
             "級", "等", "層", "樓", "室", "房", "廳", "衛", "戶", "家", "所", "處", "棟",
+            "鄰", "巷", "弄", "衖",
             "座", "間", "台", "部", "輛", "架", "艘", "班", "支", "枝", "根", "張", "片",
             "顆", "粒", "滴", "杯", "碗", "盤", "皿", "瓶", "罐", "盒", "包", "袋", "箱",
             "籃", "桶", "本", "冊", "卷", "集", "首", "幅", "件", "套", "組", "批", "雙",
@@ -802,7 +807,7 @@ impl TransitionEngine {
             "世界", "國家", "社會", "公司", "單位", "學校", "城市", "家庭", "團體", "組織", "故事",
             "回憶", "夢想", "希望", "願望", "目標", "責任", "使命", "成果", "作品", "文章", "言語",
             "話語", "面孔", "神情", "態度", "目光", "眼神", "心情", "感受", "思想", "觀點", "看法",
-            "裡", "外", "內", "中", "上", "下", "前", "後", "旁",
+            "裡", "外", "內", "中", "上", "下", "前", "後", "旁", "決心", "信念", "信心", "意志",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("地".to_string()),
@@ -814,7 +819,7 @@ impl TransitionEngine {
         // 2. 結構助詞「地」正向引力：地 ➔ 動作動詞（勇敢地向前走、慢慢地走、認真地思考、高興地說）
         let de_action_verbs = vec![
             "向前走", "向前", "走", "跑", "跳", "飛", "說", "看", "聽", "做", "想", "寫", "笑", "哭",
-            "喊", "叫", "問", "答", "前進", "邁進", "奔跑", "奮鬥", "生活", "工作", "思考", "前行",
+            "喊", "叫", "問", "答", "邁進", "奔跑", "奮鬥", "思考", "前行",
             "離去", "離開", "站著", "坐著", "走著", "躺著", "凝視", "端詳", "等待", "尋找",
             "堅持", "流淌", "歌唱", "揮手", "招手", "微笑", "點頭", "搖頭", "出發", "走去", "跑去",
             "跳躍", "飛翔", "漫步", "穿行", "摸索", "攀登", "跋涉", "迎向", "走向", "奔向", "衝向",
@@ -1329,7 +1334,7 @@ impl TransitionEngine {
         let degree_advs = vec!["很", "非常", "特別", "十分", "太", "真", "挺", "極為", "超", "多", "多麼"];
         let safe_num_cls_compounds: Vec<String> = vec![
             "一個", "兩個", "三個", "這個", "那個", "哪個", "每個", "某個", "幾個", "半個",
-            "一種", "這種", "那種", "哪種", "隻",
+            "一種", "這種", "那種", "哪種",
         ]
         .into_iter()
         .map(|s| s.to_string())
@@ -2277,11 +2282,11 @@ impl TransitionEngine {
 
         // 1. 方位後置詞構式: 實詞(非方位詞與時間名詞「時」「實」本身) + {裡/外/內/中/上/下/前/後/旁/之中/裡面/外面/中間/底下/身上/手裡/心裡/心中}
         let locatives = vec![
-            "裡", "外", "內", "中", "上", "下", "前", "後", "旁",
-            "之中", "裡面", "外面", "中間", "底下", "身上", "手裡", "心裡", "心中",
+            "裡", "外", "內", "中", "上", "下", "前", "後", "旁", "決心", "信念", "信心", "意志",
+            "之中", "裡面", "外面", "中間", "底下", "身上", "手裡", "心中",
         ];
         let non_locative_stems = vec![
-            "裡", "外", "內", "中", "上", "下", "前", "後", "旁", "時", "實", "全",
+            "裡", "外", "內", "中", "上", "下", "前", "後", "旁", "決心", "信念", "信心", "意志", "時", "實", "全",
         ].into_iter().map(|s| s.to_string()).collect();
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::ContentWordExcept(non_locative_stems),
@@ -3835,7 +3840,7 @@ impl TransitionEngine {
 
         // 7. 指示量詞複合詞 (`這個/那個/每個/哪個/幾個/一個/兩個`) ➔ 「字」vs「自」消歧：
         let det_ge_modifiers = vec![
-            "個", "這個", "那個", "每個", "哪個", "幾個", "一個", "兩個", "三個", "半個", "整", "整個",
+            "整",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(det_ge_modifiers.iter().map(|s| s.to_string()).collect()),
@@ -4229,7 +4234,7 @@ impl TransitionEngine {
         ].iter().map(|s| s.to_string()).collect();
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(pot_verbs.clone()),
-            curr_pattern: WordPattern::OneOf(vec!["得".to_string(), "不".to_string()]),
+            curr_pattern: WordPattern::Exact("不".to_string()),
             bonus: 28.0,
             name: "potential_verb_de_bu_array".to_string(),
         });
@@ -4372,7 +4377,7 @@ impl TransitionEngine {
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(satiation_verbs_single.clone()),
-            curr_pattern: WordPattern::OneOf(vec!["到".to_string(), "得".to_string()]),
+            curr_pattern: WordPattern::Exact("到".to_string()),
             bonus: 26.0,
             name: "satiation_verb_dao_de_array".to_string(),
         });
@@ -5493,22 +5498,166 @@ impl TransitionEngine {
 
                 let mut chain_registered_first_pair = false;
                 if pat.slots.len() >= 3 {
-                    for w in 0..=pat.slots.len() - 3 {
-                        let s0: HashSet<String> = pat.slots[w]
-                            .iter()
-                            .map(|word| word.trim().to_string())
-                            .filter(|word| Self::is_valid_cjk_token(word))
-                            .collect();
-                        let s1: HashSet<String> = pat.slots[w + 1]
-                            .iter()
-                            .map(|word| word.trim().to_string())
-                            .filter(|word| Self::is_valid_cjk_token(word))
-                            .collect();
-                        let s2: HashSet<String> = pat.slots[w + 2]
-                            .iter()
-                            .map(|word| word.trim().to_string())
-                            .filter(|word| Self::is_valid_cjk_token(word))
-                            .collect();
+                    let raw_slots: Vec<Vec<String>> = pat
+                        .slots
+                        .iter()
+                        .map(|sl| {
+                            sl.iter()
+                                .map(|w| w.trim().to_string())
+                                .filter(|w| Self::is_valid_cjk_token(w))
+                                .collect()
+                        })
+                        .collect();
+
+                    // 因式分解複合詞雙態展開（Factorized Modifier/Stem × Head/Suffix Dual-Mode Expansion）：
+                    // 當可選修飾語槽位 m (optional_slots 含 m，如 [毛毛/微/小/中/大/豪/強/暴/濃/厚/稀/薄/冰]) 或必選詞根槽位 m（如 [拿/掏/走/搬] × [出/進/回/上/下]、[文字/語音/視覺] × [型]、[這/那/一/幾] × [篇/雙/座/個/本/把]）緊接後綴／中心語槽位 m+1 時：
+                    // 1. 雙節點分離路徑 (Node(m) -> Node(m+1)) 使用純原子 `raw_slots[m+1]`（避免產生「大 ➔ 大雨」或「拿 ➔ 拿出」重疊）；
+                    // 2. 單節點凝聚路徑（跳過可選 m 使用 `coalesced_slots[m+1]`；或將必選詞根 m 併入 m+1 使用 `only_coalesced_slots[m+1]`），同時支援詞庫已成詞之合成節點與未成詞之雙節點分離路徑！
+                    let mut coalesced_slots = raw_slots.clone();
+                    let mut only_coalesced_slots: Vec<Vec<String>> = vec![Vec::new(); raw_slots.len()];
+                    let mut factorized_mod_indices = HashSet::new();
+                    let mut bound_head_slot_indices = HashSet::new();
+                    for m in 0..raw_slots.len().saturating_sub(1) {
+                        let mod_slot = &raw_slots[m];
+                        let head_slot = &raw_slots[m + 1];
+                        let is_pure_particle_or_adverb = mod_slot.iter().all(|w| {
+                            matches!(
+                                w.as_str(),
+                                "的" | "之" | "得" | "地" | "個" | "著" | "了" | "一直" | "還在"
+                                    | "持續" | "不斷" | "依然" | "總是" | "還是" | "突然" | "開始"
+                                    | "還" | "正" | "與" | "和" | "及" | "或" | "跟" | "比"
+                                    | "可以" | "能" | "能夠" | "把" | "將" | "先" | "已經"
+                                    | "幾乎" | "快" | "快要" | "差點" | "全都" | "通通" | "完全"
+                            )
+                        });
+                        let ont = crate::router::morpheme_ontology::MorphemeOntology::global();
+                        use crate::router::morpheme_ontology::{MorphemeClass, LUMINOUS_HEAD_MASK};
+                        let is_weather_head_slot = !head_slot.is_empty()
+                            && head_slot.iter().all(|w| ont.is_weather_head(w.as_str()));
+                        let is_luminous_head_slot = !head_slot.is_empty()
+                            && head_slot.iter().all(|w| {
+                                ont.has_any_class(
+                                    w.as_str(),
+                                    LUMINOUS_HEAD_MASK | MorphemeClass::BarrierHead.bit(),
+                                )
+                            });
+                        let is_mandatory_bound_head = !head_slot.is_empty()
+                            && head_slot.iter().all(|w| {
+                                ont.has_class(w.as_str(), MorphemeClass::BoundHeadMorpheme)
+                            });
+                        let should_factorize = if pat.optional_slots.contains(&m) {
+                            !is_pure_particle_or_adverb
+                                && mod_slot.iter().all(|w| w.chars().count() <= 3)
+                                && (is_weather_head_slot
+                                    || is_luminous_head_slot
+                                    || is_mandatory_bound_head)
+                        } else {
+                            !is_pure_particle_or_adverb
+                                && mod_slot.iter().all(|w| w.chars().count() <= 2)
+                                && is_mandatory_bound_head
+                        };
+                        if should_factorize {
+                            factorized_mod_indices.insert(m);
+                            if is_mandatory_bound_head {
+                                bound_head_slot_indices.insert(m + 1);
+                            }
+                            let mut expanded = coalesced_slots[m + 1].clone();
+                            let mut pure_comp = Vec::new();
+                            for mw in mod_slot {
+                                for hw in head_slot {
+                                    if !self.excluded_pairs.contains(&(mw.clone(), hw.clone())) {
+                                        let comp = format!("{mw}{hw}");
+                                        if !expanded.contains(&comp) {
+                                            expanded.push(comp.clone());
+                                        }
+                                        if !pure_comp.contains(&comp) {
+                                            pure_comp.push(comp);
+                                        }
+                                    }
+                                }
+                            }
+                            coalesced_slots[m + 1] = expanded;
+                            only_coalesced_slots[m + 1] = pure_comp;
+                        }
+                    }
+
+                    let resolve_target_slot_words =
+                        |idx: usize, prev_idx: usize| -> &[String] {
+                            if idx > 0 && factorized_mod_indices.contains(&(idx - 1)) {
+                                if prev_idx == idx - 1 {
+                                    &raw_slots[idx]
+                                } else if bound_head_slot_indices.contains(&idx)
+                                    && !only_coalesced_slots[idx].is_empty()
+                                {
+                                    &only_coalesced_slots[idx]
+                                } else {
+                                    &coalesced_slots[idx]
+                                }
+                            } else {
+                                &coalesced_slots[idx]
+                            }
+                        };
+
+                    let resolve_source_slot_words = |idx: usize, is_bigram_left: bool| -> &[String] {
+                        let raw_is_bare_particle = !raw_slots[idx].is_empty()
+                            && raw_slots[idx].iter().all(|w| {
+                                matches!(
+                                    w.as_str(),
+                                    "到" | "向" | "的" | "之" | "得" | "地" | "了" | "過" | "著" | "不"
+                                )
+                            });
+                        if (raw_is_bare_particle || (is_bigram_left && bound_head_slot_indices.contains(&idx)))
+                            && !only_coalesced_slots[idx].is_empty()
+                        {
+                            &only_coalesced_slots[idx]
+                        } else {
+                            &coalesced_slots[idx]
+                        }
+                    };
+
+                    // 收集所有合法的連續／跨可選槽位／跨分解詞根槽位三元組索引 (i0, i1, i2)
+                    let mut trigram_index_triplets = Vec::new();
+                    for i0 in 0..raw_slots.len() {
+                        let mut i1 = i0 + 1;
+                        let mut must_land_i1 = false;
+                        while i1 < raw_slots.len() {
+                            let mut i2 = i1 + 1;
+                            let mut must_land_i2 = false;
+                            while i2 < raw_slots.len() {
+                                trigram_index_triplets.push((i0, i1, i2));
+                                if must_land_i2 {
+                                    break;
+                                }
+                                if pat.optional_slots.contains(&i2) {
+                                    i2 += 1;
+                                } else if factorized_mod_indices.contains(&i2) {
+                                    must_land_i2 = true;
+                                    i2 += 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                            if must_land_i1 {
+                                break;
+                            }
+                            if pat.optional_slots.contains(&i1) {
+                                i1 += 1;
+                            } else if factorized_mod_indices.contains(&i1) {
+                                must_land_i1 = true;
+                                i1 += 1;
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+
+                    for (idx_pos, (i0, i1, i2)) in trigram_index_triplets.into_iter().enumerate() {
+                        let s0: HashSet<String> =
+                            resolve_source_slot_words(i0, false).iter().cloned().collect();
+                        let s1: HashSet<String> =
+                            resolve_target_slot_words(i1, i0).iter().cloned().collect();
+                        let s2: HashSet<String> =
+                            resolve_target_slot_words(i2, i1).iter().cloned().collect();
                         if !s0.is_empty() && !s1.is_empty() && !s2.is_empty() {
                             self.user_trigram_patterns.push(TrigramSlotPattern {
                                 slot0: s0,
@@ -5517,34 +5666,31 @@ impl TransitionEngine {
                                 bonus: safe_bonus,
                                 name: label.clone(),
                             });
-                            if w == 0 {
+                            if idx_pos == 0 {
                                 count += 1;
                             }
                         }
                     }
-                    // 若為無 target/preferred 之多維槽位鏈（如 [A_arr, B_arr, C_arr, D_arr]），
-                    // 自動將相鄰槽位對 (slots[i] × slots[i+1]) 及可選槽位跨接 (slots[i] × slots[i+2]) 註冊為 O(1) 陣列規則
+
+                    // 若為無 target/preferred 之多維槽位鏈（如 [A_arr, B_arr, C_arr, D_arr, ...]），
+                    // 自動將相鄰槽位對 (slots[i] × slots[i+1]) 及可選／分解槽位跨接 (slots[i] × slots[next_idx+1]) 註冊為 O(1) 陣列規則
                     if pat.target.is_empty() && pat.preferred.is_empty() {
-                        let cleaned_slots: Vec<Vec<String>> = pat
-                            .slots
-                            .iter()
-                            .map(|sl| {
-                                sl.iter()
-                                    .map(|w| w.trim().to_string())
-                                    .filter(|w| Self::is_valid_cjk_token(w))
-                                    .collect()
-                            })
-                            .collect();
-                        for i in 0..cleaned_slots.len().saturating_sub(1) {
-                            let left = &cleaned_slots[i];
-                            let right = &cleaned_slots[i + 1];
+                        for i in 0..raw_slots.len().saturating_sub(1) {
+                            let left = resolve_source_slot_words(i, true);
+                            let right = resolve_target_slot_words(i + 1, i);
                             let left_is_pure_coordinator_or_particle = left.iter().all(|w| {
                                 matches!(
                                     w.as_str(),
-                                    "與" | "和" | "及" | "或" | "跟" | "的" | "之" | "得" | "到"
+                                    "與" | "和" | "及" | "或" | "跟" | "的" | "之" | "得" | "到" | "不"
                                 )
                             });
-                            if !left.is_empty() && !right.is_empty() && !left_is_pure_coordinator_or_particle {
+                            let right_is_middle_de_particle = i + 1 < raw_slots.len().saturating_sub(1)
+                                && right.iter().all(|w| matches!(w.as_str(), "得" | "地" | "的" | "之" | "不"));
+                            if !left.is_empty()
+                                && !right.is_empty()
+                                && !left_is_pure_coordinator_or_particle
+                                && !right_is_middle_de_particle
+                            {
                                 if i == 0 && pat.prev_slot == pat.slots[0] && pat.next_slot == pat.slots[1] {
                                     chain_registered_first_pair = true;
                                 }
@@ -5552,35 +5698,48 @@ impl TransitionEngine {
                                     prev_pattern: if left.len() == 1 {
                                         WordPattern::Exact(left[0].clone())
                                     } else {
-                                        WordPattern::OneOf(left.clone())
+                                        WordPattern::OneOf(left.to_vec())
                                     },
                                     curr_pattern: if right.len() == 1 {
                                         WordPattern::Exact(right[0].clone())
                                     } else {
-                                        WordPattern::OneOf(right.clone())
+                                        WordPattern::OneOf(right.to_vec())
                                     },
                                     bonus: safe_bonus,
                                     name: format!("user_chain:{}:{}->{}", label, i, i + 1),
                                 });
                             }
-                            if pat.optional_slots.contains(&(i + 1)) && i + 2 < cleaned_slots.len() {
-                                let skip_right = &cleaned_slots[i + 2];
-                                if !left.is_empty() && !skip_right.is_empty() {
+                            let mut next_idx = i + 1;
+                            let mut must_land_next = false;
+                            while next_idx + 1 < raw_slots.len() {
+                                if must_land_next {
+                                    break;
+                                }
+                                if pat.optional_slots.contains(&next_idx) {
+                                    // 可選槽位，可繼續往後跨接
+                                } else if factorized_mod_indices.contains(&next_idx) {
+                                    must_land_next = true;
+                                } else {
+                                    break;
+                                }
+                                let skip_right = resolve_target_slot_words(next_idx + 1, i);
+                                if !left.is_empty() && !skip_right.is_empty() && !left_is_pure_coordinator_or_particle {
                                     self.grammar_rules.push(GrammarRule {
                                         prev_pattern: if left.len() == 1 {
                                             WordPattern::Exact(left[0].clone())
                                         } else {
-                                            WordPattern::OneOf(left.clone())
+                                            WordPattern::OneOf(left.to_vec())
                                         },
                                         curr_pattern: if skip_right.len() == 1 {
                                             WordPattern::Exact(skip_right[0].clone())
                                         } else {
-                                            WordPattern::OneOf(skip_right.clone())
+                                            WordPattern::OneOf(skip_right.to_vec())
                                         },
                                         bonus: safe_bonus,
-                                        name: format!("user_chain_opt:{}:{}->{}", label, i, i + 2),
+                                        name: format!("user_chain_opt:{}:{}->{}", label, i, next_idx + 1),
                                     });
                                 }
+                                next_idx += 1;
                             }
                         }
                     }
@@ -5945,6 +6104,20 @@ impl TransitionEngine {
                     continue;
                 }
                 // ── 讀音錨定檢查 (Phonetic Anchoring Guards) ──
+                // -1. 單字輕聲音節（含 `˙`）在現代漢語中恆為助詞／語氣詞／詞綴，絕不可冒充通配實詞 (`ContentWord` / `Nominal`) 領取語法加分（防罕用輕聲異體字如 `嶳 ㄉㄜ˙` 劫掠 `的`）
+                if rule.bonus > 0.0
+                    && curr_bopomofo.contains('˙')
+                    && curr_word.chars().count() == 1
+                    && matches!(
+                        rule.curr_pattern,
+                        WordPattern::ContentWord
+                            | WordPattern::CompoundContentWord
+                            | WordPattern::ContentWordExcept(_)
+                            | WordPattern::Nominal
+                    )
+                {
+                    continue;
+                }
                 // 0. 通用破音虛詞「形音義一體」讀音門檻（防止次要破音如 的(ㄉㄧˋ/ㄉㄧˊ)、會(ㄎㄨㄞˋ/ㄏㄨㄟˇ)、要(ㄧㄠ)、沒(ㄇㄛˋ)、更(ㄍㄥ/ㄐㄧㄥ)、被(ㄆㄧ)、從(ㄘㄨㄥ/ㄗㄨㄥˋ)、與(ㄩˋ)、幾(ㄐㄧ)、句(ㄍㄡ)、那(ㄋㄚˇ)、都(ㄉㄨ)、還(ㄏㄨㄢˊ)、種(ㄓㄨㄥˋ) 冒領語法構式加分）
                 if rule.bonus > 0.0 {
                     let is_bad_polyphone = |w: &str, bpm: &str, rname: &str| -> bool {
@@ -5988,7 +6161,13 @@ impl TransitionEngine {
                 }
 
                 // 1. 連詞「和」：二元無條件規則僅開放台灣口語連詞讀音 ㄏㄢˋ（讀 ㄏㄜˊ 時由 constructions.rs 三元並列構式驗證前後皆為名詞且不拆碎雙字詞後給分）
-                if rule.name.starts_with("nominal_conjunction_he")
+                if (rule.name.starts_with("nominal_conjunction_he")
+                    || (rule.name == "modal_auxiliary_preposition_bridge" && curr_word == "和")
+                    || (rule.name == "jia_content"
+                        && !curr_word.starts_with([
+                            '一', '二', '兩', '三', '四', '五', '六', '七', '八', '九', '十', '幾', '百', '千', '萬', '半',
+                        ]))
+                    || rule.name == "da_content")
                     && !curr_bopomofo.starts_with("ㄏㄢ")
                 {
                     continue;
@@ -6041,6 +6220,14 @@ impl TransitionEngine {
                                 curr_word,
                                 "付" | "覆" | "走" | "來" | "去" | "看" | "買" | "賣" | "說" | "寫"
                             ))
+                        || (prev_word == "部"
+                            && !matches!(
+                                curr_word,
+                                "電影" | "影片" | "戲" | "劇" | "電視劇" | "小說" | "書" | "著作"
+                                    | "作品" | "經典" | "法典" | "法律" | "法案" | "車" | "汽車"
+                                    | "轎車" | "機車" | "卡車" | "公車" | "機器" | "電腦" | "手機"
+                                    | "電話" | "電梯"
+                            ))
                         || (prev_word == "班"
                             && !matches!(
                                 curr_word,
@@ -6070,6 +6257,8 @@ impl TransitionEngine {
                 if rule.name == "temporal_event_shi" {
                     let non_temporal_prev = [
                         "很多", "許多", "不少", "一些", "幾個", "無數", "非常", "太", "特別", "這", "那", "的",
+                        "所有", "在此", "用在", "並非", "二個", "兩個", "每一", "每個", "一個", "這個", "那個",
+                        "哪個", "任何", "各種", "其他", "某些", "同時", "當時", "那時", "有時", "平時", "何時",
                     ];
                     if non_temporal_prev.contains(&prev_word) {
                         continue;
@@ -6077,7 +6266,10 @@ impl TransitionEngine {
                 }
 
                 // 6. 句末疑問助詞「嗎」：必須讀輕聲 ˙ㄇㄚ 或一聲 ㄇㄚ，排除三聲 ㄇㄚˇ（嗎啡）
-                if rule.name == "sentence_final_particle" && curr_word == "嗎" && curr_bopomofo.contains('ˇ') {
+                if rule.name == "sentence_final_particle"
+                    && ((curr_word == "嗎" && curr_bopomofo.contains('ˇ'))
+                        || (curr_word == "囉" && curr_bopomofo.contains('ˊ')))
+                {
                     continue;
                 }
 
@@ -6194,7 +6386,7 @@ impl TransitionEngine {
         }
 
         // 4. 修飾語接中心名詞「話」與防「的+化」
-        if curr_word == "話" && (prev_word == "的" || prev_word.ends_with("的") || prev_word == "普通") {
+        if matches!(curr_word, "話" | "話語") && (prev_word == "的" || prev_word.ends_with("的") || prev_word == "普通") {
             bonus += self.apply_rule_score("morph_modifier_hua", 26.0);
         }
         if curr_word == "化" && (prev_word == "的" || prev_word.ends_with("的")) {
@@ -6218,7 +6410,12 @@ impl TransitionEngine {
                     .chars()
                     .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
             let is_political_abbr = matches!(prev_word, "kmt" | "dpp" | "ccp" | "gop");
-            if (is_ascii_word && !is_political_abbr) || matches!(prev_word, "圖" | "音" | "影片" | "封存") {
+            if (is_ascii_word && !is_political_abbr)
+                || matches!(
+                    prev_word,
+                    "圖" | "音" | "錄音" | "音訊" | "影片" | "封存" | "文字" | "設定" | "執行" | "壓縮"
+                )
+            {
                 if curr_word == "檔" {
                     bonus += self.apply_rule_score("morph_media_file_dang", 35.0);
                 } else {
@@ -6228,7 +6425,11 @@ impl TransitionEngine {
         }
 
         // 7. 全稱限定詞「任何」後接名詞／實詞雙向語法構式（排除標點與純助詞），以及三聲「ㄋㄚˇ」嚴禁出指代詞「那」
-        if prev_word == "任何" && !curr_word.is_empty() && !matches!(curr_word, "的" | "了" | "嗎" | "呢" | "吧" | "啊") {
+        if prev_word == "任何"
+            && !curr_word.is_empty()
+            && !curr_bopomofo.contains('˙')
+            && !matches!(curr_word, "的" | "得" | "地" | "了" | "嗎" | "呢" | "吧" | "啊")
+        {
             bonus += self.apply_rule_score("morph_renhe_nominal", 32.0);
         }
         if (curr_word == "那" || curr_word.starts_with('那')) && curr_bopomofo.starts_with("ㄋㄚˇ") {

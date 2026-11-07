@@ -10,7 +10,6 @@
 
 use std::path::Path;
 
-use crate::ai_engine::{AIStatus, RuhAIEngine};
 use crate::config_store::AppConfig;
 use crate::dialog_engine::{ScreenOffCountdownDialog, ToastManager, UniversalMessageBox};
 use crate::i18n::I18nEngine;
@@ -43,11 +42,9 @@ pub struct UniversalAppShell {
     pub msgbox: UniversalMessageBox,
     pub power_countdown: ScreenOffCountdownDialog,
     pub presets: PresetEngine,
-    pub ai: RuhAIEngine,
     pub show_preferences_dialog: bool,
     new_profile_name: String,
     selected_profile: String,
-    cached_ai_status: Option<AIStatus>,
     theme_watcher: SystemThemeWatcher,
     fonts_initialized: bool,
     style_dirty: bool,
@@ -103,11 +100,9 @@ impl UniversalAppShell {
             msgbox: UniversalMessageBox::new(),
             power_countdown: ScreenOffCountdownDialog::new(),
             presets,
-            ai: RuhAIEngine::new(),
             show_preferences_dialog: false,
             new_profile_name: String::new(),
             selected_profile: String::new(),
-            cached_ai_status: None,
             theme_watcher: SystemThemeWatcher::default(),
             fonts_initialized: false,
             style_dirty: true,
@@ -285,7 +280,6 @@ impl UniversalAppShell {
         let mut next_scale = self.ui_scale;
         let mut scale_changed = false;
         let mut reset_dialogs_clicked = false;
-        let mut probe_ai_clicked = false;
         let mut close_clicked = false;
 
         egui::Window::new(dlg_title)
@@ -405,38 +399,6 @@ impl UniversalAppShell {
                     ui.add_space(10.0);
                     ui.separator();
 
-                    // 3. 純綠版 llama.cpp 離線 AI 狀態探測
-                    ui.heading("🧠 純綠版 llama.cpp 本地 AI 推論狀態");
-                    ui.add_space(4.0);
-                    ui.horizontal(|ui| {
-                        if ui.button("🔍 重新探測本地 GGUF 與 llama-server").clicked() {
-                            probe_ai_clicked = true;
-                        }
-                        if let Some(st) = self.cached_ai_status {
-                            let badge = if st == AIStatus::Online {
-                                format!(
-                                    "🟢 在線就緒 | 文字模型: {} | 本地 GGUF 數: {}",
-                                    self.ai.active_chat_model.as_deref().unwrap_or("自動遴選"),
-                                    self.ai.available_models.len()
-                                )
-                            } else {
-                                format!(
-                                    "⚪ 離線純演算法模式 | 本地已發現 {} 個 .gguf 模型",
-                                    self.ai.available_models.len()
-                                )
-                            };
-                            ui.label(badge);
-                        } else {
-                            ui.label(
-                                egui::RichText::new("尚未探測（點擊左側按鈕檢查免安裝綠版環境）")
-                                    .color(palette.fg_muted.to_egui()),
-                            );
-                        }
-                    });
-
-                    ui.add_space(10.0);
-                    ui.separator();
-
                     // 4. 視窗幾何重設與多組態設定檔 (Profiles)
                     ui.heading("🗂 視窗記憶重設與多組態管理 (Profiles)");
                     ui.add_space(6.0);
@@ -546,10 +508,6 @@ impl UniversalAppShell {
             self.config.reset_all_dialog_geometries();
             self.toasts
                 .success(self.t("msg_dialogs_reset", "已重設所有子視窗位置與大小記憶"));
-        }
-        if probe_ai_clicked {
-            let st = self.ai.refresh(true);
-            self.cached_ai_status = Some(st);
         }
     }
 }

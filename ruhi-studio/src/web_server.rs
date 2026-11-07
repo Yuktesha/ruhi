@@ -51,9 +51,7 @@ pub fn start_web_studio(
     println!("========================================================================");
 
     if open_browser {
-        let _ = Command::new("cmd.exe")
-            .args(["/c", "start", "", &server_url])
-            .spawn();
+        let _ = crate::http_client::open_url_or_path(&server_url);
     }
 
     for stream in listener.incoming().flatten() {
@@ -110,6 +108,13 @@ fn handle_http_connection(
     };
 
     let header_str = String::from_utf8_lossy(&buffer[..h_end]);
+    if !is_allowed_loopback_request(&header_str) {
+        return send_json_response(
+            &mut stream,
+            403,
+            &json!({"error": "Forbidden: Cross-origin or non-loopback request blocked"}),
+        );
+    }
     let first_line = header_str.lines().next().unwrap_or("");
     let mut parts = first_line.split_whitespace();
     let method = parts.next().unwrap_or("GET");
@@ -186,42 +191,21 @@ fn handle_get(
         let mut conn = guard.consultant.test_connection();
         let eff_provider = guard.consultant.get_effective_provider();
         let wizard_done = guard.consultant.get_bool("ai_wizard_completed", true);
-        let spec_status = guard.consultant.get_gemma4_specialist_status(Some(&guard.tuner));
-        let spec_ready = spec_status["installed"].as_bool().unwrap_or(false);
-        let strategy = guard.consultant.get_str(
-            "ai_strategy",
-            if spec_ready { "local_only" } else { "remote_first" },
-        );
-        let offline_models = guard.consultant.read_offline_models();
-        let ollama_paths = guard.consultant.find_ollama_paths();
+        let strategy = guard.consultant.get_str("ai_strategy", "deterministic");
         let has_key = guard.consultant.has_gemini_key();
-        let ai_prov = guard.consultant.get_str(
-            "ai_provider",
-            if spec_ready { "gemma4_specialist" } else { "auto" },
-        );
+        let ai_prov = guard.consultant.get_str("ai_provider", "deterministic");
         let gem_model = guard.consultant.get_str("gemini_model", "gemini-2.5-flash");
-        let oll_url = guard
-            .consultant
-            .get_str("ollama_url", "http://127.0.0.1:11434");
-        let oll_model = guard
-            .consultant
-            .get_str("ollama_model", "ruhi-semantic-analyst-gemma4-lora");
 
         if let Some(obj) = conn.as_object_mut() {
             obj.insert("provider".to_string(), json!(eff_provider));
             obj.insert("wizard_completed".to_string(), json!(wizard_done));
             obj.insert("strategy".to_string(), json!(strategy));
-            obj.insert("offline_models".to_string(), json!(offline_models));
-            obj.insert("ollama_paths".to_string(), ollama_paths);
-            obj.insert("gemma4_specialist".to_string(), spec_status);
             obj.insert(
                 "config".to_string(),
                 json!({
                     "ai_provider": ai_prov,
                     "has_gemini_key": has_key,
-                    "gemini_model": gem_model,
-                    "ollama_url": oll_url,
-                    "ollama_model": oll_model
+                    "gemini_model": gem_model
                 }),
             );
         }
@@ -231,11 +215,6 @@ fn handle_get(
     if path == "/api/ai/wizard_status" {
         let ws = guard.consultant.get_ai_wizard_status();
         return send_json_response(stream, 200, &ws);
-    }
-
-    if path == "/api/ai/local_recommendations" {
-        let recs = guard.consultant.check_local_model_recommendations();
-        return send_json_response(stream, 200, &recs);
     }
 
     if path == "/api/ai/handover_spec" {
@@ -545,7 +524,7 @@ fn handle_post(
         let provider = req_data
             .get("provider")
             .and_then(Value::as_str)
-            .unwrap_or("auto");
+            .unwrap_or("deterministic");
         let gemini_api_key = req_data
             .get("gemini_api_key")
             .and_then(Value::as_str)
@@ -554,14 +533,6 @@ fn handle_post(
             .get("gemini_model")
             .and_then(Value::as_str)
             .unwrap_or("gemini-2.5-flash");
-        let ollama_url = req_data
-            .get("ollama_url")
-            .and_then(Value::as_str)
-            .unwrap_or("http://127.0.0.1:11434");
-        let ollama_model = req_data
-            .get("ollama_model")
-            .and_then(Value::as_str)
-            .unwrap_or("ruhi-semantic-analyst-gemma4-lora");
         let openai_api_key = req_data
             .get("openai_api_key")
             .and_then(Value::as_str)
@@ -595,8 +566,6 @@ fn handle_post(
             provider,
             gemini_api_key,
             gemini_model,
-            ollama_url,
-            ollama_model,
             openai_api_key,
             openai_model,
             claude_api_key,
@@ -623,7 +592,7 @@ fn handle_post(
         let strategy = req_data
             .get("strategy")
             .and_then(Value::as_str)
-            .unwrap_or("remote_first");
+            .unwrap_or("deterministic");
         let gemini_key = req_data
             .get("gemini_api_key")
             .and_then(Value::as_str)
@@ -632,14 +601,6 @@ fn handle_post(
             .get("gemini_model")
             .and_then(Value::as_str)
             .unwrap_or("gemini-2.5-flash");
-        let ollama_url = req_data
-            .get("ollama_url")
-            .and_then(Value::as_str)
-            .unwrap_or("http://127.0.0.1:11434");
-        let ollama_model = req_data
-            .get("ollama_model")
-            .and_then(Value::as_str)
-            .unwrap_or("");
         let remote_provider = req_data
             .get("remote_provider")
             .and_then(Value::as_str)
@@ -677,8 +638,6 @@ fn handle_post(
             strategy,
             gemini_key,
             gemini_model,
-            ollama_url,
-            ollama_model,
             remote_provider,
             openai_api_key,
             openai_model,
@@ -699,13 +658,6 @@ fn handle_post(
         test_res["strategy"] = json!(strategy);
         test_res["auto_delivered"] = json!(true);
         test_res["delivered_files"] = handover["delivered_files"].clone();
-        return send_json_response(stream, 200, &test_res);
-    }
-
-    if path == "/api/ai/start_ollama" {
-        let started = guard.consultant.start_ollama_service();
-        let mut test_res = guard.consultant.test_connection();
-        test_res["started"] = json!(started);
         return send_json_response(stream, 200, &test_res);
     }
 
@@ -937,19 +889,6 @@ fn handle_post(
         return send_json_response(stream, 200, &res);
     }
 
-    if path == "/api/ai/set_prompt_preference" {
-        let skip = req_data
-            .get("skip_prompt")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let ok = guard.consultant.set_local_model_prompt_preference(skip);
-        return send_json_response(
-            stream,
-            200,
-            &json!({"status": if ok { "ok" } else { "error" }, "skip_prompt": skip}),
-        );
-    }
-
     if path == "/api/ai/quick_auth_gemini" {
         let env_k = std::env::var("GEMINI_API_KEY").unwrap_or_default();
         let cfg_k = guard.consultant.get_str("gemini_api_key", "");
@@ -1060,106 +999,46 @@ fn handle_post(
         );
     }
 
-    if path == "/api/ai/install_green_engine" {
-        let mut script_path = guard
-            .tuner
-            .root
-            .join("scripts")
-            .join("安裝本地AI純綠推論引擎.ps1");
-        if !script_path.is_file() {
-            script_path = guard.tuner.root.join("安裝本地AI純綠推論引擎.ps1");
-        }
-        let _ = Command::new("cmd.exe")
-            .args([
-                "/c",
-                "start",
-                "RuhI 本地純綠 AI 推論引擎安裝精靈",
-                "powershell.exe",
-                "-NoExit",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                &script_path.to_string_lossy(),
-            ])
-            .spawn();
-        return send_json_response(
-            stream,
-            200,
-            &json!({"status": "ok", "message": "已在桌面喚起 PowerShell 純綠推論引擎安裝精靈視窗！"}),
-        );
+    send_json_response(stream, 404, &json!({"error": "Not Found"}))
+}
+
+fn is_allowed_loopback_host(host: &str) -> bool {
+    let h = host.trim().to_ascii_lowercase();
+    h == "127.0.0.1"
+        || h == "localhost"
+        || h == "[::1]"
+        || h.starts_with("127.0.0.1:")
+        || h.starts_with("localhost:")
+        || h.starts_with("[::1]:")
+}
+
+fn is_allowed_loopback_origin(origin: &str) -> bool {
+    let o = origin.trim().to_ascii_lowercase();
+    if let Some(rest) = o.strip_prefix("http://") {
+        is_allowed_loopback_host(rest)
+    } else {
+        false
     }
+}
 
-    if path == "/api/ai/gemma4_evolution" {
-        let action = req_data
-            .get("action")
-            .and_then(Value::as_str)
-            .unwrap_or("check_and_build");
-        let root_dir = guard.tuner.root.clone();
-
-        if action == "launch_colab_ps1" {
-            let ps1_path = root_dir.join("雲端Colab微調Gemma4語意分析師.ps1");
-            if ps1_path.is_file() {
-                let _ = Command::new("cmd.exe")
-                    .args([
-                        "/c",
-                        "start",
-                        "RuhI Colab A100 Gemma 4 Training",
-                        "powershell.exe",
-                        "-NoExit",
-                        "-ExecutionPolicy",
-                        "Bypass",
-                        "-File",
-                        &ps1_path.to_string_lossy(),
-                    ])
-                    .current_dir(&root_dir)
-                    .spawn();
-                return send_json_response(
-                    stream,
-                    200,
-                    &json!({
-                        "status": "ok",
-                        "message": "🔥 已在桌面喚起「雲端Colab微調Gemma4語意分析師.ps1」獨立終端機視窗！"
-                    }),
-                );
-            } else {
-                return send_json_response(
-                    stream,
-                    404,
-                    &json!({
-                        "status": "error",
-                        "message": "找不到 雲端Colab微調Gemma4語意分析師.ps1"
-                    }),
-                );
+fn is_allowed_loopback_request(header_str: &str) -> bool {
+    for line in header_str.lines().skip(1) {
+        if let Some((k, v)) = line.split_once(':') {
+            let key = k.trim();
+            let val = v.trim();
+            if key.eq_ignore_ascii_case("host") && !val.is_empty() && !is_allowed_loopback_host(val)
+            {
+                return false;
+            }
+            if key.eq_ignore_ascii_case("origin")
+                && !val.is_empty()
+                && !is_allowed_loopback_origin(val)
+            {
+                return false;
             }
         }
-
-        // check_and_build: 產製最新訓練資料集並回傳最新 Gemma 4 特化模型與進化進度
-        let pipeline_py = root_dir.join("tools").join("colab_gemma4_pipeline.py");
-        if pipeline_py.is_file() {
-            let _ = Command::new("python")
-                .args([
-                    pipeline_py.to_string_lossy().as_ref(),
-                    "--build-dataset",
-                    "--check-evolution",
-                ])
-                .current_dir(&root_dir)
-                .output();
-        }
-        let spec_status = guard
-            .consultant
-            .get_gemma4_specialist_status(Some(&guard.tuner));
-        return send_json_response(
-            stream,
-            200,
-            &json!({
-                "status": "ok",
-                "gemma4_specialist": spec_status,
-                "message": "📦 已重新產製最新 Gemma 4 語意分析師訓練資料集並刷新進化累積進度！"
-            }),
-        );
     }
-
-    send_json_response(stream, 404, &json!({"error": "Not Found"}))
+    true
 }
 
 fn send_json_response(
@@ -1169,13 +1048,14 @@ fn send_json_response(
 ) -> Result<(), std::io::Error> {
     let status_text = match status_code {
         200 => "OK",
+        403 => "Forbidden",
         404 => "Not Found",
         405 => "Method Not Allowed",
         _ => "Internal Server Error",
     };
     let body = serde_json::to_vec(payload).unwrap_or_else(|_| b"{}".to_vec());
     let header = format!(
-        "HTTP/1.1 {status_code} {status_text}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 {status_code} {status_text}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         body.len()
     );
     stream.write_all(header.as_bytes())?;
@@ -1187,4 +1067,27 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .position(|window| window == needle)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_loopback_host_and_origin_validation_261107() {
+        let ok_req = "POST /api/tune/load_file HTTP/1.1\r\nHost: 127.0.0.1:8765\r\nOrigin: http://127.0.0.1:8765\r\n\r\n";
+        assert!(is_allowed_loopback_request(ok_req));
+
+        let ok_localhost = "GET /api/rules HTTP/1.1\r\nHost: localhost:8765\r\nOrigin: http://localhost:8765\r\n\r\n";
+        assert!(is_allowed_loopback_request(ok_localhost));
+
+        let bad_origin = "POST /api/ai/quick_auth_gemini HTTP/1.1\r\nHost: 127.0.0.1:8765\r\nOrigin: https://evil.example.com\r\n\r\n";
+        assert!(!is_allowed_loopback_request(bad_origin));
+
+        let null_origin = "POST /api/tune/load_file HTTP/1.1\r\nHost: 127.0.0.1:8765\r\nOrigin: null\r\n\r\n";
+        assert!(!is_allowed_loopback_request(null_origin));
+
+        let dns_rebind = "GET /api/rules HTTP/1.1\r\nHost: attacker.com\r\n\r\n";
+        assert!(!is_allowed_loopback_request(dns_rebind));
+    }
 }

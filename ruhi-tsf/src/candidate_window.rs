@@ -441,7 +441,11 @@ pub struct CandidateState {
     pub enable_array30_coach: bool,
     pub array30_coach_hint: String,
     pub is_array30_live_preview: bool,
+    pub is_shift_down_popup: bool,
+    pub shift_down_mode: String,
+    pub shift_down_mode_buttons: Vec<(RECT, String)>,
     pub ui_lang: String,
+    pub is_fullwidth: bool,
 }
 
 static IS_DRAGGING: AtomicBool = AtomicBool::new(false);
@@ -449,7 +453,18 @@ static DRAG_START_CURSOR: Mutex<(i32, i32)> = Mutex::new((0, 0));
 static DRAG_START_WINDOW: Mutex<(i32, i32)> = Mutex::new((0, 0));
 
 static CANDIDATE_STATE: OnceLock<RwLock<CandidateState>> = OnceLock::new();
+static SHIFT_DOWN_QUICK_SWITCH_CB: Mutex<
+    Option<Box<dyn Fn(&str) -> Option<(Vec<String>, String)> + Send + Sync>>,
+> = Mutex::new(None);
 
+pub fn register_shift_down_quick_switch_handler<F>(handler: F)
+where
+    F: Fn(&str) -> Option<(Vec<String>, String)> + Send + Sync + 'static,
+{
+    if let Ok(mut guard) = SHIFT_DOWN_QUICK_SWITCH_CB.lock() {
+        *guard = Some(Box::new(handler));
+    }
+}
 
 fn get_candidate_state() -> &'static RwLock<CandidateState> {
     CANDIDATE_STATE.get_or_init(|| {
@@ -490,7 +505,11 @@ fn get_candidate_state() -> &'static RwLock<CandidateState> {
             enable_array30_coach: false,
             array30_coach_hint: String::new(),
             is_array30_live_preview: false,
+            is_shift_down_popup: false,
+            shift_down_mode: "longkan".to_string(),
+            shift_down_mode_buttons: Vec::new(),
             ui_lang: "auto".to_string(),
+            is_fullwidth: false,
         })
     })
 }
@@ -513,6 +532,7 @@ impl Drop for CandidateWindow {
                 let _ = Shell_NotifyIconW(NIM_DELETE, &nid);
             }
             if !self.hwnd.0.is_null() && IsWindow(self.hwnd).as_bool() {
+                let _ = SetWindowLongPtrW(self.hwnd, GWLP_WNDPROC, safe_teardown_wnd_proc as *const () as usize as isize);
                 let _ = DestroyWindow(self.hwnd);
             }
             if let Some(h) = self.tray_mutex {
@@ -522,12 +542,40 @@ impl Drop for CandidateWindow {
     }
 }
 
+unsafe extern "system" fn safe_teardown_wnd_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
+    DefWindowProcW(hwnd, msg, wparam, lparam)
+}
+
 impl CandidateWindow {
     pub fn new() -> Result<Self> {
         unsafe {
             let is_dark_theme = Self::detect_dark_theme();
             let instance = GetModuleHandleW(None)?;
             let class_name = w!("RuhICandidateWindow");
+
+            // 清理同執行緒先前熱重載遺留之舊版 RuhICandidateWindow 視窗（避免舊 TIMER_TRAY_SYNC 持續觸發舊 DLL WndProc）
+            let cur_tid = windows::Win32::System::Threading::GetCurrentThreadId();
+            let mut prev_child = HWND::default();
+            for _ in 0..32 {
+                let found = FindWindowExW(None, prev_child, class_name, None).unwrap_or_default();
+                if found.0.is_null() {
+                    break;
+                }
+                let win_tid = GetWindowThreadProcessId(found, None);
+                if win_tid == cur_tid {
+                    let _ = KillTimer(found, TIMER_TRAY_SYNC);
+                    let _ = SetWindowLongPtrW(found, GWLP_WNDPROC, safe_teardown_wnd_proc as *const () as usize as isize);
+                    let _ = DestroyWindow(found);
+                    prev_child = HWND::default();
+                } else {
+                    prev_child = found;
+                }
+            }
 
             let mut wc = WNDCLASSW::default();
             wc.style = CS_HREDRAW | CS_VREDRAW;
@@ -604,7 +652,9 @@ impl CandidateWindow {
             state.fixed_y = cfg.desk_y;
             state.max_composition_chars = cfg.max_composition_chars.clamp(8, 80);
             state.enable_array30_coach = cfg.enable_array30_coach;
+            state.shift_down_mode = cfg.shift_down_mode.clone();
             state.ui_lang = cfg.ui_lang.clone();
+            state.is_fullwidth = cfg.fullwidth_mode;
             if cfg.theme == "dark" {
                 state.is_dark_theme = true;
             } else if cfg.theme == "light" {
@@ -634,6 +684,18 @@ impl CandidateWindow {
         if let Ok(mut state) = get_candidate_state().write() {
             state.array30_coach_hint = hint.to_string();
             state.is_array30_live_preview = is_array30_live_preview;
+        }
+    }
+
+    pub fn set_shift_down_popup_state(&mut self, is_active: bool, mode: &str) {
+        if let Ok(mut state) = get_candidate_state().write() {
+            state.is_shift_down_popup = is_active;
+            if !mode.trim().is_empty() {
+                state.shift_down_mode = mode.to_string();
+            }
+            if !is_active {
+                state.shift_down_mode_buttons.clear();
+            }
         }
     }
 
@@ -866,7 +928,8 @@ impl CandidateWindow {
             (Vec::new(), 0)
         };
         let cand_w = if show_cand_bar {
-            (cand_single_row_px as f32 + 24.0 * dpi_scale).min(screen_avail_w)
+            let extra_quick_w = if state.is_shift_down_popup { 296.0 * dpi_scale } else { 0.0 };
+            (cand_single_row_px as f32 + 24.0 * dpi_scale + extra_quick_w).min(screen_avail_w)
         } else {
             0.0
         };
@@ -894,7 +957,12 @@ impl CandidateWindow {
             .clamp(440.0 * dpi_scale, max_w_limit) as i32;
 
         let pad_x = (8.0 * dpi_scale) as i32;
-        let inner_cand_w = (width - pad_x * 2).max(200);
+        let quick_bar_reserve = if state.is_shift_down_popup {
+            (292.0 * dpi_scale) as i32
+        } else {
+            0
+        };
+        let inner_cand_w = (width - pad_x * 2 - quick_bar_reserve).max(200);
         let cand_rows = if show_cand_bar {
             Self::count_candidate_rows(&cand_items, inner_cand_w, dpi_scale)
         } else {
@@ -1021,7 +1089,7 @@ impl CandidateWindow {
 
     /// 微軟新注音游標跟隨模式：僅在選字或開啟行列教練提示時彈出輕巧候選浮窗
     pub fn show_candidates_only(&mut self, candidates: &[String], selected: usize, x: i32, y: i32) {
-        let (dpi_scale, cand_font_size, orientation, coach_hint, is_ar30_preview, is_cand_sel, opacity, is_fc_mode) = if let Ok(s) = get_candidate_state().read() {
+        let (dpi_scale, cand_font_size, orientation, coach_hint, is_ar30_preview, is_cand_sel, opacity, is_fc_mode, is_shift_down_popup) = if let Ok(s) = get_candidate_state().read() {
             (
                 s.dpi_scale,
                 s.candidate_font_size,
@@ -1031,9 +1099,10 @@ impl CandidateWindow {
                 s.is_cand_selecting,
                 s.desk_opacity,
                 matches!(s.keyboard_mode.to_lowercase().as_str(), "four_corner" | "4corner" | "fc"),
+                s.is_shift_down_popup,
             )
         } else {
-            (1.0, 24.0, "horizontal".to_string(), String::new(), false, false, 95, false)
+            (1.0, 24.0, "horizontal".to_string(), String::new(), false, false, 95, false, false)
         };
 
         if candidates.is_empty() && coach_hint.is_empty() {
@@ -1051,6 +1120,7 @@ impl CandidateWindow {
         } else {
             0
         };
+        let quick_bar_extra_w = if is_shift_down_popup { 296.0 * dpi_scale } else { 0.0 };
 
         let page_sz = if is_fc_mode || (is_ar30_preview && !is_cand_sel) { 10 } else { 9 };
         let cur_page = selected / page_sz;
@@ -1080,7 +1150,7 @@ impl CandidateWindow {
             let num_col_w = 32.0 * dpi_scale;
             let cand_col_w = (max_cand_px as f32 + 16.0 * dpi_scale).max(60.0 * dpi_scale);
             let pad_x = 12.0 * dpi_scale;
-            let w = ((pad_x * 2.0 + num_col_w + cand_col_w).max(coach_w).max(160.0 * dpi_scale).min(1280.0 * dpi_scale)) as i32;
+            let w = ((pad_x * 2.0 + num_col_w + cand_col_w + quick_bar_extra_w).max(coach_w).max(160.0 * dpi_scale).min(1280.0 * dpi_scale)) as i32;
 
             let item_h = (item_font_h + 12.0 * dpi_scale) as i32;
             let pad_y = (8.0 * dpi_scale) as i32;
@@ -1099,6 +1169,7 @@ impl CandidateWindow {
             if candidates.len() > page_sz {
                 total_w += 68.0 * dpi_scale; // 頁碼指示空間
             }
+            total_w += quick_bar_extra_w;
             let (scr_l, _, scr_r, _) = Self::get_monitor_work_area(x, y);
             let max_scr_w = ((scr_r - scr_l) - 24).max(400) as f32;
             let w = (total_w.max(coach_w).max(220.0 * dpi_scale).min(max_scr_w)) as i32;
@@ -1121,6 +1192,8 @@ impl CandidateWindow {
             state.selection_range = (0, 0);
             state.array30_coach_hint.clear();
             state.is_array30_live_preview = false;
+            state.is_shift_down_popup = false;
+            state.shift_down_mode_buttons.clear();
             state.is_candidates_only = true;
         }
         unsafe {
@@ -1129,10 +1202,15 @@ impl CandidateWindow {
         }
     }
 
-    /// 切換輸入模式時（無組字狀態下）短暫顯示 1.2 秒的狀態膠囊提示，讓使用者即時確認已切換至何種輸入狀態
+    /// 切換輸入模式或半全形時（無組字狀態下）短暫顯示 1.2 秒的狀態膠囊提示，讓使用者即時確認已切換至何種輸入狀態
     pub fn show_mode_toast(&mut self, mode_code: &str, is_caps: bool, x: i32, y: i32) {
         let (badge, mode_name) = get_mode_badge_and_name(mode_code, is_caps);
-        let toast = format!("如喜輸入狀態  ➔  【 半  {} 】 {}", badge, mode_name);
+        let is_fw = get_candidate_state()
+            .read()
+            .map(|s| s.is_fullwidth)
+            .unwrap_or(false);
+        let width_tag = if is_fw { "全" } else { "半" };
+        let toast = format!("如喜輸入狀態  ➔  【 {}  {} 】 {}", width_tag, badge, mode_name);
         if let Ok(mut state) = get_candidate_state().write() {
             state.keyboard_mode = mode_code.to_string();
             state.is_caps_on = is_caps;
@@ -1512,12 +1590,19 @@ fn write_studio_wakeup_signal(paths: &crate::service::RuhiPaths, category: &str)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(1);
     let payload = serde_json::json!({
+        "tab": category,
         "category": category,
+        "ts": ts,
         "timestamp": ts,
     });
     if let Ok(json_str) = serde_json::to_string(&payload) {
-        let sp = paths.sandbox_dir.join("studio_wakeup.json");
-        let _ = std::fs::write(&sp, &json_str);
+        for target in [
+            paths.sandbox_dir.join("studio_wakeup.json"),
+            paths.sandbox_dir.join("dist").join("studio_wakeup.json"),
+            paths.sandbox_dir.join("scripts").join("studio_wakeup.json"),
+        ] {
+            let _ = std::fs::write(&target, &json_str);
+        }
     }
 }
 
@@ -1580,9 +1665,6 @@ fn resolve_trusted_studio_exe(paths: &crate::service::RuhiPaths) -> Option<std::
 }
 
 fn launch_or_focus_studio(category: &str, pass_tuner_arg: bool) {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-
     let paths = crate::service::RuhiPaths::resolve();
     write_studio_wakeup_signal(&paths, category);
 
@@ -1598,23 +1680,162 @@ fn launch_or_focus_studio(category: &str, pass_tuner_arg: bool) {
     }
 
     if let Some(rust_exe) = resolve_trusted_studio_exe(&paths) {
-        logger::log(&format!("launch_or_focus_studio: spawning native Rust {:?} (category={})", rust_exe, category));
-        let work_dir = rust_exe.parent().unwrap_or(&paths.sandbox_dir);
-        let mut cmd = std::process::Command::new(&rust_exe);
+        logger::log(&format!(
+            "launch_or_focus_studio: spawning native Rust {:?} (category={})",
+            rust_exe, category
+        ));
+        let work_dir = if paths.sandbox_dir.is_dir() {
+            paths.sandbox_dir.as_path()
+        } else {
+            rust_exe.parent().unwrap_or(&paths.sandbox_dir)
+        };
+        let lang = current_effective_ui_lang();
+        let mut args: Vec<&str> = Vec::new();
         if pass_tuner_arg {
-            cmd.arg("--tuner");
+            args.push("--tuner");
         }
-        cmd.arg("--lang").arg(current_effective_ui_lang());
-        if false {
+        args.push("--lang");
+        args.push(lang);
+        match spawn_process_no_inherit(&rust_exe, &args, work_dir) {
+            Ok(pid) => {
+                logger::log(&format!(
+                    "launch_or_focus_studio: spawned child pid={} (bInheritHandles=FALSE)",
+                    pid
+                ));
+            }
+            Err(e) => {
+                logger::log(&format!(
+                    "launch_or_focus_studio: spawn failed for {:?}: {}",
+                    rust_exe, e
+                ));
+            }
         }
-        let _ = cmd
-            .current_dir(work_dir)
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn();
         return;
     }
 
     logger::log("launch_or_focus_studio: ruhi-studio.exe not found in trusted installation path!");
+}
+
+/// 使用 Win32 `CreateProcessW` 並強制指定 `bInheritHandles = FALSE (0)` 啟動獨立子程序，
+/// 徹底阻絕宿主應用程式（例如 `Notepad.exe`）之 `TabState` / `WindowState` 檔案鎖與執行緒控制代碼洩漏至子程序。
+fn spawn_process_no_inherit(
+    exe: &std::path::Path,
+    args: &[&str],
+    work_dir: &std::path::Path,
+) -> std::result::Result<u32, String> {
+    use std::os::windows::ffi::OsStrExt;
+
+    #[repr(C)]
+    struct StartupInfoW {
+        cb: u32,
+        lp_reserved: *mut u16,
+        lp_desktop: *mut u16,
+        lp_title: *mut u16,
+        dw_x: u32,
+        dw_y: u32,
+        dw_x_size: u32,
+        dw_y_size: u32,
+        dw_x_count_chars: u32,
+        dw_y_count_chars: u32,
+        dw_fill_attribute: u32,
+        dw_flags: u32,
+        w_show_window: u16,
+        cb_reserved2: u16,
+        lp_reserved2: *mut u8,
+        h_std_input: isize,
+        h_std_output: isize,
+        h_std_error: isize,
+    }
+
+    #[repr(C)]
+    struct ProcessInformation {
+        h_process: isize,
+        h_thread: isize,
+        dw_process_id: u32,
+        dw_thread_id: u32,
+    }
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn CreateProcessW(
+            lp_application_name: *const u16,
+            lp_command_line: *mut u16,
+            lp_process_attributes: *const core::ffi::c_void,
+            lp_thread_attributes: *const core::ffi::c_void,
+            b_inherit_handles: i32,
+            dw_creation_flags: u32,
+            lp_environment: *const core::ffi::c_void,
+            lp_current_directory: *const u16,
+            lp_startup_info: *const StartupInfoW,
+            lp_process_information: *mut ProcessInformation,
+        ) -> i32;
+        fn CloseHandle(h_object: isize) -> i32;
+        fn GetLastError() -> u32;
+    }
+
+    let mut cmd_str = format!("\"{}\"", exe.display());
+    for a in args {
+        cmd_str.push(' ');
+        if a.contains(' ') || a.contains('"') {
+            cmd_str.push('"');
+            cmd_str.push_str(&a.replace('"', "\\\""));
+            cmd_str.push('"');
+        } else {
+            cmd_str.push_str(a);
+        }
+    }
+
+    let app_w: Vec<u16> = exe.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+    let mut cmd_w: Vec<u16> = std::ffi::OsStr::new(&cmd_str)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let dir_w: Vec<u16> = work_dir
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    let mut si: StartupInfoW = unsafe { std::mem::zeroed() };
+    si.cb = std::mem::size_of::<StartupInfoW>() as u32;
+    let mut pi: ProcessInformation = unsafe { std::mem::zeroed() };
+
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+
+    let ok = unsafe {
+        CreateProcessW(
+            app_w.as_ptr(),
+            cmd_w.as_mut_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            0, // bInheritHandles = FALSE: 嚴禁繼承任何宿主程序控制代碼
+            CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP,
+            std::ptr::null(),
+            if work_dir.is_dir() {
+                dir_w.as_ptr()
+            } else {
+                std::ptr::null()
+            },
+            &si,
+            &mut pi,
+        )
+    };
+
+    if ok == 0 {
+        let err = unsafe { GetLastError() };
+        return Err(format!("CreateProcessW failed with Win32 error {}", err));
+    }
+
+    unsafe {
+        if pi.h_thread != 0 {
+            CloseHandle(pi.h_thread);
+        }
+        if pi.h_process != 0 {
+            CloseHandle(pi.h_process);
+        }
+    }
+    Ok(pi.dw_process_id)
 }
 
 pub fn launch_settings() {
@@ -1633,6 +1854,28 @@ pub fn maybe_spawn_background_telemetry_upload(paths: &crate::service::RuhiPaths
     // 安全防禦：若當前宿主程序已提升權限 (Elevated Administrator)，一律禁止背景衍生子程序
     if is_current_process_elevated() {
         return;
+    }
+
+    // 排除終端機宿主與設定中心自身，徹底阻斷終端機衍生自我觸發迴路
+    if let Ok(cur_exe) = std::env::current_exe() {
+        let exe_lower = cur_exe
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if matches!(
+            exe_lower.as_str(),
+            "windowsterminal.exe"
+                | "openconsole.exe"
+                | "conhost.exe"
+                | "cmd.exe"
+                | "powershell.exe"
+                | "pwsh.exe"
+                | "ruhi-studio.exe"
+                | "curl.exe"
+        ) {
+            return;
+        }
     }
 
     let now_ts = std::time::SystemTime::now()
@@ -1673,8 +1916,17 @@ pub fn maybe_spawn_background_telemetry_upload(paths: &crate::service::RuhiPaths
         return;
     }
 
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    // 跨程序全域冷卻鎖 (Cross-Process Cooldown Stamp)：確保全系統所有宿主程序合計每小時至多觸發一次背景同步
+    let lock_file = paths.sandbox_dir.join(".last_bg_telemetry_spawn");
+    if let Ok(raw_ts) = std::fs::read_to_string(&lock_file) {
+        if let Ok(last_spawn_ts) = raw_ts.trim().parse::<u64>() {
+            if now_ts.saturating_sub(last_spawn_ts) < 3600 {
+                return;
+            }
+        }
+    }
+    let _ = std::fs::write(&lock_file, now_ts.to_string());
+
     if let Some(rust_exe) = resolve_trusted_studio_exe(paths) {
         let work_dir = rust_exe.parent().unwrap_or(&paths.sandbox_dir);
         let cli_flag = if need_upload {
@@ -1682,11 +1934,7 @@ pub fn maybe_spawn_background_telemetry_upload(paths: &crate::service::RuhiPaths
         } else {
             "--tailcat-sync"
         };
-        let _ = std::process::Command::new(&rust_exe)
-            .arg(cli_flag)
-            .current_dir(work_dir)
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn();
+        let _ = spawn_process_no_inherit(&rust_exe, &[cli_flag], work_dir);
     }
 }
 
@@ -1840,6 +2088,109 @@ fn _legacy_context_menu_labels(_kb_mode: String, _is_caps: bool) -> (&'static st
 
 
 */
+unsafe fn draw_shift_down_quick_switcher_bar(
+    mem_dc: HDC,
+    bar_rect: RECT,
+    dpi_scale: f32,
+    active_mode: &str,
+    bg_comp: COLORREF,
+    accent_commit: COLORREF,
+    accent_blue: COLORREF,
+    ink_secondary: COLORREF,
+    border_brush: HBRUSH,
+    font_name: &[u16],
+) -> Vec<(RECT, String)> {
+    let mut buttons = Vec::new();
+    let pills = [
+        ("longkan", "龍"),
+        ("hsu", "許"),
+        ("array30", "行"),
+        ("cangjie", "倉"),
+        ("four_corner", "四"),
+        ("standard", "注"),
+        ("et26", "倚"),
+        ("japanese", "日"),
+        ("korean", "韓"),
+    ];
+    let norm_active = ruhi::engine::RuhiEngine::normalize_keyboard_mode(active_mode);
+    let btn_w = (22.0 * dpi_scale).round() as i32;
+    let gap = (3.0 * dpi_scale).round().max(2.0) as i32;
+    let total_pills_w = (pills.len() as i32) * btn_w + ((pills.len() as i32 - 1) * gap);
+    let lbl_w = (46.0 * dpi_scale).round() as i32;
+    let start_x = (bar_rect.right - total_pills_w - (6.0 * dpi_scale) as i32).max(bar_rect.left + lbl_w);
+
+    let pill_font_h = -(12.5 * dpi_scale).round() as i32;
+    let pill_font = CreateFontW(
+        pill_font_h,
+        0,
+        0,
+        0,
+        FW_BOLD.0 as i32,
+        0,
+        0,
+        0,
+        DEFAULT_CHARSET.0 as u32,
+        OUT_DEFAULT_PRECIS.0 as u32,
+        CLIP_DEFAULT_PRECIS.0 as u32,
+        CLEARTYPE_QUALITY.0 as u32,
+        DEFAULT_PITCH.0 as u32,
+        PCWSTR(font_name.as_ptr()),
+    );
+    let old_f = SelectObject(mem_dc, pill_font);
+
+    // 繪製前導提示「⇄跨查」
+    let lbl_left = (start_x - lbl_w).max(bar_rect.left);
+    if start_x > lbl_left + (18.0 * dpi_scale) as i32 {
+        SetTextColor(mem_dc, ink_secondary);
+        let mut lbl_wide: Vec<u16> = "⇄跨查".encode_utf16().chain(Some(0)).collect();
+        let mut lr = RECT {
+            left: lbl_left,
+            top: bar_rect.top,
+            right: start_x - (3.0 * dpi_scale) as i32,
+            bottom: bar_rect.bottom,
+        };
+        DrawTextW(mem_dc, &mut lbl_wide, &mut lr, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+    }
+
+    let bg_norm_brush = CreateSolidBrush(bg_comp);
+    let bg_act_brush = CreateSolidBrush(accent_blue);
+    let bar_h = (bar_rect.bottom - bar_rect.top).max(18);
+    let btn_h = (20.0 * dpi_scale).round().min((bar_h - 2) as f32).max(16.0) as i32;
+    let top_y = bar_rect.top + (bar_h - btn_h) / 2;
+
+    let mut cur_x = start_x;
+    for (code, badge) in pills {
+        let r = RECT {
+            left: cur_x,
+            top: top_y,
+            right: cur_x + btn_w,
+            bottom: top_y + btn_h,
+        };
+        let is_act = code == norm_active;
+        FillRect(mem_dc, &r, if is_act { bg_act_brush } else { bg_norm_brush });
+        FrameRect(mem_dc, &r, border_brush);
+        SetTextColor(
+            mem_dc,
+            if is_act {
+                COLORREF(0x00FFFFFF)
+            } else {
+                accent_commit
+            },
+        );
+        let mut bw: Vec<u16> = badge.encode_utf16().chain(Some(0)).collect();
+        let mut tr = r;
+        DrawTextW(mem_dc, &mut bw, &mut tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        buttons.push((r, code.to_string()));
+        cur_x += btn_w + gap;
+    }
+
+    let _ = DeleteObject(bg_norm_brush);
+    let _ = DeleteObject(bg_act_brush);
+    SelectObject(mem_dc, old_f);
+    let _ = DeleteObject(pill_font);
+    buttons
+}
+
 unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
     let state = if let Ok(s) = get_candidate_state().read() {
         s.clone()
@@ -1907,6 +2258,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
     SetBkMode(mem_dc, TRANSPARENT);
     let font_name: Vec<u16> = "Microsoft JhengHei UI".encode_utf16().chain(Some(0)).collect();
+    let mut recorded_shift_down_buttons: Vec<(RECT, String)> = Vec::new();
 
     // 判斷渲染模式：凡微軟新注音模式或 show_candidates_only，一律以極致微軟新注音輕巧候選卡片呈現
     if state.is_candidates_only || state.input_display_mode == "inline_underline" {
@@ -2098,6 +2450,11 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             }
 
             // 右側頁碼提示
+            let quick_bar_reserve = if state.is_shift_down_popup {
+                (292.0 * state.dpi_scale) as i32
+            } else {
+                0
+            };
             if total_pages > 1 {
                 SetTextColor(mem_dc, ink_muted);
                 let page_str = format!("{}/{} ▾", cur_page + 1, total_pages);
@@ -2105,11 +2462,53 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 let mut page_rect = RECT {
                     left: cur_x + 4,
                     top: pad_y,
-                    right: width - 8,
+                    right: (width - quick_bar_reserve - 8).max(cur_x + 44),
                     bottom: pad_y + item_h,
                 };
                 DrawTextW(mem_dc, &mut page_wide, &mut page_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             }
+            if state.is_shift_down_popup {
+                let bar_rect = RECT {
+                    left: (width - quick_bar_reserve).max(cur_x + 6),
+                    top: pad_y,
+                    right: width - 4,
+                    bottom: pad_y + item_h,
+                };
+                recorded_shift_down_buttons = draw_shift_down_quick_switcher_bar(
+                    mem_dc,
+                    bar_rect,
+                    state.dpi_scale,
+                    &state.shift_down_mode,
+                    bg_comp,
+                    accent_commit,
+                    accent_blue,
+                    ink_secondary,
+                    border_brush,
+                    &font_name,
+                );
+            }
+        }
+
+        if state.is_shift_down_popup && recorded_shift_down_buttons.is_empty() && !state.candidates.is_empty() {
+            let quick_bar_reserve = (292.0 * state.dpi_scale) as i32;
+            let bar_rect = RECT {
+                left: (width - quick_bar_reserve).max(8),
+                top: (6.0 * state.dpi_scale) as i32,
+                right: width - 4,
+                bottom: (32.0 * state.dpi_scale) as i32,
+            };
+            recorded_shift_down_buttons = draw_shift_down_quick_switcher_bar(
+                mem_dc,
+                bar_rect,
+                state.dpi_scale,
+                &state.shift_down_mode,
+                bg_comp,
+                accent_commit,
+                accent_blue,
+                ink_secondary,
+                border_brush,
+                &font_name,
+            );
         }
 
         if !state.candidates.is_empty() && has_coach {
@@ -2283,7 +2682,12 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         if show_cand_panel {
             let cand_font_px = (state.candidate_font_size * 0.9 * state.dpi_scale).clamp(13.0 * state.dpi_scale, 68.0 * state.dpi_scale);
             let (cand_items, _single_row_px) = CandidateWindow::measure_page_candidates_px(&state, cand_font_px, page_sz);
-            let inner_cand_w = (width - pad_x * 2).max(200);
+            let quick_bar_reserve = if state.is_shift_down_popup {
+                (292.0 * state.dpi_scale) as i32
+            } else {
+                0
+            };
+            let inner_cand_w = (width - pad_x * 2 - quick_bar_reserve).max(200);
             let cand_rows = CandidateWindow::count_candidate_rows(&cand_items, inner_cand_w, state.dpi_scale);
             let cand_row_step_h = (cand_font_px + 10.0 * state.dpi_scale).round() as i32;
             let cand_card_h = (cand_rows as i32 * cand_row_step_h) + (8.0 * state.dpi_scale) as i32;
@@ -2313,7 +2717,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             let old_f2 = SelectObject(mem_dc, cand_font);
 
             let left_start_x = cand_rect.left + (12.0 * state.dpi_scale) as i32;
-            let right_limit_x = (cand_rect.right - (8.0 * state.dpi_scale) as i32).max(left_start_x + 60);
+            let right_limit_x = (cand_rect.right - quick_bar_reserve - (8.0 * state.dpi_scale) as i32).max(left_start_x + 60);
             let mut cand_x = left_start_x;
             let mut cand_row_idx = 0i32;
             for (actual_idx, item_str, sz_cx) in cand_items {
@@ -2349,6 +2753,27 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
             SelectObject(mem_dc, old_f2);
             let _ = DeleteObject(cand_font);
+
+            if state.is_shift_down_popup {
+                let bar_rect = RECT {
+                    left: (cand_rect.right - quick_bar_reserve).max(cand_rect.left + 8),
+                    top: cand_rect.top + (4.0 * state.dpi_scale) as i32,
+                    right: cand_rect.right - (4.0 * state.dpi_scale) as i32,
+                    bottom: cand_rect.top + (4.0 * state.dpi_scale) as i32 + cand_row_step_h,
+                };
+                recorded_shift_down_buttons = draw_shift_down_quick_switcher_bar(
+                    mem_dc,
+                    bar_rect,
+                    state.dpi_scale,
+                    &state.shift_down_mode,
+                    bg_comp,
+                    accent_commit,
+                    accent_blue,
+                    ink_secondary,
+                    border_brush,
+                    &font_name,
+                );
+            }
 
             cur_y = cand_rect.bottom + (4.0 * state.dpi_scale) as i32;
         }
@@ -2686,13 +3111,21 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             _ => "中",
         };
         let (i18n_badge, _) = get_mode_badge_and_name_i18n(&state.keyboard_mode, state.is_caps_on, eff_ui_lang);
-        let hw_prefix = match eff_ui_lang {
-            "en-US" => "HW",
-            "ko-KR" => "반",
-            _ => "半",
+        let hw_prefix = if state.is_fullwidth {
+            match eff_ui_lang {
+                "en-US" => "FW",
+                "ko-KR" => "전",
+                _ => "全",
+            }
+        } else {
+            match eff_ui_lang {
+                "en-US" => "HW",
+                "ko-KR" => "반",
+                _ => "半",
+            }
         };
         let mode_label = format!("{}   {}", hw_prefix, i18n_badge);
-        let _unused_mode_label = if state.is_caps_on { "半   歐".to_string() } else { format!("半   {}", kb_indicator) };
+        let _unused_mode_label = if state.is_caps_on { format!("{}   歐", hw_prefix) } else { format!("{}   {}", hw_prefix, kb_indicator) };
         let mode_wide_no_null: Vec<u16> = mode_label.encode_utf16().collect();
         let mut sz_mode = SIZE::default();
         let _ = GetTextExtentPoint32W(mem_dc, &mode_wide_no_null, &mut sz_mode);
@@ -2722,6 +3155,10 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
         SelectObject(mem_dc, old_f3);
         let _ = DeleteObject(status_font);
+    }
+
+    if let Ok(mut st) = get_candidate_state().write() {
+        st.shift_down_mode_buttons = recorded_shift_down_buttons;
     }
 
     let _ = DeleteObject(border_brush);
@@ -2803,6 +3240,55 @@ pub fn save_keyboard_mode_with_last(mode: &str, last_mode: Option<&str>) {
     broadcast_tray_update();
 }
 
+pub fn save_shift_down_mode(mode: &str) {
+    let norm = ruhi::engine::RuhiEngine::normalize_keyboard_mode(mode);
+    if let Ok(mut state) = get_candidate_state().write() {
+        state.shift_down_mode = norm.clone();
+    }
+    let paths = crate::service::RuhiPaths::resolve();
+    let mut flat_targets = vec![
+        paths.config.clone(),
+        paths.sandbox_dir.join("scripts").join("config.json"),
+        paths.sandbox_dir.join("dist").join("config.json"),
+    ];
+    flat_targets.dedup();
+    for cfg_path in &flat_targets {
+        if cfg_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(cfg_path) {
+                if let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    val["shift_down_mode"] = serde_json::Value::from(norm.clone());
+                    if let Ok(new_content) = serde_json::to_string_pretty(&val) {
+                        let _ = std::fs::write(cfg_path, new_content);
+                    }
+                }
+            }
+        }
+    }
+
+    let mut studio_targets = vec![
+        paths.sandbox_dir.join("settings_config.json"),
+        paths.sandbox_dir.join("scripts").join("settings_config.json"),
+        paths.sandbox_dir.join("dist").join("settings_config.json"),
+    ];
+    studio_targets.dedup();
+    for st_path in &studio_targets {
+        if st_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(st_path) {
+                if let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(kb) = val.get_mut("keyboard").and_then(|v| v.as_object_mut()) {
+                        kb.insert("shift_down_mode".to_string(), serde_json::Value::from(norm.clone()));
+                        if let Ok(new_content) = serde_json::to_string_pretty(&val) {
+                            let _ = std::fs::write(st_path, new_content);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    crate::service::invalidate_config_cache();
+}
+
 pub fn save_capslock_switch_mode(capslock_switch: &str) {
     let paths = crate::service::RuhiPaths::resolve();
     let mut flat_targets = vec![
@@ -2836,6 +3322,55 @@ pub fn save_capslock_switch_mode(capslock_switch: &str) {
                 if let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&content) {
                     if let Some(kb) = val.get_mut("keyboard").and_then(|v| v.as_object_mut()) {
                         kb.insert("capslock_switch".to_string(), serde_json::Value::from(capslock_switch));
+                        if let Ok(new_content) = serde_json::to_string_pretty(&val) {
+                            let _ = std::fs::write(st_path, new_content);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    crate::service::invalidate_config_cache();
+    broadcast_tray_update();
+}
+
+pub fn save_fullwidth_mode(fullwidth: bool) {
+    if let Ok(mut state) = get_candidate_state().write() {
+        state.is_fullwidth = fullwidth;
+    }
+    let paths = crate::service::RuhiPaths::resolve();
+    let mut flat_targets = vec![
+        paths.config.clone(),
+        paths.sandbox_dir.join("scripts").join("config.json"),
+        paths.sandbox_dir.join("dist").join("config.json"),
+    ];
+    flat_targets.dedup();
+    for cfg_path in &flat_targets {
+        if cfg_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(cfg_path) {
+                if let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    val["fullwidth_mode"] = serde_json::Value::from(fullwidth);
+                    if let Ok(new_content) = serde_json::to_string_pretty(&val) {
+                        let _ = std::fs::write(cfg_path, new_content);
+                    }
+                }
+            }
+        }
+    }
+
+    let mut studio_targets = vec![
+        paths.sandbox_dir.join("settings_config.json"),
+        paths.sandbox_dir.join("scripts").join("settings_config.json"),
+        paths.sandbox_dir.join("dist").join("settings_config.json"),
+    ];
+    studio_targets.dedup();
+    for st_path in &studio_targets {
+        if st_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(st_path) {
+                if let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(kb) = val.get_mut("keyboard").and_then(|v| v.as_object_mut()) {
+                        kb.insert("fullwidth_mode".to_string(), serde_json::Value::from(fullwidth));
                         if let Ok(new_content) = serde_json::to_string_pretty(&val) {
                             let _ = std::fs::write(st_path, new_content);
                         }
@@ -2928,11 +3463,15 @@ fn show_mode_toast_on_current_thread(mode_code: &str, pt_opt: Option<POINT>) {
                         .unwrap_or(true);
                     if is_idle {
                         let (badge, mode_name) = get_mode_badge_and_name(mode_code, false);
+                        let is_fw = get_candidate_state()
+                            .read()
+                            .map(|s| s.is_fullwidth)
+                            .unwrap_or(false);
                         let toast = match current_effective_ui_lang() {
-                            "en-US" => format!("RuhI Mode  ➔  [ HW  {} ] {}", badge, mode_name),
-                            "ja-JP" => format!("RuhI 入力状態  ➔  【 半  {} 】 {}", badge, mode_name),
-                            "ko-KR" => format!("RuhI 입력 상태  ➔  【 반  {} 】 {}", badge, mode_name),
-                            _ => format!("如喜輸入狀態  ➔  【 半  {} 】 {}", badge, mode_name),
+                            "en-US" => format!("RuhI Mode  ➔  [ {}  {} ] {}", if is_fw { "FW" } else { "HW" }, badge, mode_name),
+                            "ja-JP" => format!("RuhI 入力状態  ➔  【 {}  {} 】 {}", if is_fw { "全" } else { "半" }, badge, mode_name),
+                            "ko-KR" => format!("RuhI 입력 상태  ➔  【 {}  {} 】 {}", if is_fw { "전" } else { "반" }, badge, mode_name),
+                            _ => format!("如喜輸入狀態  ➔  【 {}  {} 】 {}", if is_fw { "全" } else { "半" }, badge, mode_name),
                         };
                         let (dpi_scale, opacity) = if let Ok(mut state) = get_candidate_state().write() {
                             state.keyboard_mode = mode_code.to_string();
@@ -3323,6 +3862,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
             let _ = DestroyMenu(hmenu);
 
             let cmd_id = cmd.0 as usize;
+            logger::log(&format!("show_taskbar_ri_menu selected cmd_id={}", cmd_id));
             if cmd_id == 2008 {
                 toggle_last_two_keyboard_modes_global(Some(pt));
                 if hw_caps {
@@ -3480,7 +4020,10 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                         let on_tune_btn = s.show_ui_tuner_bar && s.ui_tune_buttons.iter().any(|(r, _)| {
                             pt.x >= r.left && pt.x <= r.right && pt.y >= r.top && pt.y <= r.bottom
                         });
-                        on_gear || on_tune_toggle || on_mode || on_tune_btn
+                        let on_shift_down_btn = s.is_shift_down_popup && s.shift_down_mode_buttons.iter().any(|(r, _)| {
+                            pt.x >= r.left && pt.x <= r.right && pt.y >= r.top && pt.y <= r.bottom
+                        });
+                        on_gear || on_tune_toggle || on_mode || on_tune_btn || on_shift_down_btn
                     } else { false };
                     if is_clickable {
                         let _ = SetCursor(LoadCursorW(None, IDC_HAND).unwrap_or_default());
@@ -3513,7 +4056,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
             WM_LBUTTONDOWN => {
                 let mouse_x = (lparam.0 & 0xFFFF) as i16 as i32;
                 let mouse_y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
-                let (is_gear, is_tune_toggle, is_mode, hit_tune_act) = if let Ok(s) = get_candidate_state().read() {
+                let (is_gear, is_tune_toggle, is_mode, hit_tune_act, hit_shift_down_mode) = if let Ok(s) = get_candidate_state().read() {
                     let g = mouse_x >= s.gear_rect.left && mouse_x <= s.gear_rect.right &&
                             mouse_y >= s.gear_rect.top && mouse_y <= s.gear_rect.bottom;
                     let tt = mouse_x >= s.ui_tune_toggle_rect.left && mouse_x <= s.ui_tune_toggle_rect.right &&
@@ -3531,9 +4074,43 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     } else {
                         None
                     };
-                    (g, tt, m, act)
-                } else { (false, false, false, None) };
+                    let sd_mode = if s.is_shift_down_popup {
+                        s.shift_down_mode_buttons.iter().find_map(|(r, mode_code)| {
+                            if mouse_x >= r.left && mouse_x <= r.right && mouse_y >= r.top && mouse_y <= r.bottom {
+                                Some(mode_code.clone())
+                            } else {
+                                None
+                            }
+                        })
+                    } else {
+                        None
+                    };
+                    (g, tt, m, act, sd_mode)
+                } else { (false, false, false, None, None) };
 
+                if let Some(clicked_mode) = hit_shift_down_mode {
+                    save_shift_down_mode(&clicked_mode);
+                    let switched_payload = if let Ok(cb_guard) = SHIFT_DOWN_QUICK_SWITCH_CB.lock() {
+                        if let Some(cb) = &*cb_guard {
+                            cb(&clicked_mode)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+                    if let Ok(mut st) = get_candidate_state().write() {
+                        st.shift_down_mode = clicked_mode;
+                        if let Some((new_cands, new_coach)) = switched_payload {
+                            st.candidates = new_cands;
+                            st.selected_index = 0;
+                            st.page_offset = 0;
+                            st.array30_coach_hint = new_coach;
+                        }
+                    }
+                    relayout_and_repaint_window(hwnd);
+                    return LRESULT(0);
+                }
                 if let Some(act) = hit_tune_act {
                     apply_ui_tune_action(hwnd, act);
                     return LRESULT(0);

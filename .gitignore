@@ -105,6 +105,7 @@ scripts/settings_config.json
 
 # 評估語料不公開（僅公開評估工具與彙總分數，詳見 ruhi_lexicon/eval/README.md）
 ruhi_lexicon/eval/*.tsv
+ruhi_lexicon/eval/typing_tw.tsv
 eval_reports/local/
 _private_commercial/
 LICENSE-COMMERCIAL.md

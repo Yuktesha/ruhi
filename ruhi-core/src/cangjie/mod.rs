@@ -14,6 +14,7 @@ pub struct CangjieEngine {
     pub transitions: TransitionEngine,
     pub buffer: String,
     pub is_english_forced: bool,
+    pub enable_mixed_english: bool,
     pub candidates: Vec<String>,
     pub candidate_idx: usize,
     pub last_committed_word: String,
@@ -26,6 +27,7 @@ impl Default for CangjieEngine {
             transitions: TransitionEngine::new(),
             buffer: String::new(),
             is_english_forced: false,
+            enable_mixed_english: true,
             candidates: Vec::new(),
             candidate_idx: 0,
             last_committed_word: String::new(),
@@ -117,9 +119,9 @@ impl CangjieEngine {
             return;
         }
 
-        // 若長度大於 5 碼，或者含有大寫字母，自動判定為英文模式
+        // 若啟用歐亞智慧混打，當長度大於 5 碼或含有大寫字母時，自動判定為英文模式
         let has_uppercase = self.buffer.chars().any(|c| c.is_ascii_uppercase());
-        if self.buffer.len() > 5 || has_uppercase || self.is_english_forced {
+        if self.enable_mixed_english && (self.buffer.len() > 5 || has_uppercase || self.is_english_forced) {
             self.is_english_forced = true;
             self.candidates.push(self.buffer.clone());
             return;
@@ -183,10 +185,10 @@ impl CangjieEngine {
                 }
             }
             // 英文免切換候選：在末尾自動附帶原始英文字串
-            if !self.candidates.contains(&self.buffer) {
+            if self.enable_mixed_english && !self.candidates.contains(&self.buffer) {
                 self.candidates.push(self.buffer.clone());
             }
-        } else {
+        } else if self.enable_mixed_english {
             // 未命中漢字，直接提供原始英文字串作為第一候選
             self.candidates.push(self.buffer.clone());
         }
@@ -214,6 +216,15 @@ impl CangjieEngine {
 
     /// 核心字元輸入處理
     pub fn process_key(&mut self, ch: char) -> EngineResponse {
+        self.process_key_with_lexicon(ch, None)
+    }
+
+    /// 核心字元輸入處理（支援傳入外部詞庫進行雙字詞上下文智慧排序）
+    pub fn process_key_with_lexicon(
+        &mut self,
+        ch: char,
+        lexicon: Option<&crate::lexicon::LexiconManager>,
+    ) -> EngineResponse {
         match ch {
             // 1. 空白鍵 (Space)
             ' ' => {
@@ -325,9 +336,10 @@ impl CangjieEngine {
                     };
                 }
 
-                self.update_candidates();
+                self.update_candidates_with_lexicon(lexicon);
                 let preedit = self.make_preedit();
                 let active = self.candidates.first().cloned().unwrap_or_default();
+                let cursor_pos = active.chars().count();
                 EngineResponse {
                     action: "compose".to_string(),
                     mode: if self.is_english_forced { "cangjie_en".to_string() } else { "cangjie".to_string() },
@@ -336,7 +348,7 @@ impl CangjieEngine {
                     candidates: self.candidates.clone(),
                     active_candidate: active,
                     candidate_idx: 0,
-                    cursor_pos: self.buffer.len(),
+                    cursor_pos,
                     q_press_count: 0,
                     committed_chunk: String::new(),
                 }
@@ -382,6 +394,7 @@ impl CangjieEngine {
                     // 超出候選範圍，保持組字
                     let preedit = self.make_preedit();
                     let active = self.candidates.first().cloned().unwrap_or_default();
+                    let cursor_pos = active.chars().count();
                     EngineResponse {
                         action: "compose".to_string(),
                         mode: if self.is_english_forced { "cangjie_en".to_string() } else { "cangjie".to_string() },
@@ -390,7 +403,7 @@ impl CangjieEngine {
                         candidates: self.candidates.clone(),
                         active_candidate: active,
                         candidate_idx: 0,
-                        cursor_pos: 0,
+                        cursor_pos,
                         q_press_count: 0,
                         committed_chunk: String::new(),
                     }
@@ -399,14 +412,37 @@ impl CangjieEngine {
 
             // 6. 英文字母 a~z / A~Z
             c if c.is_ascii_alphabetic() => {
-                if c.is_ascii_uppercase() {
+                if c.is_ascii_uppercase() && self.enable_mixed_english {
                     self.is_english_forced = true;
                 }
-                self.buffer.push(c);
-                self.update_candidates();
+                if !self.enable_mixed_english && self.buffer.len() >= 5 {
+                    let preedit = self.make_preedit();
+                    let active = self.candidates.first().cloned().unwrap_or_default();
+                    let cursor_pos = active.chars().count();
+                    return EngineResponse {
+                        action: "compose".to_string(),
+                        mode: "cangjie".to_string(),
+                        preedit,
+                        composed: active.clone(),
+                        candidates: self.candidates.clone(),
+                        active_candidate: active,
+                        candidate_idx: 0,
+                        cursor_pos,
+                        q_press_count: 0,
+                        committed_chunk: String::new(),
+                    };
+                }
+                let push_ch = if self.enable_mixed_english {
+                    c
+                } else {
+                    c.to_ascii_lowercase()
+                };
+                self.buffer.push(push_ch);
+                self.update_candidates_with_lexicon(lexicon);
 
                 let preedit = self.make_preedit();
                 let active = self.candidates.first().cloned().unwrap_or_default();
+                let cursor_pos = active.chars().count();
                 EngineResponse {
                     action: "compose".to_string(),
                     mode: if self.is_english_forced { "cangjie_en".to_string() } else { "cangjie".to_string() },
@@ -415,7 +451,7 @@ impl CangjieEngine {
                     candidates: self.candidates.clone(),
                     active_candidate: active,
                     candidate_idx: 0,
-                    cursor_pos: self.buffer.len(),
+                    cursor_pos,
                     q_press_count: 0,
                     committed_chunk: String::new(),
                 }

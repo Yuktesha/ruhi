@@ -9,14 +9,12 @@
 //! - [`undo_manager`]：泛型深拷貝快照隔離之多步復原/重做管理器 (`UndoManager<T>`)。
 //! - [`cjk_sort_engine`]：五合一漢字多模態檢索排序引擎（台灣教育部注音、康熙 214 部首、總筆畫、漢語拼音、台語羅馬字）與曲目編號前綴智慧剝離。
 //! - [`power_engine`]：Win32 顯示器電源控制 (`SC_MONITORPOWER`)、S3 睡眠與硬體喚醒計時器 (`HardwareWakeTimer`)。
-//! - [`ai_engine`]：純綠版免安裝 `llama.cpp` (`llama-server` + 本地 `.gguf`) 熱插拔離線 AI 推論引擎（Google Gemma 絕對優先，徹底排除誘導訂閱之 Ollama）。
 //! - [`theme_engine`]：「專業暗色 (`StudioDark`)」與「溫潤宣紙淺色 (`RicePaperLight`)」語意調色盤、Win32 DWM 沉浸式暗色標題列與系統外觀即時監聽。
 //! - [`rud_engine`]：`rud()` 空間幾何第一原理（漢字避頭尾智慧折行、短標籤雙端齊行、表格二階段需求驅動欄寬分配、垂直三欄收斂與樹狀導覽寬度精算）。
 //! - [`dialog_engine`]：右下角非阻塞浮動通知 (`ToastManager`)、語意調色盤訊息框 (`UniversalMessageBox`) 與關閉螢幕倒數計時器 (`ScreenOffCountdownDialog`)。
 //! - [`table_engine`]：整合 `rud()` 自適應欄寬、多模態漢字排序、右鍵欄位選單與 `[##1]` 批次流水號行內編輯之表格引擎 (`UniversalTable`)。
 //! - [`app_shell`]：一站式桌面應用程式外殼 (`UniversalAppShell`)，內建無段 UI 縮放 (`Ctrl + +/-/0/滾輪`)、即時換膚 (`Ctrl + T`) 與偏好設定中心 (`Ctrl + ,`)。
 
-pub mod ai_engine;
 pub mod app_shell;
 pub mod cjk_sort_engine;
 pub mod config_store;
@@ -31,9 +29,6 @@ pub mod undo_manager;
 
 /// 常用型別與函式匯出 (`use atg_lib::prelude::*;`)
 pub mod prelude {
-    pub use crate::ai_engine::{
-        AIQueryResult, AIStatus, GpuHardwareInfo, LocalModelInfo, ModelCapability, RuhAIEngine,
-    };
     pub use crate::app_shell::UniversalAppShell;
     pub use crate::cjk_sort_engine::{CjkSortEngine, CjkSortMode};
     pub use crate::config_store::{AppConfig, WindowGeometry};

@@ -58,6 +58,25 @@ impl SymbolsManager {
             ("Ctrl+.", "……"), // Ctrl + . -> …… (自然輸入法標準刪節號)
             ("Ctrl+,", "，"), // Ctrl + , -> ，
             ("Ctrl+-", "──"), // Ctrl + - -> ── (雙破折號)
+            ("Ctrl+`", "～"), // Ctrl + ` -> ～ (全形波浪號)
+            ("Ctrl+Shift+`", "～"), // Ctrl + Shift + ` (Ctrl + ~) -> ～ (全形波浪號)
+            ("Ctrl+~", "～"), // Ctrl + ~ -> ～ (全形波浪號)
+            ("Ctrl+Shift+~", "～"),
+            ("Ctrl+;", "；"),
+            ("Ctrl+'", "、"),
+            ("Ctrl+/", "？"),
+            ("Ctrl+[", "「"),
+            ("Ctrl+]", "」"),
+            ("Ctrl+\\", "、"),
+            ("Ctrl+1", "！"),
+            ("Ctrl+Shift+[", "『"),
+            ("Ctrl+Shift+]", "』"),
+            ("Ctrl+Shift+,", "《"),
+            ("Ctrl+Shift+.", "》"),
+            ("Ctrl+Shift+-", "＿"),
+            ("Ctrl+Shift+;", "："),
+            ("Ctrl+Shift+'", "”"),
+            ("Ctrl+Shift+/", "？"),
             ("<", "《"),      // Shift + , -> 《 (開書名號)
             (">", "》"),      // Shift + . -> 》 (閉書名號)
             ("^", "……"),     // Shift + 6 -> …… (刪節號)

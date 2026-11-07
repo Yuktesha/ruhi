@@ -23,9 +23,15 @@
     "capslock_switch": "chinese_english",
     "candidate_keys": "123456789",
     "backspace_mode": "component",
-    "enable_mixed_english": false,
+    "enable_mixed_english": true,
     "mixed_english_mode": "contextual_stream",
     "mixed_english_min_len": 4,
+    "mixed_typing_modes": [
+      "standard",
+      "cangjie",
+      "four_corner",
+      "array30"
+    ],
     "punctuation_commit_mode": "C",
     "q_cycle_max": 3,
     "enable_array30_coach": false,
@@ -39,8 +45,6 @@
   },
   "ai_and_privacy": {
     "zero_pii_gateway": true,
-    "ollama_model": "gemma4:12b",
-    "enable_cloud_colab": true,
     "telemetry_consent": false,
     "upload_schedule": "weekly",
     "cloud_sheet_webhook_url": "https://script.google.com/macros/s/AKfycbzH-n5YhBFSUPZUiUWfZXw46qp9OYliLlnijGmHMpIs4F0Ve_2ZM6k2mNpeoSnU6NMt/exec",

@@ -114,6 +114,8 @@ pub struct KeyboardSettings {
     pub enable_mixed_english: bool,
     pub mixed_english_mode: String,
     pub mixed_english_min_len: i32,
+    #[serde(default = "default_mixed_typing_modes")]
+    pub mixed_typing_modes: Vec<String>,
     pub punctuation_commit_mode: String,
     pub q_cycle_max: i32,
     #[serde(default)]
@@ -126,8 +128,24 @@ pub struct KeyboardSettings {
     pub last_keyboard_mode: String,
     #[serde(default = "default_aux_ime_mode")]
     pub backtick_inline_mode: String,
-    #[serde(default = "default_aux_ime_mode")]
+    #[serde(default = "default_tilde_toggle_mode")]
     pub tilde_toggle_mode: String,
+    #[serde(default = "default_aux_ime_mode")]
+    pub shift_down_mode: String,
+    #[serde(default)]
+    pub fullwidth_mode: bool,
+    #[serde(default = "default_shift_space_toggle_fullwidth")]
+    pub shift_space_toggle_fullwidth: bool,
+    #[serde(default = "default_halfwidth_punct_mode")]
+    pub halfwidth_punct_mode: String,
+}
+
+fn default_shift_space_toggle_fullwidth() -> bool {
+    true
+}
+
+fn default_halfwidth_punct_mode() -> String {
+    "fullwidth".to_string()
 }
 
 fn default_reverse_coach_target() -> String {
@@ -146,6 +164,19 @@ fn default_aux_ime_mode() -> String {
     "longkan".to_string()
 }
 
+fn default_tilde_toggle_mode() -> String {
+    "punct".to_string()
+}
+
+pub fn default_mixed_typing_modes() -> Vec<String> {
+    vec![
+        "standard".to_string(),
+        "cangjie".to_string(),
+        "four_corner".to_string(),
+        "array30".to_string(),
+    ]
+}
+
 impl Default for KeyboardSettings {
     fn default() -> Self {
         Self {
@@ -162,6 +193,7 @@ impl Default for KeyboardSettings {
             enable_mixed_english: true,
             mixed_english_mode: "contextual_stream".to_string(),
             mixed_english_min_len: 4,
+            mixed_typing_modes: default_mixed_typing_modes(),
             punctuation_commit_mode: "A".to_string(),
             q_cycle_max: 3,
             enable_array30_coach: false,
@@ -169,7 +201,11 @@ impl Default for KeyboardSettings {
             four_corner_keymap: "blind_closed_loop".to_string(),
             last_keyboard_mode: "english".to_string(),
             backtick_inline_mode: "longkan".to_string(),
-            tilde_toggle_mode: "longkan".to_string(),
+            tilde_toggle_mode: "punct".to_string(),
+            shift_down_mode: "longkan".to_string(),
+            fullwidth_mode: false,
+            shift_space_toggle_fullwidth: true,
+            halfwidth_punct_mode: "fullwidth".to_string(),
         }
     }
 }
@@ -184,7 +220,7 @@ pub struct GrammarSettings {
     /// 語意調校工作室三層分級模式：
     /// - `"pure"` (Lv.1 一般使用者純享模式：隱藏複雜語意調校面板，僅保留一鍵匿名回報)
     /// - `"expert_sandbox"` (Lv.2 進階專家沙盒模式：啟用語意調校工作室，所有規則須通過記憶體內 Viterbi 三重零迴歸沙盒驗證方可套用至本機個人層，附一鍵還原)
-    /// - `"maintainer"` (Lv.3 核心總工程師模式：完整開放全域 `patterns_user.jsonl`、Colab CLI 特化模型訓練管線與黃金基準入庫)
+    /// - `"maintainer"` (Lv.3 核心總工程師模式：完整開放全域 `patterns_user.jsonl` 多維槽位陣列編輯、黃金基準入庫與 Tailcat 發布)
     #[serde(default = "default_studio_access_tier")]
     pub studio_access_tier: String,
 }
@@ -326,8 +362,6 @@ fn default_tailcat_feed_url() -> String {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AiPrivacySettings {
     pub zero_pii_gateway: bool,
-    pub ollama_model: String,
-    pub enable_cloud_colab: bool,
     /// 使用者是否同意匿名記錄手動改字整句對照並回傳至官方雲端硬碟資料表（預設關閉 Opt-In，安裝時徵詢，隨時可在設定修改）
     #[serde(default = "default_false")]
     pub telemetry_consent: bool,
@@ -362,8 +396,6 @@ impl Default for AiPrivacySettings {
     fn default() -> Self {
         Self {
             zero_pii_gateway: true,
-            ollama_model: "gemma4:latest".to_string(),
-            enable_cloud_colab: true,
             telemetry_consent: false,
             upload_schedule: default_upload_schedule(),
             cloud_sheet_webhook_url: default_cloud_sheet_webhook_url(),
@@ -566,8 +598,19 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
         if let Some(v) = kb.get("backspace_mode").and_then(Value::as_str) {
             settings.keyboard.backspace_mode = v.to_string();
         }
-        if let Some(v) = kb.get("enable_mixed_english").and_then(Value::as_bool) {
-            settings.keyboard.enable_mixed_english = v;
+        if let Some(arr) = kb.get("mixed_typing_modes").and_then(Value::as_array) {
+            settings.keyboard.mixed_typing_modes = arr
+                .iter()
+                .filter_map(Value::as_str)
+                .map(|s| s.to_string())
+                .collect();
+            if let Some(v) = kb.get("enable_mixed_english").and_then(Value::as_bool) {
+                settings.keyboard.enable_mixed_english = v;
+            }
+        } else {
+            // 舊版設定檔自動升級至「歐亞智慧混打」：預設啟用正交低重碼四模式（標準大千、倉頡、四角、行列 30）
+            settings.keyboard.mixed_typing_modes = default_mixed_typing_modes();
+            settings.keyboard.enable_mixed_english = true;
         }
         if let Some(v) = kb.get("mixed_english_mode").and_then(Value::as_str) {
             settings.keyboard.mixed_english_mode = v.to_string();
@@ -607,6 +650,26 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
                 settings.keyboard.tilde_toggle_mode = v.trim().to_string();
             }
         }
+        if let Some(v) = kb.get("shift_down_mode").and_then(Value::as_str) {
+            if !v.trim().is_empty() {
+                settings.keyboard.shift_down_mode = v.trim().to_string();
+            }
+        }
+        if let Some(v) = kb.get("fullwidth_mode").and_then(Value::as_bool) {
+            settings.keyboard.fullwidth_mode = v;
+        }
+        if let Some(v) = kb
+            .get("shift_space_toggle_fullwidth")
+            .and_then(Value::as_bool)
+        {
+            settings.keyboard.shift_space_toggle_fullwidth = v;
+        }
+        if let Some(v) = kb.get("halfwidth_punct_mode").and_then(Value::as_str) {
+            let trimmed = v.trim();
+            if matches!(trimmed, "fullwidth" | "consistent" | "halfwidth") {
+                settings.keyboard.halfwidth_punct_mode = trimmed.to_string();
+            }
+        }
     }
 
     if let Some(gr) = val.get("grammar").and_then(Value::as_object) {
@@ -636,12 +699,6 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
     if let Some(ai) = val.get("ai_and_privacy").and_then(Value::as_object) {
         if let Some(v) = ai.get("zero_pii_gateway").and_then(Value::as_bool) {
             settings.ai_and_privacy.zero_pii_gateway = v;
-        }
-        if let Some(v) = ai.get("ollama_model").and_then(Value::as_str) {
-            settings.ai_and_privacy.ollama_model = v.to_string();
-        }
-        if let Some(v) = ai.get("enable_cloud_colab").and_then(Value::as_bool) {
-            settings.ai_and_privacy.enable_cloud_colab = v;
         }
         if let Some(v) = ai.get("telemetry_consent").and_then(Value::as_bool) {
             settings.ai_and_privacy.telemetry_consent = v;
@@ -727,11 +784,31 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
             settings.keyboard.tilde_toggle_mode = v.trim().to_string();
         }
     }
+    if let Some(v) = map.get("shift_down_mode").and_then(Value::as_str) {
+        if !v.trim().is_empty() {
+            settings.keyboard.shift_down_mode = v.trim().to_string();
+        }
+    }
     if let Some(v) = map.get("capslock_switch").and_then(Value::as_str) {
         settings.keyboard.capslock_switch = v.to_string();
     }
     if let Some(v) = map.get("punctuation_commit_mode").and_then(Value::as_str) {
         settings.keyboard.punctuation_commit_mode = v.to_string();
+    }
+    if let Some(v) = map.get("fullwidth_mode").and_then(Value::as_bool) {
+        settings.keyboard.fullwidth_mode = v;
+    }
+    if let Some(v) = map
+        .get("shift_space_toggle_fullwidth")
+        .and_then(Value::as_bool)
+    {
+        settings.keyboard.shift_space_toggle_fullwidth = v;
+    }
+    if let Some(v) = map.get("halfwidth_punct_mode").and_then(Value::as_str) {
+        let trimmed = v.trim();
+        if matches!(trimmed, "fullwidth" | "consistent" | "halfwidth") {
+            settings.keyboard.halfwidth_punct_mode = trimmed.to_string();
+        }
     }
     if let Some(v) = map.get("q_cycle_max").and_then(Value::as_i64) {
         settings.keyboard.q_cycle_max = (v as i32).clamp(1, 8);
@@ -745,6 +822,16 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
     if let Some(v) = map.get("reverse_coach_target").and_then(Value::as_str) {
         settings.keyboard.reverse_coach_target = v.to_string();
         settings.keyboard.enable_array30_coach = v == "array30";
+    }
+    if let Some(arr) = map.get("mixed_typing_modes").and_then(Value::as_array) {
+        settings.keyboard.mixed_typing_modes = arr
+            .iter()
+            .filter_map(Value::as_str)
+            .map(|s| s.to_string())
+            .collect();
+        if let Some(v) = map.get("enable_mixed_english").and_then(Value::as_bool) {
+            settings.keyboard.enable_mixed_english = v;
+        }
     }
     if let Some(v) = map.get("four_corner_keymap").and_then(Value::as_str) {
         settings.keyboard.four_corner_keymap = v.to_string();
@@ -907,6 +994,10 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             json!(settings.keyboard.tilde_toggle_mode),
         );
         map.insert(
+            "shift_down_mode".to_string(),
+            json!(settings.keyboard.shift_down_mode),
+        );
+        map.insert(
             "space_behavior".to_string(),
             json!(settings.keyboard.space_behavior),
         );
@@ -917,6 +1008,18 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
         map.insert(
             "punctuation_commit_mode".to_string(),
             json!(settings.keyboard.punctuation_commit_mode),
+        );
+        map.insert(
+            "fullwidth_mode".to_string(),
+            json!(settings.keyboard.fullwidth_mode),
+        );
+        map.insert(
+            "shift_space_toggle_fullwidth".to_string(),
+            json!(settings.keyboard.shift_space_toggle_fullwidth),
+        );
+        map.insert(
+            "halfwidth_punct_mode".to_string(),
+            json!(settings.keyboard.halfwidth_punct_mode),
         );
         map.insert(
             "q_cycle_max".to_string(),
@@ -946,12 +1049,11 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             "mixed_english_min_len".to_string(),
             json!(settings.keyboard.mixed_english_min_len),
         );
-        if !settings.ai_and_privacy.ollama_model.is_empty() {
-            map.insert(
-                "ollama_model".to_string(),
-                json!(settings.ai_and_privacy.ollama_model),
-            );
-        }
+        map.insert(
+            "mixed_typing_modes".to_string(),
+            json!(settings.keyboard.mixed_typing_modes),
+        );
+        map.remove("ollama_model");
         map.insert(
             "telemetry_consent".to_string(),
             json!(settings.ai_and_privacy.telemetry_consent),
