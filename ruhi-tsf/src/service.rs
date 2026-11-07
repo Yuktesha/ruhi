@@ -2750,18 +2750,46 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         }
                     });
                     if let Some((mut start, end)) = eff_sel_range {
-                        if end.saturating_sub(start) == 1 && start >= 1 {
+                        let (adj_start, is_verified_lk, postal_opt) = {
                             let pending_str = self.pending_compose.lock().unwrap().clone();
                             let pending_chars: Vec<char> = pending_str.chars().collect();
                             let pending_syls = self.pending_syllables.lock().unwrap().clone();
                             let engine = self.engine.lock().unwrap();
-                            if engine.has_verified_longkan_component_fusion_for_slice(
-                                &pending_chars,
-                                &pending_syls,
-                                start - 1,
-                                end,
-                            ) {
-                                start -= 1;
+                            let mut s = start;
+                            if end.saturating_sub(s) == 1
+                                && s >= 1
+                                && engine.has_verified_longkan_component_fusion_for_slice(
+                                    &pending_chars,
+                                    &pending_syls,
+                                    s - 1,
+                                    end,
+                                )
+                            {
+                                s -= 1;
+                            }
+                            let verified_lk = (2..=4).contains(&end.saturating_sub(s))
+                                && engine.has_verified_longkan_component_fusion_for_slice(
+                                    &pending_chars,
+                                    &pending_syls,
+                                    s,
+                                    end,
+                                );
+                            let postal = if !verified_lk && self.get_manual_selection_range().is_some() {
+                                engine.resolve_postal_code_for_marked_slice(&pending_chars, s, end)
+                            } else {
+                                None
+                            };
+                            (s, verified_lk, postal)
+                        };
+                        start = adj_start;
+                        if !is_verified_lk {
+                            if let Some(postal_str) = postal_opt {
+                                let rep_chars: Vec<char> = postal_str.chars().collect();
+                                self.replace_pending_range(start, start, &rep_chars, None);
+                                *self.sel_anchor.lock().unwrap() = None;
+                                *self.sentence_cursor.lock().unwrap() = end + rep_chars.len();
+                                self.sync_input_display(ctx)?;
+                                return Ok(BOOL::from(true));
                             }
                         }
                         if end.saturating_sub(start) >= 2 && end.saturating_sub(start) <= 4 {
@@ -4173,10 +4201,14 @@ impl RuhiTextService_Impl {
             }
         } else if rep_len != old_len {
             let diff = rep_len as isize - old_len as isize;
-            segs.retain(|s| !(s.0 >= start && s.1 <= end));
+            if old_len > 0 {
+                segs.retain(|s| !(s.0 >= start && s.1 <= end));
+            }
             for seg in segs.iter_mut() {
                 if seg.0 >= end {
                     seg.0 = (seg.0 as isize + diff).max(0) as usize;
+                    seg.1 = (seg.1 as isize + diff).max(0) as usize;
+                } else if seg.1 > start {
                     seg.1 = (seg.1 as isize + diff).max(0) as usize;
                 }
             }

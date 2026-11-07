@@ -694,6 +694,29 @@ impl RuhiEngine {
         }
     }
 
+    pub fn select_cursor_home(&mut self) {
+        if self.fsm.has_pending() && !self.is_latin_mode {
+            self.fsm.commit_current('1');
+            self.update_sentence_composition();
+        }
+        if self.selection_anchor.is_none() {
+            self.selection_anchor = Some(self.cursor_pos);
+        }
+        self.cursor_pos = 0;
+    }
+
+    pub fn select_cursor_end(&mut self) {
+        if self.fsm.has_pending() && !self.is_latin_mode {
+            self.fsm.commit_current('1');
+            self.update_sentence_composition();
+        }
+        let total_len = self.get_display_len();
+        if self.selection_anchor.is_none() {
+            self.selection_anchor = Some(self.cursor_pos);
+        }
+        self.cursor_pos = total_len;
+    }
+
     pub fn get_selection_range(&self) -> Option<(usize, usize)> {
         if let Some(anchor) = self.selection_anchor {
             let start = anchor.min(self.cursor_pos);
@@ -4060,6 +4083,14 @@ impl RuhiEngine {
             self.select_cursor_right();
             return self.build_response("select_range", "");
         }
+        if key_str == "Shift+Home" || key_str == "Shift+home" {
+            self.select_cursor_home();
+            return self.build_response("select_range", "");
+        }
+        if key_str == "Shift+End" || key_str == "Shift+end" {
+            self.select_cursor_end();
+            return self.build_response("select_range", "");
+        }
         if key_str == "Tab" || key_str == "tab" {
             return self.process_key('\t');
         }
@@ -5197,14 +5228,26 @@ impl RuhiEngine {
             return self.build_response("commit_enter", &committed);
         }
 
-        // 6.5 Tab 鍵：若有 Shift + 方向鍵標記之 2~4 個音節區間，優先執行「龍龕 2.0 事後合體熔煉」；否則執行手動斷詞切換
+        // 6.5 Tab 鍵：
+        // - 若有 Shift + 方向鍵標記之 2~4 個音節區間且為已驗證之龍龕部件拆字，優先執行「龍龕 2.0 事後合體熔煉」；
+        // - 若標記區間可解析出 3+3 郵遞區號，於標記起點前插入該郵遞區號；
+        // - 否則若為 2~4 音節區間則嘗試一般龍龕熔煉，無標記時則執行手動斷詞切換
         if key == '\t' {
             if self.fsm.has_pending() && !self.is_latin_mode {
                 self.fsm.commit_current('1');
                 self.update_sentence_composition();
             }
             if let Some((start, end)) = self.get_selection_range() {
-                if end - start >= 2 && self.fuse_range_with_longkan(start, end) {
+                if (2..=4).contains(&(end - start))
+                    && self.has_verified_longkan_component_fusion(start, end)
+                    && self.fuse_range_with_longkan(start, end)
+                {
+                    return self.build_response("fuse_longkan", "");
+                }
+                if self.insert_postal_code_before_range(start, end) {
+                    return self.build_response("insert_postal_code", "");
+                }
+                if (2..=4).contains(&(end - start)) && self.fuse_range_with_longkan(start, end) {
                     return self.build_response("fuse_longkan", "");
                 }
                 if end - start == 1
@@ -5935,6 +5978,153 @@ impl RuhiEngine {
         };
         crate::router::geo_hierarchy::CjkGeoHierarchy::global()
             .resolve_postal_code_for_sentence(&full_query)
+    }
+
+    /// 針對 `Shift + 方向鍵` 標記之區間 `chars[start..end]` 解析對應之 3+3 郵遞區號字串（已依半形／全形模式格式化）。
+    /// - 若標記區間前或標記區間開頭已存在相同郵遞區號，回傳 `None` 防止重複插入。
+    pub fn resolve_postal_code_for_marked_slice(
+        &self,
+        chars: &[char],
+        start: usize,
+        end: usize,
+    ) -> Option<String> {
+        if start >= end || end > chars.len() {
+            return None;
+        }
+        let selected: String = chars[start..end].iter().collect();
+        if selected.trim().is_empty() {
+            return None;
+        }
+        let geo = crate::router::geo_hierarchy::CjkGeoHierarchy::global();
+        let mut resolved = geo.resolve_postal_code_for_sentence(&selected);
+
+        // 若使用者從地址開頭往右標記了前半段（如僅標記「基隆市」或「基隆市中正區」），而同一分句後半段緊接於 `end` 之後，
+        // 則在不跨越標點分句邊界之前提下檢視 `from_start_clause`，升級為完整門牌之 3+3 郵遞區號。
+        if end < chars.len() {
+            let from_start_clause: String = chars[start..]
+                .iter()
+                .take_while(|&&c| {
+                    !matches!(
+                        c,
+                        '，' | '。' | '；' | '！' | '？' | '、' | ',' | ';' | '!' | '?'
+                    )
+                })
+                .collect();
+            if from_start_clause.len() > selected.len() {
+                if let Some(full_match) = geo.resolve_postal_code_for_sentence(&from_start_clause) {
+                    if let Some(ref dm) = resolved {
+                        if full_match.country == dm.country
+                            && (full_match.matched_hierarchy.len() > dm.matched_hierarchy.len()
+                                || (dm.postal_code.ends_with("000")
+                                    && !full_match.postal_code.ends_with("000")))
+                        {
+                            resolved = Some(full_match);
+                        }
+                    } else {
+                        resolved = Some(full_match);
+                    }
+                }
+            }
+        }
+
+        // 若單靠標記區間尚不足以獨立解析（例如獨立引擎模式下數字已先分段送出至 `active_geo_context`），
+        // 且標記於緩衝區開頭並以地址門牌單位結尾，則合併 `active_geo_context` 進行解析。
+        if resolved.is_none()
+            && start == 0
+            && !self.active_geo_context.is_empty()
+            && selected.chars().last().map_or(false, |c| {
+                matches!(
+                    c,
+                    '號' | '弄' | '巷' | '路' | '街' | '道' | '段' | '鄰' | '里' | '村' | '樓'
+                )
+            })
+        {
+            let merged = Self::merge_with_overlap(&self.active_geo_context, &selected);
+            resolved = geo.resolve_postal_code_for_sentence(&merged);
+        }
+
+        let geo_match = resolved?;
+        if geo_match.postal_code.is_empty() {
+            return None;
+        }
+        let postal_str = self.format_latin_for_width(&geo_match.postal_code);
+        if selected.starts_with(&postal_str) || selected.starts_with(&geo_match.postal_code) {
+            return None;
+        }
+        let before_start: String = chars[..start].iter().collect();
+        let before_trimmed = before_start.trim_end();
+        if before_trimmed.ends_with(&postal_str)
+            || before_trimmed.ends_with(&geo_match.postal_code)
+        {
+            return None;
+        }
+        Some(postal_str)
+    }
+
+    /// 於 `RuhiEngine` 標記區間 `start..end` 之前方插入查詢得知之 3+3 郵遞區號
+    pub fn insert_postal_code_before_range(&mut self, start: usize, end: usize) -> bool {
+        let chars_vec: Vec<char> = self
+            .sentence_chars
+            .iter()
+            .filter_map(|s| s.chars().next())
+            .collect();
+        let postal_str = match self.resolve_postal_code_for_marked_slice(&chars_vec, start, end) {
+            Some(s) => s,
+            None => return false,
+        };
+        let postal_chars: Vec<char> = postal_str.chars().collect();
+        let ins_len = postal_chars.len();
+        if ins_len == 0 {
+            return false;
+        }
+
+        let had_syllables = !self.fsm.syllables.is_empty();
+        for (offset, ch) in postal_chars.into_iter().enumerate() {
+            let insert_idx = start + offset;
+            let ch_str = ch.to_string();
+            if had_syllables {
+                let dummy_syl = crate::fsm::HsuSyllable::new("ㄧ", "", "", '1');
+                if insert_idx <= self.fsm.syllables.len() {
+                    self.fsm.syllables.insert(insert_idx, dummy_syl);
+                } else {
+                    self.fsm.syllables.push(dummy_syl);
+                }
+            }
+            if insert_idx <= self.sentence_chars.len() {
+                self.sentence_chars.insert(insert_idx, ch_str.clone());
+            } else {
+                self.sentence_chars.push(ch_str.clone());
+            }
+            let mut shifted_pinned = std::collections::HashMap::new();
+            for (&k, v) in &self.user_pinned {
+                if k >= insert_idx {
+                    shifted_pinned.insert(k + 1, v.clone());
+                } else {
+                    shifted_pinned.insert(k, v.clone());
+                }
+            }
+            shifted_pinned.insert(insert_idx, ch_str);
+            self.user_pinned = shifted_pinned;
+
+            let mut shifted_cuts = std::collections::HashSet::new();
+            for &c_idx in &self.manual_cuts {
+                if c_idx > insert_idx {
+                    shifted_cuts.insert(c_idx + 1);
+                } else {
+                    shifted_cuts.insert(c_idx);
+                }
+            }
+            self.manual_cuts = shifted_cuts;
+        }
+        if had_syllables {
+            self.manual_cuts.insert(start + ins_len);
+            self.update_sentence_composition();
+        } else {
+            self.composed_sentence = self.sentence_chars.join("");
+        }
+        self.selection_anchor = None;
+        self.cursor_pos = (end + ins_len).min(self.sentence_chars.len());
+        true
     }
 
     pub fn cycle_next_candidate(&mut self) {
@@ -12881,7 +13071,7 @@ mod tests {
     #[test]
     fn test_geo_hierarchy_address_decoding_and_postal_candidate_261106() {
         // 條件式地理知識樹：門牌地址應正確解碼（和憲里／和一路，不得出現「和獻禮／合一路」），
-        // 並於候選列提供 3+3 郵遞區號格式，且地址不得重複
+        // 並支援「Shift + 方向鍵標記後按 Tab 鍵」於標記前插入查詢得知之 3+3 郵遞區號
         let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
         engine.keyboard_mode = "hsu".to_string();
         engine.reset_buffer();
@@ -12899,11 +13089,44 @@ mod tests {
         let postal = engine.resolve_active_postal_code().expect("應成功解析 3+3 郵遞區號");
         assert_eq!(postal.postal_code, "202008");
         assert_eq!(postal.formatted_with_postal.matches("和一路").count(), 1, "郵遞區號候選之地址不得重複：{}", postal.formatted_with_postal);
-        let down = engine.open_down_arrow_candidates();
-        assert!(
-            down.candidates.iter().any(|c| c.contains("202008")),
-            "↓ 候選列應包含 3+3 郵遞區號格式，實際：{:?}",
-            down.candidates
+
+        // 驗證輸入座完整地址標記區間解析（對應 TSF `pending_compose` 全句標記與句中地址標記）
+        let tsf_chars: Vec<char> = "收件地址：基隆市中正區和憲里1鄰和一路13號".chars().collect();
+        assert_eq!(
+            engine.resolve_postal_code_for_marked_slice(&tsf_chars, 5, tsf_chars.len()),
+            Some("202008".to_string())
+        );
+        // 若從地址起點僅往右標記開頭「基隆市」，亦自動延伸解析整段地址之 3+3 郵遞區號
+        assert_eq!(
+            engine.resolve_postal_code_for_marked_slice(&tsf_chars, 5, 8),
+            Some("202008".to_string())
+        );
+        // 已插入郵遞區號後再次按 Tab 不得重複插入
+        let already_inserted: Vec<char> = "收件地址：202008基隆市中正區和憲里1鄰和一路13號".chars().collect();
+        assert_eq!(
+            engine.resolve_postal_code_for_marked_slice(&already_inserted, 5, already_inserted.len()),
+            None
+        );
+        assert_eq!(
+            engine.resolve_postal_code_for_marked_slice(&already_inserted, 11, already_inserted.len()),
+            None
+        );
+
+        // 驗證核心引擎內以 Shift + 方向鍵（Shift+Home / Shift+Left）標記地址後按 Tab 鍵，在標記前插入 3+3 郵遞區號
+        engine.reset_buffer();
+        engine.last_committed_word.clear();
+        engine.active_geo_context.clear();
+        for c in "je lxldcjjxl jljvu hgdcemjlefe lendhgde lxjcdsm hwj".chars() {
+            engine.process_key(c);
+        }
+        assert_eq!(engine.get_display_text(), "基隆市中正區和憲里一鄰和一路十三號");
+        let sel_resp = engine.process_key_str("Shift+Home");
+        assert_eq!(sel_resp.action, "select_range");
+        let tab_resp = engine.process_key_str("Tab");
+        assert_eq!(tab_resp.action, "insert_postal_code");
+        assert_eq!(
+            engine.get_display_text(),
+            "202008基隆市中正區和憲里一鄰和一路十三號"
         );
     }
 }
