@@ -555,7 +555,13 @@ impl CjkGeoHierarchy {
                 | "特別市"
                 | "廣域市"
                 | "自治道"
+                | "自治區"
                 | "特別行政區"
+                | "大字"
+                | "北側"
+                | "南側"
+                | "東側"
+                | "西側"
                 | "街區"
                 | "美食街"
                 | "老街"
@@ -590,7 +596,9 @@ impl CjkGeoHierarchy {
         // ---------------------------------------------------------------------
         // D. Address / Cadastral / Household Structural Slot & Homophone Guard
         // ---------------------------------------------------------------------
-        let is_numeral_end = last_word.ends_with(|c: char| {
+        let is_numeral_end = (last_word.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false)
+            && last_word.chars().all(|c| c.is_ascii_alphanumeric()))
+            || last_word.ends_with(|c: char| {
             matches!(
                 c,
                 '一' | '二'
@@ -656,11 +664,14 @@ impl CjkGeoHierarchy {
                     | "地號"
                     | "建號"
                     | "號樓"
+                    | "期"
+                    | "座"
+                    | "室"
             ) {
                 bonus += 84.0;
             } else if matches!(
                 curr_clean,
-                "林" | "臨" | "淋" | "琳" | "麟" | "斷" | "鍛" | "露" | "錄" | "接" | "皆" | "向" | "項" | "好" | "耗" | "流" | "留"
+                "林" | "臨" | "淋" | "琳" | "麟" | "斷" | "鍛" | "露" | "錄" | "接" | "皆" | "向" | "項" | "好" | "耗" | "流" | "留" | "做" | "作" | "其" | "棋"
             ) || curr_clean.starts_with('臨')
             {
                 bonus -= 88.0;
@@ -726,6 +737,28 @@ impl CjkGeoHierarchy {
         }
 
         // Homophone guard inside active geo hierarchy:
+        if (last_word.len() == 1
+            && last_word.chars().all(|c| c.is_ascii_alphabetic())
+            && (prev2_word.ends_with('樓') || prev2_word.ends_with('層') || prev2_word.ends_with('座')))
+            || (last_word.len() >= 2
+                && last_word.ends_with(|c: char| c.is_ascii_alphabetic())
+                && last_word[..last_word.len() - 1].ends_with(['樓', '層', '座']))
+        {
+            if curr_clean == "室" {
+                bonus += 84.0;
+            } else if matches!(curr_clean, "是" | "事" | "市" | "式" | "試" | "視") {
+                bonus -= 76.0;
+            }
+        }
+        if matches!(curr_clean, "字" | "自")
+            && (last_word == "田代" || prev2_word == "大字" || last_word.ends_with('村'))
+        {
+            if curr_clean == "字" {
+                bonus += 76.0;
+            } else {
+                bonus -= 72.0;
+            }
+        }
         if matched_child_entity.is_some() {
             if matches!(
                 curr_clean,

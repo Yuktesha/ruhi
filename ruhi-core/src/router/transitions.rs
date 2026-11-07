@@ -6143,6 +6143,7 @@ impl TransitionEngine {
                             "都" => bpm == "ㄉㄨ",
                             "還" => bpm.starts_with("ㄏㄨㄢ") || bpm.starts_with("ㄒㄩㄢ"),
                             "只" => bpm == "ㄓ",
+                            "氏" => bpm == "ㄓ",
                             "得" => bpm.starts_with("ㄉㄞ"),
                             "種" => bpm.starts_with("ㄓㄨㄥˋ") && rname.contains("classifier"),
                             "間" => bpm.starts_with("ㄐㄧㄢˋ") && rname.contains("classifier"),
@@ -6258,7 +6259,7 @@ impl TransitionEngine {
                     let non_temporal_prev = [
                         "很多", "許多", "不少", "一些", "幾個", "無數", "非常", "太", "特別", "這", "那", "的",
                         "所有", "在此", "用在", "並非", "二個", "兩個", "每一", "每個", "一個", "這個", "那個",
-                        "哪個", "任何", "各種", "其他", "某些", "同時", "當時", "那時", "有時", "平時", "何時",
+                        "哪個", "任何", "各種", "其他", "某些", "同時", "當時", "那時", "有時", "平時", "何時", "儘速",
                     ];
                     if non_temporal_prev.contains(&prev_word) {
                         continue;

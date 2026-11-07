@@ -4781,7 +4781,7 @@ impl TransitionEngine {
                         m.word.as_str(),
                         "不復" | "不再" | "無法" | "無能" | "沒有" | "足夠" | "具備" | "說過"
                             | "滲透" | "誤導" | "進化" | "退化" | "消失" | "結束" | "完成"
-                            | "成為" | "達到" | "進入" | "超過"
+                            | "成為" | "達到" | "進入" | "超過" | "實作" | "實做"
                     )
                 });
                 let left_is_jiu_yi = matches!(prev_word, "就" | "早" | "業");
@@ -4995,6 +4995,526 @@ impl TransitionEngine {
                 })
             {
                 bonus -= 28.0;
+            }
+
+            // 31-8. 跨詞界同音劫掠防護與日常語境析辨（野心/也心、實作/十座、漢字圈/語意樹、效能/校能、等候/等後、得知/確實、不知道是/不知倒是、風潮/蜂巢、最終將/最中將、墊/電、到現在、坐車、帶傘、因為/音位、多月、闖禍收拾、附近素食自助餐、好玩、之助、一下載）
+            // (a) 「野心（野心略大／野心勃勃／有野心）」vs「也 + 心」
+            if curr_word == "野心" {
+                let left_is_ambition_subj = matches!(
+                    prev_word,
+                    "我" | "你" | "他" | "她" | "有" | "沒" | "沒有" | "充滿" | "懷抱" | "極大"
+                );
+                let right_is_ambition_pred = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "略" | "略大" | "太大" | "很大" | "不小" | "勃勃" | "家"
+                    )
+                });
+                if left_is_ambition_subj || right_is_ambition_pred {
+                    bonus += 28.0;
+                }
+            } else if curr_word == "也" {
+                let right_is_xin_ambition = right_nodes_31_5.iter().any(|m| {
+                    m.word == "心"
+                        && dag
+                            .get(&m.end_idx)
+                            .map(|ns2| {
+                                ns2.iter().any(|m2| {
+                                    matches!(
+                                        m2.word.as_str(),
+                                        "略" | "略大" | "太大" | "很大" | "不小" | "勃勃" | "家"
+                                    )
+                                })
+                            })
+                            .unwrap_or(false)
+                });
+                if right_is_xin_ambition {
+                    bonus -= 24.0;
+                }
+            }
+            // (b) 「實作／實做（工程實作動詞／名詞）」vs「十座（數量詞）」
+            if matches!(curr_word, "實作" | "實做" | "十座") {
+                let left_is_impl_ctx = matches!(
+                    prev_word,
+                    "請" | "請您" | "請你" | "您" | "你" | "已" | "已經" | "目前" | "在" | "正在" | "完成" | "工程" | "系統"
+                );
+                let right_is_impl_target = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "完成" | "出" | "出來" | "漢字" | "地址" | "功能" | "系統" | "的" | "上"
+                    )
+                });
+                if left_is_impl_ctx || right_is_impl_target {
+                    if curr_word == "十座" {
+                        bonus -= 28.0;
+                    } else {
+                        bonus += 28.0;
+                    }
+                }
+            }
+            // (c) 「漢字 + 圈」vs「和自圈」及「特化 + 語意 + 樹」vs「特話雨一束」
+            if curr_word == "漢字"
+                && right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "圈" | "文化" | "詞彙" | "字形" | "輸入")
+                })
+            {
+                bonus += 28.0;
+            }
+            if curr_word == "語意" {
+                let left_is_sem_mod = matches!(
+                    prev_word,
+                    "特化" | "動態" | "上下文"
+                );
+                let right_is_sem_head = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "樹" | "網" | "網路" | "場" | "分析" | "轉移" | "調校" | "調整"
+                    )
+                });
+                if left_is_sem_mod || right_is_sem_head {
+                    bonus += 28.0;
+                }
+            }
+            if prev_word == "語意" && matches!(curr_word, "樹" | "束" | "數" | "術") {
+                if curr_word == "樹" {
+                    bonus += 26.0;
+                } else if curr_word == "束" {
+                    bonus -= 24.0;
+                }
+            }
+            if curr_word == "一束" && matches!(prev_word, "雨" | "語" | "與") {
+                bonus -= 26.0;
+            }
+            // (d) 「效能（系統／造成效能與記憶體負擔）」vs「校能」
+            if curr_word == "效能" {
+                let left_is_perf_ctx = matches!(
+                    prev_word,
+                    "造成" | "系統" | "運算" | "提升" | "整體" | "硬體" | "軟體" | "極致" | "影響" | "降低"
+                );
+                let right_is_perf_coord = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "與" | "跟" | "及" | "和" | "負擔" | "瓶頸" | "表現" | "問題" | "損耗" | "評估" | "測試"
+                    )
+                });
+                if left_is_perf_ctx || right_is_perf_coord {
+                    bonus += 28.0;
+                }
+            }
+            // (e) 「在 + 等候（動詞）」vs「在 + 等 + 後」
+            if curr_word == "等候" {
+                let left_is_wait_adv = matches!(
+                    prev_word,
+                    "在" | "正" | "正在" | "耐心" | "靜靜" | "苦苦"
+                );
+                let right_is_wait_obj = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "我" | "我的" | "你" | "你的" | "他" | "您" | "通知" | "消息" | "結果" | "發落" | "多時"
+                    )
+                });
+                if left_is_wait_adv || right_is_wait_obj {
+                    bonus += 28.0;
+                }
+            } else if prev2_word == "在" && prev_word == "等" && curr_word == "後" {
+                bonus -= 24.0;
+            }
+            // (f) 「得知 + 正確／消息」與「確實 + 是／有」防碎字
+            if curr_word == "得知"
+                && right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "正確" | "消息" | "結果" | "真相" | "此事")
+                })
+            {
+                bonus += 26.0;
+            }
+            if curr_word == "確實"
+                && right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "是" | "有" | "能" | "會" | "很")
+                })
+            {
+                bonus += 26.0;
+            }
+            // (g) 「不知道 + 是／哪個／誰」vs「不知 + 倒是」
+            if curr_word == "不知道"
+                && right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "是" | "哪" | "哪個" | "誰" | "什麼" | "怎麼" | "為何" | "為什麼"
+                    )
+                })
+            {
+                bonus += 28.0;
+            } else if prev_word == "不知" && curr_word == "倒是" {
+                bonus -= 26.0;
+            }
+            // (h) 「風潮（造成／掀起／引發風潮）」vs「蜂巢」
+            if matches!(curr_word, "風潮" | "蜂巢")
+                && matches!(
+                    prev_word,
+                    "造成" | "引發" | "掀起" | "帶動" | "引領" | "一股" | "流行" | "這股" | "全球" | "搶購"
+                )
+            {
+                if curr_word == "風潮" {
+                    bonus += 28.0;
+                } else {
+                    bonus -= 26.0;
+                }
+            }
+            // (i) 「最終 + 將／會／只」vs「最 + 中將」
+            if curr_word == "中將" && prev_word == "最" {
+                bonus -= 28.0;
+            } else if curr_word == "最終"
+                && right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "將" | "會" | "只" | "仍" | "還是" | "必" | "都")
+                })
+            {
+                bonus += 26.0;
+            }
+            // (j) 「把／將 + 抹布／毛巾／坐墊 + 墊 + 上去／起來」vs「電／店」
+            if matches!(curr_word, "墊" | "電" | "店") {
+                let left_is_pad_noun = matches!(
+                    prev_word,
+                    "抹布" | "毛巾" | "報紙" | "枕頭" | "靠墊" | "坐墊" | "軟墊" | "紙"
+                );
+                let right_is_pad_dir = right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "上去" | "起來" | "在" | "著" | "高" | "底")
+                });
+                let prev2_is_disp = matches!(prev2_word, "將" | "把" | "拿" | "用");
+                if (left_is_pad_noun && right_is_pad_dir) || (prev2_is_disp && right_is_pad_dir) {
+                    if curr_word == "墊" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                }
+            }
+            // (k) 「昨天／從 + 到 + 現在／今天」vs「道」
+            if matches!(curr_word, "到" | "道") {
+                let left_is_time_start = matches!(
+                    prev_word,
+                    "昨天" | "前天" | "今天" | "早上" | "昨晚" | "從" | "自" | "古" | "開頭" | "過去"
+                );
+                let right_is_time_end = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "現在" | "今天" | "如今" | "目前" | "今日" | "昨晚" | "剛才" | "這裡" | "那裡" | "底"
+                    )
+                });
+                if left_is_time_start && right_is_time_end {
+                    if curr_word == "到" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                }
+            }
+            // (l) 「坐 + 什麼車／公車／火車／捷運」vs「做／座」
+            if matches!(curr_word, "坐" | "做" | "座") {
+                let right_is_what_vehicle = right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "什麼" | "哪" | "哪班")
+                        && dag
+                            .get(&m.end_idx)
+                            .map(|ns2| {
+                                ns2.iter().any(|m2| {
+                                    matches!(
+                                        m2.word.as_str(),
+                                        "車" | "公車" | "火車" | "高鐵" | "捷運" | "班機" | "船"
+                                    )
+                                })
+                            })
+                            .unwrap_or(false)
+                });
+                let right_is_direct_vehicle = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "公車" | "火車" | "高鐵" | "捷運" | "計程車" | "飛機" | "船"
+                    )
+                });
+                if right_is_what_vehicle || right_is_direct_vehicle {
+                    if curr_word == "坐" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                }
+            }
+            // (m) 「拎著垃圾 + 往（切點句末）」與「樓 + 衝」vs「網／充」
+            if matches!(curr_word, "往" | "網")
+                && curr_bopomofo.starts_with("ㄨㄤˇ")
+                && right_nodes_31_5.is_empty()
+                && matches!(
+                    prev_word,
+                    "垃圾" | "行李" | "包包" | "東西" | "傘" | "步" | "直" | "一直"
+                )
+            {
+                if curr_word == "往" {
+                    bonus += 26.0;
+                } else {
+                    bonus -= 24.0;
+                }
+            }
+            if matches!(curr_word, "衝" | "充")
+                && right_nodes_31_5.is_empty()
+                && matches!(
+                    prev_word,
+                    "樓" | "前" | "外" | "內" | "裡" | "上" | "下" | "那裡" | "這裡"
+                )
+            {
+                if curr_word == "衝" {
+                    bonus += 28.0;
+                } else {
+                    bonus -= 24.0;
+                }
+            }
+            // (n) 「記得／出門 + 帶 + 傘」vs「代 + 散」
+            if matches!(curr_word, "帶" | "代" | "待") {
+                let left_is_bring_trigger = matches!(
+                    prev_word,
+                    "記得" | "忘記" | "忘了" | "出門" | "回家" | "沒" | "沒有" | "要" | "多" | "順便"
+                );
+                let right_is_umbrella = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "傘" | "雨傘" | "雨衣" | "鑰匙" | "錢包" | "手機" | "外套"
+                    )
+                });
+                if left_is_bring_trigger && right_is_umbrella {
+                    if curr_word == "帶" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                }
+            }
+            if prev_word == "帶" && matches!(curr_word, "傘" | "散" | "閃") {
+                if curr_word == "傘" {
+                    bonus += 28.0;
+                } else {
+                    bonus -= 24.0;
+                }
+            }
+            // (o) 「因為（連詞）」vs「音位（音韻學專名）」及「只要 + 沒 + 下雨」vs「媒」
+            if matches!(curr_word, "因為" | "音位") {
+                let is_phonology_ctx = matches!(
+                    prev_word,
+                    "音韻" | "音節" | "輔音" | "元音" | "母音" | "子音" | "系統" | "對立" | "歸併"
+                ) || right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "變體" | "對立" | "系統" | "學" | "結構" | "分析" | "負擔" | "組合"
+                    )
+                });
+                if !is_phonology_ctx {
+                    if curr_word == "因為" {
+                        bonus += 26.0;
+                    } else {
+                        bonus -= 26.0;
+                    }
+                }
+            }
+            if matches!(curr_word, "沒" | "媒" | "枚" | "眉" | "煤" | "霉")
+                && curr_bopomofo.starts_with("ㄇㄟˊ")
+            {
+                let left_is_cond_adv = matches!(
+                    prev_word,
+                    "只要" | "如果" | "要是" | "還" | "都" | "也" | "卻" | "並" | "既"
+                );
+                let right_is_neg_event = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "下雨" | "下雪" | "出門" | "問題" | "辦法" | "關係" | "事" | "錯" | "用" | "空"
+                    )
+                });
+                if left_is_cond_adv || right_is_neg_event {
+                    if curr_word == "沒" {
+                        bonus += 26.0;
+                    } else {
+                        bonus -= 26.0;
+                    }
+                }
+            }
+            // (p) 「兩個多 + 月」vs「越」
+            if matches!(curr_word, "月" | "越" | "躍" | "悅" | "閱")
+                && prev_word == "多"
+                && (prev2_word.ends_with('個') || matches!(prev2_word, "個" | "半"))
+            {
+                if curr_word == "月" {
+                    bonus += 28.0;
+                } else {
+                    bonus -= 26.0;
+                }
+            }
+            // (q) 「闖的 + 禍 + 收拾 + 收拾」
+            if matches!(curr_word, "禍" | "獲" | "或" | "貨" | "惑")
+                && prev_word == "的"
+                && prev2_word == "闖"
+            {
+                if curr_word == "禍" {
+                    bonus += 28.0;
+                } else {
+                    bonus -= 24.0;
+                }
+            }
+            if curr_word == "收拾" {
+                let left_is_clean_target = matches!(
+                    prev_word,
+                    "收拾" | "禍" | "殘局" | "房間" | "行李" | "東西" | "好" | "一下"
+                );
+                let right_is_redup = right_nodes_31_5.iter().any(|m| m.word == "收拾");
+                if left_is_clean_target || right_is_redup {
+                    bonus += 28.0;
+                }
+            }
+            if curr_word == "水藥"
+                && matches!(
+                    prev_word,
+                    "喝" | "喝完" | "完" | "煎" | "煮" | "中藥" | "帖" | "包" | "吃" | "開"
+                )
+            {
+                bonus += 28.0;
+            } else if curr_word == "要"
+                && prev_word == "水"
+                && matches!(prev2_word, "喝完" | "完" | "煎" | "煮")
+                && right_nodes_31_5.is_empty()
+            {
+                bonus -= 24.0;
+            }
+            if curr_word == "時期"
+                && matches!(
+                    prev_word,
+                    "日治" | "戰後" | "明鄭" | "清領" | "戒嚴" | "荷西" | "民國"
+                )
+            {
+                bonus += 28.0;
+            }
+            // (r) 「搜尋 + 附近 + 素食／速食」vs「埠 + 儘速 + 時」與「平價 + 素食 + 自助 + 餐」、「高級 + 料理」
+            if curr_word == "儘速" && matches!(prev_word, "埠" | "搜尋" | "找" | "在") {
+                bonus -= 28.0;
+            }
+            if curr_word == "附近" {
+                let left_is_loc_verb = matches!(
+                    prev_word,
+                    "搜尋" | "尋找" | "查找" | "查詢" | "到" | "在" | "去" | "車站"
+                );
+                let right_is_nearby_np = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "素食" | "速食" | "美食" | "餐廳" | "小吃" | "店家" | "住戶" | "居民"
+                    )
+                });
+                if left_is_loc_verb || right_is_nearby_np {
+                    bonus += 28.0;
+                }
+            }
+            if matches!(curr_word, "平價" | "評價") {
+                let right_is_food_or_goods = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "素食" | "速食" | "美食" | "餐廳" | "料理" | "小吃" | "便當" | "火鍋" | "牛排" | "商品" | "服飾" | "住宅"
+                    )
+                });
+                if right_is_food_or_goods {
+                    if curr_word == "平價" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                }
+            }
+            if matches!(curr_word, "素食" | "速食") {
+                let left_is_veg_mod = matches!(prev_word, "附近" | "平價");
+                let right_is_veg_head = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "自助" | "餐廳" | "館" | "店" | "便當" | "者" | "主義" | "料理"
+                    )
+                });
+                if left_is_veg_mod || right_is_veg_head {
+                    if curr_word == "素食" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 18.0;
+                    }
+                }
+            }
+            if prev_word == "自助" && matches!(curr_word, "餐" | "參" | "驂") {
+                if curr_word == "餐" {
+                    bonus += 28.0;
+                } else {
+                    bonus -= 24.0;
+                }
+            }
+            if curr_word == "料理"
+                && matches!(
+                    prev_word,
+                    "高級" | "日本" | "日式" | "中華" | "義式" | "法式" | "泰式" | "韓式" | "家常" | "美味" | "特色" | "素食" | "創意" | "黑暗"
+                )
+            {
+                bonus += 28.0;
+            }
+            // (s) 「有點 + 好玩」vs「好 + 完」
+            if curr_word == "好玩"
+                && matches!(
+                    prev_word,
+                    "有點" | "很" | "蠻" | "挺" | "真" | "超" | "非常" | "覺得" | "不" | "不好" | "什麼"
+                )
+            {
+                bonus += 28.0;
+            }
+            // (t) 「藉由…之 + 助」vs「支柱」
+            if curr_word == "支柱" {
+                let has_by_means_of = prefix_words.iter().rev().take(4).any(|&w| {
+                    matches!(w, "藉由" | "藉助" | "憑藉" | "仰賴" | "靠著")
+                });
+                let prev_is_ascii_slash = !prev_word.is_empty()
+                    && prev_word.chars().all(|c| c.is_ascii_alphanumeric() || c == '/' || c == '／');
+                if has_by_means_of || prev_is_ascii_slash {
+                    bonus -= 28.0;
+                }
+            }
+            if prev_word == "之"
+                && matches!(curr_word, "助" | "住" | "柱" | "注" | "駐" | "祝" | "築" | "鑄")
+                && right_nodes_31_5.is_empty()
+            {
+                if curr_word == "助" {
+                    bonus += 28.0;
+                } else {
+                    bonus -= 22.0;
+                }
+            }
+            // (u) 「一 + 下載」vs「一下 + 在」
+            if curr_word == "下載"
+                && matches!(
+                    prev_word,
+                    "一" | "剛" | "只要" | "點擊" | "免費" | "開始" | "完成" | "自動"
+                )
+                && (right_nodes_31_5.is_empty()
+                    || right_nodes_31_5.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "完" | "後" | "就" | "了" | "中" | "速度" | "器" | "連結" | "點"
+                        )
+                    }))
+            {
+                bonus += 28.0;
+            } else if prev_word == "一下"
+                && curr_word == "在"
+                && matches!(prev2_word, "但是" | "但" | "只要" | "每次" | "剛")
+                && right_nodes_31_5.is_empty()
+            {
+                bonus -= 24.0;
+            } else if curr_word == "一下"
+                && matches!(prev_word, "但是" | "但" | "只要" | "每次" | "剛")
+                && right_nodes_31_5.iter().any(|m| {
+                    m.word == "在"
+                        && dag.get(&m.end_idx).map(|ns2| ns2.is_empty()).unwrap_or(true)
+                })
+            {
+                bonus -= 28.0;
+            } else if curr_word == "一"
+                && right_nodes_31_5.iter().any(|m| m.word == "下載")
+            {
+                bonus += 26.0;
             }
 
         self.apply_rule_score("construction_hierarchical_matrix", bonus)

@@ -1945,7 +1945,20 @@ impl RuhiEngine {
                     break;
                 }
             }
-            self.last_committed_word = ascii_rev.into_iter().rev().collect();
+            let ascii_tok: String = ascii_rev.into_iter().rev().collect();
+            if ascii_tok.len() == 1
+                && ascii_tok.chars().all(|c| c.is_ascii_alphabetic())
+                && self
+                    .last_committed_word
+                    .chars()
+                    .last()
+                    .map(|c| c.is_ascii_digit() || matches!(c, '樓' | '層' | '座' | '期' | '棟'))
+                    .unwrap_or(false)
+            {
+                self.last_committed_word.push_str(&ascii_tok);
+            } else {
+                self.last_committed_word = ascii_tok;
+            }
             self.longkan.record_committed(&self.last_committed_word);
         } else if matches!(last_ch, '，' | '。' | '；' | '、') {
             // 保留停頓逗號「，」與句號「。」前之話題主語或平行分句尾部（最多 3 個漢字＋標點，如「風，」、「還在吹。」、「燈，」），
@@ -5377,7 +5390,7 @@ impl RuhiEngine {
                 let mut next_buf = self.raw_ascii_buffer.clone();
                 next_buf.push(key);
 
-                let preceded_by_digit = self.last_committed_word.chars().last().map(|c| c.is_ascii_digit()).unwrap_or(false)
+                let preceded_by_digit = self.last_committed_word.chars().last().map(|c| c.is_ascii_digit() || matches!(c, '樓' | '層' | '座' | '期' | '棟' | '號')).unwrap_or(false)
                     || self.composed_sentence.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false);
                 let is_all_upper_acronym = (self.raw_ascii_buffer.len() >= 2
                     || (self.raw_ascii_buffer.len() == 1
@@ -5444,7 +5457,8 @@ impl RuhiEngine {
                 if !self.is_latin_mode {
                     let mut camel_check = self.raw_ascii_buffer.clone();
                     camel_check.push(key);
-                    let is_code_id = crate::western::WesternToken::new(&camel_check).is_code_identifier();
+                    let is_address_or_digit_composed = self.composed_sentence.chars().any(|c| c.is_ascii_digit()) || !self.active_geo_context.is_empty();
+                    let is_code_id = !is_address_or_digit_composed && crate::western::WesternToken::new(&camel_check).is_code_identifier();
                     if is_code_id && (self.western.lexicon.contains(&self.raw_ascii_buffer) || self.western.score_string(&self.raw_ascii_buffer) >= 0.70) && !self.composed_sentence.is_empty() && !self.fsm.syllables.is_empty() {
                         let prior_commit = self.composed_sentence.clone();
                         self.record_committed(&prior_commit);
@@ -13127,6 +13141,80 @@ mod tests {
         assert_eq!(
             engine.get_display_text(),
             "202008基隆市中正區和憲里一鄰和一路十三號"
+        );
+    }
+
+    #[test]
+    fn test_semantic_analysis_261107_and_cjk_addresses() {
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+        engine.keyboard_mode = "hsu".to_string();
+        fn decode(engine: &mut RuhiEngine, keys: &str) -> String {
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            engine.active_geo_context.clear();
+            let mut out = String::new();
+            for c in keys.chars() {
+                let r = engine.process_key(c);
+                if !r.committed_chunk.is_empty() {
+                    out.push_str(&r.committed_chunk);
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            out
+        }
+        let cases = [
+            // 使用者回報之四組同音／跨界詞例
+            ("j vemdxhfeefcen lueddyjds", "之前我野心略大的"),
+            ("velfnendcdzxhjhmjzjvum dej jf", "請您實作漢字圈地址"),
+            ("vedtr hmjzjvum dej jf", "其他漢字圈地址"),
+            ("zwjvldcewjnlduf jej ej tef fxjdm ", "造成效能與記憶體負擔"),
+            // 語意分析261107.txt 代表性語境與漢字圈地址
+            ("zijdlfhojxhf", "在等候我"),
+            ("dgdj jljvuej", "得知正確"),
+            ("vuejcdcj", "確實是"),
+            ("bxjj dwjcjnrfggstem aid", "不知道是哪個天才"),
+            ("e ggsaifdmj", "一個彩蛋"),
+            ("mxjvemdefcdzxhj", "目前已實作"),
+            ("tgjhxrjufejcxj", "特化語意樹"),
+            ("zwjvldfl vwd", "造成風潮"),
+            ("zxajjxl jek jfcljcerj", "最終將只剩下"),
+            ("rjjjcdved", "日治時期"),
+            ("dm vxndagjsxjcd", "單純測速時"),
+            ("mhfbxjdemjckjvuj", "抹布墊上去"),
+            ("zxhdtem dwjcemjzij", "昨天到現在"),
+            ("lidcndmgsvg zxhjcndmgsvg ", "來什麼車坐什麼車"),
+            ("len jgslgjsgjxkf1lodvxl ", "拎著垃圾往1樓衝"),
+            ("jejdgddijsmf", "記得帶傘"),
+            ("en xajcerjuf", "因為下雨"),
+            ("jfewjmadcerjuf", "只要沒下雨"),
+            ("tewddwj50", "調到50"),
+            ("hg xmdcxafewj", "喝完水藥"),
+            ("lekfggsdxh uej", "兩個多月"),
+            ("vxkfdshxhjco cdco cd", "闖的禍收拾收拾"),
+            ("so cundfxjjenjsxjcd", "搜尋附近素食"),
+            ("peldjerjsxjcdzjjxjam ", "平價素食自助餐"),
+            ("gw jedlewdlef", "高級料理"),
+            ("eofdemfhwfxmd", "有點好玩"),
+            ("jeejeodSIj jxj", "藉由SI之助"),
+            ("dmjcje cerjzij", "但是一下載"),
+            // 漢字圈地址（日本、香港、中國大陸）
+            ("dxl jel dx vem dijtemdvu cndtemdcndbwftelf", "東京都千代田區神田神保町"),
+            ("jel dx cjdxl cm vu vedumdtelfbafagj", "京都市東山區祇園町北側"),
+            ("vel sn cemjjxl jen vel junjce mxjx axn dyjzjtemddijzjcndtemd", "青森縣中津輕郡西目屋村大字田代字神田"),
+            ("jeoflxldcn cxafbxjven jo jee 37Khwj", "九龍深水埗欽州街37K號"),
+            ("jeoflxldvldvu hxldkmjhxkdpxfhxr umd3ved6zxhj10lodEcj", "九龍城區紅磡黃埔花園3期6座10樓E室"),
+            ("m hxa clflxjm cjujm vu jeeffkjnmdlxj", "安徽省六安市裕安區解放南路"),
+            ("cen jek xadxdlfzjjjvu x lxfmxjvedcjtem cm vu jeeffkjbaf lxj", "新疆維吾爾自治區烏魯木齊市天山區解放北路"),
+        ];
+        let mut mismatches = Vec::new();
+        for (keys, expected) in cases {
+            let out = decode(&mut engine, keys);
+            if out != expected {
+                mismatches.push(format!("按鍵 `{keys}` 應解碼為「{expected}」，實際為「{out}」"));
+            }
+        }
+        assert!(mismatches.is_empty(), "發現解碼不符：\n{}", mismatches.join("\n"));
+        let _ = (
         );
     }
 }
