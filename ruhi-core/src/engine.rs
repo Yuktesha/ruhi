@@ -624,6 +624,16 @@ impl RuhiEngine {
             } else {
                 format!("{}{}{}", self.fsm.cur_initial, self.fsm.cur_medial, self.fsm.cur_final)
             };
+            if self.cursor_pos < self.sentence_chars.len() {
+                let left = self.sentence_chars[..self.cursor_pos].join("");
+                let right = self.sentence_chars[self.cursor_pos..].join("");
+                return format!("{}{}{}", left, pending_bpmf, right);
+            }
+            let _unused = if false {
+                String::new()
+            } else {
+                format!("{}{}{}", self.fsm.cur_initial, self.fsm.cur_medial, self.fsm.cur_final)
+            };
             format!("{}{}", self.composed_sentence, pending_bpmf)
         } else {
             self.composed_sentence.clone()
@@ -5641,6 +5651,37 @@ impl RuhiEngine {
         if success {
             let is_std_mode = matches!(self.keyboard_mode.as_str(), "standard" | "daikien");
             if self.fsm.syllables.len() > prev_syllable_count {
+                let added = self.fsm.syllables.len() - prev_syllable_count;
+                if self.cursor_pos < prev_syllable_count
+                    && prev_syllable_count == self.sentence_chars.len()
+                {
+                    let insert_idx = self.cursor_pos;
+                    let new_syls: Vec<_> = self.fsm.syllables.drain(prev_syllable_count..).collect();
+                    for (offset, syl) in new_syls.into_iter().enumerate() {
+                        self.fsm.syllables.insert(insert_idx + offset, syl);
+                    }
+                    let mut shifted_pinned = std::collections::HashMap::new();
+                    for (&k, v) in &self.user_pinned {
+                        if k >= insert_idx {
+                            shifted_pinned.insert(k + added, v.clone());
+                        } else {
+                            shifted_pinned.insert(k, v.clone());
+                        }
+                    }
+                    self.user_pinned = shifted_pinned;
+                    let mut shifted_cuts = std::collections::HashSet::new();
+                    for &c in &self.manual_cuts {
+                        if c > insert_idx {
+                            shifted_cuts.insert(c + added);
+                        } else {
+                            shifted_cuts.insert(c);
+                        }
+                    }
+                    self.manual_cuts = shifted_cuts;
+                    self.cursor_pos = insert_idx + added;
+                } else {
+                    self.cursor_pos = self.fsm.syllables.len();
+                }
                 self.prior_was_english = false;
                 let is_std_tone_commit = is_std_mode && matches!(key, ' ' | '6' | '3' | '4' | '7');
                 if key == ' ' || is_std_tone_commit {
@@ -5842,7 +5883,9 @@ impl RuhiEngine {
         self.manual_cuts.retain(|&idx| idx > 0 && idx < syls.len());
 
         let prior_len = self.sentence_chars.len();
-        let was_at_end = self.cursor_pos >= prior_len;
+        let was_at_end = prior_len == 0
+            || self.cursor_pos >= syls.len()
+            || (self.cursor_pos >= prior_len && syls.len() <= prior_len);
 
         self.lexicon.maybe_reload_dynamic_lexicons();
         let dag_builder = LatticeDAG::new(&self.lexicon);
@@ -6335,6 +6378,15 @@ impl RuhiEngine {
             format!("{}📚", self.composed_sentence)
         } else if self.fsm.has_pending() && self.sentence_chars.len() <= self.fsm.syllables.len() {
             let pending_bpmf = format!("{}{}{}", self.fsm.cur_initial, self.fsm.cur_medial, self.fsm.cur_final);
+            if self.cursor_pos < self.sentence_chars.len() {
+                let left = self.sentence_chars[..self.cursor_pos].join("");
+                let right = self.sentence_chars[self.cursor_pos..].join("");
+                format!("{}{}{}", left, pending_bpmf, right)
+            } else {
+                format!("{}{}", self.composed_sentence, pending_bpmf)
+            }
+        } else if false {
+            let pending_bpmf = String::new();
             format!("{}{}", self.composed_sentence, pending_bpmf)
         } else {
             self.composed_sentence.clone()
@@ -6386,6 +6438,39 @@ impl RuhiEngine {
                 self.sentence_chars = self.composed_sentence.chars().map(|c| c.to_string()).collect();
                 self.cursor_pos = self.composed_sentence.chars().count();
                 self.current_candidates = vec![self.raw_ascii_buffer.clone()];
+            }
+            return self.build_response("backspace", "");
+        }
+        if !self.fsm.has_pending()
+            && self.cursor_pos > 0
+            && self.cursor_pos < self.fsm.syllables.len()
+            && self.fsm.syllables.len() == self.sentence_chars.len()
+        {
+            let del_idx = self.cursor_pos - 1;
+            self.fsm.syllables.remove(del_idx);
+            let mut new_pinned = std::collections::HashMap::new();
+            for (&k, v) in &self.user_pinned {
+                if k < del_idx {
+                    new_pinned.insert(k, v.clone());
+                } else if k > del_idx {
+                    new_pinned.insert(k - 1, v.clone());
+                }
+            }
+            self.user_pinned = new_pinned;
+            let mut new_cuts = std::collections::HashSet::new();
+            for &c in &self.manual_cuts {
+                if c <= del_idx {
+                    new_cuts.insert(c);
+                } else if c > del_idx {
+                    new_cuts.insert(c - 1);
+                }
+            }
+            self.manual_cuts = new_cuts;
+            self.cursor_pos = del_idx;
+            if self.fsm.syllables.is_empty() {
+                self.reset_buffer();
+            } else {
+                self.update_sentence_composition();
             }
             return self.build_response("backspace", "");
         }
@@ -13299,6 +13384,8 @@ mod tests {
             ("je lxldcjjxl jljvu hgdljlxj1hwj", "基隆市中正區和二路1號"),
             ("je lxldcjjxl jljvu cgjlewdlefhgdljlxj1hwj", "基隆市中正區社寮里和二路1號"),
             ("je lxldcjhgde lxj13hwj", "基隆市和一路13號"),
+            ("je lxldhgde lxj13hwj", "基隆和一路13號"),
+            ("je lxldhgdljlxj15hwj", "基隆和二路15號"),
             ("kgfefzijhojcumfzjadjem eddxlj", "可以在候選字詞間移動"),
             ("hojcumfzjadjem eddxlj", "候選字詞間移動"),
         ];
@@ -13344,6 +13431,45 @@ mod tests {
         let first_cand = resp_left.candidates[0].clone();
         let _ = engine.process_key('\r');
         assert_eq!(engine.get_display_text(), first_cand);
+
+        // 驗證游標回退至句中補字（如打完「基隆和一路」回頭到「隆」「和」間插入「市」➔「基隆市和一路」，以及一般例句「我們進去公園」於「進」「去」間插入「天」➔「我們今天去公園」）
+        engine.reset_buffer();
+        engine.last_committed_word.clear();
+        engine.active_geo_context.clear();
+        for ch in "je lxldhgde lxj".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.get_display_text(), "基隆和一路");
+        for _ in 0..3 {
+            engine.process_key_str("Left");
+        }
+        for ch in "cj".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.get_display_text(), "基隆市和一路");
+
+        engine.reset_buffer();
+        engine.last_committed_word.clear();
+        for ch in "xhfmnsjen vujgxl umd".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.get_display_text(), "我們今去公園");
+        for _ in 0..3 {
+            engine.process_key_str("Left");
+        }
+        for ch in "tem ".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.get_display_text(), "我們今天去公園");
+
+        // 驗證省去「市」之「基隆和一路13號」與被劫掠之「基隆河一路13號」皆能解析 3+3 郵遞區號並展開戶籍地址
+        let geo = crate::router::geo_hierarchy::CjkGeoHierarchy::global();
+        let m1 = geo.resolve_postal_code_for_sentence("基隆和一路13號").expect("基隆和一路13號 should resolve");
+        assert_eq!(m1.postal_code, "202008");
+        let exp1 = geo.expand_household_address_candidates("基隆和一路13號");
+        assert!(exp1.iter().any(|c| c == "202008基隆市中正區和憲里和一路13號"), "actual: {:?}", exp1);
+        let exp2 = geo.expand_household_address_candidates("基隆河一路13號");
+        assert!(exp2.iter().any(|c| c == "202008基隆市中正區和憲里和一路13號"), "actual: {:?}", exp2);
         let _ = (
         );
     }

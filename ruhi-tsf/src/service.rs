@@ -16,6 +16,7 @@ pub struct EditorSnapshot {
     pub syllables: Vec<Option<String>>,
     pub segments: Vec<(usize, usize, String, String)>,
     pub manual_cuts: std::collections::HashSet<usize>,
+    pub pinned: std::collections::HashSet<usize>,
 }
 
 fn get_clipboard_text() -> Option<String> {
@@ -1217,6 +1218,7 @@ pub struct RuhiTextService {
     last_raw_ascii: Arc<Mutex<Option<(usize, usize, String)>>>,
     // ── Tab 鍵手動斷詞點集合 (Manual Cuts) ──
     manual_cuts: Arc<Mutex<std::collections::HashSet<usize>>>,
+    pending_pinned: Arc<Mutex<std::collections::HashSet<usize>>>,
     // ── 抑制厭惡詞即時過濾集合 ──
     deleted_words: Arc<Mutex<std::collections::HashSet<String>>>,
     // ── 編輯器復原/重做歷史快照堆疊 (Undo / Redo Stacks) ──
@@ -1317,6 +1319,7 @@ impl RuhiTextService {
             pending_segments: Arc::new(Mutex::new(Vec::new())),
             last_raw_ascii: Arc::new(Mutex::new(None)),
             manual_cuts: Arc::new(Mutex::new(std::collections::HashSet::new())),
+            pending_pinned: Arc::new(Mutex::new(std::collections::HashSet::new())),
             deleted_words: Arc::new(Mutex::new(del_words)),
             undo_stack: Arc::new(Mutex::new(Vec::new())),
             redo_stack: Arc::new(Mutex::new(Vec::new())),
@@ -3539,7 +3542,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                             }
                         } else {
                             self.remove_pending_char_at(cur_val - 1);
+                            self.remove_pending_char_at(cur_val - 1);
                             *self.sentence_cursor.lock().unwrap() = cur_val - 1;
+                            self.re_evaluate_joint_pending_and_engine();
                         }
                     }
                 }
@@ -3573,6 +3578,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 let full_len = self.get_full_display_and_cursor().0.chars().count();
                 if cur < full_len {
                     self.remove_pending_char_at(cur);
+                    self.re_evaluate_joint_pending_and_engine();
                 }
                 let (full, _) = self.get_full_display_and_cursor();
                 if !full.is_empty() {
@@ -3763,6 +3769,16 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     String::new()
                 };
                 let prev_kb_mode = engine.keyboard_mode.clone();
+                if engine.fsm.is_empty() && engine.composed_sentence.is_empty() {
+                    let cur_pos = *self.sentence_cursor.lock().unwrap();
+                    let p_str = self.pending_compose.lock().unwrap().clone();
+                    let p_chars: Vec<char> = p_str.chars().collect();
+                    let c_idx = cur_pos.min(p_chars.len());
+                    if c_idx > 0 {
+                        let left_ctx: String = p_chars[..c_idx].iter().collect();
+                        engine.record_committed(&left_ctx);
+                    }
+                }
                 let resp = engine.process_key(ch);
                 let action = resp.action;
                 let committed_chunk = resp.committed_chunk;
@@ -3771,6 +3787,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 let _eng_disp = engine.get_display_text();
                 let _eng_cur = engine.cursor_pos;
                 drop(engine);
+                self.re_evaluate_joint_pending_and_engine();
                 if action == "switch_keyboard_mode"
                     || action == "show_lexicon_switcher"
                     || new_kb_mode != prev_kb_mode
@@ -4069,6 +4086,7 @@ impl RuhiTextService_Impl {
             syllables: self.pending_syllables.lock().unwrap().clone(),
             segments: self.pending_segments.lock().unwrap().clone(),
             manual_cuts: self.manual_cuts.lock().unwrap().clone(),
+            pinned: self.pending_pinned.lock().unwrap().clone(),
         }
     }
 
@@ -4094,6 +4112,7 @@ impl RuhiTextService_Impl {
             *self.pending_syllables.lock().unwrap() = snap.syllables;
             *self.pending_segments.lock().unwrap() = snap.segments;
             *self.manual_cuts.lock().unwrap() = snap.manual_cuts;
+            *self.pending_pinned.lock().unwrap() = snap.pinned;
             self.engine.lock().unwrap().reset_buffer();
             true
         } else {
@@ -4113,6 +4132,7 @@ impl RuhiTextService_Impl {
             *self.pending_syllables.lock().unwrap() = snap.syllables;
             *self.pending_segments.lock().unwrap() = snap.segments;
             *self.manual_cuts.lock().unwrap() = snap.manual_cuts;
+            *self.pending_pinned.lock().unwrap() = snap.pinned;
             self.engine.lock().unwrap().reset_buffer();
             true
         } else {
@@ -4133,6 +4153,22 @@ impl RuhiTextService_Impl {
         let mut syls = self.pending_syllables.lock().unwrap();
         let s_pos = insert_pos.min(syls.len());
         syls.insert(s_pos, syl);
+        {
+            let mut pinned = self.pending_pinned.lock().unwrap();
+            if !pinned.is_empty() {
+                *pinned = pinned
+                    .iter()
+                    .map(|&idx| if idx >= insert_pos { idx + 1 } else { idx })
+                    .collect();
+            }
+            let mut cuts = self.manual_cuts.lock().unwrap();
+            if !cuts.is_empty() {
+                *cuts = cuts
+                    .iter()
+                    .map(|&idx| if idx > insert_pos { idx + 1 } else { idx })
+                    .collect();
+            }
+        }
 
         let mut segs = self.pending_segments.lock().unwrap();
         for seg in segs.iter_mut() {
@@ -4162,6 +4198,22 @@ impl RuhiTextService_Impl {
         let mut syls = self.pending_syllables.lock().unwrap();
         let s_pos = insert_pos.min(syls.len());
         syls.splice(s_pos..s_pos, chunk_syls.iter().cloned());
+        {
+            let mut pinned = self.pending_pinned.lock().unwrap();
+            if !pinned.is_empty() {
+                *pinned = pinned
+                    .iter()
+                    .map(|&idx| if idx >= insert_pos { idx + count } else { idx })
+                    .collect();
+            }
+            let mut cuts = self.manual_cuts.lock().unwrap();
+            if !cuts.is_empty() {
+                *cuts = cuts
+                    .iter()
+                    .map(|&idx| if idx > insert_pos { idx + count } else { idx })
+                    .collect();
+            }
+        }
 
         let mut segs = self.pending_segments.lock().unwrap();
         for seg in segs.iter_mut() {
@@ -4186,6 +4238,42 @@ impl RuhiTextService_Impl {
 
         let rep_len = replacement.len();
         let old_len = end.saturating_sub(start);
+        {
+            let mut pinned = self.pending_pinned.lock().unwrap();
+            let diff = rep_len as isize - old_len as isize;
+            if diff != 0 && !pinned.is_empty() {
+                *pinned = pinned
+                    .iter()
+                    .filter(|&&idx| idx < start || idx >= end)
+                    .map(|&idx| {
+                        if idx >= end {
+                            (idx as isize + diff).max(0) as usize
+                        } else {
+                            idx
+                        }
+                    })
+                    .collect();
+            }
+            for i in start..(start + rep_len) {
+                pinned.insert(i);
+            }
+            if diff != 0 {
+                let mut cuts = self.manual_cuts.lock().unwrap();
+                if !cuts.is_empty() {
+                    *cuts = cuts
+                        .iter()
+                        .filter(|&&idx| idx <= start || idx >= end)
+                        .map(|&idx| {
+                            if idx >= end {
+                                (idx as isize + diff).max(0) as usize
+                            } else {
+                                idx
+                            }
+                        })
+                        .collect();
+                }
+            }
+        }
 
         let mut syls = self.pending_syllables.lock().unwrap();
         let s_start = start.min(syls.len());
@@ -4294,6 +4382,25 @@ impl RuhiTextService_Impl {
 
         let mut segs = self.pending_segments.lock().unwrap();
         segs.retain(|s| !(s.0 <= idx && idx < s.1 && (s.1 - s.0) <= 1));
+        {
+            let mut pinned = self.pending_pinned.lock().unwrap();
+            if !pinned.is_empty() {
+                *pinned = pinned
+                    .iter()
+                    .filter(|&&p| p != idx)
+                    .map(|&p| if p > idx { p - 1 } else { p })
+                    .collect();
+            }
+            let mut cuts = self.manual_cuts.lock().unwrap();
+            if !cuts.is_empty() {
+                *cuts = cuts
+                    .iter()
+                    .filter(|&&c| c != idx + 1)
+                    .map(|&c| if c > idx { c - 1 } else { c })
+                    .filter(|&c| c > 0)
+                    .collect();
+            }
+        }
         for seg in segs.iter_mut() {
             if seg.0 > idx {
                 seg.0 = seg.0.saturating_sub(1);
@@ -4309,6 +4416,7 @@ impl RuhiTextService_Impl {
         self.pending_syllables.lock().unwrap().clear();
         self.pending_segments.lock().unwrap().clear();
         self.manual_cuts.lock().unwrap().clear();
+        self.pending_pinned.lock().unwrap().clear();
         *self.last_raw_ascii.lock().unwrap() = None;
         *self.sel_anchor.lock().unwrap() = None;
         *self.candidate_selecting.lock().unwrap() = false;
@@ -4384,6 +4492,8 @@ impl RuhiTextService_Impl {
             let mut eng_syls: Vec<Option<String>> = (0..eng_count)
                 .map(|i| engine.get_syllable_at(i))
                 .collect();
+            let eng_pinned: Vec<usize> = engine.user_pinned.keys().copied().collect();
+            let eng_cuts: Vec<usize> = engine.manual_cuts.iter().copied().collect();
             let mut eng_segs: Vec<(usize, usize, String, String)> = engine.segments.iter()
                 .map(|n| (n.start_idx, n.end_idx, n.word.clone(), n.bopomofo.clone()))
                 .collect();
@@ -4420,7 +4530,328 @@ impl RuhiTextService_Impl {
                 eng.record_committed(&composed_for_ctx);
             }
             eng.reset_buffer();
+            {
+                let mut pinned = self.pending_pinned.lock().unwrap();
+                for p in eng_pinned {
+                    if p < eng_count {
+                        pinned.insert(cur_before + p);
+                    }
+                }
+                let mut cuts = self.manual_cuts.lock().unwrap();
+                for c in eng_cuts {
+                    if c > 0 && c < eng_count {
+                        cuts.insert(cur_before + c);
+                    }
+                }
+            }
+            let mut eng = self.engine.lock().unwrap();
+            if !composed_for_ctx.is_empty() {
+                eng.record_committed(&composed_for_ctx);
+            }
+            eng.reset_buffer();
             eng.set_last_fused_longkan(saved_fused);
+            drop(eng);
+            self.re_evaluate_joint_pending_and_engine();
+        }
+    }
+
+    /// 當使用者在未上屏長句中移動游標至句中插入／修改音節（或分段輸入）時，
+    /// 將 `pending_syllables[block_start..cur]` + `engine.fsm.syllables` + `pending_syllables[cur..block_end]`
+    /// 視為同一個連續漢字音節區間進行聯合 Viterbi 求解（同時嚴格保留 `pending_pinned` 與 `engine.user_pinned` 手動選字鎖定），
+    /// 解決句中補字（如於「基隆｜河一路13號」插入「市」➔「基隆市和一路13號」，而非孤立解碼為「是」）的問題。
+    fn re_evaluate_joint_pending_and_engine(&self) {
+        let p_str = self.pending_compose.lock().unwrap().clone();
+        let mut p_chars: Vec<char> = p_str.chars().collect();
+        let p_syls = self.pending_syllables.lock().unwrap().clone();
+        let p_len = p_chars.len();
+        if p_len == 0 || p_syls.len() != p_len {
+            return;
+        }
+        let cur = (*self.sentence_cursor.lock().unwrap()).min(p_len);
+
+        let mut engine = self.engine.lock().unwrap();
+        let is_non_bpm_mode = matches!(
+            engine.keyboard_mode.as_str(),
+            "japanese"
+                | "jp"
+                | "romaji"
+                | "korean"
+                | "ko"
+                | "hangul"
+                | "romaja"
+                | "cangjie"
+                | "cj"
+                | "array30"
+                | "ar30"
+                | "four_corner"
+                | "4corner"
+                | "fc"
+                | "longkan"
+                | "lk"
+        ) || engine.inline_longkan_active
+            || engine.is_latin_mode
+            || matches!(
+                engine.mode,
+                ruhi::engine::EngineMode::QuickNum
+                    | ruhi::engine::EngineMode::TemplateSelect
+                    | ruhi::engine::EngineMode::LexiconSwitch
+            );
+        if is_non_bpm_mode {
+            return;
+        }
+
+        let eng_syls = engine.fsm.syllables.clone();
+        let eng_len = eng_syls.len();
+        if eng_len != engine.sentence_chars.len() {
+            return;
+        }
+
+        let mut block_start = cur;
+        while block_start > 0 {
+            if let Some(ref bpm) = p_syls[block_start - 1] {
+                if HsuSyllable::from_bopomofo_display(bpm).is_some() {
+                    block_start -= 1;
+                    continue;
+                }
+            }
+            break;
+        }
+        let mut block_end = cur;
+        while block_end < p_len {
+            if let Some(ref bpm) = p_syls[block_end] {
+                if HsuSyllable::from_bopomofo_display(bpm).is_some() {
+                    block_end += 1;
+                    continue;
+                }
+            }
+            break;
+        }
+
+        let left_len = cur - block_start;
+        let right_len = block_end - cur;
+        if left_len == 0 && right_len == 0 {
+            return;
+        }
+        let total_len = left_len + eng_len + right_len;
+        if total_len < 2 {
+            return;
+        }
+
+        let mut joint_syls = Vec::with_capacity(total_len);
+        for i in block_start..cur {
+            if let Some(ref bpm) = p_syls[i] {
+                if let Some(hs) = HsuSyllable::from_bopomofo_display(bpm) {
+                    joint_syls.push(hs);
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+        for hs in &eng_syls {
+            joint_syls.push(hs.clone());
+        }
+        for i in cur..block_end {
+            if let Some(ref bpm) = p_syls[i] {
+                if let Some(hs) = HsuSyllable::from_bopomofo_display(bpm) {
+                    joint_syls.push(hs);
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+
+        let cuts_snapshot = self.manual_cuts.lock().unwrap().clone();
+        let mut joint_cuts = std::collections::HashSet::new();
+        for &c in &cuts_snapshot {
+            if c > block_start && c <= cur {
+                if !(c == cur && eng_len > 0) {
+                    joint_cuts.insert(c - block_start);
+                }
+            } else if c > cur && c < block_end {
+                joint_cuts.insert(c - block_start + eng_len);
+            }
+        }
+        for &c in &engine.manual_cuts {
+            if c > 0 && c < eng_len {
+                joint_cuts.insert(left_len + c);
+            }
+        }
+
+        let pinned_snapshot = self.pending_pinned.lock().unwrap().clone();
+        let mut joint_pinned: std::collections::HashMap<usize, char> = std::collections::HashMap::new();
+        for i in block_start..cur {
+            if pinned_snapshot.contains(&i) {
+                joint_pinned.insert(i - block_start, p_chars[i]);
+            }
+        }
+        for (&idx, pinned_w) in &engine.user_pinned {
+            if idx < eng_len {
+                if let Some(ch) = pinned_w.chars().next() {
+                    joint_pinned.insert(left_len + idx, ch);
+                }
+            }
+        }
+        for i in cur..block_end {
+            if pinned_snapshot.contains(&i) {
+                joint_pinned.insert(left_len + eng_len + (i - cur), p_chars[i]);
+            }
+        }
+
+        let prefix_str: String = if block_start > 0 {
+            p_chars[..block_start].iter().collect()
+        } else if !engine.active_geo_context.is_empty() {
+            engine.active_geo_context.clone()
+        } else {
+            String::new()
+        };
+        let prefix_opt = if prefix_str.is_empty() {
+            None
+        } else {
+            Some(prefix_str.as_str())
+        };
+
+        let nodes = {
+            let RuhiEngine {
+                ref router,
+                ref mut transitions,
+                ref lexicon,
+                ..
+            } = *engine;
+            let dag_builder = LatticeDAG::new(lexicon);
+            let mut dag = dag_builder.build_dag_with_cuts(&joint_syls, true, &joint_cuts);
+            if !joint_pinned.is_empty() {
+                for node_list in dag.values_mut() {
+                    let matching_count = node_list
+                        .iter()
+                        .filter(|n| {
+                            let n_chars: Vec<char> = n.word.chars().collect();
+                            (n.start_idx..n.end_idx).all(|pos| {
+                                if let Some(&p_ch) = joint_pinned.get(&pos) {
+                                    n_chars.get(pos - n.start_idx) == Some(&p_ch)
+                                } else {
+                                    true
+                                }
+                            })
+                        })
+                        .count();
+                    if matching_count > 0 {
+                        node_list.retain(|n| {
+                            let n_chars: Vec<char> = n.word.chars().collect();
+                            (n.start_idx..n.end_idx).all(|pos| {
+                                if let Some(&p_ch) = joint_pinned.get(&pos) {
+                                    n_chars.get(pos - n.start_idx) == Some(&p_ch)
+                                } else {
+                                    true
+                                }
+                            })
+                        });
+                    }
+                }
+            }
+            let (solved_nodes, _) =
+                router.solve_best_path_with_prefix(total_len, &dag, Some(transitions), prefix_opt);
+            solved_nodes
+        };
+
+        if nodes.is_empty() {
+            return;
+        }
+        let solved_text: String = nodes.iter().map(|n| n.word.as_str()).collect();
+        let mut solved_chars: Vec<char> = solved_text.chars().collect();
+        if solved_chars.len() != total_len {
+            return;
+        }
+        for (&pos, &p_ch) in &joint_pinned {
+            if pos < solved_chars.len() {
+                solved_chars[pos] = p_ch;
+            }
+        }
+
+        for i in block_start..cur {
+            p_chars[i] = solved_chars[i - block_start];
+        }
+        for i in cur..block_end {
+            p_chars[i] = solved_chars[left_len + eng_len + (i - cur)];
+        }
+        *self.pending_compose.lock().unwrap() = p_chars.iter().collect();
+
+        if eng_len > 0 {
+            engine.sentence_chars = solved_chars[left_len..(left_len + eng_len)]
+                .iter()
+                .map(|c| c.to_string())
+                .collect();
+            engine.composed_sentence = engine.sentence_chars.join("");
+            engine.viterbi_raw_sentence = engine.composed_sentence.clone();
+            let mut eng_nodes = Vec::new();
+            for n in &nodes {
+                let s = n.start_idx.max(left_len);
+                let e = n.end_idx.min(left_len + eng_len);
+                if s < e {
+                    let sub_w: String = solved_chars[s..e].iter().collect();
+                    let sub_bpm: String = joint_syls[s..e]
+                        .iter()
+                        .map(|hs| hs.bopomofo_display())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    eng_nodes.push(ruhi::router::LatticeNode {
+                        start_idx: s - left_len,
+                        end_idx: e - left_len,
+                        word: sub_w,
+                        bopomofo: sub_bpm,
+                        weight: n.weight,
+                    });
+                }
+            }
+            engine.segments = eng_nodes;
+            engine.update_active_candidates();
+        }
+        drop(engine);
+
+        let mut segs = self.pending_segments.lock().unwrap();
+        segs.retain(|s| !(s.0 >= block_start && s.1 <= block_end));
+        for n in &nodes {
+            if eng_len == 0 {
+                let w: String = solved_chars[n.start_idx..n.end_idx].iter().collect();
+                segs.push((
+                    block_start + n.start_idx,
+                    block_start + n.end_idx,
+                    w,
+                    n.bopomofo.clone(),
+                ));
+            } else {
+                let left_e = n.end_idx.min(left_len);
+                if n.start_idx < left_e {
+                    let w: String = solved_chars[n.start_idx..left_e].iter().collect();
+                    let bpm: String = joint_syls[n.start_idx..left_e]
+                        .iter()
+                        .map(|hs| hs.bopomofo_display())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    segs.push((block_start + n.start_idx, block_start + left_e, w, bpm));
+                }
+                let right_s = n.start_idx.max(left_len + eng_len);
+                if right_s < n.end_idx {
+                    let w: String = solved_chars[right_s..n.end_idx].iter().collect();
+                    let bpm: String = joint_syls[right_s..n.end_idx]
+                        .iter()
+                        .map(|hs| hs.bopomofo_display())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    segs.push((
+                        block_start + right_s - eng_len,
+                        block_start + n.end_idx - eng_len,
+                        w,
+                        bpm,
+                    ));
+                }
+            }
+        }
+        {
+        segs.sort_by_key(|s| s.0);
         }
     }
 
@@ -6073,6 +6504,25 @@ impl RuhiTextService_Impl {
                     let mut segs = self.pending_segments.lock().unwrap();
                     let diff = end_clamped - start_clamped;
                     segs.retain(|s| !(s.0 >= start_clamped && s.1 <= end_clamped));
+                    {
+                        let mut pinned = self.pending_pinned.lock().unwrap();
+                        if !pinned.is_empty() {
+                            *pinned = pinned
+                                .iter()
+                                .filter(|&&p| p < start_clamped || p >= end_clamped)
+                                .map(|&p| if p >= end_clamped { p.saturating_sub(diff) } else { p })
+                                .collect();
+                        }
+                        let mut cuts = self.manual_cuts.lock().unwrap();
+                        if !cuts.is_empty() {
+                            *cuts = cuts
+                                .iter()
+                                .filter(|&&c| c <= start_clamped || c >= end_clamped)
+                                .map(|&c| if c >= end_clamped { c.saturating_sub(diff) } else { c })
+                                .filter(|&c| c > 0)
+                                .collect();
+                        }
+                    }
                     for seg in segs.iter_mut() {
                         if seg.0 >= end_clamped {
                             seg.0 = seg.0.saturating_sub(diff);

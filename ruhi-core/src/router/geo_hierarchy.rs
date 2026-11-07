@@ -387,7 +387,11 @@ impl CjkGeoHierarchy {
             let l1_str = l1.as_str();
             // Case A1: `curr_clean` starts or is `l1_str`
             if let Some(rem_l1) = l1_str.strip_prefix(curr_clean) {
-                if self.dag_can_spell_prefix_then_any_child(dag, end_idx, rem_l1, l1_str) {
+                if self.dag_can_spell_prefix_then_any_child(dag, end_idx, rem_l1, l1_str)
+                    || (curr_clean.chars().count() >= 2
+                        && matches!(rem_l1, "市" | "縣")
+                        && self.dag_can_spell_prefix_then_any_child(dag, end_idx, "", l1_str))
+                {
                     bonus += 68.0;
                     break;
                 }
@@ -402,7 +406,11 @@ impl CjkGeoHierarchy {
                 }
                 if let Some(after_hist) = l1_str.strip_prefix(&hist_pfx) {
                     if let Some(rem_l1) = after_hist.strip_prefix(curr_clean) {
-                        if self.dag_can_spell_prefix_then_any_child(dag, end_idx, rem_l1, l1_str) {
+                        if self.dag_can_spell_prefix_then_any_child(dag, end_idx, rem_l1, l1_str)
+                    || (curr_clean.chars().count() >= 2
+                        && matches!(rem_l1, "市" | "縣")
+                        && self.dag_can_spell_prefix_then_any_child(dag, end_idx, "", l1_str))
+                {
                             bonus += 70.0;
                             matched_l1_cont = true;
                             break;
@@ -416,7 +424,53 @@ impl CjkGeoHierarchy {
         }
 
         // Collect all active parent anchors from `prefix_words`
+        // A-2. Prevent "基隆河" (ㄐㄧ ㄌㄨㄥˊ ㄏㄜˊ) from hijacking "基隆(市)和一路 / 和二路 / 和三路" when 市 is omitted!
+        if curr_clean == "基隆河"
+            && (Self::dag_can_spell(dag, end_idx, "一路")
+                || Self::dag_can_spell(dag, end_idx, "二路")
+                || Self::dag_can_spell(dag, end_idx, "三路"))
+        {
+            bonus -= 88.0;
+        }
+
         let mut active_anchors = self.collect_active_anchors(prefix_words);
+        let mut stem_l1_anchors: Vec<String> = Vec::new();
+        let recent_tail: String = cleaned_history
+            .iter()
+            .rev()
+            .take(4)
+            .copied()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+        if !recent_tail.is_empty() {
+            for l1 in &self.l1_roots_list {
+                if let Some(stem) = l1.strip_suffix('市').or_else(|| l1.strip_suffix('縣')) {
+                    if stem.chars().count() >= 2
+                        && recent_tail.contains(stem)
+                        && !active_anchors.contains(l1)
+                        && !stem_l1_anchors.contains(l1)
+                    {
+                        stem_l1_anchors.push(l1.clone());
+                    }
+                }
+            }
+        }
+        for &recent_tok in cleaned_history.iter().rev().take(3) {
+            if recent_tok.chars().count() >= 2 {
+                for l1 in &self.l1_roots_list {
+                    if let Some(stem) = l1.strip_suffix('市').or_else(|| l1.strip_suffix('縣')) {
+                        if stem == recent_tok
+                            && !active_anchors.contains(l1)
+                            && !stem_l1_anchors.contains(l1)
+                        {
+                            stem_l1_anchors.push(l1.clone());
+                        }
+                    }
+                }
+            }
+        }
 
         // Expand `active_anchors` with any L2 child that has already been spelled in `cleaned_history`
         // under an active L1 anchor (so L3 grandchildren wake up even if L2 was split into multiple tokens!).
@@ -435,7 +489,7 @@ impl CjkGeoHierarchy {
             }
         }
 
-        if active_anchors.is_empty() {
+        if active_anchors.is_empty() && stem_l1_anchors.is_empty() {
             return bonus;
         }
 
@@ -445,7 +499,7 @@ impl CjkGeoHierarchy {
         let mut matched_child_entity: Option<&str> = None;
         let mut completed_child_entity: Option<&str> = None;
 
-        'anchor_loop: for anchor in active_anchors.iter().rev() {
+        'anchor_loop: for anchor in stem_l1_anchors.iter().chain(active_anchors.iter()).rev() {
             let Some(children) = self.parent_children_list.get(anchor) else {
                 continue;
             };
@@ -474,7 +528,7 @@ impl CjkGeoHierarchy {
         //     When the user types L1 (city/county) and skips L2 (區/鄉/鎮/市), wake up L3 roads/villages/sections under L1's L2 children.
         // ---------------------------------------------------------------------
         if matched_child_entity.is_none() {
-            'l1_skip_loop: for anchor in active_anchors.iter().rev() {
+            'l1_skip_loop: for anchor in stem_l1_anchors.iter().chain(active_anchors.iter()).rev() {
                 if !self.l1_roots_list.contains(anchor) {
                     continue;
                 }
@@ -529,6 +583,9 @@ impl CjkGeoHierarchy {
         //      "大到" (ㄉㄚˋ ㄉㄠˋ instead of 大道), "不屈" (ㄅㄨˋ ㄑㄩ instead of 埗區),
         //      "理屈" (ㄌㄧˇ ㄑㄩ instead of 里區)!
         // ---------------------------------------------------------------------
+        if active_anchors.is_empty() && matched_child_entity.is_none() {
+            return bonus;
+        }
         let last_word = cleaned_history.last().copied().unwrap_or("");
         let prev2_word = if cleaned_history.len() >= 2 {
             cleaned_history[cleaned_history.len() - 2]
@@ -1115,6 +1172,37 @@ impl CjkGeoHierarchy {
         false
     }
 
+    fn text_contains_tw_l1_or_stem(haystack: &str, l1: &str) -> bool {
+        if Self::text_contains_tw_norm(haystack, l1) {
+            return true;
+        }
+        if let Some(stem) = l1.strip_suffix('市').or_else(|| l1.strip_suffix('縣')) {
+            if stem.chars().count() >= 2 && Self::text_contains_tw_norm(haystack, stem) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn normalize_hijacked_tw_road(s: &str) -> std::borrow::Cow<'_, str> {
+        for (hijacked, canonical) in [
+            ("基隆是河一路", "基隆市和一路"),
+            ("基隆是河二路", "基隆市和二路"),
+            ("基隆是河三路", "基隆市和三路"),
+            ("基隆市河一路", "基隆市和一路"),
+            ("基隆市河二路", "基隆市和二路"),
+            ("基隆市河三路", "基隆市和三路"),
+            ("基隆河一路", "基隆和一路"),
+            ("基隆河二路", "基隆和二路"),
+            ("基隆河三路", "基隆和三路"),
+        ] {
+            if s.contains(hijacked) {
+                return std::borrow::Cow::Owned(s.replace(hijacked, canonical));
+            }
+        }
+        std::borrow::Cow::Borrowed(s)
+    }
+
     fn has_address_number_suffix(after_entity: &str) -> bool {
         let trimmed = after_entity.trim_start();
         if trimmed.is_empty() {
@@ -1152,7 +1240,8 @@ impl CjkGeoHierarchy {
 
     /// Resolve the most specific postal code and hierarchy path from a composed sentence or address prefix.
     pub fn resolve_postal_code_for_sentence(&self, sentence: &str) -> Option<GeoPostalMatch> {
-        let trimmed = sentence.trim();
+        let norm_cow = Self::normalize_hijacked_tw_road(sentence.trim());
+        let trimmed = norm_cow.as_ref();
         if trimmed.is_empty() {
             return None;
         }
@@ -1180,11 +1269,11 @@ impl CjkGeoHierarchy {
                     let l1_grandparents = self.find_l1_grandparents_for_l3(meta);
                     let grandparent_present = l1_grandparents
                         .iter()
-                        .any(|l1| Self::text_contains_tw_norm(prefix_before, l1));
+                        .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
                     let any_l1_in_prefix = self
                         .l1_roots_list
                         .iter()
-                        .any(|l1| Self::text_contains_tw_norm(prefix_before, l1));
+                        .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
                     let conflicting_l1_present = if meta.level == "L3" {
                         !l1_grandparents.is_empty() && !grandparent_present && any_l1_in_prefix
                     } else if meta.level == "L2" {
@@ -1221,7 +1310,7 @@ impl CjkGeoHierarchy {
                         let mut chain = Vec::new();
                         if let Some(l1) = l1_grandparents
                             .iter()
-                            .find(|l1| Self::text_contains_tw_norm(prefix_before, l1))
+                            .find(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1))
                         {
                             chain.push(l1.clone());
                         }
@@ -1295,7 +1384,8 @@ impl CjkGeoHierarchy {
 
     /// 將標記之地址片段展開為補齊「縣市 (`L1`) ＋ 鄉鎮市區 (`L2`) ＋ 村里 (`里/村`)」之戶籍地址候選清單。
     pub fn expand_household_address_candidates(&self, sentence: &str) -> Vec<String> {
-        let trimmed = sentence.trim();
+        let norm_cow = Self::normalize_hijacked_tw_road(sentence.trim());
+        let trimmed = norm_cow.as_ref();
         if trimmed.is_empty() {
             return Vec::new();
         }
@@ -1342,18 +1432,18 @@ impl CjkGeoHierarchy {
                 }
                 if let Some(pos) = addr_body.find(&meta.entity) {
                     let parent_present = meta.parent == "ROOT"
-                        || Self::text_contains_tw_norm(&addr_body[..pos], &meta.parent);
+                        || Self::text_contains_tw_l1_or_stem(&addr_body[..pos], &meta.parent);
                     let is_unique_name = metas.len() == 1;
                     let prefix_before = &addr_body[..pos];
                     let after_entity = &addr_body[pos + meta.entity.len()..];
                     let l1_grandparents = self.find_l1_grandparents_for_l3(meta);
                     let grandparent_present = l1_grandparents
                         .iter()
-                        .any(|l1| Self::text_contains_tw_norm(prefix_before, l1));
+                        .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
                     let any_l1_in_prefix = self
                         .l1_roots_list
                         .iter()
-                        .any(|l1| Self::text_contains_tw_norm(prefix_before, l1));
+                        .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
                     let conflicting_l1_present = if meta.level == "L3" {
                         !l1_grandparents.is_empty() && !grandparent_present && any_l1_in_prefix
                     } else if meta.level == "L2" {
