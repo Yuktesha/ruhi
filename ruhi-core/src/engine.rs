@@ -2325,9 +2325,30 @@ impl RuhiEngine {
         self.get_universal_coach_hint()
     }
 
-    /// 觸發 `↓` 下箭頭：同音字／同音詞／歐文重音變體（Allographs & Loanword Diacritics）查詢
+    /// 觸發 `↓` 下箭頭：同音字／同音詞／歐文重音變體（Allographs & Loanword Diacritics）查詢，
+    /// 或於 `Shift + ←/→` 標記地址區間後展開為完整戶籍地址候選清單（縣市＋鄉鎮市區＋村里＋3+3郵遞區號）
     pub fn open_down_arrow_candidates(&mut self) -> EngineResponse {
         self.set_shift_down_longkan_popup(false);
+        if let Some((sel_s, sel_e)) = self.get_selection_range() {
+            if sel_e > sel_s {
+                let chars_vec: Vec<char> = self
+                    .sentence_chars
+                    .iter()
+                    .filter_map(|s| s.chars().next())
+                    .collect();
+                let addr_cands =
+                    self.expand_household_address_for_marked_slice(&chars_vec, sel_s, sel_e);
+                if !addr_cands.is_empty() {
+                    self.selection_anchor = None;
+                    self.candidate_target_range = Some((sel_s, sel_e));
+                    self.cursor_pos = sel_s;
+                    self.current_candidates = addr_cands;
+                    self.candidate_cycle_idx = 0;
+                    self.mode = EngineMode::CandidatePopup;
+                    return self.build_response("show_candidate_popup", "");
+                }
+            }
+        }
         if (matches!(self.keyboard_mode.as_str(), "longkan" | "lk") || self.inline_longkan_active)
             && self.longkan.has_buffer()
         {
@@ -3948,6 +3969,23 @@ impl RuhiEngine {
             }
         }
 
+        // 0D-2. 候選視窗開啟時，上下左右方向鍵均可於候選字詞間循環移動（提升選字 UX 體驗）
+        if self.mode == EngineMode::CandidatePopup && !self.current_candidates.is_empty() {
+            let len = self.current_candidates.len();
+            if matches!(key_str, "Down" | "down" | "Right" | "right") {
+                self.candidate_cycle_idx = (self.candidate_cycle_idx + 1) % len;
+                return self.build_response("show_candidate_popup", "");
+            }
+            if matches!(key_str, "Up" | "up" | "Left" | "left") {
+                self.candidate_cycle_idx = if self.candidate_cycle_idx == 0 {
+                    len - 1
+                } else {
+                    self.candidate_cycle_idx - 1
+                };
+                return self.build_response("show_candidate_popup", "");
+            }
+        }
+
         // 0E. 跨輸入法通用 Ctrl+符號組合鍵（如 Ctrl+` / Ctrl+Shift+` / Ctrl+~ 輸出全形波浪號「～」、Ctrl+. 輸出刪節號「……」等；歐文模式下絕不攔截）
         if (key_str.starts_with("Ctrl+") || key_str.starts_with("ctrl+"))
             && !matches!(key_str, "Ctrl+BackSpace" | "Ctrl+backspace")
@@ -4195,6 +4233,40 @@ impl RuhiEngine {
                     if self.select_candidate(idx).is_some() {
                         return self.build_response("show_candidate_popup", "");
                     }
+                }
+            }
+        }
+
+        // 0A-0. 標記區間多字元候選彈窗（如 Shift+左右標記地址後按 ↓ 展開之戶籍地址候選清單）：
+        //       支援空白鍵 / Enter 鍵確認當前高亮候選、數字鍵 1..=9 直接選取、Esc 關閉彈窗
+        if self.mode == EngineMode::CandidatePopup
+            && !self.is_shift_down_longkan_popup()
+            && !self.is_shift_down_mode_picker()
+            && self
+                .candidate_target_range
+                .map_or(false, |(s, e)| e.saturating_sub(s) >= 2)
+            && !self.current_candidates.is_empty()
+        {
+            if key == '\x1b' {
+                self.mode = EngineMode::Normal;
+                self.candidate_target_range = None;
+                self.update_active_candidates();
+                return self.build_response("update_preedit", "");
+            }
+            if key.is_ascii_digit() && key != '0' {
+                let digit_idx = (key as usize) - ('1' as usize);
+                if self.select_candidate(digit_idx).is_some() {
+                    self.mode = EngineMode::Normal;
+                    self.update_active_candidates();
+                    return self.build_response("update_preedit", "");
+                }
+            }
+            if key == ' ' || key == '\n' || key == '\r' {
+                let idx = self.candidate_cycle_idx;
+                if self.select_candidate(idx).is_some() {
+                    self.mode = EngineMode::Normal;
+                    self.update_active_candidates();
+                    return self.build_response("update_preedit", "");
                 }
             }
         }
@@ -6073,6 +6145,24 @@ impl RuhiEngine {
             return None;
         }
         Some(postal_str)
+    }
+
+    /// 針對標記區間 `chars[start..end]` 展開為完整戶籍地址候選清單（補齊省略之縣市、鄉鎮市區、村里與 3+3 郵遞區號）
+    pub fn expand_household_address_for_marked_slice(
+        &self,
+        chars: &[char],
+        start: usize,
+        end: usize,
+    ) -> Vec<String> {
+        let total = chars.len();
+        let s = start.min(total);
+        let e = end.min(total);
+        if s >= e {
+            return Vec::new();
+        }
+        let marked_str: String = chars[s..e].iter().collect();
+        crate::router::geo_hierarchy::CjkGeoHierarchy::global()
+            .expand_household_address_candidates(marked_str.trim())
     }
 
     /// 於 `RuhiEngine` 標記區間 `start..end` 之前方插入查詢得知之 3+3 郵遞區號
@@ -13209,6 +13299,8 @@ mod tests {
             ("je lxldcjjxl jljvu hgdljlxj1hwj", "基隆市中正區和二路1號"),
             ("je lxldcjjxl jljvu cgjlewdlefhgdljlxj1hwj", "基隆市中正區社寮里和二路1號"),
             ("je lxldcjhgde lxj13hwj", "基隆市和一路13號"),
+            ("kgfefzijhojcumfzjadjem eddxlj", "可以在候選字詞間移動"),
+            ("hojcumfzjadjem eddxlj", "候選字詞間移動"),
         ];
         let mut mismatches = Vec::new();
         for (keys, expected) in cases {
@@ -13218,6 +13310,40 @@ mod tests {
             }
         }
         assert!(mismatches.is_empty(), "發現解碼不符：\n{}", mismatches.join("\n"));
+
+        // 驗證 Shift + ← 標記地址後按 ↓ 展開為戶籍地址候選清單，並以 → / ← 移動候選後按 Enter 確認
+        engine.reset_buffer();
+        engine.last_committed_word.clear();
+        engine.active_geo_context.clear();
+        for ch in "je lxldcjhgdljlxjcdxfhwj".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.get_display_text(), "基隆市和二路十五號");
+        for _ in 0..9 {
+            engine.process_key_str("Shift+Left");
+        }
+        let resp_down = engine.process_key_str("Down");
+        assert_eq!(resp_down.action, "show_candidate_popup");
+        assert!(
+            resp_down.candidates.iter().any(|c| c == "基隆市中正區社寮里和二路十五號"),
+            "展開戶籍地址候選應包含「基隆市中正區社寮里和二路十五號」，實際：{:?}",
+            resp_down.candidates
+        );
+        assert!(
+            resp_down.candidates.iter().any(|c| c == "202009基隆市中正區社寮里和二路十五號"),
+            "展開戶籍地址候選應包含含3+3郵遞區號之「202009基隆市中正區社寮里和二路十五號」，實際：{:?}",
+            resp_down.candidates
+        );
+        // 測試左右方向鍵在候選字詞間移動
+        let resp_right = engine.process_key_str("Right");
+        assert_eq!(resp_right.action, "show_candidate_popup");
+        assert_eq!(resp_right.candidate_idx, 1);
+        let resp_left = engine.process_key_str("Left");
+        assert_eq!(resp_left.action, "show_candidate_popup");
+        assert_eq!(resp_left.candidate_idx, 0);
+        let first_cand = resp_left.candidates[0].clone();
+        let _ = engine.process_key('\r');
+        assert_eq!(engine.get_display_text(), first_cand);
         let _ = (
         );
     }

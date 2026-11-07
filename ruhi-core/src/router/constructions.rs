@@ -5517,6 +5517,36 @@ impl TransitionEngine {
                 bonus += 26.0;
             }
 
+            // (v) 「候選 + 字詞/區/人/欄/窗/框/項/單」vs「在後 + 選」
+            if curr_word == "候選"
+                && (matches!(prev_word, "在" | "於" | "個" | "各" | "多" | "的")
+                    || right_nodes_31_5.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "字" | "詞" | "字詞" | "區" | "人" | "欄" | "窗" | "框" | "項" | "單" | "名單" | "視窗"
+                        )
+                    }))
+            {
+                bonus += 28.0;
+            } else if curr_word == "後選"
+                && right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "字" | "詞" | "字詞" | "區" | "人" | "欄" | "窗" | "框" | "項" | "單" | "名單" | "視窗"
+                    )
+                })
+            {
+                bonus -= 28.0;
+            } else if curr_word == "在後"
+                && right_nodes_31_5.iter().any(|m| m.word.starts_with('選'))
+            {
+                bonus -= 28.0;
+            } else if curr_word == "在"
+                && right_nodes_31_5.iter().any(|m| m.word == "候選")
+            {
+                bonus += 24.0;
+            }
+
         self.apply_rule_score("construction_hierarchical_matrix", bonus)
     }
 }

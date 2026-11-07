@@ -2264,8 +2264,20 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     return Ok(BOOL::from(true));
                 }
 
-                // ↑ 上方向鍵：上一個候選
-                if vk == VK_UP.0 as u32 {
+                // → 右方向鍵：下一個候選（候選區彈出時左右方向鍵在候選字詞間移動，提升 UX 體驗）
+                if vk == VK_RIGHT.0 as u32 && !is_shift && !is_ctrl {
+                    if cands_len > 0 {
+                        let mut sel = self.selected_candidate_idx.lock().unwrap();
+                        *sel = (*sel + 1) % cands_len;
+                        let new_idx = *sel;
+                        drop(sel);
+                        self.update_candidate_selection_ui(new_idx, &cands);
+                    }
+                    return Ok(BOOL::from(true));
+                }
+
+                // ↑ 上方向鍵 / ← 左方向鍵：上一個候選
+                if vk == VK_UP.0 as u32 || (vk == VK_LEFT.0 as u32 && !is_shift && !is_ctrl) {
                     if cands_len > 0 {
                         let mut sel = self.selected_candidate_idx.lock().unwrap();
                         *sel = if *sel == 0 { cands_len - 1 } else { *sel - 1 };
@@ -2494,8 +2506,11 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     return Ok(BOOL::from(true));
                 }
 
-                // 若在候選窗開啟狀態下按下左/右/Home/End 方向鍵，立即關閉候選座並允許游標繼續移動！
-                if vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32 || vk == VK_HOME.0 as u32 || vk == VK_END.0 as u32 {
+                // 若在候選窗開啟狀態下按下 Home/End 或帶 Ctrl/Shift 之左/右方向鍵，立即關閉候選座並允許游標繼續移動！
+                if vk == VK_HOME.0 as u32
+                    || vk == VK_END.0 as u32
+                    || ((vk == VK_LEFT.0 as u32 || vk == VK_RIGHT.0 as u32) && (is_shift || is_ctrl))
+                {
                     if let Ok(eng) = self.engine.lock() {
                         eng.set_shift_down_longkan_popup(false);
                         eng.set_shift_down_mode_picker(false);
@@ -3189,7 +3204,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         return Ok(BOOL::from(true));
                     }
 
-                    // 非 Shift 方向鍵：清除選取
+                    // 非 Shift 方向鍵：先記錄是否已有 Shift+左右 標記區間（供 ↓ 展開戶籍地址候選），再清除選取
+                    let manual_sel_before_clear = self.get_manual_selection_range();
                     if !is_shift {
                         *self.sel_anchor.lock().unwrap() = None;
                     }
@@ -3283,7 +3299,27 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                             if let Ok(eng) = self.engine.lock() {
                                 eng.set_shift_down_longkan_popup(false);
                             }
-                            self.detect_target_word_and_cands(&full_text, cur)
+                            let mut addr_expanded: Option<(usize, (usize, usize), Vec<String>)> = None;
+                            if let Some((sel_s, sel_e)) = manual_sel_before_clear {
+                                if sel_e > sel_s {
+                                    let chars_vec: Vec<char> = full_text.chars().collect();
+                                    if let Ok(eng) = self.engine.lock() {
+                                        let addr_cands = eng.expand_household_address_for_marked_slice(
+                                            &chars_vec,
+                                            sel_s,
+                                            sel_e,
+                                        );
+                                        if !addr_cands.is_empty() {
+                                            addr_expanded = Some((sel_s, (sel_s, sel_e), addr_cands));
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(res) = addr_expanded {
+                                res
+                            } else {
+                                self.detect_target_word_and_cands(&full_text, cur)
+                            }
                         };
 
                         *self.target_char_idx.lock().unwrap() = target_idx;
