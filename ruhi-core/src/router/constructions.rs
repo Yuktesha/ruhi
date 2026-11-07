@@ -2558,7 +2558,7 @@ impl TransitionEngine {
         }
 
         // 32. 起點介詞框架 `[從] + [已有/既有/現有/文獻/基礎/頭/零/小/此/現在/今天/過去/古/中/內/外/前/後/上/下]` vs. 量詞/名詞「叢」：
-        if matches!(curr_word, "從" | "叢" | "匆" | "聰" | "蔥") {
+        if matches!(curr_word, "從" | "叢" | "匆" | "聰" | "蔥") && curr_bopomofo.starts_with("ㄘㄨㄥ") {
             let prev_is_clause_boundary = prev_word.is_empty()
                 || matches!(prev_word, "，" | "。" | "；" | "！" | "？" | "," | "." | ";" | "先" | "再" | "並" | "而" | "且" | "是" | "要" | "能" | "會");
             let next_is_source_np = dag
@@ -4589,6 +4589,165 @@ impl TransitionEngine {
                     })
                     .unwrap_or(false);
                 if shatters_shi2_compound {
+                    bonus -= 26.0;
+                }
+            }
+
+            // 31-6. 同音複合詞語境分岔析辨（智力/致力、意指/一只、意為/一位、履行/旅行、繼承/計程、形成/行程、種姓/種性、無明/無名、之人/知人、之心/知心）：
+            // (a) 「智力（名詞）」vs「致力（黏著不及物動詞，須接『於』或帶動作賓語）」
+            if matches!(curr_word, "智力" | "致力") {
+                let right_is_yu = right_nodes_31_5.iter().any(|m| m.word == "於" || m.word.starts_with('於'));
+                let left_is_noun_mod = matches!(
+                    prev_word,
+                    "的" | "之" | "其" | "對" | "在" | "以" | "與" | "和" | "或" | "及"
+                        | "藉著" | "藉由" | "透過" | "發展" | "開發" | "提升" | "培養" | "利用"
+                        | "具有" | "擁有" | "人類" | "社會" | "個人" | "如果" | "因為" | "我的"
+                );
+                let right_is_noun_continuation = right_nodes_31_5.is_empty()
+                    || right_nodes_31_5.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "的" | "之" | "與" | "和" | "或" | "及" | "上" | "發展" | "進展"
+                                | "開發" | "開展" | "水準" | "測驗" | "障礙" | "商數" | "天賦"
+                                | "能力" | "層面" | "領域" | "虛榮" | "剝削" | "遊戲" | "競賽"
+                                | "退化" | "成長" | "活動" | "了悟" | "走向" | "尚未" | "已"
+                                | "誤入" | "將" | "來" | "也" | "都" | "是"
+                        )
+                    });
+                if right_is_yu {
+                    if curr_word == "致力" { bonus += 28.0; } else { bonus -= 26.0; }
+                } else if left_is_noun_mod || right_is_noun_continuation {
+                    if curr_word == "智力" { bonus += 26.0; } else { bonus -= 24.0; }
+                }
+            }
+            // (b) 「意指（釋義動詞）」vs「一只（具體器物數量詞）」
+            if matches!(curr_word, "意指" | "一只") {
+                let left_is_def_frame = prev_word.is_empty()
+                    || matches!(
+                        prev_word,
+                        "此處" | "這裡" | "即" | "乃" | "則" | "是" | "亦" | "這" | "那"
+                            | "此" | "其" | "善行" | "學舌" | "字" | "詞" | "語" | "名"
+                    );
+                let right_is_abstract_def = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "內在" | "社會" | "團體" | "擴展" | "發展" | "幫助" | "為了" | "靈性"
+                            | "感覺" | "運動" | "最後" | "每個" | "問題" | "讓" | "將" | "在"
+                            | "以" | "對" | "把" | "由" | "是" | "有" | "無" | "不" | "心靈"
+                            | "意識" | "宇宙" | "自我" | "鸚鵡"
+                    )
+                });
+                if left_is_def_frame && right_is_abstract_def {
+                    if curr_word == "意指" { bonus += 28.0; } else { bonus -= 26.0; }
+                }
+            }
+            // (c) 「意為（釋義繫詞）」vs「一位（人物數量詞）」
+            if matches!(curr_word, "意為" | "一位" | "譯為") {
+                let left_is_term_or_start = prev_word.is_empty()
+                    || matches!(prev_word, "在此" | "此處" | "即" | "乃" | "則" | "字" | "詞" | "語" | "名")
+                    || !self.function_words.contains(prev_word);
+                let right_is_meaning_clause = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "自由" | "具有" | "供養" | "無限" | "至上" | "完全" | "不斷" | "本質"
+                            | "宇宙" | "內在" | "外在" | "一個"
+                    )
+                });
+                if left_is_term_or_start && right_is_meaning_clause {
+                    if curr_word == "意為" { bonus += 28.0; } else { bonus -= 24.0; }
+                }
+            }
+            // (d) 「履行（責任／義務／契約）」vs「旅行（旅遊出行）」
+            if matches!(curr_word, "履行" | "旅行") {
+                let left_is_duty_mod = matches!(
+                    prev_word,
+                    "無法" | "同時" | "好好" | "如何" | "以及" | "各自" | "不斷" | "嚴格" | "忠實" | "切實"
+                );
+                let right_is_duty_obj = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "責任" | "義務" | "職責" | "承諾" | "契約" | "合約" | "諾言" | "使命"
+                            | "約定" | "職務" | "世俗" | "該盡" | "應盡" | "其" | "各自" | "心理"
+                            | "家庭"
+                    )
+                });
+                if right_is_duty_obj || left_is_duty_mod {
+                    if curr_word == "履行" { bonus += 28.0; } else { bonus -= 24.0; }
+                }
+            }
+            // (e) 「繼承（制度／財產／傳統）」vs「計程（僅限計程車／計程錶／計程費）」
+            if matches!(curr_word, "繼承" | "計程") {
+                let right_is_taxi = right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "車" | "錶" | "費" | "車行" | "車隊")
+                });
+                if right_is_taxi {
+                    if curr_word == "計程" { bonus += 28.0; } else { bonus -= 26.0; }
+                } else {
+                    if curr_word == "繼承" { bonus += 24.0; } else { bonus -= 24.0; }
+                }
+            }
+            // (f) 「形成（動詞：形成一個／會形成／所形成）」vs「行程（名詞：排定行程）」
+            if matches!(curr_word, "形成" | "行程") {
+                let left_is_verbal = matches!(
+                    prev_word,
+                    "會" | "能" | "未能" | "無法" | "可以" | "將" | "已" | "已經" | "所"
+                        | "逐漸" | "自然" | "各自" | "還有" | "共同" | "最終" | "進而"
+                );
+                let right_is_formed_obj = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "一個" | "一種" | "此一" | "一股" | "一套" | "一道" | "獨立" | "了" | "是"
+                    )
+                });
+                if left_is_verbal || right_is_formed_obj {
+                    if curr_word == "形成" { bonus += 26.0; } else { bonus -= 22.0; }
+                }
+            }
+            // (g) 「種姓（種姓制度／種姓階級）」vs「種性」
+            if matches!(curr_word, "種姓" | "種性") {
+                let left_is_caste = matches!(prev_word, "相信" | "廢除" | "低下" | "反對" | "印度" | "以");
+                let right_is_caste = right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "制度" | "階級" | "社會" | "歧視" | "偏見" | "主義")
+                });
+                if left_is_caste || right_is_caste {
+                    if curr_word == "種姓" { bonus += 28.0; } else { bonus -= 24.0; }
+                }
+            }
+            // (h) 「無明（哲學／佛學：破除無明／無明死結）」vs「無名（無名小卒／無名氏）」
+            if matches!(curr_word, "無明" | "無名") {
+                let left_is_avidya = matches!(
+                    prev_word,
+                    "破除" | "摧破" | "超越" | "擺脫" | "由於" | "因為" | "此種" | "就是" | "為"
+                );
+                let right_is_avidya = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "死結" | "才會" | "就" | "所" | "束縛" | "煩惱" | "黑暗" | "力量"
+                    )
+                });
+                let right_is_nameless = right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "小卒" | "氏" | "英雄" | "火" | "指" | "腫毒")
+                });
+                if right_is_nameless {
+                    if curr_word == "無名" { bonus += 28.0; } else { bonus -= 24.0; }
+                } else if left_is_avidya || right_is_avidya {
+                    if curr_word == "無明" { bonus += 26.0; } else { bonus -= 22.0; }
+                }
+            }
+            // (i) 「之 + 人／心」vs 假雙字詞「知人（僅限知人善任／知人知面）／知心（僅限知心朋友／知心話）」
+            if curr_word == "知人" {
+                let is_zhiren_idiom = right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "善任" | "知面" | "論世" | "者")
+                });
+                if !is_zhiren_idiom {
+                    bonus -= 28.0;
+                }
+            }
+            if curr_word == "知心" {
+                let is_zhixin_colloc = right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "朋友" | "好友" | "話" | "人" | "知己")
+                });
+                if !is_zhixin_colloc && prev_word.chars().count() >= 2 {
                     bonus -= 26.0;
                 }
             }
