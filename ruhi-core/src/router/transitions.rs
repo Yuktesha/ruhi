@@ -6220,6 +6220,14 @@ impl TransitionEngine {
                                 curr_word,
                                 "付" | "覆" | "走" | "來" | "去" | "看" | "買" | "賣" | "說" | "寫"
                             ))
+                        || (prev_word == "部"
+                            && !matches!(
+                                curr_word,
+                                "電影" | "影片" | "戲" | "劇" | "電視劇" | "小說" | "書" | "著作"
+                                    | "作品" | "經典" | "法典" | "法律" | "法案" | "車" | "汽車"
+                                    | "轎車" | "機車" | "卡車" | "公車" | "機器" | "電腦" | "手機"
+                                    | "電話" | "電梯"
+                            ))
                         || (prev_word == "班"
                             && !matches!(
                                 curr_word,
@@ -6378,7 +6386,7 @@ impl TransitionEngine {
         }
 
         // 4. 修飾語接中心名詞「話」與防「的+化」
-        if curr_word == "話" && (prev_word == "的" || prev_word.ends_with("的") || prev_word == "普通") {
+        if matches!(curr_word, "話" | "話語") && (prev_word == "的" || prev_word.ends_with("的") || prev_word == "普通") {
             bonus += self.apply_rule_score("morph_modifier_hua", 26.0);
         }
         if curr_word == "化" && (prev_word == "的" || prev_word.ends_with("的")) {

@@ -926,7 +926,13 @@ impl TransitionEngine {
         if prev_word == "與" && !prev2_word.is_empty() {
             let curr_len = curr_word.chars().count();
             let prev2_len = prev2_word.chars().count();
-            if curr_word == prev2_word {
+            let followed_by_zhijian = dag
+                .get(&end_idx)
+                .map(|ns| ns.iter().any(|m| matches!(m.word.as_str(), "之間" | "間")))
+                .unwrap_or(false);
+            if curr_word == prev2_word && followed_by_zhijian {
+                bonus += 24.0;
+            } else if curr_word == prev2_word {
                 bonus -= 65.0;
             } else if curr_len == 1
                 && matches!(curr_word, "再" | "在")
@@ -4750,6 +4756,245 @@ impl TransitionEngine {
                 if !is_zhixin_colloc && prev_word.chars().count() >= 2 {
                     bonus -= 26.0;
                 }
+            }
+
+            // 31-7. 同音單字語境析辨與雙模態保護（已/以、皆/接、盡/進、往/網、不/部、道/到、與/語、即/及、做/作、人+是 vs 人士）
+            // (a) 「不（否定副詞）」vs「部（量詞／名詞）」
+            if matches!(curr_word, "不" | "部") {
+                let right_is_negated_adj = right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "公平" | "完美" | "友善" | "足以")
+                });
+                if right_is_negated_adj {
+                    if curr_word == "部" {
+                        bonus -= 26.0;
+                    } else if matches!(prev_word, "的" | "各種" | "這") {
+                        bonus += 26.0;
+                    }
+                }
+            }
+            // (b) 「已（時制副詞：已不／已無法／已是／已在／已從／就已／已發展的）」vs「以（介詞）」
+            if matches!(curr_word, "已" | "以") && !matches!(prev_word, "所" | "可" | "何" | "足") {
+                let right_is_already_pred = !right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "以及" | "以為" | "以前" | "以後" | "以上" | "以下")
+                }) && right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "不復" | "不再" | "無法" | "無能" | "沒有" | "足夠" | "具備" | "說過"
+                            | "滲透" | "誤導" | "進化" | "退化" | "消失" | "結束" | "完成"
+                            | "成為" | "達到" | "進入" | "超過"
+                    )
+                });
+                let left_is_jiu_yi = matches!(prev_word, "就" | "早" | "業");
+                let is_yi_fazhan = matches!(prev_word, "其" | "這種" | "你" | "見證")
+                    && right_nodes_31_5.iter().any(|m| m.word == "發展");
+                if right_is_already_pred || left_is_jiu_yi || is_yi_fazhan {
+                    if curr_word == "已" { bonus += 26.0; } else { bonus -= 22.0; }
+                }
+            }
+            // (c) 「皆（全稱總括副詞：皆能／皆可／皆應／皆有／皆無／兩性皆）」vs「接（動詞）」
+            if matches!(curr_word, "皆" | "接") && curr_bopomofo.starts_with("ㄐㄧㄝ") {
+                let right_is_universal_pred = prev_word != "直"
+                    && right_nodes_31_5.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "能" | "可" | "可以" | "應" | "應該" | "須" | "必須" | "毫無"
+                                | "負有" | "崇尚" | "屬於" | "來自" | "具有"
+                        )
+                    });
+                let left_is_plural_subj = matches!(
+                    prev_word,
+                    "兩性" | "男女" | "人人" | "眾人" | "萬物" | "四海" | "舉世" | "報應" | "恐懼" | "腳本"
+                );
+                if right_is_universal_pred || left_is_plural_subj {
+                    if curr_word == "皆" { bonus += 28.0; } else { bonus -= 24.0; }
+                }
+            }
+            // (d) 「盡（動詞：該盡的／應盡的／盡一分／盡你／零落盡）」vs「進（趨向動詞）」
+            if matches!(curr_word, "盡" | "進") {
+                let left_is_duty_jin = matches!(prev_word, "該" | "應" | "所" | "未" | "零落");
+                let right_is_duty_share = matches!(
+                    prev_word,
+                    "社會" | "繼續" | "階段" | "對" | "要" | "能" | "會" | "應" | "該"
+                ) && right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "一分" | "一份" | "你" | "我" | "自己" | "其他" | "責任" | "義務"
+                            | "職責" | "本分" | "孝道" | "心力"
+                    )
+                });
+                if left_is_duty_jin || right_is_duty_share {
+                    if curr_word == "盡" { bonus += 28.0; } else { bonus -= 24.0; }
+                }
+            }
+            // (e) 「往（方向介詞：往這／往那／往哪／往自己／往其他／往回）」vs「網（名詞）」
+            if matches!(curr_word, "往" | "網") && curr_bopomofo.starts_with("ㄨㄤˇ") {
+                let right_is_dir_target = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "這" | "這個" | "這兒" | "這裡" | "那" | "那個" | "那兒" | "那裡"
+                            | "哪" | "哪裡" | "何處" | "自己" | "其他" | "所有" | "回"
+                    )
+                });
+                if right_is_dir_target {
+                    if curr_word == "往" { bonus += 28.0; } else { bonus -= 26.0; }
+                }
+            }
+            // (f) 「道（引語標記：說道／問道／抗議道；名物中心語：之道）」vs「到（結果補語）」
+            if matches!(curr_word, "道" | "到") {
+                let is_clause_final_quotative = right_nodes_31_5.is_empty()
+                    && matches!(
+                        prev_word,
+                        "說" | "問" | "答" | "笑" | "嘆" | "喊" | "叫" | "罵" | "哭" | "唸"
+                            | "念" | "喝" | "寫" | "抗議" | "回答" | "解釋" | "補充" | "感嘆"
+                            | "讚嘆" | "驚呼"
+                    );
+                let is_zhi_dao_nominal = prev_word == "之"
+                    && prev2_word.chars().count() >= 2
+                    && !matches!(prev2_word, "可能" | "不能" | "不會" | "並不" | "還不" | "都不")
+                    && (right_nodes_31_5.is_empty()
+                        || right_nodes_31_5
+                            .iter()
+                            .any(|m| matches!(m.word.as_str(), "的" | "人" | "者" | "上" | "中")));
+                if is_clause_final_quotative || is_zhi_dao_nominal {
+                    if curr_word == "道" { bonus += 28.0; } else { bonus -= 24.0; }
+                }
+            }
+            // (g) 「與（並列連詞／介詞）」vs「語（語言詞素）」及跨詞界假複合詞「詞語／標準語／希臘語／語言」防護
+            if curr_word == "詞語"
+                && matches!(
+                    prev_word,
+                    "數" | "同音" | "多音" | "破音" | "複合" | "單" | "雙字" | "三字" | "四字"
+                )
+            {
+                bonus -= 28.0;
+            }
+            if curr_word == "標準語"
+                && right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "避坑" | "必" | "規範" | "體系" | "工具" | "流程")
+                })
+            {
+                bonus -= 28.0;
+            }
+            if curr_word == "希臘語"
+                && right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "希伯來" | "羅馬" | "拉丁" | "埃及" | "波斯")
+                })
+            {
+                bonus -= 28.0;
+            }
+            if curr_word == "語言"
+                && matches!(prev_word, "行動" | "質樸" | "言行" | "思想" | "行為")
+            {
+                bonus -= 26.0;
+            }
+            if matches!(curr_word, "與" | "語" | "雨" | "羽") && curr_bopomofo.starts_with("ㄩˇ") {
+                let right_has_zhijian_bracket = !prev_word.is_empty()
+                    && right_nodes_31_5.iter().any(|m| {
+                        dag.get(&m.end_idx)
+                            .map(|ns2| {
+                                ns2.iter().any(|m2| {
+                                    matches!(m2.word.as_str(), "之間" | "間")
+                                        || dag
+                                            .get(&m2.end_idx)
+                                            .map(|ns3| ns3.iter().any(|m3| matches!(m3.word.as_str(), "之間" | "間")))
+                                            .unwrap_or(false)
+                                })
+                            })
+                            .unwrap_or(false)
+                    });
+                let is_yu3_conj_ctx = matches!(
+                    prev_word,
+                    "如何" | "無法" | "即使" | "是否" | "能否" | "自己" | "現在" | "決定"
+                        | "才智" | "字母" | "數詞" | "音序" | "標準" | "閱讀" | "審校" | "密度"
+                ) || right_has_zhijian_bracket;
+                let is_yu3_lang_morpheme = matches!(
+                    prev_word,
+                    "母" | "雙" | "敬" | "塔" | "動態" | "搭配" | "計算"
+                );
+                if is_yu3_conj_ctx && !is_yu3_lang_morpheme {
+                    if curr_word == "與" { bonus += 26.0; } else { bonus -= 24.0; }
+                } else if is_yu3_lang_morpheme {
+                    if curr_word == "語" { bonus += 26.0; } else { bonus -= 24.0; }
+                }
+            }
+            if curr_word == "境" {
+                if prev_word == "語" {
+                    bonus += 26.0;
+                } else if prev_word == "與" {
+                    bonus -= 24.0;
+                }
+            }
+            // (h) 「即（連詞／副詞：句首「即…」；句中「即缺乏／即完成／即隨之／即從」）」vs「及（並列連詞）」
+            if matches!(curr_word, "即" | "及") {
+                let is_clause_initial_ji = prev_word.is_empty()
+                    && right_nodes_31_5.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "我們" | "一般" | "從" | "兩者" | "內在" | "一個" | "意指" | "個體"
+                                | "某" | "是" | "為" | "在" | "所謂"
+                        )
+                    });
+                let prev_is_ji_trigger = matches!(
+                    prev_word,
+                    "開始"
+                        | "一開始"
+                        | "鍵"
+                        | "空白鍵"
+                        | "波動"
+                );
+                let is_adverbial_ji = prev_is_ji_trigger
+                    || (matches!(prev_word, "我們" | "器官")
+                        && right_nodes_31_5
+                            .iter()
+                            .any(|m| matches!(m.word.as_str(), "說" | "隨" | "隨之")));
+                if is_clause_initial_ji || is_adverbial_ji {
+                    if curr_word == "即" { bonus += 28.0; } else { bonus -= 24.0; }
+                }
+            }
+            // (i) 「做（動作動詞：為社會做／而做／做些／做一些／做更多／做調整／做朋友／做任何／做一切／做罪業）」vs「作」
+            if matches!(curr_word, "做" | "作") {
+                let left_is_zuo_verb = matches!(
+                    prev_word,
+                    "社會" | "而" | "不" | "正在" | "在" | "無法" | "不應" | "工作"
+                );
+                let right_is_zuo_obj = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "些" | "一些" | "更多" | "調整" | "朋友" | "任何" | "一切" | "罪業" | "之"
+                    )
+                });
+                if (left_is_zuo_verb && right_is_zuo_obj)
+                    || (matches!(prev_word, "而" | "工作") && right_nodes_31_5.is_empty())
+                {
+                    if curr_word == "做" { bonus += 26.0; } else { bonus -= 22.0; }
+                }
+            }
+            // (j) 「人 + 是」vs「人士（僅限各界／專業／社會／衛道人士）」及「潛力 + 是」vs「力士」
+            if curr_word == "人士" {
+                let left_shatters_ren_shi = matches!(
+                    prev_word,
+                    "的" | "之" | "當" | "這種" | "那種" | "這些" | "那些"
+                );
+                let right_is_copula_pred = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "不能" | "無法" | "無知" | "不會" | "不是" | "第二" | "第三" | "第一"
+                            | "社會" | "投機"
+                    )
+                });
+                if left_shatters_ren_shi || right_is_copula_pred {
+                    bonus -= 28.0;
+                }
+            }
+            if curr_word == "力士"
+                && right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "相同" | "不同" | "一樣" | "無窮" | "無限" | "有限" | "很大"
+                    )
+                })
+            {
+                bonus -= 28.0;
             }
 
         self.apply_rule_score("construction_hierarchical_matrix", bonus)
