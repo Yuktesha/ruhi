@@ -13205,6 +13205,10 @@ mod tests {
             ("jeoflxldvldvu hxldkmjhxkdpxfhxr umd3ved6zxhj10lodEcj", "九龍城區紅磡黃埔花園3期6座10樓E室"),
             ("m hxa clflxjm cjujm vu jeeffkjnmdlxj", "安徽省六安市裕安區解放南路"),
             ("cen jek xadxdlfzjjjvu x lxfmxjvedcjtem cm vu jeeffkjbaf lxj", "新疆維吾爾自治區烏魯木齊市天山區解放北路"),
+            ("je lxldcjhgdljlxj15hwj", "基隆市和二路15號"),
+            ("je lxldcjjxl jljvu hgdljlxj1hwj", "基隆市中正區和二路1號"),
+            ("je lxldcjjxl jljvu cgjlewdlefhgdljlxj1hwj", "基隆市中正區社寮里和二路1號"),
+            ("je lxldcjhgde lxj13hwj", "基隆市和一路13號"),
         ];
         let mut mismatches = Vec::new();
         for (keys, expected) in cases {

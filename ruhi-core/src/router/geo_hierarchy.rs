@@ -260,6 +260,28 @@ impl CjkGeoHierarchy {
             return false;
         };
         if prefix_str.is_empty() {
+            if self.l1_roots_list.iter().any(|r| r == parent_entity) {
+                for ch in children {
+                    if Self::dag_can_spell(dag, start_idx, ch) {
+                        return true;
+                    }
+                    if let Some(grandchildren) = self.parent_children_list.get(ch) {
+                        for gch in grandchildren {
+                            if (gch.ends_with('路')
+                                || gch.ends_with('街')
+                                || gch.ends_with('道')
+                                || gch.ends_with('段')
+                                || gch.ends_with('里')
+                                || gch.ends_with('村'))
+                                && Self::dag_can_spell(dag, start_idx, gch)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
             for ch in children {
                 if Self::dag_can_spell(dag, start_idx, ch) {
                     return true;
@@ -442,6 +464,56 @@ impl CjkGeoHierarchy {
                         completed_child_entity = Some(child_str);
                     }
                     break 'anchor_loop;
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // ---------------------------------------------------------------------
+        // B2. District-omitted L1 -> L3 Cascade Wakeup (e.g. "基隆市和二路15號", "基隆市和一路13號"):
+        //     When the user types L1 (city/county) and skips L2 (區/鄉/鎮/市), wake up L3 roads/villages/sections under L1's L2 children.
+        // ---------------------------------------------------------------------
+        if matched_child_entity.is_none() {
+            'l1_skip_loop: for anchor in active_anchors.iter().rev() {
+                if !self.l1_roots_list.contains(anchor) {
+                    continue;
+                }
+                let Some(l2_children) = self.parent_children_list.get(anchor) else {
+                    continue;
+                };
+                if l2_children.iter().any(|l2| active_anchors.contains(l2)) {
+                    continue;
+                }
+                for l2 in l2_children {
+                    let Some(l3_children) = self.parent_children_list.get(l2) else {
+                        continue;
+                    };
+                    for l3 in l3_children {
+                        let l3_str = l3.as_str();
+                        if !(l3_str.ends_with('路')
+                            || l3_str.ends_with('街')
+                            || l3_str.ends_with('道')
+                            || l3_str.ends_with('段')
+                            || l3_str.ends_with('里')
+                            || l3_str.ends_with('村'))
+                        {
+                            continue;
+                        }
+                        if let Some(is_complete) = Self::matches_entity_path(
+                            &cleaned_history,
+                            curr_clean,
+                            end_idx,
+                            dag,
+                            l3_str,
+                        ) {
+                            bonus += if is_complete { 82.0 } else { 78.0 };
+                            matched_child_entity = Some(l3_str);
+                            if is_complete {
+                                completed_child_entity = Some(l3_str);
+                            }
+                            break 'l1_skip_loop;
+                        }
+                    }
                 }
             }
         }
@@ -1027,6 +1099,57 @@ impl CjkGeoHierarchy {
         default_code.unwrap_or_else(|| postal_spec.to_string())
     }
 
+    fn text_contains_tw_norm(haystack: &str, needle: &str) -> bool {
+        if needle.is_empty() {
+            return false;
+        }
+        if haystack.contains(needle) {
+            return true;
+        }
+        if needle.starts_with('臺') && haystack.contains(&needle.replacen('臺', "台", 1)) {
+            return true;
+        }
+        if needle.starts_with('台') && haystack.contains(&needle.replacen('台', "臺", 1)) {
+            return true;
+        }
+        false
+    }
+
+    fn has_address_number_suffix(after_entity: &str) -> bool {
+        let trimmed = after_entity.trim_start();
+        if trimmed.is_empty() {
+            return false;
+        }
+        trimmed.contains('號')
+            || trimmed.contains('巷')
+            || trimmed.contains('弄')
+            || trimmed.contains('樓')
+            || trimmed.contains('鄰')
+    }
+
+    fn find_l1_grandparents_for_l3(&self, l3_meta: &GeoEntityMeta) -> Vec<String> {
+        let mut l1_list = Vec::new();
+        if l3_meta.level != "L3" {
+            return l1_list;
+        }
+        if let Some(l2_metas) = self.entities_by_name.get(&l3_meta.parent) {
+            for l2_meta in l2_metas {
+                if l2_meta.level != "L2" || l2_meta.country != l3_meta.country {
+                    continue;
+                }
+                let owns_l3 = l2_meta.children.iter().any(|c| c == &l3_meta.entity)
+                    || (l3_meta.country == "TW"
+                        && l2_meta.postal_code.len() >= 3
+                        && l3_meta.postal_code.len() >= 3
+                        && l2_meta.postal_code[..3] == l3_meta.postal_code[..3]);
+                if owns_l3 && l2_meta.parent != "ROOT" && !l1_list.contains(&l2_meta.parent) {
+                    l1_list.push(l2_meta.parent.clone());
+                }
+            }
+        }
+        l1_list
+    }
+
     /// Resolve the most specific postal code and hierarchy path from a composed sentence or address prefix.
     pub fn resolve_postal_code_for_sentence(&self, sentence: &str) -> Option<GeoPostalMatch> {
         let trimmed = sentence.trim();
@@ -1052,7 +1175,43 @@ impl CjkGeoHierarchy {
                             && trimmed[..pos].contains(&meta.parent.replacen('台', "臺", 1)));
 
                     let is_unique_name = metas.len() == 1;
-                    let allow_match = if meta.level == "L3" && meta.children.is_empty() {
+                    let prefix_before = &trimmed[..pos];
+                    let after_entity = &trimmed[pos + meta.entity.len()..];
+                    let l1_grandparents = self.find_l1_grandparents_for_l3(meta);
+                    let grandparent_present = l1_grandparents
+                        .iter()
+                        .any(|l1| Self::text_contains_tw_norm(prefix_before, l1));
+                    let any_l1_in_prefix = self
+                        .l1_roots_list
+                        .iter()
+                        .any(|l1| Self::text_contains_tw_norm(prefix_before, l1));
+                    let conflicting_l1_present = if meta.level == "L3" {
+                        !l1_grandparents.is_empty() && !grandparent_present && any_l1_in_prefix
+                    } else if meta.level == "L2" {
+                        !parent_present && any_l1_in_prefix
+                    } else {
+                        false
+                    };
+                    let conflicting_l2_present = meta.level == "L3"
+                        && !parent_present
+                        && grandparent_present
+                        && l1_grandparents.iter().any(|l1| {
+                            self.parent_children_list.get(l1).map_or(false, |l2s| {
+                                l2s.iter()
+                                    .any(|l2| Self::text_contains_tw_norm(prefix_before, l2))
+                            })
+                        });
+                    let allow_match = if conflicting_l1_present || conflicting_l2_present {
+                        false
+                    } else if meta.level == "L3" && meta.children.is_empty() {
+                        parent_present
+                            || grandparent_present
+                            || (is_unique_name && Self::has_address_number_suffix(after_entity))
+                    } else {
+                        meta.parent == "ROOT" || parent_present || is_unique_name
+                    };
+
+                    let _unused_allow = if meta.level == "L3" && meta.children.is_empty() {
                         parent_present
                     } else {
                         meta.parent == "ROOT" || parent_present || is_unique_name
@@ -1060,6 +1219,12 @@ impl CjkGeoHierarchy {
 
                     if allow_match {
                         let mut chain = Vec::new();
+                        if let Some(l1) = l1_grandparents
+                            .iter()
+                            .find(|l1| Self::text_contains_tw_norm(prefix_before, l1))
+                        {
+                            chain.push(l1.clone());
+                        }
                         if meta.parent != "ROOT" && parent_present {
                             chain.push(meta.parent.clone());
                         }
@@ -1081,7 +1246,9 @@ impl CjkGeoHierarchy {
                                     "cadastral_section" => 20,
                                     _ => 0,
                                 };
-                                300 + cat_bonus + chain.len() * 10 + meta.entity.len()
+                                let hier_bonus = (if parent_present { 25 } else { 0 })
+                                    + (if grandparent_present { 15 } else { 0 });
+                                300 + cat_bonus + hier_bonus + chain.len() * 10 + meta.entity.len()
                             }
                             "L2" => {
                                 200 + (if parent_present { 50 } else { 0 })
@@ -1258,5 +1425,48 @@ mod tests {
             .resolve_postal_code_for_sentence("廣東省深圳市南山區粵海街道")
             .expect("Should resolve CN postal code");
         assert_eq!(postal_cn.postal_code, "518052");
+
+        // Omitting 區, 里, 鄰 for 基隆市和二路 & 基隆市和一路:
+        for addr in [
+            "基隆市和二路15號",
+            "基隆市中正區和二路1號",
+            "基隆市中正區社寮里和二路1號",
+            "中正區和二路1號",
+            "和二路15號",
+        ] {
+            let p = geo
+                .resolve_postal_code_for_sentence(addr)
+                .unwrap_or_else(|| panic!("Should resolve postal code for {}", addr));
+            assert_eq!(
+                p.postal_code, "202009",
+                "Expected 202009 for {}, got {}",
+                addr, p.postal_code
+            );
+        }
+        assert_eq!(
+            geo.resolve_postal_code_for_sentence("基隆市和一路13號")
+                .unwrap()
+                .postal_code,
+            "202008"
+        );
+        assert_eq!(
+            geo.resolve_postal_code_for_sentence("基隆市和一路2巷1號")
+                .unwrap()
+                .postal_code,
+            "202009"
+        );
+        assert_eq!(
+            geo.resolve_postal_code_for_sentence("基隆市和一路4號")
+                .unwrap()
+                .postal_code,
+            "202009"
+        );
+        let dag_heer = dummy_dag_from_tokens(2, &["二", "路"]);
+        let score_he = geo.score_geo_hierarchy_bonus(&["基隆市"], "和", "", 2, &dag_heer);
+        assert!(
+            score_he >= 70.0,
+            "Expected wakeup for '和' of '和二路' under '基隆市' even when '中正區' is omitted, got {}",
+            score_he
+        );
     }
 }
