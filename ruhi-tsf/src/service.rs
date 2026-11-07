@@ -2741,7 +2741,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 if !has_active_raw_sub_buf && (self.get_manual_selection_range().is_some() || has_mult_shorthand_before_cursor) {
                     self.push_undo();
                     self.consolidate_engine_to_pending();
-                    let eff_sel_range = self.get_manual_selection_range().or_else(|| {
+                    let manual_sel_range = self.get_manual_selection_range();
+                    let has_manual_sel = manual_sel_range.is_some();
+                    let eff_sel_range = manual_sel_range.or_else(|| {
                         let cur = *self.sentence_cursor.lock().unwrap();
                         if has_mult_shorthand_before_cursor && cur >= 2 {
                             Some((cur - 2, cur))
@@ -2774,7 +2776,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                                     s,
                                     end,
                                 );
-                            let postal = if !verified_lk && self.get_manual_selection_range().is_some() {
+                            let postal = if !verified_lk && has_manual_sel {
                                 engine.resolve_postal_code_for_marked_slice(&pending_chars, s, end)
                             } else {
                                 None
