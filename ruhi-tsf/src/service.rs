@@ -4544,14 +4544,8 @@ impl RuhiTextService_Impl {
                     }
                 }
             }
-            let mut eng = self.engine.lock().unwrap();
-            if !composed_for_ctx.is_empty() {
-                eng.record_committed(&composed_for_ctx);
-            }
-            eng.reset_buffer();
             eng.set_last_fused_longkan(saved_fused);
             drop(eng);
-            self.re_evaluate_joint_pending_and_engine();
         }
     }
 
