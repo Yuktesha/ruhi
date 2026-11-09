@@ -154,6 +154,7 @@ def main() -> int:
     if staging_win.exists():
         shutil.rmtree(staging_win)
     staging_win.mkdir(parents=True, exist_ok=True)
+    staging_schema.mkdir(parents=True, exist_ok=True)
     (staging_win / "data").mkdir(parents=True, exist_ok=True)
 
     # 2. 複製核心執行檔與 DLL
@@ -181,11 +182,13 @@ def main() -> int:
     if studio_src:
         shutil.copy2(studio_src, staging_win / "ruhi-studio.exe")
 
-    # 3. 複製四角號碼與跨輸入法核心碼表及語境轉移資料檔（longkan 已以二進位混淆內嵌於 DLL/EXE 中，嚴禁明文散佈）
+    # 3. 複製四角號碼、龍龕形音碼表與跨輸入法核心碼表及語境轉移資料檔
     data_files = [
         "four_corner.tsv",
+        "longkan.tsv",
+        "longkan.bin",
         "array30.tsv",
-        "cangjie5.tsv",
+        "cangjie.tsv",
         "transitions_user.tsv",
         "symbols.tsv",
         "lexicon_mcbopomofo.tsv",

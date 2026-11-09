@@ -2,7 +2,7 @@
 ; 符合 Windows 10 / 11 64 位元純 TSF 與 Win32 全生態相容性規範 (TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC)
 
 #define MyAppName "RuhI 如喜通用智慧型輸入法"
-#define MyAppVersion "0.7.0"
+#define MyAppVersion "0.7.1"
 #define MyAppPublisher "RuhOS Community"
 #define MyAppURL "https://github.com/Yuktesha/ruhi"
 #define MyAppExeName "ruhi-studio.exe"
@@ -65,6 +65,7 @@ Source: "{#StageDir}\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "{#StageDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\docs\RUHI_LINGUISTIC_ARCHITECTURE_AND_AI_TUNING_SPEC.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#StageDir}\docs\RUHI_LONGKAN_TECHNICAL_DISCLOSURE.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "{#StageDir}\docs\RUHI_MULTILINGUAL_EXPANSION_GUIDE.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "{#StageDir}\docs\RUHI_MULTILINGUAL_EXPANSION_GUIDE_EN.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "{#StageDir}\docs\RUHI_WESTERN_INPUT_AND_MIXED_TYPING_BLUEPRINT.md"; DestDir: "{app}\docs"; Flags: ignoreversion

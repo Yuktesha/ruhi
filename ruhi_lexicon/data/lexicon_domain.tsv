@@ -16,7 +16,7 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 金融科技	ㄐㄧㄣ ㄖㄨㄥˊ ㄎㄜ ㄐㄧˋ	1200	金融科技	Gemma2_Crucible
 投資策略	ㄊㄡˊ ㄗ ㄘㄜˋ ㄌㄩㄝˋ	1200	金融理財	Gemma2_Crucible
 侵權行為	ㄑㄧㄣ ㄑㄩㄢˊ ㄒㄧㄥˊ ㄨㄟˊ	1200	法律	Gemma2_Crucible
-智慧財產權	ㄓˋ ㄏㄨㄟˋ ㄘㄞˊ ㄔㄢˇ ㄑㄩㄢˊ	1500	法律	Gemma2_Crucible
+智慧財產權	ㄓˋ ㄏㄨㄟˋ ㄘㄞˊ ㄔㄢˇ ㄑㄩㄢˊ	1480	法律	Gemma2_Crucible
 法律責任	ㄈㄚˇ ㄌㄩˋ ㄗㄜˊ ㄖㄣˋ	1200	法律	Gemma2_Crucible
 臨床試驗	ㄌㄧㄣˊ ㄔㄨㄤˊ ㄕˋ ㄧㄢˋ	1200	臨床醫學	Gemma2_Crucible
 藥物代謝	ㄧㄠˋ ㄨˋ ㄉㄞˋ ㄒㄧㄝˋ	1200	藥理學	Gemma2_Crucible
@@ -37,12 +37,7 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 功夫茶沖泡	ㄍㄨㄥ ㄈㄨ ㄔㄚˊ ㄔㄨㄥ ㄆㄠˋ	1200	美食烹飪與功夫茶道	Gemma2_Crucible
 發酵程度	ㄈㄚ ㄒㄧㄠˋ ㄔㄥˊ ㄉㄨˋ	1000	茶葉處理	Gemma2_Crucible
 精緻造型	ㄐㄧㄥ ㄓˋ ㄗㄠˋ ㄒㄧㄥˊ	1000	甜點美學	Gemma2_Crucible
-翠綠的山林步道	ㄘㄨㄟˋ ㄌㄩˋ ˙ㄉㄜ ㄕㄢ ㄌㄧㄣˊ ㄅㄨˋ ㄉㄠˋ	1200	休閒觀光與自然生態	Gemma2_Crucible
-潺潺作響的山間溪流	ㄔㄢˊ ㄔㄢˊ ㄗㄨㄛˋ ㄒㄧㄤˇ ˙ㄉㄜ ㄕㄢ ㄐㄧㄢ ㄒㄧ ㄌㄧㄡˊ	1200	休閒觀光與自然生態	Gemma2_Crucible
-雄偉的山峰	ㄒㄩㄥˊ ㄨㄟˇ ˙ㄉㄜ ㄕㄢ ㄈㄥ	1200	休閒觀光與自然生態	Gemma2_Crucible
-古老的鐵道	ㄍㄨˇ ㄌㄠˇ ㄉㄜ˙ ㄊㄧㄝˇ ㄉㄠˋ	1200	休閒觀光與自然生態	Gemma2_Crucible
 鐵道慢旅	ㄊㄧㄝˇ ㄉㄠˋ ㄇㄢˋ ㄌㄩˇ	1200	休閒觀光與自然生態	Gemma2_Crucible
-在地風土民情	ㄗㄞˋ ㄉㄧˋ ㄈㄥ ㄊㄨˇ ㄇㄧㄣˊ ㄑㄧㄥˊ	1200	休閒觀光與自然生態	Gemma2_Crucible
 林道野營	ㄌㄧㄣˊ ㄉㄠˋ ㄧㄝˇ ㄧㄥˊ	1200	休閒觀光與自然生態	Gemma2_Crucible
 自然生態	ㄗˋ ㄖㄢˊ ㄕㄥ ㄊㄞˋ	1200	休閒觀光與自然生態	Gemma2_Crucible
 學術研究	ㄒㄩㄝˊ ㄕㄨˋ ㄧㄢˊ ㄐㄧㄡˋ	1200	高等教育與學術研究	Gemma2_Crucible
@@ -134,7 +129,6 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 品牌視覺	ㄆㄧㄣˇ ㄆㄞˊ ㄕˋ ㄐㄩㄝˊ	1200	設計領域	Gemma2_Crucible
 產品包裝	ㄔㄢˇ ㄆㄧㄣˇ ㄅㄠ ㄓㄨㄤ	1200	設計領域	Gemma2_Crucible
 阿難達馬迦哲學	ㄚ ㄋㄢˊ ㄉㄚˊ ㄇㄚˇ ㄐㄧㄚ ㄓㄜˊ ㄒㄩㄝˊ	1200	哲學	Gemma2_Crucible
-三摩地境界	ㄙㄢ ㄇㄛˊ ㄉㄧˋ ㄐㄧㄥˋ ㄐㄧㄝˋ	1200	佛教	Gemma2_Crucible
 冥想梵音唱頌	ㄇㄧㄥˊ ㄒㄧㄤˇ ㄈㄢˋ ㄧㄣ ㄔㄤˋ ㄙㄨㄥˋ	1200	修行	Gemma2_Crucible
 阿南達瑪迦	ㄚ ㄋㄢˊ ㄉㄚˊ ㄇㄚˇ ㄐㄧㄚ	1200	靈性探索與內在修持	Gemma2_Crucible
 三摩地	ㄙㄢ ㄇㄛˊ ㄉㄧˋ	1200	靈性探索與內在修持	Gemma2_Crucible
@@ -165,14 +159,13 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 教育改革	ㄐㄧㄠˋ ㄩˋ ㄍㄞˇ ㄍㄜˊ	1200	台灣政論思辨與時事公共論壇	Gemma2_Crucible
 環境保護	ㄏㄨㄢˊ ㄐㄧㄥˋ ㄅㄠˇ ㄏㄨˋ	1200	台灣政論思辨與時事公共論壇	Gemma2_Crucible
 科技創新	ㄎㄜ ㄐㄧˋ ㄔㄨㄤˋ ㄒㄧㄣ	1200	台灣政論思辨與時事公共論壇	Gemma2_Crucible
-在地風土	ㄗㄞˋ ㄉㄧˋ ㄈㄥ ㄊㄨˇ	1200	農特產物產與精緻友善農業	Gemma2_Crucible
 農村永續	ㄋㄨㄥˊ ㄘㄨㄣ ㄩㄥˇ ㄒㄩˋ	1200	農特產物產與精緻友善農業	Gemma2_Crucible
 產銷履歷	ㄔㄢˇ ㄒㄧㄠ ㄌㄩˇ ㄌㄧˋ	1200	農特產物產與精緻友善農業	Gemma2_Crucible
 友善農法	ㄧㄡˇ ㄕㄢˋ ㄋㄨㄥˊ ㄈㄚˇ	1200	農特產物產與精緻友善農業	Gemma2_Crucible
 小農市集	ㄒㄧㄠˇ ㄋㄨㄥˊ ㄕˋ ㄐㄧˊ	1200	農特產物產與精緻友善農業	Gemma2_Crucible
 東方美人茶	ㄉㄨㄥ ㄈㄤ ㄇㄟˇ ㄖㄣˊ ㄔㄚˊ	1200	農特產	Gemma2_Crucible
 炭焙	ㄊㄢˋ ㄅㄟˋ	655	noun_verb	以龍眼木炭或相思木炭文火慢烘茶葉之傳統精製工藝(長時炭焙能使)
-精緻友善農業	ㄐㄧㄥ ㄓˋ ㄧㄡˇ ㄕㄢˋ ㄋㄨㄥˊ ㄧㄝˋ	1500	農業模式	Gemma2_Crucible
+精緻友善農業	ㄐㄧㄥ ㄓˋ ㄧㄡˇ ㄕㄢˋ ㄋㄨㄥˊ ㄧㄝˋ	1480	農業模式	Gemma2_Crucible
 獨立樂團巡演	ㄉㄨˊ ㄌㄧˋ ㄩㄝˋ ㄊㄨㄢˊ ㄒㄩㄣˊ ㄧㄢˇ	1200	領域	Gemma2_Crucible
 大港開唱音樂節	ㄉㄚˋ ㄍㄤˇ ㄎㄞ ㄔㄤˋ ㄧㄣ ㄩㄝˋ ㄐㄧㄝˊ	1200	領域	Gemma2_Crucible
 沈浸式劇場	ㄔㄣˊ ㄐㄧㄣˋ ㄕˋ ㄐㄩˋ ㄔㄤˇ	1200	領域	Gemma2_Crucible
@@ -279,730 +272,215 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 下一句	ㄒㄧㄚˋ ㄧ ㄐㄩˋ	1300	common	常用對話連詞
 上一句	ㄕㄤˋ ㄧ ㄐㄩˋ	1300	common	常用對話連詞
 全對	ㄑㄩㄢˊ ㄉㄨㄟˋ	1300	common	常用肯定評價
-對吧	ㄉㄨㄟˋ ㄅㄚ˙	2000	句尾反詰助詞構式	Conversational
-對吧	ㄉㄨㄟˋ ㄅㄚ	2000	句尾反詰助詞構式	Conversational
-自帶	ㄗˋ ㄉㄞˋ	1800	colloquial	Modern_Colloquial
-自動校正	ㄗˋ ㄉㄨㄥˋ ㄐㄧㄠˋ ㄓㄥˋ	1800	tech	Common_Tech
-文句輸入	ㄨㄣˊ ㄐㄩˋ ㄕㄨ ㄖㄨˋ	1600	tech	Common_Tech
-校正	ㄐㄧㄠˋ ㄓㄥˋ	1500	common	Calibrate_Higher_Than_Jiao
-古恨今愁	ㄍㄨˇ ㄏㄣˋ ㄐㄧㄣ ㄔㄡˊ	1200	idiom_inverted	今愁古恨對稱倒裝成語
-弟瘦兄肥	ㄉㄧˋ ㄕㄡˋ ㄒㄩㄥ ㄈㄟˊ	1200	idiom_inverted	兄肥弟瘦對稱倒裝成語
-出奴入主	ㄔㄨ ㄋㄨˊ ㄖㄨˋ ㄓㄨˇ	1200	idiom_inverted	入主出奴對稱倒裝成語
-外患內憂	ㄨㄞˋ ㄏㄨㄢˋ ㄋㄟˋ ㄧㄡ	1200	idiom_inverted	內憂外患對稱倒裝成語
-吉少凶多	ㄐㄧˊ ㄕㄠˇ ㄒㄩㄥ ㄉㄨㄛ	1200	idiom_inverted	凶多吉少對稱倒裝成語
-入無出有	ㄖㄨˋ ㄨˊ ㄔㄨ ㄧㄡˇ	1200	idiom_inverted	出有入無對稱倒裝成語
-入生出死	ㄖㄨˋ ㄕㄥ ㄔㄨ ㄙˇ	1200	idiom_inverted	出死入生對稱倒裝成語
-入對出雙	ㄖㄨˋ ㄉㄨㄟˋ ㄔㄨ ㄕㄨㄤ	1200	idiom_inverted	出雙入對對稱倒裝成語
-入死出生	ㄖㄨˋ ㄙˇ ㄔㄨ ㄕㄥ	1200	idiom_inverted	出生入死對稱倒裝成語
-入化出神	ㄖㄨˋ ㄏㄨㄚˋ ㄔㄨ ㄕㄣˊ	1200	idiom_inverted	出神入化對稱倒裝成語
-後空前出	ㄏㄡˋ ㄎㄨㄥ ㄑㄧㄢˊ ㄔㄨ	1200	idiom_inverted	前出後空對稱倒裝成語
-後起前仆	ㄏㄡˋ ㄑㄧˇ ㄑㄧㄢˊ ㄆㄨ	1200	idiom_inverted	前仆後起對稱倒裝成語
-後應前呼	ㄏㄡˋ ㄧㄥˋ ㄑㄧㄢˊ ㄏㄨ	1200	idiom_inverted	前呼後應對稱倒裝成語
-後卑前倨	ㄏㄡˋ ㄅㄟ ㄑㄧㄢˊ ㄐㄩˋ	1200	idiom_inverted	前倨後卑對稱倒裝成語
-後繼前仆	ㄏㄡˋ ㄐㄧˋ ㄑㄧㄢˊ ㄆㄨ	1200	idiom_inverted	前仆後繼對稱倒裝成語
-後繼前赴	ㄏㄡˋ ㄐㄧˋ ㄑㄧㄢˊ ㄈㄨˋ	1200	idiom_inverted	前赴後繼對稱倒裝成語
-北地南天	ㄅㄟˇ ㄉㄧˋ ㄋㄢˊ ㄊㄧㄢ	1200	idiom_inverted	南天北地對稱倒裝成語
-北調南腔	ㄅㄟˇ ㄉㄧㄠˋ ㄋㄢˊ ㄑㄧㄤ	1200	idiom_inverted	南腔北調對稱倒裝成語
-北戰南征	ㄅㄟˇ ㄓㄢˋ ㄋㄢˊ ㄓㄥ	1200	idiom_inverted	南征北戰對稱倒裝成語
-北討南征	ㄅㄟˇ ㄊㄠˇ ㄋㄢˊ ㄓㄥ	1200	idiom_inverted	南征北討對稱倒裝成語
-北斗南箕	ㄅㄛˋ ㄉㄡˇ ㄋㄢˊ ㄐㄧ	1200	idiom_inverted	南箕北斗對稱倒裝成語
-北枝南枝	ㄅㄟˇ ㄓ ㄋㄢˊ ㄓ	1200	idiom_inverted	南枝北枝對稱倒裝成語
-北伐南征	ㄅㄟˇ ㄈㄚˊ ㄋㄢˊ ㄓㄥ	1200	idiom_inverted	南征北伐對稱倒裝成語
-北鷹南鷂	ㄅㄟˇ ㄧㄥ ㄋㄢˊ ㄧㄠˋ	1200	idiom_inverted	南鷂北鷹對稱倒裝成語
-北阮南阮	ㄅㄟˇ ㄖㄨㄢˇ ㄋㄢˊ ㄖㄨㄢˇ	1200	idiom_inverted	南阮北阮對稱倒裝成語
-北枳南橘	ㄅㄟˇ ㄓˇ ㄋㄢˊ ㄐㄩˊ	1200	idiom_inverted	南橘北枳對稱倒裝成語
-天成地平	ㄊㄧㄢ ㄔㄥˊ ㄉㄧˋ ㄆㄧㄥˊ	1200	idiom_inverted	地平天成對稱倒裝成語
-天崩地坼	ㄊㄧㄢ ㄅㄥ ㄉㄧˋ ㄔㄜˋ	1200	idiom_inverted	地坼天崩對稱倒裝成語
-小作大題	ㄒㄧㄠˇ ㄗㄨㄛˋ ㄉㄚˋ ㄊㄧˊ	1200	idiom_inverted	大題小作對稱倒裝成語
-小包大包	ㄒㄧㄠˇ ㄅㄠ ㄉㄚˋ ㄅㄠ	1200	idiom_inverted	大包小包對稱倒裝成語
-小用大器	ㄒㄧㄠˇ ㄩㄥˋ ㄉㄚˋ ㄑㄧˋ	1200	idiom_inverted	大器小用對稱倒裝成語
-小用大材	ㄒㄧㄠˇ ㄩㄥˋ ㄉㄚˋ ㄘㄞˊ	1200	idiom_inverted	大材小用對稱倒裝成語
-小怪大驚	ㄒㄧㄠˇ ㄍㄨㄞˋ ㄉㄚˋ ㄐㄧㄥ	1200	idiom_inverted	大驚小怪對稱倒裝成語
-小酌大宴	ㄒㄧㄠˇ ㄓㄨㄛˊ ㄉㄚˋ ㄧㄢˋ	1200	idiom_inverted	大宴小酌對稱倒裝成語
-地大天大	ㄉㄧˋ ㄉㄚˋ ㄊㄧㄢ ㄉㄚˋ	1200	idiom_inverted	天大地大對稱倒裝成語
-地老天長	ㄉㄧˋ ㄌㄠˇ ㄊㄧㄢ ㄔㄤˊ	1200	idiom_inverted	天長地老對稱倒裝成語
-地轉天旋	ㄉㄧˋ ㄓㄨㄢˇ ㄊㄧㄢ ㄒㄩㄢˊ	1200	idiom_inverted	天旋地轉對稱倒裝成語
-地北天南	ㄉㄧˋ ㄅㄟˇ ㄊㄧㄢ ㄋㄢˊ	1200	idiom_inverted	天南地北對稱倒裝成語
-地動天搖	ㄉㄧˋ ㄉㄨㄥˋ ㄊㄧㄢ ㄧㄠˊ	1200	idiom_inverted	天搖地動對稱倒裝成語
-地義天經	ㄉㄧˋ ㄧˋ ㄊㄧㄢ ㄐㄧㄥ	1200	idiom_inverted	天經地義對稱倒裝成語
-地別天差	ㄉㄧˋ ㄅㄧㄝˊ ㄊㄧㄢ ㄔㄚ	1200	idiom_inverted	天差地別對稱倒裝成語
-地遠天差	ㄉㄧˋ ㄩㄢˇ ㄊㄧㄢ ㄔㄚ	1200	idiom_inverted	天差地遠對稱倒裝成語
-地理天文	ㄉㄧˋ ㄌㄧˇ ㄊㄧㄢ ㄨㄣˊ	1200	idiom_inverted	天文地理對稱倒裝成語
-地遠天長	ㄉㄧˋ ㄩㄢˇ ㄊㄧㄢ ㄔㄤˊ	1200	idiom_inverted	天長地遠對稱倒裝成語
-地遠天高	ㄉㄧˋ ㄩㄢˇ ㄊㄧㄢ ㄍㄠ	1200	idiom_inverted	天高地遠對稱倒裝成語
-地暗天昏	ㄉㄧˋ ㄢˋ ㄊㄧㄢ ㄏㄨㄣ	1200	idiom_inverted	天昏地暗對稱倒裝成語
-地隔天懸	ㄉㄧˋ ㄍㄜˊ ㄊㄧㄢ ㄒㄩㄢˊ	1200	idiom_inverted	天懸地隔對稱倒裝成語
-地隔天遠	ㄉㄧˋ ㄍㄜˊ ㄊㄧㄢ ㄩㄢˇ	1200	idiom_inverted	天遠地隔對稱倒裝成語
-地厚天高	ㄉㄧˋ ㄏㄡˋ ㄊㄧㄢ ㄍㄠ	1200	idiom_inverted	天高地厚對稱倒裝成語
-地設天授	ㄉㄧˋ ㄕㄜˋ ㄊㄧㄢ ㄕㄡˋ	1200	idiom_inverted	天授地設對稱倒裝成語
-地設天生	ㄉㄧˋ ㄕㄜˋ ㄊㄧㄢ ㄕㄥ	1200	idiom_inverted	天生地設對稱倒裝成語
-地設天造	ㄉㄧˋ ㄕㄜˋ ㄊㄧㄢ ㄗㄠˋ	1200	idiom_inverted	天造地設對稱倒裝成語
-地慘天愁	ㄉㄧˋ ㄘㄢˇ ㄊㄧㄢ ㄔㄡˊ	1200	idiom_inverted	天愁地慘對稱倒裝成語
-地慘天昏	ㄉㄧˋ ㄘㄢˇ ㄊㄧㄢ ㄏㄨㄣ	1200	idiom_inverted	天昏地慘對稱倒裝成語
-地啞天聾	ㄉㄧˋ ㄧㄚˇ ㄊㄧㄢ ㄌㄨㄥˊ	1200	idiom_inverted	天聾地啞對稱倒裝成語
-地載天覆	ㄉㄧˋ ㄗㄞˋ ㄊㄧㄢ ㄈㄨˋ	1200	idiom_inverted	天覆地載對稱倒裝成語
-地裂天崩	ㄉㄧˋ ㄌㄧㄝˋ ㄊㄧㄢ ㄅㄥ	1200	idiom_inverted	天崩地裂對稱倒裝成語
-地棘天荊	ㄉㄧˋ ㄐㄧˊ ㄊㄧㄢ ㄐㄧㄥ	1200	idiom_inverted	天荊地棘對稱倒裝成語
-地塌天崩	ㄉㄧˋ ㄊㄚ ㄊㄧㄢ ㄅㄥ	1200	idiom_inverted	天崩地塌對稱倒裝成語
-地陷天塌	ㄉㄧˋ ㄒㄧㄢˋ ㄊㄧㄢ ㄊㄚ	1200	idiom_inverted	天塌地陷對稱倒裝成語
-地駭天震	ㄉㄧˋ ㄏㄞˋ ㄊㄧㄢ ㄓㄣˋ	1200	idiom_inverted	天震地駭對稱倒裝成語
-地迥天高	ㄉㄧˋ ㄐㄩㄥˇ ㄊㄧㄢ ㄍㄠ	1200	idiom_inverted	天高地迥對稱倒裝成語
-地狹天窄	ㄉㄧˋ ㄒㄧㄚˊ ㄊㄧㄢ ㄓㄞˇ	1200	idiom_inverted	天窄地狹對稱倒裝成語
-地屨天冠	ㄉㄧˋ ㄐㄩˋ ㄊㄧㄢ ㄍㄨㄢ	1200	idiom_inverted	天冠地屨對稱倒裝成語
-戶曉家喻	ㄏㄨˋ ㄒㄧㄠˇ ㄐㄧㄚ ㄩˋ	1200	idiom_inverted	家喻戶曉對稱倒裝成語
-戶誦家傳	ㄏㄨˋ ㄙㄨㄥˋ ㄐㄧㄚ ㄔㄨㄢˊ	1200	idiom_inverted	家傳戶誦對稱倒裝成語
-大作小題	ㄉㄚˋ ㄗㄨㄛˋ ㄒㄧㄠˇ ㄊㄧˊ	1200	idiom_inverted	小題大作對稱倒裝成語
-大來小往	ㄉㄚˋ ㄌㄞˊ ㄒㄧㄠˇ ㄨㄤˇ	1200	idiom_inverted	小往大來對稱倒裝成語
-大做小題	ㄉㄚˋ ㄗㄨㄛˋ ㄒㄧㄠˇ ㄊㄧˊ	1200	idiom_inverted	小題大做對稱倒裝成語
-大用小材	ㄉㄚˋ ㄩㄥˋ ㄒㄧㄠˇ ㄘㄞˊ	1200	idiom_inverted	小材大用對稱倒裝成語
-大痴小黠	ㄉㄚˋ ㄔ ㄒㄧㄠˇ ㄒㄧㄚˊ	1200	idiom_inverted	小黠大痴對稱倒裝成語
-大勇小怯	ㄉㄚˋ ㄩㄥˇ ㄒㄧㄠˇ ㄑㄩㄝˋ	1200	idiom_inverted	小怯大勇對稱倒裝成語
-大誡小懲	ㄉㄚˋ ㄐㄧㄝˋ ㄒㄧㄠˇ ㄔㄥˊ	1200	idiom_inverted	小懲大誡對稱倒裝成語
-水長山高	ㄕㄨㄟˇ ㄔㄤˊ ㄕㄢ ㄍㄠ	1200	idiom_inverted	山高水長對稱倒裝成語
-水遠山高	ㄕㄨㄟˇ ㄩㄢˇ ㄕㄢ ㄍㄠ	1200	idiom_inverted	山高水遠對稱倒裝成語
-水複山重	ㄕㄨㄟˇ ㄈㄨˋ ㄕㄢ ㄔㄨㄥˊ	1200	idiom_inverted	山重水複對稱倒裝成語
-水秀山清	ㄕㄨㄟˇ ㄒㄧㄡˋ ㄕㄢ ㄑㄧㄥ	1200	idiom_inverted	山清水秀對稱倒裝成語
-右有左宜	ㄧㄡˋ ㄧㄡˇ ㄗㄨㄛˇ ㄧˊ	1200	idiom_inverted	左宜右有對稱倒裝成語
-右史左圖	ㄧㄡˋ ㄕˇ ㄗㄨㄛˇ ㄊㄨˊ	1200	idiom_inverted	左圖右史對稱倒裝成語
-右突左衝	ㄧㄡˋ ㄊㄨˊ ㄗㄨㄛˇ ㄔㄨㄥ	1200	idiom_inverted	左衝右突對稱倒裝成語
-右拂左縈	ㄧㄡˋ ㄈㄨˊ ㄗㄨㄛˇ ㄧㄥˊ	1200	idiom_inverted	左縈右拂對稱倒裝成語
-右盼左顧	ㄧㄡˋ ㄆㄢˋ ㄗㄨㄛˇ ㄍㄨˋ	1200	idiom_inverted	左顧右盼對稱倒裝成語
-右絀左支	ㄧㄡˋ ㄔㄨˋ ㄗㄨㄛˇ ㄓ	1200	idiom_inverted	左支右絀對稱倒裝成語
-前驅後擁	ㄑㄧㄢˊ ㄑㄩ ㄏㄡˋ ㄩㄥˇ	1200	idiom_inverted	後擁前驅對稱倒裝成語
-意冗心勞	ㄧˋ ㄖㄨㄥˇ ㄒㄧㄣ ㄌㄠˊ	1200	idiom_inverted	心勞意冗對稱倒裝成語
-意洽心甜	ㄧˋ ㄑㄧㄚˋ ㄒㄧㄣ ㄊㄧㄢˊ	1200	idiom_inverted	心甜意洽對稱倒裝成語
-月長日引	ㄩㄝˋ ㄔㄤˊ ㄖˋ ㄧㄣˇ	1200	idiom_inverted	日引月長對稱倒裝成語
-月西日東	ㄩㄝˋ ㄒㄧ ㄖˋ ㄉㄨㄥ	1200	idiom_inverted	日東月西對稱倒裝成語
-月來日往	ㄩㄝˋ ㄌㄞˊ ㄖˋ ㄨㄤˇ	1200	idiom_inverted	日往月來對稱倒裝成語
-月深日久	ㄩㄝˋ ㄕㄣ ㄖˋ ㄐㄧㄡˇ	1200	idiom_inverted	日久月深對稱倒裝成語
-月將日就	ㄩㄝˋ ㄐㄧㄤ ㄖˋ ㄐㄧㄡˋ	1200	idiom_inverted	日就月將對稱倒裝成語
-月累日積	ㄩㄝˋ ㄌㄟˇ ㄖˋ ㄐㄧ	1200	idiom_inverted	日積月累對稱倒裝成語
-月恆日升	ㄩㄝˋ ㄏㄥˊ ㄖˋ ㄕㄥ	1200	idiom_inverted	日升月恆對稱倒裝成語
-月悔日以	ㄩㄝˋ ㄏㄨㄟˇ ㄖˋ ㄧˇ	1200	idiom_inverted	日以月悔對稱倒裝成語
-月諸日居	ㄩㄝˋ ㄓㄨ ㄖˋ ㄐㄩ	1200	idiom_inverted	日居月諸對稱倒裝成語
-月煉日鍛	ㄩㄝˋ ㄌㄧㄢˋ ㄖˋ ㄉㄨㄢˋ	1200	idiom_inverted	日鍛月煉對稱倒裝成語
-月鑠日銷	ㄩㄝˋ ㄕㄨㄛˋ ㄖˋ ㄒㄧㄠ	1200	idiom_inverted	日銷月鑠對稱倒裝成語
-月朘日削	ㄩㄝˋ ㄐㄩㄢ ㄖˋ ㄒㄩㄝˋ	1200	idiom_inverted	日削月朘對稱倒裝成語
-暗投明珠	ㄢˋ ㄊㄡˊ ㄇㄧㄥˊ ㄓㄨ	1200	idiom_inverted	明珠暗投對稱倒裝成語
-暗鬥明爭	ㄢˋ ㄉㄡˋ ㄇㄧㄥˊ ㄓㄥ	1200	idiom_inverted	明爭暗鬥對稱倒裝成語
-暗箭明槍	ㄢˋ ㄐㄧㄢˋ ㄇㄧㄥˊ ㄑㄧㄤ	1200	idiom_inverted	明槍暗箭對稱倒裝成語
-暗往明來	ㄢˋ ㄨㄤˇ ㄇㄧㄥˊ ㄌㄞˊ	1200	idiom_inverted	明來暗往對稱倒裝成語
-秋月春花	ㄑㄧㄡ ㄩㄝˋ ㄔㄨㄣ ㄏㄨㄚ	1200	idiom_inverted	春花秋月對稱倒裝成語
-秋來春去	ㄑㄧㄡ ㄌㄞˊ ㄔㄨㄣ ㄑㄩˋ	1200	idiom_inverted	春去秋來對稱倒裝成語
-秋實春華	ㄑㄧㄡ ㄕˊ ㄔㄨㄣ ㄏㄨㄚ	1200	idiom_inverted	春華秋實對稱倒裝成語
-秋去春來	ㄑㄧㄡ ㄑㄩˋ ㄔㄨㄣ ㄌㄞˊ	1200	idiom_inverted	春來秋去對稱倒裝成語
-秋蛇春蚓	ㄑㄧㄡ ㄕㄜˊ ㄔㄨㄣ ㄧㄣˇ	1200	idiom_inverted	春蚓秋蛇對稱倒裝成語
-秋菊春蘭	ㄑㄧㄡ ㄐㄩˊ ㄔㄨㄣ ㄌㄢˊ	1200	idiom_inverted	春蘭秋菊對稱倒裝成語
-秋霜春露	ㄑㄧㄡ ㄕㄨㄤ ㄔㄨㄣ ㄌㄨˋ	1200	idiom_inverted	春露秋霜對稱倒裝成語
-西倒東扶	ㄒㄧ ㄉㄠˇ ㄉㄨㄥ ㄈㄨˊ	1200	idiom_inverted	東扶西倒對稱倒裝成語
-西應東鳴	ㄒㄧ ㄧㄥˋ ㄉㄨㄥ ㄇㄧㄥˊ	1200	idiom_inverted	東鳴西應對稱倒裝成語
-西烏東兔	ㄒㄧ ㄨ ㄉㄨㄥ ㄊㄨˋ	1200	idiom_inverted	東兔西烏對稱倒裝成語
-西節東撙	ㄒㄧ ㄐㄧㄝˊ ㄉㄨㄥ ㄗㄨㄣˇ	1200	idiom_inverted	東撙西節對稱倒裝成語
-西跳東奔	ㄒㄧ ㄊㄧㄠˋ ㄉㄨㄥ ㄅㄣ	1200	idiom_inverted	東奔西跳對稱倒裝成語
-西被東漸	ㄒㄧ ㄅㄟˋ ㄉㄨㄥ ㄐㄧㄢ	1200	idiom_inverted	東漸西被對稱倒裝成語
-西宿東食	ㄒㄧ ㄙㄨˋ ㄉㄨㄥ ㄕˊ	1200	idiom_inverted	東食西宿對稱倒裝成語
-西逃東躲	ㄒㄧ ㄊㄠˊ ㄉㄨㄥ ㄉㄨㄛˇ	1200	idiom_inverted	東躲西逃對稱倒裝成語
-西跑東奔	ㄒㄧ ㄆㄠˇ ㄉㄨㄥ ㄅㄣ	1200	idiom_inverted	東奔西跑對稱倒裝成語
-西跑東躲	ㄒㄧ ㄆㄠˇ ㄉㄨㄥ ㄉㄨㄛˇ	1200	idiom_inverted	東躲西跑對稱倒裝成語
-西怨東征	ㄒㄧ ㄩㄢˋ ㄉㄨㄥ ㄓㄥ	1200	idiom_inverted	東征西怨對稱倒裝成語
-西突東衝	ㄒㄧ ㄊㄨˊ ㄉㄨㄥ ㄔㄨㄥ	1200	idiom_inverted	東衝西突對稱倒裝成語
-西撞東挨	ㄒㄧ ㄓㄨㄤˋ ㄉㄨㄥ ㄞ	1200	idiom_inverted	東挨西撞對稱倒裝成語
-西誤東差	ㄒㄧ ㄨˋ ㄉㄨㄥ ㄔㄚ	1200	idiom_inverted	東差西誤對稱倒裝成語
-西蕩東揚	ㄒㄧ ㄉㄤˋ ㄉㄨㄥ ㄧㄤˊ	1200	idiom_inverted	東揚西蕩對稱倒裝成語
-西蕩東飄	ㄒㄧ ㄉㄤˋ ㄉㄨㄥ ㄆㄧㄠ	1200	idiom_inverted	東飄西蕩對稱倒裝成語
-西想東想	ㄒㄧ ㄒㄧㄤˇ ㄉㄨㄥ ㄒㄧㄤˇ	1200	idiom_inverted	東想西想對稱倒裝成語
-西爪東鱗	ㄒㄧ ㄓㄨㄚˇ ㄉㄨㄥ ㄌㄧㄣˊ	1200	idiom_inverted	東鱗西爪對稱倒裝成語
-西繞東折	ㄒㄧ ㄖㄠˋ ㄉㄨㄥ ㄓㄜˊ	1200	idiom_inverted	東折西繞對稱倒裝成語
-西湊東拼	ㄒㄧ ㄘㄡˋ ㄉㄨㄥ ㄆㄧㄣ	1200	idiom_inverted	東拼西湊對稱倒裝成語
-西挪東閃	ㄒㄧ ㄋㄨㄛˊ ㄉㄨㄥ ㄕㄢˇ	1200	idiom_inverted	東閃西挪對稱倒裝成語
-西晃東轉	ㄒㄧ ㄏㄨㄤˋ ㄉㄨㄥ ㄓㄨㄢˇ	1200	idiom_inverted	東轉西晃對稱倒裝成語
-剛吐柔茹	ㄍㄤ ㄊㄨˇ ㄖㄡˊ ㄖㄨˊ	1200	idiom_inverted	柔茹剛吐對稱倒裝成語
-山青水碧	ㄕㄢ ㄑㄧㄥ ㄕㄨㄟˇ ㄅㄧˋ	1200	idiom_inverted	水碧山青對稱倒裝成語
-山青水秀	ㄕㄢ ㄑㄧㄥ ㄕㄨㄟˇ ㄒㄧㄡˋ	1200	idiom_inverted	水秀山青對稱倒裝成語
-山青水綠	ㄕㄢ ㄑㄧㄥ ㄕㄨㄟˇ ㄌㄩˋ	1200	idiom_inverted	水綠山青對稱倒裝成語
-山色水光	ㄕㄢ ㄙㄜˋ ㄕㄨㄟˇ ㄍㄨㄤ	1200	idiom_inverted	水光山色對稱倒裝成語
-山盡水窮	ㄕㄢ ㄐㄧㄣˋ ㄕㄨㄟˇ ㄑㄩㄥˊ	1200	idiom_inverted	水窮山盡對稱倒裝成語
-山驛水郵	ㄕㄢ ㄧˋ ㄕㄨㄟˇ ㄧㄡˊ	1200	idiom_inverted	水郵山驛對稱倒裝成語
-淺揭深厲	ㄑㄧㄢˇ ㄑㄧˋ ㄕㄣ ㄌㄧˋ	1200	idiom_inverted	深厲淺揭對稱倒裝成語
-濁水清塵	ㄓㄨㄛˊ ㄕㄨㄟˇ ㄑㄧㄥ ㄔㄣˊ	1200	idiom_inverted	清塵濁水對稱倒裝成語
-子荷父析	ㄗˇ ㄏㄜˋ ㄈㄨˋ ㄒㄧ	1200	idiom_inverted	父析子荷對稱倒裝成語
-金山玉海	ㄐㄧㄣ ㄕㄢ ㄩˋ ㄏㄞˇ	1200	idiom_inverted	玉海金山對稱倒裝成語
-金門玉堂	ㄐㄧㄣ ㄇㄣˊ ㄩˋ ㄊㄤˊ	1200	idiom_inverted	玉堂金門對稱倒裝成語
-金閣玉樓	ㄐㄧㄣ ㄍㄜˊ ㄩˋ ㄌㄡˊ	1200	idiom_inverted	玉樓金閣對稱倒裝成語
-金殿玉樓	ㄐㄧㄣ ㄉㄧㄢˋ ㄩˋ ㄌㄡˊ	1200	idiom_inverted	玉樓金殿對稱倒裝成語
-金闕玉樓	ㄐㄧㄣ ㄑㄩㄝˋ ㄩˋ ㄌㄡˊ	1200	idiom_inverted	玉樓金闕對稱倒裝成語
-金柯玉葉	ㄐㄧㄣ ㄎㄜ ㄩˋ ㄧㄝˋ	1200	idiom_inverted	玉葉金柯對稱倒裝成語
-寶氣珠光	ㄅㄠˇ ㄑㄧˋ ㄓㄨ ㄍㄨㄤ	1200	idiom_inverted	珠光寶氣對稱倒裝成語
-死歸生寄	ㄙˇ ㄍㄨㄟ ㄕㄥ ㄐㄧˋ	1200	idiom_inverted	生寄死歸對稱倒裝成語
-死哀生榮	ㄙˇ ㄞ ㄕㄥ ㄖㄨㄥˊ	1200	idiom_inverted	生榮死哀對稱倒裝成語
-目合眉垂	ㄇㄨˋ ㄏㄜˊ ㄇㄟˊ ㄔㄨㄟˊ	1200	idiom_inverted	眉垂目合對稱倒裝成語
-目秀眉清	ㄇㄨˋ ㄒㄧㄡˋ ㄇㄟˊ ㄑㄧㄥ	1200	idiom_inverted	眉清目秀對稱倒裝成語
-目朗眉清	ㄇㄨˋ ㄌㄤˇ ㄇㄟˊ ㄑㄧㄥ	1200	idiom_inverted	眉清目朗對稱倒裝成語
-春風秋月	ㄔㄨㄣ ㄈㄥ ㄑㄧㄡ ㄩㄝˋ	1200	idiom_inverted	秋月春風對稱倒裝成語
-草草花花	ㄘㄠˇ ㄘㄠˇ ㄏㄨㄚ ㄏㄨㄚ	1200	idiom_inverted	花花草草對稱倒裝成語
-木食草衣	ㄇㄨˋ ㄕˊ ㄘㄠˇ ㄧ	1200	idiom_inverted	草衣木食對稱倒裝成語
-實歸虛往	ㄕˊ ㄍㄨㄟ ㄒㄩ ㄨㄤˇ	1200	idiom_inverted	虛往實歸對稱倒裝成語
-行舉言揚	ㄒㄧㄥˊ ㄐㄩˇ ㄧㄢˊ ㄧㄤˊ	1200	idiom_inverted	言揚行舉對稱倒裝成語
-行從言聽	ㄒㄧㄥˊ ㄘㄨㄥˊ ㄧㄢˊ ㄊㄧㄥ	1200	idiom_inverted	言聽行從對稱倒裝成語
-遠來近悅	ㄩㄢˇ ㄌㄞˊ ㄐㄧㄣˋ ㄩㄝˋ	1200	idiom_inverted	近悅遠來對稱倒裝成語
-退尺進寸	ㄊㄨㄟˋ ㄔˇ ㄐㄧㄣˋ ㄘㄨㄣˋ	1200	idiom_inverted	進寸退尺對稱倒裝成語
-退速進銳	ㄊㄨㄟˋ ㄙㄨˋ ㄐㄧㄣˋ ㄖㄨㄟˋ	1200	idiom_inverted	進銳退速對稱倒裝成語
-玉女金童	ㄩˋ ㄋㄩˇ ㄐㄧㄣ ㄊㄨㄥˊ	1200	idiom_inverted	金童玉女對稱倒裝成語
-玉言金口	ㄩˋ ㄧㄢˊ ㄐㄧㄣ ㄎㄡˇ	1200	idiom_inverted	金口玉言對稱倒裝成語
-玉食金衣	ㄩˋ ㄕˊ ㄐㄧㄣ ㄧ	1200	idiom_inverted	金衣玉食對稱倒裝成語
-玉露金風	ㄩˋ ㄌㄨˋ ㄐㄧㄣ ㄈㄥ	1200	idiom_inverted	金風玉露對稱倒裝成語
-玉條金科	ㄩˋ ㄊㄧㄠˊ ㄐㄧㄣ ㄎㄜ	1200	idiom_inverted	金科玉條對稱倒裝成語
-玉嵌金鑲	ㄩˋ ㄑㄧㄢ ㄐㄧㄣ ㄒㄧㄤ	1200	idiom_inverted	金鑲玉嵌對稱倒裝成語
-玉式金相	ㄩˋ ㄕˋ ㄐㄧㄣ ㄒㄧㄤˋ	1200	idiom_inverted	金相玉式對稱倒裝成語
-短亭長亭	ㄉㄨㄢˇ ㄊㄧㄥˊ ㄔㄤˊ ㄊㄧㄥˊ	1200	idiom_inverted	長亭短亭對稱倒裝成語
-陽差陰錯	ㄧㄤˊ ㄔㄚ ㄧㄣ ㄘㄨㄛˋ	1200	idiom_inverted	陰錯陽差對稱倒裝成語
-陽衰陰盛	ㄧㄤˊ ㄕㄨㄞ ㄧㄣ ㄕㄥˋ	1200	idiom_inverted	陰盛陽衰對稱倒裝成語
-風餐雨沐	ㄈㄥ ㄘㄢ ㄩˇ ㄇㄨˋ	1200	idiom_inverted	雨沐風餐對稱倒裝成語
-雨散風流	ㄩˇ ㄙㄢˋ ㄈㄥ ㄌㄧㄡˊ	1200	idiom_inverted	風流雨散對稱倒裝成語
-雨雨風風	ㄩˇ ㄩˇ ㄈㄥ ㄈㄥ	1200	idiom_inverted	風風雨雨對稱倒裝成語
-雨宿風餐	ㄩˇ ㄙㄨˋ ㄈㄥ ㄘㄢ	1200	idiom_inverted	風餐雨宿對稱倒裝成語
-雨鬢風鬟	ㄩˇ ㄅㄧㄣˋ ㄈㄥ ㄏㄨㄢˊ	1200	idiom_inverted	風鬟雨鬢對稱倒裝成語
-雨沐風櫛	ㄩˇ ㄇㄨˋ ㄈㄥ ㄐㄧㄝˊ	1200	idiom_inverted	風櫛雨沐對稱倒裝成語
-雨驟風急	ㄩˇ ㄗㄡˋ ㄈㄥ ㄐㄧˊ	1200	idiom_inverted	風急雨驟對稱倒裝成語
-雨驟風馳	ㄩˇ ㄗㄡˋ ㄈㄥ ㄔˊ	1200	idiom_inverted	風馳雨驟對稱倒裝成語
-魄散魂銷	ㄆㄛˋ ㄙㄢˋ ㄏㄨㄣˊ ㄒㄧㄠ	1200	idiom_inverted	魂銷魄散對稱倒裝成語
-魄散魂飄	ㄆㄛˋ ㄙㄢˋ ㄏㄨㄣˊ ㄆㄧㄠ	1200	idiom_inverted	魂飄魄散對稱倒裝成語
-魄喪魂飛	ㄆㄛˋ ㄙㄤˋ ㄏㄨㄣˊ ㄈㄟ	1200	idiom_inverted	魂飛魄喪對稱倒裝成語
-真做假戲	ㄓㄣ ㄗㄨㄛˋ ㄐㄧㄚˇ ㄒㄧˋ	1200	idiom_inverted	假戲真做對稱倒裝成語
-弟恭兄友	ㄉㄧˋ ㄍㄨㄥ ㄒㄩㄥ ㄧㄡˇ	1200	idiom_inverted	兄友弟恭對稱倒裝成語
-弟及兄死	ㄉㄧˋ ㄐㄧˊ ㄒㄩㄥ ㄙˇ	1200	idiom_inverted	兄死弟及對稱倒裝成語
-弟及兄終	ㄉㄧˋ ㄐㄧˊ ㄒㄩㄥ ㄓㄨㄥ	1200	idiom_inverted	兄終弟及對稱倒裝成語
-外王內聖	ㄨㄞˋ ㄨㄤˊ ㄋㄟˋ ㄕㄥˋ	1200	idiom_inverted	內聖外王對稱倒裝成語
-外實內虛	ㄨㄞˋ ㄕˊ ㄋㄟˋ ㄒㄩ	1200	idiom_inverted	內虛外實對稱倒裝成語
-入相出將	ㄖㄨˋ ㄒㄧㄤˋ ㄔㄨ ㄐㄧㄤˋ	1200	idiom_inverted	出將入相對稱倒裝成語
-入神出鬼	ㄖㄨˋ ㄕㄣˊ ㄔㄨ ㄍㄨㄟˇ	1200	idiom_inverted	出鬼入神對稱倒裝成語
-入蹕出警	ㄖㄨˋ ㄅㄧˋ ㄔㄨ ㄐㄧㄥˇ	1200	idiom_inverted	出警入蹕對稱倒裝成語
-後後前前	ㄏㄡˋ ㄏㄡˋ ㄑㄧㄢˊ ㄑㄧㄢˊ	1200	idiom_inverted	前前後後對稱倒裝成語
-後短前長	ㄏㄡˋ ㄉㄨㄢˇ ㄑㄧㄢˊ ㄔㄤˊ	1200	idiom_inverted	前長後短對稱倒裝成語
-後舞前歌	ㄏㄡˋ ㄨˇ ㄑㄧㄢˊ ㄍㄜ	1200	idiom_inverted	前歌後舞對稱倒裝成語
-後仰前俯	ㄏㄡˋ ㄧㄤˇ ㄑㄧㄢˊ ㄈㄨˇ	1200	idiom_inverted	前俯後仰對稱倒裝成語
-後繼前家	ㄏㄡˋ ㄐㄧˋ ㄑㄧㄢˊ ㄐㄧㄚ	1200	idiom_inverted	前家後繼對稱倒裝成語
-後想前思	ㄏㄡˋ ㄒㄧㄤˇ ㄑㄧㄢˊ ㄙ	1200	idiom_inverted	前思後想對稱倒裝成語
-後偃前合	ㄏㄡˋ ㄧㄢˇ ㄑㄧㄢˊ ㄏㄜˊ	1200	idiom_inverted	前合後偃對稱倒裝成語
-後嫁前婚	ㄏㄡˋ ㄐㄧㄚˋ ㄑㄧㄢˊ ㄏㄨㄣ	1200	idiom_inverted	前婚後嫁對稱倒裝成語
-北馬南船	ㄅㄟˇ ㄇㄚˇ ㄋㄢˊ ㄔㄨㄢˊ	1200	idiom_inverted	南船北馬對稱倒裝成語
-北秀南能	ㄅㄟˇ ㄒㄧㄡˋ ㄋㄢˊ ㄋㄥˊ	1200	idiom_inverted	南能北秀對稱倒裝成語
-北往南來	ㄅㄟˇ ㄨㄤˇ ㄋㄢˊ ㄌㄞˊ	1200	idiom_inverted	南來北往對稱倒裝成語
-今用古為	ㄐㄧㄣ ㄩㄥˋ ㄍㄨˇ ㄨㄟˊ	1200	idiom_inverted	古為今用對稱倒裝成語
-惡惡善善	ㄨˋ ㄜˋ ㄕㄢˋ ㄕㄢˋ	1200	idiom_inverted	善善惡惡對稱倒裝成語
-內方外圓	ㄋㄟˋ ㄈㄤ ㄨㄞˋ ㄩㄢˊ	1200	idiom_inverted	外圓內方對稱倒裝成語
-內深外寬	ㄋㄟˋ ㄕㄣ ㄨㄞˋ ㄎㄨㄢ	1200	idiom_inverted	外寬內深對稱倒裝成語
-內張外弛	ㄋㄟˋ ㄓㄤ ㄨㄞˋ ㄔˊ	1200	idiom_inverted	外弛內張對稱倒裝成語
-內剛外柔	ㄋㄟˋ ㄍㄤ ㄨㄞˋ ㄖㄡˊ	1200	idiom_inverted	外柔內剛對稱倒裝成語
-內忌外寬	ㄋㄟˋ ㄐㄧˋ ㄨㄞˋ ㄎㄨㄢ	1200	idiom_inverted	外寬內忌對稱倒裝成語
-內荏外厲	ㄋㄟˋ ㄖㄣˇ ㄨㄞˋ ㄌㄧˋ	1200	idiom_inverted	外厲內荏對稱倒裝成語
-小小大大	ㄒㄧㄠˇ ㄒㄧㄠˇ ㄉㄚˋ ㄉㄚˋ	1200	idiom_inverted	大大小小對稱倒裝成語
-小氣大聲	ㄒㄧㄠˇ ㄑㄧˋ ㄉㄚˋ ㄕㄥ	1200	idiom_inverted	大聲小氣對稱倒裝成語
-小山大山	ㄒㄧㄠˇ ㄕㄢ ㄉㄚˋ ㄕㄢ	1200	idiom_inverted	大山小山對稱倒裝成語
-小回大漲	ㄒㄧㄠˇ ㄏㄨㄟˊ ㄉㄚˋ ㄓㄤˇ	1200	idiom_inverted	大漲小回對稱倒裝成語
-小女大男	ㄒㄧㄠˇ ㄋㄩˇ ㄉㄚˋ ㄋㄢˊ	1200	idiom_inverted	大男小女對稱倒裝成語
-小說大河	ㄒㄧㄠˇ ㄕㄨㄛ ㄉㄚˋ ㄏㄜˊ	1200	idiom_inverted	大河小說對稱倒裝成語
-小異大同	ㄒㄧㄠˇ ㄧˋ ㄉㄚˋ ㄊㄨㄥˊ	1200	idiom_inverted	大同小異對稱倒裝成語
-小叫大呼	ㄒㄧㄠˇ ㄐㄧㄠˋ ㄉㄚˋ ㄏㄨ	1200	idiom_inverted	大呼小叫對稱倒裝成語
-小宋大宋	ㄒㄧㄠˇ ㄙㄨㄥˋ ㄉㄚˋ ㄙㄨㄥˋ	1200	idiom_inverted	大宋小宋對稱倒裝成語
-小戴大戴	ㄒㄧㄠˇ ㄉㄞˋ ㄉㄚˋ ㄉㄞˋ	1200	idiom_inverted	大戴小戴對稱倒裝成語
-小喝大吆	ㄒㄧㄠˇ ㄏㄜˋ ㄉㄚˋ ㄧㄠ	1200	idiom_inverted	大吆小喝對稱倒裝成語
-小戶大家	ㄒㄧㄠˇ ㄏㄨˋ ㄉㄚˋ ㄐㄧㄚ	1200	idiom_inverted	大家小戶對稱倒裝成語
-小妻大婦	ㄒㄧㄠˇ ㄑㄧ ㄉㄚˋ ㄈㄨˋ	1200	idiom_inverted	大婦小妻對稱倒裝成語
-小巷大街	ㄒㄧㄠˇ ㄒㄧㄤˋ ㄉㄚˋ ㄐㄧㄝ	1200	idiom_inverted	大街小巷對稱倒裝成語
-小喊大呼	ㄒㄧㄠˇ ㄏㄢˇ ㄉㄚˋ ㄏㄨ	1200	idiom_inverted	大呼小喊對稱倒裝成語
-小漲大跌	ㄒㄧㄠˇ ㄓㄤˇ ㄉㄚˋ ㄉㄧㄝˊ	1200	idiom_inverted	大跌小漲對稱倒裝成語
-小秤大斗	ㄒㄧㄠˇ ㄔㄥˋ ㄉㄚˋ ㄉㄡˇ	1200	idiom_inverted	大斗小秤對稱倒裝成語
-小疵大醇	ㄒㄧㄠˇ ㄘ ㄉㄚˋ ㄔㄨㄣˊ	1200	idiom_inverted	大醇小疵對稱倒裝成語
-地黑天昏	ㄉㄧˋ ㄏㄟ ㄊㄧㄢ ㄏㄨㄣ	1200	idiom_inverted	天昏地黑對稱倒裝成語
-地道天公	ㄉㄧˋ ㄉㄠˋ ㄊㄧㄢ ㄍㄨㄥ	1200	idiom_inverted	天公地道對稱倒裝成語
-地變天災	ㄉㄧˋ ㄅㄧㄢˋ ㄊㄧㄢ ㄗㄞ	1200	idiom_inverted	天災地變對稱倒裝成語
-地知天知	ㄉㄧˋ ㄓ ㄊㄧㄢ ㄓ	1200	idiom_inverted	天知地知對稱倒裝成語
-地支天干	ㄉㄧˋ ㄓ ㄊㄧㄢ ㄍㄢ	1200	idiom_inverted	天干地支對稱倒裝成語
-地怪天奇	ㄉㄧˋ ㄍㄨㄞˋ ㄊㄧㄢ ㄑㄧˊ	1200	idiom_inverted	天奇地怪對稱倒裝成語
-地衝天剋	ㄉㄧˋ ㄔㄨㄥ ㄊㄧㄢ ㄎㄜˋ	1200	idiom_inverted	天剋地衝對稱倒裝成語
-地滅天誅	ㄉㄧˋ ㄇㄧㄝˋ ㄊㄧㄢ ㄓㄨ	1200	idiom_inverted	天誅地滅對稱倒裝成語
-地秀天真	ㄉㄧˋ ㄒㄧㄡˋ ㄊㄧㄢ ㄓㄣ	1200	idiom_inverted	天真地秀對稱倒裝成語
-地凍天寒	ㄉㄧˋ ㄉㄨㄥˋ ㄊㄧㄢ ㄏㄢˊ	1200	idiom_inverted	天寒地凍對稱倒裝成語
-地塌天摧	ㄉㄧˋ ㄊㄚ ㄊㄧㄢ ㄘㄨㄟ	1200	idiom_inverted	天摧地塌對稱倒裝成語
-地闊天高	ㄉㄧˋ ㄎㄨㄛˋ ㄊㄧㄢ ㄍㄠ	1200	idiom_inverted	天高地闊對稱倒裝成語
-地孽天災	ㄉㄧˋ ㄋㄧㄝˋ ㄊㄧㄢ ㄗㄞ	1200	idiom_inverted	天災地孽對稱倒裝成語
-終棄始亂	ㄓㄨㄥ ㄑㄧˋ ㄕˇ ㄌㄨㄢˋ	1200	idiom_inverted	始亂終棄對稱倒裝成語
-父業子承	ㄈㄨˋ ㄧㄝˋ ㄗˇ ㄔㄥˊ	1200	idiom_inverted	子承父業對稱倒裝成語
-戶戶家家	ㄏㄨˋ ㄏㄨˋ ㄐㄧㄚ ㄐㄧㄚ	1200	idiom_inverted	家家戶戶對稱倒裝成語
-戶曉家至	ㄏㄨˋ ㄒㄧㄠˇ ㄐㄧㄚ ㄓˋ	1200	idiom_inverted	家至戶曉對稱倒裝成語
-戶贍家給	ㄏㄨˋ ㄕㄢˋ ㄐㄧㄚ ㄐㄧˇ	1200	idiom_inverted	家給戶贍對稱倒裝成語
-卑人尊己	ㄅㄟ ㄖㄣˊ ㄗㄨㄣ ㄐㄧˇ	1200	idiom_inverted	尊己卑人對稱倒裝成語
-卑今尊古	ㄅㄟ ㄐㄧㄣ ㄗㄨㄣ ㄍㄨˇ	1200	idiom_inverted	尊古卑今對稱倒裝成語
-大直小枉	ㄉㄚˋ ㄓˊ ㄒㄧㄠˇ ㄨㄤˇ	1200	idiom_inverted	小枉大直對稱倒裝成語
-大走小受	ㄉㄚˋ ㄗㄡˇ ㄒㄧㄠˇ ㄕㄡˋ	1200	idiom_inverted	小受大走對稱倒裝成語
-大伸小屈	ㄉㄚˋ ㄕㄣ ㄒㄧㄠˇ ㄑㄩ	1200	idiom_inverted	小屈大伸對稱倒裝成語
-水低山高	ㄕㄨㄟˇ ㄉㄧ ㄕㄢ ㄍㄠ	1200	idiom_inverted	山高水低對稱倒裝成語
-右提左挈	ㄧㄡˋ ㄊㄧˊ ㄗㄨㄛˇ ㄑㄧㄝˋ	1200	idiom_inverted	左挈右提對稱倒裝成語
-右去左來	ㄧㄡˋ ㄑㄩˋ ㄗㄨㄛˇ ㄌㄞˊ	1200	idiom_inverted	左來右去對稱倒裝成語
-右想左思	ㄧㄡˋ ㄒㄧㄤˇ ㄗㄨㄛˇ ㄙ	1200	idiom_inverted	左思右想對稱倒裝成語
-右舍左鄰	ㄧㄡˋ ㄕㄜˋ ㄗㄨㄛˇ ㄌㄧㄣˊ	1200	idiom_inverted	左鄰右舍對稱倒裝成語
-右吾左支	ㄧㄡˋ ㄨˊ ㄗㄨㄛˇ ㄓ	1200	idiom_inverted	左支右吾對稱倒裝成語
-右挈左提	ㄧㄡˋ ㄑㄧㄝˋ ㄗㄨㄛˇ ㄊㄧˊ	1200	idiom_inverted	左提右挈對稱倒裝成語
-右弼左輔	ㄧㄡˋ ㄅㄧˋ ㄗㄨㄛˇ ㄈㄨˇ	1200	idiom_inverted	左輔右弼對稱倒裝成語
-右攩左遮	ㄧㄡˋ ㄉㄤˇ ㄗㄨㄛˇ ㄓㄜ	1200	idiom_inverted	左遮右攩對稱倒裝成語
-意冷心灰	ㄧˋ ㄌㄥˇ ㄒㄧㄣ ㄏㄨㄟ	1200	idiom_inverted	心灰意冷對稱倒裝成語
-意亂心煩	ㄧˋ ㄌㄨㄢˋ ㄒㄧㄣ ㄈㄢˊ	1200	idiom_inverted	心煩意亂對稱倒裝成語
-意敗心灰	ㄧˋ ㄅㄞˋ ㄒㄧㄣ ㄏㄨㄟ	1200	idiom_inverted	心灰意敗對稱倒裝成語
-意足心滿	ㄧˋ ㄗㄨˊ ㄒㄧㄣ ㄇㄢˇ	1200	idiom_inverted	心滿意足對稱倒裝成語
-意潔心誠	ㄧˋ ㄐㄧㄝˊ ㄒㄧㄣ ㄔㄥˊ	1200	idiom_inverted	心誠意潔對稱倒裝成語
-意肯心肯	ㄧˋ ㄎㄣˇ ㄒㄧㄣ ㄎㄣˇ	1200	idiom_inverted	心肯意肯對稱倒裝成語
-義膽忠肝	ㄧˋ ㄉㄢˇ ㄓㄨㄥ ㄍㄢ	1200	idiom_inverted	忠肝義膽對稱倒裝成語
-義士忠臣	ㄧˋ ㄕˋ ㄓㄨㄥ ㄔㄣˊ	1200	idiom_inverted	忠臣義士對稱倒裝成語
-心愁意擾	ㄒㄧㄣ ㄔㄡˊ ㄧˋ ㄖㄠˇ	1200	idiom_inverted	意擾心愁對稱倒裝成語
-心懶意慵	ㄒㄧㄣ ㄌㄢˇ ㄧˋ ㄩㄥ	1200	idiom_inverted	意慵心懶對稱倒裝成語
-德薄才輕	ㄉㄜˊ ㄅㄛˊ ㄘㄞˊ ㄑㄧㄥ	1200	idiom_inverted	才輕德薄對稱倒裝成語
-益下損上	ㄧˋ ㄒㄧㄚˋ ㄙㄨㄣˇ ㄕㄤˋ	1200	idiom_inverted	損上益下對稱倒裝成語
-益己損人	ㄧˋ ㄐㄧˇ ㄙㄨㄣˇ ㄖㄣˊ	1200	idiom_inverted	損人益己對稱倒裝成語
-月異日新	ㄩㄝˋ ㄧˋ ㄖˋ ㄒㄧㄣ	1200	idiom_inverted	日新月異對稱倒裝成語
-月華日精	ㄩㄝˋ ㄏㄨㄚˊ ㄖˋ ㄐㄧㄥ	1200	idiom_inverted	日精月華對稱倒裝成語
-月試日省	ㄩㄝˋ ㄕˋ ㄖˋ ㄒㄧㄥˇ	1200	idiom_inverted	日省月試對稱倒裝成語
-月課日省	ㄩㄝˋ ㄎㄜˋ ㄖˋ ㄒㄧㄥˇ	1200	idiom_inverted	日省月課對稱倒裝成語
-月削日朘	ㄩㄝˋ ㄒㄩㄝˋ ㄖˋ ㄐㄩㄢ	1200	idiom_inverted	日朘月削對稱倒裝成語
-月染日漸	ㄩㄝˋ ㄖㄢˇ ㄖˋ ㄐㄧㄢ	1200	idiom_inverted	日漸月染對稱倒裝成語
-月染日濡	ㄩㄝˋ ㄖㄢˇ ㄖˋ ㄖㄨˊ	1200	idiom_inverted	日濡月染對稱倒裝成語
-月益日增	ㄩㄝˋ ㄧˋ ㄖˋ ㄗㄥ	1200	idiom_inverted	日增月益對稱倒裝成語
-月益日滋	ㄩㄝˋ ㄧˋ ㄖˋ ㄗ	1200	idiom_inverted	日滋月益對稱倒裝成語
-月滋日益	ㄩㄝˋ ㄗ ㄖˋ ㄧˋ	1200	idiom_inverted	日益月滋對稱倒裝成語
-暗取明棄	ㄢˋ ㄑㄩˇ ㄇㄧㄥˊ ㄑㄧˋ	1200	idiom_inverted	明棄暗取對稱倒裝成語
-暗訪明察	ㄢˋ ㄈㄤˇ ㄇㄧㄥˊ ㄔㄚˊ	1200	idiom_inverted	明察暗訪對稱倒裝成語
-暗訪明查	ㄢˋ ㄈㄤˇ ㄇㄧㄥˊ ㄔㄚˊ	1200	idiom_inverted	明查暗訪對稱倒裝成語
-暗騙明欺	ㄢˋ ㄆㄧㄢˋ ㄇㄧㄥˊ ㄑㄧ	1200	idiom_inverted	明欺暗騙對稱倒裝成語
-秋報春祈	ㄑㄧㄡ ㄅㄠˋ ㄔㄨㄣ ㄑㄧˊ	1200	idiom_inverted	春祈秋報對稱倒裝成語
-秋殺春生	ㄑㄧㄡ ㄕㄚ ㄔㄨㄣ ㄕㄥ	1200	idiom_inverted	春生秋殺對稱倒裝成語
-秋乏春困	ㄑㄧㄡ ㄈㄚˊ ㄔㄨㄣ ㄎㄨㄣˋ	1200	idiom_inverted	春困秋乏對稱倒裝成語
-明鎗暗箭	ㄇㄧㄥˊ ㄑㄧㄤ ㄢˋ ㄐㄧㄢˋ	1200	idiom_inverted	暗箭明鎗對稱倒裝成語
-西四東三	ㄒㄧ ㄙˋ ㄉㄨㄥ ㄙㄢ	1200	idiom_inverted	東三西四對稱倒裝成語
-西倒東歪	ㄒㄧ ㄉㄠˇ ㄉㄨㄥ ㄨㄞ	1200	idiom_inverted	東歪西倒對稱倒裝成語
-西倒東翻	ㄒㄧ ㄉㄠˇ ㄉㄨㄥ ㄈㄢ	1200	idiom_inverted	東翻西倒對稱倒裝成語
-西落東零	ㄒㄧ ㄌㄨㄛˋ ㄉㄨㄥ ㄌㄧㄥˊ	1200	idiom_inverted	東零西落對稱倒裝成語
-西走東奔	ㄒㄧ ㄗㄡˇ ㄉㄨㄥ ㄅㄣ	1200	idiom_inverted	東奔西走對稱倒裝成語
-西折東量	ㄒㄧ ㄕㄜˊ ㄉㄨㄥ ㄌㄧㄤˊ	1200	idiom_inverted	東量西折對稱倒裝成語
-西告東央	ㄒㄧ ㄍㄠˋ ㄉㄨㄥ ㄧㄤ	1200	idiom_inverted	東央西告對稱倒裝成語
-西望東張	ㄒㄧ ㄨㄤˋ ㄉㄨㄥ ㄓㄤ	1200	idiom_inverted	東張西望對稱倒裝成語
-西望東觀	ㄒㄧ ㄨㄤˋ ㄉㄨㄥ ㄍㄨㄢ	1200	idiom_inverted	東觀西望對稱倒裝成語
-西討東征	ㄒㄧ ㄊㄠˇ ㄉㄨㄥ ㄓㄥ	1200	idiom_inverted	東征西討對稱倒裝成語
-西擺東搖	ㄒㄧ ㄅㄞˇ ㄉㄨㄥ ㄧㄠˊ	1200	idiom_inverted	東搖西擺對稱倒裝成語
-西散東零	ㄒㄧ ㄙㄢˋ ㄉㄨㄥ ㄌㄧㄥˊ	1200	idiom_inverted	東零西散對稱倒裝成語
-西借東挪	ㄒㄧ ㄐㄧㄝˋ ㄉㄨㄥ ㄋㄨㄛˊ	1200	idiom_inverted	東挪西借對稱倒裝成語
-西移東走	ㄒㄧ ㄧˊ ㄉㄨㄥ ㄗㄡˇ	1200	idiom_inverted	東走西移對稱倒裝成語
-西掩東遮	ㄒㄧ ㄧㄢˇ ㄉㄨㄥ ㄓㄜ	1200	idiom_inverted	東遮西掩對稱倒裝成語
-西藏東躲	ㄒㄧ ㄘㄤˊ ㄉㄨㄥ ㄉㄨㄛˇ	1200	idiom_inverted	東躲西藏對稱倒裝成語
-西扯東拉	ㄒㄧ ㄔㄜˇ ㄉㄨㄥ ㄌㄚ	1200	idiom_inverted	東拉西扯對稱倒裝成語
-西向東奔	ㄒㄧ ㄒㄧㄤˋ ㄉㄨㄥ ㄅㄣ	1200	idiom_inverted	東奔西向對稱倒裝成語
-西抹東塗	ㄒㄧ ㄇㄛˇ ㄉㄨㄥ ㄊㄨˊ	1200	idiom_inverted	東塗西抹對稱倒裝成語
-西顛東跑	ㄒㄧ ㄉㄧㄢ ㄉㄨㄥ ㄆㄠˇ	1200	idiom_inverted	東跑西顛對稱倒裝成語
-西遮東掩	ㄒㄧ ㄓㄜ ㄉㄨㄥ ㄧㄢˇ	1200	idiom_inverted	東掩西遮對稱倒裝成語
-西去東來	ㄒㄧ ㄑㄩˋ ㄉㄨㄥ ㄌㄞˊ	1200	idiom_inverted	東來西去對稱倒裝成語
-西撞東奔	ㄒㄧ ㄓㄨㄤˋ ㄉㄨㄥ ㄅㄣ	1200	idiom_inverted	東奔西撞對稱倒裝成語
-西撞東碰	ㄒㄧ ㄓㄨㄤˋ ㄉㄨㄥ ㄆㄥˋ	1200	idiom_inverted	東碰西撞對稱倒裝成語
-西撞東穿	ㄒㄧ ㄓㄨㄤˋ ㄉㄨㄥ ㄔㄨㄢ	1200	idiom_inverted	東穿西撞對稱倒裝成語
-西撞東走	ㄒㄧ ㄓㄨㄤˋ ㄉㄨㄥ ㄗㄡˇ	1200	idiom_inverted	東走西撞對稱倒裝成語
-西摸東偷	ㄒㄧ ㄇㄛ ㄉㄨㄥ ㄊㄡ	1200	idiom_inverted	東偷西摸對稱倒裝成語
-西摸東摸	ㄒㄧ ㄇㄛ ㄉㄨㄥ ㄇㄛ	1200	idiom_inverted	東摸西摸對稱倒裝成語
-西摸東撈	ㄒㄧ ㄇㄛ ㄉㄨㄥ ㄌㄠˊ	1200	idiom_inverted	東撈西摸對稱倒裝成語
-西遷東徙	ㄒㄧ ㄑㄧㄢ ㄉㄨㄥ ㄒㄧˇ	1200	idiom_inverted	東徙西遷對稱倒裝成語
-西捏東扭	ㄒㄧ ㄋㄧㄝ ㄉㄨㄥ ㄋㄧㄡˇ	1200	idiom_inverted	東扭西捏對稱倒裝成語
-西伐東討	ㄒㄧ ㄈㄚ ㄉㄨㄥ ㄊㄠˇ	1200	idiom_inverted	東討西伐對稱倒裝成語
-西舍東鄰	ㄒㄧ ㄕㄜˋ ㄉㄨㄥ ㄌㄧㄣˊ	1200	idiom_inverted	東鄰西舍對稱倒裝成語
-西征東討	ㄒㄧ ㄓㄥ ㄉㄨㄥ ㄊㄠˇ	1200	idiom_inverted	東討西征對稱倒裝成語
-西躲東藏	ㄒㄧ ㄉㄨㄛˇ ㄉㄨㄥ ㄘㄤˊ	1200	idiom_inverted	東藏西躲對稱倒裝成語
-西湊東挪	ㄒㄧ ㄘㄡˋ ㄉㄨㄥ ㄋㄨㄛˊ	1200	idiom_inverted	東挪西湊對稱倒裝成語
-西竄東奔	ㄒㄧ ㄘㄨㄢˋ ㄉㄨㄥ ㄅㄣ	1200	idiom_inverted	東奔西竄對稱倒裝成語
-西襲東抄	ㄒㄧ ㄒㄧˊ ㄉㄨㄥ ㄔㄠ	1200	idiom_inverted	東抄西襲對稱倒裝成語
-西竄東逃	ㄒㄧ ㄘㄨㄢˋ ㄉㄨㄥ ㄊㄠˊ	1200	idiom_inverted	東逃西竄對稱倒裝成語
-西騙東誆	ㄒㄧ ㄆㄧㄢˋ ㄉㄨㄥ ㄎㄨㄤ	1200	idiom_inverted	東誆西騙對稱倒裝成語
-西覓東尋	ㄒㄧ ㄇㄧˋ ㄉㄨㄥ ㄒㄩㄣˊ	1200	idiom_inverted	東尋西覓對稱倒裝成語
-西拽東扯	ㄒㄧ ㄓㄨㄞˋ ㄉㄨㄥ ㄔㄜˇ	1200	idiom_inverted	東扯西拽對稱倒裝成語
-西吾東支	ㄒㄧ ㄨˊ ㄉㄨㄥ ㄓ	1200	idiom_inverted	東支西吾對稱倒裝成語
-西徙東遷	ㄒㄧ ㄒㄧˇ ㄉㄨㄥ ㄑㄧㄢ	1200	idiom_inverted	東遷西徙對稱倒裝成語
-生年死日	ㄕㄥ ㄋㄧㄢˊ ㄙˇ ㄖˋ	1200	idiom_inverted	死日生年對稱倒裝成語
-山高水闊	ㄕㄢ ㄍㄠ ㄕㄨㄟˇ ㄎㄨㄛˋ	1200	idiom_inverted	水闊山高對稱倒裝成語
-山色水聲	ㄕㄢ ㄙㄜˋ ㄕㄨㄟˇ ㄕㄥ	1200	idiom_inverted	水聲山色對稱倒裝成語
-山迎水送	ㄕㄢ ㄧㄥˊ ㄕㄨㄟˇ ㄙㄨㄥˋ	1200	idiom_inverted	水送山迎對稱倒裝成語
-淺出深入	ㄑㄧㄢˇ ㄔㄨ ㄕㄣ ㄖㄨˋ	1200	idiom_inverted	深入淺出對稱倒裝成語
-濁賢清聖	ㄓㄨㄛˊ ㄒㄧㄢˊ ㄑㄧㄥ ㄕㄥˋ	1200	idiom_inverted	清聖濁賢對稱倒裝成語
-子女父母	ㄗˇ ㄋㄩˇ ㄈㄨˋ ㄇㄨˇ	1200	idiom_inverted	父母子女對稱倒裝成語
-子隱父為	ㄗˇ ㄧㄣˇ ㄈㄨˋ ㄨㄟˋ	1200	idiom_inverted	父為子隱對稱倒裝成語
-子還父債	ㄗˇ ㄏㄨㄢˊ ㄈㄨˋ ㄓㄞˋ	1200	idiom_inverted	父債子還對稱倒裝成語
-子孝父嚴	ㄗˇ ㄒㄧㄠˋ ㄈㄨˋ ㄧㄢˊ	1200	idiom_inverted	父嚴子孝對稱倒裝成語
-子孝父慈	ㄗˇ ㄒㄧㄠˋ ㄈㄨˋ ㄘˊ	1200	idiom_inverted	父慈子孝對稱倒裝成語
-鳥散獸聚	ㄋㄧㄠˇ ㄙㄢˋ ㄕㄡˋ ㄐㄩˋ	1200	idiom_inverted	獸聚鳥散對稱倒裝成語
-金花玉葉	ㄐㄧㄣ ㄏㄨㄚ ㄩˋ ㄧㄝˋ	1200	idiom_inverted	玉葉金花對稱倒裝成語
-死絕生離	ㄙˇ ㄐㄩㄝˊ ㄕㄥ ㄌㄧˊ	1200	idiom_inverted	生離死絕對稱倒裝成語
-死離生別	ㄙˇ ㄌㄧˊ ㄕㄥ ㄅㄧㄝˊ	1200	idiom_inverted	生別死離對稱倒裝成語
-死去生來	ㄙˇ ㄑㄩˋ ㄕㄥ ㄌㄞˊ	1200	idiom_inverted	生來死去對稱倒裝成語
-死劫生關	ㄙˇ ㄐㄧㄝˊ ㄕㄥ ㄍㄨㄢ	1200	idiom_inverted	生關死劫對稱倒裝成語
-死拽生拖	ㄙˇ ㄓㄨㄞˋ ㄕㄥ ㄊㄨㄛ	1200	idiom_inverted	生拖死拽對稱倒裝成語
-損下益上	ㄙㄨㄣˇ ㄒㄧㄚˋ ㄧˋ ㄕㄤˋ	1200	idiom_inverted	益上損下對稱倒裝成語
-假假真真	ㄐㄧㄚˇ ㄐㄧㄚˇ ㄓㄣ ㄓㄣ	1200	idiom_inverted	真真假假對稱倒裝成語
-福連禍絕	ㄈㄨˊ ㄌㄧㄢˊ ㄏㄨㄛˋ ㄐㄩㄝˊ	1200	idiom_inverted	禍絕福連對稱倒裝成語
-福先禍為	ㄈㄨˊ ㄒㄧㄢ ㄏㄨㄛˋ ㄨㄟˊ	1200	idiom_inverted	禍為福先對稱倒裝成語
-福鄰禍與	ㄈㄨˊ ㄌㄧㄣˊ ㄏㄨㄛˋ ㄩˇ	1200	idiom_inverted	禍與福鄰對稱倒裝成語
-福階禍作	ㄈㄨˊ ㄐㄧㄝ ㄏㄨㄛˋ ㄗㄨㄛˋ	1200	idiom_inverted	禍作福階對稱倒裝成語
-禍先福為	ㄏㄨㄛˋ ㄒㄧㄢ ㄈㄨˊ ㄨㄟˊ	1200	idiom_inverted	福為禍先對稱倒裝成語
-禍淫福善	ㄏㄨㄛˋ ㄧㄣˊ ㄈㄨˊ ㄕㄢˋ	1200	idiom_inverted	福善禍淫對稱倒裝成語
-禍始福為	ㄏㄨㄛˋ ㄕˇ ㄈㄨˊ ㄨㄟˊ	1200	idiom_inverted	福為禍始對稱倒裝成語
-緯文經武	ㄨㄟˇ ㄨㄣˊ ㄐㄧㄥ ㄨˇ	1200	idiom_inverted	經武緯文對稱倒裝成語
-實實虛虛	ㄕˊ ㄕˊ ㄒㄩ ㄒㄩ	1200	idiom_inverted	虛虛實實對稱倒裝成語
-實少虛多	ㄕˊ ㄕㄠˇ ㄒㄩ ㄉㄨㄛ	1200	idiom_inverted	虛多實少對稱倒裝成語
-實怨虛恭	ㄕˊ ㄩㄢˋ ㄒㄩ ㄍㄨㄥ	1200	idiom_inverted	虛恭實怨對稱倒裝成語
-實契虛錢	ㄕˊ ㄑㄧˋ ㄒㄩ ㄑㄧㄢˊ	1200	idiom_inverted	虛錢實契對稱倒裝成語
-實境虛擬	ㄕˊ ㄐㄧㄥˋ ㄒㄩ ㄋㄧˇ	1200	idiom_inverted	虛擬實境對稱倒裝成語
-東漸西風	ㄉㄨㄥ ㄐㄧㄢˋ ㄒㄧ ㄈㄥ	1200	idiom_inverted	西風東漸對稱倒裝成語
-行事言談	ㄒㄧㄥˊ ㄕˋ ㄧㄢˊ ㄊㄢˊ	1200	idiom_inverted	言談行事對稱倒裝成語
-心近身遠	ㄒㄧㄣ ㄐㄧㄣˋ ㄕㄣ ㄩㄢˇ	1200	idiom_inverted	身遠心近對稱倒裝成語
-重報輕事	ㄓㄨㄥˋ ㄅㄠˋ ㄑㄧㄥ ㄕˋ	1200	idiom_inverted	輕事重報對稱倒裝成語
-重義輕身	ㄓㄨㄥˋ ㄧˋ ㄑㄧㄥ ㄕㄣ	1200	idiom_inverted	輕身重義對稱倒裝成語
-重士輕財	ㄓㄨㄥˋ ㄕˋ ㄑㄧㄥ ㄘㄞˊ	1200	idiom_inverted	輕財重士對稱倒裝成語
-近攻遠交	ㄐㄧㄣˋ ㄍㄨㄥ ㄩㄢˇ ㄐㄧㄠ	1200	idiom_inverted	遠交近攻對稱倒裝成語
-近慮遠愁	ㄐㄧㄣˋ ㄌㄩˋ ㄩㄢˇ ㄔㄡˊ	1200	idiom_inverted	遠愁近慮對稱倒裝成語
-輕生重氣	ㄑㄧㄥ ㄕㄥ ㄓㄨㄥˋ ㄑㄧˋ	1200	idiom_inverted	重氣輕生對稱倒裝成語
-輕女重男	ㄑㄧㄥ ㄋㄩˇ ㄓㄨㄥˋ ㄋㄢˊ	1200	idiom_inverted	重男輕女對稱倒裝成語
-輕武重文	ㄑㄧㄥ ㄨˇ ㄓㄨㄥˋ ㄨㄣˊ	1200	idiom_inverted	重文輕武對稱倒裝成語
-輕友重色	ㄑㄧㄥ ㄧㄡˇ ㄓㄨㄥˋ ㄙㄜˋ	1200	idiom_inverted	重色輕友對稱倒裝成語
-玉衣金縷	ㄩˋ ㄧ ㄐㄧㄣ ㄌㄩˇ	1200	idiom_inverted	金縷玉衣對稱倒裝成語
-玉衣金鏤	ㄩˋ ㄧ ㄐㄧㄣ ㄌㄩˇ	1200	idiom_inverted	金鏤玉衣對稱倒裝成語
-玉兔金烏	ㄩˋ ㄊㄨˋ ㄐㄧㄣ ㄨ	1200	idiom_inverted	金烏玉兔對稱倒裝成語
-玉液金波	ㄩˋ ㄧㄝˋ ㄐㄧㄣ ㄅㄛ	1200	idiom_inverted	金波玉液對稱倒裝成語
-玉醴金漿	ㄩˋ ㄌㄧˇ ㄐㄧㄣ ㄐㄧㄤ	1200	idiom_inverted	金漿玉醴對稱倒裝成語
-玉蝀金鰲	ㄩˋ ㄉㄨㄥˋ ㄐㄧㄣ ㄠˊ	1200	idiom_inverted	金鰲玉蝀對稱倒裝成語
-短說長話	ㄉㄨㄢˇ ㄕㄨㄛ ㄔㄤˊ ㄏㄨㄚˋ	1200	idiom_inverted	長話短說對稱倒裝成語
-短短長長	ㄉㄨㄢˇ ㄉㄨㄢˇ ㄔㄤˊ ㄔㄤˊ	1200	idiom_inverted	長長短短對稱倒裝成語
-陽浮陰虛	ㄧㄤˊ ㄈㄨˊ ㄧㄣ ㄒㄩ	1200	idiom_inverted	陰虛陽浮對稱倒裝成語
-陽錯陰差	ㄧㄤˊ ㄘㄨㄛˋ ㄧㄣ ㄔㄚ	1200	idiom_inverted	陰差陽錯對稱倒裝成語
-陰違陽奉	ㄧㄣ ㄨㄟˊ ㄧㄤˊ ㄈㄥˋ	1200	idiom_inverted	陽奉陰違對稱倒裝成語
-陰違陽順	ㄧㄣ ㄨㄟˊ ㄧㄤˊ ㄕㄨㄣˋ	1200	idiom_inverted	陽順陰違對稱倒裝成語
-陰釋陽儒	ㄧㄣ ㄕˋ ㄧㄤˊ ㄖㄨˊ	1200	idiom_inverted	陽儒陰釋對稱倒裝成語
-雨師風伯	ㄩˇ ㄕ ㄈㄥ ㄅㄛˊ	1200	idiom_inverted	風伯雨師對稱倒裝成語
-雨潤風調	ㄩˇ ㄖㄨㄣˋ ㄈㄥ ㄊㄧㄠˊ	1200	idiom_inverted	風調雨潤對稱倒裝成語
-低低高高	ㄉㄧ ㄉㄧ ㄍㄠ ㄍㄠ	1200	idiom_inverted	高高低低對稱倒裝成語
-建置	ㄐㄧㄢˋ ㄓˋ	1600	tech	台灣IT資訊工程標準用語(系統建置/資料庫建置)
-這句	ㄓㄜˋ ㄐㄩˋ	1600	common	高頻指示代詞短語
-戴著	ㄉㄞˋ ㄓㄜ˙	620	verb_wearing	穿戴動詞(頭飾/面部/手腕，配合語境選擇限制與「帶著」消歧)
-戴著	ㄉㄞˋ ㄓㄜ	620	verb_wearing	穿戴動詞(頭飾/面部/手腕，配合語境選擇限制與「帶著」消歧)
-穿著	ㄔㄨㄢ ㄓㄜ˙	2200	verb_wearing	衣著動詞(身軀/四肢)
-穿著	ㄔㄨㄢ ㄓㄜ	2200	verb_wearing	衣著動詞(身軀/四肢)
-背著	ㄅㄟ ㄓㄜ˙	2200	verb_wearing	背負動詞(肩膀/背部)
-背著	ㄅㄟ ㄓㄜ	2200	verb_wearing	背負動詞(肩膀/背部)
-佩戴	ㄆㄟˋ ㄉㄞˋ	2200	verb_wearing	佩戴動詞(胸前/腰間)
-提著	ㄊㄧˊ ㄓㄜ˙	2200	verb_wearing	手提動詞
-提著	ㄊㄧˊ ㄓㄜ	2200	verb_wearing	手提動詞
-拿著	ㄋㄚˊ ㄓㄜ˙	2200	verb_wearing	手拿動詞
-拿著	ㄋㄚˊ ㄓㄜ	2200	verb_wearing	手拿動詞
-小花貓	ㄒㄧㄠˇ ㄏㄨㄚ ㄇㄠ	1900	animal	許聞廉博士測試核心名詞
-花環	ㄏㄨㄚ ㄏㄨㄢˊ	1850	adornment	佩戴物名詞
-花圈	ㄏㄨㄚ ㄑㄩㄢ	1850	adornment	佩戴物名詞
-安全帽	ㄢ ㄑㄩㄢˊ ㄇㄠˋ	1900	adornment	台灣高頻頭飾名詞
-玳瑁花紋	ㄉㄞˋ ㄇㄟˋ ㄏㄨㄚ ㄨㄣˊ	2000	adornment	動物斑紋名詞(文讀)
-玳瑁花紋	ㄉㄞˋ ㄇㄠˋ ㄏㄨㄚ ㄨㄣˊ	2000	adornment	動物斑紋名詞(白讀)
-玳瑁	ㄉㄞˋ ㄇㄟˋ	1800	animal	名詞(文讀)
-玳瑁	ㄉㄞˋ ㄇㄠˋ	1800	animal	名詞(白讀)
-身上有	ㄕㄣ ㄕㄤˋ ㄧㄡˇ	1800	phrase	處所領屬短語
-頭上	ㄊㄡˊ ㄕㄤˋ	1800	location	身體處所短語
-臉上	ㄌㄧㄢˇ ㄕㄤˋ	1800	location	身體處所短語
-手上	ㄕㄡˇ ㄕㄤˋ	1800	location	身體處所短語
-腳上	ㄐㄧㄠˇ ㄕㄤˋ	1800	location	身體處所短語
-胸前	ㄒㄩㄥ ㄑㄧㄢˊ	1800	location	身體處所短語
-肩上	ㄐㄧㄢ ㄕㄤˋ	1800	location	身體處所短語
+自帶	ㄗˋ ㄉㄞˋ	1480	colloquial	Modern_Colloquial
+自動校正	ㄗˋ ㄉㄨㄥˋ ㄐㄧㄠˋ ㄓㄥˋ	1480	tech	Common_Tech
+文句輸入	ㄨㄣˊ ㄐㄩˋ ㄕㄨ ㄖㄨˋ	1480	tech	Common_Tech
+校正	ㄐㄧㄠˋ ㄓㄥˋ	1480	common	Calibrate_Higher_Than_Jiao
+建置	ㄐㄧㄢˋ ㄓˋ	1480	tech	台灣IT資訊工程標準用語(系統建置/資料庫建置)
+佩戴	ㄆㄟˋ ㄉㄞˋ	1480	verb_wearing	佩戴動詞(胸前/腰間)
+小花貓	ㄒㄧㄠˇ ㄏㄨㄚ ㄇㄠ	1480	animal	許聞廉博士測試核心名詞
+花環	ㄏㄨㄚ ㄏㄨㄢˊ	1480	adornment	佩戴物名詞
+花圈	ㄏㄨㄚ ㄑㄩㄢ	1480	adornment	佩戴物名詞
+安全帽	ㄢ ㄑㄩㄢˊ ㄇㄠˋ	1480	adornment	台灣高頻頭飾名詞
+玳瑁花紋	ㄉㄞˋ ㄇㄟˋ ㄏㄨㄚ ㄨㄣˊ	1480	adornment	動物斑紋名詞(文讀)
+玳瑁花紋	ㄉㄞˋ ㄇㄠˋ ㄏㄨㄚ ㄨㄣˊ	1480	adornment	動物斑紋名詞(白讀)
+玳瑁	ㄉㄞˋ ㄇㄟˋ	1480	animal	名詞(文讀)
+玳瑁	ㄉㄞˋ ㄇㄠˋ	1480	animal	名詞(白讀)
+頭上	ㄊㄡˊ ㄕㄤˋ	1480	location	身體處所短語
+臉上	ㄌㄧㄢˇ ㄕㄤˋ	1480	location	身體處所短語
+手上	ㄕㄡˇ ㄕㄤˋ	1480	location	身體處所短語
+腳上	ㄐㄧㄠˇ ㄕㄤˋ	1480	location	身體處所短語
+胸前	ㄒㄩㄥ ㄑㄧㄢˊ	1480	location	身體處所短語
+肩上	ㄐㄧㄢ ㄕㄤˋ	1480	location	身體處所短語
 一隻	ㄧ ㄓ	630	classifier	高頻動物與雙肢量詞(配合名量選擇限制與「一支/一枝」消歧)
 兩隻	ㄌㄧㄤˇ ㄓ	630	classifier	高頻動物與雙肢量詞
 這隻	ㄓㄜˋ ㄓ	630	classifier	指示量詞
 那隻	ㄋㄚˋ ㄓ	630	classifier	指示量詞
 哪隻	ㄋㄚˇ ㄓ	630	classifier	疑問量詞
-頓飯	ㄉㄨㄣˋ ㄈㄢˋ	1850	separable_noun	量賓短語
-好好吃	ㄏㄠˇ ㄏㄠˇ ㄔ	1850	verb_phrase	副詞+動詞
-站起來	ㄓㄢˋ ㄑㄧˇ ㄌㄞˊ	1850	verb_directional	趨向動詞
-坐下來	ㄗㄨㄛˋ ㄒㄧㄚˋ ㄌㄞˊ	1850	verb_directional	趨向動詞
-拿出來	ㄋㄚˊ ㄔㄨ ㄌㄞˊ	1850	verb_directional	趨向動詞
-拿進去	ㄋㄚˊ ㄐㄧㄣˋ ㄑㄩˋ	1850	verb_directional	趨向動詞
-跑過去	ㄆㄠˇ ㄍㄨㄛˋ ㄑㄩˋ	1850	verb_directional	趨向動詞
-走下去	ㄗㄡˇ ㄒㄧㄚˋ ㄑㄩˋ	1850	verb_directional	趨向動詞
-活下去	ㄏㄨㄛˊ ㄒㄧㄚˋ ㄑㄩˋ	1850	verb_directional	趨向動詞
-堅持下去	ㄐㄧㄢ ㄔˊ ㄒㄧㄚˋ ㄑㄩˋ	1900	verb_directional	趨向動詞
-想起來	ㄒㄧㄤˇ ㄑㄧˇ ㄌㄞˊ	1850	verb_directional	趨向動詞
-想出來	ㄒㄧㄤˇ ㄔㄨ ㄌㄞˊ	1850	verb_directional	趨向動詞
-做下去	ㄗㄨㄛˋ ㄒㄧㄚˋ ㄑㄩˋ	1850	verb_directional	趨向動詞
-說出來	ㄕㄨㄛ ㄔㄨ ㄌㄞˊ	1850	verb_directional	趨向動詞
-看出來	ㄎㄢˋ ㄔㄨ ㄌㄞˊ	1850	verb_directional	趨向動詞
-傳承下去	ㄔㄨㄢˊ ㄔㄥˊ ㄒㄧㄚˋ ㄑㄩˋ	1900	verb_directional	趨向動詞
-睡了八個小時覺	ㄕㄨㄟˋ ˙ㄌㄜ ㄅㄚ ˙ㄍㄜ ㄒㄧㄠˇ ㄕˊ ㄐㄧㄠˋ	2000	measure_complement	時量補語離合短語(輕聲)
-睡了八個小時覺	ㄕㄨㄟˋ ˙ㄌㄜ ㄅㄚ ㄍㄜˋ ㄒㄧㄠˇ ㄕˊ ㄐㄧㄠˋ	2000	measure_complement	時量補語離合短語(四聲)
-睡了八個小時	ㄕㄨㄟˋ ˙ㄌㄜ ㄅㄚ ˙ㄍㄜ ㄒㄧㄠˇ ㄕˊ	1900	measure_complement	時量補語短語
-睡了八個小時	ㄕㄨㄟˋ ˙ㄌㄜ ㄅㄚ ㄍㄜˋ ㄒㄧㄠˇ ㄕˊ	1900	measure_complement	時量補語短語
-八個小時覺	ㄅㄚ ˙ㄍㄜ ㄒㄧㄠˇ ㄕˊ ㄐㄧㄠˋ	1850	measure_complement	時量賓語
-八個小時覺	ㄅㄚ ㄍㄜˋ ㄒㄧㄠˇ ㄕˊ ㄐㄧㄠˋ	1850	measure_complement	時量賓語
-八個小時	ㄅㄚ ˙ㄍㄜ ㄒㄧㄠˇ ㄕˊ	1900	measure_complement	時量名詞
-八個小時	ㄅㄚ ㄍㄜˋ ㄒㄧㄠˇ ㄕˊ	1900	measure_complement	時量名詞
-睡了一整天覺	ㄕㄨㄟˋ ˙ㄌㄜ ㄧ ㄓㄥˇ ㄊㄧㄢ ㄐㄧㄠˋ	2000	measure_complement	時量補語短語
-一整天覺	ㄧ ㄓㄥˇ ㄊㄧㄢ ㄐㄧㄠˋ	1850	measure_complement	時量賓語
-住了整整三年	ㄓㄨˋ ˙ㄌㄜ ㄓㄥˇ ㄓㄥˇ ㄙㄢ ㄋㄧㄢˊ	2000	measure_complement	時量補語短語
-整整三年	ㄓㄥˇ ㄓㄥˇ ㄙㄢ ㄋㄧㄢˊ	1900	measure_complement	時量名詞短語
-住了	ㄓㄨˋ ˙ㄌㄜ	1800	aspect	完成體動詞
-等了半個小時	ㄉㄥˇ ˙ㄌㄜ ㄅㄢˋ ˙ㄍㄜ ㄒㄧㄠˇ ㄕˊ	2000	measure_complement	時量補語短語(輕聲)
-等了半個小時	ㄉㄥˇ ˙ㄌㄜ ㄅㄢˋ ㄍㄜˋ ㄒㄧㄠˇ ㄕˊ	2000	measure_complement	時量補語短語(四聲)
-半個小時	ㄅㄢˋ ˙ㄍㄜ ㄒㄧㄠˇ ㄕˊ	1900	measure_complement	時量名詞短語
-半個小時	ㄅㄢˋ ㄍㄜˋ ㄒㄧㄠˇ ㄕˊ	1900	measure_complement	時量名詞短語
-等了	ㄉㄥˇ ˙ㄌㄜ	1800	aspect	完成體動詞
-看了好幾遍	ㄎㄢˋ ˙ㄌㄜ ㄏㄠˇ ㄐㄧˇ ㄅㄧㄢˋ	2000	measure_complement	動量補語短語
-好幾遍	ㄏㄠˇ ㄐㄧˇ ㄅㄧㄢˋ	1850	measure_complement	動量名詞短語
-去了好幾次	ㄑㄩˋ ˙ㄌㄜ ㄏㄠˇ ㄐㄧˇ ㄘˋ	2000	measure_complement	動量補語短語
-好幾次	ㄏㄠˇ ㄐㄧˇ ㄘˋ	1850	measure_complement	動量名詞短語
-看了	ㄎㄢˋ ˙ㄌㄜ	1800	aspect	完成體動詞
-去了	ㄑㄩˋ ˙ㄌㄜ	1800	aspect	完成體動詞
-昏天暗地的覺	ㄏㄨㄣ ㄊㄧㄢ ㄢˋ ㄉㄧˋ ˙ㄉㄜ ㄐㄧㄠˋ	2000	idiom_separable	極限離合修飾短語
-日月無光的澡	ㄖˋ ㄩㄝˋ ㄨˊ ㄍㄨㄤ ˙ㄉㄜ ㄗㄠˇ	2000	idiom_separable	極限離合修飾短語
 教誨	ㄐㄧㄠˋ ㄏㄨㄟˋ	600	common	經典文化詞彙(配合師長/銘記語境與「教會」消歧)
-而且	ㄦˊ ㄑㄧㄝˇ	2000	conjunction	超高頻遞進連詞
-不但	ㄅㄨˊ ㄉㄢˋ	2000	conjunction	超高頻遞進連詞(變調二聲)
-不但	ㄅㄨˋ ㄉㄢˋ	2000	conjunction	超高頻遞進連詞(本調四聲)
-不但如此	ㄅㄨˊ ㄉㄢˋ ㄖㄨˊ ㄘˇ	1900	conjunction	遞進轉折短語
-不但如此	ㄅㄨˋ ㄉㄢˋ ㄖㄨˊ ㄘˇ	1900	conjunction	遞進轉折短語
-不僅	ㄅㄨˋ ㄐㄧㄣˇ	1950	conjunction	遞進連詞
-不論	ㄅㄨˊ ㄌㄨㄣˋ	1900	conjunction	條件連詞(變調)
-不論	ㄅㄨˋ ㄌㄨㄣˋ	1900	conjunction	條件連詞
-即便	ㄐㄧˊ ㄅㄧㄢˋ	1900	conjunction	讓步連詞
-即便	ㄐㄧˋ ㄅㄧㄢˋ	1900	conjunction	讓步連詞(去聲讀)
-哪怕	ㄋㄚˇ ㄆㄚˋ	1900	conjunction	讓步連詞(上聲)
-哪怕	ㄋㄚˋ ㄆㄚˋ	1900	conjunction	讓步連詞(去聲)
-我也	ㄨㄛˇ ㄧㄝˇ	1950	pronoun_adverb	代詞副詞複合體
-你也	ㄋㄧˇ ㄧㄝˇ	1950	pronoun_adverb	代詞副詞複合體
-他也	ㄊㄚ ㄧㄝˇ	1950	pronoun_adverb	代詞副詞複合體
-我也要	ㄨㄛˇ ㄧㄝˇ ㄧㄠˋ	1900	phrase	代詞副詞短語
-我也會	ㄨㄛˇ ㄧㄝˇ ㄏㄨㄟˋ	1900	phrase	代詞副詞短語
-我也想	ㄨㄛˇ ㄧㄝˇ ㄒㄧㄤˇ	1900	phrase	代詞副詞短語
-我也能	ㄨㄛˇ ㄧㄝˇ ㄋㄥˊ	1900	phrase	代詞副詞短語
-我也是	ㄨㄛˇ ㄧㄝˇ ㄕˋ	1900	phrase	代詞副詞短語
-過程	ㄍㄨㄛˋ ㄔㄥˊ	1800	noun	高頻核心名詞
+而且	ㄦˊ ㄑㄧㄝˇ	1480	conjunction	超高頻遞進連詞
+不但	ㄅㄨˊ ㄉㄢˋ	1480	conjunction	超高頻遞進連詞(變調二聲)
+不但	ㄅㄨˋ ㄉㄢˋ	1480	conjunction	超高頻遞進連詞(本調四聲)
+不但如此	ㄅㄨˊ ㄉㄢˋ ㄖㄨˊ ㄘˇ	1480	conjunction	遞進轉折短語
+不但如此	ㄅㄨˋ ㄉㄢˋ ㄖㄨˊ ㄘˇ	1480	conjunction	遞進轉折短語
+不僅	ㄅㄨˋ ㄐㄧㄣˇ	1480	conjunction	遞進連詞
+不論	ㄅㄨˊ ㄌㄨㄣˋ	1480	conjunction	條件連詞(變調)
+不論	ㄅㄨˋ ㄌㄨㄣˋ	1480	conjunction	條件連詞
+即便	ㄐㄧˊ ㄅㄧㄢˋ	1480	conjunction	讓步連詞
+即便	ㄐㄧˋ ㄅㄧㄢˋ	1480	conjunction	讓步連詞(去聲讀)
+哪怕	ㄋㄚˇ ㄆㄚˋ	1480	conjunction	讓步連詞(上聲)
+哪怕	ㄋㄚˋ ㄆㄚˋ	1480	conjunction	讓步連詞(去聲)
+過程	ㄍㄨㄛˋ ㄔㄥˊ	1480	noun	高頻核心名詞
 學歷	ㄒㄩㄝˊ ㄌㄧˋ	630	noun_abstract	教育背景名詞(配合語境與「學力」消歧)
 行程	ㄒㄧㄥˊ ㄔㄥˊ	620	noun_abstract	旅遊交通日程名詞(配合語境與「形成」消歧)
-一搏	ㄧ ㄅㄛˊ	1850	verb_object	奮力一搏(防一薄)
-奮力一搏	ㄈㄣˋ ㄌㄧˋ ㄧ ㄅㄛˊ	2000	idiom	成語
-取消了	ㄑㄩˇ ㄒㄧㄠ ˙ㄌㄜ	1850	verb_aspect	完成體動詞
-困難	ㄎㄨㄣˋ ㄋㄢˊ	1950	noun_abstract	高頻抽象名詞(二聲讀音)
-困難	ㄎㄨㄣˋ ˙ㄋㄢ	1950	noun_abstract	高頻抽象名詞(輕聲讀音)
-自己	ㄗˋ ㄐㄧˇ	1900	核心代詞	Reflexive_Pronoun
-放棄	ㄈㄤˋ ㄑㄧˋ	1950	verb	高頻動詞(防放氣)
-絕不	ㄐㄩㄝˊ ㄅㄨˋ	1950	adverb	高頻否定副詞(防覺不)
-寧可	ㄋㄧㄥˋ ㄎㄜˇ	1900	conjunction	選擇連詞(四聲)
-寧可	ㄋㄧㄥˊ ㄎㄜˇ	1900	conjunction	選擇連詞(二聲)
-便宜	ㄆㄧㄢˊ ㄧˊ	1650	現代常用名詞形容詞	Domain_General
-便宜	ㄆㄧㄢˊ ˙ㄧ	1900	adjective	形容詞(輕聲)
-佔便宜	ㄓㄢˋ ㄆㄧㄢˊ ㄧˊ	1950	phrase	動賓短語
-也不	ㄧㄝˇ ㄅㄨˋ	1900	adverb	副詞短語(防野不)
-重重	ㄔㄨㄥˊ ㄔㄨㄥˊ	1900	adjective	疊詞形容詞
-來了	ㄌㄞˊ ˙ㄌㄜ	1900	verb_aspect	完成體動詞(防碎字)
-好好	ㄏㄠˇ ㄏㄠˇ	1950	adverb	高頻副詞(好好，防舊好)
-就好好	ㄐㄧㄡˋ ㄏㄠˇ ㄏㄠˇ	1900	phrase	副詞短語
-放鬆	ㄈㄤˋ ㄙㄨㄥ	1950	verb	高頻動詞
-一下	ㄧ ㄒㄧㄚˋ	1950	measure	高頻時量詞
+一搏	ㄧ ㄅㄛˊ	1480	verb_object	奮力一搏(防一薄)
+奮力一搏	ㄈㄣˋ ㄌㄧˋ ㄧ ㄅㄛˊ	1480	idiom	成語
+困難	ㄎㄨㄣˋ ㄋㄢˊ	1480	noun_abstract	高頻抽象名詞(二聲讀音)
+困難	ㄎㄨㄣˋ ˙ㄋㄢ	1480	noun_abstract	高頻抽象名詞(輕聲讀音)
+自己	ㄗˋ ㄐㄧˇ	1480	核心代詞	Reflexive_Pronoun
+放棄	ㄈㄤˋ ㄑㄧˋ	1480	verb	高頻動詞(防放氣)
+絕不	ㄐㄩㄝˊ ㄅㄨˋ	1480	adverb	高頻否定副詞(防覺不)
+寧可	ㄋㄧㄥˋ ㄎㄜˇ	1480	conjunction	選擇連詞(四聲)
+寧可	ㄋㄧㄥˊ ㄎㄜˇ	1480	conjunction	選擇連詞(二聲)
+便宜	ㄆㄧㄢˊ ㄧˊ	1480	現代常用名詞形容詞	Domain_General
+便宜	ㄆㄧㄢˊ ˙ㄧ	1480	adjective	形容詞(輕聲)
+佔便宜	ㄓㄢˋ ㄆㄧㄢˊ ㄧˊ	1480	phrase	動賓短語
+重重	ㄔㄨㄥˊ ㄔㄨㄥˊ	1480	adjective	疊詞形容詞
+好好	ㄏㄠˇ ㄏㄠˇ	1480	adverb	高頻副詞(好好，防舊好)
+放鬆	ㄈㄤˋ ㄙㄨㄥ	1480	verb	高頻動詞
+一下	ㄧ ㄒㄧㄚˋ	1480	measure	高頻時量詞
 被	ㄅㄟˋ	764	preposition	被動式核心介詞(防背/倍)
-被大家	ㄅㄟˋ ㄉㄚˋ ㄐㄧㄚ	1950	phrase	被動短語
 把	ㄅㄚˇ	756	preposition	處置式核心介詞(防拔/八)
-做好	ㄗㄨㄛˋ ㄏㄠˇ	1950	verb_complement	動補短語(做好，防作好)
-寫完	ㄒㄧㄝˇ ㄨㄢˊ	1950	verb_complement	動補短語(寫完，防血完)
 寫	ㄒㄧㄝˇ	711	verb	高頻動詞(防血)
-打掃	ㄉㄚˇ ㄙㄠˇ	1950	verb	高頻動詞
-乾淨	ㄍㄢ ㄐㄧㄥˋ	1950	adjective	高頻形容詞
-放回	ㄈㄤˋ ㄏㄨㄟˊ	1900	verb_complement	趨向動補
-桌上	ㄓㄨㄛ ㄕㄤˋ	1950	noun_locative	方位名詞(防捉上)
-靜下來	ㄐㄧㄥˋ ㄒㄧㄚˋ ㄌㄞˊ	1950	verb_complement	趨向動補(防心境)
-解決掉	ㄐㄧㄝˇ ㄐㄩㄝˊ ㄉㄧㄠˋ	1950	verb_complement	動補短語
-打破了	ㄉㄚˇ ㄆㄛˋ ˙ㄌㄜ	1900	verb_complement	動補完成體
-深深	ㄕㄣ ㄕㄣ	1950	adverb	疊詞副詞
-吸引	ㄒㄧ ㄧㄣˇ	1950	verb	高頻動詞
-打敗	ㄉㄚˇ ㄅㄞˋ	1950	verb	高頻動詞
-淋濕	ㄌㄧㄣˊ ㄕ	1950	verb_complement	動補短語(正體淋濕)
-打動	ㄉㄚˇ ㄉㄨㄥˋ	1950	verb	高頻動詞
-真誠	ㄓㄣ ㄔㄥˊ	1950	adjective	形容詞(防真成)
-對手	ㄉㄨㄟˋ ㄕㄡˇ	1950	noun	名詞
-超越	ㄔㄠ ㄩㄝˋ	1950	verb	高頻動詞
-感動	ㄍㄢˇ ㄉㄨㄥˋ	1950	verb	高頻動詞
-時間	ㄕˊ ㄐㄧㄢ	1950	noun_abstract	高頻抽象名詞(防時兼)
-之內	ㄓ ㄋㄟˋ	1950	preposition_frame	框式方位後置詞
-之中	ㄓ ㄓㄨㄥ	1950	preposition_frame	框式方位後置詞
-之下	ㄓ ㄒㄧㄚˋ	1950	preposition_frame	框式方位後置詞
-之上	ㄓ ㄕㄤˋ	1950	preposition_frame	框式方位後置詞
-之外	ㄓ ㄨㄞˋ	1950	preposition_frame	框式方位後置詞
+打掃	ㄉㄚˇ ㄙㄠˇ	1480	verb	高頻動詞
+乾淨	ㄍㄢ ㄐㄧㄥˋ	1480	adjective	高頻形容詞
+放回	ㄈㄤˋ ㄏㄨㄟˊ	1480	verb_complement	趨向動補
+桌上	ㄓㄨㄛ ㄕㄤˋ	1480	noun_locative	方位名詞(防捉上)
+深深	ㄕㄣ ㄕㄣ	1480	adverb	疊詞副詞
+吸引	ㄒㄧ ㄧㄣˇ	1480	verb	高頻動詞
+打敗	ㄉㄚˇ ㄅㄞˋ	1480	verb	高頻動詞
+淋濕	ㄌㄧㄣˊ ㄕ	1480	verb_complement	動補短語(正體淋濕)
+打動	ㄉㄚˇ ㄉㄨㄥˋ	1480	verb	高頻動詞
+真誠	ㄓㄣ ㄔㄥˊ	1480	adjective	形容詞(防真成)
+對手	ㄉㄨㄟˋ ㄕㄡˇ	1480	noun	名詞
+超越	ㄔㄠ ㄩㄝˋ	1480	verb	高頻動詞
+感動	ㄍㄢˇ ㄉㄨㄥˋ	1480	verb	高頻動詞
+時間	ㄕˊ ㄐㄧㄢ	1480	noun_abstract	高頻抽象名詞(防時兼)
+之內	ㄓ ㄋㄟˋ	1480	preposition_frame	框式方位後置詞
+之中	ㄓ ㄓㄨㄥ	1480	preposition_frame	框式方位後置詞
+之下	ㄓ ㄒㄧㄚˋ	1480	preposition_frame	框式方位後置詞
+之上	ㄓ ㄕㄤˋ	1480	preposition_frame	框式方位後置詞
+之外	ㄓ ㄨㄞˋ	1480	preposition_frame	框式方位後置詞
 之間	ㄓ ㄐㄧㄢ	650	noun	兩者或空間時間之中間範圍(蜂巢之間/尺幅千里之間)
-心中	ㄒㄧㄣ ㄓㄨㄥ	1950	noun_locative	方位名詞
-彼此	ㄅㄧˇ ㄘˇ	1950	pronoun	相互代詞
-而言	ㄦˊ ㄧㄢˊ	1950	idiom_conjunction	介引連詞(防兒言)
-是個	ㄕˋ ㄍㄜˋ	1950	phrase	繫量短語(防誓個)
-好消息	ㄏㄠˇ ㄒㄧㄠ ㄒㄧˊ	1950	noun_phrase	正體名詞短語
-好消息	ㄏㄠˇ ㄒㄧㄠ ˙ㄒㄧ	1950	noun_phrase	名詞短語(輕聲讀)
-全力以赴	ㄑㄩㄢˊ ㄌㄧˋ ㄧˇ ㄈㄨˋ	2000	idiom	高頻成語
+心中	ㄒㄧㄣ ㄓㄨㄥ	1480	noun_locative	方位名詞
+彼此	ㄅㄧˇ ㄘˇ	1480	pronoun	相互代詞
+而言	ㄦˊ ㄧㄢˊ	1480	idiom_conjunction	介引連詞(防兒言)
+全力以赴	ㄑㄩㄢˊ ㄌㄧˋ ㄧˇ ㄈㄨˋ	1480	idiom	高頻成語
 當	ㄉㄤ	801	preposition	時間介詞
-灑下	ㄙㄚˇ ㄒㄧㄚˋ	1900	verb_complement	動補短語
-自然	ㄗˋ ㄖㄢˊ	2000	common_noun	高頻名詞/輸入法名稱(防自燃)
-結論	ㄐㄧㄝˊ ㄌㄨㄣˋ	1950	noun_abstract	高頻抽象名詞(防渴論)
-叫我	ㄐㄧㄠˋ ㄨㄛˇ	1950	verb_pivotal	兼語短語
+灑下	ㄙㄚˇ ㄒㄧㄚˋ	1480	verb_complement	動補短語
+自然	ㄗˋ ㄖㄢˊ	1480	common_noun	高頻名詞/輸入法名稱(防自燃)
+結論	ㄐㄧㄝˊ ㄌㄨㄣˋ	1480	noun_abstract	高頻抽象名詞(防渴論)
 一聲	ㄧ ㄕㄥ	610	measure	動量/時量詞(配合動詞/擬聲詞語境與「醫生/一生」消歧)
-叫我一聲	ㄐㄧㄠˋ ㄨㄛˇ ㄧ ㄕㄥ	2000	phrase	高頻兼語短語
-一步一步	ㄧ ㄅㄨˋ ㄧ ㄅㄨˋ	1950	idiom_phrase	疊詞短語(防一步一不)
-往下推	ㄨㄤˇ ㄒㄧㄚˋ ㄊㄨㄟ	1950	phrase	動詞短語(防枉下推)
-往下	ㄨㄤˇ ㄒㄧㄚˋ	1900	phrase	趨向短語
-專業	ㄓㄨㄢ ㄧㄝˋ	1950	noun_abstract	名詞/形容詞
-表現	ㄅㄧㄠˇ ㄒㄧㄢˋ	1950	noun_abstract	高頻抽象名詞
+一步一步	ㄧ ㄅㄨˋ ㄧ ㄅㄨˋ	1480	idiom_phrase	疊詞短語(防一步一不)
+往下	ㄨㄤˇ ㄒㄧㄚˋ	1480	phrase	趨向短語
+專業	ㄓㄨㄢ ㄧㄝˋ	1480	noun_abstract	名詞/形容詞
+表現	ㄅㄧㄠˇ ㄒㄧㄢˋ	1480	noun_abstract	高頻抽象名詞
 跟	ㄍㄣ	746	preposition	介詞/連詞(防根)
-需要	ㄒㄩ ㄧㄠˋ	1950	verb_auxiliary	高頻助動詞
-利用	ㄌㄧˋ ㄩㄥˋ	1950	verb	高頻動詞
+需要	ㄒㄩ ㄧㄠˋ	1480	verb_auxiliary	高頻助動詞
+利用	ㄌㄧˋ ㄩㄥˋ	1480	verb	高頻動詞
 依據	ㄧ ㄐㄩˋ	850	preposition	介詞
-完美	ㄨㄢˊ ㄇㄟˇ	1950	adjective	形容詞(防完每)
-介面	ㄐㄧㄝˋ ㄇㄧㄢˋ	1950	noun_tech	台灣正體科技名詞(防界面)
-已有	ㄧˇ ㄧㄡˇ	1950	phrase	完成短語(防以有)
-已有的	ㄧˇ ㄧㄡˇ ˙ㄉㄜ	1950	phrase	完成偏正短語(防以有的)
-叫他	ㄐㄧㄠˋ ㄊㄚ	1950	pivotal_phrase	兼語短語(防教他)
+完美	ㄨㄢˊ ㄇㄟˇ	1480	adjective	形容詞(防完每)
+介面	ㄐㄧㄝˋ ㄇㄧㄢˋ	1480	noun_tech	台灣正體科技名詞(防界面)
 叫	ㄐㄧㄠˋ	685	verb_pivotal	兼語致使動詞(防教/窖)
-快來	ㄎㄨㄞˋ ㄌㄞˊ	1950	verb_complement	動詞短語
-讓他	ㄖㄤˋ ㄊㄚ	1950	pivotal_phrase	兼語短語
 進來	ㄐㄧㄣˋ ㄌㄞˊ	620	verb_direction	趨向動詞(配合位移動詞語境與「近來」消歧)
-使人	ㄕˇ ㄖㄣˊ	1950	pivotal_phrase	兼語短語(防矢人)
 使	ㄕˇ	770	verb_causative	致使動詞(防矢/始)
-催他	ㄘㄨㄟ ㄊㄚ	1950	pivotal_phrase	兼語短語(防摧他)
 催	ㄘㄨㄟ	508	verb_causative	致使動詞(防摧)
-快走	ㄎㄨㄞˋ ㄗㄡˇ	1950	verb_phrase	動詞短語(防塊走)
-借書	ㄐㄧㄝˋ ㄕㄨ	1950	verb_object	動賓短語(防戒書)
-找朋友	ㄓㄠˇ ㄆㄥˊ ㄧㄡˇ	1950	verb_object	動賓短語(防爪朋友)
-台北	ㄊㄞˊ ㄅㄟˇ	2000	proper_noun_tw	台灣核心地名(正體台北)
-坐高鐵	ㄗㄨㄛˋ ㄍㄠ ㄊㄧㄝˇ	1950	verb_object	連動方式短語(防作高鐵)
-高鐵	ㄍㄠ ㄊㄧㄝˇ	1950	noun_tw	台灣高鐵專名
-回台北	ㄏㄨㄟˊ ㄊㄞˊ ㄅㄟˇ	1950	verb_object	連動目的短語
-拿筆	ㄋㄚˊ ㄅㄧˇ	1950	verb_object	連動工具短語(防拿比)
-寫字	ㄒㄧㄝˇ ㄗˋ	1950	verb_object	動賓短語(防血字)
-閉著	ㄅㄧˋ ˙ㄓㄜ	1950	verb_aspect	伴隨狀態動態(防壁著)
-閉著眼睛	ㄅㄧˋ ˙ㄓㄜ ㄧㄢˇ ㄐㄧㄥ	2000	phrase	伴隨動態短語
-聽音樂	ㄊㄧㄥ ㄧㄣ ㄩㄝˋ	1950	verb_object	連動目的短語
-站著	ㄓㄢˋ ˙ㄓㄜ	1950	verb_aspect	伴隨狀態動態(防戰著)
-公車	ㄍㄨㄥ ㄔㄜ	1950	noun_tw	大眾交通名詞(防功車)
-等公車	ㄉㄥˇ ㄍㄨㄥ ㄔㄜ	1950	verb_object	連動目的短語
-一幅畫	ㄧ ㄈㄨˊ ㄏㄨㄚˋ	2000	noun_phrase	量名短語(防衣服化)
+台北	ㄊㄞˊ ㄅㄟˇ	1480	proper_noun_tw	台灣核心地名(正體台北)
+高鐵	ㄍㄠ ㄊㄧㄝˇ	1480	noun_tw	台灣高鐵專名
+公車	ㄍㄨㄥ ㄔㄜ	1480	noun_tw	大眾交通名詞(防功車)
 一幅	ㄧ ㄈㄨˊ	600	classifier_phrase	畫作/美景量詞短語(配合「畫/圖/作品」與「衣服」消歧)
-朵朵	ㄉㄨㄛˇ ㄉㄨㄛˇ	1950	reduplication_measure	疊字量詞(防趓趓)
-朵朵白雲	ㄉㄨㄛˇ ㄉㄨㄛˇ ㄅㄞˊ ㄩㄣˊ	2000	noun_phrase	偏正名詞短語
-幾行字	ㄐㄧˇ ㄏㄤˊ ㄗˋ	1950	noun_phrase	數量名短語(防己航自)
-幾行	ㄐㄧˇ ㄏㄤˊ	1900	classifier_phrase	數量短語
-擺滿了	ㄅㄞˇ ㄇㄢˇ ˙ㄌㄜ	1950	verb_complement	動補完成體(防百滿了)
-擺滿	ㄅㄞˇ ㄇㄢˇ	1950	verb_complement	動補短語
-種著	ㄓㄨㄥˋ ˙ㄓㄜ	1950	verb_aspect	存現動態助詞(防重著)
-許多花	ㄒㄩˇ ㄉㄨㄛ ㄏㄨㄚ	1950	noun_phrase	數量名短語(防許多化)
-想了一想	ㄒㄧㄤˇ ˙ㄌㄜ ㄧ ㄒㄧㄤˇ	2000	verb_reduplication	動詞重疊(防想了一餉)
-漂漂亮亮	ㄆㄧㄠˋ ㄆㄧㄠˋ ㄌㄧㄤˋ ㄌㄧㄤˋ	2000	adj_reduplication	AABB疊詞(防票票悢悢)
-進化	ㄐㄧㄣˋ ㄏㄨㄚˋ	1950	noun_abstract	高頻名詞(防盡化)
-規劃	ㄍㄨㄟ ㄏㄨㄚˋ	1950	verb	高頻動詞(防歸化)
-才會	ㄘㄞˊ ㄏㄨㄟˋ	1950	verb_auxiliary	高頻副詞短語(防財賄)
-全形	ㄑㄩㄢˊ ㄒㄧㄥˊ	1600	資訊科技排版	Domain_IT
-半形	ㄅㄢˋ ㄒㄧㄥˊ	1600	資訊科技排版	Domain_IT
+朵朵	ㄉㄨㄛˇ ㄉㄨㄛˇ	1480	reduplication_measure	疊字量詞(防趓趓)
+擺滿	ㄅㄞˇ ㄇㄢˇ	1480	verb_complement	動補短語
+漂漂亮亮	ㄆㄧㄠˋ ㄆㄧㄠˋ ㄌㄧㄤˋ ㄌㄧㄤˋ	1480	adj_reduplication	AABB疊詞(防票票悢悢)
+進化	ㄐㄧㄣˋ ㄏㄨㄚˋ	1480	noun_abstract	高頻名詞(防盡化)
+規劃	ㄍㄨㄟ ㄏㄨㄚˋ	1480	verb	高頻動詞(防歸化)
+才會	ㄘㄞˊ ㄏㄨㄟˋ	1480	verb_auxiliary	高頻副詞短語(防財賄)
+全形	ㄑㄩㄢˊ ㄒㄧㄥˊ	1480	資訊科技排版	Domain_IT
+半形	ㄅㄢˋ ㄒㄧㄥˊ	1480	資訊科技排版	Domain_IT
 字串	ㄗˋ ㄔㄨㄢˋ	640	資訊科技軟體	Domain_IT
-下拉選項	ㄒㄧㄚˋ ㄌㄚ ㄒㄩㄢˇ ㄒㄧㄤˋ	1800	軟體使用者介面	Domain_UI
-下拉選單	ㄒㄧㄚˋ ㄌㄚ ㄒㄩㄢˇ ㄉㄢ	1800	軟體使用者介面	Domain_UI
-智慧選單	ㄓˋ ㄏㄨㄟˋ ㄒㄩㄢˇ ㄉㄢ	1800	軟體使用者介面	Domain_UI
-文字意涵	ㄨㄣˊ ㄗˋ ㄧˋ ㄏㄢˊ	1600	語意學哲學	Domain_Philosophy
-意涵	ㄧˋ ㄏㄢˊ	1500	語意學哲學	Domain_Philosophy
-再確認	ㄗㄞˋ ㄑㄩㄝˋ ㄖㄣˋ	1600	日常會話動作	Domain_General
-關掉重開	ㄍㄨㄢ ㄉㄧㄠˋ ㄓㄨㄥˋ ㄎㄞ	1600	日常電腦操作	Domain_General
-關掉	ㄍㄨㄢ ㄉㄧㄠˋ	1500	日常電腦操作	Domain_General
-重開	ㄓㄨㄥˋ ㄎㄞ	1500	日常電腦操作	Domain_General
-特點	ㄊㄜˋ ㄉㄧㄢˇ	1600	常用名詞	Domain_General
-列出	ㄌㄧㄝˋ ㄔㄨ	1600	常用動詞	Domain_General
+下拉選項	ㄒㄧㄚˋ ㄌㄚ ㄒㄩㄢˇ ㄒㄧㄤˋ	1480	軟體使用者介面	Domain_UI
+下拉選單	ㄒㄧㄚˋ ㄌㄚ ㄒㄩㄢˇ ㄉㄢ	1480	軟體使用者介面	Domain_UI
+智慧選單	ㄓˋ ㄏㄨㄟˋ ㄒㄩㄢˇ ㄉㄢ	1480	軟體使用者介面	Domain_UI
+文字意涵	ㄨㄣˊ ㄗˋ ㄧˋ ㄏㄢˊ	1480	語意學哲學	Domain_Philosophy
+意涵	ㄧˋ ㄏㄢˊ	1480	語意學哲學	Domain_Philosophy
+關掉	ㄍㄨㄢ ㄉㄧㄠˋ	1480	日常電腦操作	Domain_General
+重開	ㄓㄨㄥˋ ㄎㄞ	1480	日常電腦操作	Domain_General
+特點	ㄊㄜˋ ㄉㄧㄢˇ	1480	常用名詞	Domain_General
+列出	ㄌㄧㄝˋ ㄔㄨ	1480	常用動詞	Domain_General
 好像	ㄏㄠˇ ㄒㄧㄤˋ	1300	超高頻副詞	Season6_Daily
-基本上	ㄐㄧ ㄅㄣˇ ㄕㄤˋ	1800	高頻副詞	Domain_General
-部份	ㄅㄨˋ ㄈㄣˋ	1600	現代常用名詞	Domain_General
-位置大小	ㄨㄟˋ ㄓˋ ㄉㄚˋ ㄒㄧㄠˇ	1800	視窗屬性名詞	Domain_UI
-而且應該	ㄦˊ ㄑㄧㄝˇ ㄧㄥ ㄍㄞ	1800	高頻連詞	Domain_General
-而這個	ㄦˊ ㄓㄜˋ ㄍㄜ˙	1800	高頻連詞	Domain_General
-但可以	ㄉㄢˋ ㄎㄜˇ ㄧˇ	1800	高頻連詞	Domain_General
-謹此	ㄐㄧㄣˇ ㄘˇ	1700	敬體書信	Domain_Epistolary
-為父	ㄨㄟˋ ㄈㄨˋ	1700	親屬倫理	Domain_Family
+基本上	ㄐㄧ ㄅㄣˇ ㄕㄤˋ	1480	高頻副詞	Domain_General
+部份	ㄅㄨˋ ㄈㄣˋ	1350	現代常用名詞	Domain_General
+位置大小	ㄨㄟˋ ㄓˋ ㄉㄚˋ ㄒㄧㄠˇ	1480	視窗屬性名詞	Domain_UI
+謹此	ㄐㄧㄣˇ ㄘˇ	1480	敬體書信	Domain_Epistolary
+為父	ㄨㄟˋ ㄈㄨˋ	1480	親屬倫理	Domain_Family
 獻上	ㄒㄧㄢˋ ㄕㄤˋ	600	禮儀敬稱	Domain_Etiquette(配合祝福/敬意語境與「線上」消歧)
-珠鍊	ㄓㄨ ㄌㄧㄢˋ	1700	飾品珠寶	Domain_Jewelry
+珠鍊	ㄓㄨ ㄌㄧㄢˋ	1480	飾品珠寶	Domain_Jewelry
 自串	ㄗˋ ㄔㄨㄢˋ	550	手工藝品	Domain_Craft(配合珠鍊語境與「字串」消歧)
-自串珠鍊	ㄗˋ ㄔㄨㄢˋ ㄓㄨ ㄌㄧㄢˋ	2000	手工藝飾品	Domain_Jewelry
-串珠鍊	ㄔㄨㄢˋ ㄓㄨ ㄌㄧㄢˋ	1800	手工藝飾品	Domain_Jewelry
-最長自串珠鍊	ㄗㄨㄟˋ ㄔㄤˊ ㄗˋ ㄔㄨㄢˋ ㄓㄨ ㄌㄧㄢˋ	3000	手工飾品	Domain_Jewelry
-砥睿者	ㄉㄧˇ ㄖㄨㄟˋ ㄓㄜˇ	1800	文化創意領導	Director_Taiwan
+自串珠鍊	ㄗˋ ㄔㄨㄢˋ ㄓㄨ ㄌㄧㄢˋ	1480	手工藝飾品	Domain_Jewelry
+串珠鍊	ㄔㄨㄢˋ ㄓㄨ ㄌㄧㄢˋ	1480	手工藝飾品	Domain_Jewelry
+砥睿者	ㄉㄧˇ ㄖㄨㄟˋ ㄓㄜˇ	1480	文化創意領導	Director_Taiwan
 質權	ㄓˋ ㄑㄩㄢˊ	580	時尚美學與組織引領 + 建築空間美學與結構力學 + 法律智慧財產	Gemma_Adversarial
-跨距	ㄎㄨㄚˋ ㄐㄩˋ	1700	時尚美學與組織引領 + 建築空間美學與結構力學 + 法律智慧財產	Gemma_Adversarial
-特異性	ㄊㄜˋ ㄧˋ ㄒㄧㄥˋ	1700	生醫臨床與演算法統計 + 半導體微影製程與凝態物理	Gemma_Adversarial
-良率	ㄌㄧㄤˊ ㄌㄩˋ	1700	生醫臨床與演算法統計 + 半導體微影製程與凝態物理	Gemma_Adversarial
-註疏	ㄓㄨˋ ㄕㄨ	1700	歷史文獻典籍與現代資訊 + 孝親敬體與現代生活工藝 + 中醫辨證思維與分子病理學	Gemma_Adversarial
-頻寬	ㄆㄧㄣˊ ㄎㄨㄢ	1700	聲學音訊工程與心理現象學 + 茶藝人文與農藝生物化學	Gemma_Adversarial
+跨距	ㄎㄨㄚˋ ㄐㄩˋ	1480	時尚美學與組織引領 + 建築空間美學與結構力學 + 法律智慧財產	Gemma_Adversarial
+特異性	ㄊㄜˋ ㄧˋ ㄒㄧㄥˋ	1480	生醫臨床與演算法統計 + 半導體微影製程與凝態物理	Gemma_Adversarial
+良率	ㄌㄧㄤˊ ㄌㄩˋ	1480	生醫臨床與演算法統計 + 半導體微影製程與凝態物理	Gemma_Adversarial
+註疏	ㄓㄨˋ ㄕㄨ	1480	歷史文獻典籍與現代資訊 + 孝親敬體與現代生活工藝 + 中醫辨證思維與分子病理學	Gemma_Adversarial
+頻寬	ㄆㄧㄣˊ ㄎㄨㄢ	1480	聲學音訊工程與心理現象學 + 茶藝人文與農藝生物化學	Gemma_Adversarial
 回甘	ㄏㄨㄟˊ ㄍㄢ	640	verb_noun	茶湯入口微苦後喉韻轉為甘甜(醇厚度與回甘)
-榫卯	ㄙㄨㄣˇ ㄇㄠˇ	1700	傳統木作工法與數位參數化 + 建築空間美學與結構力學	Gemma_Adversarial
-法益衡平	ㄈㄚˇ ㄧˋ ㄏㄥˊ ㄆㄧㄥˊ	1700	茶藝人文與農藝生物化學 + 中醫辨證思維與分子病理學 + 司法裁判審查與憲政法益衡平	Gemma_Adversarial
-開源	ㄎㄞ ㄩㄢˊ	1700	法律智慧財產與軟體架構 + 生醫臨床與演算法統計	Gemma_Adversarial
-盲測	ㄇㄤˊ ㄘㄜˋ	1700	法律智慧財產與軟體架構 + 生醫臨床與演算法統計	Gemma_Adversarial
-偽陽性	ㄨㄟˋ ㄧㄤˊ ㄒㄧㄥˋ	1700	法律智慧財產與軟體架構 + 生醫臨床與演算法統計	Gemma_Adversarial
-音訊設備	ㄧㄣ ㄒㄩㄣˋ ㄕㄜˋ ㄅㄟˋ	2000	聲學硬體	Audio_Domain
+榫卯	ㄙㄨㄣˇ ㄇㄠˇ	1480	傳統木作工法與數位參數化 + 建築空間美學與結構力學	Gemma_Adversarial
+法益衡平	ㄈㄚˇ ㄧˋ ㄏㄥˊ ㄆㄧㄥˊ	1480	茶藝人文與農藝生物化學 + 中醫辨證思維與分子病理學 + 司法裁判審查與憲政法益衡平	Gemma_Adversarial
+開源	ㄎㄞ ㄩㄢˊ	1480	法律智慧財產與軟體架構 + 生醫臨床與演算法統計	Gemma_Adversarial
+盲測	ㄇㄤˊ ㄘㄜˋ	1480	法律智慧財產與軟體架構 + 生醫臨床與演算法統計	Gemma_Adversarial
+偽陽性	ㄨㄟˋ ㄧㄤˊ ㄒㄧㄥˋ	1480	法律智慧財產與軟體架構 + 生醫臨床與演算法統計	Gemma_Adversarial
+音訊設備	ㄧㄣ ㄒㄩㄣˋ ㄕㄜˋ ㄅㄟˋ	1480	聲學硬體	Audio_Domain
 設備	ㄕㄜˋ ㄅㄟˋ	650	noun	配置供使用之器物裝置(防寫入設備，防「社被」誤奪)
 能	ㄋㄥˊ	839	高頻情態動詞	Domain_General
-數年	ㄕㄨˋ ㄋㄧㄢˊ	1800	時態數量詞	Domain_General
-歷經數年	ㄌㄧˋ ㄐㄧㄥ ㄕㄨˋ ㄋㄧㄢˊ	2000	典籍時態詞	Domain_General
-精確	ㄐㄧㄥ ㄑㄩㄝˋ	1800	科學精準副詞	Domain_General
-精確計算	ㄐㄧㄥ ㄑㄩㄝˋ ㄐㄧˋ ㄙㄨㄢˋ	2000	科學統計詞組	Domain_General
+數年	ㄕㄨˋ ㄋㄧㄢˊ	1480	時態數量詞	Domain_General
+歷經數年	ㄌㄧˋ ㄐㄧㄥ ㄕㄨˋ ㄋㄧㄢˊ	1480	典籍時態詞	Domain_General
+精確	ㄐㄧㄥ ㄑㄩㄝˋ	1480	科學精準副詞	Domain_General
+精確計算	ㄐㄧㄥ ㄑㄩㄝˋ ㄐㄧˋ ㄙㄨㄢˋ	1480	科學統計詞組	Domain_General
 需	ㄒㄩ	727	高頻情態動詞	Domain_General
 工法	ㄍㄨㄥ ㄈㄚˇ	645	noun	工程施工之技術方法(清水模工法/懸臂工法)
-木作工法	ㄇㄨˋ ㄗㄨㄛˋ ㄍㄨㄥ ㄈㄚˇ	2000	傳統建築工法	Architecture
-屋架	ㄨ ㄐㄧㄚˋ	1800	建築結構	Architecture
-大木作屋架	ㄉㄚˋ ㄇㄨˋ ㄗㄨㄛˋ ㄨ ㄐㄧㄚˋ	2200	傳統建築結構	Architecture
-頂級	ㄉㄧㄥˇ ㄐㄧˊ	1800	通用形容詞	General
-金萱	ㄐㄧㄣ ㄒㄩㄢ	1800	茶樹品種	Tea_Culture
-金萱茶	ㄐㄧㄣ ㄒㄩㄢ ㄔㄚˊ	2000	茶道茶藝	Tea_Culture
-焙火	ㄅㄟˋ ㄏㄨㄛˇ	1800	製茶工藝	Tea_Culture
-發酵度	ㄈㄚ ㄒㄧㄠˋ ㄉㄨˋ	1800	製茶生化	Tea_Culture
-茶湯回甘	ㄔㄚˊ ㄊㄤ ㄏㄨㄟˊ ㄍㄢ	2000	茶藝文化	Tea_Culture
-嚴謹	ㄧㄢˊ ㄐㄧㄣˇ	1800	通用形容詞	General
-配伍	ㄆㄟˋ ㄨˇ	1800	中醫方劑	TCM
-調和	ㄊㄧㄠˊ ㄏㄜˊ	1800	通用動詞	General
-氣血	ㄑㄧˋ ㄒㄧㄝˇ	1800	中醫生理	TCM
-調和氣血	ㄊㄧㄠˊ ㄏㄜˊ ㄑㄧˋ ㄒㄧㄝˇ	2000	中醫方劑治則	TCM
-公共利益	ㄍㄨㄥ ㄍㄨㄥˋ ㄌㄧˋ ㄧˋ	2000	法律憲政	Law
-憲法法益衡平	ㄒㄧㄢˋ ㄈㄚˇ ㄈㄚˇ ㄧˋ ㄏㄥˊ ㄆㄧㄥˊ	2200	憲政裁判	Law
-版型和剪裁	ㄅㄢˇ ㄒㄧㄥˊ ㄏㄢˋ ㄐㄧㄢˇ ㄘㄞˊ	1800	跨專業混合語境	Gemma_Adversarial
-詮釋而非	ㄑㄩㄢˊ ㄕˋ ㄦˊ ㄈㄟ	1800	跨專業混合語境	Gemma_Adversarial
-原始	ㄩㄢˊ ㄕˇ	1800	跨專業混合語境	Gemma_Adversarial
-從而	ㄗㄨㄥˋ ㄦˊ	1800	跨專業混合語境	Gemma_Adversarial
-非線	ㄈㄟ ㄒㄧㄢˋ	1800	跨專業混合語境	Gemma_Adversarial
+木作工法	ㄇㄨˋ ㄗㄨㄛˋ ㄍㄨㄥ ㄈㄚˇ	1480	傳統建築工法	Architecture
+屋架	ㄨ ㄐㄧㄚˋ	1480	建築結構	Architecture
+大木作屋架	ㄉㄚˋ ㄇㄨˋ ㄗㄨㄛˋ ㄨ ㄐㄧㄚˋ	1480	傳統建築結構	Architecture
+頂級	ㄉㄧㄥˇ ㄐㄧˊ	1480	通用形容詞	General
+金萱	ㄐㄧㄣ ㄒㄩㄢ	1480	茶樹品種	Tea_Culture
+金萱茶	ㄐㄧㄣ ㄒㄩㄢ ㄔㄚˊ	1480	茶道茶藝	Tea_Culture
+焙火	ㄅㄟˋ ㄏㄨㄛˇ	1480	製茶工藝	Tea_Culture
+發酵度	ㄈㄚ ㄒㄧㄠˋ ㄉㄨˋ	1480	製茶生化	Tea_Culture
+茶湯回甘	ㄔㄚˊ ㄊㄤ ㄏㄨㄟˊ ㄍㄢ	1480	茶藝文化	Tea_Culture
+嚴謹	ㄧㄢˊ ㄐㄧㄣˇ	1480	通用形容詞	General
+配伍	ㄆㄟˋ ㄨˇ	1480	中醫方劑	TCM
+調和	ㄊㄧㄠˊ ㄏㄜˊ	1480	通用動詞	General
+氣血	ㄑㄧˋ ㄒㄧㄝˇ	1480	中醫生理	TCM
+調和氣血	ㄊㄧㄠˊ ㄏㄜˊ ㄑㄧˋ ㄒㄧㄝˇ	1480	中醫方劑治則	TCM
+公共利益	ㄍㄨㄥ ㄍㄨㄥˋ ㄌㄧˋ ㄧˋ	1480	法律憲政	Law
+憲法法益衡平	ㄒㄧㄢˋ ㄈㄚˇ ㄈㄚˇ ㄧˋ ㄏㄥˊ ㄆㄧㄥˊ	1480	憲政裁判	Law
+詮釋而非	ㄑㄩㄢˊ ㄕˋ ㄦˊ ㄈㄟ	1480	跨專業混合語境	Gemma_Adversarial
+原始	ㄩㄢˊ ㄕˇ	1480	跨專業混合語境	Gemma_Adversarial
+從而	ㄗㄨㄥˋ ㄦˊ	1480	跨專業混合語境	Gemma_Adversarial
+非線	ㄈㄟ ㄒㄧㄢˋ	1480	跨專業混合語境	Gemma_Adversarial
 工藝	ㄍㄨㄥ ㄧˋ	655	noun	將原材料加工製作為藝術品或器物之技術(屋頂剪黏工藝/傳統工藝，與社會「公益」消歧)
-精細	ㄐㄧㄥ ㄒㄧˋ	1800	跨專業混合語境	Gemma_Adversarial
-剪力	ㄐㄧㄢˇ ㄌㄧˋ	1800	跨專業混合語境	Gemma_Adversarial
+精細	ㄐㄧㄥ ㄒㄧˋ	1480	跨專業混合語境	Gemma_Adversarial
+剪力	ㄐㄧㄢˇ ㄌㄧˋ	1480	跨專業混合語境	Gemma_Adversarial
 製程	ㄓˋ ㄔㄥˊ	650	noun	工業製造流程與工序(電鍍製程/半導體製程，與「製成」消歧)
 極微	ㄐㄧˊ ㄨㄟˊ	580	跨專業混合語境	Gemma_Adversarial(配合差距/電流/誤差/量與「極為/即為」消歧)
-茶葉	ㄔㄚˊ ㄧㄝˋ	1800	跨專業混合語境	Gemma_Adversarial
-使其	ㄕˇ ㄑㄧˊ	1800	跨專業混合語境	Gemma_Adversarial
+茶葉	ㄔㄚˊ ㄧㄝˋ	1480	跨專業混合語境	Gemma_Adversarial
 辨證	ㄅㄧㄢˋ ㄓㄥˋ	600	跨專業混合語境	Gemma_Adversarial(中醫辨證論治)
-邏霸式	ㄌㄨㄛˊ ㄅㄚˋ ㄕˋ	1900	資訊工程雅譯	Robust_Taiwan
-邏霸	ㄌㄨㄛˊ ㄅㄚˋ	1800	資訊工程雅譯	Robust_Taiwan
+邏霸式	ㄌㄨㄛˊ ㄅㄚˋ ㄕˋ	1480	資訊工程雅譯	Robust_Taiwan
+邏霸	ㄌㄨㄛˊ ㄅㄚˋ	1480	資訊工程雅譯	Robust_Taiwan
 微影	ㄨㄟˊ ㄧㄥˇ	630	noun	半導體光學微影曝光製程(極紫外光微影/微影蝕刻)
-微影蝕刻	ㄨㄟˊ ㄧㄥˇ ㄕˊ ㄎㄜˋ	2000	半導體製程	Semiconductor
-融合	ㄖㄨㄥˊ ㄏㄜˊ	1800	通用動詞	General
-建模	ㄐㄧㄢˋ ㄇㄛˊ	1800	數位幾何	CAD
-參數化建模	ㄘㄢ ㄕㄨˋ ㄏㄨㄚˋ ㄐㄧㄢˋ ㄇㄛˊ	2200	數位幾何	CAD
+微影蝕刻	ㄨㄟˊ ㄧㄥˇ ㄕˊ ㄎㄜˋ	1480	半導體製程	Semiconductor
+融合	ㄖㄨㄥˊ ㄏㄜˊ	1480	通用動詞	General
+建模	ㄐㄧㄢˋ ㄇㄛˊ	1480	數位幾何	CAD
+參數化建模	ㄘㄢ ㄕㄨˋ ㄏㄨㄚˋ ㄐㄧㄢˋ ㄇㄛˊ	1480	數位幾何	CAD
 界限	ㄐㄧㄝˋ ㄒㄧㄢˋ	610	法律邊界	Law(抽象範疇極限：超越界限/道德界限/劃清界限)
 聲學	ㄕㄥ ㄒㄩㄝˊ	650	noun	研究聲波傳播反射與聽覺之物理學科(聲學模擬/聲學監測儀，防「升學」誤奪)
-聲學共振	ㄕㄥ ㄒㄩㄝˊ ㄍㄨㄥˋ ㄓㄣˋ	2200	聲學工程名詞	Audio_Physics
+聲學共振	ㄕㄥ ㄒㄩㄝˊ ㄍㄨㄥˋ ㄓㄣˋ	1480	聲學工程名詞	Audio_Physics
 與	ㄩˇ	820	高頻連詞	Domain_General
-也很	ㄧㄝˇ ㄏㄣˇ	2000	日常高頻常用詞	Common
-也算	ㄧㄝˇ ㄙㄨㄢˋ	1800	日常高頻常用詞	Common
-非關	ㄈㄟ ㄍㄨㄢ	1800	哲學語意論述與轉折詞組	Discourse_Logic
-組字	ㄗㄨˇ ㄗˋ	1800	輸入法與資訊工程專業詞彙	IME_Domain
-組字區	ㄗㄨˇ ㄗˋ ㄑㄩ	1900	輸入法與資訊工程專業詞彙	IME_Domain
-組字引擎	ㄗㄨˇ ㄗˋ ㄧㄣˇ ㄑㄧㄥˊ	2000	輸入法與資訊工程專業詞彙	IME_Domain
-選字座	ㄒㄩㄢˇ ㄗˋ ㄗㄨㄛˋ	1800	輸入法與介面名詞	IME_Domain
-候選座	ㄏㄡˋ ㄒㄩㄢˇ ㄗㄨㄛˋ	1800	輸入法與介面名詞	IME_Domain
-整句連打	ㄓㄥˇ ㄐㄩˋ ㄌㄧㄢˊ ㄉㄚˇ	1900	輸入法核心特徵	IME_Domain
-連打	ㄌㄧㄢˊ ㄉㄚˇ	1600	打字手感術語	IME_Domain
-長句	ㄔㄤˊ ㄐㄩˋ	1600	文字輸入構式	IME_Domain
+非關	ㄈㄟ ㄍㄨㄢ	1480	哲學語意論述與轉折詞組	Discourse_Logic
+組字	ㄗㄨˇ ㄗˋ	1480	輸入法與資訊工程專業詞彙	IME_Domain
+組字區	ㄗㄨˇ ㄗˋ ㄑㄩ	1480	輸入法與資訊工程專業詞彙	IME_Domain
+組字引擎	ㄗㄨˇ ㄗˋ ㄧㄣˇ ㄑㄧㄥˊ	1480	輸入法與資訊工程專業詞彙	IME_Domain
+選字座	ㄒㄩㄢˇ ㄗˋ ㄗㄨㄛˋ	1480	輸入法與介面名詞	IME_Domain
+候選座	ㄏㄡˋ ㄒㄩㄢˇ ㄗㄨㄛˋ	1480	輸入法與介面名詞	IME_Domain
+整句連打	ㄓㄥˇ ㄐㄩˋ ㄌㄧㄢˊ ㄉㄚˇ	1480	輸入法核心特徵	IME_Domain
+連打	ㄌㄧㄢˊ ㄉㄚˇ	1480	打字手感術語	IME_Domain
+長句	ㄔㄤˊ ㄐㄩˋ	1480	文字輸入構式	IME_Domain
 理想上	ㄌㄧˇ ㄒㄧㄤˇ ㄕㄤˋ	1300	日常思辨	Season6_Daily
 最理想	ㄗㄨㄟˋ ㄌㄧˇ ㄒㄧㄤˇ	1300	日常思辨	Season6_Daily
 照理說	ㄓㄠˋ ㄌㄧˇ ㄕㄨㄛ	1300	日常口頭禪	Season6_Daily
 說到底	ㄕㄨㄛ ㄉㄠˋ ㄉㄧˇ	1300	日常思辨	Season6_Daily
-總覺得	ㄗㄨㄥˇ ㄐㄩㄝˊ ˙ㄉㄜ	1300	日常口頭禪	Season6_Daily
 不管怎樣	ㄅㄨˋ ㄍㄨㄢˇ ㄗㄣˇ ㄧㄤˋ	1300	日常口頭禪	Season6_Daily
 無論如何	ㄨˊ ㄌㄨㄣˋ ㄖㄨˊ ㄏㄜˊ	1300	日常成語	Season6_Daily
 行雲流水	ㄒㄧㄥˊ ㄩㄣˊ ㄌㄧㄡˊ ㄕㄨㄟˇ	1300	日常成語	Season6_Daily
@@ -1024,20 +502,12 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 編修	ㄅㄧㄢ ㄒㄧㄡ	1300	編輯修改	Season6_Daily
 超清晰	ㄔㄠ ㄑㄧㄥ ㄒㄧ	1300	視覺描述	Season6_Daily
 顯眼	ㄒㄧㄢˇ ㄧㄢˇ	1300	視覺描述	Season6_Daily
-這樣好嗎	ㄓㄜˋ ㄧㄤˋ ㄏㄠˇ ˙ㄇㄚ	1300	句尾助詞構式	Season6_Daily
-沒錯吧	ㄇㄟˊ ㄘㄨㄛˋ ˙ㄅㄚ	1300	句尾助詞構式	Season6_Daily
-走啊	ㄗㄡˇ ˙ㄚ	1300	句尾助詞構式	Season6_Daily
 好啦	ㄏㄠˇ ˙ㄌㄚ	1300	句尾助詞構式	Season6_Daily
 算啦	ㄙㄨㄢˋ ˙ㄌㄚ	1300	句尾助詞構式	Season6_Daily
 好囉	ㄏㄠˇ ˙ㄌㄛ	1300	句尾助詞構式	Season6_Daily
 看嘛	ㄎㄢˋ ˙ㄇㄚ	1300	句尾助詞構式	Season6_Daily
 行唄	ㄒㄧㄥˊ ˙ㄅㄟ	1300	句尾助詞構式	Season6_Daily
-對吧	ㄉㄨㄟˋ ˙ㄅㄚ	2000	句尾反詰助詞構式	Conversational
-雲端硬碟裡	ㄩㄣˊ ㄉㄨㄢ ㄧㄥˋ ㄉㄧㄝˊ ㄌㄧˇ	1300	科技日常生活	Season6_Daily
-雲端硬碟裡面	ㄩㄣˊ ㄉㄨㄢ ㄧㄥˋ ㄉㄧㄝˊ ㄌㄧˇ ㄇㄧㄢˋ	1300	科技日常生活	Season6_Daily
-硬碟裡	ㄧㄥˋ ㄉㄧㄝˊ ㄌㄧˇ	1300	科技日常生活	Season6_Daily
 硬碟裡面	ㄧㄥˋ ㄉㄧㄝˊ ㄌㄧˇ ㄇㄧㄢˋ	1300	科技日常生活	Season6_Daily
-好像	ㄏㄠˇ ㄒㄧㄤˋ	1300	超高頻副詞	Season6_Daily
 好像是	ㄏㄠˇ ㄒㄧㄤˋ ㄕˋ	1300	超高頻副詞	Season6_Daily
 雖然好像	ㄙㄨㄟ ㄖㄢˊ ㄏㄠˇ ㄒㄧㄤˋ	1300	連詞片語	Season6_Daily
 鐘頭	ㄓㄨㄥ ㄊㄡˊ	1300	時間量詞	Season6_Daily
@@ -1050,321 +520,182 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 未免太	ㄨㄟˋ ㄇㄧㄢˇ ㄊㄞˋ	1300	常用構式	Season6_Daily
 未免也	ㄨㄟˋ ㄇㄧㄢˇ ㄧㄝˇ	1300	常用構式	Season6_Daily
 未免也太	ㄨㄟˋ ㄇㄧㄢˇ ㄧㄝˇ ㄊㄞˋ	1300	常用構式	Season6_Daily
-奇妙的是	ㄑㄧˊ ㄇㄧㄠˋ ˙ㄉㄜ ㄕˋ	1300	轉折構式	Season6_Daily
-的是	˙ㄉㄜ ㄕˋ	1300	超高頻連詞繫詞	Season6_Daily
-我的媽	ㄨㄛˇ ˙ㄉㄜ ㄇㄚ	1300	感嘆語句	Season6_Daily
-我的媽呀	ㄨㄛˇ ˙ㄉㄜ ㄇㄚ ˙ㄧㄚ	1300	感嘆語句	Season6_Daily
-媽呀	ㄇㄚ ˙ㄧㄚ	1300	感嘆語句	Season6_Daily
 大煉丹	ㄉㄚˋ ㄌㄧㄢˋ ㄉㄢ	1300	社群專有名詞	Season6_Daily
 煉丹	ㄌㄧㄢˋ ㄉㄢ	1300	名詞動詞	Season6_Daily
-部分	ㄅㄨˋ ㄈㄣˋ	1600	現代常用名詞	Domain_General
-這個部分	ㄓㄜˋ ˙ㄍㄜ ㄅㄨˋ ㄈㄣˋ	1600	指示片語	Domain_General
-重中之重	ㄓㄨㄥˋ ㄓㄨㄥ ㄓ ㄓㄨㄥˋ	1600	成語	高頻四字成語
-這是	ㄓㄜˋ ㄕˋ	1800	常用詞	核心指示繫詞
-除了	ㄔㄨˊ ㄌㄜ˙	1600	虛詞	高頻介詞連詞
-除了	ㄔㄨˊ ㄌㄜ	1600	虛詞	高頻介詞連詞(無標調)
-看他	ㄎㄢˋ ㄊㄚ	1500	日常動賓	及物動詞代詞受詞
-看她	ㄎㄢˋ ㄊㄚ	1500	日常動賓	及物動詞代詞受詞
-看它	ㄎㄢˋ ㄊㄚ	1400	日常動賓	及物動詞代詞受詞
-他回	ㄊㄚ ㄏㄨㄟˊ	1400	日常主謂	主謂結構
-她回	ㄊㄚ ㄏㄨㄟˊ	1400	日常主謂	主謂結構
-我回	ㄨㄛˇ ㄏㄨㄟˊ	1400	日常主謂	主謂結構
-你回	ㄋㄧˇ ㄏㄨㄟˊ	1400	日常主謂	主謂結構
+部分	ㄅㄨˋ ㄈㄣˋ	1480	現代常用名詞	Domain_General
+重中之重	ㄓㄨㄥˋ ㄓㄨㄥ ㄓ ㄓㄨㄥˋ	1480	成語	高頻四字成語
+除了	ㄔㄨˊ ㄌㄜ˙	1480	虛詞	高頻介詞連詞
+除了	ㄔㄨˊ ㄌㄜ	1480	虛詞	高頻介詞連詞(無標調)
 
-難中之難	ㄋㄢˊ ㄓㄨㄥ ㄓ ㄋㄢˊ	1600	構式語法	[X中之X]極致構式
-難中之難	ㄋㄢˋ ㄓㄨㄥ ㄓ ㄋㄢˋ	1600	構式語法	[X中之X]極致構式(災難音)
-急中之急	ㄐㄧˊ ㄓㄨㄥ ㄓ ㄐㄧˊ	1600	構式語法	[X中之X]極致構式
-王中之王	ㄨㄤˊ ㄓㄨㄥ ㄓ ㄨㄤˊ	1600	構式語法	[X中之X]極致構式
-痛中之痛	ㄊㄨㄥˋ ㄓㄨㄥ ㄓ ㄊㄨㄥˋ	1600	構式語法	[X中之X]極致構式
-險中之險	ㄒㄧㄢˇ ㄓㄨㄥ ㄓ ㄒㄧㄢˇ	1600	構式語法	[X中之X]極致構式
-謎中之謎	ㄇㄧˊ ㄓㄨㄥ ㄓ ㄇㄧˊ	1600	構式語法	[X中之X]極致構式
-美中之美	ㄇㄟˇ ㄓㄨㄥ ㄓ ㄇㄟˇ	1600	構式語法	[X中之X]極致構式
-精中之精	ㄐㄧㄥ ㄓㄨㄥ ㄓ ㄐㄧㄥ	1600	構式語法	[X中之X]極致構式
-要中之要	ㄧㄠˋ ㄓㄨㄥ ㄓ ㄧㄠˋ	1600	構式語法	[X中之X]極致構式
-錯中之錯	ㄘㄨㄛˋ ㄓㄨㄥ ㄓ ㄘㄨㄛˋ	1600	構式語法	[X中之X]極致構式
-惡中之惡	ㄜˋ ㄓㄨㄥ ㄓ ㄜˋ	1600	構式語法	[X中之X]極致構式
-夢中之夢	ㄇㄥˋ ㄓㄨㄥ ㄓ ㄇㄥˋ	1600	構式語法	[X中之X]極致構式
-奇中之奇	ㄑㄧˊ ㄓㄨㄥ ㄓ ㄑㄧˊ	1600	構式語法	[X中之X]極致構式
-幻中之幻	ㄏㄨㄢˋ ㄓㄨㄥ ㄓ ㄏㄨㄢˋ	1600	構式語法	[X中之X]極致構式
-強中之強	ㄑㄧㄤˊ ㄓㄨㄥ ㄓ ㄑㄧㄤˊ	1600	構式語法	[X中之X]極致構式
-妙中之妙	ㄇㄧㄠˋ ㄓㄨㄥ ㄓ ㄇㄧㄠˋ	1600	構式語法	[X中之X]極致構式
-虛中之虛	ㄒㄩ ㄓㄨㄥ ㄓ ㄒㄩ	1600	構式語法	[X中之X]極致構式
-悲中之悲	ㄅㄟ ㄓㄨㄥ ㄓ ㄅㄟ	1600	構式語法	[X中之X]極致構式
-絕中之絕	ㄐㄩㄝˊ ㄓㄨㄥ ㄓ ㄐㄩㄝˊ	1600	構式語法	[X中之X]極致構式
-善中之善	ㄕㄢˋ ㄓㄨㄥ ㄓ ㄕㄢˋ	1600	構式語法	[X中之X]極致構式
-狂中之狂	ㄎㄨㄤˊ ㄓㄨㄥ ㄓ ㄎㄨㄤˊ	1600	構式語法	[X中之X]極致構式
-難上加難	ㄋㄢˊ ㄕㄤˋ ㄐㄧㄚ ㄋㄢˊ	1600	構式語法	[X上加X]層累構式
-難上更難	ㄋㄢˊ ㄕㄤˋ ㄍㄥˋ ㄋㄢˊ	1600	構式語法	[X上加X]層累構式
-喜上加喜	ㄒㄧˇ ㄕㄤˋ ㄐㄧㄚ ㄒㄧˇ	1600	構式語法	[X上加X]層累構式
-錯上加錯	ㄘㄨㄛˋ ㄕㄤˋ ㄐㄧㄚ ㄘㄨㄛˋ	1600	構式語法	[X上加X]層累構式
-愁上加愁	ㄔㄡˊ ㄕㄤˋ ㄐㄧㄚ ㄔㄡˊ	1600	構式語法	[X上加X]層累構式
-親上加親	ㄑㄧㄣ ㄕㄤˋ ㄐㄧㄚ ㄑㄧㄣ	1600	構式語法	[X上加X]層累構式
-忙上加忙	ㄇㄤˊ ㄕㄤˋ ㄐㄧㄚ ㄇㄤˊ	1600	構式語法	[X上加X]層累構式
-好上加好	ㄏㄠˇ ㄕㄤˋ ㄐㄧㄚ ㄏㄠˇ	1600	構式語法	[X上加X]層累構式
-好上更好	ㄏㄠˇ ㄕㄤˋ ㄍㄥˋ ㄏㄠˇ	1600	構式語法	[X上加X]層累構式
-痛上加痛	ㄊㄨㄥˋ ㄕㄤˋ ㄐㄧㄚ ㄊㄨㄥˋ	1600	構式語法	[X上加X]層累構式
-冤上加冤	ㄩㄢ ㄕㄤˋ ㄐㄧㄚ ㄩㄢ	1600	構式語法	[X上加X]層累構式
-亂上加亂	ㄌㄨㄢˋ ㄕㄤˋ ㄐㄧㄚ ㄌㄨㄢˋ	1600	構式語法	[X上加X]層累構式
-衰上加衰	ㄙㄨㄞ ㄕㄤˋ ㄐㄧㄚ ㄙㄨㄞ	1600	構式語法	[X上加X]層累構式
-壞上加壞	ㄏㄨㄞˋ ㄕㄤˋ ㄐㄧㄚ ㄏㄨㄞˋ	1600	構式語法	[X上加X]層累構式
-雪上加霜	ㄒㄩㄝˇ ㄕㄤˋ ㄐㄧㄚ ㄕㄨㄤ	1600	構式語法	[X上加Y]層累成語
-錦上添花	ㄐㄧㄣˇ ㄕㄤˋ ㄊㄧㄢ ㄏㄨㄚ	1600	構式語法	[X上加Y]層累成語
-火上加油	ㄏㄨㄛˇ ㄕㄤˋ ㄐㄧㄚ ㄧㄡˊ	1600	構式語法	[X上加Y]層累成語
-火上澆油	ㄏㄨㄛˇ ㄕㄤˋ ㄐㄧㄠ ㄧㄡˊ	1600	構式語法	[X上加Y]層累成語
-罪加一等	ㄗㄨㄟˋ ㄐㄧㄚ ㄧ ㄉㄥˇ	1600	構式語法	[X上加Y]層累成語
-急中生智	ㄐㄧˊ ㄓㄨㄥ ㄕㄥ ㄓˋ	1600	構式語法	[X中生Y]熟語構式
-人中龍鳳	ㄖㄣˊ ㄓㄨㄥ ㄌㄨㄥˊ ㄈㄥˋ	1600	構式語法	[人中X]熟語構式
-人中之龍	ㄖㄣˊ ㄓㄨㄥ ㄓ ㄌㄨㄥˊ	1600	構式語法	[人中X]熟語構式
-人中之鳳	ㄖㄣˊ ㄓㄨㄥ ㄓ ㄈㄥˋ	1600	構式語法	[人中X]熟語構式
-人中豪傑	ㄖㄣˊ ㄓㄨㄥ ㄏㄠˊ ㄐㄧㄝˊ	1600	構式語法	[人中X]熟語構式
-人上人	ㄖㄣˊ ㄕㄤˋ ㄖㄣˊ	1600	構式語法	[人上人]熟語構式
-人外有人	ㄖㄣˊ ㄨㄞˋ ㄧㄡˇ ㄖㄣˊ	1600	構式語法	對稱熟語構式
-天外有天	ㄊㄧㄢ ㄨㄞˋ ㄧㄡˇ ㄊㄧㄢ	1600	構式語法	對稱熟語構式
-苦中作樂	ㄎㄨˇ ㄓㄨㄥ ㄗㄨㄛˋ ㄌㄜˋ	1600	構式語法	[X中作Y]熟語構式
-樂極生悲	ㄌㄜˋ ㄐㄧˊ ㄕㄥ ㄅㄟ	1600	構式語法	成語構式
-死裡逃生	ㄙˇ ㄌㄧˇ ㄊㄠˊ ㄕㄥ	1600	構式語法	成語構式
-鋌而走險	ㄊㄧㄥˇ ㄦˊ ㄗㄡˇ ㄒㄧㄢˇ	1600	構式語法	成語構式
-無中生有	ㄨˊ ㄓㄨㄥ ㄕㄥ ㄧㄡˇ	1600	構式語法	成語構式
-險象環生	ㄒㄧㄢˇ ㄒㄧㄤˋ ㄏㄨㄢˊ ㄕㄥ	1600	構式語法	成語構式
-大書特書	ㄉㄚˋ ㄕㄨ ㄊㄜˋ ㄕㄨ	1600	構式語法	[大X特X]動量擴散構式
-大搞特搞	ㄉㄚˋ ㄍㄠˇ ㄊㄜˋ ㄍㄠˇ	1600	構式語法	[大X特X]動量擴散構式
-大買特買	ㄉㄚˋ ㄇㄞˇ ㄊㄜˋ ㄇㄞˇ	1600	構式語法	[大X特X]動量擴散構式
-大吃特吃	ㄉㄚˋ ㄔ ㄊㄜˋ ㄔ	1600	構式語法	[大X特X]動量擴散構式
-大玩特玩	ㄉㄚˋ ㄨㄢˊ ㄊㄜˋ ㄨㄢˊ	1600	構式語法	[大X特X]動量擴散構式
-大吵特吵	ㄉㄚˋ ㄔㄠˇ ㄊㄜˋ ㄔㄠˇ	1600	構式語法	[大X特X]動量擴散構式
-大鬧特鬧	ㄉㄚˋ ㄋㄠˋ ㄊㄜˋ ㄋㄠˋ	1600	構式語法	[大X特X]動量擴散構式
-大吹特吹	ㄉㄚˋ ㄔㄨㄟ ㄊㄜˋ ㄔㄨㄟ	1600	構式語法	[大X特X]動量擴散構式
-大做特做	ㄉㄚˋ ㄗㄨㄛˋ ㄊㄜˋ ㄗㄨㄛˋ	1600	構式語法	[大X特X]動量擴散構式
-大批特批	ㄉㄚˋ ㄆㄧ ㄊㄜˋ ㄆㄧ	1600	構式語法	[大X特X]動量擴散構式
-大講特講	ㄉㄚˋ ㄐㄧㄤˇ ㄊㄜˋ ㄐㄧㄤˇ	1600	構式語法	[大X特X]動量擴散構式
-大喝特喝	ㄉㄚˋ ㄏㄜ ㄊㄜˋ ㄏㄜ	1600	構式語法	[大X特X]動量擴散構式
-大肆宣傳	ㄉㄚˋ ㄙˋ ㄒㄩㄢ ㄔㄨㄢˊ	1600	構式語法	熟語構式
-大肆揮霍	ㄉㄚˋ ㄙˋ ㄏㄨㄟ ㄏㄨㄛˋ	1600	構式語法	熟語構式
-不折不扣	ㄅㄨˋ ㄓㄜˊ ㄅㄨˋ ㄎㄡˋ	1600	構式語法	[不X不X]對稱否定構式
-不痛不癢	ㄅㄨˋ ㄊㄨㄥˋ ㄅㄨˋ ㄧㄤˇ	1600	構式語法	[不X不X]對稱否定構式
-不上不下	ㄅㄨˋ ㄕㄤˋ ㄅㄨˋ ㄒㄧㄚˋ	1600	構式語法	[不X不X]對稱否定構式
-不明不白	ㄅㄨˋ ㄇㄧㄥˊ ㄅㄨˋ ㄅㄞˊ	1600	構式語法	[不X不X]對稱否定構式
-不聞不問	ㄅㄨˋ ㄨㄣˊ ㄅㄨˋ ㄨㄣˋ	1600	構式語法	[不X不X]對稱否定構式
-不知不覺	ㄅㄨˋ ㄓ ㄅㄨˋ ㄐㄩㄝˊ	1600	構式語法	[不X不X]對稱否定構式
-不慌不忙	ㄅㄨˋ ㄏㄨㄤ ㄅㄨˋ ㄇㄤˊ	1600	構式語法	[不X不X]對稱否定構式
-不清不楚	ㄅㄨˋ ㄑㄧㄥ ㄅㄨˋ ㄔㄨˇ	1600	構式語法	[不X不X]對稱否定構式
-不疾不徐	ㄅㄨˋ ㄐㄧˊ ㄅㄨˋ ㄒㄩˊ	1600	構式語法	[不X不X]對稱否定構式
-不卑不亢	ㄅㄨˋ ㄅㄟ ㄅㄨˋ ㄎㄤˋ	1600	構式語法	[不X不X]對稱否定構式
-不屈不撓	ㄅㄨˋ ㄑㄩ ㄅㄨˋ ㄋㄠˊ	1600	構式語法	[不X不X]對稱否定構式
-不三不四	ㄅㄨˋ ㄙㄢ ㄅㄨˋ ㄙˋ	1600	構式語法	[不X不X]對稱否定構式
-不偏不倚	ㄅㄨˋ ㄆㄧㄢ ㄅㄨˋ ㄧˇ	1600	構式語法	[不X不X]對稱否定構式
-不倫不類	ㄅㄨˋ ㄌㄨㄣˊ ㄅㄨˋ ㄌㄟˋ	1600	構式語法	[不X不X]對稱否定構式
-不即不離	ㄅㄨˋ ㄐㄧˊ ㄅㄨˋ ㄌㄧˊ	1600	構式語法	[不X不X]對稱否定構式
-不言不語	ㄅㄨˋ ㄧㄢˊ ㄅㄨˋ ㄩˇ	1600	構式語法	[不X不X]對稱否定構式
-不聲不響	ㄅㄨˋ ㄕㄥ ㄅㄨˋ ㄒㄧㄤˇ	1600	構式語法	[不X不X]對稱否定構式
-不理不睬	ㄅㄨˋ ㄌㄧˇ ㄅㄨˋ ㄘㄞˇ	1600	構式語法	[不X不X]對稱否定構式
-無邊無際	ㄨˊ ㄅㄧㄢ ㄨˊ ㄐㄧˋ	1600	構式語法	[無X無X]對稱否定構式
-無緣無故	ㄨˊ ㄩㄢˊ ㄨˊ ㄍㄨˋ	1600	構式語法	[無X無X]對稱否定構式
-無拘無束	ㄨˊ ㄐㄩ ㄨˊ ㄕㄨˋ	1600	構式語法	[無X無X]對稱否定構式
-無憂無慮	ㄨˊ ㄧㄡ ㄨˊ ㄌㄩˋ	1600	構式語法	[無X無X]對稱否定構式
-無影無蹤	ㄨˊ ㄧㄥˇ ㄨˊ ㄗㄨㄥ	1600	構式語法	[無X無X]對稱否定構式
-無窮無盡	ㄨˊ ㄑㄩㄥˊ ㄨˊ ㄐㄧㄣˋ	1600	構式語法	[無X無X]對稱否定構式
-無法無天	ㄨˊ ㄈㄚˇ ㄨˊ ㄊㄧㄢ	1600	構式語法	[無X無X]對稱否定構式
-無私無畏	ㄨˊ ㄙ ㄨˊ ㄨㄟˋ	1600	構式語法	[無X無X]對稱否定構式
-無牽無掛	ㄨˊ ㄑㄧㄢ ㄨˊ ㄍㄨㄚˋ	1600	構式語法	[無X無X]對稱否定構式
-無時無刻	ㄨˊ ㄕˊ ㄨˊ ㄎㄜˋ	1600	構式語法	[無X無X]對稱否定構式
-無怨無悔	ㄨˊ ㄩㄢˋ ㄨˊ ㄏㄨㄟˇ	1600	構式語法	[無X無X]對稱否定構式
-無聲無息	ㄨˊ ㄕㄥ ㄨˊ ㄒㄧˊ	1600	構式語法	[無X無X]對稱否定構式
-無依無靠	ㄨˊ ㄧ ㄨˊ ㄎㄠˋ	1600	構式語法	[無X無X]對稱否定構式
-無罣無礙	ㄨˊ ㄍㄨㄚˋ ㄨˊ ㄞˋ	1600	構式語法	[無X無X]對稱否定構式
-一心一意	ㄧ ㄒㄧㄣ ㄧ ㄧˋ	1600	構式語法	[一X一X]對稱數名構式
-一草一木	ㄧ ㄘㄠˇ ㄧ ㄇㄨˋ	1600	構式語法	[一X一X]對稱數名構式
-一問一答	ㄧ ㄨㄣˋ ㄧ ㄉㄚˊ	1600	構式語法	[一X一X]對稱數名構式
-一步一腳印	ㄧ ㄅㄨˋ ㄧ ㄐㄧㄠˇ ㄧㄣˋ	1600	構式語法	熟語構式
-一生一世	ㄧ ㄕㄥ ㄧ ㄕˋ	1600	構式語法	[一X一X]對稱數名構式
-一朝一夕	ㄧ ㄓㄠ ㄧ ㄒㄧˋ	1600	構式語法	[一X一X]對稱數名構式
-一針一線	ㄧ ㄓㄣ ㄧ ㄒㄧㄢˋ	1600	構式語法	[一X一X]對稱數名構式
-一舉一動	ㄧ ㄐㄩˇ ㄧ ㄉㄨㄥˋ	1600	構式語法	[一X一X]對稱數名構式
-一言一行	ㄧ ㄧㄢˊ ㄧ ㄒㄧㄥˊ	1600	構式語法	[一X一X]對稱數名構式
-一五一十	ㄧ ㄨˇ ㄧ ㄕˊ	1600	構式語法	[一X一X]對稱數名構式
-一絲一毫	ㄧ ㄙ ㄧ ㄏㄠˊ	1600	構式語法	[一X一X]對稱數名構式
-一模一樣	ㄧ ㄇㄨˊ ㄧ ㄧㄤˋ	1600	構式語法	[一X一X]對稱數名構式
-一分一秒	ㄧ ㄈㄣ ㄧ ㄇㄧㄠˇ	1600	構式語法	[一X一X]對稱數名構式
-看得懂	ㄎㄢˋ ㄉㄜ ㄉㄨㄥˇ	1600	構式語法	可能補語(肯定-無調)
-看得出	ㄎㄢˋ ㄉㄜˊ ㄔㄨ	1600	構式語法	可能補語(肯定)
-看得開	ㄎㄢˋ ㄉㄜˊ ㄎㄞ	1600	構式語法	可能補語(肯定)
-記得起	ㄐㄧˋ ㄉㄜˊ ㄑㄧˇ	1600	構式語法	可能補語(肯定)
-辦得到	ㄅㄢˋ ㄉㄜˊ ㄉㄠˋ	1600	構式語法	可能補語(肯定)
-找得到	ㄓㄠˇ ㄉㄜˊ ㄉㄠˋ	1600	構式語法	可能補語(肯定)
-比得過	ㄅㄧˇ ㄉㄜˊ ㄍㄨㄛˋ	1600	構式語法	可能補語(肯定)
-容得下	ㄖㄨㄥˊ ㄉㄜˊ ㄒㄧㄚˋ	1600	構式語法	可能補語(肯定)
-經得起	ㄐㄧㄥ ㄉㄜˊ ㄑㄧˇ	1600	構式語法	可能補語(肯定)
-數得清	ㄕㄨˇ ㄉㄜˊ ㄑㄧㄥ	1600	構式語法	可能補語(肯定)
-談得來	ㄊㄢˊ ㄉㄜˊ ㄌㄞˊ	1600	構式語法	可能補語(肯定)
-認得出	ㄖㄣˋ ㄉㄜˊ ㄔㄨ	1600	構式語法	可能補語(肯定)
-想得開	ㄒㄧㄤˇ ㄉㄜˊ ㄎㄞ	1600	構式語法	可能補語(肯定)
-來得及	ㄌㄞˊ ㄉㄜˊ ㄐㄧˊ	1600	構式語法	可能補語(肯定)
-看不出	ㄎㄢˋ ㄅㄨˋ ㄔㄨ	1600	構式語法	可能補語(否定)
-看不開	ㄎㄢˋ ㄅㄨˋ ㄎㄞ	1600	構式語法	可能補語(否定)
-辦不到	ㄅㄢˋ ㄅㄨˋ ㄉㄠˋ	1600	構式語法	可能補語(否定)
-找不到	ㄓㄠˇ ㄅㄨˋ ㄉㄠˋ	1600	構式語法	可能補語(否定)
-比不過	ㄅㄧˇ ㄅㄨˋ ㄍㄨㄛˋ	1600	構式語法	可能補語(否定)
-容不下	ㄖㄨㄥˊ ㄅㄨˋ ㄒㄧㄚˋ	1600	構式語法	可能補語(否定)
-經不起	ㄐㄧㄥ ㄅㄨˋ ㄑㄧˇ	1600	構式語法	可能補語(否定)
-數不清	ㄕㄨˇ ㄅㄨˋ ㄑㄧㄥ	1600	構式語法	可能補語(否定)
-認不出	ㄖㄣˋ ㄅㄨˋ ㄔㄨ	1600	構式語法	可能補語(否定)
-想不開	ㄒㄧㄤˇ ㄅㄨˋ ㄎㄞ	1600	構式語法	可能補語(否定)
-來不及	ㄌㄞˊ ㄅㄨˋ ㄐㄧˊ	1600	構式語法	可能補語(否定)
-怪不得	ㄍㄨㄞˋ ㄅㄨˋ ㄉㄜˊ	1600	構式語法	熟語否定構式
-顧不得	ㄍㄨˋ ㄅㄨˋ ㄉㄜˊ	1600	構式語法	熟語否定構式
-恨不得	ㄏㄣˋ ㄅㄨˋ ㄉㄜˊ	1600	構式語法	熟語否定構式
-由不得	ㄧㄡˊ ㄅㄨˋ ㄉㄜˊ	1600	構式語法	熟語否定構式
-走來走去	ㄗㄡˇ ㄌㄞˊ ㄗㄡˇ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-看來看去	ㄎㄢˋ ㄌㄞˊ ㄎㄢˋ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-想來想去	ㄒㄧㄤˇ ㄌㄞˊ ㄒㄧㄤˇ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-說來說去	ㄕㄨㄛ ㄌㄞˊ ㄕㄨㄛ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-找來找去	ㄓㄠˇ ㄌㄞˊ ㄓㄠˇ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-跑來跑去	ㄆㄠˇ ㄌㄞˊ ㄆㄠˇ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-晃來晃去	ㄏㄨㄤˋ ㄌㄞˊ ㄏㄨㄤˋ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-轉來轉去	ㄓㄨㄢˇ ㄌㄞˊ ㄓㄨㄢˇ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-翻來覆去	ㄈㄢ ㄌㄞˊ ㄈㄨˋ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-踱來踱去	ㄉㄨㄛˋ ㄌㄞˊ ㄉㄨㄛˋ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-飛來飛去	ㄈㄟ ㄌㄞˊ ㄈㄟ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-游來游去	ㄧㄡˊ ㄌㄞˊ ㄧㄡˊ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-盪來盪去	ㄉㄤˋ ㄌㄞˊ ㄉㄤˋ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-跳來跳去	ㄊㄧㄠˋ ㄌㄞˊ ㄊㄧㄠˋ ㄑㄩˋ	1600	構式語法	[X來X去]動作往復構式
-難中之難	ㄋㄢˋ ㄓㄨㄥ ㄓ ㄋㄢˊ	1600	構式語法	[X中之X]極致構式(混調)
-事情	ㄕˋ ㄑㄧㄥˊ	1600	常用詞	核心雙音節名詞
+難中之難	ㄋㄢˊ ㄓㄨㄥ ㄓ ㄋㄢˊ	1480	構式語法	[X中之X]極致構式
+難中之難	ㄋㄢˋ ㄓㄨㄥ ㄓ ㄋㄢˋ	1480	構式語法	[X中之X]極致構式(災難音)
+急中之急	ㄐㄧˊ ㄓㄨㄥ ㄓ ㄐㄧˊ	1480	構式語法	[X中之X]極致構式
+王中之王	ㄨㄤˊ ㄓㄨㄥ ㄓ ㄨㄤˊ	1480	構式語法	[X中之X]極致構式
+痛中之痛	ㄊㄨㄥˋ ㄓㄨㄥ ㄓ ㄊㄨㄥˋ	1480	構式語法	[X中之X]極致構式
+險中之險	ㄒㄧㄢˇ ㄓㄨㄥ ㄓ ㄒㄧㄢˇ	1480	構式語法	[X中之X]極致構式
+謎中之謎	ㄇㄧˊ ㄓㄨㄥ ㄓ ㄇㄧˊ	1480	構式語法	[X中之X]極致構式
+美中之美	ㄇㄟˇ ㄓㄨㄥ ㄓ ㄇㄟˇ	1480	構式語法	[X中之X]極致構式
+精中之精	ㄐㄧㄥ ㄓㄨㄥ ㄓ ㄐㄧㄥ	1480	構式語法	[X中之X]極致構式
+要中之要	ㄧㄠˋ ㄓㄨㄥ ㄓ ㄧㄠˋ	1480	構式語法	[X中之X]極致構式
+錯中之錯	ㄘㄨㄛˋ ㄓㄨㄥ ㄓ ㄘㄨㄛˋ	1480	構式語法	[X中之X]極致構式
+惡中之惡	ㄜˋ ㄓㄨㄥ ㄓ ㄜˋ	1480	構式語法	[X中之X]極致構式
+夢中之夢	ㄇㄥˋ ㄓㄨㄥ ㄓ ㄇㄥˋ	1480	構式語法	[X中之X]極致構式
+奇中之奇	ㄑㄧˊ ㄓㄨㄥ ㄓ ㄑㄧˊ	1480	構式語法	[X中之X]極致構式
+幻中之幻	ㄏㄨㄢˋ ㄓㄨㄥ ㄓ ㄏㄨㄢˋ	1480	構式語法	[X中之X]極致構式
+強中之強	ㄑㄧㄤˊ ㄓㄨㄥ ㄓ ㄑㄧㄤˊ	1480	構式語法	[X中之X]極致構式
+妙中之妙	ㄇㄧㄠˋ ㄓㄨㄥ ㄓ ㄇㄧㄠˋ	1480	構式語法	[X中之X]極致構式
+虛中之虛	ㄒㄩ ㄓㄨㄥ ㄓ ㄒㄩ	1480	構式語法	[X中之X]極致構式
+悲中之悲	ㄅㄟ ㄓㄨㄥ ㄓ ㄅㄟ	1480	構式語法	[X中之X]極致構式
+絕中之絕	ㄐㄩㄝˊ ㄓㄨㄥ ㄓ ㄐㄩㄝˊ	1480	構式語法	[X中之X]極致構式
+善中之善	ㄕㄢˋ ㄓㄨㄥ ㄓ ㄕㄢˋ	1480	構式語法	[X中之X]極致構式
+狂中之狂	ㄎㄨㄤˊ ㄓㄨㄥ ㄓ ㄎㄨㄤˊ	1480	構式語法	[X中之X]極致構式
+難上加難	ㄋㄢˊ ㄕㄤˋ ㄐㄧㄚ ㄋㄢˊ	1480	構式語法	[X上加X]層累構式
+難上更難	ㄋㄢˊ ㄕㄤˋ ㄍㄥˋ ㄋㄢˊ	1480	構式語法	[X上加X]層累構式
+喜上加喜	ㄒㄧˇ ㄕㄤˋ ㄐㄧㄚ ㄒㄧˇ	1480	構式語法	[X上加X]層累構式
+錯上加錯	ㄘㄨㄛˋ ㄕㄤˋ ㄐㄧㄚ ㄘㄨㄛˋ	1480	構式語法	[X上加X]層累構式
+愁上加愁	ㄔㄡˊ ㄕㄤˋ ㄐㄧㄚ ㄔㄡˊ	1480	構式語法	[X上加X]層累構式
+親上加親	ㄑㄧㄣ ㄕㄤˋ ㄐㄧㄚ ㄑㄧㄣ	1480	構式語法	[X上加X]層累構式
+忙上加忙	ㄇㄤˊ ㄕㄤˋ ㄐㄧㄚ ㄇㄤˊ	1480	構式語法	[X上加X]層累構式
+好上加好	ㄏㄠˇ ㄕㄤˋ ㄐㄧㄚ ㄏㄠˇ	1480	構式語法	[X上加X]層累構式
+好上更好	ㄏㄠˇ ㄕㄤˋ ㄍㄥˋ ㄏㄠˇ	1480	構式語法	[X上加X]層累構式
+痛上加痛	ㄊㄨㄥˋ ㄕㄤˋ ㄐㄧㄚ ㄊㄨㄥˋ	1480	構式語法	[X上加X]層累構式
+冤上加冤	ㄩㄢ ㄕㄤˋ ㄐㄧㄚ ㄩㄢ	1480	構式語法	[X上加X]層累構式
+亂上加亂	ㄌㄨㄢˋ ㄕㄤˋ ㄐㄧㄚ ㄌㄨㄢˋ	1480	構式語法	[X上加X]層累構式
+衰上加衰	ㄙㄨㄞ ㄕㄤˋ ㄐㄧㄚ ㄙㄨㄞ	1480	構式語法	[X上加X]層累構式
+壞上加壞	ㄏㄨㄞˋ ㄕㄤˋ ㄐㄧㄚ ㄏㄨㄞˋ	1480	構式語法	[X上加X]層累構式
+雪上加霜	ㄒㄩㄝˇ ㄕㄤˋ ㄐㄧㄚ ㄕㄨㄤ	1480	構式語法	[X上加Y]層累成語
+錦上添花	ㄐㄧㄣˇ ㄕㄤˋ ㄊㄧㄢ ㄏㄨㄚ	1480	構式語法	[X上加Y]層累成語
+火上加油	ㄏㄨㄛˇ ㄕㄤˋ ㄐㄧㄚ ㄧㄡˊ	1480	構式語法	[X上加Y]層累成語
+火上澆油	ㄏㄨㄛˇ ㄕㄤˋ ㄐㄧㄠ ㄧㄡˊ	1480	構式語法	[X上加Y]層累成語
+罪加一等	ㄗㄨㄟˋ ㄐㄧㄚ ㄧ ㄉㄥˇ	1480	構式語法	[X上加Y]層累成語
+急中生智	ㄐㄧˊ ㄓㄨㄥ ㄕㄥ ㄓˋ	1480	構式語法	[X中生Y]熟語構式
+人中龍鳳	ㄖㄣˊ ㄓㄨㄥ ㄌㄨㄥˊ ㄈㄥˋ	1480	構式語法	[人中X]熟語構式
+人中之龍	ㄖㄣˊ ㄓㄨㄥ ㄓ ㄌㄨㄥˊ	1480	構式語法	[人中X]熟語構式
+人中之鳳	ㄖㄣˊ ㄓㄨㄥ ㄓ ㄈㄥˋ	1480	構式語法	[人中X]熟語構式
+人中豪傑	ㄖㄣˊ ㄓㄨㄥ ㄏㄠˊ ㄐㄧㄝˊ	1480	構式語法	[人中X]熟語構式
+人上人	ㄖㄣˊ ㄕㄤˋ ㄖㄣˊ	1480	構式語法	[人上人]熟語構式
+人外有人	ㄖㄣˊ ㄨㄞˋ ㄧㄡˇ ㄖㄣˊ	1480	構式語法	對稱熟語構式
+天外有天	ㄊㄧㄢ ㄨㄞˋ ㄧㄡˇ ㄊㄧㄢ	1480	構式語法	對稱熟語構式
+苦中作樂	ㄎㄨˇ ㄓㄨㄥ ㄗㄨㄛˋ ㄌㄜˋ	1480	構式語法	[X中作Y]熟語構式
+樂極生悲	ㄌㄜˋ ㄐㄧˊ ㄕㄥ ㄅㄟ	1480	構式語法	成語構式
+死裡逃生	ㄙˇ ㄌㄧˇ ㄊㄠˊ ㄕㄥ	1480	構式語法	成語構式
+鋌而走險	ㄊㄧㄥˇ ㄦˊ ㄗㄡˇ ㄒㄧㄢˇ	1480	構式語法	成語構式
+無中生有	ㄨˊ ㄓㄨㄥ ㄕㄥ ㄧㄡˇ	1480	構式語法	成語構式
+險象環生	ㄒㄧㄢˇ ㄒㄧㄤˋ ㄏㄨㄢˊ ㄕㄥ	1480	構式語法	成語構式
+大書特書	ㄉㄚˋ ㄕㄨ ㄊㄜˋ ㄕㄨ	1480	構式語法	[大X特X]動量擴散構式
+大搞特搞	ㄉㄚˋ ㄍㄠˇ ㄊㄜˋ ㄍㄠˇ	1480	構式語法	[大X特X]動量擴散構式
+大買特買	ㄉㄚˋ ㄇㄞˇ ㄊㄜˋ ㄇㄞˇ	1480	構式語法	[大X特X]動量擴散構式
+大吃特吃	ㄉㄚˋ ㄔ ㄊㄜˋ ㄔ	1480	構式語法	[大X特X]動量擴散構式
+大玩特玩	ㄉㄚˋ ㄨㄢˊ ㄊㄜˋ ㄨㄢˊ	1480	構式語法	[大X特X]動量擴散構式
+大吵特吵	ㄉㄚˋ ㄔㄠˇ ㄊㄜˋ ㄔㄠˇ	1480	構式語法	[大X特X]動量擴散構式
+大鬧特鬧	ㄉㄚˋ ㄋㄠˋ ㄊㄜˋ ㄋㄠˋ	1480	構式語法	[大X特X]動量擴散構式
+大吹特吹	ㄉㄚˋ ㄔㄨㄟ ㄊㄜˋ ㄔㄨㄟ	1480	構式語法	[大X特X]動量擴散構式
+大做特做	ㄉㄚˋ ㄗㄨㄛˋ ㄊㄜˋ ㄗㄨㄛˋ	1480	構式語法	[大X特X]動量擴散構式
+大批特批	ㄉㄚˋ ㄆㄧ ㄊㄜˋ ㄆㄧ	1480	構式語法	[大X特X]動量擴散構式
+大講特講	ㄉㄚˋ ㄐㄧㄤˇ ㄊㄜˋ ㄐㄧㄤˇ	1480	構式語法	[大X特X]動量擴散構式
+大喝特喝	ㄉㄚˋ ㄏㄜ ㄊㄜˋ ㄏㄜ	1480	構式語法	[大X特X]動量擴散構式
+大肆宣傳	ㄉㄚˋ ㄙˋ ㄒㄩㄢ ㄔㄨㄢˊ	1480	構式語法	熟語構式
+大肆揮霍	ㄉㄚˋ ㄙˋ ㄏㄨㄟ ㄏㄨㄛˋ	1480	構式語法	熟語構式
+不折不扣	ㄅㄨˋ ㄓㄜˊ ㄅㄨˋ ㄎㄡˋ	1480	構式語法	[不X不X]對稱否定構式
+不痛不癢	ㄅㄨˋ ㄊㄨㄥˋ ㄅㄨˋ ㄧㄤˇ	1480	構式語法	[不X不X]對稱否定構式
+不上不下	ㄅㄨˋ ㄕㄤˋ ㄅㄨˋ ㄒㄧㄚˋ	1480	構式語法	[不X不X]對稱否定構式
+不明不白	ㄅㄨˋ ㄇㄧㄥˊ ㄅㄨˋ ㄅㄞˊ	1480	構式語法	[不X不X]對稱否定構式
+不聞不問	ㄅㄨˋ ㄨㄣˊ ㄅㄨˋ ㄨㄣˋ	1480	構式語法	[不X不X]對稱否定構式
+不知不覺	ㄅㄨˋ ㄓ ㄅㄨˋ ㄐㄩㄝˊ	1480	構式語法	[不X不X]對稱否定構式
+不慌不忙	ㄅㄨˋ ㄏㄨㄤ ㄅㄨˋ ㄇㄤˊ	1480	構式語法	[不X不X]對稱否定構式
+不清不楚	ㄅㄨˋ ㄑㄧㄥ ㄅㄨˋ ㄔㄨˇ	1480	構式語法	[不X不X]對稱否定構式
+不疾不徐	ㄅㄨˋ ㄐㄧˊ ㄅㄨˋ ㄒㄩˊ	1480	構式語法	[不X不X]對稱否定構式
+不卑不亢	ㄅㄨˋ ㄅㄟ ㄅㄨˋ ㄎㄤˋ	1480	構式語法	[不X不X]對稱否定構式
+不屈不撓	ㄅㄨˋ ㄑㄩ ㄅㄨˋ ㄋㄠˊ	1480	構式語法	[不X不X]對稱否定構式
+不三不四	ㄅㄨˋ ㄙㄢ ㄅㄨˋ ㄙˋ	1480	構式語法	[不X不X]對稱否定構式
+不偏不倚	ㄅㄨˋ ㄆㄧㄢ ㄅㄨˋ ㄧˇ	1480	構式語法	[不X不X]對稱否定構式
+不倫不類	ㄅㄨˋ ㄌㄨㄣˊ ㄅㄨˋ ㄌㄟˋ	1480	構式語法	[不X不X]對稱否定構式
+不即不離	ㄅㄨˋ ㄐㄧˊ ㄅㄨˋ ㄌㄧˊ	1480	構式語法	[不X不X]對稱否定構式
+不言不語	ㄅㄨˋ ㄧㄢˊ ㄅㄨˋ ㄩˇ	1480	構式語法	[不X不X]對稱否定構式
+不聲不響	ㄅㄨˋ ㄕㄥ ㄅㄨˋ ㄒㄧㄤˇ	1480	構式語法	[不X不X]對稱否定構式
+不理不睬	ㄅㄨˋ ㄌㄧˇ ㄅㄨˋ ㄘㄞˇ	1480	構式語法	[不X不X]對稱否定構式
+無邊無際	ㄨˊ ㄅㄧㄢ ㄨˊ ㄐㄧˋ	1480	構式語法	[無X無X]對稱否定構式
+無緣無故	ㄨˊ ㄩㄢˊ ㄨˊ ㄍㄨˋ	1480	構式語法	[無X無X]對稱否定構式
+無拘無束	ㄨˊ ㄐㄩ ㄨˊ ㄕㄨˋ	1480	構式語法	[無X無X]對稱否定構式
+無憂無慮	ㄨˊ ㄧㄡ ㄨˊ ㄌㄩˋ	1480	構式語法	[無X無X]對稱否定構式
+無影無蹤	ㄨˊ ㄧㄥˇ ㄨˊ ㄗㄨㄥ	1480	構式語法	[無X無X]對稱否定構式
+無窮無盡	ㄨˊ ㄑㄩㄥˊ ㄨˊ ㄐㄧㄣˋ	1480	構式語法	[無X無X]對稱否定構式
+無法無天	ㄨˊ ㄈㄚˇ ㄨˊ ㄊㄧㄢ	1480	構式語法	[無X無X]對稱否定構式
+無私無畏	ㄨˊ ㄙ ㄨˊ ㄨㄟˋ	1480	構式語法	[無X無X]對稱否定構式
+無牽無掛	ㄨˊ ㄑㄧㄢ ㄨˊ ㄍㄨㄚˋ	1480	構式語法	[無X無X]對稱否定構式
+無時無刻	ㄨˊ ㄕˊ ㄨˊ ㄎㄜˋ	1480	構式語法	[無X無X]對稱否定構式
+無怨無悔	ㄨˊ ㄩㄢˋ ㄨˊ ㄏㄨㄟˇ	1480	構式語法	[無X無X]對稱否定構式
+無聲無息	ㄨˊ ㄕㄥ ㄨˊ ㄒㄧˊ	1480	構式語法	[無X無X]對稱否定構式
+無依無靠	ㄨˊ ㄧ ㄨˊ ㄎㄠˋ	1480	構式語法	[無X無X]對稱否定構式
+無罣無礙	ㄨˊ ㄍㄨㄚˋ ㄨˊ ㄞˋ	1480	構式語法	[無X無X]對稱否定構式
+一心一意	ㄧ ㄒㄧㄣ ㄧ ㄧˋ	1480	構式語法	[一X一X]對稱數名構式
+一草一木	ㄧ ㄘㄠˇ ㄧ ㄇㄨˋ	1480	構式語法	[一X一X]對稱數名構式
+一問一答	ㄧ ㄨㄣˋ ㄧ ㄉㄚˊ	1480	構式語法	[一X一X]對稱數名構式
+一步一腳印	ㄧ ㄅㄨˋ ㄧ ㄐㄧㄠˇ ㄧㄣˋ	1480	構式語法	熟語構式
+一生一世	ㄧ ㄕㄥ ㄧ ㄕˋ	1480	構式語法	[一X一X]對稱數名構式
+一朝一夕	ㄧ ㄓㄠ ㄧ ㄒㄧˋ	1480	構式語法	[一X一X]對稱數名構式
+一針一線	ㄧ ㄓㄣ ㄧ ㄒㄧㄢˋ	1480	構式語法	[一X一X]對稱數名構式
+一舉一動	ㄧ ㄐㄩˇ ㄧ ㄉㄨㄥˋ	1480	構式語法	[一X一X]對稱數名構式
+一言一行	ㄧ ㄧㄢˊ ㄧ ㄒㄧㄥˊ	1480	構式語法	[一X一X]對稱數名構式
+一五一十	ㄧ ㄨˇ ㄧ ㄕˊ	1480	構式語法	[一X一X]對稱數名構式
+一絲一毫	ㄧ ㄙ ㄧ ㄏㄠˊ	1480	構式語法	[一X一X]對稱數名構式
+一模一樣	ㄧ ㄇㄨˊ ㄧ ㄧㄤˋ	1480	構式語法	[一X一X]對稱數名構式
+一分一秒	ㄧ ㄈㄣ ㄧ ㄇㄧㄠˇ	1480	構式語法	[一X一X]對稱數名構式
+來得及	ㄌㄞˊ ㄉㄜˊ ㄐㄧˊ	1480	構式語法	可能補語(肯定)
+看不出	ㄎㄢˋ ㄅㄨˋ ㄔㄨ	1480	構式語法	可能補語(否定)
+看不開	ㄎㄢˋ ㄅㄨˋ ㄎㄞ	1480	構式語法	可能補語(否定)
+辦不到	ㄅㄢˋ ㄅㄨˋ ㄉㄠˋ	1480	構式語法	可能補語(否定)
+找不到	ㄓㄠˇ ㄅㄨˋ ㄉㄠˋ	1480	構式語法	可能補語(否定)
+比不過	ㄅㄧˇ ㄅㄨˋ ㄍㄨㄛˋ	1480	構式語法	可能補語(否定)
+容不下	ㄖㄨㄥˊ ㄅㄨˋ ㄒㄧㄚˋ	1480	構式語法	可能補語(否定)
+經不起	ㄐㄧㄥ ㄅㄨˋ ㄑㄧˇ	1480	構式語法	可能補語(否定)
+數不清	ㄕㄨˇ ㄅㄨˋ ㄑㄧㄥ	1480	構式語法	可能補語(否定)
+認不出	ㄖㄣˋ ㄅㄨˋ ㄔㄨ	1480	構式語法	可能補語(否定)
+想不開	ㄒㄧㄤˇ ㄅㄨˋ ㄎㄞ	1480	構式語法	可能補語(否定)
+來不及	ㄌㄞˊ ㄅㄨˋ ㄐㄧˊ	1480	構式語法	可能補語(否定)
+怪不得	ㄍㄨㄞˋ ㄅㄨˋ ㄉㄜˊ	1480	構式語法	熟語否定構式
+顧不得	ㄍㄨˋ ㄅㄨˋ ㄉㄜˊ	1480	構式語法	熟語否定構式
+恨不得	ㄏㄣˋ ㄅㄨˋ ㄉㄜˊ	1480	構式語法	熟語否定構式
+由不得	ㄧㄡˊ ㄅㄨˋ ㄉㄜˊ	1480	構式語法	熟語否定構式
+走來走去	ㄗㄡˇ ㄌㄞˊ ㄗㄡˇ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+看來看去	ㄎㄢˋ ㄌㄞˊ ㄎㄢˋ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+想來想去	ㄒㄧㄤˇ ㄌㄞˊ ㄒㄧㄤˇ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+說來說去	ㄕㄨㄛ ㄌㄞˊ ㄕㄨㄛ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+找來找去	ㄓㄠˇ ㄌㄞˊ ㄓㄠˇ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+跑來跑去	ㄆㄠˇ ㄌㄞˊ ㄆㄠˇ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+晃來晃去	ㄏㄨㄤˋ ㄌㄞˊ ㄏㄨㄤˋ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+轉來轉去	ㄓㄨㄢˇ ㄌㄞˊ ㄓㄨㄢˇ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+翻來覆去	ㄈㄢ ㄌㄞˊ ㄈㄨˋ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+踱來踱去	ㄉㄨㄛˋ ㄌㄞˊ ㄉㄨㄛˋ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+飛來飛去	ㄈㄟ ㄌㄞˊ ㄈㄟ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+游來游去	ㄧㄡˊ ㄌㄞˊ ㄧㄡˊ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+盪來盪去	ㄉㄤˋ ㄌㄞˊ ㄉㄤˋ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+跳來跳去	ㄊㄧㄠˋ ㄌㄞˊ ㄊㄧㄠˋ ㄑㄩˋ	1480	構式語法	[X來X去]動作往復構式
+難中之難	ㄋㄢˋ ㄓㄨㄥ ㄓ ㄋㄢˊ	1480	構式語法	[X中之X]極致構式(混調)
+事情	ㄕˋ ㄑㄧㄥˊ	1480	常用詞	核心雙音節名詞
 常常	ㄔㄤˊ ㄔㄤˊ	640	常用詞	核心頻率副詞(配合動詞謂語與「長長」消歧)
-這是	ㄓㄜˋ ㄕˋ	1800	常用詞	核心指示繫詞
-上街買菜	ㄕㄤˋ ㄐㄧㄝ ㄇㄞˇ ㄘㄞˋ	1600	構式語法	連動構式(位移+動作)
-坐車回家	ㄗㄨㄛˋ ㄔㄜ ㄏㄨㄟˊ ㄐㄧㄚ	1600	構式語法	連動構式(方式+位移)
-開車上班	ㄎㄞ ㄔㄜ ㄕㄤˋ ㄅㄢ	1600	構式語法	連動構式(方式+動作)
-騎車出遊	ㄑㄧˊ ㄔㄜ ㄔㄨ ㄧㄡˊ	1600	構式語法	連動構式(方式+動作)
-出門散步	ㄔㄨ ㄇㄣˊ ㄙㄢˋ ㄅㄨˋ	1600	構式語法	連動構式(位移+動作)
-出門運動	ㄔㄨ ㄇㄣˊ ㄩㄣˋ ㄉㄨㄥˋ	1600	構式語法	連動構式(位移+動作)
-出門運動	ㄔㄨ ㄇㄣˊ ㄩㄣˋ ˙ㄉㄨㄥ	1600	構式語法	連動構式(位移+動作輕聲相容)
-出門	ㄔㄨ ㄇㄣˊ	1600	常用詞	核心位移動詞/名詞
-回家吃飯	ㄏㄨㄟˊ ㄐㄧㄚ ㄔ ㄈㄢˋ	1600	構式語法	連動構式(位移+動作)
-進城辦事	ㄐㄧㄣˋ ㄔㄥˊ ㄅㄢˋ ㄕˋ	1600	構式語法	連動構式(位移+動作)
-上樓睡覺	ㄕㄤˋ ㄌㄡˊ ㄕㄨㄟˋ ㄐㄧㄠˋ	1600	構式語法	連動構式(位移+動作)
-去學校上課	ㄑㄩˋ ㄒㄩㄝˊ ㄒㄧㄠˋ ㄕㄤˋ ㄎㄜˋ	1600	構式語法	連動構式(位移+動作)
-倒水喝	ㄉㄠˋ ㄕㄨㄟˇ ㄏㄜ	1600	構式語法	連動構式(動作+動作)
-拿筆寫字	ㄋㄚˊ ㄅㄧˇ ㄒㄧㄝˇ ㄗˋ	1600	構式語法	連動構式(工具+動作)
-帶狗散步	ㄉㄞˋ ㄍㄡˇ ㄙㄢˋ ㄅㄨˋ	1600	構式語法	連動構式(陪伴+動作)
-上街買東西	ㄕㄤˋ ㄐㄧㄝ ㄇㄞˇ ㄉㄨㄥ ㄒㄧ	1600	構式語法	連動構式(位移+動作)
-給我	ㄍㄟˇ ㄨㄛˇ	1600	構式語法	雙賓動詞+代詞間接賓語
-給你	ㄍㄟˇ ㄋㄧˇ	1600	構式語法	雙賓動詞+代詞間接賓語
-給他	ㄍㄟˇ ㄊㄚ	1600	構式語法	雙賓動詞+代詞間接賓語
-給她	ㄍㄟˇ ㄊㄚ	1600	構式語法	雙賓動詞+代詞間接賓語
-送他	ㄙㄨㄥˋ ㄊㄚ	1600	構式語法	雙賓動詞+代詞間接賓語
-送她	ㄙㄨㄥˋ ㄊㄚ	1600	構式語法	雙賓動詞+代詞間接賓語
-送我	ㄙㄨㄥˋ ㄨㄛˇ	1600	構式語法	雙賓動詞+代詞間接賓語
-借你	ㄐㄧㄝˋ ㄋㄧˇ	1600	構式語法	雙賓動詞+代詞間接賓語
-借我	ㄐㄧㄝˋ ㄨㄛˇ	1600	構式語法	雙賓動詞+代詞間接賓語
-教我們	ㄐㄧㄠ ㄨㄛˇ ˙ㄇㄣ	1600	構式語法	雙賓動詞+代詞間接賓語
-教大家	ㄐㄧㄠ ㄉㄚˋ ㄐㄧㄚ	1600	構式語法	雙賓動詞+代詞間接賓語
-還我	ㄏㄨㄢˊ ㄨㄛˇ	1600	構式語法	雙賓動詞+代詞間接賓語
-還你	ㄏㄨㄢˊ ㄋㄧˇ	1600	構式語法	雙賓動詞+代詞間接賓語
-欠我	ㄑㄧㄢˋ ㄨㄛˇ	1600	構式語法	雙賓動詞+代詞間接賓語
-欠你	ㄑㄧㄢˋ ㄋㄧˇ	1600	構式語法	雙賓動詞+代詞間接賓語
-告訴我	ㄍㄠˋ ㄙㄨˋ ㄨㄛˇ	1600	構式語法	雙賓動詞+代詞間接賓語
-告訴他	ㄍㄠˋ ㄙㄨˋ ㄊㄚ	1600	構式語法	雙賓動詞+代詞間接賓語
-一本書	ㄧ ㄅㄣˇ ㄕㄨ	1600	構式語法	數量名詞直接賓語
-一份禮物	ㄧ ㄈㄣˋ ㄌㄧˇ ㄨˋ	1600	構式語法	數量名詞直接賓語
-一千元	ㄧ ㄑㄧㄢ ㄩㄢˊ	1600	構式語法	數量名詞直接賓語
-一件差事	ㄧ ㄐㄧㄢˋ ㄔㄞ ㄕˋ	1600	構式語法	數量名詞直接賓語
-把書	ㄅㄚˇ ㄕㄨ	1600	構式語法	把字句受事主體
-把杯子	ㄅㄚˇ ㄅㄟ ㄗˇ	1600	構式語法	把字句受事主體
-把事情	ㄅㄚˇ ㄕˋ ㄑㄧㄥˊ	1600	構式語法	把字句受事主體
-把問題	ㄅㄚˇ ㄨㄣˋ ㄊㄧˊ	1600	構式語法	把字句受事主體
-把車	ㄅㄚˇ ㄔㄜ	1600	構式語法	把字句受事主體
-把錢	ㄅㄚˇ ㄑㄧㄢˊ	1600	構式語法	把字句受事主體
-把垃圾	ㄅㄚˇ ㄌㄜˋ ㄙㄜˋ	1600	構式語法	把字句受事主體
-看完了	ㄎㄢˋ ㄨㄢˊ ㄌㄜ˙	1600	構式語法	處置結果補語
-看完了	ㄎㄢˋ ㄨㄢˊ ㄌㄜ	1600	構式語法	處置結果補語(無調)
-打破了	ㄉㄚˇ ㄆㄛˋ ㄌㄜ˙	1600	構式語法	處置結果補語
-打破了	ㄉㄚˇ ㄆㄛˋ ㄌㄜ	1600	構式語法	處置結果補語(無調)
-辦好了	ㄅㄢˋ ㄏㄠˇ ㄌㄜ˙	1600	構式語法	處置結果補語
-辦好了	ㄅㄢˋ ㄏㄠˇ ㄌㄜ	1600	構式語法	處置結果補語(無調)
-開走了	ㄎㄞ ㄗㄡˇ ㄌㄜ˙	1600	構式語法	處置結果補語
-開走了	ㄎㄞ ㄗㄡˇ ㄌㄜ	1600	構式語法	處置結果補語(無調)
-解決了	ㄐㄧㄝˇ ㄐㄩㄝˊ ㄌㄜ˙	1600	構式語法	處置結果補語
-解決了	ㄐㄧㄝˇ ㄐㄩㄝˊ ㄌㄜ	1600	構式語法	處置結果補語(無調)
-花光了	ㄏㄨㄚ ㄍㄨㄤ ㄌㄜ˙	1600	構式語法	處置結果補語
-花光了	ㄏㄨㄚ ㄍㄨㄤ ㄌㄜ	1600	構式語法	處置結果補語(無調)
-丟掉了	ㄉㄧㄡ ㄉㄧㄠˋ ㄌㄜ˙	1600	構式語法	處置結果補語
-丟掉了	ㄉㄧㄡ ㄉㄧㄠˋ ㄌㄜ	1600	構式語法	處置結果補語(無調)
-被雨	ㄅㄟˋ ㄩˇ	1600	構式語法	被字句施事主體
-被風	ㄅㄟˋ ㄈㄥ	1600	構式語法	被字句施事主體
-被車	ㄅㄟˋ ㄔㄜ	1600	構式語法	被字句施事主體
-被警察	ㄅㄟˋ ㄐㄧㄥˇ ㄔㄚˊ	1600	構式語法	被字句施事主體
-被太陽	ㄅㄟˋ ㄊㄞˋ ㄧㄤˊ	1600	構式語法	被字句施事主體
-淋濕了	ㄌㄧㄣˊ ㄕ ㄌㄜ˙	1600	構式語法	被動結果補語
-淋濕了	ㄌㄧㄣˊ ㄕ ㄌㄜ	1600	構式語法	被動結果補語(無調)
-吹倒了	ㄔㄨㄟ ㄉㄠˇ ㄌㄜ˙	1600	構式語法	被動結果補語
-吹倒了	ㄔㄨㄟ ㄉㄠˇ ㄌㄜ	1600	構式語法	被動結果補語(無調)
-撞到了	ㄓㄨㄤˋ ㄉㄠˋ ㄌㄜ˙	1600	構式語法	被動結果補語
-撞到了	ㄓㄨㄤˋ ㄉㄠˋ ㄌㄜ	1600	構式語法	被動結果補語(無調)
-抓走了	ㄓㄨㄚ ㄗㄡˇ ㄌㄜ˙	1600	構式語法	被動結果補語
-抓走了	ㄓㄨㄚ ㄗㄡˇ ㄌㄜ	1600	構式語法	被動結果補語(無調)
-曬黑了	ㄕㄞˋ ㄏㄟ ㄌㄜ˙	1600	構式語法	被動結果補語
-曬黑了	ㄕㄞˋ ㄏㄟ ㄌㄜ	1600	構式語法	被動結果補語(無調)
-看穿了	ㄎㄢˋ ㄔㄨㄢ ㄌㄜ˙	1600	構式語法	被動結果補語
-看穿了	ㄎㄢˋ ㄔㄨㄢ ㄌㄜ	1600	構式語法	被動結果補語(無調)
-等到	ㄉㄥˇ ㄉㄠˋ	1600	常用詞	核心時間介詞/連詞
-等到我	ㄉㄥˇ ㄉㄠˋ ㄨㄛˇ	1600	構式語法	介詞動詞+代詞賓語
-等到你	ㄉㄥˇ ㄉㄠˋ ㄋㄧˇ	1600	構式語法	介詞動詞+代詞賓語
-等到他	ㄉㄥˇ ㄉㄠˋ ㄊㄚ	1600	構式語法	介詞動詞+代詞賓語
-等到她	ㄉㄥˇ ㄉㄠˋ ㄊㄚ	1600	構式語法	介詞動詞+代詞賓語
-輪到我	ㄌㄨㄣˊ ㄉㄠˋ ㄨㄛˇ	1600	構式語法	動詞+代詞賓語
-看到我	ㄎㄢˋ ㄉㄠˋ ㄨㄛˇ	1600	構式語法	動詞+代詞賓語
-找到我	ㄓㄠˇ ㄉㄠˋ ㄨㄛˇ	1600	構式語法	動詞+代詞賓語
-遇到我	ㄩˋ ㄉㄠˋ ㄨㄛˇ	1600	構式語法	動詞+代詞賓語
-碰到我	ㄆㄥˋ ㄉㄠˋ ㄨㄛˇ	1600	構式語法	動詞+代詞賓語
-交給我	ㄐㄧㄠ ㄍㄟˇ ㄨㄛˇ	1600	構式語法	動詞+代詞賓語
-送給我	ㄙㄨㄥˋ ㄍㄟˇ ㄨㄛˇ	1600	構式語法	動詞+代詞賓語
-時候	ㄕˊ ㄏㄡˋ	1900	核心高頻常用詞	Indivisible_Noun
-的時候	ㄉㄜ˙ ㄕˊ ㄏㄡˋ	1900	構式語法	結構助詞+時候
-的時候	ㄉㄜ ㄕˊ ㄏㄡˋ	1900	構式語法	結構助詞+時候(無調)
-月底	ㄩㄝˋ ㄉㄧˇ	1950	常用時間名詞	Month_End
-開好	ㄎㄞ ㄏㄠˇ	1850	動態結果補語	Resultative_Phrase
-社群	ㄕㄜˋ ㄑㄩㄣˊ	1850	網路社群名詞	Community
-亂搭	ㄌㄨㄢˋ ㄉㄚ	1600	構式語法	方式副詞+動作動詞
-亂玩	ㄌㄨㄢˋ ㄨㄢˊ	1600	構式語法	方式副詞+動作動詞
-大聲公	ㄉㄚˋ ㄕㄥ ㄍㄨㄥ	1800	專有名詞	App_Brand
-都不用	ㄉㄡ ㄅㄨˊ ㄩㄥˋ	1800	高頻構式	副詞+動詞
-都不用	ㄉㄡ ㄅㄨˋ ㄩㄥˋ	1800	高頻構式	副詞+動詞(常態調)
-也不用	ㄧㄝˇ ㄅㄨˊ ㄩㄥˋ	1800	高頻構式	副詞+動詞
-也不用	ㄧㄝˇ ㄅㄨˋ ㄩㄥˋ	1800	高頻構式	副詞+動詞(常態調)
-自己	ㄗˋ ㄐㄧˇ	1900	核心代詞	Reflexive_Pronoun
-繳費	ㄐㄧㄠˇ ㄈㄟˋ	1700	常用動詞	Payment
-就對了	ㄐㄧㄡˋ ㄉㄨㄟˋ ㄌㄜ˙	1850	口語句末固定式	Sentence_Final
-就對了	ㄐㄧㄡˋ ㄉㄨㄟˋ ㄌㄜ	1850	口語句末固定式	Sentence_Final(無調)
-車麻吉	ㄔㄜ ㄇㄚˊ ㄐㄧˊ	1800	專有名詞	App_Brand
-理會	ㄌㄧˇ ㄏㄨㄟˋ	1850	常用動詞	Pay_Attention
-停車費	ㄊㄧㄥˊ ㄔㄜ ㄈㄟˋ	1800	生活消費詞彙	Parking_Fee
-車貸	ㄔㄜ ㄉㄞˋ	1800	金融借貸詞彙	Car_Loan
-已經	ㄧˇ ㄐㄧㄥ	2000	核心時間副詞	Already
-已經付	ㄧˇ ㄐㄧㄥ ㄈㄨˋ	1800	副詞+動詞構式	Already_Paid
-那麼多	ㄋㄚˋ ˙ㄇㄜ ㄉㄨㄛ	1800	程度量詞構式	So_Much
-那麼多	ㄋㄚˋ ㄇㄜ ㄉㄨㄛ	1800	程度量詞構式	So_Much(無調)
-付那麼多	ㄈㄨˋ ㄋㄚˋ ˙ㄇㄜ ㄉㄨㄛ	1800	動量構式	Pay_So_Much
-付那麼多	ㄈㄨˋ ㄋㄚˋ ㄇㄜ ㄉㄨㄛ	1800	動量構式	Pay_So_Much(無調)
-沒救了	ㄇㄟˊ ㄐㄧㄡˋ ㄌㄜ˙	1800	固定慣用語	Beyond_Help
-沒救了	ㄇㄟˊ ㄐㄧㄡˋ ㄌㄜ	1800	固定慣用語	Beyond_Help(無調)
-既然	ㄐㄧˋ ㄖㄢˊ	1800	連詞	Conjunction
-但既然	ㄉㄢˋ ㄐㄧˋ ㄖㄢˊ	1800	連詞複合構式	Conjunction_Pair
-就先	ㄐㄧㄡˋ ㄒㄧㄢ	1800	副詞連用構式	Adverbs_Pair
-未來	ㄨㄟˋ ㄌㄞˊ	1900	核心時間名詞	Future
-越來越	ㄩㄝˋ ㄌㄞˊ ㄩㄝˋ	1900	核心漸進構式	Progressive_Construction
-越來越快	ㄩㄝˋ ㄌㄞˊ ㄩㄝˋ ㄎㄨㄞˋ	1800	漸進形容詞構式	Progressive_Adj
-越來越好	ㄩㄝˋ ㄌㄞˊ ㄩㄝˋ ㄏㄠˇ	1800	漸進形容詞構式	Progressive_Adj
-越來越多	ㄩㄝˋ ㄌㄞˊ ㄩㄝˋ ㄉㄨㄛ	1800	漸進形容詞構式	Progressive_Adj
-越來越大	ㄩㄝˋ ㄌㄞˊ ㄩㄝˋ ㄉㄚˋ	1800	漸進形容詞構式	Progressive_Adj
-越來越成熟	ㄩㄝˋ ㄌㄞˊ ㄩㄝˋ ㄔㄥˊ ㄕㄡˊ	1800	漸進形容詞構式	Progressive_Adj
-小眾	ㄒㄧㄠˇ ㄓㄨㄥˋ	1800	常用名詞形容詞	Niche
-小眾軟體	ㄒㄧㄠˇ ㄓㄨㄥˋ ㄖㄨㄢˇ ㄊㄧˇ	1850	資訊軟體名詞	Niche_Software
-不見	ㄅㄨˊ ㄐㄧㄢˋ	2000	核心否定動詞	Disappear
-不見	ㄅㄨˋ ㄐㄧㄢˋ	2000	核心否定動詞	Disappear
-已經	ㄧˇ ㄐㄧㄥ	2000	核心時間副詞	Already
+出門	ㄔㄨ ㄇㄣˊ	1480	常用詞	核心位移動詞/名詞
+等到	ㄉㄥˇ ㄉㄠˋ	1480	常用詞	核心時間介詞/連詞
+月底	ㄩㄝˋ ㄉㄧˇ	1480	常用時間名詞	Month_End
+開好	ㄎㄞ ㄏㄠˇ	1480	動態結果補語	Resultative_Phrase
+社群	ㄕㄜˋ ㄑㄩㄣˊ	1480	網路社群名詞	Community
+亂搭	ㄌㄨㄢˋ ㄉㄚ	1480	構式語法	方式副詞+動作動詞
+亂玩	ㄌㄨㄢˋ ㄨㄢˊ	1480	構式語法	方式副詞+動作動詞
+大聲公	ㄉㄚˋ ㄕㄥ ㄍㄨㄥ	1480	專有名詞	App_Brand
+繳費	ㄐㄧㄠˇ ㄈㄟˋ	1480	常用動詞	Payment
+車麻吉	ㄔㄜ ㄇㄚˊ ㄐㄧˊ	1480	專有名詞	App_Brand
+理會	ㄌㄧˇ ㄏㄨㄟˋ	1480	常用動詞	Pay_Attention
+停車費	ㄊㄧㄥˊ ㄔㄜ ㄈㄟˋ	1480	生活消費詞彙	Parking_Fee
+車貸	ㄔㄜ ㄉㄞˋ	1480	金融借貸詞彙	Car_Loan
+已經	ㄧˇ ㄐㄧㄥ	1480	核心時間副詞	Already
+既然	ㄐㄧˋ ㄖㄢˊ	1480	連詞	Conjunction
+未來	ㄨㄟˋ ㄌㄞˊ	1480	核心時間名詞	Future
+越來越	ㄩㄝˋ ㄌㄞˊ ㄩㄝˋ	1480	核心漸進構式	Progressive_Construction
+小眾	ㄒㄧㄠˇ ㄓㄨㄥˋ	1480	常用名詞形容詞	Niche
+小眾軟體	ㄒㄧㄠˇ ㄓㄨㄥˋ ㄖㄨㄢˇ ㄊㄧˇ	1480	資訊軟體名詞	Niche_Software
+不見	ㄅㄨˊ ㄐㄧㄢˋ	1480	核心否定動詞	Disappear
+不見	ㄅㄨˋ ㄐㄧㄢˋ	1480	核心否定動詞	Disappear
 有意義	ㄧㄡˇ ㄧˋ ㄧˋ	980	常用詞	Gemma2_Crucible
-有意義的	ㄧㄡˇ ㄧˋ ㄧˋ ˙ㄉㄜ	980	常用詞	Gemma2_Crucible
 嘿	˙ㄏㄟ	820	感嘆詞	Hey_Interjection
 嘿	ㄏㄟ˙	820	感嘆詞	Hey_Interjection
 嘿	ㄏㄟ	200	感嘆詞	Hey_Interjection(一聲次要)
@@ -1375,181 +706,90 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 呵	˙ㄏㄜ	820	感嘆詞	He_Interjection
 哼	˙ㄏㄥ	820	感嘆詞	Heng_Interjection
 欸	˙ㄟ	820	感嘆詞	Ei_Interjection
-感謝	ㄍㄢˇ ㄒㄧㄝˋ	1600	社交敬語動詞	Thanks
-謝謝	ㄒㄧㄝˋ ㄒㄧㄝˋ	1600	社交敬語動詞	Thank_You
-謝謝	ㄒㄧㄝˋ ˙ㄒㄧㄝ	1600	社交敬語動詞	Thank_You(輕聲)
-本來	ㄅㄣˇ ㄌㄞˊ	1800	核心副詞	Originally
-過程中	ㄍㄨㄛˋ ㄔㄥˊ ㄓㄨㄥ	1800	noun_temporal	時間過程構式
-過程	ㄍㄨㄛˋ ㄔㄥˊ	1800	noun	高頻核心名詞
+感謝	ㄍㄢˇ ㄒㄧㄝˋ	1480	社交敬語動詞	Thanks
+謝謝	ㄒㄧㄝˋ ㄒㄧㄝˋ	1480	社交敬語動詞	Thank_You
+謝謝	ㄒㄧㄝˋ ˙ㄒㄧㄝ	1480	社交敬語動詞	Thank_You(輕聲)
+本來	ㄅㄣˇ ㄌㄞˊ	1480	核心副詞	Originally
+過程中	ㄍㄨㄛˋ ㄔㄥˊ ㄓㄨㄥ	1480	noun_temporal	時間過程構式
 兩步	ㄌㄧㄤˇ ㄅㄨˋ	620	measure_verbal	動量詞短語(配合走/退/進與「兩部」消歧)
 三步	ㄙㄢ ㄅㄨˋ	620	measure_verbal	動量詞短語(配合走/退/進與「三部」消歧)
-退兩步	ㄊㄨㄟˋ ㄌㄧㄤˇ ㄅㄨˋ	1700	phrase_motion	動作動量詞組
-進三步	ㄐㄧㄣˋ ㄙㄢ ㄅㄨˋ	1700	phrase_motion	動作動量詞組
-退一步	ㄊㄨㄟˋ ㄧ ㄅㄨˋ	1700	phrase_motion	動作動量詞組
-退一步	ㄊㄨㄟˋ ㄧˊ ㄅㄨˋ	1700	phrase_motion	動作動量詞組
-進一步	ㄐㄧㄣˋ ㄧ ㄅㄨˋ	1700	phrase_motion	動作動量詞組
-進一步	ㄐㄧㄣˋ ㄧˊ ㄅㄨˋ	1700	phrase_motion	動作動量詞組
+退兩步	ㄊㄨㄟˋ ㄌㄧㄤˇ ㄅㄨˋ	1480	phrase_motion	動作動量詞組
+進三步	ㄐㄧㄣˋ ㄙㄢ ㄅㄨˋ	1480	phrase_motion	動作動量詞組
+退一步	ㄊㄨㄟˋ ㄧ ㄅㄨˋ	1480	phrase_motion	動作動量詞組
+退一步	ㄊㄨㄟˋ ㄧˊ ㄅㄨˋ	1480	phrase_motion	動作動量詞組
+進一步	ㄐㄧㄣˋ ㄧ ㄅㄨˋ	1480	phrase_motion	動作動量詞組
+進一步	ㄐㄧㄣˋ ㄧˊ ㄅㄨˋ	1480	phrase_motion	動作動量詞組
 初期	ㄔㄨ ㄑㄧˊ	630	noun_temporal	時相階段名詞(配合開發/創業/階段與「出奇」消歧)
-開發初期	ㄎㄞ ㄈㄚ ㄔㄨ ㄑㄧˊ	1800	phrase_temporal	時相複合名詞
-創業初期	ㄔㄨㄤˋ ㄧㄝˋ ㄔㄨ ㄑㄧˊ	1800	phrase_temporal	時相複合名詞
-研發初期	ㄧㄢˊ ㄈㄚ ㄔㄨ ㄑㄧˊ	1800	phrase_temporal	時相複合名詞
-研究	ㄧㄢˊ ㄐㄧㄡˋ	1800	noun_verb	高頻核心名詞動詞
-相關研究	ㄒㄧㄤ ㄍㄨㄢ ㄧㄢˊ ㄐㄧㄡˋ	1800	phrase	學術研發偏正短語
-開發出	ㄎㄞ ㄈㄚ ㄔㄨ	1600	verb_complement	動補複合動詞
-其他	ㄑㄧˊ ㄊㄚ	1800	pronoun	核心代詞
-曬網	ㄕㄞˋ ㄨㄤˇ	1600	phrase	動賓短語
+開發初期	ㄎㄞ ㄈㄚ ㄔㄨ ㄑㄧˊ	1480	phrase_temporal	時相複合名詞
+創業初期	ㄔㄨㄤˋ ㄧㄝˋ ㄔㄨ ㄑㄧˊ	1480	phrase_temporal	時相複合名詞
+研發初期	ㄧㄢˊ ㄈㄚ ㄔㄨ ㄑㄧˊ	1480	phrase_temporal	時相複合名詞
+研究	ㄧㄢˊ ㄐㄧㄡˋ	1480	noun_verb	高頻核心名詞動詞
+相關研究	ㄒㄧㄤ ㄍㄨㄢ ㄧㄢˊ ㄐㄧㄡˋ	1480	phrase	學術研發偏正短語
+其他	ㄑㄧˊ ㄊㄚ	1480	pronoun	核心代詞
+曬網	ㄕㄞˋ ㄨㄤˇ	1480	phrase	動賓短語
 曬	ㄕㄞˋ	472	verb	高頻動詞(正體曬)
-三天捕魚五天曬網	ㄙㄢ ㄊㄧㄢ ㄅㄨˇ ㄩˊ ㄨˇ ㄊㄧㄢ ㄕㄞˋ ㄨㄤˇ	1900	idiom	俗語構式
-三天打魚兩天曬網	ㄙㄢ ㄊㄧㄢ ㄉㄚˇ ㄩˊ ㄌㄧㄤˇ ㄊㄧㄢ ㄕㄞˋ ㄨㄤˇ	1900	idiom	俗語構式
+三天捕魚五天曬網	ㄙㄢ ㄊㄧㄢ ㄅㄨˇ ㄩˊ ㄨˇ ㄊㄧㄢ ㄕㄞˋ ㄨㄤˇ	1480	idiom	俗語構式
+三天打魚兩天曬網	ㄙㄢ ㄊㄧㄢ ㄉㄚˇ ㄩˊ ㄌㄧㄤˇ ㄊㄧㄢ ㄕㄞˋ ㄨㄤˇ	1480	idiom	俗語構式
 畫	ㄏㄨㄚˋ	741	verb	核心繪畫動詞
-畫三筆	ㄏㄨㄚˋ ㄙㄢ ㄅㄧˇ	1700	phrase	動量短語
-塗兩筆	ㄊㄨˊ ㄌㄧㄤˇ ㄅㄧˇ	1700	phrase	動量短語
-一筆	ㄧ ㄅㄧˇ	1600	measure_verbal	動量詞
-兩筆	ㄌㄧㄤˇ ㄅㄧˇ	1600	measure_verbal	動量詞
-三筆	ㄙㄢ ㄅㄧˇ	1600	measure_verbal	動量詞
-幾筆	ㄐㄧˇ ㄅㄧˇ	1600	measure_verbal	動量詞
 躺	ㄊㄤˇ	507	verb	核心身體動詞
-躺三天	ㄊㄤˇ ㄙㄢ ㄊㄧㄢ	1700	phrase	動時量短語
 吐	ㄊㄨˋ	511	verb	核心生理動詞(四聲吐)
-一口	ㄧ ㄎㄡˇ	1600	measure_verbal	動量詞
-兩口	ㄌㄧㄤˇ ㄎㄡˇ	1600	measure_verbal	動量詞
-吃兩口	ㄔ ㄌㄧㄤˇ ㄎㄡˇ	1700	phrase	動量短語
-吐一口	ㄊㄨˋ ㄧ ㄎㄡˇ	1700	phrase	動量短語
-傷敵	ㄕㄤ ㄉㄧˊ	1700	verb_object	動賓詞組
-傷敵五百	ㄕㄤ ㄉㄧˊ ㄨˇ ㄅㄞˇ	1800	idiom	對稱成語前項
-自毀	ㄗˋ ㄏㄨㄟˇ	1700	verb	高頻動詞
-自毀三千	ㄗˋ ㄏㄨㄟˇ ㄙㄢ ㄑㄧㄢ	1800	idiom	對稱成語後項
-傷敵五百自毀三千	ㄕㄤ ㄉㄧˊ ㄨˇ ㄅㄞˇ ㄗˋ ㄏㄨㄟˇ ㄙㄢ ㄑㄧㄢ	1950	idiom	對稱俗語成語
-我不禁	ㄨㄛˇ ㄅㄨˋ ㄐㄧㄣ	1800	phrase_adverb	心理副詞短語
-我不禁	ㄨㄛˇ ㄅㄨˊ ㄐㄧㄣ	1800	phrase_adverb	心理副詞短語(二聲變調)
-不禁	ㄅㄨˋ ㄐㄧㄣ	1700	adverb	核心心理副詞
-不禁	ㄅㄨˊ ㄐㄧㄣ	1700	adverb	核心心理副詞(二聲變調)
-金光閃閃	ㄐㄧㄣ ㄍㄨㄤ ㄕㄢˇ ㄕㄢˇ	1850	idiom	成語形容詞
-出場	ㄔㄨ ㄔㄤˇ	1600	verb_noun	舞台出場
-掉下	ㄉㄧㄠˋ ㄒㄧㄚˋ	1600	verb_complement	動補結構
-掉下眼淚	ㄉㄧㄠˋ ㄒㄧㄚˋ ㄧㄢˇ ㄌㄟˋ	1800	phrase	動賓短語
-流下眼淚	ㄌㄧㄡˊ ㄒㄧㄚˋ ㄧㄢˇ ㄌㄟˋ	1800	phrase	動賓短語
-真的	ㄓㄣ ㄉㄜ˙	1850	adverb	核心程度副詞
-真的	ㄓㄣ ˙ㄉㄜ	1850	adverb	核心程度副詞(輕聲前綴)
-真的就	ㄓㄣ ㄉㄜ˙ ㄐㄧㄡˋ	1900	phrase	副詞連鎖構式
-真的就	ㄓㄣ ˙ㄉㄜ ㄐㄧㄡˋ	1900	phrase	副詞連鎖構式
-天亮	ㄊㄧㄢ ㄌㄧㄤˋ	1700	verb	高頻動詞
-天亮了	ㄊㄧㄢ ㄌㄧㄤˋ ˙ㄌㄜ	1800	phrase	時態語氣短語
-天亮了	ㄊㄧㄢ ㄌㄧㄤˋ ㄌㄜ˙	1800	phrase	時態語氣短語(無調)
-不太	ㄅㄨˋ ㄊㄞˋ	1800	adverb	程度副詞
-不太	ㄅㄨˊ ㄊㄞˋ	1800	adverb	程度副詞(變調)
-不太需要	ㄅㄨˋ ㄊㄞˋ ㄒㄩ ㄧㄠˋ	1900	phrase	動詞短語
-不太需要	ㄅㄨˊ ㄊㄞˋ ㄒㄩ ㄧㄠˋ	1900	phrase	動詞短語(變調)
-成果	ㄔㄥˊ ㄍㄨㄛˇ	1500	常用名詞	Domain_General
-亂跳	ㄌㄨㄢˋ ㄊㄧㄠˋ	1750	verb	動作動詞
-會亂跳	ㄏㄨㄟˋ ㄌㄨㄢˋ ㄊㄧㄠˋ	1850	phrase	動詞短語
-好睏	ㄏㄠˇ ㄎㄨㄣˋ	1850	adjective	生理狀態(想睡)
-很睏	ㄏㄣˇ ㄎㄨㄣˋ	1800	adjective	生理狀態
-太睏	ㄊㄞˋ ㄎㄨㄣˋ	1800	adjective	生理狀態
-好困難	ㄏㄠˇ ㄎㄨㄣˋ ㄋㄢˊ	1850	phrase	程度副詞短語
-氣虛	ㄑㄧˋ ㄒㄩ	1800	noun	中醫證候
+傷敵	ㄕㄤ ㄉㄧˊ	1480	verb_object	動賓詞組
+傷敵五百	ㄕㄤ ㄉㄧˊ ㄨˇ ㄅㄞˇ	1480	idiom	對稱成語前項
+自毀	ㄗˋ ㄏㄨㄟˇ	1480	verb	高頻動詞
+自毀三千	ㄗˋ ㄏㄨㄟˇ ㄙㄢ ㄑㄧㄢ	1480	idiom	對稱成語後項
+傷敵五百自毀三千	ㄕㄤ ㄉㄧˊ ㄨˇ ㄅㄞˇ ㄗˋ ㄏㄨㄟˇ ㄙㄢ ㄑㄧㄢ	1480	idiom	對稱俗語成語
+不禁	ㄅㄨˋ ㄐㄧㄣ	1480	adverb	核心心理副詞
+不禁	ㄅㄨˊ ㄐㄧㄣ	1480	adverb	核心心理副詞(二聲變調)
+金光閃閃	ㄐㄧㄣ ㄍㄨㄤ ㄕㄢˇ ㄕㄢˇ	1480	idiom	成語形容詞
+出場	ㄔㄨ ㄔㄤˇ	1480	verb_noun	舞台出場
+掉下	ㄉㄧㄠˋ ㄒㄧㄚˋ	1480	verb_complement	動補結構
+真的	ㄓㄣ ㄉㄜ˙	1480	adverb	核心程度副詞
+真的	ㄓㄣ ˙ㄉㄜ	1480	adverb	核心程度副詞(輕聲前綴)
+天亮	ㄊㄧㄢ ㄌㄧㄤˋ	1480	verb	高頻動詞
+不太	ㄅㄨˋ ㄊㄞˋ	1480	adverb	程度副詞
+不太	ㄅㄨˊ ㄊㄞˋ	1480	adverb	程度副詞(變調)
+成果	ㄔㄥˊ ㄍㄨㄛˇ	1480	常用名詞	Domain_General
+亂跳	ㄌㄨㄢˋ ㄊㄧㄠˋ	1480	verb	動作動詞
+氣虛	ㄑㄧˋ ㄒㄩ	1480	noun	中醫證候
 專治	ㄓㄨㄢ ㄓˋ	600	verb	專門治療動詞(配合病症受詞與「專制」消歧)
-專治氣虛	ㄓㄨㄢ ㄓˋ ㄑㄧˋ ㄒㄩ	1900	phrase	動賓短語
-藥到病除	ㄧㄠˋ ㄉㄠˋ ㄅㄧㄥˋ ㄔㄨˊ	1950	idiom	成語
-醫療要求	ㄧ ㄌㄧㄠˊ ㄧㄠ ㄑㄧㄡˊ	1800	noun_phrase	名詞短語
-醫療要求	ㄧ ㄌㄧㄠˊ ㄧㄠˋ ㄑㄧㄡˊ	1800	noun_phrase	名詞短語(四聲讀音)
-並非夢想	ㄅㄧㄥˋ ㄈㄟ ㄇㄥˋ ㄒㄧㄤˇ	1850	phrase	常用短語
-刁鑽	ㄉㄧㄠ ㄗㄨㄢ	1850	adjective	正體常用詞
-刁鑽	ㄉㄧㄠ ㄓㄨㄢ	1850	adjective	正體常用詞(變讀)
-好容易	ㄏㄠˇ ㄖㄨㄥˊ ㄧˋ	1850	phrase	程度副詞短語
-跟別人不同	ㄍㄣ ㄅㄧㄝˊ ㄖㄣˊ ㄅㄨˋ ㄊㄨㄥˊ	1850	phrase	比較短語
-跟別人	ㄍㄣ ㄅㄧㄝˊ ㄖㄣˊ	1800	phrase	介詞短語
-總是	ㄗㄨㄥˇ ㄕˋ	1850	adverb	頻率副詞
-他總是	ㄊㄚ ㄗㄨㄥˇ ㄕˋ	1900	phrase	代詞副詞短語
-越是	ㄩㄝˋ ㄕˋ	1900	adverb	關聯副詞
-意氣風發	ㄧˋ ㄑㄧˋ ㄈㄥ ㄈㄚ	1950	idiom	成語
-深深入境	ㄕㄣ ㄕㄣ ㄖㄨˋ ㄐㄧㄥˋ	1850	phrase	動態短語
-流連忘返	ㄌㄧㄡˊ ㄌㄧㄢˊ ㄨㄤˋ ㄈㄢˇ	1950	idiom	成語
-璀璨奪目	ㄘㄨㄟˇ ㄘㄢˋ ㄉㄨㄛˊ ㄇㄨˋ	1950	idiom	成語
-心血	ㄒㄧㄣ ㄒㄩㄝˋ	1800	noun	生理比喻名詞
-心血結晶	ㄒㄧㄣ ㄒㄩㄝˋ ㄐㄧㄝˊ ㄐㄧㄥ	1950	idiom	常用熟語
-心血結晶	ㄒㄧㄣ ㄒㄧㄝˇ ㄐㄧㄝˊ ㄐㄧㄥ	1950	idiom	常用熟語(變讀)
-哲學界	ㄓㄜˊ ㄒㄩㄝˊ ㄐㄧㄝˋ	1850	noun	學術界名詞
-收穫	ㄕㄡ ㄏㄨㄛˋ	1850	noun_verb	核心詞彙
-怎麼收穫	ㄗㄣˇ ㄇㄜ˙ ㄕㄡ ㄏㄨㄛˋ	1850	phrase	疑問短語
-要怎麼收穫先那麼栽	ㄧㄠˋ ㄗㄣˇ ㄇㄜ˙ ㄕㄡ ㄏㄨㄛˋ ㄒㄧㄢ ㄋㄚˋ ㄇㄜ˙ ㄗㄞ	1950	proverb	經典俗語
-侃侃而談	ㄎㄢˇ ㄎㄢˇ ㄦˊ ㄊㄢˊ	1950	idiom	成語
-卓越	ㄓㄨㄛˊ ㄩㄝˋ	1850	adjective	核心形容詞
-截止日期	ㄐㄧㄝˊ ㄓˇ ㄖˋ ㄑㄧˊ	1850	noun_phrase	名詞短語
-清清楚楚	ㄑㄧㄥ ㄑㄧㄥ ㄔㄨˇ ㄔㄨˇ	1850	adjective	AABB疊字形容詞
-清清楚楚地	ㄑㄧㄥ ㄑㄧㄥ ㄔㄨˇ ㄔㄨˇ ˙ㄉㄜ	1900	phrase	AABB疊字狀語
-交代完畢	ㄐㄧㄠ ㄉㄞˋ ㄨㄢˊ ㄅㄧˋ	1850	phrase	動補短語
-不是巧合而是必然	ㄅㄨˊ ㄕˋ ㄑㄧㄠˇ ㄏㄜˊ ㄦˊ ㄕˋ ㄅㄧˋ ㄖㄢˊ	1950	phrase	對比複句
-巧合	ㄑㄧㄠˇ ㄏㄜˊ	1800	noun	名詞
-必然	ㄅㄧˋ ㄖㄢˊ	1800	noun_adjective	哲學名詞
-這部	ㄓㄜˋ ㄅㄨˋ	1600	phrase	指示量詞短語
-這座	ㄓㄜˋ ㄗㄨㄛˋ	1600	phrase	指示量詞短語
-這部作品	ㄓㄜˋ ㄅㄨˋ ㄗㄨㄛˋ ㄆㄧㄣˇ	1850	phrase	常用短語
-這座城市	ㄓㄜˋ ㄗㄨㄛˋ ㄔㄥˊ ㄕˋ	1850	phrase	常用短語
-這份報告	ㄓㄜˋ ㄈㄣˋ ㄅㄠˋ ㄍㄠˋ	1850	phrase	常用短語
-共同完成	ㄍㄨㄥˋ ㄊㄨㄥˊ ㄨㄢˊ ㄔㄥˊ	1850	verb	常用動詞短語
-共同完成的	ㄍㄨㄥˋ ㄊㄨㄥˊ ㄨㄢˊ ㄔㄥˊ ㄉㄜ˙	1950	phrase	常用句型短語
-他的	ㄊㄚ ㄉㄜ˙	1850	pronoun	人稱代名詞
-我的	ㄨㄛˇ ㄉㄜ˙	1850	pronoun	人稱代名詞
-你的	ㄋㄧˇ ㄉㄜ˙	1850	pronoun	人稱代名詞
-難道不是	ㄋㄢˊ ㄉㄠˋ ㄅㄨˊ ㄕˋ	1900	phrase	反詰短語
-難道不是真的	ㄋㄢˊ ㄉㄠˋ ㄅㄨˊ ㄕˋ ㄓㄣ ㄉㄜ˙	1950	phrase	經典反詰句
-最麻煩	ㄗㄨㄟˋ ㄇㄚˊ ㄈㄢˊ	1850	phrase	程度副詞短語
-麻煩	ㄇㄚˊ ㄈㄢˊ	1800	noun_adjective	常用詞彙
-直接	ㄓˊ ㄐㄧㄝ	1850	方式副詞	Domain_General
-我直接	ㄨㄛˇ ㄓˊ ㄐㄧㄝ	1900	phrase	代詞副詞構式
+藥到病除	ㄧㄠˋ ㄉㄠˋ ㄅㄧㄥˋ ㄔㄨˊ	1480	idiom	成語
+醫療要求	ㄧ ㄌㄧㄠˊ ㄧㄠ ㄑㄧㄡˊ	1480	noun_phrase	名詞短語
+醫療要求	ㄧ ㄌㄧㄠˊ ㄧㄠˋ ㄑㄧㄡˊ	1480	noun_phrase	名詞短語(四聲讀音)
+刁鑽	ㄉㄧㄠ ㄗㄨㄢ	1480	adjective	正體常用詞
+刁鑽	ㄉㄧㄠ ㄓㄨㄢ	1480	adjective	正體常用詞(變讀)
+總是	ㄗㄨㄥˇ ㄕˋ	1480	adverb	頻率副詞
+越是	ㄩㄝˋ ㄕˋ	1480	adverb	關聯副詞
+意氣風發	ㄧˋ ㄑㄧˋ ㄈㄥ ㄈㄚ	1480	idiom	成語
+流連忘返	ㄌㄧㄡˊ ㄌㄧㄢˊ ㄨㄤˋ ㄈㄢˇ	1480	idiom	成語
+璀璨奪目	ㄘㄨㄟˇ ㄘㄢˋ ㄉㄨㄛˊ ㄇㄨˋ	1480	idiom	成語
+心血	ㄒㄧㄣ ㄒㄩㄝˋ	1480	noun	生理比喻名詞
+心血結晶	ㄒㄧㄣ ㄒㄩㄝˋ ㄐㄧㄝˊ ㄐㄧㄥ	1480	idiom	常用熟語
+心血結晶	ㄒㄧㄣ ㄒㄧㄝˇ ㄐㄧㄝˊ ㄐㄧㄥ	1480	idiom	常用熟語(變讀)
+哲學界	ㄓㄜˊ ㄒㄩㄝˊ ㄐㄧㄝˋ	1480	noun	學術界名詞
+收穫	ㄕㄡ ㄏㄨㄛˋ	1480	noun_verb	核心詞彙
+要怎麼收穫先那麼栽	ㄧㄠˋ ㄗㄣˇ ㄇㄜ˙ ㄕㄡ ㄏㄨㄛˋ ㄒㄧㄢ ㄋㄚˋ ㄇㄜ˙ ㄗㄞ	1480	proverb	經典俗語
+侃侃而談	ㄎㄢˇ ㄎㄢˇ ㄦˊ ㄊㄢˊ	1480	idiom	成語
+卓越	ㄓㄨㄛˊ ㄩㄝˋ	1480	adjective	核心形容詞
+截止日期	ㄐㄧㄝˊ ㄓˇ ㄖˋ ㄑㄧˊ	1480	noun_phrase	名詞短語
+清清楚楚	ㄑㄧㄥ ㄑㄧㄥ ㄔㄨˇ ㄔㄨˇ	1480	adjective	AABB疊字形容詞
+交代完畢	ㄐㄧㄠ ㄉㄞˋ ㄨㄢˊ ㄅㄧˋ	1480	phrase	動補短語
+巧合	ㄑㄧㄠˇ ㄏㄜˊ	1480	noun	名詞
+必然	ㄅㄧˋ ㄖㄢˊ	1480	noun_adjective	哲學名詞
+麻煩	ㄇㄚˊ ㄈㄢˊ	1480	noun_adjective	常用詞彙
+直接	ㄓˊ ㄐㄧㄝ	1480	方式副詞	Domain_General
 按	ㄢˋ	630	verb	高頻動作動詞
-按一下	ㄢˋ ㄧ ㄒㄧㄚˋ	1850	verb_measure	動詞動量詞
-按兩下	ㄢˋ ㄌㄧㄤˇ ㄒㄧㄚˋ	1850	verb_measure	動詞動量詞
-點一下	ㄉㄧㄢˇ ㄧ ㄒㄧㄚˋ	1850	verb_measure	動詞動量詞
-點兩下	ㄉㄧㄢˇ ㄌㄧㄤˇ ㄒㄧㄚˋ	1850	verb_measure	動詞動量詞
-搞定了	ㄍㄠˇ ㄉㄧㄥˋ ˙ㄌㄜ	1850	phrase	常用熟語
-搞定了	ㄍㄠˇ ㄉㄧㄥˋ ㄌㄜ˙	1850	phrase	常用熟語(後置調)
-按兩下搞定了	ㄢˋ ㄌㄧㄤˇ ㄒㄧㄚˋ ㄍㄠˇ ㄉㄧㄥˋ ˙ㄌㄜ	1950	phrase	高頻口語熟語
-按兩下搞定了	ㄢˋ ㄌㄧㄤˇ ㄒㄧㄚˋ ㄍㄠˇ ㄉㄧㄥˋ ㄌㄜ˙	1950	phrase	高頻口語熟語(後置調)
-我直接按兩下搞定了	ㄨㄛˇ ㄓˊ ㄐㄧㄝ ㄢˋ ㄌㄧㄤˇ ㄒㄧㄚˋ ㄍㄠˇ ㄉㄧㄥˋ ˙ㄌㄜ	1950	sentence	高頻句構
-我直接按兩下搞定了	ㄨㄛˇ ㄓˊ ㄐㄧㄝ ㄢˋ ㄌㄧㄤˇ ㄒㄧㄚˋ ㄍㄠˇ ㄉㄧㄥˋ ㄌㄜ˙	1950	sentence	高頻句構(後置調)
 踩	ㄘㄞˇ	484	verb	動作動詞
-踩坑	ㄘㄞˇ ㄎㄥ	1850	verb_noun	技術俗語
-踩雷	ㄘㄞˇ ㄌㄟˊ	1850	verb_noun	現代俗語
-踩地雷	ㄘㄞˇ ㄉㄧˋ ㄌㄟˊ	1850	verb_noun	現代俗語
-踩了	ㄘㄞˇ ˙ㄌㄜ	1800	phrase	動詞體標記
-踩了	ㄘㄞˇ ㄌㄜ˙	1800	phrase	動詞體標記(後置調)
-踩了個坑	ㄘㄞˇ ˙ㄌㄜ ˙ㄍㄜ ㄎㄥ	1900	phrase	熟語短語
-踩了個坑	ㄘㄞˇ ˙ㄌㄜ ㄍㄜˋ ㄎㄥ	1900	phrase	熟語短語(四聲)
-踩了兩個坑	ㄘㄞˇ ˙ㄌㄜ ㄌㄧㄤˇ ˙ㄍㄜ ㄎㄥ	1950	phrase	熟語短語
-踩了兩個坑	ㄘㄞˇ ˙ㄌㄜ ㄌㄧㄤˇ ㄍㄜˋ ㄎㄥ	1950	phrase	熟語短語(四聲)
-踩了兩個坑	ㄘㄞˇ ㄌㄜ˙ ㄌㄧㄤˇ ㄍㄜ˙ ㄎㄥ	1950	phrase	熟語短語(後置調)
-一次踩了兩個坑	ㄧ ㄘˋ ㄘㄞˇ ˙ㄌㄜ ㄌㄧㄤˇ ˙ㄍㄜ ㄎㄥ	1950	sentence	現代口語熟語
-一次踩了兩個坑	ㄧ ㄘˋ ㄘㄞˇ ˙ㄌㄜ ㄌㄧㄤˇ ㄍㄜˋ ㄎㄥ	1950	sentence	現代口語熟語(四聲)
-兩個坑	ㄌㄧㄤˇ ˙ㄍㄜ ㄎㄥ	1850	phrase	數量名詞短語
-兩個坑	ㄌㄧㄤˇ ㄍㄜˋ ㄎㄥ	1850	phrase	數量名詞短語(四聲)
-輸入座	ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ	1900	noun	如喜懸浮輸入座
-內容	ㄋㄟˋ ㄖㄨㄥˊ	1850	noun	常用名詞
-有內容	ㄧㄡˇ ㄋㄟˋ ㄖㄨㄥˊ	1850	phrase	動賓短語
-有內容時	ㄧㄡˇ ㄋㄟˋ ㄖㄨㄥˊ ㄕˊ	1950	phrase	條件時間短語
+踩坑	ㄘㄞˇ ㄎㄥ	1480	verb_noun	技術俗語
+踩雷	ㄘㄞˇ ㄌㄟˊ	1480	verb_noun	現代俗語
+輸入座	ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ	1480	noun	如喜懸浮輸入座
+內容	ㄋㄟˋ ㄖㄨㄥˊ	1480	noun	常用名詞
 移動	ㄧˊ ㄉㄨㄥˋ	650	verb_noun	改變空間位置(逐漸移動至，防「一棟」誤奪)
-移動輸入座	ㄧˊ ㄉㄨㄥˋ ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ	1950	phrase	操作動作短語
 導致	ㄉㄠˇ ㄓˋ	650	verb	引起或造成某種結果(常導致/容易導致)
-目標視窗	ㄇㄨˋ ㄅㄧㄠ ㄕˋ ㄔㄨㄤ	1900	noun	技術名詞短語
-凍結	ㄉㄨㄥˋ ㄐㄧㄝˊ	1850	verb_noun	技術名詞短語
-導致目標視窗凍結	ㄉㄠˇ ㄓˋ ㄇㄨˋ ㄅㄧㄠ ㄕˋ ㄔㄨㄤ ㄉㄨㄥˋ ㄐㄧㄝˊ	1950	phrase	常用語句短語
-輸入座有內容時移動輸入座導致目標視窗凍結	ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ ㄧㄡˇ ㄋㄟˋ ㄖㄨㄥˊ ㄕˊ ㄧˊ ㄉㄨㄥˋ ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ ㄉㄠˇ ㄓˋ ㄇㄨˋ ㄅㄧㄠ ㄕˋ ㄔㄨㄤ ㄉㄨㄥˋ ㄐㄧㄝˊ	1950	sentence	測試長句
-輸入作文	ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ ㄨㄣˊ	1900	phrase	動賓短語
-文字就會	ㄨㄣˊ ㄗˋ ㄐㄧㄡˋ ㄏㄨㄟˋ	1900	phrase	主謂短語
-需要的文字	ㄒㄩ ㄧㄠˋ ˙ㄉㄜ ㄨㄣˊ ㄗˋ	1950	phrase	偏正名詞短語
-需要的文字	ㄒㄩ ㄧㄠˋ ㄉㄜ˙ ㄨㄣˊ ㄗˋ	1950	phrase	偏正名詞短語(後置調)
-文字就會很小	ㄨㄣˊ ㄗˋ ㄐㄧㄡˋ ㄏㄨㄟˋ ㄏㄣˇ ㄒㄧㄠˇ	1950	phrase	狀態描述短語
-很難閱讀	ㄏㄣˇ ㄋㄢˊ ㄩㄝˋ ㄉㄨˊ	1900	phrase	程度形容詞短語
-很小很難閱讀	ㄏㄣˇ ㄒㄧㄠˇ ㄏㄣˇ ㄋㄢˊ ㄩㄝˋ ㄉㄨˊ	1950	phrase	狀態描述短語
-如果輸入法沒有輸入座	ㄖㄨˊ ㄍㄨㄛˇ ㄕㄨ ㄖㄨˋ ㄈㄚˇ ㄇㄟˊ ㄧㄡˇ ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ	1950	phrase	條件從句
-如果輸入法沒有輸入座那輸入作文需要的文字就會很小很難閱讀啊	ㄖㄨˊ ㄍㄨㄛˇ ㄕㄨ ㄖㄨˋ ㄈㄚˇ ㄇㄟˊ ㄧㄡˇ ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ ㄋㄚˋ ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ ㄨㄣˊ ㄒㄩ ㄧㄠˋ ˙ㄉㄜ ㄨㄣˊ ㄗˋ ㄐㄧㄡˋ ㄏㄨㄟˋ ㄏㄣˇ ㄒㄧㄠˇ ㄏㄣˇ ㄋㄢˊ ㄩㄝˋ ㄉㄨˊ ˙ㄚ	1950	sentence	測試長句
-如果輸入法沒有輸入座那輸入作文需要的文字就會很小很難閱讀啊	ㄖㄨˊ ㄍㄨㄛˇ ㄕㄨ ㄖㄨˋ ㄈㄚˇ ㄇㄟˊ ㄧㄡˇ ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ ㄋㄚˋ ㄕㄨ ㄖㄨˋ ㄗㄨㄛˋ ㄨㄣˊ ㄒㄩ ㄧㄠˋ ㄉㄜ˙ ㄨㄣˊ ㄗˋ ㄐㄧㄡˋ ㄏㄨㄟˋ ㄏㄣˇ ㄒㄧㄠˇ ㄏㄣˇ ㄋㄢˊ ㄩㄝˋ ㄉㄨˊ ㄚ˙	1950	sentence	測試長句(後置調)
-中英文	ㄓㄨㄥ ㄧㄥ ㄨㄣˊ	1850	noun	專用名詞
-混打	ㄏㄨㄣˋ ㄉㄚˇ	1850	verb	常用動作動詞
-測試	ㄘㄜˋ ㄕˋ	1850	noun_verb	常用技術名詞
-中英文混打	ㄓㄨㄥ ㄧㄥ ㄨㄣˊ ㄏㄨㄣˋ ㄉㄚˇ	1950	phrase	輸入法功能短語
-中英文混打測試	ㄓㄨㄥ ㄧㄥ ㄨㄣˊ ㄏㄨㄣˋ ㄉㄚˇ ㄘㄜˋ ㄕˋ	1950	phrase	輸入法測試短語
+目標視窗	ㄇㄨˋ ㄅㄧㄠ ㄕˋ ㄔㄨㄤ	1480	noun	技術名詞短語
+凍結	ㄉㄨㄥˋ ㄐㄧㄝˊ	1480	verb_noun	技術名詞短語
+中英文	ㄓㄨㄥ ㄧㄥ ㄨㄣˊ	1480	noun	專用名詞
+混打	ㄏㄨㄣˋ ㄉㄚˇ	1480	verb	常用動作動詞
+測試	ㄘㄜˋ ㄕˋ	1480	noun_verb	常用技術名詞
 
 
 
@@ -1562,12 +802,6 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 氣相沉積	ㄑㄧˋ ㄒㄧㄤˋ ㄔㄣˊ ㄐㄧ	1200	科學相態	Gemma2_Crucible
 固相	ㄍㄨˋ ㄒㄧㄤˋ	1100	科學相態	Gemma2_Crucible
 液相	ㄧˋ ㄒㄧㄤˋ	550	科學相態	Gemma2_Crucible(液相層析)
-長得	ㄓㄤˇ ㄉㄜ˙	1100	狀態形容	Gemma2_Crucible
-長得	ㄓㄤˇ ㄉㄜˊ	1100	狀態形容	Gemma2_Crucible
-長得像	ㄓㄤˇ ㄉㄜ˙ ㄒㄧㄤˋ	1150	比喻摹擬	Gemma2_Crucible
-長得像	ㄓㄤˇ ㄉㄜˊ ㄒㄧㄤˋ	1150	比喻摹擬	Gemma2_Crucible
-像極了	ㄒㄧㄤˋ ㄐㄧˊ ㄌㄜ˙	1150	比喻摹擬	Gemma2_Crucible
-像極了	ㄒㄧㄤˋ ㄐㄧˊ ㄌㄜ	1150	比喻摹擬	Gemma2_Crucible
 氣象	ㄑㄧˋ ㄒㄧㄤˋ	630	氣象預報	Gemma2_Crucible
 假象	ㄐㄧㄚˇ ㄒㄧㄤˋ	620	事物表面	Gemma2_Crucible
 假相	ㄐㄧㄚˇ ㄒㄧㄤˋ	520	佛學專名	Gemma2_Crucible
@@ -1615,8 +849,6 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 李飛飛	ㄌㄧˇ ㄈㄟ ㄈㄟ	1200	專名	AI_pioneer
 往事	ㄨㄤˇ ㄕˋ	1250	核心名詞	Season6_Daily
 一句	ㄧ ㄐㄩˋ	1150	數量詞	Season6_Daily
-的話	˙ㄉㄜ ㄏㄨㄚˋ	1200	常用後綴	Season6_Daily
-快哭了	ㄎㄨㄞˋ ㄎㄨ ㄌㄜ˙	1100	情態動詞短語	Season6_Daily
 真是	ㄓㄣ ㄕˋ	1200	常用副詞繫詞	Season6_Daily
 太太	ㄊㄞˋ ㄊㄞˋ	1250	核心親屬稱謂	Kinship_Noun
 太太	ㄊㄞˋ ˙ㄊㄞ	1250	核心親屬稱謂	Kinship_Noun
@@ -1638,12 +870,11 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 混混	ㄏㄨㄣˋ ㄏㄨㄣˋ	1200	口語社會名詞	Colloquial_Noun
 備齊	ㄅㄟˋ ㄑㄧˊ	1250	動作動詞短語	Action_Verb
 照說	ㄓㄠˋ ㄕㄨㄛ	1250	口語評註副詞短語	Discourse_Marker
-碑中之碑	ㄅㄟ ㄓㄨㄥ ㄓ ㄅㄟ	1600	修辭定型構式	Construction
+碑中之碑	ㄅㄟ ㄓㄨㄥ ㄓ ㄅㄟ	1480	修辭定型構式	Construction
 量體	ㄌㄧㄤˋ ㄊㄧˇ	1250	建築美學度量名詞	Aesthetic_Noun
 歐漢	ㄡ ㄏㄢˋ	1250	語言跨文化專稱	Linguistic_Culture
 大亂鬥	ㄉㄚˋ ㄌㄨㄢˋ ㄉㄡˋ	1250	現代流行語	Pop_Culture
 大餐	ㄉㄚˋ ㄘㄢ	1200	生活飲食名詞	Diet_Noun
-坐一下	ㄗㄨㄛˋ ㄧ ㄒㄧㄚˋ	1250	動作動量短語	Action_Classifier
 悲淒	ㄅㄟ ㄑㄧ	1250	情感形容詞	Mood_Adj
 悲悽	ㄅㄟ ㄑㄧ	1250	情感形容詞	Mood_Adj
 慘事	ㄘㄢˇ ㄕˋ	1250	核心名詞	Event_Noun
@@ -1653,8 +884,6 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 致此碑	ㄓˋ ㄘˇ ㄅㄟ	1400	使役實體短語	Phrase
 下載	ㄒㄧㄚˋ ㄗㄞˋ	1300	核心資訊科技動詞	Tech_Verb
 下載	ㄒㄧㄚˋ ㄗㄞˇ	1300	核心資訊科技動詞	Tech_Verb
-已下載	ㄧˇ ㄒㄧㄚˋ ㄗㄞˋ	1300	時相動詞短語	Verb_Phrase
-已下載	ㄧˇ ㄒㄧㄚˋ ㄗㄞˇ	1300	時相動詞短語	Verb_Phrase
 興趣	ㄒㄧㄥˋ ㄑㄩˋ	1300	核心心理名詞	Emotion_Noun
 沒有興趣	ㄇㄟˊ ㄧㄡˇ ㄒㄧㄥˋ ㄑㄩˋ	1350	動賓固定搭配	Collocation
 使用者	ㄕˇ ㄩㄥˋ ㄓㄜˇ	1300	核心使用者名詞	Tech_Noun
@@ -1665,11 +894,8 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 批次	ㄆㄧ ㄘˋ	1300	核心資訊科技名詞	Tech_Noun
 批次轉換	ㄆㄧ ㄘˋ ㄓㄨㄢˇ ㄏㄨㄢˋ	1350	核心資訊科技名詞	Tech_Noun
 變態	ㄅㄧㄢˋ ㄊㄞˋ	1300	文化心理名詞	Culture_Noun
-這一班	ㄓㄜˋ ㄧ ㄅㄢ	1300	指示數量名詞短語	Demonstrative_Classifier
-這一班	ㄐㄧㄝˋ ㄧ ㄅㄢ	1300	指示數量名詞短語	Demonstrative_Classifier
 死與愛	ㄙˇ ㄩˇ ㄞˋ	1350	並列哲學構式	Coordination
 愛與死	ㄞˋ ㄩˇ ㄙˇ	1350	並列哲學構式	Coordination
-平和與寧靜	ㄆㄧㄥˊ ㄏㄜˊ ㄩˇ ㄋㄧㄥˊ ㄐㄧㄥˋ	1350	並列描摹構式	Coordination
 精英	ㄐㄧㄥ ㄧㄥ	1250	社會群體名詞	Social_Noun
 菁英	ㄐㄧㄥ ㄧㄥ	1250	社會群體名詞	Social_Noun
 高效	ㄍㄠ ㄒㄧㄠˋ	1300	核心科技名詞	Tech_Noun
@@ -1706,28 +932,20 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 會自動	ㄏㄨㄟˋ ㄗˋ ㄉㄨㄥˋ	1200	情態動詞構式	Modal_Adv
 沒關係	ㄇㄟˊ ㄍㄨㄢ ㄒㄧ	1350	核心禮貌應答短語	Colloquial
 關係	ㄍㄨㄢ ㄒㄧ	900	口語常用名詞(輕聲常念一聲)	Colloquial_Noun
-告一段落	ㄍㄠˋ ㄧˊ ㄉㄨㄢˋ ㄌㄨㄛˋ	1650	常用固定短語	Phrase_General
+告一段落	ㄍㄠˋ ㄧˊ ㄉㄨㄢˋ ㄌㄨㄛˋ	1480	常用固定短語	Phrase_General
 告一段落	ㄍㄠˋ ㄧ ㄉㄨㄢˋ ㄌㄨㄛˋ	1300	核心熟語成語	Idiom
 告一個段落	ㄍㄠˋ ㄧˊ ˙ㄍㄜ ㄉㄨㄢˋ ㄌㄨㄛˋ	1300	口語熟語短語	Colloquial
 告一個段落	ㄍㄠˋ ㄧ ˙ㄍㄜ ㄉㄨㄢˋ ㄌㄨㄛˋ	1300	口語熟語短語	Colloquial
 告一個段落	ㄍㄠˋ ㄧˊ ㄍㄜ ㄉㄨㄢˋ ㄌㄨㄛˋ	1300	口語熟語短語	Colloquial
 告一個段落	ㄍㄠˋ ㄧ ㄍㄜ ㄉㄨㄢˋ ㄌㄨㄛˋ	1300	口語熟語短語	Colloquial
-支援非破壞性裁剪	ㄓ ㄩㄢˊ ㄈㄟ ㄆㄛˋ ㄏㄨㄞˋ ㄒㄧㄥˋ ㄘㄞˊ ㄐㄧㄢˇ	1350	科技影像處理複合詞	Tech_Compound
-支援非破壞性	ㄓ ㄩㄢˊ ㄈㄟ ㄆㄛˋ ㄏㄨㄞˋ ㄒㄧㄥˋ	1300	科技動賓短語	Tech_Verb_Phrase
 非破壞性裁剪	ㄈㄟ ㄆㄛˋ ㄏㄨㄞˋ ㄒㄧㄥˋ ㄘㄞˊ ㄐㄧㄢˇ	1300	科技偏正複合詞	Tech_Noun
 非破壞性	ㄈㄟ ㄆㄛˋ ㄏㄨㄞˋ ㄒㄧㄥˋ	1250	科技偏正修飾語	Tech_Adj
 第一句	ㄉㄧˋ ㄧ ㄐㄩˋ	1250	序數名詞短語	Numeral_Noun
 最後一句	ㄗㄨㄟˋ ㄏㄡˋ ㄧ ㄐㄩˋ	1300	偏正數量名詞短語	Noun_Phrase
-中間那一句	ㄓㄨㄥ ㄐㄧㄢ ㄋㄚˋ ㄧ ㄐㄩˋ	1250	方位指示數量短語	Noun_Phrase
-那一句	ㄋㄚˋ ㄧ ㄐㄩˋ	1200	指示數量短語	Noun_Phrase
-這兩句	ㄓㄜˋ ㄌㄧㄤˇ ㄐㄩˋ	1250	指示數量短語	Noun_Phrase
 本句	ㄅㄣˇ ㄐㄩˋ	1150	指稱數量短語	Noun_Phrase
 以及	ㄧˇ ㄐㄧˊ	1350	核心並列連詞	Conjunction
 一招	ㄧ ㄓㄠ	1200	動量短語名詞	Measure_Noun
-學了一招	ㄒㄩㄝˊ ˙ㄌㄜ ㄧ ㄓㄠ	1300	動量完成短語	Verb_Phrase
 另開	ㄌㄧㄥˋ ㄎㄞ	1250	副動結構短語	Verb_Phrase
-另開新對話	ㄌㄧㄥˋ ㄎㄞ ㄒㄧㄣ ㄉㄨㄟˋ ㄏㄨㄚˋ	1300	現代軟體操作動賓短語	Tech_Verb_Phrase
-已安全卸除	ㄧˇ ㄢ ㄑㄩㄢˊ ㄒㄧㄝˋ ㄔㄨˊ	1300	系統狀態完成短語	OS_Status_Phrase
 測試看看	ㄘㄜˋ ㄕˋ ㄎㄢˋ ㄎㄢˋ	1400	常用動作短語	Phrase
 測試看看	ㄘㄜˋ ㄕˋ ㄎㄢˋ ㄎㄢ˙	1400	常用動作短語	Phrase
 來測試	ㄌㄞˊ ㄘㄜˋ ㄕˋ	1300	動態評估短語	Phrase
@@ -1738,101 +956,61 @@ WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
 非破壞性壓縮	ㄈㄟ ㄆㄛˋ ㄏㄨㄞˋ ㄒㄧㄥˋ ㄧㄚˋ ㄙㄨㄛ	1350	科技名詞	Tech_Noun
 非破壞性壓縮格式	ㄈㄟ ㄆㄛˋ ㄏㄨㄞˋ ㄒㄧㄥˋ ㄧㄚ ㄙㄨㄛ ㄍㄜˊ ㄕˋ	1450	科技長詞	Tech_Noun
 非破壞性壓縮格式	ㄈㄟ ㄆㄛˋ ㄏㄨㄞˋ ㄒㄧㄥˋ ㄧㄚˋ ㄙㄨㄛ ㄍㄜˊ ㄕˋ	1450	科技長詞	Tech_Noun
-支援非破壞性壓縮格式	ㄓ ㄩㄢˊ ㄈㄟ ㄆㄛˋ ㄏㄨㄞˋ ㄒㄧㄥˋ ㄧㄚ ㄙㄨㄛ ㄍㄜˊ ㄕˋ	1500	科技長詞	Tech_Compound
 馬上	ㄇㄚˇ ㄕㄤˋ	1350	核心時間副詞	Adverb
 馬上	ㄇㄚˇ ˙ㄕㄤ	1350	核心時間副詞	Adverb
-現在馬上	ㄒㄧㄢˋ ㄗㄞˋ ㄇㄚˇ ㄕㄤˋ	1400	時間副詞短語	Adverb_Phrase
 再來	ㄗㄞˋ ㄌㄞˊ	1350	核心連接副詞	Adverb
 再來測試	ㄗㄞˋ ㄌㄞˊ ㄘㄜˋ ㄕˋ	1400	動態短語	Phrase
-再來測試一下	ㄗㄞˋ ㄌㄞˊ ㄘㄜˋ ㄕˋ ㄧˊ ㄒㄧㄚˋ	1450	動態評估短語	Phrase
-再來測試一下	ㄗㄞˋ ㄌㄞˊ ㄘㄜˋ ㄕˋ ㄧ ㄒㄧㄚˋ	1450	動態評估短語	Phrase
-測試一下	ㄘㄜˋ ㄕˋ ㄧˊ ㄒㄧㄚˋ	1350	動態動作短語	Phrase
-測試一下	ㄘㄜˋ ㄕˋ ㄧ ㄒㄧㄚˋ	1350	動態動作短語	Phrase
 壓縮袋	ㄧㄚ ㄙㄨㄛ ㄉㄞˋ	1400	核心生活用品名詞	Noun
 壓縮袋	ㄧㄚˋ ㄙㄨㄛ ㄉㄞˋ	1400	核心生活用品名詞	Noun
-壓縮袋壓縮	ㄧㄚ ㄙㄨㄛ ㄉㄞˋ ㄧㄚ ㄙㄨㄛ	1450	生活動作偏正名詞	Noun_Phrase
-壓縮袋壓縮	ㄧㄚˋ ㄙㄨㄛ ㄉㄞˋ ㄧㄚ ㄙㄨㄛ	1450	生活動作偏正名詞	Noun_Phrase
 效果	ㄒㄧㄠˋ ㄍㄨㄛˇ	1350	核心評估名詞	Noun
 效果如何	ㄒㄧㄠˋ ㄍㄨㄛˇ ㄖㄨˊ ㄏㄜˊ	1450	疑問評估動賓短語	Question_Phrase
 壓縮效果	ㄧㄚ ㄙㄨㄛ ㄒㄧㄠˋ ㄍㄨㄛˇ	1400	科技評估名詞	Noun
-壓縮效果如何	ㄧㄚ ㄙㄨㄛ ㄒㄧㄠˋ ㄍㄨㄛˇ ㄖㄨˊ ㄏㄜˊ	1500	完整疑問短語	Question_Phrase
 來來去去	ㄌㄞˊ ㄌㄞˊ ㄑㄩˋ ㄑㄩˋ	1400	核心AABB動態成語	Idiom
-在來來去去	ㄗㄞˋ ㄌㄞˊ ㄌㄞˊ ㄑㄩˋ ㄑㄩˋ	1450	介詞方位短語	Phrase
 人群中	ㄖㄣˊ ㄑㄩㄣˊ ㄓㄨㄥ	1350	偏正方位名詞	Noun_Phrase
 找尋	ㄓㄠˇ ㄒㄩㄣˊ	1350	核心動作動詞	Verb
 找尋	ㄓㄠˇ ˙ㄒㄩㄣ	1350	核心動作動詞	Verb
 哪個人	ㄋㄚˇ ㄍㄜ˙ ㄖㄣˊ	1350	疑問指稱短語	Phrase
 哪個人	ㄋㄚˇ ㄍㄜ ㄖㄣˊ	1350	疑問指稱短語	Phrase
 哪個人	ㄋㄚˇ ㄍㄜˋ ㄖㄣˊ	1350	疑問指稱短語	Phrase
-會上上下下	ㄏㄨㄟˋ ㄕㄤˋ ㄕㄤˋ ㄒㄧㄚˋ ㄒㄧㄚˋ	1400	能願動詞成語短語	Verb_Phrase
 上上下下	ㄕㄤˋ ㄕㄤˋ ㄒㄧㄚˋ ㄒㄧㄚˋ	1400	核心AABB動態成語	Idiom
 爬來爬去	ㄆㄚˊ ㄌㄞˊ ㄆㄚˊ ㄑㄩˋ	1450	核心重疊動態成語	Idiom
 太難	ㄊㄞˋ ㄋㄢˊ	1350	程度副詞形容詞短語	Adj_Phrase
-才是	ㄘㄞˊ ㄕˋ	1350	語氣繫詞短語	Phrase
 太難才是	ㄊㄞˋ ㄋㄢˊ ㄘㄞˊ ㄕˋ	1400	評估語氣短語	Phrase
-其實	ㄑㄧˊ ㄕˊ	1850	核心轉折副詞	Adverb_General
-其實這些	ㄑㄧˊ ㄕˊ ㄓㄜˋ ㄒㄧㄝ	1600	副詞代詞短語	Phrase
-aup檔	-	1500	音訊專案檔名	Audio_Ext
-成果	ㄔㄥˊ ㄍㄨㄛˇ	1500	常用名詞	Domain_General
-算繪	ㄙㄨㄢˋ ㄏㄨㄟˋ	1550	專業術語(Rendering)	Domain_ComputerGraphics
-算繪成果	ㄙㄨㄢˋ ㄏㄨㄟˋ ㄔㄥˊ ㄍㄨㄛˇ	1650	專業術語	Domain_ComputerGraphics
-算繪引擎	ㄙㄨㄢˋ ㄏㄨㄟˋ ㄧㄣˇ ㄑㄧㄥˊ	1600	專業術語	Domain_ComputerGraphics
+其實	ㄑㄧˊ ㄕˊ	1480	核心轉折副詞	Adverb_General
+aup檔	-	1480	音訊專案檔名	Audio_Ext
+算繪	ㄙㄨㄢˋ ㄏㄨㄟˋ	1480	專業術語(Rendering)	Domain_ComputerGraphics
+算繪成果	ㄙㄨㄢˋ ㄏㄨㄟˋ ㄔㄥˊ ㄍㄨㄛˇ	1480	專業術語	Domain_ComputerGraphics
+算繪引擎	ㄙㄨㄢˋ ㄏㄨㄟˋ ㄧㄣˇ ㄑㄧㄥˊ	1480	專業術語	Domain_ComputerGraphics
 重疊	ㄔㄨㄥˊ ㄉㄧㄝˊ	1350	核心動作狀態詞	Domain_General
-重疊部份	ㄔㄨㄥˊ ㄉㄧㄝˊ ㄅㄨˋ ㄈㄣˋ	1600	複合偏正名詞	Domain_General
-重疊部分	ㄔㄨㄥˊ ㄉㄧㄝˊ ㄅㄨˋ ㄈㄣˋ	1600	複合偏正名詞	Domain_General
-各clip間	-	1600	音軌片段範圍短語	Audio_Phrase
-各clip	-	1500	音軌片段短語	Audio_Phrase
-原始數據	ㄩㄢˊ ㄕˇ ㄕㄨˋ ㄐㄩˋ	1550	統計數據名詞	Domain_General
-原始資料	ㄩㄢˊ ㄕˇ ㄗ ㄌㄧㄠˋ	1550	資訊科技名詞	Domain_General
-都不在了	ㄉㄡ ㄅㄨˋ ㄗㄞˋ ˙ㄌㄜ	1600	口語短語	Domain_General
-都不在了	ㄉㄡ ㄅㄨˋ ㄗㄞˋ ㄌㄜ	1600	口語短語	Domain_General
-對吧	ㄉㄨㄟˋ ㄅㄚ˙	2000	句尾反詰助詞構式	Conversational
-對吧	ㄉㄨㄟˋ ˙ㄅㄚ	2000	句尾反詰助詞構式	Conversational
-對吧	ㄉㄨㄟˋ ㄅㄚ	2000	句尾反詰助詞構式	Conversational
-不憤不啟	ㄅㄨˊ ㄈㄣˋ ㄅㄨˋ ㄑㄧˇ	1600	經典成語	Idiom_Classics
-不悱不發	ㄅㄨˋ ㄈㄟˇ ㄅㄨˋ ㄈㄚ	1600	經典成語	Idiom_Classics
-心有不憤	ㄒㄧㄣ ㄧㄡˇ ㄅㄨˊ ㄈㄣˋ	1500	成語短語	Idiom_Classics
-之路	ㄓ ㄌㄨˋ	1600	文言偏正標記短語	Phrase_Formal
-自我毀滅	ㄗˋ ㄨㄛˇ ㄏㄨㄟˇ ㄇㄧㄝˋ	1500	抽象動作名詞	Domain_General
-自我毀滅之路	ㄗˋ ㄨㄛˇ ㄏㄨㄟˇ ㄇㄧㄝˋ ㄓ ㄌㄨˋ	1700	書面固定搭配	Phrase_Formal
-毀滅之路	ㄏㄨㄟˇ ㄇㄧㄝˋ ㄓ ㄌㄨˋ	1600	書面固定搭配	Phrase_Formal
-邁進	ㄇㄞˋ ㄐㄧㄣˋ	1500	前進動詞	Domain_General
-直接	ㄓˊ ㄐㄧㄝ	1850	方式副詞	Domain_General
-直接揚棄	ㄓˊ ㄐㄧㄝ ㄧㄤˊ ㄑㄧˋ	1700	副詞動詞短語	Phrase_General
-揚棄	ㄧㄤˊ ㄑㄧˋ	1650	哲學批判核心動詞	Philosophy_General
+各clip間	-	1480	音軌片段範圍短語	Audio_Phrase
+各clip	-	1480	音軌片段短語	Audio_Phrase
+原始數據	ㄩㄢˊ ㄕˇ ㄕㄨˋ ㄐㄩˋ	1480	統計數據名詞	Domain_General
+原始資料	ㄩㄢˊ ㄕˇ ㄗ ㄌㄧㄠˋ	1480	資訊科技名詞	Domain_General
+不憤不啟	ㄅㄨˊ ㄈㄣˋ ㄅㄨˋ ㄑㄧˇ	1480	經典成語	Idiom_Classics
+不悱不發	ㄅㄨˋ ㄈㄟˇ ㄅㄨˋ ㄈㄚ	1480	經典成語	Idiom_Classics
+心有不憤	ㄒㄧㄣ ㄧㄡˇ ㄅㄨˊ ㄈㄣˋ	1480	成語短語	Idiom_Classics
+之路	ㄓ ㄌㄨˋ	1480	文言偏正標記短語	Phrase_Formal
+自我毀滅	ㄗˋ ㄨㄛˇ ㄏㄨㄟˇ ㄇㄧㄝˋ	1480	抽象動作名詞	Domain_General
+自我毀滅之路	ㄗˋ ㄨㄛˇ ㄏㄨㄟˇ ㄇㄧㄝˋ ㄓ ㄌㄨˋ	1480	書面固定搭配	Phrase_Formal
+毀滅之路	ㄏㄨㄟˇ ㄇㄧㄝˋ ㄓ ㄌㄨˋ	1480	書面固定搭配	Phrase_Formal
+邁進	ㄇㄞˋ ㄐㄧㄣˋ	1480	前進動詞	Domain_General
+揚棄	ㄧㄤˊ ㄑㄧˋ	1480	哲學批判核心動詞	Philosophy_General
 它	ㄊㄚ	850	核心指物第三人稱代詞	Pronoun_Core
-揚棄它	ㄧㄤˊ ㄑㄧˋ ㄊㄚ	1750	動賓代詞短語	Phrase_General
-揚棄它吧	ㄧㄤˊ ㄑㄧˋ ㄊㄚ ˙ㄅㄚ	1800	完整口語短語	Phrase_General
-揚棄它吧	ㄧㄤˊ ㄑㄧˋ ㄊㄚ ㄅㄚ	1800	完整口語短語	Phrase_General
-我們就直接	ㄨㄛˇ ˙ㄇㄣ ㄐㄧㄡˋ ㄓˊ ㄐㄧㄝ	1700	高頻口語短語	Phrase_General
-智慧型	ㄓˋ ㄏㄨㄟˋ ㄒㄧㄥˊ	1650	現代科技修飾詞	Tech_Noun
-輸入法	ㄕㄨ ㄖㄨˋ ㄈㄚˇ	1600	核心軟體名詞	Tech_Noun
-主攻	ㄓㄨˇ ㄍㄨㄥ	1550	現代動作謂詞	Domain_General
-智慧選字	ㄓˋ ㄏㄨㄟˋ ㄒㄩㄢˇ ㄗˋ	1650	核心功能名詞	Tech_Compound
-選字	ㄒㄩㄢˇ ㄗˋ	1500	核心功能動名詞	Tech_Noun
-選字詞	ㄒㄩㄢˇ ㄗˋ ㄘˊ	1550	核心功能名詞	Tech_Noun
-正確率	ㄓㄥˋ ㄑㄩㄝˋ ㄌㄩˋ	1600	核心評估指標名詞	Tech_Noun
-殆無疑義	ㄉㄞˋ ㄨˊ ㄧˊ ㄧˋ	1700	典雅成語固定搭配	Idiom_Classics
-無疑義	ㄨˊ ㄧˊ ㄧˋ	1600	法律與典雅短語	Formal_Phrase
+智慧型	ㄓˋ ㄏㄨㄟˋ ㄒㄧㄥˊ	1480	現代科技修飾詞	Tech_Noun
+輸入法	ㄕㄨ ㄖㄨˋ ㄈㄚˇ	1480	核心軟體名詞	Tech_Noun
+主攻	ㄓㄨˇ ㄍㄨㄥ	1480	現代動作謂詞	Domain_General
+智慧選字	ㄓˋ ㄏㄨㄟˋ ㄒㄩㄢˇ ㄗˋ	1480	核心功能名詞	Tech_Compound
+選字	ㄒㄩㄢˇ ㄗˋ	1480	核心功能動名詞	Tech_Noun
+選字詞	ㄒㄩㄢˇ ㄗˋ ㄘˊ	1480	核心功能名詞	Tech_Noun
+正確率	ㄓㄥˋ ㄑㄩㄝˋ ㄌㄩˋ	1480	核心評估指標名詞	Tech_Noun
+殆無疑義	ㄉㄞˋ ㄨˊ ㄧˊ ㄧˋ	1480	典雅成語固定搭配	Idiom_Classics
+無疑義	ㄨˊ ㄧˊ ㄧˋ	1480	法律與典雅短語	Formal_Phrase
 疑義	ㄧˊ ㄧˋ	590	法律與學術名詞	Domain_General(無疑義/殆無疑義/條文疑義)
-立刻	ㄌㄧˋ ㄎㄜˋ	1650	核心時間副詞	Adverb_General
-再打一次	ㄗㄞˋ ㄉㄚˇ ㄧˊ ㄘˋ	1650	重複動作短語	Phrase_General
-再打一次	ㄗㄞˋ ㄉㄚˇ ㄧ ㄘˋ	1650	重複動作短語	Phrase_General
-打一次	ㄉㄚˇ ㄧˊ ㄘˋ	1500	動量短語	Phrase_General
-打一次	ㄉㄚˇ ㄧ ㄘˋ	1500	動量短語	Phrase_General
-著力	ㄓㄨㄛˊ ㄌㄧˋ	1550	動作動詞	Domain_General
-著力於	ㄓㄨㄛˊ ㄌㄧˋ ㄩˊ	1650	動介固定短語	Phrase_General
-將著力於	ㄐㄧㄤ ㄓㄨㄛˊ ㄌㄧˋ ㄩˊ	1750	助動固定短語	Phrase_General
-此部分	ㄘˇ ㄅㄨˋ ㄈㄣˋ	1650	指示偏正名詞	Phrase_General
-此部份	ㄘˇ ㄅㄨˋ ㄈㄣˋ	1650	指示偏正名詞	Phrase_General
-本對話	ㄅㄣˇ ㄉㄨㄟˋ ㄏㄨㄚˋ	1500	對話指稱短語	Phrase_General
-無條件	ㄨˊ ㄊㄧㄠˊ ㄐㄧㄢˋ	1600	方式副詞名詞	Domain_General
-放進	ㄈㄤˋ ㄐㄧㄣˋ	1500	動作動詞	Domain_General
-直接顯示	ㄓˊ ㄐㄧㄝ ㄒㄧㄢˇ ㄕˋ	1650	副詞動詞短語	Phrase_General
-絕無問題	ㄐㄩㄝˊ ㄨˊ ㄨㄣˋ ㄊㄧˊ	1650	保證短語	Phrase_General
+立刻	ㄌㄧˋ ㄎㄜˋ	1480	核心時間副詞	Adverb_General
+著力	ㄓㄨㄛˊ ㄌㄧˋ	1480	動作動詞	Domain_General
+無條件	ㄨˊ ㄊㄧㄠˊ ㄐㄧㄢˋ	1480	方式副詞名詞	Domain_General
+放進	ㄈㄤˋ ㄐㄧㄣˋ	1480	動作動詞	Domain_General
 酷酷	ㄎㄨˋ ㄎㄨˋ	1450	現代形容詞疊詞	Domain_General
-酷酷的	ㄎㄨˋ ㄎㄨˋ ㄉㄜ˙	1550	現代形容詞短語	Domain_General
-酷酷的	ㄎㄨˋ ㄎㄨˋ ˙ㄉㄜ	1550	現代形容詞短語	Domain_General
 
 
 
@@ -1840,24 +1018,14 @@ aup檔	-	1500	音訊專案檔名	Audio_Ext
 
 
 不憤	ㄅㄨˊ ㄈㄣˋ	180	古典成語詞素	Idiom_Classics
-部分	ㄅㄨˋ ㄈㄣˋ	1600	現代常用名詞	Domain_General
-部份	ㄅㄨˋ ㄈㄣˋ	1600	現代常用名詞	Domain_General
 不忿	ㄅㄨˊ ㄈㄣˋ	180	同義古典詞素	Idiom_Classics
-便宜	ㄆㄧㄢˊ ㄧˊ	1650	現代常用名詞形容詞	Domain_General
 暫時	ㄓㄢˋ ㄕˊ	640	核心時間副詞	Domain_General(配合動詞謂語與「戰時」消歧)
 暫時	ㄗㄢˋ ㄕˊ	640	核心時間副詞(標準審訂音)	Domain_General
-任何	ㄖㄣˋ ㄏㄜˊ	1750	核心全稱代名詞	Domain_General
-相容性	ㄒㄧㄤ ㄖㄨㄥˊ ㄒㄧㄥˋ	1600	軟體工程核心名詞	Domain_General
-相容性問題	ㄒㄧㄤ ㄖㄨㄥˊ ㄒㄧㄥˋ ㄨㄣˋ ㄊㄧˊ	1700	軟體工程名詞短語	Tech_Compound
-這裏的工作	ㄓㄜˋ ㄅㄧㄢ ˙ㄉㄜ ㄍㄨㄥ ㄗㄨㄛˋ	1650	高頻名詞偏正短語	Phrase_General
-這邊的工作	ㄓㄜˋ ㄅㄧㄢ ˙ㄉㄜ ㄍㄨㄥ ㄗㄨㄛˋ	1650	高頻名詞偏正短語	Phrase_General
-先告一段落	ㄒㄧㄢ ㄍㄠˋ ㄧˊ ㄉㄨㄢˋ ㄌㄨㄛˋ	1700	高頻動態短語	Phrase_General
-告一段落	ㄍㄠˋ ㄧˊ ㄉㄨㄢˋ ㄌㄨㄛˋ	1650	常用固定短語	Phrase_General
-麻煩您	ㄇㄚˊ ㄈㄢˊ ㄋㄧㄣˊ	1650	客氣口語短語	Phrase_General
-再回來	ㄗㄞˋ ㄏㄨㄟˊ ㄌㄞˊ	1650	動作動態短語	Phrase_General
+任何	ㄖㄣˋ ㄏㄜˊ	1480	核心全稱代名詞	Domain_General
+相容性	ㄒㄧㄤ ㄖㄨㄥˊ ㄒㄧㄥˋ	1480	軟體工程核心名詞	Domain_General
 
 # === 2026-10-06 精選收編之領域專有名詞與核心詞 ===
-如喜輸入法	ㄖㄨˊ ㄒㄧˇ ㄕㄨ ㄖㄨˋ ㄈㄚˇ	1700	domain	輸入法名稱
+如喜輸入法	ㄖㄨˊ ㄒㄧˇ ㄕㄨ ㄖㄨˋ ㄈㄚˇ	1480	domain	輸入法名稱
 沙盒	ㄕㄚ ㄏㄜˊ	1400	domain	電腦安全與測試環境
 預行編目	ㄩˋ ㄒㄧㄥˊ ㄅㄧㄢ ㄇㄨˋ	1350	domain	圖書館學名詞
 高聲疾呼	ㄍㄠ ㄕㄥ ㄐㄧˊ ㄏㄨ	1400	domain	成語
@@ -1873,23 +1041,19 @@ aup檔	-	1500	音訊專案檔名	Audio_Ext
 濃濁度	ㄋㄨㄥˊ ㄓㄨㄛˊ ㄉㄨˋ	1300	domain	物理與化學術語
 習靜	ㄒㄧˊ ㄐㄧㄥˋ	1300	domain	靜心練習
 殊音	ㄕㄨ ㄧㄣ	1250	domain	特殊音聲
-清零	ㄑㄧㄥ ㄌㄧㄥˊ	1650	現代科技與日常動詞	Domain_General
-變得	ㄅㄧㄢˋ ㄉㄜˊ	1650	核心變化動詞	Domain_General
-變得	ㄅㄧㄢˋ ˙ㄉㄜ	1650	核心變化動詞	Domain_General
-行雲流水一點	ㄒㄧㄥˊ ㄩㄣˊ ㄌㄧㄡˊ ㄕㄨㄟˇ ㄧˋ ㄉㄧㄢˇ	1500	常用成語短語	Phrase_General
+清零	ㄑㄧㄥ ㄌㄧㄥˊ	1480	現代科技與日常動詞	Domain_General
+變得	ㄅㄧㄢˋ ㄉㄜˊ	1480	核心變化動詞	Domain_General
+變得	ㄅㄧㄢˋ ˙ㄉㄜ	1480	核心變化動詞	Domain_General
 
 
-清查	ㄑㄧㄥ ㄔㄚˊ	1650	現代核心動詞名詞	Domain_General
-徹底	ㄔㄜˋ ㄉㄧˇ	1650	現代核心程度副詞形容詞	Domain_General
-不夠徹底	ㄅㄨˋ ㄍㄡˋ ㄔㄜˋ ㄉㄧˇ	1600	常用固定偏正短語	Phrase_General
-打地鼠	ㄉㄚˇ ㄉㄧˋ ㄕㄨˇ	1600	現象隱喻與慣用動賓短語	Phrase_General
-兩隻手	ㄌㄧㄤˇ ㄓ ㄕㄡˇ	1600	語意調校複合長詞	Layer3_Cohesion:Type I (OOV_COMPOUND_SHATTERED)
+清查	ㄑㄧㄥ ㄔㄚˊ	1480	現代核心動詞名詞	Domain_General
+徹底	ㄔㄜˋ ㄉㄧˇ	1480	現代核心程度副詞形容詞	Domain_General
 失憶	ㄕ ㄧˋ	600	語意調校複合長詞	Layer3_Cohesion(喪失記憶：短暫失憶/失憶症)
-框選	ㄎㄨㄤ ㄒㄩㄢˇ	1500	AI語意昇華複合詞	自修訂記錄「匡 ➔ 框」依雙音節原子動詞原則昇華
-置入	ㄓˋ ㄖㄨˋ	1600	現代核心動詞	Domain_General
-想破頭	ㄒㄧㄤˇ ㄆㄛˋ ㄊㄡˊ	1600	語意調校複合長詞	Layer3_Cohesion:Type I (OOV_COMPOUND_SHATTERED)
-台北車站	ㄊㄞˊ ㄅㄟˇ ㄔㄜ ㄓㄢˋ	1550	台灣交通地標	Domain_General
-台灣高鐵	ㄊㄞˊ ㄨㄢ ㄍㄠ ㄊㄧㄝˇ	1550	台灣交通地標	Domain_General
+框選	ㄎㄨㄤ ㄒㄩㄢˇ	1480	AI語意昇華複合詞	自修訂記錄「匡 ➔ 框」依雙音節原子動詞原則昇華
+置入	ㄓˋ ㄖㄨˋ	1480	現代核心動詞	Domain_General
+想破頭	ㄒㄧㄤˇ ㄆㄛˋ ㄊㄡˊ	1480	語意調校複合長詞	Layer3_Cohesion:Type I (OOV_COMPOUND_SHATTERED)
+台北車站	ㄊㄞˊ ㄅㄟˇ ㄔㄜ ㄓㄢˋ	1480	台灣交通地標	Domain_General
+台灣高鐵	ㄊㄞˊ ㄨㄢ ㄍㄠ ㄊㄧㄝˇ	1480	台灣交通地標	Domain_General
 時間軸	ㄕˊ ㄐㄧㄢ ㄓㄡˊ	1480	語意調校增補詞
 倒推	ㄉㄠˋ ㄊㄨㄟ	1420	語意調校增補詞
 天龍人	ㄊㄧㄢ ㄌㄨㄥˊ ㄖㄣˊ	1450	語意調校增補詞
@@ -1902,11 +1066,11 @@ aup檔	-	1500	音訊專案檔名	Audio_Ext
 三聲	ㄙㄢ ㄕㄥ	650	phonetics	聲調術語
 四聲	ㄙˋ ㄕㄥ	650	phonetics	聲調術語
 輕聲	ㄑㄧㄥ ㄕㄥ	650	phonetics	聲調術語
-一下	ㄧˊ ㄒㄧㄚˋ	1950	measure	高頻時量詞(變調)
-一個	ㄧˊ ˙ㄍㄜ	1800	measure	高頻數量詞(變調輕聲)
-一個	ㄧˊ ㄍㄜˋ	1800	measure	高頻數量詞(變調四聲)
-一趟	ㄧˊ ㄊㄤˋ	1650	measure	高頻動量詞(變調)
-實裝	ㄕˊ ㄓㄨㄤ	1550	domain	軟體功能實裝與導入部署
+一下	ㄧˊ ㄒㄧㄚˋ	1480	measure	高頻時量詞(變調)
+一個	ㄧˊ ˙ㄍㄜ	1480	measure	高頻數量詞(變調輕聲)
+一個	ㄧˊ ㄍㄜˋ	1480	measure	高頻數量詞(變調四聲)
+一趟	ㄧˊ ㄊㄤˋ	1480	measure	高頻動量詞(變調)
+實裝	ㄕˊ ㄓㄨㄤ	1480	domain	軟體功能實裝與導入部署
 更常	ㄍㄥˋ ㄔㄤˊ	680	adverb	比較頻率副詞(常用於更常用到/更常見)
 就好	ㄐㄧㄡˋ ㄏㄠˇ	720	adverb	條件結果副詞(高頻詞組保護)
 救好	ㄐㄧㄡˋ ㄏㄠˇ	120	verb_complement	動補對比詞(低先驗頻率，支援「就好與救好」對比)
@@ -1925,10 +1089,10 @@ aup檔	-	1500	音訊專案檔名	Audio_Ext
 瑜伽	ㄩˊ ㄐㄧㄚ	680	domain	印度傳統身心修持專有名詞根
 五辛	ㄨˇ ㄒㄧㄣ	680	domain	飲食分類五種辛香植物詞根
 蛋奶	ㄉㄢˋ ㄋㄞˇ	680	domain	飲食分類蛋類與乳製品詞根
-一下	ㄧˋ ㄒㄧㄚˋ	1950	measure	高頻時量詞(本調四聲)
-一頓	ㄧ ㄉㄨㄣˋ	1850	measure	高頻動量詞
-一頓	ㄧˊ ㄉㄨㄣˋ	1850	measure	高頻動量詞(變調)
-一頓	ㄧˋ ㄉㄨㄣˋ	1850	measure	高頻動量詞(本調四聲)
+一下	ㄧˋ ㄒㄧㄚˋ	1480	measure	高頻時量詞(本調四聲)
+一頓	ㄧ ㄉㄨㄣˋ	1480	measure	高頻動量詞
+一頓	ㄧˊ ㄉㄨㄣˋ	1480	measure	高頻動量詞(變調)
+一頓	ㄧˋ ㄉㄨㄣˋ	1480	measure	高頻動量詞(本調四聲)
 應與	ㄧㄥ ㄩˇ	420	core_compound	助動介詞複合構式(應當與…同步/一致/相符，與「英語」依語境消歧)
 應與	ㄧㄥˋ ㄩˇ	420	core_compound	助動介詞複合構式(四聲異讀相容)
 權重	ㄑㄩㄢˊ ㄓㄨㄥˋ	580	domain	資訊科學與統計學核心術語
@@ -2014,15 +1178,12 @@ aup檔	-	1500	音訊專案檔名	Audio_Ext
 語意調校	ㄩˇ ㄧˋ ㄊㄧㄠˊ ㄐㄧㄠˋ	580	domain	計算語言學與輸入法核心領域複合詞
 語意調整	ㄩˇ ㄧˋ ㄊㄧㄠˊ ㄓㄥˇ	580	domain	計算語言學與輸入法核心領域複合詞
 許氏鍵盤	ㄒㄩˇ ㄕˋ ㄐㄧㄢˋ ㄆㄢˊ	580	domain	台灣經典雙拼注音鍵盤專有名詞
-許氏	ㄒㄩˇ ㄕˋ	560	domain	台灣經典雙拼注音鍵盤專名核心詞根
 掠劫	ㄌㄩㄝˋ ㄐㄧㄝˊ	520	domain	搶奪掠取同義複合動詞
-為免	ㄨㄟˋ ㄇㄧㄢˇ	580	domain	消極目的連詞(為了避免)
 為免	ㄨㄟˊ ㄇㄧㄢˇ	540	domain	消極目的連詞(二聲口語容錯)
 句型	ㄐㄩˋ ㄒㄧㄥˊ	620	linguistics	語言學與句法結構核心名詞
 倣效	ㄈㄤˇ ㄒㄧㄠˋ	580	domain	模仿效法核心動詞(正體異體)
 句型倣效	ㄐㄩˋ ㄒㄧㄥˊ ㄈㄤˇ ㄒㄧㄠˋ	650	linguistics	語言學句法結構模仿複合詞
 確認視窗	ㄑㄩㄝˋ ㄖㄣˋ ㄕˋ ㄔㄨㄤ	620	domain	圖形介面確認對話視窗複合詞
-加詞	ㄐㄧㄚ ㄘˊ	580	domain	輸入法詞庫擴充核心動名詞
 好建議	ㄏㄠˇ ㄐㄧㄢˋ ㄧˋ	620	domain	正面評價名詞短語
 亮點	ㄌㄧㄤˋ ㄉㄧㄢˇ	600	domain	核心焦點特色名詞
 一大亮點	ㄧˊ ㄉㄚˋ ㄌㄧㄤˋ ㄉㄧㄢˇ	620	domain	高頻正面評價偏正複合詞(變調)
@@ -2120,7 +1281,12 @@ aup檔	-	1500	音訊專案檔名	Audio_Ext
 六安市	ㄌㄨˋ ㄢ ㄕˋ	540	proper_noun_cn	安徽省地級市名(文讀正音)
 六安市	ㄌㄧㄡˋ ㄢ ㄕˋ	520	proper_noun_cn	安徽省地級市名(語音容錯)
 京都市	ㄐㄧㄥ ㄉㄨ ㄕˋ	560	proper_noun_jp	日本京都府首府城市名
-拎著	ㄌㄧㄥ ˙ㄓㄜ	580	verb_aspect	手提伴隨狀態動詞(標準後鼻音)
-拎著	ㄌㄧㄣ ˙ㄓㄜ	580	verb_aspect	手提伴隨狀態動詞(台灣口語前鼻音容錯)
-拎著	ㄌㄧㄣ ˙ㄓㄜ	580	verb_aspect	手提伴隨狀態動詞(台灣口語前鼻音容錯)
-京都市	ㄐㄧㄥ ㄉㄨ ㄕˋ	560	proper_noun_jp	日本京都府首府城市名
+音根	ㄧㄣ ㄍㄣ	620	noun	語音學與梵文聲韻學核心專有名詞(防「音跟」碎裂)
+語根	ㄩˇ ㄍㄣ	620	noun	語言學詞源核心專有名詞(防「語跟」碎裂)
+自適應	ㄗˋ ㄕˋ ㄧㄥˋ	640	noun	資訊科學與控制工程核心專有名詞(防「自是應」碎裂)
+往世書	ㄨㄤˇ ㄕˋ ㄕㄨ	620	noun	古印度文獻專有名詞(防「往事書／往筮書」誤選)
+薄伽梵	ㄅㄛˊ ㄐㄧㄚ ㄈㄢˋ	640	proper_noun	印度哲學典籍專有名詞(標準讀音)
+薄伽梵	ㄅㄛˊ ㄑㄧㄝˊ ㄈㄢˋ	640	proper_noun	印度哲學典籍專有名詞(佛典讀音)
+摩訶婆羅多	ㄇㄛˊ ㄏㄜ ㄆㄛˊ ㄌㄨㄛˊ ㄉㄨㄛ	640	proper_noun	古印度史詩專有名詞
+沈伯洋	ㄕㄣˇ ㄅㄛˊ ㄧㄤˊ	1480	proper_noun	台灣知名立法委員與學者姓名
+拎	ㄌㄧㄣ	200	colloquial_tw	台灣口語前鼻音單字容錯

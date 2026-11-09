@@ -1378,17 +1378,28 @@ impl LongkanTable {
 
     #[inline]
     fn wildcard_match_bytes(pat: &[u8], text: &[u8]) -> bool {
-        if pat.is_empty() {
-            return text.is_empty();
+        let (mut p, mut t) = (0usize, 0usize);
+        let (mut star_idx, mut match_idx) = (None::<usize>, 0usize);
+        while t < text.len() {
+            if p < pat.len() && (pat[p] == b'?' || pat[p] == text[t]) {
+                p += 1;
+                t += 1;
+            } else if p < pat.len() && pat[p] == b'*' {
+                star_idx = Some(p);
+                match_idx = t;
+                p += 1;
+            } else if let Some(sp) = star_idx {
+                p = sp + 1;
+                match_idx += 1;
+                t = match_idx;
+            } else {
+                return false;
+            }
         }
-        if pat[0] == b'*' {
-            return Self::wildcard_match_bytes(&pat[1..], text)
-                || (!text.is_empty() && Self::wildcard_match_bytes(pat, &text[1..]));
+        while p < pat.len() && pat[p] == b'*' {
+            p += 1;
         }
-        if !text.is_empty() && (pat[0] == b'?' || pat[0] == text[0]) {
-            return Self::wildcard_match_bytes(&pat[1..], &text[1..]);
-        }
-        false
+        p == pat.len()
     }
 
     pub fn reverse_lookup_char(&self, ch: char) -> Option<LongkanReverseEntry> {

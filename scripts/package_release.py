@@ -136,20 +136,21 @@ def main():
     lk_bin = root / "ruhi_lexicon" / "data" / "longkan.bin"
     if lk_tsv.is_file():
         shutil.copy2(lk_tsv, release_data / "longkan.tsv")
-        run_cmd(
+        subprocess.run(
             [
                 "cargo",
                 "run",
                 "--release",
+                "-p",
+                "ruhi-core",
                 "--bin",
                 "ruhi_lkbin",
-                "--manifest-path",
-                str(root / "ruhi-core" / "Cargo.toml"),
                 "--",
                 str(lk_tsv),
                 str(lk_bin),
             ],
             cwd=root,
+            check=True,
         )
     if lk_bin.is_file():
         shutil.copy2(lk_bin, release_data / "longkan.bin")
@@ -188,6 +189,7 @@ def main():
     for doc_name in [
         "TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC.md",
         "RUHI_LINGUISTIC_ARCHITECTURE_AND_AI_TUNING_SPEC.md",
+        "RUHI_LONGKAN_TECHNICAL_DISCLOSURE.md",
         "RUHI_MULTILINGUAL_EXPANSION_GUIDE.md",
         "RUHI_MULTILINGUAL_EXPANSION_GUIDE_EN.md",
         "RUHI_WESTERN_INPUT_AND_MIXED_TYPING_BLUEPRINT.md",

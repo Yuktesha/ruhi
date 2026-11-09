@@ -5842,7 +5842,8 @@ impl TransitionEngine {
                 let prev = parts[0].trim();
                 let curr = parts[1].trim();
                 if let Ok(bonus) = parts[2].trim().parse::<f64>() {
-                    self.transitions.insert((prev.to_string(), curr.to_string()), bonus);
+                    let safe_bonus = bonus.clamp(-45.0, 45.0);
+                    self.transitions.insert((prev.to_string(), curr.to_string()), safe_bonus);
                     count += 1;
                 }
             }

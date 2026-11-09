@@ -301,7 +301,8 @@ pub fn log_user_word_event(
     context: &str,
     bpmf: &str,
 ) {
-    let event_file = paths.data_dir.join("user_word_events.jsonl");
+    let _ = std::fs::create_dir_all(&paths.sandbox_dir);
+    let event_file = paths.sandbox_dir.join("user_word_events.jsonl");
     let now_str = chrono_like_now();
     let escaped_word = word.replace('\\', "\\\\").replace('"', "\\\"");
     let escaped_ctx = context.replace('\\', "\\\\").replace('"', "\\\"");
@@ -390,7 +391,17 @@ pub fn suppress_or_delete_entry(
         // 在 transitions_user.tsv 中施加負向抑制懲罰 (-50.0)
         let today = chrono_like_today();
         let penalty_line = format!("*\t{}\t-50.0\tanti_hijack_shield\t{}\n", word, today);
-        if let Ok(mut t_file) = OpenOptions::new().create(true).append(true).open(&paths.transitions) {
+        let trans_target = if !paths.transitions.starts_with(&paths.sandbox_dir) {
+            let _ = std::fs::create_dir_all(&paths.sandbox_dir);
+            let user_trans = paths.sandbox_dir.join("transitions_user.tsv");
+            if !user_trans.exists() && paths.transitions.exists() {
+                let _ = std::fs::copy(&paths.transitions, &user_trans);
+            }
+            user_trans
+        } else {
+            paths.transitions.clone()
+        };
+        if let Ok(mut t_file) = OpenOptions::new().create(true).append(true).open(&trans_target) {
             let _ = t_file.write_all(penalty_line.as_bytes());
         }
 
@@ -399,15 +410,42 @@ pub fn suppress_or_delete_entry(
     }
 }
 
-fn chrono_like_today() -> String {
+fn civil_from_days(days_since_unix_epoch: i64) -> (i32, u32, u32) {
+    let z = days_since_unix_epoch + 719468;
+    let era = if z >= 0 { z } else { z - 146096 } / 146097;
+    let doe = (z - era * 146097) as u32;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    (y as i32, m, d)
+}
+
+fn get_taipei_time_components() -> (i32, u32, u32, u32, u32, u32) {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-    // 粗略日期計算或使用固定格式 (相容 Windows 系統標準)
-    let _days = secs / 86400;
-    // 2026-10-06 基準計算
-    format!("2026-10-06")
+    let epoch_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let taipei_secs = epoch_secs + 8 * 3600;
+    let days = taipei_secs.div_euclid(86400);
+    let rem_secs = taipei_secs.rem_euclid(86400) as u32;
+    let hours = rem_secs / 3600;
+    let mins = (rem_secs % 3600) / 60;
+    let secs = rem_secs % 60;
+    let (y, m, d) = civil_from_days(days);
+    (y, m, d, hours, mins, secs)
+}
+
+fn chrono_like_today() -> String {
+    let (y, m, d, _, _, _) = get_taipei_time_components();
+    format!("{:04}-{:02}-{:02}", y, m, d)
 }
 
 fn chrono_like_now() -> String {
-    format!("2026-10-06 18:00:00")
+    let (y, m, d, hh, mm, ss) = get_taipei_time_components();
+    format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", y, m, d, hh, mm, ss)
 }

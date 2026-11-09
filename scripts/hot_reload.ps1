@@ -127,7 +127,7 @@ try {
             if (-not (Test-Path $targetDataDir)) {
                 New-Item -ItemType Directory -Path $targetDataDir -Force | Out-Null
             }
-            Get-ChildItem -Path $sourceDataDir -Recurse -File -Include "*.tsv", "*.jsonl", "*.json" -ErrorAction SilentlyContinue | ForEach-Object {
+            Get-ChildItem -Path $sourceDataDir -Recurse -File -Include "*.tsv", "*.jsonl", "*.json", "*.bin" -ErrorAction SilentlyContinue | ForEach-Object {
                 $relPart = $_.FullName.Substring($sourceDataDir.Length).TrimStart('\', '/')
                 $destSubFile = Join-Path $targetDataDir $relPart
                 $destSubParent = Split-Path -Parent $destSubFile
@@ -559,7 +559,7 @@ public class RuhiLiveBridge {
         ITfInputProcessorProfiles profiles;
         if (TF_CreateInputProcessorProfiles(out profiles) == 0 && profiles != null) {
             Guid clsid = new Guid("E0B7F8C1-1823-42D8-99B1-5E8A719D3F10");
-            Guid profile = new Guid("A1D9C3F2-4761-4E5A-8C3D-1F2E3D4C5B6A");
+            Guid profile = new Guid("F52A781B-8321-48E6-A145-C89B0981E7D2");
             profiles.EnableLanguageProfile(ref clsid, 0x0404, ref profile, 0);
             System.Threading.Thread.Sleep(180);
             profiles.EnableLanguageProfile(ref clsid, 0x0404, ref profile, 1);

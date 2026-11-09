@@ -228,11 +228,15 @@ impl RuhiEditSession {
                                         let _ = self.context.SetSelection(ec, &caret_sel);
                                         std::mem::ManuallyDrop::drop(&mut caret_sel[0].range);
                                     } else {
-                                        let _ = caret_range.Collapse(ec, TF_ANCHOR_START);
-                                        let mut shifted = 0i32;
-                                        let target_shift = (*cursor_pos).min(text_wide.len()) as i32;
-                                        let _ = caret_range.ShiftEnd(ec, target_shift, &mut shifted, std::ptr::null());
-                                        let _ = caret_range.Collapse(ec, TF_ANCHOR_END);
+                                        if caret_range.Collapse(ec, TF_ANCHOR_START).is_ok() {
+                                            let mut shifted = 0i32;
+                                            let text_len = text.chars().count();
+                                            let clamped_char_pos = (*cursor_pos).min(text_len);
+                                            let u16_shift: usize = text.chars().take(clamped_char_pos).map(|c| c.len_utf16()).sum();
+                                            let target_shift = u16_shift as i32;
+                                            let _ = caret_range.ShiftEnd(ec, target_shift, &mut shifted, std::ptr::null());
+                                            let _ = caret_range.Collapse(ec, TF_ANCHOR_END);
+                                        }
 
                                         // 利用 TSF 標準 ITfContextView 取得當前應用程式的光標螢幕坐標
                                         if let Ok(view) = self.context.GetActiveView() {

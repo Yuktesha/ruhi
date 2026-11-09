@@ -115,3 +115,7 @@ LICENSE-COMMERCIAL.md
 ruhi_lexicon/data/longkan.bin
 scripts/data/longkan.bin
 data/longkan.bin
+
+/user_word_events.jsonl
+/.last_bg_telemetry_spawn
+ruhi_lexicon/data/homophone_context_profiles.json

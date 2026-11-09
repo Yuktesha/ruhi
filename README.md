@@ -6,7 +6,7 @@
 > **「如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。」**  
 > **RuhI**（**R**esponsive **U**niversal **H**uman **I**nput，梵語字根 *Ruh / Rūhi* 意為「萌芽、生長、向上攀升」），是一款面向 Windows 10/11 與 Linux、完全採用純 Rust 打造的次世代自適應通用人本輸入法與語意調校系統。
 
-[![Version](https://img.shields.io/badge/version-v0.7.0-purple.svg)]()
+[![Version](https://img.shields.io/badge/version-v0.7.1-blue.svg)]()
 [![Rust](https://img.shields.io/badge/language-Rust%202021-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2011%2F10%20%7C%20Linux%20(Fcitx5)-blue.svg)]()
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
@@ -21,7 +21,7 @@
 
 傳統輸入法常讓人陷入兩難：**打注音／拼音時，遇到不會念的生僻字就卡住；打倉頡／字形碼時，又得死背複雜的字根表，而且不同輸入法之間切換繁瑣、各打各的。**
 
-**如喜（RuhI）通用智慧型輸入法** 把最常用的各種輸入方式整合進**同一個智慧輸入座**，並在 `v0.7.0` 帶來兩大突破：
+**如喜（RuhI）通用智慧型輸入法** 把最常用的各種輸入方式整合進**同一個智慧輸入座**，並在 `v0.7.1` 帶來兩大突破：
 
 ### 1. 🐉 整合創新「龍龕形音輸入法」—— 免背字根，看外型或念偏旁就能打出任何漢字
 > **龍龕以形聲結構（形符＋聲符讀音）為核心，相容注音雙拼與漢語拼音，免切換模式即可以部件讀音組字，並提供輸入座內的事後部件融合。**  
@@ -174,14 +174,12 @@ ruhi/
 
 ## ⚡ 快速開始 (Quick Start)
 
-### 綠色免安裝即時體驗
-如果您不想在系統中全域安裝，可直接使用免安裝測試腳本：
-1. 進入 `scripts/` 目錄。
-2. 以一般權限右鍵點擊或在 PowerShell 中執行：
+### 一鍵安裝體驗
+1. 進入專案目錄，於 PowerShell 中執行一鍵安裝腳本（會自動請求管理員權限完成 TSF 註冊）：
    ```powershell
-   .\scripts\免安裝即時測試.ps1
+   .\scripts\一鍵安裝.ps1
    ```
-3. 按下鍵盤 `Win + 空白鍵` 切換至「**如喜通用智慧型輸入法**」，立即體驗！
+2. 按下鍵盤 `Win + 空白鍵` 切換至「**如喜通用智慧型輸入法**」，立即體驗！
 
 ### 本地編譯與熱重載 (開發者)
 本專案要求 **Rust 1.75+** 與 **Windows 10/11 64-bit**：

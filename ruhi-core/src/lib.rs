@@ -184,6 +184,26 @@ pub extern "C" fn ruhi_engine_load_four_corner_tsv(engine: *mut RuhiEngine, path
 }
 
 #[no_mangle]
+pub extern "C" fn ruhi_engine_load_longkan_tsv(engine: *mut RuhiEngine, path_cstr: *const c_char) -> i32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if engine.is_null() || path_cstr.is_null() {
+            return -1;
+        }
+        let engine_ref = unsafe { &mut *engine };
+        let c_str = unsafe { CStr::from_ptr(path_cstr) };
+        if let Ok(path_str) = c_str.to_str() {
+            let p = std::path::Path::new(path_str);
+            match engine_ref.longkan.table.load_tsv(p) {
+                Ok(count) => count as i32,
+                Err(_) => -2,
+            }
+        } else {
+            -3
+        }
+    })).unwrap_or(-99)
+}
+
+#[no_mangle]
 pub extern "C" fn ruhi_engine_set_keyboard_mode(engine: *mut RuhiEngine, mode_cstr: *const c_char) -> i32 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if engine.is_null() || mode_cstr.is_null() {

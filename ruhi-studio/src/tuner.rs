@@ -3815,8 +3815,8 @@ impl SemanticTuner {
             let weight = w
                 .get("weight")
                 .and_then(Value::as_i64)
-                .unwrap_or(if ch_len >= 3 { 1600 } else { 1500 })
-                .clamp(1200, 1750);
+                .unwrap_or(1480)
+                .clamp(1200, 1480);
             let category = w
                 .get("category")
                 .and_then(Value::as_str)
@@ -9426,6 +9426,31 @@ mod tests {
         );
         // 依修訂版交接提示詞第二節：往返句集只用來找出錯誤類型，不要求 conflicts == 0，交付標準一律以開發集品質閘門為準。
         let _ = conflict_count;
+    }
+
+    #[test]
+    fn test_audit_corpus_health_desktop() {
+        let tuner = SemanticTuner::new(None);
+        let p_1109 = Path::new(r"C:\Users\Yuktesha\Desktop\1109.txt");
+        if p_1109.is_file() {
+            let rep_1109 = tuner.audit_corpus_file_health(p_1109);
+            println!("1109_SUMMARY: total={}, exact={}, margin_pos={}, total_diff={}, resolved_diff={}",
+                rep_1109["total_pairs"], rep_1109["exact_match_pairs"], rep_1109["margin_positive_pairs"],
+                rep_1109["total_diff_lesions"], rep_1109["resolved_diff_lesions"]);
+            assert_eq!(rep_1109["total_pairs"], 3);
+            assert_eq!(rep_1109["exact_match_pairs"], 3);
+            assert_eq!(rep_1109["resolved_diff_lesions"], 6);
+        }
+
+        if std::env::var("RUN_FULL_1108_AUDIT").is_ok() {
+            let p_1108 = Path::new(r"C:\Users\Yuktesha\Desktop\語意分析.txt");
+            if p_1108.is_file() {
+                let rep_1108 = tuner.audit_corpus_file_health(p_1108);
+                println!("1108_SUMMARY: total={}, exact={}, margin_pos={}, total_diff={}, resolved_diff={}",
+                    rep_1108["total_pairs"], rep_1108["exact_match_pairs"], rep_1108["margin_positive_pairs"],
+                    rep_1108["total_diff_lesions"], rep_1108["resolved_diff_lesions"]);
+            }
+        }
     }
 }
 

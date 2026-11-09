@@ -61,18 +61,25 @@ fn set_clipboard_text(text: &str) -> bool {
         };
         let ptr = GlobalLock(h_global) as *mut u16;
         if ptr.is_null() {
+            let _ = windows::Win32::Foundation::GlobalFree(h_global);
             return false;
         }
         std::ptr::copy_nonoverlapping(wide.as_ptr(), ptr, wide.len());
         let _ = GlobalUnlock(h_global);
 
         if OpenClipboard(None).is_err() {
+            let _ = windows::Win32::Foundation::GlobalFree(h_global);
             return false;
         }
         let _ = EmptyClipboard();
         let res = SetClipboardData(13, windows::Win32::Foundation::HANDLE(h_global.0));
         let _ = CloseClipboard();
-        res.is_ok()
+        if res.is_err() {
+            let _ = windows::Win32::Foundation::GlobalFree(h_global);
+            false
+        } else {
+            true
+        }
     }
 }
 
@@ -275,7 +282,7 @@ fn default_tailcat_update_mode() -> String { "notify_confirm".to_string() }
 
 fn default_keyboard_mode() -> String { "hsu".to_string() }
 fn default_last_keyboard_mode() -> String { "english".to_string() }
-fn default_enabled_keyboard_modes() -> Vec<String> { vec!["hsu".to_string(), "japanese".to_string()] }
+fn default_enabled_keyboard_modes() -> Vec<String> { vec!["hsu".to_string(), "longkan".to_string(), "japanese".to_string()] }
 fn default_aux_mode() -> String { "longkan".to_string() }
 fn default_tilde_toggle_mode() -> String { "punct".to_string() }
 fn default_candidate_quick_key() -> String { "asdf".to_string() }

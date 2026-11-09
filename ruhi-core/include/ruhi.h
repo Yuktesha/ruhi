@@ -29,6 +29,7 @@ int32_t ruhi_engine_load_transitions_tsv(RuhiEngine* engine, const char* path_cs
 int32_t ruhi_engine_load_cangjie_tsv(RuhiEngine* engine, const char* path_cstr);
 int32_t ruhi_engine_load_array30_tsv(RuhiEngine* engine, const char* path_cstr);
 int32_t ruhi_engine_load_four_corner_tsv(RuhiEngine* engine, const char* path_cstr);
+int32_t ruhi_engine_load_longkan_tsv(RuhiEngine* engine, const char* path_cstr);
 
 /* === Mode Switching & Keystroke Processing (Returns JSON string; free with ruhi_free_string) === */
 int32_t ruhi_engine_set_keyboard_mode(RuhiEngine* engine, const char* mode_cstr);

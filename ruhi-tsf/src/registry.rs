@@ -142,7 +142,7 @@ pub unsafe fn register_server(hinstance: HMODULE) -> Result<()> {
     }
 
     // 3. Register with TSF Input Processor Profiles & Category Manager
-    let _ = CoInitialize(None);
+    let co_inited = CoInitialize(None).is_ok();
 
     let profiles: Result<ITfInputProcessorProfiles> = CoCreateInstance(
         &CLSID_TF_InputProcessorProfiles,
@@ -237,50 +237,6 @@ pub unsafe fn register_server(hinstance: HMODULE) -> Result<()> {
             }
         }
 
-        // 保底相容原繁體中文 (zh-TW) 變數結構
-        let desc_zh_u16: Vec<u16> = DESCRIPTION_ZH.encode_utf16().chain(Some(0)).collect();
-        let _ = profiles.AddLanguageProfile(
-            &CLSID_RUHI_TEXT_SERVICE,
-            LANG_CHINESE_TRADITIONAL,
-            &GUID_RUHI_PROFILE,
-            &desc_zh_u16,
-            &icon_u16,
-            0,
-        );
-        let _ = profiles.EnableLanguageProfile(
-            &CLSID_RUHI_TEXT_SERVICE,
-            LANG_CHINESE_TRADITIONAL,
-            &GUID_RUHI_PROFILE,
-            true,
-        );
-
-        // 現代 Windows 8 / 10 / 11 ProfileMgr 註冊（核心：綁定 HKL 替代佈局 0x04040404 以完全支援 LibreOffice 等 Win32 應用程式！）
-        if let Ok(mgr) = profiles.cast::<ITfInputProcessorProfileMgr>() {
-            use windows::Win32::UI::Input::KeyboardAndMouse::HKL;
-            let hkl_sub = HKL(0 as _);
-            let desc_slice = if !desc_zh_u16.is_empty() && desc_zh_u16.last() == Some(&0) {
-                &desc_zh_u16[..desc_zh_u16.len() - 1]
-            } else {
-                &desc_zh_u16[..]
-            };
-            let icon_slice = if !icon_u16.is_empty() && icon_u16.last() == Some(&0) {
-                &icon_u16[..icon_u16.len() - 1]
-            } else {
-                &icon_u16[..]
-            };
-            let _ = mgr.RegisterProfile(
-                &CLSID_RUHI_TEXT_SERVICE,
-                LANG_CHINESE_TRADITIONAL,
-                &GUID_RUHI_PROFILE,
-                desc_slice,
-                icon_slice,
-                0,
-                hkl_sub,
-                0,
-                BOOL::from(true),
-                0,
-            );
-        }
     }
 
     let cat_mgr: Result<ITfCategoryMgr> = CoCreateInstance(
@@ -385,11 +341,14 @@ pub unsafe fn register_server(hinstance: HMODULE) -> Result<()> {
         let _ = RegCloseKey(sort_key);
     }
 
+    if co_inited {
+        CoUninitialize();
+    }
     Ok(())
 }
 
 pub unsafe fn unregister_server() -> Result<()> {
-    let _ = CoInitialize(None);
+    let co_inited = CoInitialize(None).is_ok();
 
     let cat_mgr: Result<ITfCategoryMgr> = CoCreateInstance(
         &CLSID_TF_CategoryMgr,
@@ -404,6 +363,12 @@ pub unsafe fn unregister_server() -> Result<()> {
             &GUID_RUHI_DISPLAY_ATTR,
         );
         let _ = cat_mgr.UnregisterGUIDDescription(&CLSID_RUHI_TEXT_SERVICE, &GUID_RUHI_DISPLAY_ATTR);
+        let _ = cat_mgr.UnregisterCategory(
+            &CLSID_RUHI_TEXT_SERVICE,
+            &GUID_TFCAT_DISPLAYATTRIBUTEPROPERTY,
+            &GUID_RUHI_SELECTION_DISPLAY_ATTR,
+        );
+        let _ = cat_mgr.UnregisterGUIDDescription(&CLSID_RUHI_TEXT_SERVICE, &GUID_RUHI_SELECTION_DISPLAY_ATTR);
         let _ = cat_mgr.UnregisterCategory(
             &CLSID_RUHI_TEXT_SERVICE,
             &GUID_TFCAT_TIPCAP_UIELEMENTENABLED,
@@ -481,5 +446,18 @@ pub unsafe fn unregister_server() -> Result<()> {
     let _ = RegDeleteKeyW(HKEY_CLASSES_ROOT, PCWSTR(inproc_path.as_ptr()));
     let _ = RegDeleteKeyW(HKEY_CLASSES_ROOT, PCWSTR(wide_key.as_ptr()));
 
+    let hkcu_inproc: Vec<u16> = format!("Software\\Classes\\CLSID\\{}\\InprocServer32", clsid_str).encode_utf16().chain(Some(0)).collect();
+    let hkcu_clsid: Vec<u16> = format!("Software\\Classes\\CLSID\\{}", clsid_str).encode_utf16().chain(Some(0)).collect();
+    let _ = RegDeleteKeyW(HKEY_CURRENT_USER, PCWSTR(hkcu_inproc.as_ptr()));
+    let _ = RegDeleteKeyW(HKEY_CURRENT_USER, PCWSTR(hkcu_clsid.as_ptr()));
+
+    let sort_path: Vec<u16> = "Software\\Microsoft\\CTF\\SortOrder\\AssemblyItem\\0x00000404\\{34745C63-B2F0-4784-8B67-5E12C8701A31}\\00000000".encode_utf16().chain(Some(0)).collect();
+    let asm_path: Vec<u16> = "Software\\Microsoft\\CTF\\Assemblies\\0x00000404\\{34745C63-B2F0-4784-8B67-5E12C8701A31}".encode_utf16().chain(Some(0)).collect();
+    let _ = RegDeleteKeyW(HKEY_CURRENT_USER, PCWSTR(sort_path.as_ptr()));
+    let _ = RegDeleteKeyW(HKEY_CURRENT_USER, PCWSTR(asm_path.as_ptr()));
+
+    if co_inited {
+        CoUninitialize();
+    }
     Ok(())
 }

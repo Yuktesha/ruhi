@@ -129,17 +129,33 @@ pub struct RuhiEngine {
     /// - `"fullwidth"`（預設）：在「半 許／半 注／半 倚」下，標點預設輸出中文全形（如 `,` -> `，`、`.` -> `。`）
     /// - `"consistent"`（一致性半形）：在「半 許／半 注／半 倚」下，恢復與半形一致之英文半形標點（`,` -> `,`、`.` -> `.`），切至「全」模式時方輸出全形標點
     pub halfwidth_punct_mode: String,
+    pub shift_down_state: ShiftDownRuntimeState,
 }
 
-thread_local! {
-    static LAST_FUSED_LONGKAN: std::cell::RefCell<Option<(usize, Vec<String>)>> =
-        const { std::cell::RefCell::new(None) };
-    static IS_SHIFT_DOWN_LONGKAN_POPUP: std::cell::Cell<bool> =
-        const { std::cell::Cell::new(false) };
-    static IS_SHIFT_DOWN_MODE_PICKER: std::cell::Cell<bool> =
-        const { std::cell::Cell::new(false) };
-    static ACTIVE_SHIFT_DOWN_MODE_OVERRIDE: std::cell::RefCell<Option<String>> =
-        const { std::cell::RefCell::new(None) };
+#[derive(Default)]
+pub struct ShiftDownRuntimeState {
+    inner: std::sync::Mutex<ShiftDownRuntimeInner>,
+}
+
+#[derive(Clone, Default)]
+struct ShiftDownRuntimeInner {
+    last_fused_longkan: Option<(usize, Vec<String>)>,
+    is_shift_down_longkan_popup: bool,
+    is_shift_down_mode_picker: bool,
+    active_shift_down_mode_override: Option<String>,
+}
+
+impl Clone for ShiftDownRuntimeState {
+    fn clone(&self) -> Self {
+        let cloned_inner = self
+            .inner
+            .lock()
+            .map(|g| g.clone())
+            .unwrap_or_default();
+        Self {
+            inner: std::sync::Mutex::new(cloned_inner),
+        }
+    }
 }
 
 impl Default for RuhiEngine {
@@ -206,6 +222,7 @@ impl Default for RuhiEngine {
             fullwidth_mode: false,
             shift_space_toggle_fullwidth: true,
             halfwidth_punct_mode: "fullwidth".to_string(),
+            shift_down_state: ShiftDownRuntimeState::default(),
         }
     }
 }
@@ -425,30 +442,48 @@ impl RuhiEngine {
     }
 
     pub fn is_shift_down_longkan_popup(&self) -> bool {
-        IS_SHIFT_DOWN_LONGKAN_POPUP.with(|c| c.get())
+        self.shift_down_state
+            .inner
+            .lock()
+            .map(|g| g.is_shift_down_longkan_popup)
+            .unwrap_or(false)
     }
 
     pub fn set_shift_down_longkan_popup(&self, val: bool) {
-        IS_SHIFT_DOWN_LONGKAN_POPUP.with(|c| c.set(val));
-        if !val {
-            IS_SHIFT_DOWN_MODE_PICKER.with(|c| c.set(false));
+        if let Ok(mut g) = self.shift_down_state.inner.lock() {
+            g.is_shift_down_longkan_popup = val;
+            if !val {
+                g.is_shift_down_mode_picker = false;
+            }
         }
     }
 
     pub fn is_shift_down_mode_picker(&self) -> bool {
-        IS_SHIFT_DOWN_MODE_PICKER.with(|c| c.get())
+        self.shift_down_state
+            .inner
+            .lock()
+            .map(|g| g.is_shift_down_mode_picker)
+            .unwrap_or(false)
     }
 
     pub fn set_shift_down_mode_picker(&self, val: bool) {
-        IS_SHIFT_DOWN_MODE_PICKER.with(|c| c.set(val));
+        if let Ok(mut g) = self.shift_down_state.inner.lock() {
+            g.is_shift_down_mode_picker = val;
+        }
     }
 
     pub fn get_active_shift_down_mode_override(&self) -> Option<String> {
-        ACTIVE_SHIFT_DOWN_MODE_OVERRIDE.with(|c| c.borrow().clone())
+        self.shift_down_state
+            .inner
+            .lock()
+            .ok()
+            .and_then(|g| g.active_shift_down_mode_override.clone())
     }
 
     pub fn set_active_shift_down_mode_override(&self, val: Option<String>) {
-        ACTIVE_SHIFT_DOWN_MODE_OVERRIDE.with(|c| *c.borrow_mut() = val);
+        if let Ok(mut g) = self.shift_down_state.inner.lock() {
+            g.active_shift_down_mode_override = val;
+        }
     }
 
     /// 取得目前 `Shift + ↓` 實際生效之跨查目標輸入法識別碼（預設 `"longkan"`）
@@ -568,11 +603,17 @@ impl RuhiEngine {
     }
 
     pub fn get_last_fused_longkan(&self) -> Option<(usize, Vec<String>)> {
-        LAST_FUSED_LONGKAN.with(|c| c.borrow().clone())
+        self.shift_down_state
+            .inner
+            .lock()
+            .ok()
+            .and_then(|g| g.last_fused_longkan.clone())
     }
 
     pub fn set_last_fused_longkan(&self, val: Option<(usize, Vec<String>)>) {
-        LAST_FUSED_LONGKAN.with(|c| *c.borrow_mut() = val);
+        if let Ok(mut g) = self.shift_down_state.inner.lock() {
+            g.last_fused_longkan = val;
+        }
     }
 
     pub fn is_mixed_typing_enabled_for_mode(&self, mode: &str) -> bool {
@@ -629,11 +670,6 @@ impl RuhiEngine {
                 let right = self.sentence_chars[self.cursor_pos..].join("");
                 return format!("{}{}{}", left, pending_bpmf, right);
             }
-            let _unused = if false {
-                String::new()
-            } else {
-                format!("{}{}{}", self.fsm.cur_initial, self.fsm.cur_medial, self.fsm.cur_final)
-            };
             format!("{}{}", self.composed_sentence, pending_bpmf)
         } else {
             self.composed_sentence.clone()
@@ -13472,5 +13508,81 @@ mod tests {
         assert!(exp2.iter().any(|c| c == "202008基隆市中正區和憲里和一路13號"), "actual: {:?}", exp2);
         let _ = (
         );
+    }
+
+    #[test]
+    fn test_semantic_analysis_261109() {
+        let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+        engine.keyboard_mode = "hsu".to_string();
+        fn decode(engine: &mut RuhiEngine, keys: &str) -> String {
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            engine.active_geo_context.clear();
+            let mut out = String::new();
+            for c in keys.chars() {
+                let r = engine.process_key(c);
+                if !r.committed_chunk.is_empty() {
+                    out.push_str(&r.committed_chunk);
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            out
+        }
+        let cases = [
+            (
+                "gmfceej,nyjjen tem jmjcdcem dwjjgjlef.xhfefcen dgsrxdceftxl uljjjhxajceldcx rxjfyfhgdcen uljkmjkmj,zijhxadbwjxnjted.",
+                "感謝，那今天暫時先到這裡。我以新的如喜通用智慧型輸入法核心用看看，再回報問題。",
+            ),
+            (
+                "xajlidhxajeofgljdxh cuedjgfam jlj,en xajcnfbhdekdzxhjlgshnfhwfdgscjfmj.",
+                "未來會有更多學者參政，因為沈伯洋作了很好的示範。",
+            ),
+            (
+                "mendjxfgafe vundbnjdmjbeljbxdhxajbefjewfmaflej.",
+                "民主給一群笨蛋並不會比較美麗。",
+            ),
+            (
+                "befjewfmaflejveoddgsdyjcewf'emdsgj'jxljlekj,fn beedjejlxjzxhjvldxmdjlfjejlxj.",
+                "比較每粒球的大小、顏色、重量，分別記錄作成完整紀錄。",
+            ),
+            (
+                "befjewjmaflejveoddgsdyjcewf'emdsgj'jxljlekj,fn beedjejlxjzxhjvldxmdjlfjejlxj.",
+                "比較每粒球的大小、顏色、重量，分別記錄作成完整紀錄。",
+            ),
+            (
+                "kmjvldgxl lujkgfefeofdxh cwf.",
+                "看成功率可以有多少。",
+            ),
+            (
+                "jeddxm zwjjujufejfn ce agjcjdm jujbw hmdagjcjdm jujnajrxldcjfofjljvuej.",
+                "極端造句語意分析測試單句包含測試單據內容是否正確。",
+            ),
+            (
+                "velfbefjewfmaflejdgsagjcjumdlidbefjewfmaflejveoddgsdyjcewf'emdsgj'jxljlekj,fn beedjejlxjzxhjvldxmdjlfjejlxj.",
+                "請比較美麗的測試員來比較每粒球的大小、顏色、重量，分別記錄作成完整紀錄。",
+            ),
+            (
+                "velfbefjewjmaflejdgsagjcjumdlidbefjewjmaflejveoddgsdyjcewf'emdsgj'jxljlekj,fn beedjejlxjzxhjvldxmdjlfjejlxj.",
+                "請比較美麗的測試員來比較每粒球的大小、顏色、重量，分別記錄作成完整紀錄。",
+            ),
+            (
+                "velfjemfvydsxhfeofbxjhgdlefdgsvw gw jer vumd.",
+                "請檢查所有不合理的超高加權。",
+            ),
+            (
+                "velfjemfvydsxhfeofvelfjemfvydkmjeofxdbxjfyf.",
+                "請檢查所有請柬察看有無不法。",
+            ),
+        ];
+        let mut mismatches = Vec::new();
+        for (keys, expected) in cases {
+            let out = decode(&mut engine, keys);
+            if out != expected {
+                mismatches.push(format!("按鍵 `{keys}` 應解碼為「{expected}」，實際為「{out}」"));
+            }
+        }
+        assert!(mismatches.is_empty(), "發現解碼不符：
+{}", mismatches.join("
+"));
     }
 }
