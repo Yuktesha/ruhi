@@ -104,6 +104,14 @@ impl<'a> LatticeDAG<'a> {
                     }
                 } else {
                     for entry in matched {
+                        // ── 動態晶格免疫防護（Type I & Type III 無現代語料佐證之古語跨界偽詞攔截）──
+                        // 當音節數 n >= 3（連續句子解碼）且 length == 2 時，
+                        // 僅存在於萌典（小麥現代語料庫未收錄該詞或該讀音）且權重 <= 180 之古語雙字詞（category == "moe_unattested2"），
+                        // 禁止進入連續句 DAG 進行跨詞界音節劫掠（如「裳幃、有服、箭石、荐食、踐石、飛官、慧覺、我執、九野、諱字、元妃、仁惠」等 4.6 萬條古語詞），
+                        // 同時 100% 保留單詞獨立輸入（n == 2）與 ↑/↓ 候選字詞選單之完整可達性。
+                        if n >= 3 && length == 2 && (entry.weight < 90 || entry.category == "moe_unattested2") {
+                            continue;
+                        }
                         let node = LatticeNode::new(i, j, &entry.word, entry.weight, &entry.bopomofo);
                         dag.get_mut(&i).unwrap().push(node);
                     }

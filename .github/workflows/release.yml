@@ -35,9 +35,9 @@ jobs:
         run: cargo test --release
         working-directory: ruhi-core
 
-      - name: Run Studio & Tuner Tests
+      - name: Run Settings Tests
         run: cargo test
-        working-directory: ruhi-studio
+        working-directory: ruhi-settings
 
       - name: Build ruhi-core Release
         run: cargo build --release
@@ -47,9 +47,9 @@ jobs:
         run: cargo build --release
         working-directory: ruhi-tsf
 
-      - name: Build ruhi-studio Release
+      - name: Build ruhi-settings Release
         run: cargo build --release
-        working-directory: ruhi-studio
+        working-directory: ruhi-settings
 
       - name: Run Release Packager (Zip)
         run: python scripts/package_release.py

@@ -71,7 +71,7 @@
 
 **如喜注音從誕生之初，便選擇了獨樹一幟的第三條正道——全面從「形式語言學與漢語構式語法」切入：**
 * **打字當下 100% 語言學結構解碼（毫秒級確定性反應、零顯卡負擔）**：將中央研究院《漢語知識標記語料庫（Sinica Corpus）》動詞論元結構、呂叔湘《現代漢語八百詞》虛詞呼應網、Li & Thompson 準分裂句焦點構式，化為引擎內建的 **多維語法槽位陣列（$A_{\text{array}} \times B_{\text{array}}$）**。引擎是因為真正理解漢語的「詞類、主謂賓搭配與句法構式」，才能在毫秒間精準分辨「在／再」、「的／得／地」、「心裡／心理」、「小時候／兩小時後」、「戴口罩／帶口罩」、「權利／權力」、「買的是／買的試」等二十餘組同音難題。
-* **AI 是幕後的「語言學分析師」，而非前台搶方向盤的打字員**：只有當使用者在 `ruhi-studio` 語意調校工作室回報新型同音盲點時，才在幕後透過神經符號引擎與 AI 語意分析師將問題提煉為**可解釋、可舉一反三的形式化語法構式規則**，並經過記憶體內 **Viterbi 三重零迴歸沙盒** 驗證後寫入詞庫，讓日常打字永遠保持純粹、極速與 100% 可預期。
+* **AI 是幕後的「語言學分析師」，而非前台搶方向盤的打字員**：使用者可於 `ruhi-settings` 偏好設定中心啟用 Zero-PII 隱私過濾並回饋匿名對照雙句；透過神經符號分析與語意閘門將問題提煉為**可解釋、可舉一反三的形式化語法構式規則**，並經過記憶體內 **Viterbi 三重零迴歸沙盒** 驗證後寫入詞庫，讓日常打字永遠保持純粹、極速與 100% 可預期。
 * **7 合 1 跨輸入法反查教練**：想邊打注音邊學龍龕、四角號碼、行列 30 或倉頡？可在輸入座開啟即時反查提示，或一鍵開啟 [🎬 4K 跨輸入法互動查碼與拆碼教學工作台](docs/ruhi_interactive_workbench.html)，輸入整串句子即可同屏對照七種輸入法的拆解步驟。
 
 ---
@@ -108,11 +108,11 @@
 * **Layer 1 漢語語法構式矩陣（十九大形式化構式體系）**：系統性實作中央研究院「漢語知識標記語料庫（Sinica Corpus）」動詞論元結構矩陣（`VE` 句賓動詞、`VF` 謂賓動詞、`VD` 雙賓動詞）、呂叔湘《現代漢語八百詞》微觀虛詞關聯呼應網、Li & Thompson《漢語語法》話題與準分裂句焦點構式（`(不)X 的 是`），以及二十一組現代漢語高頻同音易混字組（`C01`～`C21`，涵蓋「再/在」、「得/的/地」、「已/以…為由」、「小時候/兩小時後」、「必須/必需品」、「戴口罩/帶口罩」、「嗎/嘛」、「心裡/心理」、「反映/反應」、「權利/權力」、「紀錄/記錄」、「走進/走近」等）雙向語境分流，徹底根絕傳統輸入法隨意亂調單字權重導致的系統性崩潰。
 * **辭典治理雙帳本契約 (`rejected_readings.tsv` & `reachability.tsv`)**：建立永久黑名單帳本（攔截古籍罕用破音與語料殘片）與可達性迴歸契約帳本（確保核心構式詞與台灣政府資料開放平臺 OGDL 1.0 專有名詞 100% 可檢索），由自動化單元測試嚴格把關。
 
-### 5. 🛠️ 語意調校（Semantic Tuning）三層分級與神經符號沙盒架構
-為兼顧一般使用者的純淨穩定體驗與進階語意演化需求，`ruhi-studio` 實作了嚴謹的**三層分級語意調校架構**：
-* **Lv.1 一般使用者純享模式（預設）**：隱藏複雜調校面板，絕不於本地端盲目自動改動詞庫權重（杜絕傳統輸入法越打越亂的語意污染）；使用者在明確勾選同意（Opt-In）後，可透過 `ZeroPiiPrivacyFilter` 啟發式個資過濾閘門匿名回傳「錯誤句與修正後正確句」對照，並透過 **Tailcat 雲端語意同步** 自動接收官方驗證後之最新構式與詞庫。
-* **Lv.2 進階專家沙盒模式（記憶體內 Viterbi 三重零迴歸驗證）**：開放本地語意調校工作室，內建**確定性神經符號計算語言學引擎（BiMM+LCS 雙向詞界對齊 ＋ 舉一反三槽位陣列提煉）**。所有提煉之規則均須先在記憶體內通過 **Viterbi 三重零迴歸沙盒 (`verify_rules_in_viterbi_sandbox`)**——同時驗證「目標錯句成功修復」、「同音對抗反例零誤傷（Type A/B/C 三路分流）」與「黃金基準測試集 100% 零迴歸」，並強制攔截任何企圖修改單字全域先驗權重（`UNIGRAM_WEIGHT`）之規則，通過後方可寫入個人層並支援一鍵還原。
-* **Lv.3 核心總工程師模式（Google Gemini 雲端顧問 ＆ Google Colab A100 特化微調 Gemma 4 語意分析師）**：支援直接對接 Google Gemini API（僅需數 KB JSON 傳輸），並建立 **Google Colab AI Ultra (A100) 自動化 QLoRA 微調管線**（以如喜黃金構式與對抗反例集特化訓練 `google/gemma-4-e4b-it` 漢語語意分析師模型，每累積滿 5 條新構式即可一鍵觸發雲端特訓與權重回傳；本地端 `.gguf` 推論全面採用**純綠免安裝版 `llama.cpp` (`llama-server.exe`)** 按需喚醒、隨關隨放，拒絕帶有商業訂閱誘導與背景常駐之第三方包裝器）。
+### 5. 🛠️ 輕量偏好設定中心與語意演化架構
+為兼顧一般使用者的純淨極速體驗與進階語意演化需求，如喜採行嚴謹之架構分離：
+* **純淨偏好設定中心（ruhi-settings）**：採零核心依賴設計，啟動時零詞庫記憶體開銷，毫秒級開啟。內建外觀排列、輸入操作模式、鍵盤配列系統樹、隱私過濾與 Tailcat 雲端語意更新設定。
+* **Zero-PII 隱私過濾與雲端語意同步**：使用者在明確勾選同意（Opt-In）後，可透過 `ZeroPiiPrivacyFilter` 啟發式個資過濾閘門匿名回傳「錯誤句與修正後正確句」對照，並透過 **Tailcat 雲端語意同步** 自動接收官方審查驗證後之最新構式與詞庫。
+* **語意評估與同音碰撞審計收斂至 ruhi-core**：多維構式同音碰撞四維分流審計已收斂至 `ruhi-core::router::pattern_audit`，語意規則全面受評分規範約束（$|\text{bonus}| \le 35.0$）；歷史本機 AI 實驗模組則封存於 `_archive/ruhi-semantic-studio/` 留存。
 
 ### 6. 🔥 1 秒極速免登出熱重載 (Hot Reload)
 * **革命性開發體驗**：利用 Windows NTFS 檔案系統指標特性，提供獨創的 `hot_reload.ps1`。編譯完成後，一鍵 1 秒內完成鎖定 DLL 替換與 TSF 重新喚醒，**徹底免去登出或重開機的煎熬**！
@@ -137,8 +137,7 @@ flowchart TD
     end
 
     subgraph LexiconSubsystem["如喜單一真實來源詞庫子系統 (ruhi_lexicon)"]
-        CoreLex["如喜統合核心詞庫<br/>(消化自小麥注音實證詞頻與教育部辭典詞條)"]
-        DomainLex["領域與高頻構式複合詞庫 (lexicon_domain.tsv)"]
+        CoreLex["如喜統合核心單一詞庫<br/>(含 22.6 萬詞條與注音/權重三欄標準結構)"]
         CJ["倉頡五代字根碼表 (cangjie.tsv)"]
         Transitions["語意轉移與槽位構式表 (transitions_user.tsv / patterns_user.jsonl)"]
     end
@@ -155,11 +154,12 @@ flowchart TD
 ```text
 ruhi/
 ├── .github/workflows/    # GitHub Actions CI 與自動發布流水線
+├── _archive/             # 歷史實驗模組封存 (舊版語意調校工作室等)
 ├── assets/               # 品牌圖示 (ICON.svg, ruhi.ico) 與許氏鍵盤配置表
 ├── docs/                 # 系統架構規範、多語擴充指南與演進里程碑
 ├── installer/            # Inno Setup 官方安裝包腳本與預設組態範本
 ├── ruhi-core/            # [Rust] 語言學核心引擎 (FSM, Trellis, Constructions, Lexicon)
-├── ruhi-studio/          # [Rust] 偏好設定中心與語意調校工作室
+├── ruhi-settings/        # [Rust] 輕量獨立現代化偏好設定中心 (ruhi-settings.exe)
 ├── ruhi-tsf/             # [Rust] Windows 10/11 原生 TSF COM 伺服器 (ruhi_tsf.dll)
 ├── ruhi_lexicon/         # 單一真實來源標準詞庫與語法轉移資料表 (data/*.tsv)
 ├── scripts/              # 原生 UTF-8 BOM 安裝、解除安裝與 1 秒免登出熱更新腳本
@@ -212,7 +212,7 @@ cd ..
 ## 📜 開源授權、授權範圍、詞庫統合與來源鳴謝 (License, Scope, Unified Lexicon & Acknowledgements)
 
 ### 純粹開源授權範圍 (Apache License 2.0)
-* **全專案原始碼與預建置執行檔（`Apache License 2.0`）**：本專案全體原始碼（含 `ruhi-core`、`ruhi-tsf`、`ruhi-studio`、龍龕形音引擎 `ruhi-core/src/longkan/`、跨輸入法反查教練 `reverse_coach.rs` 及建置腳本 `scripts/build_longkan_tsv.py`）均以 [Apache License 2.0](LICENSE) 條款開放原始碼發布。**v0.7.0 曾宣告之專有授權已撤回，v0.7.0 及其後版本之程式碼均以 Apache License 2.0 授權。**
+* **全專案原始碼與預建置執行檔（`Apache License 2.0`）**：本專案全體原始碼（含 `ruhi-core`、`ruhi-tsf`、`ruhi-settings`、龍龕形音引擎 `ruhi-core/src/longkan/`、跨輸入法反查教練 `reverse_coach.rs` 及建置腳本 `scripts/build_longkan_tsv.py`）均以 [Apache License 2.0](LICENSE) 條款開放原始碼發布。**v0.7.0 曾宣告之專有授權已撤回，v0.7.0 及其後版本之程式碼均以 Apache License 2.0 授權。**
 * **碼表與詞庫資料（`Apache License 2.0` ＋ 上游歸屬標示）**：`ruhi_lexicon/data/` 下之龍龕形音碼表（`longkan.tsv` / `longkan.bin`）、四角號碼碼表（`four_corner.tsv`）、倉頡與行列 30 碼表及統合核心詞庫，均由相容之公開授權資料集建置並以 Apache License 2.0 釋出（須保留上游資料來源標示，詳見 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)）。
 * **如喜單一真實來源詞庫（Single Source of Truth）**：如喜已將多源開源語料徹底清洗、正音並消化為內部統一權重尺度的自有詞庫，不再於執行期讓不同來源之合成權重與實證語料頻率相互衝突。
 * **上游語料來源致謝與授權聲明**：

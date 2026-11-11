@@ -53,7 +53,23 @@ impl RuhiEditSession {
     fn do_edit_session_inner(&self, ec: u32) -> Result<()> {
         match &self.action {
             EditSessionAction::UpdateComposition { text, cursor_pos, selection, is_commit } => {
-                let text_wide: Vec<u16> = text.encode_utf16().collect();
+                let normalized_text: String;
+                let effective_text: &str = if *is_commit && text.contains('\n') {
+                    let mut s = String::with_capacity(text.len() + 4);
+                    let mut prev_r = false;
+                    for ch in text.chars() {
+                        if ch == '\n' && !prev_r {
+                            s.push('\r');
+                        }
+                        s.push(ch);
+                        prev_r = ch == '\r';
+                    }
+                    normalized_text = s;
+                    &normalized_text
+                } else {
+                    text.as_str()
+                };
+                let text_wide: Vec<u16> = effective_text.encode_utf16().collect();
 
                 if *is_commit {
                     let comp_to_end = {

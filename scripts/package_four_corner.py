@@ -6,7 +6,7 @@
 本工具負責將「如喜智慧型四角號碼輸入法」打包為兩套可獨立散佈之發行套件：
 1. `dist/RuhI_FourCorner_Numpad_Win64.zip`
    - Windows 10/11 (x64) 4×5 數字小鍵盤獨立版（預設開箱即為 `"four_corner"` 模式，
-     內含 `ruhi_tsf.dll`、`ruhi-studio.exe`、`four_corner.tsv`、語境轉移矩陣及 UTF-8 BOM `.ps1` 安裝腳本）。
+     內含 `ruhi_tsf.dll`、`ruhi-settings.exe`、`four_corner.tsv`、語境轉移矩陣及 UTF-8 BOM `.ps1` 安裝腳本）。
 2. `dist/RuhI_FourCorner_CrossPlatform_Schema.zip`
    - 跨平台 (Linux Fcitx5 / IBus Rime、Android Trime / Fcitx5-Android、macOS Squirrel)
      標準方案與「前兩角簡碼矩陣」詞庫包。
@@ -174,13 +174,14 @@ def main() -> int:
             except PermissionError:
                 pass
 
-    studio_candidates = [
-        repo_root / "ruhi-studio" / "target" / "release" / "ruhi-studio.exe",
-        repo_root / "dist" / "ruhi-studio.exe",
+    settings_candidates = [
+        repo_root / "ruhi-settings" / "target" / "release" / "ruhi-settings.exe",
+        repo_root / "dist" / "ruhi-settings.exe",
+        repo_root / "ruhi-settings.exe",
     ]
-    studio_src = next((p for p in studio_candidates if p.exists()), None)
-    if studio_src:
-        shutil.copy2(studio_src, staging_win / "ruhi-studio.exe")
+    settings_src = next((p for p in settings_candidates if p.exists()), None)
+    if settings_src:
+        shutil.copy2(settings_src, staging_win / "ruhi-settings.exe")
 
     # 3. 複製四角號碼、龍龕形音碼表與跨輸入法核心碼表及語境轉移資料檔
     data_files = [
@@ -191,8 +192,7 @@ def main() -> int:
         "cangjie.tsv",
         "transitions_user.tsv",
         "symbols.tsv",
-        "lexicon_mcbopomofo.tsv",
-        "lexicon_domain.tsv",
+        "lexicon_core.tsv",
         "patterns_user.jsonl",
         "rejected_readings.tsv",
     ]

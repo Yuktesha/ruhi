@@ -1,12 +1,12 @@
-﻿# RuhI (如喜) 偏好設定中心啟動腳本 (純 Rust 原生 ruhi-studio.exe)
+﻿# RuhI (如喜) 偏好設定中心啟動腳本 (純 Rust 原生 ruhi-settings.exe)
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $rustCandidates = @(
-    (Join-Path $PSScriptRoot "ruhi-studio.exe"),
-    (Join-Path (Split-Path -Parent $PSScriptRoot) "ruhi-studio.exe"),
-    (Join-Path (Split-Path -Parent $PSScriptRoot) "ruhi-studio\target\release\ruhi-studio.exe"),
-    "C:\ATGprjs\ruhi\ruhi-studio.exe"
+    (Join-Path $PSScriptRoot "ruhi-settings.exe"),
+    (Join-Path (Split-Path -Parent $PSScriptRoot) "ruhi-settings.exe"),
+    (Join-Path (Split-Path -Parent $PSScriptRoot) "ruhi-settings\target\release\ruhi-settings.exe"),
+    "C:\ATGprjs\ruhi\ruhi-settings.exe"
 )
 
 foreach ($rc in $rustCandidates) {
@@ -17,5 +17,5 @@ foreach ($rc in $rustCandidates) {
     }
 }
 
-Write-Host "找不到 ruhi-studio.exe！請先編譯 ruhi-studio。" -ForegroundColor Red
+Write-Host "找不到 ruhi-settings.exe！請先編譯 ruhi-settings。" -ForegroundColor Red
 exit 1

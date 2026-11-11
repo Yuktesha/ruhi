@@ -4,7 +4,7 @@ RuhI (如喜) 輸入法 - GitHub 發布版自動化封裝工具 (Release Package
 ================================================================
 依據 TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC.md 規格：
 1. 驗證 ruhi_tsf.dll 之 PE 導入表（嚴格排除 comctl32.dll 與 TaskDialogIndirect 靜態依賴）
-2. 匯總最新編譯產物 (ruhi_tsf.dll, ruhi.dll, ruhi-studio.exe)
+2. 匯總最新編譯產物 (ruhi_tsf.dll, ruhi.dll, ruhi-settings.exe)
 3. 封裝完整官方詞庫 (data/)、偏好設定中心、一鍵安裝/解除安裝腳本 (UTF-8 BOM)
 4. 產生標準壓縮檔 RuhI_v<version>_Windows_x64.zip 與 SHA256 校驗碼
 """
@@ -84,11 +84,11 @@ def main():
     # 1. 來源路徑檢查
     tsf_dll = root / "ruhi-tsf" / "target" / "release" / "ruhi_tsf.dll"
     core_dll = root / "ruhi-core" / "target" / "release" / "ruhi.dll"
-    studio_exe_candidates = [
-        root / "ruhi-studio" / "target" / "release" / "ruhi-studio.exe",
-        root / "ruhi-studio.exe",
+    settings_exe_candidates = [
+        root / "ruhi-settings" / "target" / "release" / "ruhi-settings.exe",
+        root / "ruhi-settings.exe",
     ]
-    studio_exe = next((p for p in studio_exe_candidates if p.exists()), None)
+    settings_exe = next((p for p in settings_exe_candidates if p.exists()), None)
 
     if not tsf_dll.exists():
         raise FileNotFoundError(
@@ -107,12 +107,12 @@ def main():
         shutil.rmtree(release_dir)
     release_dir.mkdir(parents=True, exist_ok=True)
 
-    # 複製核心二進位檔與圖示 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi-studio.exe)
+    # 複製核心二進位檔與圖示 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi-settings.exe)
     shutil.copy2(tsf_dll, release_dir / "ruhi_tsf.dll")
     shutil.copy2(core_dll, release_dir / "ruhi.dll")
-    if studio_exe:
-        shutil.copy2(studio_exe, release_dir / "ruhi-studio.exe")
-        shutil.copy2(studio_exe, root / "ruhi-studio.exe")
+    if settings_exe:
+        shutil.copy2(settings_exe, release_dir / "ruhi-settings.exe")
+        shutil.copy2(settings_exe, root / "ruhi-settings.exe")
 
     ico_src = root / "assets" / "ruhi.ico"
     if ico_src.exists():

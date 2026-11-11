@@ -1086,7 +1086,7 @@ impl TransitionEngine {
         // 固有重複/嘗試/擴充/決策類謂詞接於「再」之後（再來、再去、再試、再清查、再決定、再試試、再看看、再想想、再增加、再新增、再改用）
         let zai4_inherent_iterative_verbs = vec![
             "來", "去", "試", "清查", "決定", "試試", "看看", "想想", "問問", "聊聊", "等等",
-            "增加", "新增", "加入", "擴充", "補充", "改用", "重試",
+            "增加", "新增", "加入", "擴充", "補充", "改用", "重試", "利用", "攻克",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("再".to_string()),
@@ -1101,7 +1101,7 @@ impl TransitionEngine {
             "想", "思考", "考慮", "尋思", "琢磨", "懷疑", "猶豫", "擔心", "煩惱", "觀察", "研究", "分析",
             "看", "聽", "說", "講", "問", "做", "作", "弄", "搞", "忙", "等", "等待", "找", "尋找",
             "玩", "笑", "哭", "睡", "吃", "喝", "讀", "寫", "學", "學習", "討論", "商量", "開會",
-            "工作", "運動", "測試", "檢查", "確認", "檢視", "執行", "運作", "運行", "處理", "發展",
+            "工作", "運動", "測試", "檢查", "確認", "檢視", "執行", "運作", "運行", "處理", "發展", "使用",
             "改", "修", "加", "補", "設定", "調整", "修改", "切換", "開", "買", "查", "談", "議", "辦", "打",
         ];
         self.grammar_rules.push(GrammarRule {
@@ -6152,11 +6152,19 @@ impl TransitionEngine {
                             "著" => (bpm.starts_with("ㄓㄨ") || bpm.starts_with("ㄓㄠ")) && rname.contains("aspect"),
                             "了" => bpm.starts_with("ㄌㄧㄠ") && rname.contains("aspect"),
                             "分" => bpm.starts_with("ㄈㄣˋ") && (rname.contains("potential") || rname.contains("vo_") || rname.contains("user_")),
+                            "中" => bpm != "ㄓㄨㄥ" && (rname.contains("localizer") || rname.contains("locative") || rname.contains("guo_chengzhong") || rname.starts_with("user_")),
                             _ => false,
                         }
                     };
                     if is_bad_polyphone(prev_word, prev_bopomofo, &rule.name)
                         || is_bad_polyphone(curr_word, curr_bopomofo, &rule.name)
+                    {
+                        continue;
+                    }
+                    // 防「處/楚/儲/礎 (ㄔㄨˇ) + 裡 (ㄌㄧˇ)」冒領方位詞 postpositional_locative 加分而拆碎雙字動詞「處理」
+                    if rule.name == "postpositional_locative"
+                        && curr_word == "裡"
+                        && prev_bopomofo == "ㄔㄨˇ"
                     {
                         continue;
                     }
@@ -6183,7 +6191,8 @@ impl TransitionEngine {
                 if curr_word == "中"
                     && (rule.name.contains("localizer")
                         || rule.name.contains("locative")
-                        || rule.name.contains("guo_chengzhong"))
+                        || rule.name.contains("guo_chengzhong")
+                        || rule.name.starts_with("user_"))
                     && !curr_bopomofo.is_empty()
                     && curr_bopomofo != "ㄓㄨㄥ"
                 {

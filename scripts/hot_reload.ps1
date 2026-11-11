@@ -1,4 +1,4 @@
-﻿# RuhI 通用智慧型輸入法：全自動免登出熱更新 (Hot Reload & In-Process Live Swap)
+﻿# RuhI 通用智慧型輸入法：全自動免登出熱更新 (Hot Reload / In-Process Live Swap)
 # 符合 ATG 全域守則：原生 UTF-8 BOM、動態路徑解耦、try-finally 守護 ctfmon、無須管理員權限
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -138,30 +138,41 @@ try {
             }
         }
 
-        # 同步純 Rust 偏好設定與語意調校執行檔 (ruhi-studio.exe)
-        $studioSrcCandidates = @(
-            (Join-Path $rootDir "ruhi-studio\target\release\ruhi-studio.exe"),
-            (Join-Path $rootDir "ruhi-studio.exe")
+        # 同步純 Rust 偏好設定中心執行檔 (ruhi-settings.exe)
+        $settingsSrcCandidates = @(
+            (Join-Path $rootDir "ruhi-settings\target\release\ruhi-settings.exe"),
+            (Join-Path $rootDir "ruhi-settings.exe")
         )
-        foreach ($sc in $studioSrcCandidates) {
+        foreach ($sc in $settingsSrcCandidates) {
             if (Test-Path $sc) {
-                foreach ($dstStudio in @(
-                    (Join-Path $parent "ruhi-studio.exe"),
-                    (Join-Path $rootDir "ruhi-studio.exe"),
-                    (Join-Path $rootDir "dist\ruhi-studio.exe")
+                foreach ($dstSettings in @(
+                    (Join-Path $parent "ruhi-settings.exe"),
+                    (Join-Path $rootDir "ruhi-settings.exe"),
+                    (Join-Path $rootDir "dist\ruhi-settings.exe")
                 )) {
-                    if ($sc -ne $dstStudio) {
+                    if ($sc -ne $dstSettings) {
                         try {
-                            Copy-Item $sc -Destination $dstStudio -Force -ErrorAction Stop
+                            Copy-Item $sc -Destination $dstSettings -Force -ErrorAction Stop
                         } catch {
                             try {
-                                Rename-Item -Path $dstStudio -NewName "$(Split-Path -Leaf $dstStudio).$timestamp.old" -Force -ErrorAction Stop
-                                Copy-Item $sc -Destination $dstStudio -Force -ErrorAction Stop
+                                Rename-Item -Path $dstSettings -NewName "$(Split-Path -Leaf $dstSettings).$timestamp.old" -Force -ErrorAction Stop
+                                Copy-Item $sc -Destination $dstSettings -Force -ErrorAction Stop
                             } catch {}
                         }
                     }
                 }
                 break
+            }
+        }
+
+        # 清理舊版已廢止之 ruhi-studio.exe
+        foreach ($oldStudio in @(
+            (Join-Path $parent "ruhi-studio.exe"),
+            (Join-Path $rootDir "ruhi-studio.exe"),
+            (Join-Path $rootDir "dist\ruhi-studio.exe")
+        )) {
+            if (Test-Path $oldStudio) {
+                try { Remove-Item $oldStudio -Force -ErrorAction SilentlyContinue } catch {}
             }
         }
         $icoSrc = Join-Path $rootDir "assets\ruhi.ico"

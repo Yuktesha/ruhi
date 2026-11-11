@@ -88,6 +88,97 @@ impl LexiconEntry {
         }
     }
 
+    /// 代數連讀變調與輕聲等價類展開器 (`sandhi_equivalence_readings`)：
+    /// 詞庫 (`lexicon_core.tsv`) 中每個詞條僅需儲存唯一一筆標準讀音（如 `一丁不識 ㄧˋ ㄉㄧㄥ ㄅㄨˊ ㄕˋ`、`一個 ㄧˊ ˙ㄍㄜ`），
+    /// 載入索引時由本函式自動推導所有合法之「一 (`ㄧ/ㄧˊ/ㄧˋ`)」、「不 (`ㄅㄨˋ/ㄅㄨˊ`)」、「個 (`ㄍㄜˋ/˙ㄍㄜ`)」、「兒 (`ㄦ/ㄦˊ`)」及疊字變調組合，
+    /// 徹底消弭詞庫檔案中窮舉排列組合之冗餘列。
+    pub fn sandhi_equivalence_readings(word: &str, norm_bpm: &str) -> Vec<String> {
+        let mut results = vec![norm_bpm.to_string()];
+        let chars: Vec<char> = word.chars().collect();
+        if chars.len() < 2 {
+            return results;
+        }
+        let syls: Vec<&str> = norm_bpm.split_whitespace().collect();
+        if chars.len() != syls.len() {
+            return results;
+        }
+
+        // 1. 雙字疊字變調與輕聲還原（如 謝謝 ㄒㄧㄝˋ ˙ㄒㄧㄝ ➔ ㄒㄧㄝˋ ㄒㄧㄝˋ；水水 ㄕㄨㄟˊ ㄕㄨㄟˇ ➔ ㄕㄨㄟˇ ㄕㄨㄟˇ）
+        if chars.len() == 2 && chars[0] == chars[1] {
+            let s0 = syls[0];
+            let s1 = syls[1];
+            if Self::strip_tones(s0) == Self::strip_tones(s1) {
+                if s1.starts_with('˙') && !s0.starts_with('˙') {
+                    let redup = format!("{s0} {s0}");
+                    if !results.contains(&redup) {
+                        results.push(redup);
+                    }
+                } else if !s1.starts_with('˙') && !s0.starts_with('˙') && s0 == s1 {
+                    let neutral_redup = format!("{s0} ˙{}", Self::strip_tones(s1));
+                    if !results.contains(&neutral_redup) {
+                        results.push(neutral_redup);
+                    }
+                }
+                if s0.ends_with('ˊ') && s1.ends_with('ˇ') {
+                    let redup3 = format!("{s1} {s1}");
+                    if !results.contains(&redup3) {
+                        results.push(redup3);
+                    }
+                }
+            }
+        }
+
+        // 2. 「一 (ㄧ/ㄧˊ/ㄧˋ)」、「不 (ㄅㄨˋ/ㄅㄨˊ)」、「個 (ㄍㄜˋ/˙ㄍㄜ)」、「兒 (ㄦ/ㄦˊ)」正交笛卡兒積展開
+        let mut per_pos_choices: Vec<Vec<&str>> = Vec::with_capacity(chars.len());
+        let mut has_sandhi_slot = false;
+        for (i, (&ch, &syl)) in chars.iter().zip(syls.iter()).enumerate() {
+            if ch == '一' && matches!(syl, "ㄧ" | "ㄧˊ" | "ㄧˋ") {
+                per_pos_choices.push(vec!["ㄧ", "ㄧˊ", "ㄧˋ"]);
+                has_sandhi_slot = true;
+            } else if ch == '不' && matches!(syl, "ㄅㄨˋ" | "ㄅㄨˊ") {
+                per_pos_choices.push(vec!["ㄅㄨˋ", "ㄅㄨˊ"]);
+                has_sandhi_slot = true;
+            } else if ch == '個' && matches!(syl, "ㄍㄜˋ" | "˙ㄍㄜ") {
+                per_pos_choices.push(vec!["ㄍㄜˋ", "˙ㄍㄜ"]);
+                has_sandhi_slot = true;
+            } else if ch == '得' && matches!(syl, "ㄉㄜˊ" | "˙ㄉㄜ") {
+                per_pos_choices.push(vec!["ㄉㄜˊ", "˙ㄉㄜ"]);
+                has_sandhi_slot = true;
+            } else if i + 1 == chars.len() && ch == '兒' && matches!(syl, "ㄦ" | "ㄦˊ") {
+                per_pos_choices.push(vec!["ㄦ", "ㄦˊ"]);
+                has_sandhi_slot = true;
+            } else {
+                per_pos_choices.push(vec![syl]);
+            }
+        }
+
+        if has_sandhi_slot {
+            let mut combs: Vec<Vec<&str>> = vec![Vec::with_capacity(chars.len())];
+            for choices in per_pos_choices {
+                let mut next = Vec::with_capacity(combs.len() * choices.len());
+                for prefix in &combs {
+                    for &c in &choices {
+                        let mut p = prefix.clone();
+                        p.push(c);
+                        next.push(p);
+                    }
+                }
+                combs = next;
+                if combs.len() > 36 {
+                    combs.truncate(36);
+                }
+            }
+            for comb in combs {
+                let joined = comb.join(" ");
+                if !results.contains(&joined) {
+                    results.push(joined);
+                }
+            }
+        }
+
+        results
+    }
+
     pub fn extract_headcode(bpm: &str) -> String {
         let initial_map: HashMap<char, char> = [
             ('ㄅ', 'b'), ('ㄆ', 'p'), ('ㄇ', 'm'), ('ㄈ', 'f'),
@@ -221,7 +312,28 @@ impl LexiconManager {
     }
 
     pub fn load_tsv<P: AsRef<Path>>(&mut self, path: P, default_cat: &str) -> Result<usize, std::io::Error> {
-        let p = path.as_ref();
+        let orig_p = path.as_ref();
+        let redirected_core;
+        let p: &Path = if !orig_p.exists() {
+            let fname = orig_p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            let core_candidate = orig_p.with_file_name("lexicon_core.tsv");
+            if core_candidate.exists() {
+                match fname {
+                    "lexicon_mcbopomofo.tsv" => {
+                        redirected_core = core_candidate;
+                        &redirected_core
+                    }
+                    "lexicon_moe.tsv" | "lexicon_domain.tsv" => {
+                        return Ok(0);
+                    }
+                    _ => orig_p,
+                }
+            } else {
+                orig_p
+            }
+        } else {
+            orig_p
+        };
         let file = File::open(p)?;
         let reader = BufReader::new(file);
         let mut count = 0;
@@ -242,14 +354,26 @@ impl LexiconManager {
             if parts.len() >= 2 {
                 let word = parts[0].trim();
                 let bpm = parts[1].trim();
+                let norm_bpm = LexiconEntry::normalize_bpm(bpm);
                 let weight: u32 = parts.get(2).and_then(|w| w.parse().ok()).unwrap_or(150);
-                let cat = parts.get(3).unwrap_or(&default_cat).trim();
+                let raw_cat = parts.get(3).map(|s| s.trim()).unwrap_or("");
+                let cat = if raw_cat.is_empty() {
+                    if default_cat == "user" {
+                        "user"
+                    } else if word.chars().count() == 2 && weight < 90 {
+                        "moe_unattested2"
+                    } else {
+                        default_cat
+                    }
+                } else {
+                    raw_cat
+                };
                 let note = parts.get(4).unwrap_or(&"").trim();
 
-                let entry = LexiconEntry::new(word, bpm, weight, cat, note);
+                let entry = LexiconEntry::new(word, &norm_bpm, weight, cat, note);
                 if cat == "user" || default_cat == "user" {
                     self.upsert_entry(entry);
-                    let (sub_entries, _) = Self::decompose_entity_subentries(word, bpm, weight);
+                    let (sub_entries, _) = Self::decompose_entity_subentries(word, &norm_bpm, weight);
                     for sub in sub_entries {
                         self.upsert_entry(sub);
                     }
@@ -263,7 +387,7 @@ impl LexiconManager {
         let is_dynamic = matches!(default_cat, "domain" | "user")
             || p.file_name()
                 .and_then(|n| n.to_str())
-                .map(|s| s == "lexicon_domain.tsv" || s == "user_dict.tsv")
+                .map(|s| s == "lexicon_core.tsv" || s == "lexicon_domain.tsv" || s == "user_dict.tsv")
                 .unwrap_or(false);
         if is_dynamic {
             let mtime = std::fs::metadata(p).and_then(|m| m.modified()).ok();
@@ -348,12 +472,24 @@ impl LexiconManager {
                                 if parts.len() >= 2 {
                                     let word = parts[0].trim();
                                     let bpm = parts[1].trim();
+                                    let norm_bpm = LexiconEntry::normalize_bpm(bpm);
                                     let weight: u32 = parts.get(2).and_then(|w| w.parse().ok()).unwrap_or(150);
-                                    let cat = parts.get(3).unwrap_or(&default_cat).trim();
+                                    let raw_cat = parts.get(3).map(|s| s.trim()).unwrap_or("");
+                                    let cat = if raw_cat.is_empty() {
+                                        if default_cat == "user" {
+                                            "user"
+                                        } else if word.chars().count() == 2 && weight < 90 {
+                                            "moe_unattested2"
+                                        } else {
+                                            default_cat
+                                        }
+                                    } else {
+                                        raw_cat
+                                    };
                                     let note = parts.get(4).unwrap_or(&"").trim();
-                                    file_entries.push(LexiconEntry::new(word, bpm, weight, cat, note));
+                                    file_entries.push(LexiconEntry::new(word, &norm_bpm, weight, cat, note));
                                     if cat == "user" || default_cat == "user" {
-                                        let (sub_entries, _) = Self::decompose_entity_subentries(word, bpm, weight);
+                                        let (sub_entries, _) = Self::decompose_entity_subentries(word, &norm_bpm, weight);
                                         file_entries.extend(sub_entries);
                                     }
                                 }
@@ -460,6 +596,18 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             | ("縊死", _)
             | ("熠燿", _)
             | ("擬去", _)
+            | ("裳幃", _)
+            | ("有服", _)
+            | ("箭石", _)
+            | ("荐食", _)
+            | ("踐石", _)
+            | ("見示", _)
+            | ("賤事", _)
+            | ("賤視", _)
+            | ("賤室", _)
+            | ("祇是", "ㄓ ㄕˋ")
+            | ("法繪", _)
+            | ("慈石", _)
             | ("丁丁", "ㄓㄥ ㄓㄥ")
             | ("大家", "ㄉㄚˋ ㄍㄨ")
             | ("公車", "ㄍㄨㄥ ㄐㄩ")
@@ -526,6 +674,55 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             | ("她", "ㄊㄨㄛ")
             | ("他", "ㄊㄨㄛ")
             | ("啖噬", _)
+            | ("見背", _)
+            | ("鑒核", _)
+            | ("暗黝", _)
+            | ("危語", _)
+            | ("為禍", _)
+            | ("狠到", _)
+            | ("狠得", _)
+            | ("蟻象", _)
+            | ("諛詞", _)
+            | ("諛辭", _)
+            | ("餘步", _)
+            | ("就於", _)
+            | ("于于", _)
+            | ("于思", _)
+            | ("互於", _)
+            | ("不托", _)
+            | ("付著", _)
+            | ("亦就", _)
+            | ("什件", _)
+            | ("伴食", _)
+            | ("令友", _)
+            | ("乞和", _)
+            | ("乃能", _)
+            | ("乖違", _)
+            | ("踐位", _)
+            | ("畏憚", _)
+            | ("核備", _)
+            | ("霉潮", _)
+            | ("魚道", _)
+            | ("倒裳", _)
+            | ("帷裳", _)
+            | ("慈幃", _)
+            | ("支骸", _)
+            | ("於何", _)
+            | ("備位", _)
+            | ("兜的", _)
+            | ("可著", _)
+            | ("可罪", _)
+            | ("啖食", _)
+            | ("噬臍", _)
+            | ("嚮晦", _)
+            | ("帷扆", _)
+            | ("盜竽", _)
+            | ("枝辭", _)
+            | ("不仕", _)
+            | ("不字", _)
+            | ("事從", _)
+            | ("以時", _)
+            | ("佈讓", _)
     )
 }
 
@@ -534,6 +731,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             return;
         }
 
+        entry.bopomofo = LexiconEntry::normalize_bpm(&entry.bopomofo);
         let char_count = entry.word.chars().count();
         let is_pure_cjk = char_count >= 2
             && entry
@@ -545,24 +743,23 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             return;
         }
 
-        let norm_bpm = LexiconEntry::normalize_bpm(&entry.bopomofo);
+        let norm_bpm = entry.bopomofo.clone();
+        let sandhi_equivs = LexiconEntry::sandhi_equivalence_readings(&entry.word, &norm_bpm);
         let incoming_cit = LexiconEntry::citation_sandhi_bpm(&entry.word, &norm_bpm);
         let incoming_is_moe = matches!(
             entry.category.as_str(),
-            "core"
-                | "core_compound"
-                | "common"
+            "common"
                 | "modern"
                 | "classic"
                 | "archaic"
                 | "rare"
                 | "saying"
                 | "twister"
-                | "char"
                 | "word2"
                 | "word3"
                 | "word4"
                 | "moe"
+                | "moe_unattested2"
                 | "idiom"
         );
 
@@ -579,6 +776,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                 let existing_cit = LexiconEntry::citation_sandhi_bpm(&existing.word, &existing_norm);
                 let bpm_matches = existing.bopomofo == entry.bopomofo
                     || existing_norm == norm_bpm
+                    || sandhi_equivs.contains(&existing_norm)
                     || existing_cit.as_deref() == Some(norm_bpm.as_str())
                     || incoming_cit.as_deref() == Some(existing_norm.as_str())
                     || (existing_cit.is_some() && existing_cit == incoming_cit);
@@ -597,10 +795,25 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                     self.entries[existing_idx].weight = entry.weight;
                 }
             }
-            // 確保本調與變調注音皆能索引至同一節點（如 ㄅㄨˋ ㄗㄞˋ 與 ㄅㄨˊ ㄗㄞˋ 共享「不再 591」）
+            if !incoming_is_moe && self.entries[existing_idx].category == "moe_unattested2" {
+                self.entries[existing_idx].category = entry.category.clone();
+            }
+            // 確保所有變調等價讀音皆能索引至同一節點（如 ㄅㄨˋ ㄗㄞˋ 與 ㄅㄨˊ ㄗㄞˋ 共享「不再 591」）
+            for r in &sandhi_equivs {
+                let list = self.bopomofo_index.entry(r.clone()).or_default();
+                if !list.contains(&existing_idx) {
+                    list.push(existing_idx);
+                }
+            }
             let list = self.bopomofo_index.entry(norm_bpm.clone()).or_default();
             if !list.contains(&existing_idx) {
                 list.push(existing_idx);
+            }
+            if entry.bopomofo != norm_bpm {
+                let raw_list = self.bopomofo_index.entry(entry.bopomofo.clone()).or_default();
+                if !raw_list.contains(&existing_idx) {
+                    raw_list.push(existing_idx);
+                }
             }
             if let Some(cit_bpm) = incoming_cit {
                 let cit_list = self.bopomofo_index.entry(cit_bpm).or_default();
@@ -616,14 +829,36 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             entry.weight = 80;
         }
 
+        // 標記僅存在於萌典（小麥現代語料庫未收錄該詞或該讀音）且權重 <= 180 之無現代語料佐證古語/生僻雙字詞，
+        // 或 weight < 90 之雙字保留詞（在三欄位詞庫中專供古典保留詞使用），
+        // 供 LatticeDAG 於連續長句（n >= 3）進行跨詞界劫掠免疫防護，同時 100% 保留單詞輸入（n == 2）與 ↑/↓ 選字列可達性
+        if ((incoming_is_moe && entry.weight <= 180) || entry.weight < 90)
+            && char_count == 2
+            && !matches!(entry.word.as_str(), "參雜" | "耆德" | "衚衕")
+        {
+            entry.category = "moe_unattested2".to_string();
+        }
+
         let idx = self.entries.len();
         let notone = LexiconEntry::strip_tones(&entry.bopomofo);
         let headcode = entry.headcode.clone();
 
         self.word_index.entry(entry.word.clone()).or_default().push(idx);
-        self.bopomofo_index.entry(entry.bopomofo.clone()).or_default().push(idx);
+        for r in &sandhi_equivs {
+            let list = self.bopomofo_index.entry(r.clone()).or_default();
+            if !list.contains(&idx) {
+                list.push(idx);
+            }
+        }
+        let raw_list = self.bopomofo_index.entry(entry.bopomofo.clone()).or_default();
+        if !raw_list.contains(&idx) {
+            raw_list.push(idx);
+        }
         if norm_bpm != entry.bopomofo {
-            self.bopomofo_index.entry(norm_bpm).or_default().push(idx);
+            let list = self.bopomofo_index.entry(norm_bpm).or_default();
+            if !list.contains(&idx) {
+                list.push(idx);
+            }
         }
         if let Some(cit_bpm) = incoming_cit {
             let cit_list = self.bopomofo_index.entry(cit_bpm).or_default();
@@ -649,22 +884,50 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         let entries = &self.entries;
         for indices in self.word_index.values_mut() {
             indices.sort_by(|&a, &b| entries[b].weight.cmp(&entries[a].weight));
+            indices.dedup();
         }
         for indices in self.bopomofo_index.values_mut() {
             indices.sort_by(|&a, &b| entries[b].weight.cmp(&entries[a].weight));
+            indices.dedup();
         }
         for indices in self.notone_index.values_mut() {
             indices.sort_by(|&a, &b| entries[b].weight.cmp(&entries[a].weight));
+            indices.dedup();
         }
         for indices in self.headcode_index.values_mut() {
             indices.sort_by(|&a, &b| entries[b].weight.cmp(&entries[a].weight));
+            indices.dedup();
         }
+    }
+
+    /// 將記憶體中已去重、清洗並完成語體分級之核心詞庫，無損匯出為單一統整詞庫 `lexicon_core.tsv`
+    pub fn export_unified_core_tsv<P: AsRef<Path>>(&self, path: P) -> Result<usize, std::io::Error> {
+        use std::io::{BufWriter, Write};
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+        writeln!(writer, "# RuhI (如喜) 通用智慧型輸入法 — 單一統整核心詞庫 (Unified Core Lexicon)")?;
+        writeln!(writer, "# 欄位格式: WORD\tBOPOMOFO\tWEIGHT")?;
+        writeln!(writer, "# 致敬與開源授權聲明請參閱專案根目錄 THIRD_PARTY_LICENSES.md")?;
+
+        let mut written_lines = 0;
+        for e in &self.entries {
+            writeln!(writer, "{}\t{}\t{}", e.word, e.bopomofo, e.weight)?;
+            written_lines += 1;
+        }
+        writer.flush()?;
+        Ok(written_lines)
     }
 
     pub fn lookup_bopomofo(&self, bpm: &str, exact_tone: bool) -> Vec<&LexiconEntry> {
         if exact_tone {
             if let Some(indices) = self.bopomofo_index.get(bpm) {
                 return indices.iter().map(|&i| &self.entries[i]).collect();
+            }
+            let norm = LexiconEntry::normalize_bpm(bpm);
+            if norm != bpm {
+                if let Some(indices) = self.bopomofo_index.get(&norm) {
+                    return indices.iter().map(|&i| &self.entries[i]).collect();
+                }
             }
         } else {
             let notone = LexiconEntry::strip_tones(bpm);
@@ -1550,6 +1813,30 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             .map(|v| v[0].as_str())
             .collect::<Vec<_>>()
             .join(" ");
+        let exact_bpm_joined: Option<String> = {
+            let mut parts = Vec::with_capacity(len);
+            let mut all_some = true;
+            for i in 0..len {
+                if let Some(Some(syl)) = slice_syls.get(i) {
+                    let norm = LexiconEntry::normalize_bpm(syl);
+                    if !norm.is_empty() {
+                        parts.push(norm);
+                    } else {
+                        all_some = false;
+                        break;
+                    }
+                } else {
+                    all_some = false;
+                    break;
+                }
+            }
+            if all_some && parts.len() == len {
+                Some(parts.join(" "))
+            } else {
+                None
+            }
+        };
+        let orig_compound_weight = self.max_compound_weight(&orig_word);
 
         let mut scored: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
         for comb in &combinations {
@@ -1561,6 +1848,10 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                     if entry.word.chars().count() != len {
                         continue;
                     }
+                    let is_exact_tone_homophone = exact_bpm_joined
+                        .as_ref()
+                        .map(|eb| LexiconEntry::normalize_bpm(&entry.bopomofo) == *eb)
+                        .unwrap_or(false);
                     let mut score = entry.weight as f64;
                     if is_primary_base {
                         score += 220.0;
@@ -1591,9 +1882,12 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                             "",
                         ) * 18.0;
                     }
-                    // 上箭頭旨在智慧糾錯救濟，原字若為誤拼或已有更優詞，適度退居真實救援詞之後
+                    // 上箭頭專司「近音字詞（異調／聲韻模糊）」與「斷詞救濟」：
+                    // 若原雙字詞已是合法成詞，同音同調詞已由下箭頭 `↓` 列出，故於 `↑` 退居近音詞之後
                     if entry.word == orig_word {
-                        score -= 160.0;
+                        score -= 500.0;
+                    } else if is_exact_tone_homophone && orig_compound_weight >= 350 {
+                        score -= 380.0;
                     }
                     let cur = scored.entry(entry.word.clone()).or_insert(f64::NEG_INFINITY);
                     if score > *cur {
@@ -1608,7 +1902,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         vec_scored
     }
 
-    /// 亞洲語文軌 `↑` 上箭頭：上下文語意推斷與模糊音／跨聲調智慧救濟
+    /// 亞洲語文軌 `↑` 上箭頭：近音字詞（異調＋平捲舌／前後鼻音／ㄈㄏ／ㄋㄌㄖ模糊音）與上下文語意救濟
     /// 回傳 `(actual_target_idx, (range_start, range_end), candidates)`
     pub fn lookup_contextual_fuzzy_rescue(
         &self,
@@ -1734,7 +2028,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             }
         }
 
-        // 輔助閉包：評估單字位 `pos` 的上下文語法與易混字救濟候選
+        // 輔助閉包：評估單字位 `pos` 的近音單字（異調＋平捲舌／前後鼻音／ㄈㄏ／ㄋㄌㄖ模糊音）與上下文語法救濟候選
         let eval_single_char_rescue = |pos: usize, trans: &mut crate::router::transitions::TransitionEngine| -> (Vec<String>, f64) {
             let target_ch = chars[pos];
             let target_ch_str = target_ch.to_string();
@@ -1768,7 +2062,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             };
             let next_char = if pos + 1 < chars.len() { chars[pos + 1].to_string() } else { String::new() };
 
-            // 常見語法與同音易混字群 (Confusable Syntactic & Homophone Clusters)
+            // 常見語法與易混字群 (Confusable Syntactic Clusters)
             let confusable_groups: &[&[&str]] = &[
                 &["的", "地", "得"],
                 &["在", "再"],
@@ -1783,55 +2077,121 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                 &["帳", "脹", "障"],
             ];
 
-            let mut pool: Vec<String> = Vec::new();
+            let exact_homophones: Vec<String> = self.lookup_char_candidates_with_bpm(target_ch, target_bpm);
+            let exact_same_tone_set: std::collections::HashSet<String> = exact_homophones.iter().cloned().collect();
+
+            // `pool` 儲存 `(候選單字, 基礎權重, 是否為近音或語法救濟)`：
+            // 關鍵修正：絕不可先將 50+ 個同音同調字塞滿 pool 再 truncate(48) 導致近音字被截斷！
+            let mut pool: Vec<(String, u32, bool)> = Vec::new();
+            let mut seen_pool: std::collections::HashSet<String> = std::collections::HashSet::new();
+
             for grp in confusable_groups {
                 if grp.contains(&target_ch_str.as_str()) {
                     for &item in *grp {
                         let s = item.to_string();
-                        if !pool.contains(&s) {
-                            pool.push(s);
+                        if seen_pool.insert(s.clone()) {
+                            pool.push((s, 600, true));
                         }
                     }
                 }
             }
 
-            // 加入同音、異調與平捲舌／鼻音模糊單字候選
-            for c in self.lookup_char_candidates_with_bpm(target_ch, target_bpm) {
-                if !pool.contains(&c) {
-                    pool.push(c);
+            // A. 若同音同調字能與左鄰或右鄰直接構成高頻合法雙字詞（上下文斷詞救濟），優先納入
+            for c in &exact_homophones {
+                let forms_left = !prev_char.is_empty() && self.max_compound_weight(&format!("{}{}", prev_char, c)) >= 300;
+                let forms_right = !next_char.is_empty() && self.max_compound_weight(&format!("{}{}", c, next_char)) >= 300;
+                if (forms_left || forms_right) && seen_pool.insert(c.clone()) {
+                    pool.push((c.clone(), 580, true));
                 }
             }
+
+            // B. 收集基礎讀音（含指定注音與字庫讀音）
             let mut base_bpms = Vec::new();
             if let Some(b) = target_bpm {
-                base_bpms.push(b.to_string());
+                if !b.is_empty() {
+                    base_bpms.push(b.to_string());
+                }
             }
             if let Some(indices) = self.word_index.get(&target_ch_str) {
                 for &i in indices.iter().take(3) {
                     let b = &self.entries[i].bopomofo;
-                    if !base_bpms.contains(b) {
+                    if !b.is_empty() && !base_bpms.contains(b) {
                         base_bpms.push(b.clone());
                     }
                 }
             }
+
+            // C. 第一主力：同音節異調近音單字（Cross-Tone Near-Homophones，排除已在 ↓ 出現之同音同調字）
+            let mut cross_tone_cands: Vec<(String, u32)> = Vec::new();
             for b in &base_bpms {
-                for fb in Self::get_fuzzy_bpms(b) {
-                    for e in self.lookup_bopomofo(&fb, false) {
-                        if e.word.chars().count() == 1 && !pool.contains(&e.word) {
-                            pool.push(e.word.clone());
+                for e in self.lookup_bopomofo(b, false) {
+                    if e.word.chars().count() == 1
+                        && !exact_same_tone_set.contains(&e.word)
+                        && e.weight >= 180
+                    {
+                        if let Some(existing) = cross_tone_cands.iter_mut().find(|x| x.0 == e.word) {
+                            if e.weight > existing.1 {
+                                existing.1 = e.weight;
+                            }
+                        } else {
+                            cross_tone_cands.push((e.word.clone(), e.weight));
                         }
                     }
                 }
             }
+            cross_tone_cands.sort_by(|a, b| b.1.cmp(&a.1));
+            for (w, wt) in cross_tone_cands.into_iter().take(28) {
+                if seen_pool.insert(w.clone()) {
+                    pool.push((w, wt + 80, true));
+                }
+            }
 
-            if pool.len() > 48 {
-                pool.truncate(48);
+            // D. 第二主力：聲韻模糊近音單字（平捲舌 ㄓ↔ㄗ/ㄔ↔ㄘ/ㄕ↔ㄙ、前後鼻音 ㄢ↔ㄤ/ㄣ↔ㄥ、ㄈ↔ㄏ、ㄋ↔ㄌ↔ㄖ、ㄜ↔ㄦ/ㄛ）
+            let mut fuzzy_cands: Vec<(String, u32)> = Vec::new();
+            for b in &base_bpms {
+                let stripped_b = LexiconEntry::strip_tones(b);
+                for fb in Self::get_fuzzy_bpms(b) {
+                    if LexiconEntry::strip_tones(&fb) == stripped_b {
+                        continue;
+                    }
+                    for e in self.lookup_bopomofo(&fb, false) {
+                        if e.word.chars().count() == 1
+                            && !exact_same_tone_set.contains(&e.word)
+                            && e.weight >= 220
+                        {
+                            if let Some(existing) = fuzzy_cands.iter_mut().find(|x| x.0 == e.word) {
+                                if e.weight > existing.1 {
+                                    existing.1 = e.weight;
+                                }
+                            } else {
+                                fuzzy_cands.push((e.word.clone(), e.weight));
+                            }
+                        }
+                    }
+                }
+            }
+            fuzzy_cands.sort_by(|a, b| b.1.cmp(&a.1));
+            for (w, wt) in fuzzy_cands.into_iter().take(28) {
+                if seen_pool.insert(w.clone()) {
+                    pool.push((w, wt + 40, true));
+                }
+            }
+
+            // E. 保底包含原字（供計算 best_alt_gain 比較）與少量同音字尾段保底
+            if seen_pool.insert(target_ch_str.clone()) {
+                pool.push((target_ch_str.clone(), 500, false));
+            }
+            for c in exact_homophones.into_iter().take(8) {
+                if pool.len() < 56 && seen_pool.insert(c.clone()) {
+                    pool.push((c, 300, false));
+                }
             }
 
             let mut scored_cands: Vec<(String, f64)> = Vec::with_capacity(pool.len());
             let mut orig_contextual_score = 0.0;
 
-            for (rank_idx, cand) in pool.iter().enumerate() {
-                let mut score = (50usize.saturating_sub(rank_idx)) as f64 * 2.0;
+            for (cand, base_wt, is_near_or_rescue) in &pool {
+                let mut score = (*base_wt as f64) * 0.35 + if *is_near_or_rescue { 120.0 } else { -180.0 };
 
                 // A. 與前後鄰字能否直接構成詞庫合法雙字詞（如「答」+「案」=「答案」）
                 if !prev_char.is_empty() {
@@ -1876,7 +2236,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                 score += ctx_bonus * 25.0;
                 if cand == &target_ch_str {
                     orig_contextual_score = score;
-                    score -= 40.0; // 鼓勵將真正需要替換的救濟候選排至第 1 位
+                    score -= 400.0; // 原字排於近音救濟候選之後
                 }
                 scored_cands.push((cand.clone(), score));
             }
@@ -1894,6 +2254,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         // 2. 檢查游標所在處是否構成「未成詞之雙字模糊／跨聲調複合詞」（如「答按」➔「答案」、「支源」➔「支援」）
         //    但嚴格禁止拆裂旁邊已經成立的高權重雙字詞（如「可能地答案」中游標在「地」時，絕不拆裂「可能」或「答案」）
         let is_particle_char = matches!(chars[idx], '的' | '地' | '得' | '了' | '著' | '過' | '嗎' | '呢' | '吧');
+        let mut valid_word_fuzzy_cands: Option<(usize, usize, Vec<String>)> = None;
         if !is_particle_char && chars.len() >= 2 {
             let mut candidate_windows = Vec::new();
             if idx >= 1 {
@@ -1906,10 +2267,6 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             for (s, e) in candidate_windows {
                 let win_str: String = chars[s..e].iter().collect();
                 let cur_weight = self.max_compound_weight(&win_str);
-                // 若該雙字視窗本身已是詞庫中的高頻合法複合詞（如「可能」、「答案」），不視為拼寫錯誤，交由後續助詞推斷或單字救濟處理
-                if cur_weight >= 400 {
-                    continue;
-                }
                 // 檢查是否會拆裂左側或右側既有之合法高頻雙字詞
                 let splits_left = s >= 1 && {
                     let left_w: String = chars[s - 1..s + 1].iter().collect();
@@ -1948,14 +2305,28 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                     transitions,
                 );
 
-                // 若找到高信心救濟雙字詞（例如「答按」找到「答案」，且該詞不等於原詞或原詞非合法詞）
-                if let Some((best_w, best_score)) = scored.first() {
-                    if (best_w != &win_str && *best_score >= 450.0) || (cur_weight == 0 && *best_score >= 300.0) {
-                        let mut cands: Vec<String> = scored.into_iter().map(|(w, _)| w).collect();
-                        if !cands.contains(&win_str) {
-                            cands.push(win_str);
+                if cur_weight < 400 {
+                    // 若該雙字視窗尚未成詞（如「答按」），且找到高信心救濟雙字詞（如「答案」），直接回傳雙字區間救濟
+                    if let Some((best_w, best_score)) = scored.first() {
+                        if (best_w != &win_str && *best_score >= 450.0) || (cur_weight == 0 && *best_score >= 300.0) {
+                            let mut cands: Vec<String> = scored.into_iter().map(|(w, _)| w).collect();
+                            if !cands.contains(&win_str) {
+                                cands.push(win_str);
+                            }
+                            return (s, (s, e), cands);
                         }
-                        return (s, (s, e), cands);
+                    }
+                } else if valid_word_fuzzy_cands.is_none() {
+                    // 若該雙字視窗本身已是合法詞（cur_weight >= 400），保留其「近音雙字詞（異調詞／模糊音詞）」候選，
+                    // 待步驟 3 檢查完句中助詞誤用後，一併提供雙字近音詞與單字近音字！
+                    let near_words: Vec<String> = scored
+                        .into_iter()
+                        .filter(|(w, sc)| w != &win_str && *sc >= 220.0)
+                        .map(|(w, _)| w)
+                        .take(16)
+                        .collect();
+                    if !near_words.is_empty() {
+                        valid_word_fuzzy_cands = Some((s, e, near_words));
                     }
                 }
             }
@@ -1974,9 +2345,159 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             }
         }
 
-        // 4. 單字位上下文語法推斷與模糊同音救濟
+        // 4. 單字位與雙字詞之近音候選列（近音雙字詞 + 近音單字）
         let (single_cands, _) = eval_single_char_rescue(idx, transitions);
+        if let Some((ws, we, mut near_words)) = valid_word_fuzzy_cands {
+            for sc in single_cands {
+                if !near_words.contains(&sc) {
+                    near_words.push(sc);
+                }
+            }
+            return (idx, (ws, we), near_words);
+        }
         (idx, (idx, idx + 1), single_cands)
+    }
+
+    /// 根據游標左側已組出之字詞前綴（優先匹配 3 字 ➔ 2 字 ➔ 1 字前綴），
+    /// 結合詞庫長詞後半截續寫與二階轉移／動賓搭配，回傳「只列出後半截字詞」之聯想候選清單。
+    pub fn lookup_associative_continuations(
+        &self,
+        chars: &[char],
+        cur: usize,
+        transitions: &crate::router::transitions::TransitionEngine,
+    ) -> Vec<String> {
+        let p_end = cur.min(chars.len());
+        if p_end == 0 {
+            return Vec::new();
+        }
+        let is_word_char = |c: char| -> bool {
+            !c.is_whitespace()
+                && !c.is_ascii_punctuation()
+                && !matches!(
+                    c,
+                    '，' | '。' | '、' | '；' | '：' | '？' | '！' | '「' | '」'
+                        | '『' | '』' | '（' | '）' | '【' | '】' | '《' | '》'
+                        | '〈' | '〉' | '—' | '…' | '～' | '·'
+                )
+        };
+        if !is_word_char(chars[p_end - 1]) {
+            return Vec::new();
+        }
+
+        let p3: Option<String> = if p_end >= 3 && chars[p_end - 3..p_end].iter().all(|&c| is_word_char(c)) {
+            Some(chars[p_end - 3..p_end].iter().collect())
+        } else {
+            None
+        };
+        let p2: Option<String> = if p_end >= 2 && chars[p_end - 2..p_end].iter().all(|&c| is_word_char(c)) {
+            Some(chars[p_end - 2..p_end].iter().collect())
+        } else {
+            None
+        };
+        let p1: String = chars[p_end - 1].to_string();
+
+        let mut scored: HashMap<String, f64> = HashMap::new();
+        let mut upsert = |s: String, sc: f64| {
+            if s.is_empty() {
+                return;
+            }
+            let e = scored.entry(s).or_insert(sc);
+            if sc > *e {
+                *e = sc;
+            }
+        };
+
+        let mut p2_hit_count = 0usize;
+
+        for entry in &self.entries {
+            if let Some(ref pre3) = p3 {
+                if entry.word.starts_with(pre3.as_str()) && entry.word.len() > pre3.len() {
+                    let suf = &entry.word[pre3.len()..];
+                    upsert(suf.to_string(), 30000.0 + entry.weight as f64);
+                }
+            }
+            if let Some(ref pre2) = p2 {
+                if entry.word.starts_with(pre2.as_str()) && entry.word.len() > pre2.len() {
+                    let suf = &entry.word[pre2.len()..];
+                    let suf_len = suf.chars().count();
+                    let len_bonus = if suf_len == 2 {
+                        150.0
+                    } else if suf_len > 2 {
+                        80.0
+                    } else {
+                        0.0
+                    };
+                    upsert(suf.to_string(), 20000.0 + entry.weight as f64 + len_bonus);
+                    p2_hit_count += 1;
+                }
+            }
+        }
+
+        if let Some(ref pre2) = p2 {
+            for ((prev, curr), &bonus) in transitions
+                .builtin_transitions
+                .iter()
+                .chain(transitions.transitions.iter())
+            {
+                if prev == pre2
+                    && bonus > 5.0
+                    && !curr.is_empty()
+                    && !transitions.excluded_pairs.contains(&(prev.clone(), curr.clone()))
+                {
+                    let w = self.max_compound_weight(curr).max(400) as f64;
+                    upsert(curr.clone(), 18000.0 + bonus * 25.0 + w * 0.5);
+                    p2_hit_count += 1;
+                }
+            }
+            for vo in &transitions.vo_pairs {
+                if &vo.verb == pre2 && !vo.object.is_empty() {
+                    upsert(vo.object.clone(), 18500.0 + vo.bonus_score * 25.0);
+                    p2_hit_count += 1;
+                }
+            }
+        }
+
+        if p2_hit_count < 6 {
+            for entry in &self.entries {
+                if entry.word.starts_with(p1.as_str()) && entry.word.len() > p1.len() {
+                    let suf = &entry.word[p1.len()..];
+                    let suf_len = suf.chars().count();
+                    if suf_len <= 3 {
+                        let len_bonus = if suf_len == 1 {
+                            60.0
+                        } else if suf_len == 2 {
+                            30.0
+                        } else {
+                            0.0
+                        };
+                        upsert(suf.to_string(), 5000.0 + entry.weight as f64 + len_bonus);
+                    }
+                }
+            }
+            for ((prev, curr), &bonus) in transitions
+                .builtin_transitions
+                .iter()
+                .chain(transitions.transitions.iter())
+            {
+                if prev == &p1
+                    && bonus > 8.0
+                    && !curr.is_empty()
+                    && !transitions.excluded_pairs.contains(&(prev.clone(), curr.clone()))
+                {
+                    let w = self.max_compound_weight(curr).max(400) as f64;
+                    upsert(curr.clone(), 4500.0 + bonus * 20.0 + w * 0.5);
+                }
+            }
+        }
+
+        let mut vec_scored: Vec<(String, f64)> = scored.into_iter().collect();
+        vec_scored.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.chars().count().cmp(&b.0.chars().count()))
+                .then_with(|| a.0.cmp(&b.0))
+        });
+        vec_scored.into_iter().take(45).map(|(w, _)| w).collect()
     }
 
     /// 將詞庫序列化為二進位 bincode 格式 (約 3~4 MB，啟動速度提升 10 倍以上)
@@ -2182,11 +2703,35 @@ mod tests {
     }
 
     #[test]
+    fn test_export_and_verify_unified_core_lexicon() {
+        let core_path = std::path::Path::new("../ruhi_lexicon/data/lexicon_core.tsv");
+        let mc_path = std::path::Path::new("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv");
+        if mc_path.exists() {
+            let mut mgr_old = LexiconManager::new();
+            let _ = mgr_old.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
+            let _ = mgr_old.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
+            let _ = mgr_old.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+
+            let written = mgr_old.export_unified_core_tsv(core_path).expect("匯出 lexicon_core.tsv 失敗");
+            println!("已匯出單一統整詞庫 lexicon_core.tsv，共寫入 {} 行", written);
+
+            let mut mgr_new = LexiconManager::new();
+            let _ = mgr_new.load_tsv(core_path, "core");
+
+            println!("mgr_old entries: {}, mgr_new entries: {}", mgr_old.entries.len(), mgr_new.entries.len());
+            println!("mgr_old bpm index: {}, mgr_new bpm index: {}", mgr_old.bopomofo_index.len(), mgr_new.bopomofo_index.len());
+            println!("mgr_old notone index: {}, mgr_new notone index: {}", mgr_old.notone_index.len(), mgr_new.notone_index.len());
+
+            assert_eq!(mgr_new.entries.len(), mgr_old.entries.len(), "詞條總數必須 100% 等價一致");
+            assert_eq!(mgr_new.bopomofo_index.len(), mgr_old.bopomofo_index.len(), "注音索引鍵數必須 100% 等價一致");
+            assert_eq!(mgr_new.notone_index.len(), mgr_old.notone_index.len(), "無聲調索引鍵數必須 100% 等價一致");
+        }
+    }
+
+    #[test]
     fn test_candidate_priority_modern_over_archaic() {
         let mut mgr = LexiconManager::new();
-        let _ = mgr.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
-        let _ = mgr.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
-        let _ = mgr.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = mgr.load_tsv("../ruhi_lexicon/data/lexicon_core.tsv", "core");
 
         // 1. 高效 (ㄍㄠ ㄒㄧㄠˋ) 必優先於 高校
         let cands_gaoxiao = mgr.lookup_word_homophones_with_bpm("高效", Some("ㄍㄠ ㄒㄧㄠˋ"));
@@ -2214,9 +2759,7 @@ mod tests {
     #[test]
     fn test_rejected_readings_and_reachability_ledgers() {
         let mut mgr = LexiconManager::new();
-        let _ = mgr.load_tsv("../ruhi_lexicon/data/lexicon_mcbopomofo.tsv", "mcbpmf");
-        let _ = mgr.load_tsv("../ruhi_lexicon/data/lexicon_moe.tsv", "moe");
-        let _ = mgr.load_tsv("../ruhi_lexicon/data/lexicon_domain.tsv", "domain");
+        let _ = mgr.load_tsv("../ruhi_lexicon/data/lexicon_core.tsv", "core");
 
         let violations = mgr
             .verify_rejected_readings_tsv("../ruhi_lexicon/data/rejected_readings.tsv")
@@ -2235,5 +2778,101 @@ mod tests {
             "reachability.tsv 中之必達詞條必須 100% 可透過標準注音檢索命中，缺失項目：{:?}",
             missing
         );
+    }
+
+    #[test]
+    fn test_purified_core_lexicon_3col_and_algebraic_sandhi() {
+        let core_path = std::path::Path::new("../ruhi_lexicon/data/lexicon_core.tsv");
+        assert!(core_path.exists(), "lexicon_core.tsv 必須存在");
+
+        // 1. 驗證所有非註解行嚴格為 3 欄格式 (WORD\tBOPOMOFO\tWEIGHT) 且權重在 [60, 1000]
+        let content = std::fs::read_to_string(core_path).expect("讀取 lexicon_core.tsv 失敗");
+        let mut yi_ding_bu_shi_count = 0;
+        let mut yi_ge_count = 0;
+
+        for (line_no, line) in content.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            let parts: Vec<&str> = trimmed.split('\t').collect();
+            assert_eq!(
+                parts.len(),
+                3,
+                "第 {} 行必須嚴格為 3 欄格式 (WORD\\tBOPOMOFO\\tWEIGHT)，實際為：{:?}",
+                line_no + 1,
+                line
+            );
+            let word = parts[0];
+            let weight: u32 = parts[2].parse().expect("權重必須為非負整數");
+            assert!(
+                (60..=1000).contains(&weight),
+                "第 {} 行詞條「{}」權重 {} 必須介於 60..=1000",
+                line_no + 1,
+                word,
+                weight
+            );
+
+            if word == "一丁不識" {
+                yi_ding_bu_shi_count += 1;
+            }
+            if word == "一個" {
+                yi_ge_count += 1;
+            }
+        }
+
+        assert_eq!(yi_ding_bu_shi_count, 1, "「一丁不識」在 lexicon_core.tsv 中必須僅出現 1 次");
+        assert_eq!(yi_ge_count, 1, "「一個」在 lexicon_core.tsv 中必須僅出現 1 次");
+
+        // 2. 載入 LexiconManager 驗證代數連讀變調等價類展開
+        let mut mgr = LexiconManager::new();
+        let _ = mgr.load_tsv(core_path, "core");
+
+        // 驗證「一丁不識」的全部 6 種連讀變調組合 ({ㄧ, ㄧˊ, ㄧˋ} × {ㄉㄧㄥ} × {ㄅㄨˋ, ㄅㄨˊ} × {ㄕˋ}) 皆能 100% 精確命中
+        let sandhi_tests_ydbs = [
+            "ㄧ ㄉㄧㄥ ㄅㄨˋ ㄕˋ",
+            "ㄧ ㄉㄧㄥ ㄅㄨˊ ㄕˋ",
+            "ㄧˊ ㄉㄧㄥ ㄅㄨˋ ㄕˋ",
+            "ㄧˊ ㄉㄧㄥ ㄅㄨˊ ㄕˋ",
+            "ㄧˋ ㄉㄧㄥ ㄅㄨˋ ㄕˋ",
+            "ㄧˋ ㄉㄧㄥ ㄅㄨˊ ㄕˋ",
+        ];
+        for bpm in &sandhi_tests_ydbs {
+            let res = mgr.lookup_bopomofo(bpm, true);
+            assert!(
+                res.iter().any(|e| e.word == "一丁不識"),
+                "注音「{}」必須能命中「一丁不識」",
+                bpm
+            );
+        }
+
+        // 驗證「一個」的全部 6 種本調/變調/輕聲組合 ({ㄧ, ㄧˊ, ㄧˋ} × {ㄍㄜˋ, ˙ㄍㄜ}) 皆能 100% 精確命中
+        let sandhi_tests_yg = [
+            "ㄧ ㄍㄜˋ",
+            "ㄧ ˙ㄍㄜ",
+            "ㄧˊ ㄍㄜˋ",
+            "ㄧˊ ˙ㄍㄜ",
+            "ㄧˋ ㄍㄜˋ",
+            "ㄧˋ ˙ㄍㄜ",
+        ];
+        for bpm in &sandhi_tests_yg {
+            let res = mgr.lookup_bopomofo(bpm, true);
+            assert!(
+                res.iter().any(|e| e.word == "一個"),
+                "注音「{}」必須能命中「一個」",
+                bpm
+            );
+        }
+
+        // 3. 驗證荒謬野生數字已被徹底清洗，絕不存在於詞庫中
+        let wild_numbers = ["一七三", "一七九", "一七二", "一七五", "一七八", "一七六", "一七四"];
+        for num in &wild_numbers {
+            let res = mgr.word_index.get(*num);
+            assert!(
+                res.is_none() || res.unwrap().is_empty(),
+                "野生隨機數字「{}」不得殘留於詞庫中",
+                num
+            );
+        }
     }
 }

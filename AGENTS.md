@@ -9,7 +9,7 @@
 1. **嚴禁「單字權重打地鼠（Unigram Weight Whack-a-Mole）」**：
    - 嚴禁為修復特定詞句中的某個選字，而手動調高或調低字典中的單字無上下文先驗權重（如隨意更動 `理/裡`、`視/是`、`月/越`、`久/九`、`牆/強`、`燈/登`、`亮/量`、`向/相/象` 等單字權重）。
 2. **嚴禁將透明句法短語或可因式分解之複合詞預拼塞入詞庫／槽位（No Pre-Concatenated Syntactic Phrases or Unfactorized Compounds）**：
-   - [`ruhi_lexicon/data/lexicon_domain.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/lexicon_domain.tsv) 僅收納不可再由語法規則拆解之詞彙單元，**嚴禁**寫入含結構助詞「的／得／地」之偏正或述補短語（如 `翠綠的山林步道`、`古老的鐵道`）。
+   - 詞庫（如 [`ruhi_lexicon/data/lexicon_core.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/lexicon_core.tsv) 及個人詞庫 [`user_dict.tsv`](file:///c:/ATGprjs/ruhi/user_dict.tsv)）僅收納不可再由語法規則拆解之詞彙單元，**嚴禁**寫入含結構助詞「的／得／地」之偏正或述補短語（如 `翠綠的山林步道`、`古老的鐵道`）。已全面收斂為標準三欄單一核心詞庫 `lexicon_core.tsv`。
    - [`ruhi_lexicon/data/patterns_user.jsonl`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/patterns_user.jsonl) 與 [`ruhi-core/src/router/constructions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs) 槽位內凡具共享詞根、否定前綴、體標記或補語後綴之組合（如 `圈選/點選/勾選`、`不選/不買`、`忘光/吃光`、`交到/送到`、`流向/奔向/望向`、`路燈/街燈/車燈/夜燈/檯燈`、`燭火/星火/燈火`、`擋不住/攔不住`），**嚴禁**預先拼接塞在同一槽位，**必須全面因式分解為正交語素槽位（Orthogonal Morpheme Slots）**。
 3. **嚴禁暴力硬灌超高分特例與極端權重懲罰**：
    - 嚴禁在詞庫灌入 `2000+` 之極端單詞權重，或在轉移表塞入無上下文之全域負分。
@@ -60,7 +60,7 @@
 
 每次修改詞庫、轉移規則或構式陣列後，必須執行並通過以下測試方可交付：
 1. **多維構式同音碰撞零容忍掃描**：
-   - `cargo test --manifest-path c:\ATGprjs\ruhi\ruhi-studio\Cargo.toml test_array_collision_audit_and_auto_handover_delivery_261019`
+   - `cargo test --manifest-path c:\ATGprjs\ruhi\ruhi-core\Cargo.toml test_array_collision_audit_and_auto_handover_delivery_261019`
    - 確保 `unsuppressed_active_collisions_count == 0`（所有跨槽位同音詞皆明確標註 `bifurcation_pairs` 或 `exclude_pairs`）。
 2. **核心引擎構式與黃金測試集驗證**：
    - 在 [`ruhi-core/src/engine.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 補齊包含衍生正交組合之單元測試，並確認 `cargo test` 100% 通過。

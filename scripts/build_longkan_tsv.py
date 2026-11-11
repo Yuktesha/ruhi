@@ -1029,11 +1029,11 @@ def main() -> int:
     char_weight: Counter = Counter()
     word_weight: Counter = Counter()
 
-    for tsv_name in ["lexicon_mcbopomofo.tsv", "lexicon_moe.tsv"]:
+    for tsv_name in ["lexicon_core.tsv", "lexicon_mcbopomofo.tsv", "lexicon_moe.tsv"]:
         p = LEXICON_DIR / tsv_name
         if not p.exists():
             continue
-        is_mcb = (tsv_name == "lexicon_mcbopomofo.tsv")
+        is_mcb_default = (tsv_name == "lexicon_mcbopomofo.tsv")
         with open(p, "r", encoding="utf-8") as f:
             for line in f:
                 if line.startswith("#") or not line.strip():
@@ -1041,6 +1041,11 @@ def main() -> int:
                 parts = line.strip().split("\t")
                 if len(parts) >= 3 and parts[2].lstrip("-").isdigit():
                     w, bpm, wt = parts[0], parts[1], int(parts[2])
+                    cat = parts[3].strip() if len(parts) >= 4 else ""
+                    if tsv_name == "lexicon_core.tsv":
+                        is_mcb = cat in ("mcbopomofo", "mcbpmf", "domain") or (cat not in ("moe", "moe_unattested2", "classic", "archaic", "rare"))
+                    else:
+                        is_mcb = is_mcb_default
                     if len(w) == 1 and '\u4e00' <= w <= '\u9fff':
                         eff_wt = wt + (500 if is_mcb else 0)
                         if eff_wt > char_weight[w]:

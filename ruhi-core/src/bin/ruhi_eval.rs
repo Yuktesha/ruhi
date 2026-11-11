@@ -311,7 +311,12 @@ impl PhoneticCompiler {
         let mut char_readings: HashMap<char, HashSet<String>> = HashMap::new();
 
         for entry in &lexicon.entries {
-            if entry.category == "archaic" || entry.category == "classic" || entry.category == "rare" {
+            if (entry.word.chars().count() >= 2 && entry.weight < 90)
+                || entry.category == "archaic"
+                || entry.category == "classic"
+                || entry.category == "rare"
+                || entry.category == "moe_unattested2"
+            {
                 continue;
             }
             let w = entry.word.trim();

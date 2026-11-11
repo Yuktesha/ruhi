@@ -774,7 +774,16 @@ impl CandidateWindow {
             let mut max_used_px = 0i32;
 
             let mut i = 0usize;
+            let mut wrapped_by_width = false;
             while i < comp_chars.len() {
+                if comp_chars[i] == '\n' {
+                    let is_line_start = cur_line_px == 0;
+                    clusters.push((i, i + 1, cur_line, is_line_start, 0));
+                    cur_line += 1;
+                    cur_line_px = 0;
+                    i += 1;
+                    continue;
+                }
                 let mut cluster_end = i + 1;
                 while cluster_end < comp_chars.len() && is_combining(comp_chars[cluster_end]) {
                     cluster_end += 1;
@@ -792,6 +801,7 @@ impl CandidateWindow {
                 let is_line_start = if cur_line_px > 0 && cur_line_px + cx > max_line_px {
                     cur_line += 1;
                     cur_line_px = 0;
+                    wrapped_by_width = true;
                     true
                 } else {
                     cur_line_px == 0
@@ -812,7 +822,7 @@ impl CandidateWindow {
 
             let num_lines = if clusters.is_empty() { 1 } else { cur_line + 1 };
             let min_6_cjk_px = cjk_px * 6;
-            let effective_used_px = if num_lines > 1 {
+            let effective_used_px = if wrapped_by_width {
                 max_line_px
             } else {
                 max_used_px.max(min_6_cjk_px)
@@ -1597,8 +1607,11 @@ fn write_studio_wakeup_signal(paths: &crate::service::RuhiPaths, category: &str)
     });
     if let Ok(json_str) = serde_json::to_string(&payload) {
         for target in [
+            paths.sandbox_dir.join("settings_wakeup.json"),
             paths.sandbox_dir.join("studio_wakeup.json"),
+            paths.sandbox_dir.join("dist").join("settings_wakeup.json"),
             paths.sandbox_dir.join("dist").join("studio_wakeup.json"),
+            paths.sandbox_dir.join("scripts").join("settings_wakeup.json"),
             paths.sandbox_dir.join("scripts").join("studio_wakeup.json"),
         ] {
             let _ = std::fs::write(&target, &json_str);
@@ -1635,8 +1648,21 @@ fn is_current_process_elevated() -> bool {
 }
 
 fn resolve_trusted_studio_exe(paths: &crate::service::RuhiPaths) -> Option<std::path::PathBuf> {
-    let mut candidates = vec![paths.sandbox_dir.join("ruhi-studio.exe")];
+    let mut candidates = vec![
+        paths.sandbox_dir.join("ruhi-settings.exe"),
+        paths.sandbox_dir.join("ruhi-studio.exe"),
+    ];
     if cfg!(debug_assertions) {
+        candidates.push(paths.sandbox_dir.join("scripts").join("ruhi-settings.exe"));
+        candidates.push(paths.sandbox_dir.join("dist").join("ruhi-settings.exe"));
+        candidates.push(
+            paths
+                .sandbox_dir
+                .join("ruhi-settings")
+                .join("target")
+                .join("release")
+                .join("ruhi-settings.exe"),
+        );
         candidates.push(paths.sandbox_dir.join("scripts").join("ruhi-studio.exe"));
         candidates.push(paths.sandbox_dir.join("dist").join("ruhi-studio.exe"));
         candidates.push(
@@ -1650,6 +1676,15 @@ fn resolve_trusted_studio_exe(paths: &crate::service::RuhiPaths) -> Option<std::
     } else {
         // 支援開發樹內 scripts/ruhi_tsf.dll 之上一層根目錄或 dist/ 子目錄（均限於 DLL 自身所屬樹內，絕不讀取外部硬編碼路徑）
         if paths.sandbox_dir.join("ruhi_lexicon").is_dir() {
+            candidates.push(paths.sandbox_dir.join("dist").join("ruhi-settings.exe"));
+            candidates.push(
+                paths
+                    .sandbox_dir
+                    .join("ruhi-settings")
+                    .join("target")
+                    .join("release")
+                    .join("ruhi-settings.exe"),
+            );
             candidates.push(paths.sandbox_dir.join("dist").join("ruhi-studio.exe"));
             candidates.push(
                 paths
@@ -1871,6 +1906,7 @@ pub fn maybe_spawn_background_telemetry_upload(paths: &crate::service::RuhiPaths
                 | "cmd.exe"
                 | "powershell.exe"
                 | "pwsh.exe"
+                | "ruhi-settings.exe"
                 | "ruhi-studio.exe"
                 | "curl.exe"
         ) {
@@ -1946,41 +1982,42 @@ pub fn show_about_dialog(hwnd: HWND) {
     };
 
     let ui_lang = current_effective_ui_lang();
+    let ver_str = env!("CARGO_PKG_VERSION");
     let (title, msg) = if ui_lang == "en-US" || is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
         (
             "About RuhI",
-            "RuhI — Responsive Universal Human Input\nVersion: 0.7.0 (Release)\nFlowing like clouds and water, effortless and joyful."
+            format!("RuhI — Responsive Universal Human Input\nVersion: {} (Release)\nFlowing like clouds and water, effortless and joyful.", ver_str)
         )
     } else {
         match kb_mode.as_str() {
             "japanese" | "kana" | "romaji" => (
                 "RuhI について",
-                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.7.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+                format!("RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: {} (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。", ver_str)
             ),
             "korean" | "ko" | "hangul" | "romaja" => (
                 "RuhI 정보",
-                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.7.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+                format!("RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: {} (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게.", ver_str)
             ),
             "iast" | "sanskrit" => (
                 "About RuhI (IAST)",
-                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.7.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
+                format!("RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: {} (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)", ver_str)
             ),
             "thai" => (
                 "เกี่ยวกับ RuhI",
-                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.7.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
+                format!("RuhI — Responsive Universal Human Input\nเวอร์ชัน: {} (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข", ver_str)
             ),
             _ if ui_lang == "ja-JP" => (
                 "RuhI について",
-                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.7.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
+                format!("RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: {} (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。", ver_str)
             ),
             _ if ui_lang == "ko-KR" => (
                 "RuhI 정보",
-                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.7.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
+                format!("RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: {} (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게.", ver_str)
             ),
             // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列、四角、龍龕等）：
             _ => (
                 "關於如喜",
-                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.7.0 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
+                format!("RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: {} (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。", ver_str)
             ),
         }
     };
@@ -2617,6 +2654,13 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 pen_x += (3.0 * state.dpi_scale) as i32;
             }
 
+            if comp_chars[i] == '\n' {
+                pen_x = base_left_x;
+                last_line_top = line_top + line_step_h;
+                last_line_bottom = last_line_top + line_step_h;
+                continue;
+            }
+
             let cluster_str: String = comp_chars[i..cluster_end].iter().collect();
             let ch_wide: Vec<u16> = cluster_str.encode_utf16().collect();
             let mut sz_ch = SIZE::default();
@@ -2625,6 +2669,8 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             // 若正處於候選字選取模式且此字為目標選字，或處於 Shift+方向鍵手動選取範圍：以 accent_blue 高亮底色包覆
             let is_in_target = if state.target_range.1 > state.target_range.0 {
                 i >= state.target_range.0 && i < state.target_range.1
+            } else if state.target_range.0 > 0 && state.target_range.0 == state.target_range.1 {
+                false
             } else {
                 state.target_char_idx >= i && state.target_char_idx < cluster_end
             };

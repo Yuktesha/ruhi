@@ -138,6 +138,8 @@ pub struct KeyboardSettings {
     pub shift_space_toggle_fullwidth: bool,
     #[serde(default = "default_halfwidth_punct_mode")]
     pub halfwidth_punct_mode: String,
+    #[serde(default = "default_tab_key_mode")]
+    pub tab_key_mode: String,
 }
 
 fn default_shift_space_toggle_fullwidth() -> bool {
@@ -146,6 +148,10 @@ fn default_shift_space_toggle_fullwidth() -> bool {
 
 fn default_halfwidth_punct_mode() -> String {
     "fullwidth".to_string()
+}
+
+fn default_tab_key_mode() -> String {
+    "associative".to_string()
 }
 
 fn default_reverse_coach_target() -> String {
@@ -206,6 +212,7 @@ impl Default for KeyboardSettings {
             fullwidth_mode: false,
             shift_space_toggle_fullwidth: true,
             halfwidth_punct_mode: "fullwidth".to_string(),
+            tab_key_mode: "associative".to_string(),
         }
     }
 }
@@ -226,12 +233,7 @@ pub struct GrammarSettings {
 }
 
 pub fn default_studio_access_tier() -> String {
-    let root = resolve_ruhi_root();
-    if root.join("ruhi-core").is_dir() {
-        "maintainer".to_string()
-    } else {
-        "pure".to_string()
-    }
+    "pure".to_string()
 }
 
 impl Default for GrammarSettings {
@@ -670,6 +672,12 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
                 settings.keyboard.halfwidth_punct_mode = trimmed.to_string();
             }
         }
+        if let Some(v) = kb.get("tab_key_mode").and_then(Value::as_str) {
+            let trimmed = v.trim();
+            if matches!(trimmed, "associative" | "boundary_cut") {
+                settings.keyboard.tab_key_mode = trimmed.to_string();
+            }
+        }
     }
 
     if let Some(gr) = val.get("grammar").and_then(Value::as_object) {
@@ -808,6 +816,12 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
         let trimmed = v.trim();
         if matches!(trimmed, "fullwidth" | "consistent" | "halfwidth") {
             settings.keyboard.halfwidth_punct_mode = trimmed.to_string();
+        }
+    }
+    if let Some(v) = map.get("tab_key_mode").and_then(Value::as_str) {
+        let trimmed = v.trim();
+        if matches!(trimmed, "associative" | "boundary_cut") {
+            settings.keyboard.tab_key_mode = trimmed.to_string();
         }
     }
     if let Some(v) = map.get("q_cycle_max").and_then(Value::as_i64) {
@@ -1022,6 +1036,10 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             json!(settings.keyboard.halfwidth_punct_mode),
         );
         map.insert(
+            "tab_key_mode".to_string(),
+            json!(settings.keyboard.tab_key_mode),
+        );
+        map.insert(
             "q_cycle_max".to_string(),
             json!(settings.keyboard.q_cycle_max),
         );
@@ -1134,9 +1152,9 @@ mod tests {
             "installer/config.example.json",
             "installer/settings_config.example.json",
             "ruhi_lexicon/data/tailcat_official_feed.json",
-            "ruhi-studio/src/config_sync.rs",
-            "ruhi-studio/src/tuner.rs",
-            "ruhi-studio/src/main.rs",
+            "ruhi-settings/src/config_sync.rs",
+            "ruhi-settings/src/telemetry_sync.rs",
+            "ruhi-settings/src/main.rs",
         ] {
             let p = root.join(rel);
             if let Ok(txt) = fs::read_to_string(&p) {

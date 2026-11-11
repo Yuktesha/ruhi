@@ -30,14 +30,14 @@ jobs:
         run: cargo test --verbose
         working-directory: ruhi-core
 
-      - name: Run ruhi-studio tests
+      - name: Run ruhi-settings tests
         run: cargo test --verbose
-        working-directory: ruhi-studio
+        working-directory: ruhi-settings
 
       - name: Build ruhi-tsf Release
         run: cargo build --release --verbose
         working-directory: ruhi-tsf
 
-      - name: Build ruhi-studio Release
+      - name: Build ruhi-settings Release
         run: cargo build --release --verbose
-        working-directory: ruhi-studio
+        working-directory: ruhi-settings

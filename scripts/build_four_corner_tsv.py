@@ -183,9 +183,9 @@ def load_ruhi_lexicons(
     char_weights: Dict[str, int] = {}
     word_weights: Dict[str, int] = {}
 
-    mcb_path = lexicon_dir / "lexicon_mcbopomofo.tsv"
-    if mcb_path.exists():
-        with open(mcb_path, "r", encoding="utf-8") as f:
+    core_path = lexicon_dir / "lexicon_core.tsv"
+    if core_path.exists():
+        with open(core_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#"):
@@ -200,39 +200,75 @@ def load_ruhi_lexicons(
                     w = int(round(float(parts[2])))
                 except ValueError:
                     continue
-                if len(word) == 1:
-                    if w > char_weights.get(word, -999999):
-                        char_weights[word] = w
-                elif 2 <= len(word) <= 4:
-                    if w > word_weights.get(word, -999999):
-                        word_weights[word] = w
+                cat = parts[3].strip() if len(parts) >= 4 else ""
+                is_moe = cat in {"moe", "moe_unattested2", "classic", "archaic", "rare"}
+                if is_moe:
+                    if len(word) == 1:
+                        scaled = max(120, min(550, w // 2))
+                        if word not in char_weights:
+                            char_weights[word] = scaled
+                    elif 2 <= len(word) <= 4:
+                        scaled = max(150, min(560, w // 2))
+                        if word not in word_weights:
+                            word_weights[word] = scaled
+                else:
+                    if len(word) == 1:
+                        if w > char_weights.get(word, -999999):
+                            char_weights[word] = w
+                    elif 2 <= len(word) <= 4:
+                        if w > word_weights.get(word, -999999):
+                            word_weights[word] = w
+    else:
+        mcb_path = lexicon_dir / "lexicon_mcbopomofo.tsv"
+        if mcb_path.exists():
+            with open(mcb_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    parts = line.split("\t")
+                    if len(parts) < 3 or parts[2] == "WEIGHT":
+                        continue
+                    word = parts[0].strip()
+                    if not word or any(c.isascii() for c in word):
+                        continue
+                    try:
+                        w = int(round(float(parts[2])))
+                    except ValueError:
+                        continue
+                    if len(word) == 1:
+                        if w > char_weights.get(word, -999999):
+                            char_weights[word] = w
+                    elif 2 <= len(word) <= 4:
+                        if w > word_weights.get(word, -999999):
+                            word_weights[word] = w
 
-    moe_path = lexicon_dir / "lexicon_moe.tsv"
-    if moe_path.exists():
-        with open(moe_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                parts = line.split("\t")
-                if len(parts) < 3 or parts[2] == "WEIGHT":
-                    continue
-                word = parts[0].strip()
-                if not word or any(c.isascii() for c in word):
-                    continue
-                try:
-                    w = int(round(float(parts[2])))
-                except ValueError:
-                    continue
-                if len(word) == 1:
-                    # 若 McBopomofo 未收錄，採用 MOE 權重但給予適度偏移以維持日常字優先
-                    scaled = max(120, min(550, w // 2))
-                    if word not in char_weights:
-                        char_weights[word] = scaled
-                elif 2 <= len(word) <= 4:
-                    scaled = max(150, min(560, w // 2))
-                    if word not in word_weights:
-                        word_weights[word] = scaled
+        moe_path = lexicon_dir / "lexicon_moe.tsv"
+        if moe_path.exists():
+            with open(moe_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    parts = line.split("\t")
+                    if len(parts) < 3 or parts[2] == "WEIGHT":
+                        continue
+                    word = parts[0].strip()
+                    if not word or any(c.isascii() for c in word):
+                        continue
+                    try:
+                        w = int(round(float(parts[2])))
+                    except ValueError:
+                        continue
+                    if len(word) == 1:
+                        # 若 McBopomofo 未收錄，採用 MOE 權重但給予適度偏移以維持日常字優先
+                        scaled = max(120, min(550, w // 2))
+                        if word not in char_weights:
+                            char_weights[word] = scaled
+                    elif 2 <= len(word) <= 4:
+                        scaled = max(150, min(560, w // 2))
+                        if word not in word_weights:
+                            word_weights[word] = scaled
 
     for core_word, cw in [("四角號碼", 640), ("如喜", 590), ("九宮格", 560), ("小鍵盤", 560)]:
         if core_word not in word_weights or word_weights[core_word] < cw:

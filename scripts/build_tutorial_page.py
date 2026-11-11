@@ -149,7 +149,7 @@ def build_cross_ime_and_longkan_payloads(compact_chars):
                 cj_primary[ch] = code
 
     bpm_primary = {}
-    for fn in ["lexicon_mcbopomofo.tsv", "lexicon_moe.tsv"]:
+    for fn in ["lexicon_core.tsv", "lexicon_mcbopomofo.tsv", "lexicon_moe.tsv"]:
         p = data_dir / fn
         if not p.exists():
             continue

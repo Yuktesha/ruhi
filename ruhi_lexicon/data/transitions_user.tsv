@@ -13781,7 +13781,6 @@
 意識	以此	19.0	doc_learning	2026-09-19
 方式	遭受	19.0	doc_learning	2026-09-19
 遭受	痛苦	19.0	doc_learning	2026-09-19
-有服	機會	19.0	doc_learning	2026-09-19
 恩典	接受	19.0	doc_learning	2026-09-19
 服務	幫助	21.0	doc_learning	2026-09-19
 幫助	上蒼	19.0	doc_learning	2026-09-19
@@ -17250,7 +17249,6 @@
 能力	靈性	23.0	doc_learning	2026-09-19
 意指	所有	19.0	doc_learning	2026-09-19
 喚起	虔誠	21.0	doc_learning	2026-09-19
-正確	的知	21.0	doc_learning	2026-09-19
 最後	也是	19.0	doc_learning	2026-09-19
 必須	喚起	19.0	doc_learning	2026-09-19
 本體	只能	19.0	doc_learning	2026-09-19
@@ -22301,7 +22299,6 @@
 在這	極	30.0	collocation	A100_Gemma2_27B
 生命	尚	30.0	collocation	A100_Gemma2_27B
 早年	便知	30.0	collocation	A100_Gemma2_27B
-正確	之	25.0	collocation	A100_Gemma2_27B
 社會	亦立	28.0	collocation	A100_Gemma2_27B
 這眾	聲	22.0	collocation	A100_Gemma2_27B
 他們	起身	30.0	collocation	A100_Gemma2_27B
@@ -25923,3 +25920,6 @@
 再	做	28.0	collocation	詞組內部二階轉移 [再 ➔ 做]
 做	定案	26.0	collocation	後文二階正向搭配 [做 ➔ 定案]
 曹	非羽	28.0	entity_decomp	2026-10-06
+一個	字	28.0	collocation	2026-11-11 一個 銜接 字
+很	到位	28.0	collocation	2026-11-11 很 銜接 到位
+感覺	很	26.0	collocation	2026-11-11 感覺 銜接 很

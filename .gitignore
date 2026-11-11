@@ -67,6 +67,7 @@ scripts/ruhi.ico
 /user_dict.tsv
 /deleted_dict.tsv
 /hot_reload.ps1
+/run_settings.ps1
 /語意調校工作室.ps1
 /一鍵發布更新至GitHub.ps1
 /雲端Colab微調Gemma4語意分析師.ps1
@@ -80,6 +81,9 @@ scripts/web/
 scripts/active_dll_path.txt
 active_dll_path.txt
 studio_wakeup.json
+settings_wakeup.json
+scripts/studio_wakeup.json
+scripts/settings_wakeup.json
 _cfg/
 tools/google_sheets_webhook.gs
 安裝本地AI純綠推論引擎.ps1

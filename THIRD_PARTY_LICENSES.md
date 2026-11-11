@@ -6,7 +6,7 @@
 
 ## 1. 小麥注音 (McBopomofo)
 
-* **使用範圍**：`ruhi_lexicon/data/lexicon_mcbopomofo.tsv` 注音詞頻統計資料與注音映射對照。
+* **使用範圍**：單一統整核心詞庫 `ruhi_lexicon/data/lexicon_core.tsv`（原 `lexicon_mcbopomofo.tsv`）之注音詞頻統計資料與注音映射對照；已與教育部國語辭典及如喜計算語言學自建詞庫無損融合為單一核心詞庫。
 * **原始專案**：[https://github.com/openvanilla/McBopomofo](https://github.com/openvanilla/McBopomofo)
 * **授權協議**：MIT License
 * **著作權聲明**：
@@ -39,7 +39,7 @@
 
 ## 2. 中華民國教育部《國語辭典》公開資料集與 g0v 零時政府萌典 (MoeDict)
 
-* **使用範圍**：`ruhi_lexicon/data/lexicon_moe.tsv` 標準國語注音、詞條與正體字音讀資料。
+* **使用範圍**：單一統整核心詞庫 `ruhi_lexicon/data/lexicon_core.tsv`（原 `lexicon_moe.tsv`）之標準國語注音、詞條與正體字音讀資料；已與小麥注音及如喜計算語言學自建詞庫無損融合為單一核心詞庫。
 * **資料來源**：中華民國教育部《重編國語辭典修訂本》、教育部《國語辭典簡編本》開放資料，以及 g0v 零時政府萌典 (MoeDict) 結構化整理成果。
 * **授權依據**：
   * **政府資料開放授權條款 (Open Government Data License - OGDL 1.0)**

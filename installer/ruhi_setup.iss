@@ -5,7 +5,7 @@
 #define MyAppVersion "0.7.1"
 #define MyAppPublisher "RuhOS Community"
 #define MyAppURL "https://github.com/Yuktesha/ruhi"
-#define MyAppExeName "ruhi-studio.exe"
+#define MyAppExeName "ruhi-settings.exe"
 
 [Setup]
 AppId={{E0B7F8C1-1823-42D8-99B1-5E8A719D3F10}
@@ -38,10 +38,10 @@ Name: "telemetry_consent"; Description: "同意在手動改字時記錄匿名對
 #define StageDir "..\dist\RuhI_v" + MyAppVersion + "_Windows_x64"
 
 [Files]
-; 核心二進位檔與圖示 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi-studio.exe)
+; 核心二進位檔與圖示 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi-settings.exe)
 Source: "{#StageDir}\ruhi_tsf.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
 Source: "{#StageDir}\ruhi.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
-Source: "{#StageDir}\ruhi-studio.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\ruhi-settings.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\ruhi.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 ; 完整詞庫與轉移引力資料
@@ -75,7 +75,7 @@ Source: "{#StageDir}\docs\ruhi_interactive_workbench.html"; DestDir: "{app}\docs
 Source: "{#StageDir}\docs\TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\如喜輸入法偏好設定"; Filename: "{app}\ruhi-studio.exe"; WorkingDir: "{app}"
+Name: "{group}\如喜輸入法偏好設定"; Filename: "{app}\ruhi-settings.exe"; WorkingDir: "{app}"
 Name: "{group}\如喜跨輸入法互動查碼與教學工作台"; Filename: "{app}\docs\ruhi_interactive_workbench.html"; WorkingDir: "{app}\docs"
 Name: "{group}\如喜輸入法熱更新工具"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\hot_reload.ps1"""; WorkingDir: "{app}"
 Name: "{group}\解除安裝如喜輸入法"; Filename: "{uninstallexe}"

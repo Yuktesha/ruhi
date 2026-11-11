@@ -6,6 +6,7 @@ pub mod morpheme_ontology;
 pub mod vo_lexicon;
 pub mod archaic_table;
 pub mod geo_hierarchy;
+pub mod pattern_audit;
 
 pub use lattice::{LatticeDAG, LatticeNode};
 pub use viterbi::ViterbiRouter;
