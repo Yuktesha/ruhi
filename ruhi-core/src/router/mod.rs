@@ -9,8 +9,8 @@ pub mod geo_hierarchy;
 pub mod pattern_audit;
 
 pub use lattice::{LatticeDAG, LatticeNode};
-pub use viterbi::ViterbiRouter;
+pub use viterbi::{LatticeBackwardProfile, ViterbiRouter};
 pub use transitions::TransitionEngine;
-pub use morpheme_ontology::{MorphemeClass, MorphemeOntology};
+pub use morpheme_ontology::{MorphemeClass, MorphemeMask256, MorphemeOntology};
 
 

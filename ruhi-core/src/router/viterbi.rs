@@ -3,6 +3,199 @@
 
 use std::collections::HashMap;
 use super::lattice::LatticeNode;
+use super::morpheme_ontology::{MorphemeClass, MorphemeMask256, MorphemeOntology};
+
+/// 詞網格後向動態規劃預掃描輪廓 (`LatticeBackwardProfile`)
+/// 於前向束搜尋啟動前，以線性時間 $O(E)$ 自句尾 `n_syllables` 向句首反向計算：
+/// 1. 每個音節邊界 `pos` 之最佳後綴路徑位勢 `beta_score[pos]`；
+/// 2. 過濾低分同音雜訊後之競爭性右鄰 256-bit 語素語意遮罩 `competitive_right_mask[pos]`；
+/// 3. 最佳右鄰首詞 `best_right_word[pos]`；
+/// 4. 句尾／語氣詞穿透句尾價態標記 `is_clause_tail[pos]` 與 `is_clause_tail_or_particle[pos]`。
+#[derive(Debug, Clone)]
+pub struct LatticeBackwardProfile {
+    pub n_syllables: usize,
+    pub beta_score: Vec<f64>,
+    pub competitive_right_mask: Vec<MorphemeMask256>,
+    pub best_right_word: Vec<String>,
+    pub is_clause_tail: Vec<bool>,
+    pub is_clause_tail_or_particle: Vec<bool>,
+}
+
+impl LatticeBackwardProfile {
+    pub fn empty() -> Self {
+        Self {
+            n_syllables: 0,
+            beta_score: Vec::new(),
+            competitive_right_mask: Vec::new(),
+            best_right_word: Vec::new(),
+            is_clause_tail: Vec::new(),
+            is_clause_tail_or_particle: Vec::new(),
+        }
+    }
+
+    pub fn compute(
+        router: &ViterbiRouter,
+        n_syllables: usize,
+        dag: &HashMap<usize, Vec<LatticeNode>>,
+        transitions: Option<&super::transitions::TransitionEngine>,
+    ) -> Self {
+        if n_syllables == 0 {
+            return Self::empty();
+        }
+
+        let mut beta_score = vec![-f64::INFINITY; n_syllables + 1];
+        beta_score[n_syllables] = 0.0;
+        let mut competitive_right_mask = vec![MorphemeMask256::EMPTY; n_syllables + 1];
+        let mut best_right_word = vec![String::new(); n_syllables + 1];
+        let mut best_right_bpm = vec![String::new(); n_syllables + 1];
+        let mut is_clause_tail = vec![false; n_syllables + 1];
+        is_clause_tail[n_syllables] = true;
+        let mut is_clause_tail_or_particle = vec![false; n_syllables + 1];
+        is_clause_tail_or_particle[n_syllables] = true;
+
+        let (w_freq, w_mchar, w_coh3, w_coh4) = if let Some(eng) = transitions {
+            (
+                eng.feature_weights.get("freq_ln").copied().unwrap_or(1.0),
+                eng.feature_weights.get("multi_char_len").copied().unwrap_or(1.0),
+                eng.feature_weights.get("cohesion_len3").copied().unwrap_or(1.0),
+                eng.feature_weights.get("cohesion_len4").copied().unwrap_or(1.0),
+            )
+        } else {
+            (1.0, 1.0, 1.0, 1.0)
+        };
+
+        let ont = MorphemeOntology::global();
+
+        for pos in (0..n_syllables).rev() {
+            let nodes = match dag.get(&pos) {
+                Some(ns) => ns,
+                None => continue,
+            };
+
+            let mut scored_edges: Vec<(f64, &LatticeNode)> = Vec::with_capacity(nodes.len());
+            let mut best_cand = -f64::INFINITY;
+            let mut best_word = String::new();
+            let mut best_bpm = String::new();
+
+            for node in nodes {
+                let j = node.end_idx;
+                if j <= pos || j > n_syllables {
+                    continue;
+                }
+                if beta_score[j].is_infinite() {
+                    continue;
+                }
+
+                let word_len = node.length() as f64;
+                let base_weight = (std::cmp::max(1, node.weight)) as f64;
+                let freq_score = base_weight.ln() * w_freq;
+                let length_bonus = if word_len > 1.0 {
+                    let cohesion_extra = if word_len >= 4.0 {
+                        16.0 * w_coh4
+                    } else if word_len >= 3.0 {
+                        8.0 * w_coh3
+                    } else {
+                        0.0
+                    };
+                    (word_len - 1.0) * router.multi_char_bonus * w_mchar + cohesion_extra
+                } else {
+                    0.0
+                };
+                let archaic_penalty = if crate::router::archaic_table::is_archaic_polyphonic(&node.word, &node.bopomofo) {
+                    -45.0
+                } else {
+                    0.0
+                };
+                let self_score = freq_score + length_bonus + archaic_penalty;
+
+                let right_bigram = if j < n_syllables && !best_right_word[j].is_empty() {
+                    transitions.map_or(0.0, |eng| {
+                        eng.peek_static_bigram_bonus(
+                            &node.word,
+                            &node.bopomofo,
+                            &best_right_word[j],
+                            &best_right_bpm[j],
+                        )
+                    })
+                } else {
+                    0.0
+                };
+
+                let cand = self_score + right_bigram + beta_score[j];
+                if cand > best_cand {
+                    best_cand = cand;
+                    best_word = node.word.clone();
+                    best_bpm = node.bopomofo.clone();
+                }
+                scored_edges.push((cand, node));
+            }
+
+            if best_cand > -f64::INFINITY {
+                beta_score[pos] = best_cand;
+                best_right_word[pos] = best_word;
+                best_right_bpm[pos] = best_bpm;
+
+                const MARGIN: f64 = 14.0;
+                for (cand, node) in scored_edges {
+                    if cand >= best_cand - MARGIN {
+                        let m = ont.mask_of(&node.word);
+                        competitive_right_mask[pos] |= m;
+                        if m.intersects(MorphemeClass::SentenceFinalParticle.bit())
+                            && (is_clause_tail[node.end_idx] || is_clause_tail_or_particle[node.end_idx])
+                        {
+                            is_clause_tail_or_particle[pos] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        Self {
+            n_syllables,
+            beta_score,
+            competitive_right_mask,
+            best_right_word,
+            is_clause_tail,
+            is_clause_tail_or_particle,
+        }
+    }
+
+    #[inline]
+    pub fn competitive_mask_at(&self, pos: usize) -> MorphemeMask256 {
+        self.competitive_right_mask
+            .get(pos)
+            .copied()
+            .unwrap_or(MorphemeMask256::EMPTY)
+    }
+
+    #[inline]
+    pub fn right_has_class(&self, pos: usize, cls: MorphemeClass) -> bool {
+        self.competitive_mask_at(pos).intersects(cls.bit())
+    }
+
+    #[inline]
+    pub fn right_has_any(&self, pos: usize, mask: MorphemeMask256) -> bool {
+        self.competitive_mask_at(pos).intersects(mask)
+    }
+
+    #[inline]
+    pub fn best_right_word_at(&self, pos: usize) -> &str {
+        self.best_right_word
+            .get(pos)
+            .map(|s| s.as_str())
+            .unwrap_or("")
+    }
+
+    #[inline]
+    pub fn is_clause_tail_at(&self, pos: usize) -> bool {
+        pos >= self.n_syllables || self.is_clause_tail.get(pos).copied().unwrap_or(true)
+    }
+
+    #[inline]
+    pub fn is_clause_tail_or_particle_at(&self, pos: usize) -> bool {
+        pos >= self.n_syllables || self.is_clause_tail_or_particle.get(pos).copied().unwrap_or(true)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ViterbiRouter {
@@ -54,6 +247,11 @@ impl ViterbiRouter {
             prev_boundary: 0,
             prev_state_idx: 0,
         });
+
+        if let Some(ref mut eng) = transitions {
+            eng.maybe_reload();
+        }
+        let backward = LatticeBackwardProfile::compute(self, n_syllables, dag, transitions.as_deref());
 
         for i in 0..n_syllables {
             if trellis[i].is_empty() {
@@ -149,6 +347,7 @@ impl ViterbiRouter {
                                     &node.bopomofo,
                                     j,
                                     dag,
+                                    &backward,
                                 );
                                 if is_coord_conj {
                                     // 並列連詞前驅詞頻特徵：使高頻正字 X 優先置於並列連詞之前
@@ -163,6 +362,7 @@ impl ViterbiRouter {
                                     &node.bopomofo,
                                     j,
                                     dag,
+                                    &backward,
                                 )
                             }
                         } else {
@@ -337,6 +537,9 @@ impl ViterbiRouter {
         let prev_trace = transitions.active_trace.take();
         transitions.active_trace = Some(Vec::new());
 
+        let n_syl = path.last().map(|n| n.end_idx).unwrap_or(0);
+        let backward = LatticeBackwardProfile::compute(self, n_syl, dag, Some(&*transitions));
+
         let mut prefix_words: Vec<&str> = Vec::with_capacity(path.len());
         for (idx, node) in path.iter().enumerate() {
             let word_len = node.length() as f64;
@@ -369,6 +572,7 @@ impl ViterbiRouter {
                     &node.bopomofo,
                     node.end_idx,
                     dag,
+                    &backward,
                 );
                 if node.word == "與" {
                     *features.entry("coord_prior".to_string()).or_insert(0.0) +=
@@ -384,6 +588,7 @@ impl ViterbiRouter {
                     &node.bopomofo,
                     node.end_idx,
                     dag,
+                    &backward,
                 );
             }
             prefix_words.push(node.word.as_str());
@@ -400,5 +605,54 @@ impl ViterbiRouter {
         transitions.active_trace = prev_trace;
 
         (features, triggered_rules)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lattice_backward_profile_prunes_noisy_homophones_261111() {
+        let router = ViterbiRouter::default();
+        let mut dag: HashMap<usize, Vec<LatticeNode>> = HashMap::new();
+
+        // 構造音節網格：
+        // pos 0..1: "樹" (weight 200, MC::TreeHead) vs "數" (weight 200, MC::QuantitativeCountMod)
+        // pos 1..3: "部份" (weight 8000, 2-char compound, high score, MC::UiHierarchyAnchor)
+        // pos 1..2: "部" (weight 10, low score 1-char homophone noise)
+        // pos 2..3: "份" (weight 10)
+        // pos 3..4: "吧" (weight 5000, MC::SentenceFinalParticle)
+        dag.insert(0, vec![
+            LatticeNode::new(0, 1, "樹", 200, "ㄕㄨˋ"),
+            LatticeNode::new(0, 1, "數", 200, "ㄕㄨˋ"),
+        ]);
+        dag.insert(1, vec![
+            LatticeNode::new(1, 3, "部份", 8000, "ㄅㄨˋ ㄈㄣˋ"),
+            LatticeNode::new(1, 2, "部", 10, "ㄅㄨˋ"),
+        ]);
+        dag.insert(2, vec![
+            LatticeNode::new(2, 3, "份", 10, "ㄈㄣˋ"),
+        ]);
+        dag.insert(3, vec![
+            LatticeNode::new(3, 4, "吧", 5000, "˙ㄅㄚ"),
+        ]);
+
+        let backward = LatticeBackwardProfile::compute(&router, 4, &dag, None);
+
+        // 1. 驗證 pos 3（"吧"）直達句尾，其前之 pos 3 具備 clause tail
+        assert!(backward.is_clause_tail_at(4));
+        assert!(backward.is_clause_tail_or_particle_at(4));
+        assert_eq!(backward.best_right_word_at(3), "吧");
+        assert!(backward.right_has_class(3, MorphemeClass::SentenceFinalParticle));
+        // pos 3 緊接語氣詞且直達句尾 ➔ pos 3 標記為 is_clause_tail_or_particle
+        assert!(backward.is_clause_tail_or_particle_at(3));
+
+        // 2. 驗證 pos 1 之最佳右鄰詞為雙字高分詞「部份」而非低分單字「部」
+        assert_eq!(backward.best_right_word_at(1), "部份");
+        assert!(backward.right_has_class(1, MorphemeClass::UiHierarchyAnchor));
+
+        // 3. 驗證 pos 1..3 高分跨躍使 pos 0 之最佳後綴路徑正確收斂
+        assert!(!backward.best_right_word_at(0).is_empty());
     }
 }

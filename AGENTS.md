@@ -50,8 +50,8 @@
 
 ## 3. 漢語語素語意本體庫（Single-Source-of-Truth Morpheme Ontology）
 
-- **資料層單一事實來源**：[`ruhi_lexicon/data/morpheme_ontology.json`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/morpheme_ontology.json)（定義 44 大正交語素語意類別 `MorphemeClass` 與纖維叢配對排除規則 `fiber_bundles`）。
-- **引擎層 $O(1)$ 位元遮罩索引**：[`ruhi-core/src/router/morpheme_ontology.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/morpheme_ontology.rs)（`MorphemeOntology::global()` 編譯為 64-bit `MorphemeSemanticMask: u64`）。
+- **資料層單一事實來源**：[`ruhi_lexicon/data/morpheme_ontology.json`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/morpheme_ontology.json)（定義 66 大正交語素語意類別（支援最高 256 類擴充）`MorphemeClass` 與纖維叢配對排除規則 `fiber_bundles`）。
+- **引擎層 $O(1)$ 位元遮罩索引**：[`ruhi-core/src/router/morpheme_ontology.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/morpheme_ontology.rs)（`MorphemeOntology::global()` 編譯為 256-bit `MorphemeMask256([u64; 4])`）。
 - **維護鐵律**：凡需擴充某語意類之同類單字語素（如燈具修飾 `LampMod`、火源修飾 `FireLightMod`、位移動詞詞根 `MotionGazeVerbStem`、氣象四子叢語素等），**一律集中於 `morpheme_ontology.json` 維護**，嚴禁在個別函式中散落重複硬編碼 `matches!` 清單。
 
 ---

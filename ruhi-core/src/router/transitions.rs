@@ -6014,6 +6014,34 @@ impl TransitionEngine {
         Ok(count)
     }
 
+    /// 供後向預掃描 (`LatticeBackwardProfile`) 查詢之唯讀靜態二元轉移位勢（不觸發 trace 紀錄，零副作用）
+    #[inline]
+    pub fn peek_static_bigram_bonus(
+        &self,
+        prev_word: &str,
+        prev_bopomofo: &str,
+        curr_word: &str,
+        curr_bopomofo: &str,
+    ) -> f64 {
+        if crate::router::archaic_table::is_archaic_polyphonic(curr_word, curr_bopomofo)
+            || crate::router::archaic_table::is_archaic_polyphonic(prev_word, prev_bopomofo)
+        {
+            return -45.0;
+        }
+        let pair_key = (prev_word.to_string(), curr_word.to_string());
+        if self.excluded_pairs.contains(&pair_key) {
+            return 0.0;
+        }
+        let mut b = 0.0;
+        if let Some(&s) = self.transitions.get(&pair_key) {
+            b += s;
+        }
+        if let Some(&s) = self.builtin_transitions.get(&pair_key) {
+            b += s;
+        }
+        b
+    }
+
     /// 計算前驅節點轉移至當前節點的語意句法轉移加權分
     ///
     /// 查找順序（優先順序由高到低）:

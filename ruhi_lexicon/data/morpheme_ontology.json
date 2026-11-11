@@ -1,7 +1,7 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "title": "如喜（RuhI）漢語語素語意本體分類庫（Canonical Mandarin Morpheme Semantic Ontology）",
-  "description": "單一事實來源（Single Source of Truth）之漢語單字語素與雙字詞根語意分類表，供 ruhi-core（64-bit MorphemeSemanticMask 位元遮罩與九大拓撲結構算子）與 ruhi-studio（槽位同化與因式分解引擎）共用。",
+  "description": "單一事實來源（Single Source of Truth）之漢語單字語素與雙字詞根語意分類表，供 ruhi-core（256-bit MorphemeMask256 位元遮罩與九大拓撲結構算子）與 ruhi-settings（槽位同化與因式分解引擎）共用。",
   "classes": {
     "WeatherPrecipMod": {
       "bit_index": 0,
@@ -1357,6 +1357,171 @@
         "兩",
         "零"
       ]
+    },
+    "HierarchicalTreeMod": {
+      "bit_index": 58,
+      "description": "階層樹狀結構修飾語素（搭配 樹，如 語法樹／決策樹／目錄樹／二元樹）",
+      "members": [
+        "語法",
+        "句法",
+        "決策",
+        "目錄",
+        "檔案",
+        "譜系",
+        "親緣",
+        "演化",
+        "家族",
+        "語言",
+        "二元",
+        "搜尋",
+        "字典",
+        "字首",
+        "生成",
+        "元件",
+        "依賴",
+        "呼叫",
+        "導覽",
+        "階層",
+        "紅黑",
+        "平衡"
+      ]
+    },
+    "QuantitativeCountMod": {
+      "bit_index": 59,
+      "description": "數量與代數計量修飾語素（搭配 數，與樹狀結構正交分流）",
+      "members": [
+        "總",
+        "計算",
+        "統計",
+        "最大",
+        "最小",
+        "平均",
+        "樣本",
+        "類別",
+        "參數",
+        "變數",
+        "函數",
+        "筆",
+        "件",
+        "項",
+        "組",
+        "批"
+      ]
+    },
+    "UiHierarchyAnchor": {
+      "bit_index": 60,
+      "description": "使用者介面與階層視圖語境錨點（鎖定 分類樹 vs 分類數）",
+      "members": [
+        "介面",
+        "側欄",
+        "選單",
+        "面板",
+        "分頁",
+        "節點",
+        "樹狀",
+        "展開",
+        "收合",
+        "設定",
+        "視窗",
+        "層級",
+        "部份",
+        "部分"
+      ]
+    },
+    "TreeHead": {
+      "bit_index": 61,
+      "description": "樹狀資料結構與分類體系中心語素",
+      "members": [
+        "樹"
+      ]
+    },
+    "UrgencyTopicAnchor": {
+      "bit_index": 62,
+      "description": "句尾不及物狀態謂語『不急』之指示／話題／時間體貌左鄰錨點",
+      "members": [
+        "這",
+        "這個",
+        "那",
+        "那個",
+        "先",
+        "還",
+        "暫時",
+        "目前",
+        "倒",
+        "倒也",
+        "也",
+        "並",
+        "其實",
+        "一點",
+        "完全",
+        "暫且",
+        "事情",
+        "事",
+        "部份",
+        "部分"
+      ]
+    },
+    "BujiIdiomPrefix": {
+      "bit_index": 63,
+      "description": "黏著及物／成語『不及』之左鄰固定前綴與程度副詞",
+      "members": [
+        "來",
+        "措手",
+        "過猶",
+        "始料",
+        "力有",
+        "後悔",
+        "猝",
+        "遠",
+        "大",
+        "自嘆",
+        "望塵",
+        "迫",
+        "唯恐",
+        "力所"
+      ]
+    },
+    "BujiObjectHead": {
+      "bit_index": 64,
+      "description": "黏著及物動詞『不及』之右鄰受事／比較基準／補語中心語",
+      "members": [
+        "格",
+        "預期",
+        "標準",
+        "他",
+        "她",
+        "它",
+        "你",
+        "我",
+        "前",
+        "往年",
+        "去年",
+        "以往",
+        "一半",
+        "防",
+        "待",
+        "備"
+      ]
+    },
+    "SentenceFinalParticle": {
+      "bit_index": 65,
+      "description": "句末語氣助詞（對句尾價態飽和判定具透明穿透性）",
+      "members": [
+        "嗎",
+        "呢",
+        "吧",
+        "啊",
+        "呀",
+        "喔",
+        "哦",
+        "啦",
+        "囉",
+        "嘍",
+        "唄",
+        "嘛",
+        "唷",
+        "耶"
+      ]
     }
   },
   "fiber_bundles": [
@@ -1630,6 +1795,17 @@
           "取"
         ]
       ]
+    },
+    {
+      "bundle_id": "taxonomy_tree_bundle",
+      "description": "拓撲結構 I：階層樹狀結構修飾語素 × 樹狀中心語正交子叢",
+      "sub_bundles": [
+        {
+          "modifier_class": "HierarchicalTreeMod",
+          "head_class": "TreeHead"
+        }
+      ],
+      "exclude_pairs": []
     }
   ]
 }

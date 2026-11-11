@@ -14151,4 +14151,75 @@ mod tests {
             assert_eq!(actual, expected, "大千模式鍵位 {} 解碼失敗，預期『{}』，實際『{}』", keys, expected, actual);
         }
     }
+
+    #[test]
+    fn test_phase2_mask256_backward_dp_tree_and_buji_261111() {
+        let mut engine = RuhiEngine::new();
+
+        // 1. 許氏鍵盤雙拼模式
+        engine.set_keyboard_mode("hsu");
+        let hsu_cases = vec![
+            ("UIfn lajcxjbxjfnjckjdijtewdjlf", "UI分類樹部份尚待調整"),
+            ("jeejmemjfn lajcxj", "介面分類樹"),
+            ("uffrfcxj", "語法樹"),
+            ("ljumdso cundcxj", "二元搜尋樹"),
+            ("jejsxmjfn lajcxj", "計算分類數"),
+            ("zxlffn lajcxj", "總分類數"),
+            ("am cxj", "參數"),
+            ("dmjjgjggsbxjjed", "但這個不急"),
+            ("jgjggscem bxjjedbys", "這個先不急吧"),
+            ("mxjvemdhidbxjjed", "目前還不急"),
+            ("lidbxjjed", "來不及"),
+            ("axhjcofbxjjed", "措手不及"),
+            ("gxhjeodbxjjed", "過猶不及"),
+            ("jgjggsbxjjedujved", "這個不及預期"),
+            ("umfbxjjedtr ", "遠不及他"),
+        ];
+        for (keys, expected) in hsu_cases {
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let mut committed = String::new();
+            for ch in keys.chars() {
+                let resp = engine.process_key(ch);
+                if !resp.committed_chunk.is_empty() {
+                    committed.push_str(&resp.committed_chunk);
+                }
+            }
+            let actual = format!("{}{}", committed, engine.get_display_text());
+            assert_eq!(actual, expected, "許氏模式鍵位 {} 解碼失敗，預期『{}』，實際『{}』", keys, expected, actual);
+        }
+
+        // 2. 標準大千注音模式
+        engine.set_keyboard_mode("standard");
+        let daqian_cases = vec![
+            ("UIzp xo4gj41j4zp4g;4294wul65/3", "UI分類樹部份尚待調整"),
+            ("ru,4au04zp xo4gj4", "介面分類樹"),
+            ("m3z83gj4", "語法樹"),
+            ("-4m06n. vmp6gj4", "二元搜尋樹"),
+            ("ru4nj04zp xo4gj4", "計算分類數"),
+            ("yj/3zp xo4gj4", "總分類數"),
+            ("h0 gj4", "參數"),
+            ("2045k4ek71j4ru6", "但這個不急"),
+            ("5k4ek7vu0 1j4ru6187", "這個先不急吧"),
+            ("aj4fu06c961j4ru6", "目前還不急"),
+            ("x961j4ru6", "來不及"),
+            ("hji4g.31j4ru6", "措手不及"),
+            ("eji4u.61j4ru6", "過猶不及"),
+            ("5k4ek71j4ru6m4fu6", "這個不及預期"),
+            ("m031j4ru6w8 ", "遠不及他"),
+        ];
+        for (keys, expected) in daqian_cases {
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let mut committed = String::new();
+            for ch in keys.chars() {
+                let resp = engine.process_key(ch);
+                if !resp.committed_chunk.is_empty() {
+                    committed.push_str(&resp.committed_chunk);
+                }
+            }
+            let actual = format!("{}{}", committed, engine.get_display_text());
+            assert_eq!(actual, expected, "大千模式鍵位 {} 解碼失敗，預期『{}』，實際『{}』", keys, expected, actual);
+        }
+    }
 }

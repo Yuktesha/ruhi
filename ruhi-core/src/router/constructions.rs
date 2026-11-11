@@ -171,6 +171,7 @@ impl TransitionEngine {
         curr_bopomofo: &str,
         end_idx: usize,
         dag: &HashMap<usize, Vec<LatticeNode>>,
+        backward: &super::viterbi::LatticeBackwardProfile,
     ) -> f64 {
         if self.is_rule_disabled("construction_hierarchical_matrix") {
             return 0.0;
@@ -4583,6 +4584,92 @@ impl TransitionEngine {
                     || ont.has_class(prev_word, MC::WaitConditionNoun);
                 if has_dai && left_ok {
                     if matches!(curr_word, "後" | "時") { bonus += 24.0; } else { bonus -= 24.0; }
+                }
+            }
+
+            // 31-4c. 「樹 vs 數／術／束／述」：樹狀結構正交子叢 HierarchicalTreeMod × 樹 與 UI／介面 + 分類 + 樹 vs 計量 分類 + 數
+            if !self.is_rule_disabled("ctx31_shu_tree")
+                && matches!(curr_word, "樹" | "數" | "術" | "束" | "述")
+                && (curr_bopomofo.is_empty() || curr_bopomofo == "ㄕㄨˋ")
+            {
+                let best_right_tok = backward.best_right_word_at(end_idx);
+                let right_blocks_tree = matches!(best_right_tok, "量" | "目" | "學" | "值" | "字" | "據" | "列");
+                if ont.has_class(prev_word, MC::HierarchicalTreeMod) && !right_blocks_tree {
+                    if curr_word == "樹" {
+                        bonus += 28.0;
+                    } else if curr_word == "數" {
+                        bonus -= 24.0;
+                    }
+                } else if prev_word == "分類" {
+                    let ascii_ui_left = prev2_word.eq_ignore_ascii_case("ui")
+                        || prev2_word.eq_ignore_ascii_case("gui")
+                        || prev2_word.eq_ignore_ascii_case("dom")
+                        || prev2_word.eq_ignore_ascii_case("ast")
+                        || prev2_word.eq_ignore_ascii_case("tree")
+                        || prev2_word.eq_ignore_ascii_case("nav")
+                        || prev2_word.eq_ignore_ascii_case("menu");
+                    let ui_left = ascii_ui_left || ont.has_class(prev2_word, MC::UiHierarchyAnchor);
+                    let ui_right = backward.right_has_class(end_idx, MC::UiHierarchyAnchor);
+                    let quant_left = ont.has_class(prev2_word, MC::QuantitativeCountMod);
+                    if (ui_left || ui_right) && !quant_left && !right_blocks_tree {
+                        if curr_word == "樹" {
+                            bonus += 28.0;
+                        } else if curr_word == "數" {
+                            bonus -= 24.0;
+                        }
+                    } else if quant_left {
+                        if curr_word == "數" {
+                            bonus += 24.0;
+                        } else if curr_word == "樹" {
+                            bonus -= 20.0;
+                        }
+                    }
+                }
+            }
+
+            // 31-4d. 後向句尾價態飽和析辨：句尾不及物狀態謂語 [UrgencyTopicAnchor] + 不急 vs 黏著及物／成語 不及
+            if !self.is_rule_disabled("ctx31_buji") {
+                if matches!(curr_word, "不急" | "不及") {
+                    let idiom_left = ont.has_class(prev_word, MC::BujiIdiomPrefix);
+                    let topic_left = ont.has_class(prev_word, MC::UrgencyTopicAnchor)
+                        || (prev_word == "個" && matches!(prev2_word, "這" | "那"));
+                    let buji_obj_right = backward.right_has_class(end_idx, MC::BujiObjectHead);
+                    let best_right_tok = backward.best_right_word_at(end_idx);
+                    let stative_tail_right = backward.is_clause_tail_or_particle_at(end_idx)
+                        || best_right_tok == "著"
+                        || best_right_tok.starts_with('著');
+                    if idiom_left || buji_obj_right {
+                        if curr_word == "不及" {
+                            bonus += 26.0;
+                        } else {
+                            bonus -= 26.0;
+                        }
+                    } else if topic_left && stative_tail_right {
+                        if curr_word == "不急" {
+                            bonus += 28.0;
+                        } else {
+                            bonus -= 28.0;
+                        }
+                    }
+                } else if prev_word == "不"
+                    && matches!(curr_word, "急" | "及")
+                    && (curr_bopomofo.is_empty() || curr_bopomofo == "ㄐㄧˊ")
+                {
+                    let idiom_left2 = ont.has_class(prev2_word, MC::BujiIdiomPrefix);
+                    let topic_left2 = ont.has_class(prev2_word, MC::UrgencyTopicAnchor)
+                        || (prev2_word == "個" && matches!(prev3_word, "這" | "那"));
+                    let buji_obj_right = backward.right_has_class(end_idx, MC::BujiObjectHead);
+                    let best_right_tok = backward.best_right_word_at(end_idx);
+                    let stative_tail_right = backward.is_clause_tail_or_particle_at(end_idx)
+                        || best_right_tok == "著"
+                        || best_right_tok.starts_with('著');
+                    if !idiom_left2 && !buji_obj_right && topic_left2 && stative_tail_right {
+                        if curr_word == "急" {
+                            bonus += 24.0;
+                        } else {
+                            bonus -= 24.0;
+                        }
+                    }
                 }
             }
         }

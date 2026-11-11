@@ -6,7 +6,108 @@ use std::sync::OnceLock;
 const BUILTIN_MORPHEME_ONTOLOGY_JSON: &str =
     include_str!("../../../ruhi_lexicon/data/morpheme_ontology.json");
 
-/// 漢語語素語意本體分類枚舉（對應 64-bit `MorphemeSemanticMask` 位元索引 0..=57）
+/// 零堆積配置（Zero-Heap `Copy`）之 256-bit 語素語意位元遮罩（支援 0..=255 正交語意類別）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct MorphemeMask256(pub [u64; 4]);
+
+impl MorphemeMask256 {
+    pub const EMPTY: Self = Self([0; 4]);
+
+    #[inline]
+    pub const fn empty() -> Self {
+        Self([0; 4])
+    }
+
+    #[inline]
+    pub const fn from_bit(bit_index: u32) -> Self {
+        if bit_index >= 256 {
+            return Self::EMPTY;
+        }
+        let lane = (bit_index / 64) as usize;
+        let offset = bit_index % 64;
+        let mut lanes = [0u64; 4];
+        lanes[lane] = 1u64 << offset;
+        Self(lanes)
+    }
+
+    #[inline]
+    pub const fn bitor(self, rhs: Self) -> Self {
+        Self([
+            self.0[0] | rhs.0[0],
+            self.0[1] | rhs.0[1],
+            self.0[2] | rhs.0[2],
+            self.0[3] | rhs.0[3],
+        ])
+    }
+
+    #[inline]
+    pub const fn bitand(self, rhs: Self) -> Self {
+        Self([
+            self.0[0] & rhs.0[0],
+            self.0[1] & rhs.0[1],
+            self.0[2] & rhs.0[2],
+            self.0[3] & rhs.0[3],
+        ])
+    }
+
+    #[inline]
+    pub const fn is_empty(self) -> bool {
+        (self.0[0] | self.0[1] | self.0[2] | self.0[3]) == 0
+    }
+
+    #[inline]
+    pub const fn intersects(self, rhs: Self) -> bool {
+        !self.bitand(rhs).is_empty()
+    }
+
+    #[inline]
+    pub const fn contains(self, sub: Self) -> bool {
+        (self.0[0] & sub.0[0]) == sub.0[0]
+            && (self.0[1] & sub.0[1]) == sub.0[1]
+            && (self.0[2] & sub.0[2]) == sub.0[2]
+            && (self.0[3] & sub.0[3]) == sub.0[3]
+    }
+
+    #[inline]
+    pub const fn count_ones(self) -> u32 {
+        self.0[0].count_ones()
+            + self.0[1].count_ones()
+            + self.0[2].count_ones()
+            + self.0[3].count_ones()
+    }
+}
+
+impl std::ops::BitOr for MorphemeMask256 {
+    type Output = Self;
+    #[inline]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self::bitor(self, rhs)
+    }
+}
+
+impl std::ops::BitOrAssign for MorphemeMask256 {
+    #[inline]
+    fn bitor_assign(&mut self, rhs: Self) {
+        *self = Self::bitor(*self, rhs);
+    }
+}
+
+impl std::ops::BitAnd for MorphemeMask256 {
+    type Output = Self;
+    #[inline]
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self::bitand(self, rhs)
+    }
+}
+
+impl std::ops::BitAndAssign for MorphemeMask256 {
+    #[inline]
+    fn bitand_assign(&mut self, rhs: Self) {
+        *self = Self::bitand(*self, rhs);
+    }
+}
+
+/// 漢語語素語意本體分類枚舉（對應 256-bit `MorphemeMask256` 位元索引 0..=65）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u32)]
 pub enum MorphemeClass {
@@ -68,12 +169,20 @@ pub enum MorphemeClass {
     WaitResultVerb = 55,
     TemporalPostposition = 56,
     QuantityExprWord = 57,
+    HierarchicalTreeMod = 58,
+    QuantitativeCountMod = 59,
+    UiHierarchyAnchor = 60,
+    TreeHead = 61,
+    UrgencyTopicAnchor = 62,
+    BujiIdiomPrefix = 63,
+    BujiObjectHead = 64,
+    SentenceFinalParticle = 65,
 }
 
 impl MorphemeClass {
     #[inline]
-    pub const fn bit(self) -> u64 {
-        1u64 << (self as u32)
+    pub const fn bit(self) -> MorphemeMask256 {
+        MorphemeMask256::from_bit(self as u32)
     }
 
     pub const fn as_str(self) -> &'static str {
@@ -136,6 +245,14 @@ impl MorphemeClass {
             Self::WaitResultVerb => "WaitResultVerb",
             Self::TemporalPostposition => "TemporalPostposition",
             Self::QuantityExprWord => "QuantityExprWord",
+            Self::HierarchicalTreeMod => "HierarchicalTreeMod",
+            Self::QuantitativeCountMod => "QuantitativeCountMod",
+            Self::UiHierarchyAnchor => "UiHierarchyAnchor",
+            Self::TreeHead => "TreeHead",
+            Self::UrgencyTopicAnchor => "UrgencyTopicAnchor",
+            Self::BujiIdiomPrefix => "BujiIdiomPrefix",
+            Self::BujiObjectHead => "BujiObjectHead",
+            Self::SentenceFinalParticle => "SentenceFinalParticle",
         }
     }
 
@@ -199,26 +316,36 @@ impl MorphemeClass {
             "WaitResultVerb" => Some(Self::WaitResultVerb),
             "TemporalPostposition" => Some(Self::TemporalPostposition),
             "QuantityExprWord" => Some(Self::QuantityExprWord),
+            "HierarchicalTreeMod" => Some(Self::HierarchicalTreeMod),
+            "QuantitativeCountMod" => Some(Self::QuantitativeCountMod),
+            "UiHierarchyAnchor" => Some(Self::UiHierarchyAnchor),
+            "TreeHead" => Some(Self::TreeHead),
+            "UrgencyTopicAnchor" => Some(Self::UrgencyTopicAnchor),
+            "BujiIdiomPrefix" => Some(Self::BujiIdiomPrefix),
+            "BujiObjectHead" => Some(Self::BujiObjectHead),
+            "SentenceFinalParticle" => Some(Self::SentenceFinalParticle),
             _ => None,
         }
     }
 }
 
-pub const WEATHER_HEAD_MASK: u64 = MorphemeClass::WeatherPrecipHead.bit()
-    | MorphemeClass::WeatherWindHead.bit()
-    | MorphemeClass::WeatherVaporHead.bit()
-    | MorphemeClass::WeatherSevereHead.bit();
+pub const WEATHER_HEAD_MASK: MorphemeMask256 = MorphemeClass::WeatherPrecipHead
+    .bit()
+    .bitor(MorphemeClass::WeatherWindHead.bit())
+    .bitor(MorphemeClass::WeatherVaporHead.bit())
+    .bitor(MorphemeClass::WeatherSevereHead.bit());
 
-pub const WEATHER_MOD_MASK: u64 = MorphemeClass::WeatherPrecipMod.bit()
-    | MorphemeClass::WeatherWindMod.bit()
-    | MorphemeClass::WeatherVaporMod.bit()
-    | MorphemeClass::WeatherSevereMod.bit();
+pub const WEATHER_MOD_MASK: MorphemeMask256 = MorphemeClass::WeatherPrecipMod
+    .bit()
+    .bitor(MorphemeClass::WeatherWindMod.bit())
+    .bitor(MorphemeClass::WeatherVaporMod.bit())
+    .bitor(MorphemeClass::WeatherSevereMod.bit());
 
-pub const LUMINOUS_MOD_MASK: u64 =
-    MorphemeClass::LampMod.bit() | MorphemeClass::FireLightMod.bit();
+pub const LUMINOUS_MOD_MASK: MorphemeMask256 =
+    MorphemeClass::LampMod.bit().bitor(MorphemeClass::FireLightMod.bit());
 
-pub const LUMINOUS_HEAD_MASK: u64 =
-    MorphemeClass::LampHead.bit() | MorphemeClass::FireLightHead.bit();
+pub const LUMINOUS_HEAD_MASK: MorphemeMask256 =
+    MorphemeClass::LampHead.bit().bitor(MorphemeClass::FireLightHead.bit());
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MorphemeClassDef {
@@ -254,7 +381,7 @@ pub struct MorphemeOntologySchema {
 /// 統一漢語語素語意本體庫（Single Source of Truth Morpheme Ontology）
 #[derive(Debug, Clone)]
 pub struct MorphemeOntology {
-    pub word_masks: HashMap<String, u64>,
+    pub word_masks: HashMap<String, MorphemeMask256>,
     pub class_members: HashMap<String, Vec<String>>,
     pub fiber_bundles: Vec<FiberBundleSpec>,
     pub excluded_pairs: HashSet<(String, String)>,
@@ -281,22 +408,22 @@ impl MorphemeOntology {
     pub fn from_json_str(json_str: &str) -> Result<Self, String> {
         let schema: MorphemeOntologySchema =
             serde_json::from_str(json_str).map_err(|e| format!("JSON parse error: {e}"))?;
-        let mut word_masks: HashMap<String, u64> = HashMap::with_capacity(512);
+        let mut word_masks: HashMap<String, MorphemeMask256> = HashMap::with_capacity(512);
         let mut class_members: HashMap<String, Vec<String>> =
             HashMap::with_capacity(schema.classes.len());
 
         for (class_name, def) in schema.classes {
             let bit = if let Some(cls) = MorphemeClass::from_name(&class_name) {
                 cls.bit()
-            } else if def.bit_index < 64 {
-                1u64 << def.bit_index
+            } else if def.bit_index < 256 {
+                MorphemeMask256::from_bit(def.bit_index)
             } else {
-                0
+                MorphemeMask256::EMPTY
             };
             for member in &def.members {
                 let trimmed = member.trim();
                 if !trimmed.is_empty() {
-                    *word_masks.entry(trimmed.to_string()).or_insert(0) |= bit;
+                    *word_masks.entry(trimmed.to_string()).or_insert(MorphemeMask256::EMPTY) |= bit;
                 }
             }
             class_members.insert(class_name, def.members);
@@ -318,18 +445,18 @@ impl MorphemeOntology {
     }
 
     #[inline]
-    pub fn mask_of(&self, word: &str) -> u64 {
-        self.word_masks.get(word).copied().unwrap_or(0)
+    pub fn mask_of(&self, word: &str) -> MorphemeMask256 {
+        self.word_masks.get(word).copied().unwrap_or(MorphemeMask256::EMPTY)
     }
 
     #[inline]
     pub fn has_class(&self, word: &str, class: MorphemeClass) -> bool {
-        (self.mask_of(word) & class.bit()) != 0
+        self.mask_of(word).intersects(class.bit())
     }
 
     #[inline]
-    pub fn has_any_class(&self, word: &str, mask: u64) -> bool {
-        (self.mask_of(word) & mask) != 0
+    pub fn has_any_class(&self, word: &str, mask: MorphemeMask256) -> bool {
+        self.mask_of(word).intersects(mask)
     }
 
     #[inline]
@@ -374,14 +501,14 @@ impl MorphemeOntology {
         }
         let m_mask = self.mask_of(mod_word);
         let h_mask = self.mask_of(head_word);
-        ((m_mask & MorphemeClass::WeatherPrecipMod.bit()) != 0
-            && (h_mask & MorphemeClass::WeatherPrecipHead.bit()) != 0)
-            || ((m_mask & MorphemeClass::WeatherWindMod.bit()) != 0
-                && (h_mask & MorphemeClass::WeatherWindHead.bit()) != 0)
-            || ((m_mask & MorphemeClass::WeatherVaporMod.bit()) != 0
-                && (h_mask & MorphemeClass::WeatherVaporHead.bit()) != 0)
-            || ((m_mask & MorphemeClass::WeatherSevereMod.bit()) != 0
-                && (h_mask & MorphemeClass::WeatherSevereHead.bit()) != 0)
+        (m_mask.intersects(MorphemeClass::WeatherPrecipMod.bit())
+            && h_mask.intersects(MorphemeClass::WeatherPrecipHead.bit()))
+            || (m_mask.intersects(MorphemeClass::WeatherWindMod.bit())
+                && h_mask.intersects(MorphemeClass::WeatherWindHead.bit()))
+            || (m_mask.intersects(MorphemeClass::WeatherVaporMod.bit())
+                && h_mask.intersects(MorphemeClass::WeatherVaporHead.bit()))
+            || (m_mask.intersects(MorphemeClass::WeatherSevereMod.bit())
+                && h_mask.intersects(MorphemeClass::WeatherSevereHead.bit()))
     }
 
     /// 取得指定語素類別之全體成員清單（供 `ruhi-studio` 槽位同化與類推擴展使用）
@@ -434,5 +561,52 @@ mod tests {
         assert!(ont.has_class("向", MorphemeClass::BoundHeadMorpheme));
         assert!(ont.has_class("連", MorphemeClass::ConcessiveFocusTrigger));
         assert!(ont.has_class("走過去", MorphemeClass::SerialMotionV1));
+    }
+
+    #[test]
+    fn test_morpheme_mask256_cross_lane_and_new_classes_261111() {
+        // 1. 測試跨 lane 位元遮罩代數運算 (lane 0: bit 10, lane 1: bit 64, bit 65, lane 3: bit 255)
+        let mask_empty = MorphemeMask256::EMPTY;
+        assert!(mask_empty.is_empty());
+        assert_eq!(mask_empty.count_ones(), 0);
+
+        let m10 = MorphemeMask256::from_bit(10);
+        let m64 = MorphemeMask256::from_bit(64);
+        let m65 = MorphemeMask256::from_bit(65);
+        let m255 = MorphemeMask256::from_bit(255);
+        let m_oob = MorphemeMask256::from_bit(256);
+        assert!(m_oob.is_empty());
+
+        assert_eq!(m10.0[0], 1u64 << 10);
+        assert_eq!(m64.0[1], 1u64 << 0);
+        assert_eq!(m65.0[1], 1u64 << 1);
+        assert_eq!(m255.0[3], 1u64 << 63);
+
+        let combined = m10 | m64 | m65 | m255;
+        assert_eq!(combined.count_ones(), 4);
+        assert!(combined.intersects(m10));
+        assert!(combined.intersects(m64));
+        assert!(combined.intersects(m65));
+        assert!(combined.intersects(m255));
+        assert!(combined.contains(m64 | m65));
+        assert!(!m10.intersects(m64));
+
+        // 2. 測試新語意類別在本體庫中之精確解析
+        let ont = MorphemeOntology::global();
+        assert!(ont.has_class("語法", MorphemeClass::HierarchicalTreeMod));
+        assert!(ont.has_class("二元", MorphemeClass::HierarchicalTreeMod));
+        assert!(ont.has_class("計算", MorphemeClass::QuantitativeCountMod));
+        assert!(ont.has_class("參數", MorphemeClass::QuantitativeCountMod));
+        assert!(ont.has_class("側欄", MorphemeClass::UiHierarchyAnchor));
+        assert!(ont.has_class("介面", MorphemeClass::UiHierarchyAnchor));
+        assert!(ont.has_class("樹", MorphemeClass::TreeHead));
+        assert!(ont.has_class("這", MorphemeClass::UrgencyTopicAnchor));
+        assert!(ont.has_class("暫時", MorphemeClass::UrgencyTopicAnchor));
+        assert!(ont.has_class("來", MorphemeClass::BujiIdiomPrefix));
+        assert!(ont.has_class("措手", MorphemeClass::BujiIdiomPrefix));
+        assert!(ont.has_class("格", MorphemeClass::BujiObjectHead));
+        assert!(ont.has_class("預期", MorphemeClass::BujiObjectHead));
+        assert!(ont.has_class("嗎", MorphemeClass::SentenceFinalParticle));
+        assert!(ont.has_class("吧", MorphemeClass::SentenceFinalParticle));
     }
 }
