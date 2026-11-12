@@ -704,9 +704,17 @@ impl TelemetrySyncClient {
                     .unwrap_or("")
                     .trim();
                 let (ok, _) = HeuristicPiiFilter::is_safe_token(word);
+                let ends_with_transparent = word.ends_with(['控', '框', '族', '黨', '粉', '迷']);
+                let contains_zhiyu = word.contains("數據")
+                    || word.contains("內存")
+                    || word.contains("軟件")
+                    || word.contains("服務器")
+                    || word.contains("默認");
                 if ok
                     && (2..=6).contains(&word.chars().count())
                     && !is_syntactic_phrase_or_clitic(word)
+                    && !ends_with_transparent
+                    && !contains_zhiyu
                 {
                     valid_compounds.push(r.clone());
                 } else {
@@ -794,7 +802,7 @@ impl TelemetrySyncClient {
             .unwrap_or("");
 
         let mut msg = format!(
-            "✅ Tailcat 同步完成：新增 {} 個自建詞彙、{} 條二階轉移、{} 條槽位構式、{} 條破音字黑名單。",
+            "✅ Tailcat 同步完成：新增 {} 個社群詞彙、{} 條二階轉移、{} 條槽位構式、{} 條破音字黑名單。",
             imported_compounds, imported_bigrams, imported_constructions, imported_rejected
         );
         if skipped_newer_version > 0 {
@@ -823,14 +831,17 @@ impl TelemetrySyncClient {
         })
     }
 
-    /// 將詞彙寫入個人詞庫 `user_dict.tsv`（不重複寫入）
+    /// 將詞彙寫入社群詞庫暫存 `tailcat_community_words.tsv`（絕不污染使用者個人詞庫 `user_dict.tsv`，不重複寫入）
     fn append_words_to_user_dict(&self, words: &[Value]) -> usize {
         if words.is_empty() {
             return 0;
         }
-        let target = &self.user_dict_tsv;
-        let existing_raw = fs::read_to_string(target).unwrap_or_else(|_| {
-            "# RuhI 使用者自建詞庫 (User Custom Lexicon)\n# 格式規範: WORD\tBOPOMOFO\tWEIGHT\tCATEGORY\tNOTE\n".to_string()
+        let target = self.data_dir.join("tailcat_community_words.tsv");
+        if let Some(parent) = target.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let existing_raw = fs::read_to_string(&target).unwrap_or_else(|_| {
+            "# RuhI 社群同步詞庫暫存 (Tailcat Community Words)\n# 格式規範: WORD\tBOPOMOFO\tWEIGHT\tCATEGORY\tNOTE\n".to_string()
         });
         let mut existing_words = HashSet::new();
         for line in existing_raw.lines() {
@@ -882,7 +893,7 @@ impl TelemetrySyncClient {
             updated.push_str(l);
             updated.push('\n');
         }
-        let _ = fs::write(target, &updated);
+        let _ = fs::write(&target, &updated);
         new_lines.len()
     }
 
@@ -1266,6 +1277,18 @@ mod tests {
                 },
                 {
                     "type": "COMPOUND_WORD",
+                    "word": "細節控",
+                    "bopomofo": "ㄒㄧˋ ㄐㄧㄝˊ ㄎㄨㄥˋ",
+                    "weight": 550
+                },
+                {
+                    "type": "COMPOUND_WORD",
+                    "word": "數據庫",
+                    "bopomofo": "ㄕㄨˋ ㄐㄩˋ ㄎㄨˋ",
+                    "weight": 550
+                },
+                {
+                    "type": "COMPOUND_WORD",
                     "word": "新架構",
                     "bopomofo": "ㄒㄧㄣ ㄐㄧㄚˋ ㄍㄡˋ",
                     "weight": 780
@@ -1282,12 +1305,20 @@ mod tests {
         let res = client.import_tailcat_package(&test_pkg);
         assert_eq!(res["status"], "ok");
         assert_eq!(res["blocked_unigram_rules"], 1);
+        assert_eq!(res["blocked_unsafe_rules"], 2); // "細節控" (ends with 控) & "數據庫" (contains 數據)
         assert_eq!(res["imported_compounds"], 1);
         assert_eq!(res["imported_bigrams"], 1);
 
-        assert!(client.user_dict_tsv.is_file());
-        let dict_content = fs::read_to_string(&client.user_dict_tsv).unwrap_or_default();
+        // Verify user_dict.tsv is NOT created or polluted
+        assert!(!client.user_dict_tsv.exists());
+
+        // Verify community words are isolated in data_dir/tailcat_community_words.tsv
+        let comm_words_file = client.data_dir.join("tailcat_community_words.tsv");
+        assert!(comm_words_file.is_file());
+        let dict_content = fs::read_to_string(&comm_words_file).unwrap_or_default();
         assert!(dict_content.contains("新架構"));
+        assert!(!dict_content.contains("細節控"));
+        assert!(!dict_content.contains("數據庫"));
 
         let _ = fs::remove_dir_all(&sandbox_dir);
     }

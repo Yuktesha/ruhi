@@ -15,6 +15,7 @@ pub struct GeoEntityMeta {
     pub postal_code: String,
     pub category: String,
     pub children: Vec<String>,
+    pub l1_root: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,13 +28,19 @@ pub struct GeoPostalMatch {
 
 pub struct CjkGeoHierarchy {
     /// entity name (e.g. "基隆市", "七堵區", "東京都", "江南區") -> list of GeoEntityMeta
-    entities_by_name: HashMap<String, Vec<GeoEntityMeta>>,
+    pub entities_by_name: HashMap<String, Vec<GeoEntityMeta>>,
     /// parent_entity -> set of child entities
-    parent_to_children: HashMap<String, HashSet<String>>,
+    pub parent_to_children: HashMap<String, HashSet<String>>,
     /// parent_entity -> ordered list of children for prefix/sub-token matching
-    parent_children_list: HashMap<String, Vec<String>>,
+    pub parent_children_list: HashMap<String, Vec<String>>,
     /// Ordered list of L1 root entities for character-level prefix matching (e.g. "首"+"爾"+"特別"+"市")
-    l1_roots_list: Vec<String>,
+    pub l1_roots_list: Vec<String>,
+    /// O(1) 首字索引：(parent_entity, first_char) -> 子節點清單
+    pub children_by_parent_first_char: HashMap<(String, char), Vec<String>>,
+    /// O(1) 首字索引：(l1_root, l2_district, first_char) -> 子節點清單
+    pub children_by_l1_l2_first_char: HashMap<(String, String, char), Vec<String>>,
+    /// O(1) 首字索引：(l1_root, first_char) -> 路街段清單
+    pub roads_by_l1_first_char: HashMap<(String, char), Vec<String>>,
 }
 
 static GLOBAL_CJK_GEO: OnceLock<CjkGeoHierarchy> = OnceLock::new();
@@ -70,6 +77,23 @@ impl CjkGeoHierarchy {
         let mut parent_children_list: HashMap<String, Vec<String>> = HashMap::new();
         let mut l1_roots: HashSet<String> = HashSet::new();
         let mut l1_roots_list: Vec<String> = Vec::new();
+        let mut children_by_parent_first_char: HashMap<(String, char), Vec<String>> = HashMap::new();
+        let mut children_by_l1_l2_first_char: HashMap<(String, String, char), Vec<String>> = HashMap::new();
+        let mut roads_by_l1_first_char: HashMap<(String, char), Vec<String>> = HashMap::new();
+
+        let push_fc = |map: &mut HashMap<(String, char), Vec<String>>, key: (String, char), val: &str| {
+            let list = map.entry(key).or_default();
+            if !list.iter().any(|x| x == val) {
+                list.push(val.to_string());
+            }
+        };
+
+        let push_l1_l2_fc = |map: &mut HashMap<(String, String, char), Vec<String>>, key: (String, String, char), val: &str| {
+            let list = map.entry(key).or_default();
+            if !list.iter().any(|x| x == val) {
+                list.push(val.to_string());
+            }
+        };
 
         for raw_line in tsv.lines() {
             let line = raw_line.trim();
@@ -94,6 +118,7 @@ impl CjkGeoHierarchy {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect();
+            let l1_root = parts.get(7).copied().unwrap_or("").trim().to_string();
 
             if level == "L1" || parent == "ROOT" {
                 if l1_roots.insert(entity.clone()) {
@@ -108,6 +133,9 @@ impl CjkGeoHierarchy {
                     if child_set.insert(ch.clone()) {
                         child_vec.push(ch.clone());
                     }
+                    if let Some(fc) = ch.chars().next() {
+                        push_fc(&mut children_by_parent_first_char, (entity.clone(), fc), ch);
+                    }
                 }
             }
 
@@ -116,6 +144,23 @@ impl CjkGeoHierarchy {
                 let p_vec = parent_children_list.entry(parent.clone()).or_default();
                 if p_set.insert(entity.clone()) {
                     p_vec.push(entity.clone());
+                }
+                if let Some(fc) = entity.chars().next() {
+                    push_fc(&mut children_by_parent_first_char, (parent.clone(), fc), &entity);
+                }
+            }
+
+            if level == "L3" && !l1_root.is_empty() {
+                if let Some(fc) = entity.chars().next() {
+                    push_l1_l2_fc(&mut children_by_l1_l2_first_char, (l1_root.clone(), parent.clone(), fc), &entity);
+                    if category == "road" || entity.ends_with('路') || entity.ends_with('街') || entity.ends_with('道') || entity.ends_with('段') {
+                        push_fc(&mut roads_by_l1_first_char, (l1_root.clone(), fc), &entity);
+                        if l1_root.starts_with('臺') {
+                            push_fc(&mut roads_by_l1_first_char, (l1_root.replacen('臺', "台", 1), fc), &entity);
+                        } else if l1_root.starts_with('台') {
+                            push_fc(&mut roads_by_l1_first_char, (l1_root.replacen('台', "臺", 1), fc), &entity);
+                        }
+                    }
                 }
             }
 
@@ -130,6 +175,7 @@ impl CjkGeoHierarchy {
                     postal_code,
                     category,
                     children,
+                    l1_root,
                 });
         }
 
@@ -138,6 +184,9 @@ impl CjkGeoHierarchy {
             parent_to_children,
             parent_children_list,
             l1_roots_list,
+            children_by_parent_first_char,
+            children_by_l1_l2_first_char,
+            roads_by_l1_first_char,
         }
     }
 
@@ -256,35 +305,24 @@ impl CjkGeoHierarchy {
         prefix_str: &str,
         parent_entity: &str,
     ) -> bool {
-        let Some(children) = self.parent_children_list.get(parent_entity) else {
+        if !self.parent_children_list.contains_key(parent_entity) {
             return false;
-        };
+        }
         if prefix_str.is_empty() {
-            if self.l1_roots_list.iter().any(|r| r == parent_entity) {
-                for ch in children {
-                    if Self::dag_can_spell(dag, start_idx, ch) {
-                        return true;
-                    }
-                    if let Some(grandchildren) = self.parent_children_list.get(ch) {
-                        for gch in grandchildren {
-                            if (gch.ends_with('路')
-                                || gch.ends_with('街')
-                                || gch.ends_with('道')
-                                || gch.ends_with('段')
-                                || gch.ends_with('里')
-                                || gch.ends_with('村'))
-                                && Self::dag_can_spell(dag, start_idx, gch)
-                            {
-                                return true;
-                            }
+            let Some(nodes) = dag.get(&start_idx) else {
+                return false;
+            };
+            for node in nodes {
+                let w = Self::clean_token(&node.word);
+                let Some(ch0) = w.chars().next() else {
+                    continue;
+                };
+                if let Some(cand_children) = self.children_by_parent_first_char.get(&(parent_entity.to_string(), ch0)) {
+                    for ch in cand_children {
+                        if Self::dag_can_spell(dag, start_idx, ch) {
+                            return true;
                         }
                     }
-                }
-                return false;
-            }
-            for ch in children {
-                if Self::dag_can_spell(dag, start_idx, ch) {
-                    return true;
                 }
             }
             return false;
@@ -330,9 +368,9 @@ impl CjkGeoHierarchy {
             }
         }
 
-        // 2. Continuation of `entity_str` from the last 1..=4 tokens of `history_tokens`:
+        // 2. Continuation of `entity_str` from the last 1..=2 tokens of `history_tokens`:
         let n = history_tokens.len();
-        for k in 1..=4.min(n) {
+        for k in 1..=2.min(n) {
             let mut prefix_built = String::new();
             for &t in &history_tokens[n - k..] {
                 prefix_built.push_str(t);
@@ -489,21 +527,44 @@ impl CjkGeoHierarchy {
             }
         }
 
-        if active_anchors.is_empty() && stem_l1_anchors.is_empty() {
-            return bonus;
-        }
-
-        // ---------------------------------------------------------------------
-        // B. Downstream Child Branch Wakeup (L1 -> L2 -> L3 Villages/Streets/Sections/Dongs/Chos)
-        // ---------------------------------------------------------------------
         let mut matched_child_entity: Option<&str> = None;
         let mut completed_child_entity: Option<&str> = None;
 
+        if !active_anchors.is_empty() || !stem_l1_anchors.is_empty() {
+        // ---------------------------------------------------------------------
+        // B. Downstream Child Branch Wakeup (L1 -> L2 -> L3 Villages/Streets/Sections/Dongs/Chos)
+        // ---------------------------------------------------------------------
         'anchor_loop: for anchor in stem_l1_anchors.iter().chain(active_anchors.iter()).rev() {
-            let Some(children) = self.parent_children_list.get(anchor) else {
-                continue;
+            let cand_children: Vec<&String> = if let Some(ch0) = curr_clean.chars().next() {
+                let mut cands = Vec::new();
+                if let Some(list) = self.children_by_parent_first_char.get(&(anchor.clone(), ch0)) {
+                    cands.extend(list);
+                }
+                let hn = cleaned_history.len();
+                let mut pfx = String::new();
+                for k in (1..=2.min(hn)).rev() {
+                    pfx.clear();
+                    for &t in &cleaned_history[hn - k..] {
+                        pfx.push_str(t);
+                    }
+                    if let Some(hist_ch0) = pfx.chars().next() {
+                        if hist_ch0 != ch0 {
+                            if let Some(list) = self.children_by_parent_first_char.get(&(anchor.clone(), hist_ch0)) {
+                                for item in list {
+                                    if !cands.contains(&item) {
+                                        cands.push(item);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                cands
+            } else {
+                self.parent_children_list.get(anchor).map(|v| v.iter().collect()).unwrap_or_default()
             };
-            for child in children {
+
+            for child in cand_children {
                 let child_str = child.as_str();
                 if let Some(is_complete) = Self::matches_entity_path(
                     &cleaned_history,
@@ -523,7 +584,6 @@ impl CjkGeoHierarchy {
         }
 
         // ---------------------------------------------------------------------
-        // ---------------------------------------------------------------------
         // B2. District-omitted L1 -> L3 Cascade Wakeup (e.g. "基隆市和二路15號", "基隆市和一路13號"):
         //     When the user types L1 (city/county) and skips L2 (區/鄉/鎮/市), wake up L3 roads/villages/sections under L1's L2 children.
         // ---------------------------------------------------------------------
@@ -532,66 +592,69 @@ impl CjkGeoHierarchy {
                 if !self.l1_roots_list.contains(anchor) {
                     continue;
                 }
-                let Some(l2_children) = self.parent_children_list.get(anchor) else {
-                    continue;
-                };
-                if l2_children.iter().any(|l2| active_anchors.contains(l2)) {
-                    continue;
-                }
-                for l2 in l2_children {
-                    let Some(l3_children) = self.parent_children_list.get(l2) else {
-                        continue;
-                    };
-                    for l3 in l3_children {
-                        let l3_str = l3.as_str();
-                        if !(l3_str.ends_with('路')
-                            || l3_str.ends_with('街')
-                            || l3_str.ends_with('道')
-                            || l3_str.ends_with('段')
-                            || l3_str.ends_with('里')
-                            || l3_str.ends_with('村'))
-                        {
-                            continue;
+                let cand_roads: Vec<&String> = if let Some(ch0) = curr_clean.chars().next() {
+                    let mut cands = Vec::new();
+                    if let Some(list) = self.roads_by_l1_first_char.get(&(anchor.clone(), ch0)) {
+                        cands.extend(list);
+                    }
+                    let hn = cleaned_history.len();
+                    let mut pfx = String::new();
+                    for k in (1..=2.min(hn)).rev() {
+                        pfx.clear();
+                        for &t in &cleaned_history[hn - k..] {
+                            pfx.push_str(t);
                         }
-                        if let Some(is_complete) = Self::matches_entity_path(
-                            &cleaned_history,
-                            curr_clean,
-                            end_idx,
-                            dag,
-                            l3_str,
-                        ) {
-                            bonus += if is_complete { 82.0 } else { 78.0 };
-                            matched_child_entity = Some(l3_str);
-                            if is_complete {
-                                completed_child_entity = Some(l3_str);
+                        if !anchor.starts_with(&pfx) {
+                            if let Some(hist_ch0) = pfx.chars().next() {
+                                if hist_ch0 != ch0 {
+                                    if let Some(list) = self.roads_by_l1_first_char.get(&(anchor.clone(), hist_ch0)) {
+                                        for item in list {
+                                            if !cands.contains(&item) {
+                                                cands.push(item);
+                                            }
+                                        }
+                                    }
+                                }
                             }
-                            break 'l1_skip_loop;
                         }
+                    }
+                    cands
+                } else {
+                    Vec::new()
+                };
+
+                for l3 in cand_roads {
+                    let l3_str = l3.as_str();
+                    if let Some(is_complete) = Self::matches_entity_path(
+                        &cleaned_history,
+                        curr_clean,
+                        end_idx,
+                        dag,
+                        l3_str,
+                    ) {
+                        bonus += if is_complete { 82.0 } else { 78.0 };
+                        matched_child_entity = Some(l3_str);
+                        if is_complete {
+                            completed_child_entity = Some(l3_str);
+                        }
+                        break 'l1_skip_loop;
                     }
                 }
             }
         }
-
-        // ---------------------------------------------------------------------
-        // C. Cross-Token Boundary Protection AFTER an Address Entity!
-        //    Fixes the #1 failure mode discovered in Batch 19:
-        //    When a road/section/village/dong/ward ends with "路", "街", "段", "里", "洞", "町", "區", "市"
-        //    and is followed by conjunction "與" (ㄩˇ) or "和" / "及" / "的" / "旁":
-        //    - Prevent 2-char impostor words "露雨" (ㄌㄨˋ ㄩˇ), "斷語" (ㄉㄨㄢˋ ㄩˇ),
-        //      "侗語" (ㄉㄨㄥˋ ㄩˇ), "日本語" (when followed by another country/city),
-        //      "中斷" (ㄓㄨㄥ ㄉㄨㄢˋ instead of 城中段), "接到" (ㄐㄧㄝ ㄉㄠˋ instead of 街道),
-        //      "大到" (ㄉㄚˋ ㄉㄠˋ instead of 大道), "不屈" (ㄅㄨˋ ㄑㄩ instead of 埗區),
-        //      "理屈" (ㄌㄧˇ ㄑㄩ instead of 里區)!
-        // ---------------------------------------------------------------------
-        if active_anchors.is_empty() && matched_child_entity.is_none() {
-            return bonus;
         }
+
         let last_word = cleaned_history.last().copied().unwrap_or("");
         let prev2_word = if cleaned_history.len() >= 2 {
             cleaned_history[cleaned_history.len() - 2]
         } else {
             ""
         };
+
+        // ---------------------------------------------------------------------
+        // C. Cross-Token Boundary Protection AFTER an Address Entity!
+        // ---------------------------------------------------------------------
+        if !active_anchors.is_empty() || matched_child_entity.is_some() {
 
         // 1. Protect conjunction "與" (ㄩˇ) vs "語/雨/羽" right after an address entity or inside a geo sentence
         if matches!(curr_clean, "與" | "語" | "雨" | "羽") {
@@ -674,6 +737,7 @@ impl CjkGeoHierarchy {
                 .unwrap_or(false)
         {
             bonus -= 95.0;
+        }
         }
 
         // 3. Strongly boost multi-char administrative suffixes & street/plaza heads
@@ -777,6 +841,8 @@ impl CjkGeoHierarchy {
             || prev2_word.ends_with('號');
 
         if is_numeral_end {
+            let is_ascii_num = last_word.chars().all(|c| c.is_ascii_alphanumeric());
+            let allow_building_unit = is_ascii_num || !active_anchors.is_empty() || prev_is_road_or_section;
             if matches!(
                 curr_clean,
                 "鄰" | "段"
@@ -793,15 +859,13 @@ impl CjkGeoHierarchy {
                     | "地號"
                     | "建號"
                     | "號樓"
-                    | "期"
-                    | "座"
-                    | "室"
-            ) {
+            ) || (allow_building_unit && matches!(curr_clean, "期" | "座" | "室")) {
                 bonus += 84.0;
             } else if matches!(
                 curr_clean,
-                "林" | "臨" | "淋" | "琳" | "麟" | "斷" | "鍛" | "露" | "錄" | "接" | "皆" | "向" | "項" | "好" | "耗" | "流" | "留" | "做" | "作" | "其" | "棋"
-            ) || curr_clean.starts_with('臨')
+                "林" | "臨" | "淋" | "琳" | "麟" | "斷" | "鍛" | "露" | "錄" | "接" | "皆" | "向" | "項" | "好" | "耗" | "流" | "留"
+            ) || (allow_building_unit && matches!(curr_clean, "做" | "作" | "其" | "棋"))
+                || curr_clean.starts_with('臨')
             {
                 bonus -= 88.0;
             }
@@ -1029,7 +1093,8 @@ impl CjkGeoHierarchy {
 
     /// Evaluate a single Chunghwa Post 3+3 delivery range condition (e.g. `"單全"`, `"2巷全"`, `"雙4號以上"`, `"單1號至105號"`).
     fn matches_3plus3_condition(cond: &str, lane: Option<u32>, house_no: Option<u32>) -> bool {
-        let c: String = cond.chars().filter(|ch| !ch.is_whitespace()).collect();
+        let cond_clean = cond.split('|').next().unwrap_or(cond);
+        let c: String = cond_clean.chars().filter(|ch| !ch.is_whitespace()).collect();
         if c.is_empty() {
             return false;
         }
@@ -1037,7 +1102,7 @@ impl CjkGeoHierarchy {
             return true;
         }
 
-        // 1. Lane-based rule (e.g. "2巷全", "2巷至10巷", "單1巷至9巷")
+        // 1. Lane-based rule (e.g. "2巷全", "26巷全", "101巷單61號以下", "216巷雙38號以下")
         if c.contains('巷') {
             let Some(l) = lane else {
                 return false;
@@ -1046,6 +1111,8 @@ impl CjkGeoHierarchy {
                 (l % 2 == 1, r)
             } else if let Some(r) = c.strip_prefix('雙') {
                 (l % 2 == 0, r)
+            } else if let Some(r) = c.strip_prefix('連') {
+                (true, r)
             } else {
                 (true, c.as_str())
             };
@@ -1073,6 +1140,18 @@ impl CjkGeoHierarchy {
                 if let Some(target) = Self::parse_cjk_or_arabic_u32(base) {
                     return l == target;
                 }
+            } else if let Some(idx) = rem.find('巷') {
+                let lane_part = &rem[..idx];
+                let after_lane = &rem[idx + '巷'.len_utf8()..];
+                if let Some(target) = Self::parse_cjk_or_arabic_u32(lane_part) {
+                    if l != target {
+                        return false;
+                    }
+                    if after_lane.is_empty() || after_lane == "全" {
+                        return true;
+                    }
+                    return Self::matches_3plus3_condition(after_lane, None, house_no);
+                }
             }
             return false;
         }
@@ -1088,6 +1167,8 @@ impl CjkGeoHierarchy {
             (n % 2 == 1, r)
         } else if let Some(r) = c.strip_prefix('雙') {
             (n % 2 == 0, r)
+        } else if let Some(r) = c.strip_prefix('連') {
+            (true, r)
         } else {
             (true, c.as_str())
         };
@@ -1116,7 +1197,7 @@ impl CjkGeoHierarchy {
             ) {
                 return n >= a && n <= b;
             }
-        } else if let Some(base) = rem.strip_suffix('號') {
+        } else if let Some(base) = rem.strip_suffix('號').or_else(|| rem.strip_suffix("號含附號")) {
             if let Some(target) = Self::parse_cjk_or_arabic_u32(base) {
                 return n == target;
             }
@@ -1126,14 +1207,16 @@ impl CjkGeoHierarchy {
 
     /// Resolve a Chunghwa Post 3+3 postal code specification (which may contain delivery range rules
     /// like `"202008:單全;202009:2巷全,雙4號以上"`) against the address suffix `after_entity`.
-    fn resolve_3plus3_delivery_range(postal_spec: &str, after_entity: &str) -> String {
+    /// Returns `(resolved_code, matched_specific_rule)`.
+    pub fn resolve_3plus3_delivery_range(postal_spec: &str, after_entity: &str) -> (String, bool) {
         if !postal_spec.contains(':') && !postal_spec.contains(';') {
-            return postal_spec.to_string();
+            return (postal_spec.to_string(), true);
         }
         let lane = Self::extract_number_before_unit(after_entity, '巷');
         let house_no = Self::extract_number_before_unit(after_entity, '號');
 
         let mut default_code: Option<String> = None;
+        let mut first_non_dept_code: Option<String> = None;
         for clause in postal_spec.split(';') {
             let clause = clause.trim();
             if clause.is_empty() {
@@ -1141,19 +1224,28 @@ impl CjkGeoHierarchy {
             }
             if let Some((code_part, conds_part)) = clause.split_once(':') {
                 let code = code_part.trim();
+                let is_dept = conds_part.contains('|');
                 if default_code.is_none() {
                     default_code = Some(code.to_string());
                 }
+                if first_non_dept_code.is_none() && !is_dept {
+                    first_non_dept_code = Some(code.to_string());
+                }
                 for cond in conds_part.split(',') {
                     if Self::matches_3plus3_condition(cond, lane, house_no) {
-                        return code.to_string();
+                        return (code.to_string(), true);
                     }
                 }
-            } else if default_code.is_none() {
-                default_code = Some(clause.to_string());
+            } else {
+                if default_code.is_none() {
+                    default_code = Some(clause.to_string());
+                }
+                if first_non_dept_code.is_none() {
+                    first_non_dept_code = Some(clause.to_string());
+                }
             }
         }
-        default_code.unwrap_or_else(|| postal_spec.to_string())
+        (first_non_dept_code.or(default_code).unwrap_or_else(|| postal_spec.to_string()), false)
     }
 
     fn text_contains_tw_norm(haystack: &str, needle: &str) -> bool {
@@ -1246,117 +1338,175 @@ impl CjkGeoHierarchy {
             return None;
         }
 
-        let mut best_match: Option<(usize, GeoEntityMeta, Vec<String>, String)> = None;
+        let mut best_match: Option<(i32, GeoEntityMeta, Vec<String>, String)> = None;
 
-        for metas in self.entities_by_name.values() {
-            for meta in metas {
-                if meta.postal_code.is_empty() {
-                    continue;
+        // 子字串掃描演算法：以輸入句為基準滑動搜尋 O(L^2)，避免對 53,156 節點全表掃描
+        let chars: Vec<char> = trimmed.chars().collect();
+        let n = chars.len();
+        let mut seen_keys: HashSet<String> = HashSet::new();
+
+        for len in 2..=n.min(16) {
+            for i in 0..=(n - len) {
+                let sub: String = chars[i..i + len].iter().collect();
+                let mut candidate_keys = vec![sub.clone()];
+                if sub.contains('台') {
+                    candidate_keys.push(sub.replace('台', "臺"));
+                } else if sub.contains('臺') {
+                    candidate_keys.push(sub.replace('臺', "台"));
                 }
-                if let Some(pos) = trimmed.find(&meta.entity) {
-                    let parent_present = meta.parent == "ROOT"
-                        || trimmed[..pos].contains(&meta.parent)
-                        || (meta.country == "TW"
-                            && meta.parent.starts_with('臺')
-                            && trimmed[..pos].contains(&meta.parent.replacen('臺', "台", 1)))
-                        || (meta.country == "TW"
-                            && meta.parent.starts_with('台')
-                            && trimmed[..pos].contains(&meta.parent.replacen('台', "臺", 1)));
 
-                    let is_unique_name = metas.len() == 1;
-                    let prefix_before = &trimmed[..pos];
-                    let after_entity = &trimmed[pos + meta.entity.len()..];
-                    let l1_grandparents = self.find_l1_grandparents_for_l3(meta);
-                    let grandparent_present = l1_grandparents
-                        .iter()
-                        .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
-                    let any_l1_in_prefix = self
-                        .l1_roots_list
-                        .iter()
-                        .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
-                    let conflicting_l1_present = if meta.level == "L3" {
-                        !l1_grandparents.is_empty() && !grandparent_present && any_l1_in_prefix
-                    } else if meta.level == "L2" {
-                        !parent_present && any_l1_in_prefix
-                    } else {
-                        false
-                    };
-                    let conflicting_l2_present = meta.level == "L3"
-                        && !parent_present
-                        && grandparent_present
-                        && l1_grandparents.iter().any(|l1| {
-                            self.parent_children_list.get(l1).map_or(false, |l2s| {
-                                l2s.iter()
-                                    .any(|l2| Self::text_contains_tw_norm(prefix_before, l2))
-                            })
-                        });
-                    let allow_match = if conflicting_l1_present || conflicting_l2_present {
-                        false
-                    } else if meta.level == "L3" && meta.children.is_empty() {
-                        parent_present
-                            || grandparent_present
-                            || (is_unique_name && Self::has_address_number_suffix(after_entity))
-                    } else {
-                        meta.parent == "ROOT" || parent_present || is_unique_name
-                    };
-
-                    let _unused_allow = if meta.level == "L3" && meta.children.is_empty() {
-                        parent_present
-                    } else {
-                        meta.parent == "ROOT" || parent_present || is_unique_name
-                    };
-
-                    if allow_match {
-                        let mut chain = Vec::new();
-                        if let Some(l1) = l1_grandparents
-                            .iter()
-                            .find(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1))
-                        {
-                            chain.push(l1.clone());
-                        }
-                        if meta.parent != "ROOT" && parent_present {
-                            chain.push(meta.parent.clone());
-                        }
-                        chain.push(meta.entity.clone());
-
-                        let after_entity = &trimmed[pos + meta.entity.len()..];
-                        for ch in &meta.children {
-                            if after_entity.contains(ch.as_str()) {
-                                chain.push(ch.clone());
-                                break;
+                for key in candidate_keys {
+                    if let Some(metas) = self.entities_by_name.get(&key) {
+                        for meta in metas {
+                            if meta.postal_code.is_empty() {
+                                continue;
                             }
-                        }
+                            let dedup = format!("{}:{}:{}", meta.country, meta.parent, meta.entity);
+                            if !seen_keys.insert(dedup) {
+                                continue;
+                            }
+                            let Some(pos) = trimmed.find(&meta.entity).or_else(|| {
+                                if meta.entity.contains('臺') {
+                                    trimmed.find(&meta.entity.replace('臺', "台"))
+                                } else if meta.entity.contains('台') {
+                                    trimmed.find(&meta.entity.replace('台', "臺"))
+                                } else {
+                                    None
+                                }
+                            }) else {
+                                continue;
+                            };
 
-                        let base_spec = match meta.level.as_str() {
-                            "L3" => {
-                                // In Chunghwa Post 3+3, road + delivery-range is more specific than village (里)
-                                let cat_bonus = match meta.category.as_str() {
-                                    "road" => 40,
-                                    "cadastral_section" => 20,
-                                    _ => 0,
+                            let parent_present = meta.parent == "ROOT"
+                                || trimmed[..pos].contains(&meta.parent)
+                                || (meta.country == "TW"
+                                    && meta.parent.starts_with('臺')
+                                    && trimmed[..pos].contains(&meta.parent.replacen('臺', "台", 1)))
+                                || (meta.country == "TW"
+                                    && meta.parent.starts_with('台')
+                                    && trimmed[..pos].contains(&meta.parent.replacen('台', "臺", 1)));
+
+                            let is_unique_name = self.entities_by_name.get(&meta.entity).map(|v| v.len()).unwrap_or(0) <= 5;
+                            let prefix_before = &trimmed[..pos];
+                            let after_entity = &trimmed[pos + meta.entity.len()..];
+                            let l1_grandparents = self.find_l1_grandparents_for_l3(meta);
+                            let grandparent_present = l1_grandparents
+                                .iter()
+                                .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
+                            let any_l1_in_prefix = self
+                                .l1_roots_list
+                                .iter()
+                                .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
+                            let conflicting_l1_present = if meta.level == "L3" {
+                                !l1_grandparents.is_empty() && !grandparent_present && any_l1_in_prefix
+                            } else if meta.level == "L2" {
+                                !parent_present && any_l1_in_prefix
+                            } else {
+                                false
+                            };
+                            let conflicting_l2_present = meta.level == "L3"
+                                && !parent_present
+                                && grandparent_present
+                                && l1_grandparents.iter().any(|l1| {
+                                    self.parent_children_list.get(l1).map_or(false, |l2s| {
+                                        l2s.iter()
+                                            .any(|l2| Self::text_contains_tw_norm(prefix_before, l2))
+                                    })
+                                });
+                            let allow_match = if conflicting_l1_present || conflicting_l2_present {
+                                false
+                            } else if meta.level == "L3" && meta.children.is_empty() {
+                                parent_present
+                                    || grandparent_present
+                                    || (is_unique_name && Self::has_address_number_suffix(after_entity))
+                            } else {
+                                meta.parent == "ROOT" || parent_present || is_unique_name
+                            };
+
+                            if allow_match {
+                                let mut chain = Vec::new();
+                                if let Some(l1) = l1_grandparents
+                                    .iter()
+                                    .find(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1))
+                                {
+                                    chain.push(l1.clone());
+                                }
+                                if meta.parent != "ROOT" && parent_present {
+                                    chain.push(meta.parent.clone());
+                                }
+                                chain.push(meta.entity.clone());
+
+                                for ch in &meta.children {
+                                    if after_entity.contains(ch.as_str()) {
+                                        chain.push(ch.clone());
+                                        break;
+                                    }
+                                }
+
+                                let (mut resolved_code, mut rule_matched) = Self::resolve_3plus3_delivery_range(
+                                    &meta.postal_code,
+                                    after_entity,
+                                );
+
+                                if !rule_matched && meta.postal_code.contains(':') {
+                                    // 若路段未依門牌號碼精確命中，但前綴包含特定村里，且該村里之 3+3 郵遞區號存在於此路段子句中，優先採用該村里對應之投遞區段代碼！
+                                    let chars_pb: Vec<char> = prefix_before.chars().collect();
+                                    let npb = chars_pb.len();
+                                    'village_search: for sub_len in 2..=4.min(npb) {
+                                        for st in 0..=(npb - sub_len) {
+                                            let sub_name: String = chars_pb[st..st + sub_len].iter().collect();
+                                            if let Some(v_metas) = self.entities_by_name.get(&sub_name) {
+                                                for vm in v_metas {
+                                                    if vm.country == meta.country && vm.level == "L3" && vm.category == "village" && vm.postal_code.len() == 6 && !vm.postal_code.ends_with("000") {
+                                                        let target_code = &vm.postal_code;
+                                                        if meta.postal_code.split(';').any(|clause| clause.trim().split_once(':').map_or(false, |(c, _)| c.trim() == target_code)) {
+                                                            resolved_code = target_code.clone();
+                                                            rule_matched = true;
+                                                            break 'village_search;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                let rule_bonus: i32 = if meta.country == "TW"
+                                    && Self::has_address_number_suffix(after_entity)
+                                    && meta.postal_code.contains(':')
+                                {
+                                    if rule_matched { 120 } else { -90 }
+                                } else {
+                                    0
                                 };
-                                let hier_bonus = (if parent_present { 25 } else { 0 })
-                                    + (if grandparent_present { 15 } else { 0 });
-                                300 + cat_bonus + hier_bonus + chain.len() * 10 + meta.entity.len()
-                            }
-                            "L2" => {
-                                200 + (if parent_present { 50 } else { 0 })
-                                    + chain.len() * 10
-                                    + meta.entity.len()
-                            }
-                            _ => 100 + chain.len() * 10 + meta.entity.len(),
-                        };
-                        let specificity = base_spec * 1000 + pos;
 
-                        if best_match
-                            .as_ref()
-                            .map_or(true, |(best_score, _, _, _)| specificity > *best_score)
-                        {
-                            let resolved_code = Self::resolve_3plus3_delivery_range(
-                                &meta.postal_code,
-                                after_entity,
-                            );
-                            best_match = Some((specificity, meta.clone(), chain, resolved_code));
+                                let base_spec = match meta.level.as_str() {
+                                    "L3" => {
+                                        let cat_bonus = match meta.category.as_str() {
+                                            "road" => 40,
+                                            "cadastral_section" => 20,
+                                            _ => 0,
+                                        };
+                                        let hier_bonus = (if parent_present { 30 } else { 0 })
+                                            + (if grandparent_present { 15 } else { 0 });
+                                        300 + cat_bonus + hier_bonus + rule_bonus + (chain.len() as i32 * 10) + meta.entity.len() as i32
+                                    }
+                                    "L2" => {
+                                        200 + (if parent_present { 50 } else { 0 })
+                                            + (chain.len() as i32 * 10)
+                                            + meta.entity.len() as i32
+                                    }
+                                    _ => 100 + (chain.len() as i32 * 10) + meta.entity.len() as i32,
+                                };
+                                let specificity = base_spec * 1000 + pos as i32;
+
+                                if best_match
+                                    .as_ref()
+                                    .map_or(true, |(best_score, _, _, _)| specificity > *best_score)
+                                {
+                                    best_match = Some((specificity, meta.clone(), chain, resolved_code));
+                                }
+                            }
                         }
                     }
                 }
@@ -1381,7 +1531,6 @@ impl CjkGeoHierarchy {
             formatted_with_postal,
         })
     }
-
     /// 將標記之地址片段展開為補齊「縣市 (`L1`) ＋ 鄉鎮市區 (`L2`) ＋ 村里 (`里/村`)」之戶籍地址候選清單。
     pub fn expand_household_address_candidates(&self, sentence: &str) -> Vec<String> {
         let norm_cow = Self::normalize_hijacked_tw_road(sentence.trim());
@@ -1424,82 +1573,146 @@ impl CjkGeoHierarchy {
             return Vec::new();
         }
 
-        let mut best_match: Option<(usize, usize, GeoEntityMeta, String)> = None;
-        for metas in self.entities_by_name.values() {
-            for meta in metas {
-                if meta.postal_code.is_empty() {
-                    continue;
+        let mut best_match: Option<(i32, usize, GeoEntityMeta, String)> = None;
+        let chars: Vec<char> = addr_body.chars().collect();
+        let n = chars.len();
+        let mut seen_keys: HashSet<String> = HashSet::new();
+
+        for len in 2..=n.min(16) {
+            for i in 0..=(n - len) {
+                let sub: String = chars[i..i + len].iter().collect();
+                let mut candidate_keys = vec![sub.clone()];
+                if sub.contains('台') {
+                    candidate_keys.push(sub.replace('台', "臺"));
+                } else if sub.contains('臺') {
+                    candidate_keys.push(sub.replace('臺', "台"));
                 }
-                if let Some(pos) = addr_body.find(&meta.entity) {
-                    let parent_present = meta.parent == "ROOT"
-                        || Self::text_contains_tw_l1_or_stem(&addr_body[..pos], &meta.parent);
-                    let is_unique_name = metas.len() == 1;
-                    let prefix_before = &addr_body[..pos];
-                    let after_entity = &addr_body[pos + meta.entity.len()..];
-                    let l1_grandparents = self.find_l1_grandparents_for_l3(meta);
-                    let grandparent_present = l1_grandparents
-                        .iter()
-                        .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
-                    let any_l1_in_prefix = self
-                        .l1_roots_list
-                        .iter()
-                        .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
-                    let conflicting_l1_present = if meta.level == "L3" {
-                        !l1_grandparents.is_empty() && !grandparent_present && any_l1_in_prefix
-                    } else if meta.level == "L2" {
-                        !parent_present && any_l1_in_prefix
-                    } else {
-                        false
-                    };
-                    let conflicting_l2_present = meta.level == "L3"
-                        && !parent_present
-                        && grandparent_present
-                        && l1_grandparents.iter().any(|l1| {
-                            self.parent_children_list.get(l1).map_or(false, |l2s| {
-                                l2s.iter()
-                                    .any(|l2| Self::text_contains_tw_norm(prefix_before, l2))
-                            })
-                        });
-                    let allow_match = if conflicting_l1_present || conflicting_l2_present {
-                        false
-                    } else if meta.level == "L3" && meta.children.is_empty() {
-                        parent_present
-                            || grandparent_present
-                            || (is_unique_name && Self::has_address_number_suffix(after_entity))
-                    } else {
-                        meta.parent == "ROOT" || parent_present || is_unique_name
-                    };
-                    if allow_match {
-                        let base_spec = match meta.level.as_str() {
-                            "L3" => {
-                                let cat_bonus = match meta.category.as_str() {
-                                    "road" => 40,
-                                    "cadastral_section" => 20,
-                                    _ => 0,
-                                };
-                                let hier_bonus = (if parent_present { 25 } else { 0 })
-                                    + (if grandparent_present { 15 } else { 0 });
-                                300 + cat_bonus + hier_bonus + meta.entity.len()
+
+                for key in candidate_keys {
+                    if let Some(metas) = self.entities_by_name.get(&key) {
+                        for meta in metas {
+                            if meta.postal_code.is_empty() {
+                                continue;
                             }
-                            "L2" => 200 + (if parent_present { 50 } else { 0 }) + meta.entity.len(),
-                            _ => 100 + meta.entity.len(),
-                        };
-                        let specificity = base_spec * 1000 + pos;
-                        if best_match
-                            .as_ref()
-                            .map_or(true, |(best_score, _, _, _)| specificity > *best_score)
-                        {
-                            let resolved_code = Self::resolve_3plus3_delivery_range(
-                                &meta.postal_code,
-                                after_entity,
-                            );
-                            best_match = Some((specificity, pos, meta.clone(), resolved_code));
+                            let dedup = format!("{}:{}:{}", meta.country, meta.parent, meta.entity);
+                            if !seen_keys.insert(dedup) {
+                                continue;
+                            }
+                            let Some(pos) = addr_body.find(&meta.entity).or_else(|| {
+                                if meta.entity.contains('臺') {
+                                    addr_body.find(&meta.entity.replace('臺', "台"))
+                                } else if meta.entity.contains('台') {
+                                    addr_body.find(&meta.entity.replace('台', "臺"))
+                                } else {
+                                    None
+                                }
+                            }) else {
+                                continue;
+                            };
+
+                            let parent_present = meta.parent == "ROOT"
+                                || Self::text_contains_tw_l1_or_stem(&addr_body[..pos], &meta.parent);
+                            let is_unique_name = self.entities_by_name.get(&meta.entity).map(|v| v.len()).unwrap_or(0) <= 5;
+                            let prefix_before = &addr_body[..pos];
+                            let after_entity = &addr_body[pos + meta.entity.len()..];
+                            let l1_grandparents = self.find_l1_grandparents_for_l3(meta);
+                            let grandparent_present = l1_grandparents
+                                .iter()
+                                .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
+                            let any_l1_in_prefix = self
+                                .l1_roots_list
+                                .iter()
+                                .any(|l1| Self::text_contains_tw_l1_or_stem(prefix_before, l1));
+                            let conflicting_l1_present = if meta.level == "L3" {
+                                !l1_grandparents.is_empty() && !grandparent_present && any_l1_in_prefix
+                            } else if meta.level == "L2" {
+                                !parent_present && any_l1_in_prefix
+                            } else {
+                                false
+                            };
+                            let conflicting_l2_present = meta.level == "L3"
+                                && !parent_present
+                                && grandparent_present
+                                && l1_grandparents.iter().any(|l1| {
+                                    self.parent_children_list.get(l1).map_or(false, |l2s| {
+                                        l2s.iter()
+                                            .any(|l2| Self::text_contains_tw_norm(prefix_before, l2))
+                                    })
+                                });
+                            let allow_match = if conflicting_l1_present || conflicting_l2_present {
+                                false
+                            } else if meta.level == "L3" && meta.children.is_empty() {
+                                parent_present
+                                    || grandparent_present
+                                    || (is_unique_name && Self::has_address_number_suffix(after_entity))
+                            } else {
+                                meta.parent == "ROOT" || parent_present || is_unique_name
+                            };
+                            if allow_match {
+                                let (mut resolved_code, mut rule_matched) = Self::resolve_3plus3_delivery_range(
+                                    &meta.postal_code,
+                                    after_entity,
+                                );
+
+                                if !rule_matched && meta.postal_code.contains(':') {
+                                    // 若路段未依門牌號碼精確命中，但前綴包含特定村里，且該村里之 3+3 郵遞區號存在於此路段子句中，優先採用該村里對應之投遞區段代碼！
+                                    let chars_pb: Vec<char> = prefix_before.chars().collect();
+                                    let npb = chars_pb.len();
+                                    'village_search: for sub_len in 2..=4.min(npb) {
+                                        for st in 0..=(npb - sub_len) {
+                                            let sub_name: String = chars_pb[st..st + sub_len].iter().collect();
+                                            if let Some(v_metas) = self.entities_by_name.get(&sub_name) {
+                                                for vm in v_metas {
+                                                    if vm.country == meta.country && vm.level == "L3" && vm.category == "village" && vm.postal_code.len() == 6 && !vm.postal_code.ends_with("000") {
+                                                        let target_code = &vm.postal_code;
+                                                        if meta.postal_code.split(';').any(|clause| clause.trim().split_once(':').map_or(false, |(c, _)| c.trim() == target_code)) {
+                                                            resolved_code = target_code.clone();
+                                                            rule_matched = true;
+                                                            break 'village_search;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                let rule_bonus: i32 = if meta.country == "TW"
+                                    && Self::has_address_number_suffix(after_entity)
+                                    && meta.postal_code.contains(':')
+                                {
+                                    if rule_matched { 120 } else { -90 }
+                                } else {
+                                    0
+                                };
+
+                                let base_spec = match meta.level.as_str() {
+                                    "L3" => {
+                                        let cat_bonus = match meta.category.as_str() {
+                                            "road" => 40,
+                                            "cadastral_section" => 20,
+                                            _ => 0,
+                                        };
+                                        let hier_bonus = (if parent_present { 30 } else { 0 })
+                                            + (if grandparent_present { 15 } else { 0 });
+                                        300 + cat_bonus + hier_bonus + rule_bonus + meta.entity.len() as i32
+                                    }
+                                    "L2" => 200 + (if parent_present { 50 } else { 0 }) + meta.entity.len() as i32,
+                                    _ => 100 + meta.entity.len() as i32,
+                                };
+                                let specificity = base_spec * 1000 + pos as i32;
+                                if best_match
+                                    .as_ref()
+                                    .map_or(true, |(best_score, _, _, _)| specificity > *best_score)
+                                {
+                                    best_match = Some((specificity, pos, meta.clone(), resolved_code));
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-
         let (_, pos, meta, resolved_code) = match best_match {
             Some(m) => m,
             None => return Vec::new(),
@@ -1779,10 +1992,10 @@ mod tests {
             .resolve_postal_code_for_sentence("基隆市七堵區百福里明德一路")
             .expect("Should resolve postal code for Keelung Qidu");
         assert_eq!(postal.country, "TW");
-        assert_eq!(postal.postal_code, "206007");
+        assert_eq!(postal.postal_code, "206005");
         assert_eq!(
             postal.formatted_with_postal,
-            "206007 基隆市七堵區百福里明德一路"
+            "206005 基隆市七堵區百福里明德一路"
         );
 
         let postal_zhengbin = geo
@@ -1812,7 +2025,61 @@ mod tests {
         let postal_banqiao = geo
             .resolve_postal_code_for_sentence("新北市板橋區流芳里文化路一段")
             .expect("Should resolve 3+3 postal code for Banqiao Wenhua Rd");
-        assert_eq!(postal_banqiao.postal_code, "220001");
+        assert_eq!(postal_banqiao.postal_code, "220052");
+
+        // 任務四：驗證全國 79,876 筆 3+3 郵遞區號投遞段與村里架構
+        let postal_xiangfeng = geo
+            .resolve_postal_code_for_sentence("基隆市中正區祥豐街75號")
+            .expect("Should resolve 3+3 postal code for Xiangfeng St 75號");
+        assert_eq!(postal_xiangfeng.postal_code, "202005");
+
+        let postal_zhongxiao = geo
+            .resolve_postal_code_for_sentence("臺北市大安區華聲里11鄰忠孝東路四段295號")
+            .expect("Should resolve 3+3 postal code for Zhongxiao E Rd Sec 4 295號");
+        assert_eq!(postal_zhongxiao.postal_code, "106078");
+
+        let exp_zhongxiao = geo.expand_household_address_candidates("臺北市大安區華聲里11鄰忠孝東路四段295號");
+        assert!(exp_zhongxiao.iter().any(|c| c.contains("106078")));
+    }
+
+    #[test]
+    fn test_hsu_daan_zhongxiao_full_sentence_geo_flow() {
+        let mut engine = crate::engine::RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
+        engine.set_keyboard_mode("hsu");
+        engine.reset_buffer();
+        // tidbafcjdrjm vu hxrdcl lef 11 lendjxl cewj dxl lxj sj dxmj 295 hwj
+        let mut out = String::new();
+        for ch in "tidbafcjdrjm vu hxrdcl lef 11 lendjxl cewj dxl lxj sj dxmj 295 hwj ".chars() {
+            let r = engine.process_key(ch);
+            if !r.committed_chunk.is_empty() {
+                out.push_str(&r.committed_chunk);
+            }
+        }
+        out.push_str(&engine.composed_sentence);
+        assert_eq!(out, "台北市大安區華聲里11鄰忠孝東路四段295號");
+        let geo = CjkGeoHierarchy::global();
+        let postal = geo.resolve_postal_code_for_sentence(&out).expect("Should resolve postal code");
+        assert_eq!(postal.postal_code, "106078");
+
+        // 驗證使用者回報之「省略里鄰」與「省略行政區（跨大安區／信義區門牌區段自動消歧）」案例：
+        assert_eq!(
+            geo.resolve_postal_code_for_sentence("台北市大安區忠孝東路四段295號")
+                .expect("Should resolve Daan Zhongxiao E Rd Sec 4 295號")
+                .postal_code,
+            "106078"
+        );
+        assert_eq!(
+            geo.resolve_postal_code_for_sentence("台北市忠孝東路四段295號")
+                .expect("Should resolve district-omitted Taipei Zhongxiao E Rd Sec 4 295號")
+                .postal_code,
+            "106078"
+        );
+        assert_eq!(
+            geo.resolve_postal_code_for_sentence("台北市忠孝東路四段345號")
+                .expect("Should resolve district-omitted Xinyi Zhongxiao E Rd Sec 4 345號")
+                .postal_code,
+            "110055"
+        );
     }
 
     #[test]

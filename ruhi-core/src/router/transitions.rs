@@ -5911,7 +5911,17 @@ impl TransitionEngine {
             "builtin_bigram"
         } else if rule_name == "vo_separable_lookback" {
             "vo_separable_lookback"
-        } else if rule_name == "construction_hierarchical_matrix" || rule_name.starts_with("trigram_") {
+        } else if rule_name == "construction_trigram_slot" || rule_name.starts_with("trigram_") {
+            "construction_trigram_slot"
+        } else if rule_name == "construction_topological_core" {
+            "construction_topological_core"
+        } else if rule_name == "geo_hierarchy" {
+            "geo_hierarchy"
+        } else if rule_name == "construction_ctx31_bifurcation" {
+            "construction_ctx31_bifurcation"
+        } else if rule_name == "construction_boundary_guard" {
+            "construction_boundary_guard"
+        } else if rule_name == "construction_hierarchical_matrix" {
             "construction_hierarchical_matrix"
         } else if rule_name.starts_with("user_chain:")
             || rule_name.starts_with("user_chain_opt:")
@@ -5983,6 +5993,20 @@ impl TransitionEngine {
             .feature_weights
             .get(rule_name)
             .or_else(|| self.feature_weights.get(fam))
+            .or_else(|| {
+                if matches!(
+                    fam,
+                    "construction_trigram_slot"
+                        | "construction_topological_core"
+                        | "geo_hierarchy"
+                        | "construction_ctx31_bifurcation"
+                        | "construction_boundary_guard"
+                ) {
+                    self.feature_weights.get("construction_hierarchical_matrix")
+                } else {
+                    None
+                }
+            })
             .copied()
             .unwrap_or(1.0);
         if let Some(ref mut trace) = self.active_trace {

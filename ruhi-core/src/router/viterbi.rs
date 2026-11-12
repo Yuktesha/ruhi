@@ -53,15 +53,24 @@ impl LatticeBackwardProfile {
         let mut is_clause_tail_or_particle = vec![false; n_syllables + 1];
         is_clause_tail_or_particle[n_syllables] = true;
 
-        let (w_freq, w_mchar, w_coh3, w_coh4) = if let Some(eng) = transitions {
+        let (w_freq_c1, w_freq_cmp, w_mchar, w_coh3, w_coh4) = if let Some(eng) = transitions {
             (
-                eng.feature_weights.get("freq_ln").copied().unwrap_or(1.0),
+                eng.feature_weights
+                    .get("freq_ln_char1")
+                    .or_else(|| eng.feature_weights.get("freq_ln"))
+                    .copied()
+                    .unwrap_or(1.0),
+                eng.feature_weights
+                    .get("freq_ln_compound")
+                    .or_else(|| eng.feature_weights.get("freq_ln"))
+                    .copied()
+                    .unwrap_or(1.0),
                 eng.feature_weights.get("multi_char_len").copied().unwrap_or(1.0),
                 eng.feature_weights.get("cohesion_len3").copied().unwrap_or(1.0),
                 eng.feature_weights.get("cohesion_len4").copied().unwrap_or(1.0),
             )
         } else {
-            (1.0, 1.0, 1.0, 1.0)
+            (1.0, 1.0, 1.0, 1.0, 1.0)
         };
 
         let ont = MorphemeOntology::global();
@@ -88,7 +97,7 @@ impl LatticeBackwardProfile {
 
                 let word_len = node.length() as f64;
                 let base_weight = (std::cmp::max(1, node.weight)) as f64;
-                let freq_score = base_weight.ln() * w_freq;
+                let freq_score = base_weight.ln() * if word_len > 1.0 { w_freq_cmp } else { w_freq_c1 };
                 let length_bonus = if word_len > 1.0 {
                     let cohesion_extra = if word_len >= 4.0 {
                         16.0 * w_coh4
@@ -259,9 +268,18 @@ impl ViterbiRouter {
             }
 
             if let Some(nodes) = dag.get(&i) {
-                let (w_freq, w_mchar, w_coh3, w_coh4, w_coord_yu, w_coord_he) = if let Some(ref eng) = transitions {
+                let (w_freq_c1, w_freq_cmp, w_mchar, w_coh3, w_coh4, w_coord_yu, w_coord_he) = if let Some(ref eng) = transitions {
                     (
-                        eng.feature_weights.get("freq_ln").copied().unwrap_or(1.0),
+                        eng.feature_weights
+                            .get("freq_ln_char1")
+                            .or_else(|| eng.feature_weights.get("freq_ln"))
+                            .copied()
+                            .unwrap_or(1.0),
+                        eng.feature_weights
+                            .get("freq_ln_compound")
+                            .or_else(|| eng.feature_weights.get("freq_ln"))
+                            .copied()
+                            .unwrap_or(1.0),
                         eng.feature_weights.get("multi_char_len").copied().unwrap_or(1.0),
                         eng.feature_weights.get("cohesion_len3").copied().unwrap_or(1.0),
                         eng.feature_weights.get("cohesion_len4").copied().unwrap_or(1.0),
@@ -269,7 +287,7 @@ impl ViterbiRouter {
                         eng.feature_weights.get("coord_he_huo_prior").copied().unwrap_or(0.0),
                     )
                 } else {
-                    (1.0, 1.0, 1.0, 1.0, 1.0, 0.0)
+                    (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0)
                 };
 
                 for node in nodes {
@@ -277,7 +295,7 @@ impl ViterbiRouter {
                     let word_len = node.length() as f64;
                     let base_weight = (std::cmp::max(1, node.weight)) as f64;
 
-                    let freq_score = base_weight.ln() * w_freq;
+                    let freq_score = base_weight.ln() * if word_len > 1.0 { w_freq_cmp } else { w_freq_c1 };
                     let length_bonus = if word_len > 1.0 {
                         let cohesion_extra = if word_len >= 4.0 {
                             16.0 * w_coh4
@@ -544,7 +562,11 @@ impl ViterbiRouter {
         for (idx, node) in path.iter().enumerate() {
             let word_len = node.length() as f64;
             let base_weight = (std::cmp::max(1, node.weight)) as f64;
-            *features.entry("freq_ln".to_string()).or_insert(0.0) += base_weight.ln();
+            if word_len > 1.0 {
+                *features.entry("freq_ln_compound".to_string()).or_insert(0.0) += base_weight.ln();
+            } else {
+                *features.entry("freq_ln_char1".to_string()).or_insert(0.0) += base_weight.ln();
+            }
             if word_len > 1.0 {
                 *features.entry("multi_char_len".to_string()).or_insert(0.0) +=
                     (word_len - 1.0) * self.multi_char_bonus;
@@ -654,5 +676,51 @@ mod tests {
 
         // 3. 驗證 pos 1..3 高分跨躍使 pos 0 之最佳後綴路徑正確收斂
         assert!(!backward.best_right_word_at(0).is_empty());
+    }
+
+    #[test]
+    fn test_linear_model_dot_product_equivalence_261111() {
+        let router = ViterbiRouter::default();
+        let mut eng = crate::router::transitions::TransitionEngine::new();
+        eng.feature_weights.insert("freq_ln_char1".to_string(), 1.03);
+        eng.feature_weights.insert("freq_ln_compound".to_string(), 1.11);
+        eng.feature_weights.insert("multi_char_len".to_string(), 0.99);
+        eng.feature_weights.insert("cohesion_len3".to_string(), 1.02);
+        eng.feature_weights.insert("coord_prior".to_string(), 1.05);
+        eng.feature_weights.insert("construction_topological_core".to_string(), 0.96);
+        eng.feature_weights.insert("construction_ctx31_bifurcation".to_string(), 1.04);
+        eng.feature_weights.insert("family_core_syntax".to_string(), 0.95);
+
+        // 構造包含 1-char, 2-char, "與" 等不同結構特徵的 DAG
+        let mut dag: HashMap<usize, Vec<LatticeNode>> = HashMap::new();
+        dag.insert(0, vec![
+            LatticeNode::new(0, 2, "貓咪", 5000, "ㄇㄠ ㄇㄧ"),
+            LatticeNode::new(0, 1, "貓", 2000, "ㄇㄠ"),
+        ]);
+        dag.insert(1, vec![
+            LatticeNode::new(1, 2, "咪", 500, "ㄇㄧ"),
+        ]);
+        dag.insert(2, vec![
+            LatticeNode::new(2, 3, "與", 3000, "ㄩˇ"),
+        ]);
+        dag.insert(3, vec![
+            LatticeNode::new(3, 4, "狗", 2000, "ㄍㄡˇ"),
+        ]);
+
+        let (path, best_score) = router.solve_best_path(4, &dag, Some(&mut eng));
+        assert!(!path.is_empty());
+        let (feats, _) = router.extract_path_features_and_triggers(&path, &dag, &mut eng);
+        let dot: f64 = feats
+            .iter()
+            .map(|(k, v)| v * eng.feature_weights.get(k).copied().unwrap_or(1.0))
+            .sum();
+
+        assert!(
+            (best_score - dot).abs() < 1e-9,
+            "best_score ({}) != dot product ({}), diff = {}",
+            best_score,
+            dot,
+            (best_score - dot).abs()
+        );
     }
 }

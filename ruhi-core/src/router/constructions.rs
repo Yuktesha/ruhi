@@ -181,6 +181,7 @@ impl TransitionEngine {
         let prev2_word = if n >= 2 { prefix_words[n - 2] } else { "" };
         let prev3_word = if n >= 3 { prefix_words[n - 3] } else { "" };
         let mut bonus = 0.0;
+        let mut trigram_scored = 0.0;
 
         // ── 構式一：頻率全稱量化 × 動作動量構式 `[每/各/凡/逢] → [動作動詞] → [({一..十, 兩, 幾} → {次, 回, 下, 遍, 趟})]` ──
         if matches!(prev_word, "每" | "各" | "凡" | "逢" | "每當" | "每次")
@@ -2246,7 +2247,9 @@ impl TransitionEngine {
         }
 
         // ── 動態外掛三元槽位構式 (`patterns_user.jsonl` 中 slots.len() >= 3) ──
+        let mut trigram_matches: Vec<(String, f64)> = Vec::new();
         for pat in &self.user_trigram_patterns {
+            let mut pat_raw = 0.0;
             if !prev_word.is_empty()
                 && pat.slot0.contains(prev_word)
                 && pat.slot1.contains(curr_word)
@@ -2261,7 +2264,7 @@ impl TransitionEngine {
                         .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
                         .unwrap_or(false);
                 if next_matches {
-                    bonus += pat.bonus;
+                    pat_raw += pat.bonus;
                 }
             }
             if !prev2_word.is_empty()
@@ -2280,11 +2283,11 @@ impl TransitionEngine {
                     && is_bao_subsumed_at(end_idx - 1);
                 if !curr_subsumed {
                     if pat.slot2.contains(curr_word) {
-                        bonus += pat.bonus;
+                        pat_raw += pat.bonus;
                     } else if pat.name == "v_dao_bao_satiation_3d_array"
                         && matches!(curr_word, "保" | "寶" | "堡" | "葆")
                     {
-                        bonus -= pat.bonus;
+                        pat_raw -= pat.bonus;
                     }
                 }
             }
@@ -2301,7 +2304,7 @@ impl TransitionEngine {
                             .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
                             .unwrap_or(false);
                     if next_matches {
-                        bonus += pat.bonus;
+                        pat_raw += pat.bonus;
                     }
                 }
             }
@@ -2314,9 +2317,15 @@ impl TransitionEngine {
                     && end_idx >= 1
                     && is_bao_subsumed_at(end_idx - 1);
                 if !curr_subsumed && pat.slot0.contains(&p0) && pat.slot1.contains(&p1) {
-                    bonus += pat.bonus;
+                    pat_raw += pat.bonus;
                 }
             }
+            if pat_raw != 0.0 {
+                trigram_matches.push((format!("trigram_{}", pat.name), pat_raw));
+            }
+        }
+        for (trigram_rule, pat_raw) in trigram_matches {
+            trigram_scored += self.apply_rule_score(&trigram_rule, pat_raw);
         }
 
         // 21. `C01` 處所介詞構式 `[在] + [家] + [休息/睡覺/工作/上班/讀書/吃飯/看書]` vs. 累加構式 `[再] + [加] + [數量/名詞]`：
@@ -4469,11 +4478,16 @@ impl TransitionEngine {
         // 30. 漢字圈條件式郵政／地政／戶政階層知識樹（平時休眠，僅在上層行政區錨點出現於前文時喚醒下層里、路、段）
         //     總貢獻以 ±35 為上限，可用 RUHI_DISABLE_RULES=geo_hierarchy 停用。
         // =========================================================================
-        if !self.is_rule_disabled("geo_hierarchy") {
-            let geo = crate::router::geo_hierarchy::CjkGeoHierarchy::global()
-                .score_geo_hierarchy_bonus(prefix_words, curr_word, curr_bopomofo, end_idx, dag);
-            bonus += geo.clamp(-35.0, 35.0);
-        }
+        let topological_core_raw = bonus;
+        bonus = 0.0;
+
+        let geo_raw = if !self.is_rule_disabled("geo_hierarchy") {
+            crate::router::geo_hierarchy::CjkGeoHierarchy::global()
+                .score_geo_hierarchy_bonus(prefix_words, curr_word, curr_bopomofo, end_idx, dag)
+                .clamp(-35.0, 35.0)
+        } else {
+            0.0
+        };
 
         // =========================================================================
         // 31. 語境分岔構式（2026-11-05，分數上限 35；左右語意類別一律引用 morpheme_ontology.json）
@@ -4673,6 +4687,9 @@ impl TransitionEngine {
                 }
             }
         }
+
+        let ctx31_raw = bonus;
+        bonus = 0.0;
 
             // 31-5. 詞界與補語／定語結構防劫掠守門（因式分解右鄰驗證）：
             // (a) 可能補語與飽足補語「V + 得 + 補語」：僅當右鄰確實為可能／結果補語時才賦予「得」+28.0
@@ -7634,6 +7651,12 @@ impl TransitionEngine {
             }
 
 
-        self.apply_rule_score("construction_hierarchical_matrix", bonus)
+        let guard31_raw = bonus;
+        let mut total_scored = trigram_scored;
+        total_scored += self.apply_rule_score("construction_topological_core", topological_core_raw);
+        total_scored += self.apply_rule_score("geo_hierarchy", geo_raw);
+        total_scored += self.apply_rule_score("construction_ctx31_bifurcation", ctx31_raw);
+        total_scored += self.apply_rule_score("construction_boundary_guard", guard31_raw);
+        total_scored
     }
 }

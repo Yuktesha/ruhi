@@ -1602,9 +1602,191 @@ impl RuhiEngine {
         }
     }
 
+    pub fn format_quick_date_candidates(raw: &str) -> (Vec<String>, bool) {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return (Vec::new(), false);
+        }
+
+        let is_leap_year = |y: i32| -> bool {
+            (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)
+        };
+
+        let days_in_month = |y: i32, m: u32| -> u32 {
+            match m {
+                1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+                4 | 6 | 9 | 11 => 30,
+                2 => if is_leap_year(y) { 29 } else { 28 },
+                _ => 0,
+            }
+        };
+
+        let is_valid_date = |y: i32, m: u32, d: u32| -> bool {
+            if y < 1 || !(1..=12).contains(&m) || d < 1 {
+                return false;
+            }
+            d <= days_in_month(y, m)
+        };
+
+        let sakamoto_weekday = |y: i32, m: u32, d: u32| -> usize {
+            let t = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+            let mut year = y;
+            if m < 3 {
+                year -= 1;
+            }
+            let dow = (year + year / 4 - year / 100 + year / 400 + t[(m - 1) as usize] + d as i32) % 7;
+            let dow = if dow < 0 { dow + 7 } else { dow };
+            dow as usize
+        };
+
+        let build_cands = |yyyy: i32, m: u32, d: u32| -> Vec<String> {
+            let mut list = Vec::new();
+            // 1. {yyyy}年{m}月{d}日
+            list.push(format!("{}年{}月{}日", yyyy, m, d));
+            // 2. 中華民國{roc}年{m}月{d}日 & 3. {roc}年{m}月{d}日
+            if yyyy >= 1912 {
+                let roc = yyyy - 1911;
+                list.push(format!("中華民國{}年{}月{}日", roc, m, d));
+                list.push(format!("{}年{}月{}日", roc, m, d));
+            }
+            // 4. {yyyy}-{m:02}-{d:02}
+            list.push(format!("{}-{:02}-{:02}", yyyy, m, d));
+            // 5. {yyyy}/{m:02}/{d:02}
+            list.push(format!("{}/{:02}/{:02}", yyyy, m, d));
+
+            // 6. 中文漢字日期：{cjk_yyyy}年{cjk_m}月{cjk_d}日
+            let cjk_digits = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+            let mut cjk_yyyy = String::new();
+            for ch in yyyy.to_string().chars() {
+                if let Some(digit) = ch.to_digit(10) {
+                    cjk_yyyy.push(cjk_digits[digit as usize]);
+                }
+            }
+            let cjk_num_1_to_31 = |n: u32| -> String {
+                if n <= 10 {
+                    if n == 10 { "十".to_string() } else { cjk_digits[n as usize].to_string() }
+                } else if n < 20 {
+                    format!("十{}", cjk_digits[(n % 10) as usize])
+                } else if n == 20 {
+                    "二十".to_string()
+                } else if n < 30 {
+                    format!("二十{}", cjk_digits[(n % 10) as usize])
+                } else if n == 30 {
+                    "三十".to_string()
+                } else {
+                    format!("三十{}", cjk_digits[(n % 10) as usize])
+                }
+            };
+            let cjk_m = cjk_num_1_to_31(m);
+            let cjk_d = cjk_num_1_to_31(d);
+            list.push(format!("{}年{}月{}日", cjk_yyyy, cjk_m, cjk_d));
+
+            // 7. {yyyy}年{m}月{d}日（星期{wk}）
+            const WEEKDAYS: [&str; 7] = ["日", "一", "二", "三", "四", "五", "六"];
+            let wk = WEEKDAYS[sakamoto_weekday(yyyy, m, d)];
+            list.push(format!("{}年{}月{}日（星期{}）", yyyy, m, d, wk));
+
+            let mut unique_list = Vec::new();
+            for c in list {
+                if !unique_list.contains(&c) {
+                    unique_list.push(c);
+                }
+            }
+            unique_list
+        };
+
+        if trimmed.contains('/') || trimmed.contains('-') {
+            let sep = if trimmed.contains('/') { '/' } else { '-' };
+            let parts: Vec<&str> = trimmed.split(sep).collect();
+            if parts.len() == 3 {
+                let y_str = parts[0].trim();
+                let m_str = parts[1].trim();
+                let d_str = parts[2].trim();
+                if let (Ok(y_raw), Ok(m), Ok(d)) = (y_str.parse::<i32>(), m_str.parse::<u32>(), d_str.parse::<u32>()) {
+                    let yyyy = if (1900..=2199).contains(&y_raw) {
+                        y_raw
+                    } else if (1..=299).contains(&y_raw) {
+                        y_raw + 1911
+                    } else {
+                        -1
+                    };
+                    if yyyy > 0 && is_valid_date(yyyy, m, d) {
+                        return (build_cands(yyyy, m, d), true);
+                    }
+                }
+            } else if parts.len() == 2 {
+                let m_str = parts[0].trim();
+                let d_str = parts[1].trim();
+                if let (Ok(m), Ok(d)) = (m_str.parse::<u32>(), d_str.parse::<u32>()) {
+                    let (cur_y, _, _, _, _, _, _) = crate::templates::expander::current_local_datetime();
+                    if is_valid_date(cur_y, m, d) {
+                        return (build_cands(cur_y, m, d), true);
+                    }
+                }
+            }
+            return (Vec::new(), true);
+        }
+
+        if trimmed.chars().all(|c| c.is_ascii_digit()) {
+            let len = trimmed.len();
+            if len == 8 {
+                if let (Ok(yyyy), Ok(m), Ok(d)) = (
+                    trimmed[0..4].parse::<i32>(),
+                    trimmed[4..6].parse::<u32>(),
+                    trimmed[6..8].parse::<u32>(),
+                ) {
+                    if (1900..=2199).contains(&yyyy) && is_valid_date(yyyy, m, d) {
+                        return (build_cands(yyyy, m, d), true);
+                    }
+                }
+            } else if len == 7 {
+                if let (Ok(roc), Ok(m), Ok(d)) = (
+                    trimmed[0..3].parse::<i32>(),
+                    trimmed[3..5].parse::<u32>(),
+                    trimmed[5..7].parse::<u32>(),
+                ) {
+                    if (100..=200).contains(&roc) {
+                        let yyyy = roc + 1911;
+                        if is_valid_date(yyyy, m, d) {
+                            return (build_cands(yyyy, m, d), true);
+                        }
+                    }
+                }
+            } else if len == 6 {
+                if let (Ok(roc), Ok(m), Ok(d)) = (
+                    trimmed[0..2].parse::<i32>(),
+                    trimmed[2..4].parse::<u32>(),
+                    trimmed[4..6].parse::<u32>(),
+                ) {
+                    if (10..=99).contains(&roc) {
+                        let yyyy = roc + 1911;
+                        if is_valid_date(yyyy, m, d) {
+                            return (build_cands(yyyy, m, d), false);
+                        }
+                    }
+                }
+            }
+        }
+
+        (Vec::new(), false)
+    }
+
     pub fn format_chinese_number_candidates(num_str: &str) -> Vec<String> {
         let trimmed = num_str.trim();
-        if trimmed.is_empty() || !trimmed.chars().all(|c| c.is_ascii_digit() || c == '.') {
+        if trimmed.is_empty() {
+            return Vec::new();
+        }
+
+        if trimmed.contains('/') || trimmed.contains('-') {
+            let (date_cands, _) = Self::format_quick_date_candidates(trimmed);
+            if !date_cands.is_empty() {
+                return date_cands;
+            } else {
+                return vec!["請繼續輸入月/日（例如 2026/11/12 或 115/11/12）".to_string()];
+            }
+        }
+
+        if !trimmed.chars().all(|c| c.is_ascii_digit() || c == '.') {
             return Vec::new();
         }
         let parts: Vec<&str> = trimmed.splitn(2, '.').collect();
@@ -1728,10 +1910,32 @@ impl RuhiEngine {
         }
         let nt_currency = format!("NT${}", comma_num);
 
+        let (date_cands, is_primary_date) = Self::format_quick_date_candidates(trimmed);
         let mut cands = Vec::new();
-        for item in [low_read, fin_amount, up_read, serial_low, nt_currency, comma_num] {
-            if !item.is_empty() && !cands.contains(&item) {
-                cands.push(item);
+        if is_primary_date && !date_cands.is_empty() {
+            // 先放入前 5 個日期候選，再接續放入中文數字與金額候選
+            for item in date_cands.iter().take(5) {
+                if !cands.contains(item) {
+                    cands.push(item.clone());
+                }
+            }
+            for item in [low_read, fin_amount, nt_currency, comma_num] {
+                if !item.is_empty() && !cands.contains(&item) {
+                    cands.push(item);
+                }
+            }
+        } else {
+            for item in [low_read, fin_amount, up_read, serial_low, nt_currency, comma_num] {
+                if !item.is_empty() && !cands.contains(&item) {
+                    cands.push(item);
+                }
+            }
+            if !date_cands.is_empty() {
+                for item in date_cands {
+                    if !cands.contains(&item) {
+                        cands.push(item);
+                    }
+                }
             }
         }
         cands
@@ -1744,9 +1948,14 @@ impl RuhiEngine {
             return;
         }
         let mut cands = Vec::new();
-        let mut tpl_keys: Vec<&String> = self.templates.templates.keys().collect();
-        tpl_keys.sort();
-        for k in tpl_keys {
+        let triggers = if !self.templates.ordered_triggers.is_empty() {
+            self.templates.ordered_triggers.clone()
+        } else {
+            let mut keys: Vec<String> = self.templates.templates.keys().cloned().collect();
+            keys.sort();
+            keys
+        };
+        for k in &triggers {
             if let Some(item) = self.templates.templates.get(k) {
                 let (exp, _) = item.expand("");
                 if !exp.is_empty() && !cands.contains(&exp) {
@@ -1755,13 +1964,13 @@ impl RuhiEngine {
             }
         }
         for builtin in [
-            "中華民國115年10月28日",
-            "2026-10-28",
-            "2026年10月28日",
+            "中華民國%ROC%年%M%月%D%日",
+            "%YYYY%-%MM%-%DD%",
+            "%YYYY%年%MM%月%DD%日",
             "敬啟者：您好，",
             "順頌 時祺",
         ] {
-            let s = builtin.to_string();
+            let (s, _) = crate::templates::expander::expand_template_str(builtin, "");
             if !cands.contains(&s) {
                 cands.push(s);
             }
@@ -1783,10 +1992,10 @@ impl RuhiEngine {
         self.mode = EngineMode::QuickNum;
         self.quick_num_buffer.clear();
         self.current_candidates = vec![
-            "請輸入數字 (0-9 / .) 即時轉中文大小寫與財務金額".to_string(),
-            "範例：12345 ➔ 一萬二千三百四十五".to_string(),
-            "範例：12345 ➔ 壹萬貳仟參佰肆拾伍圓整".to_string(),
-            "範例：12345 ➔ NT$12,345".to_string(),
+            "請輸入數字或日期 (0-9 / . / -) 即時轉中文大小寫、金額與日期".to_string(),
+            "範例：12345 ➔ 一萬二千三百四十五 / 壹萬貳仟參佰肆拾伍圓整 / NT$12,345".to_string(),
+            "範例：20261112 / 2026/11/12 ➔ 2026年11月12日 / 中華民國115年11月12日".to_string(),
+            "範例：115/11/12 ➔ 中華民國115年11月12日 / 2026-11-12".to_string(),
         ];
         self.candidate_cycle_idx = 0;
         self.build_response("show_quick_num", "")
@@ -4709,10 +4918,20 @@ impl RuhiEngine {
                     return self.commit_inline_or_special_text(&chosen, cands, "commit_template");
                 }
             }
+            let is_slash_or_dash = (key == '/' || key == '-')
+                && !self.quick_num_buffer.is_empty()
+                && !self.quick_num_buffer.ends_with('/')
+                && !self.quick_num_buffer.ends_with('-')
+                && self.quick_num_buffer.chars().filter(|&c| c == '/' || c == '-').count() < 2
+                && !self.quick_num_buffer.contains('.');
+
             if key.is_ascii_digit()
                 || (key == '.'
                     && !self.quick_num_buffer.is_empty()
-                    && !self.quick_num_buffer.contains('.'))
+                    && !self.quick_num_buffer.contains('.')
+                    && !self.quick_num_buffer.contains('/')
+                    && !self.quick_num_buffer.contains('-'))
+                || is_slash_or_dash
             {
                 self.mode = EngineMode::QuickNum;
                 self.quick_num_buffer.push(key);
@@ -4721,7 +4940,7 @@ impl RuhiEngine {
             }
             if self.mode == EngineMode::QuickNum
                 && !self.quick_num_buffer.is_empty()
-                && matches!(key.to_ascii_lowercase(), 'a'..='f')
+                && matches!(key.to_ascii_lowercase(), 'a'..='i')
             {
                 let idx = (key.to_ascii_lowercase() as usize) - ('a' as usize);
                 if let Some(chosen) = self.current_candidates.get(idx).cloned() {
@@ -5854,7 +6073,11 @@ impl RuhiEngine {
                 if !self.is_latin_mode {
                     let mut camel_check = self.raw_ascii_buffer.clone();
                     camel_check.push(key);
-                    let is_address_or_digit_composed = self.composed_sentence.chars().any(|c| c.is_ascii_digit()) || !self.active_geo_context.is_empty();
+                    let is_address_unit = self.composed_sentence.ends_with(['樓', '層', '座', '期', '棟', '號'])
+                        || self.last_committed_word.ends_with(['樓', '層', '座', '期', '棟', '號']);
+                    let is_address_or_digit_composed = self.composed_sentence.chars().any(|c| c.is_ascii_digit())
+                        || !self.active_geo_context.is_empty()
+                        || is_address_unit;
                     let is_code_id = !is_address_or_digit_composed && crate::western::WesternToken::new(&camel_check).is_code_identifier();
                     if is_code_id && (self.western.lexicon.contains(&self.raw_ascii_buffer) || self.western.score_string(&self.raw_ascii_buffer) >= 0.70) && !self.composed_sentence.is_empty() && !self.fsm.syllables.is_empty() {
                         let prior_commit = self.composed_sentence.clone();
@@ -12102,6 +12325,7 @@ mod tests {
         assert_eq!(out_c, "區品森協蕊");
     }
 
+
     #[test]
     fn test_longkan_v2_hsu_inline_tilde_tab_fusion_and_quicknum_261028() {
         let mut engine = RuhiEngine::new_with_data_dir("../ruhi_lexicon/data");
@@ -12297,11 +12521,41 @@ mod tests {
         };
         assert_eq!(r_tpl.action, "show_quick_num");
         assert_eq!(engine.mode, EngineMode::TemplateSelect);
-        assert!(engine.current_candidates.contains(&"2026-10-28".to_string()));
+        assert!(!engine.current_candidates.iter().any(|c| c.contains("%YYYY%") || c.contains("%MM%")));
+        let (today_iso, _) = crate::templates::expander::expand_template_str("%YYYY%-%MM%-%DD%", "");
+        assert!(engine.current_candidates.contains(&today_iso));
         let expected_second_tpl = engine.current_candidates[1].clone();
         engine.process_key('2');
         assert_eq!(engine.mode, EngineMode::Normal);
         assert_eq!(engine.composed_sentence, expected_second_tpl);
+
+        // 驗證 TemplateItem::expand 展開動態時間與民國年
+        let tpl_item = crate::templates::expander::TemplateItem::new("now", "%YYYY%-%MM%-%DD% %HH%:%NN%:%SS% 民國%ROC%年", "目前時間");
+        let (expanded_now, _) = tpl_item.expand("");
+        assert!(!expanded_now.contains("%YYYY%"));
+        assert!(!expanded_now.contains("%ROC%"));
+        let (cur_y, _, _, _, _, _, _) = crate::templates::expander::current_local_datetime();
+        assert!(expanded_now.contains(&cur_y.to_string()));
+        assert!(expanded_now.contains(&format!("民國{}年", cur_y - 1911)));
+
+        // 驗證 `~20261112、`~2026/11/12、~~115/11/12 日期快打
+        engine.reset_buffer();
+        for ch in "`~20261112 ".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.composed_sentence, "2026年11月12日");
+
+        engine.reset_buffer();
+        for ch in "`~2026/11/12 ".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.composed_sentence, "2026年11月12日");
+
+        engine.reset_buffer();
+        for ch in "~~115/11/12 ".chars() {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.composed_sentence, "2026年11月12日");
 
         engine.reset_buffer();
         for ch in "~~12345 ".chars() {

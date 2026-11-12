@@ -6,7 +6,7 @@ build_cjk_geo_hierarchy.py
 建構漢字圈（台灣、日本、韓國、中國大陸與港澳）條件式階層郵政／地政／戶政知識樹（cjk_geo_hierarchy.tsv）。
 
 欄位規格（Tab 分隔 TSV）：
-    country<TAB>level<TAB>parent<TAB>entity<TAB>postal_code<TAB>category<TAB>children_csv
+    country<TAB>level<TAB>parent<TAB>entity<TAB>postal_code<TAB>category<TAB>children_csv<TAB>l1_root
 
 遵循 ATG 專案規範：
     1. 純 Python CLI 介面（含 argparse 與繁體中文說明）。
@@ -19,527 +19,214 @@ import os
 import sys
 from typing import List, Tuple
 
-# (country, level, parent, entity, postal_code, category, children_csv)
-GeoRow = Tuple[str, str, str, str, str, str, str]
+# (country, level, parent, entity, postal_code, category, children_csv, l1_root)
+GeoRow = Tuple[str, str, str, str, str, str, str, str]
+
+
+def ensure_open_data_sources(repo_root: str):
+    """確保 open_data 目錄下的 tw_zipcode_3plus3.tsv 與 tw_villages.tsv 存在且完整。"""
+    open_data_dir = os.path.join(repo_root, "ruhi_lexicon", "data", "open_data")
+    os.makedirs(open_data_dir, exist_ok=True)
+    out_zip = os.path.join(open_data_dir, "tw_zipcode_3plus3.tsv")
+    out_vil = os.path.join(open_data_dir, "tw_villages.tsv")
+
+    scratch_dirs = [
+        r"C:\Users\Yuktesha\.gemini\antigravity\brain\efe74b09-b76e-469d-a21a-7bbb8ec40671\scratch",
+        os.path.join(repo_root, "scratch"),
+        os.path.join(os.path.dirname(repo_root), "scratch"),
+    ]
+    zipcode_txt = None
+    counties_csv = None
+    towns_csv = None
+    villages_csv = None
+    for sd in scratch_dirs:
+        if os.path.exists(os.path.join(sd, "zipcode.txt")):
+            zipcode_txt = os.path.join(sd, "zipcode.txt")
+            counties_csv = os.path.join(sd, "counties.csv")
+            towns_csv = os.path.join(sd, "towns.csv")
+            villages_csv = os.path.join(sd, "villages.csv")
+            break
+
+    if zipcode_txt and os.path.exists(zipcode_txt):
+        with open(zipcode_txt, encoding="utf-8") as fin, open(out_zip, "w", encoding="utf-8", newline="\n") as fout:
+            fout.write("# 中華郵政 3+3 郵遞區號公開資料 V2603\n")
+            fout.write("# 格式: #縣市 / @鄉鎮市區\t3碼前綴 / 路街名\t3碼尾綴:規則[|大宗戶]\t...\n")
+            for line in fin:
+                line = line.strip("\r\n")
+                if not line or line.startswith("# ") or line.startswith("##"):
+                    continue
+                parts = line.split("\t")
+                if parts[0].startswith("#"):
+                    c_clean = parts[0][1:].strip()
+                    if c_clean:
+                        fout.write(f"#{c_clean}\n")
+                elif parts[0].startswith("@"):
+                    pfx = parts[2] if len(parts) > 2 else ""
+                    fout.write(f"{parts[0]}\t{pfx}\n")
+                else:
+                    rules = parts[2:]
+                    fout.write(f"{parts[0]}\t" + "\t".join(rules) + "\n")
+
+    if villages_csv and os.path.exists(villages_csv):
+        import csv
+        from collections import defaultdict
+        counties_map = dict(csv.reader(open(counties_csv, encoding="utf-8")))
+        towns_map = dict(csv.reader(open(towns_csv, encoding="utf-8")))
+        vil_list = list(csv.reader(open(villages_csv, encoding="utf-8")))[1:]
+        town_villages = defaultdict(list)
+        for vid, vname in vil_list:
+            vname = vname.strip()
+            if vname:
+                town_villages[vid[:8]].append(vname)
+        with open(out_vil, "w", encoding="utf-8", newline="\n") as fout:
+            fout.write("# 政府資料開放平臺內政部村里清單 (8,044 村里 / 368 鄉鎮市區)\n")
+            fout.write("# 格式: 縣市\t鄉鎮市區\t村里1,村里2,...\n")
+            for tid, tname in list(towns_map.items())[1:]:
+                cname = counties_map[tid[:5]]
+                vils = town_villages.get(tid, [])
+                fout.write(f"{cname}\t{tname}\t" + ",".join(vils) + "\n")
 
 
 def build_taiwan_hierarchy() -> List[GeoRow]:
-    rows: List[GeoRow] = []
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ensure_open_data_sources(repo_root)
 
-    # 1. 台灣 22 縣市 -> 368 鄉鎮市區 (L1 -> L2)
-    tw_l1_to_l2 = [
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "基隆市",
-            "200",
-            "city",
-            "仁愛區,信義區,中正區,中山區,安樂區,暖暖區,七堵區",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "臺北市",
-            "100",
-            "city",
-            "中正區,大同區,中山區,松山區,大安區,萬華區,信義區,士林區,北投區,內湖區,南港區,文山區",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "台北市",
-            "100",
-            "city",
-            "中正區,大同區,中山區,松山區,大安區,萬華區,信義區,士林區,北投區,內湖區,南港區,文山區",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "新北市",
-            "220",
-            "city",
-            "萬里區,金山區,板橋區,汐止區,深坑區,石碇區,瑞芳區,平溪區,雙溪區,貢寮區,新店區,坪林區,烏來區,永和區,中和區,土城區,三峽區,樹林區,鶯歌區,三重區,新莊區,泰山區,林口區,蘆洲區,五股區,八里區,淡水區,三芝區,石門區",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "桃園市",
-            "330",
-            "city",
-            "中壢區,平鎮區,龍潭區,楊梅區,新屋區,觀音區,桃園區,龜山區,八德區,大溪區,復興區,大園區,蘆竹區",
-        ),
-        ("TW", "L1", "ROOT", "新竹市", "300", "city", "東區,北區,香山區"),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "新竹縣",
-            "302",
-            "county",
-            "竹北市,湖口鄉,新豐鄉,新埔鎮,關西鎮,芎林鄉,寶山鄉,竹東鎮,五峰鄉,橫山鄉,尖石鄉,北埔鄉,峨眉鄉",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "苗栗縣",
-            "360",
-            "county",
-            "竹南鎮,頭份市,三灣鄉,南庄鄉,獅潭鄉,後龍鎮,通霄鎮,苑裡鎮,苗栗市,造橋鄉,頭屋鄉,公館鄉,大湖鄉,泰安鄉,銅鑼鄉,三義鄉,西湖鄉,卓蘭鎮",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "臺中市",
-            "400",
-            "city",
-            "中區,東區,南區,西區,北區,北屯區,西屯區,南屯區,太平區,大里區,霧峰區,烏日區,豐原區,后里區,石岡區,東勢區,和平區,新社區,潭子區,大雅區,神岡區,大肚區,沙鹿區,龍井區,梧棲區,清水區,大甲區,外埔區,大安區",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "台中市",
-            "400",
-            "city",
-            "中區,東區,南區,西區,北區,北屯區,西屯區,南屯區,太平區,大里區,霧峰區,烏日區,豐原區,后里區,石岡區,東勢區,和平區,新社區,潭子區,大雅區,神岡區,大肚區,沙鹿區,龍井區,梧棲區,清水區,大甲區,外埔區,大安區",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "彰化縣",
-            "500",
-            "county",
-            "彰化市,芬園鄉,花壇鄉,秀水鄉,鹿港鎮,福興鄉,線西鄉,和美鎮,伸港鄉,員林市,社頭鄉,永靖鄉,埔心鄉,溪湖鎮,大村鄉,埔鹽鄉,田中鎮,北斗鎮,田尾鄉,埤頭鄉,溪州鄉,竹塘鄉,二林鎮,大城鄉,芳苑鄉,二水鄉",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "南投縣",
-            "540",
-            "county",
-            "南投市,中寮鄉,草屯鎮,國姓鄉,埔里鎮,仁愛鄉,名間鄉,集集鎮,水里鄉,魚池鄉,信義鄉,竹山鎮,鹿谷鄉",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "雲林縣",
-            "640",
-            "county",
-            "斗南鎮,大埤鄉,虎尾鎮,土庫鎮,褒忠鄉,東勢鄉,臺西鄉,崙背鄉,麥寮鄉,斗六市,林內鄉,古坑鄉,莿桐鄉,西螺鎮,二崙鄉,北港鎮,水林鄉,口湖鄉,四湖鄉,元長鄉",
-        ),
-        ("TW", "L1", "ROOT", "嘉義市", "600", "city", "東區,西區"),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "嘉義縣",
-            "612",
-            "county",
-            "番路鄉,梅山鄉,竹崎鄉,阿里山鄉,中埔鄉,大埔鄉,水上鄉,鹿草鄉,太保市,朴子市,東石鄉,六腳鄉,新港鄉,民雄鄉,大林鎮,溪口鄉,義竹鄉,布袋鎮",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "臺南市",
-            "700",
-            "city",
-            "中西區,東區,南區,北區,安平區,安南區,永康區,歸仁區,新化區,左鎮區,玉井區,楠西區,南化區,仁德區,關廟區,龍崎區,官田區,麻豆區,佳里區,西港區,七股區,將軍區,學甲區,北門區,新營區,後壁區,白河區,東山區,六甲區,下營區,柳營區,鹽水區,善化區,大內區,山上區,新市區,安定區",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "台南市",
-            "700",
-            "city",
-            "中西區,東區,南區,北區,安平區,安南區,永康區,歸仁區,新化區,左鎮區,玉井區,楠西區,南化區,仁德區,關廟區,龍崎區,官田區,麻豆區,佳里區,西港區,七股區,將軍區,學甲區,北門區,新營區,後壁區,白河區,東山區,六甲區,下營區,柳營區,鹽水區,善化區,大內區,山上區,新市區,安定區",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "高雄市",
-            "800",
-            "city",
-            "新興區,前金區,苓雅區,鹽埕區,鼓山區,旗津區,前鎮區,三民區,楠梓區,小港區,左營區,仁武區,大社區,岡山區,路竹區,阿蓮區,田寮區,燕巢區,橋頭區,梓官區,彌陀區,永安區,湖內區,鳳山區,大寮區,林園區,鳥松區,大樹區,旗山區,美濃區,六龜區,內門區,杉林區,甲仙區,桃源區,那瑪夏區,茂林區,茄萣區",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "屏東縣",
-            "900",
-            "county",
-            "屏東市,三地門鄉,霧臺鄉,瑪家鄉,九如鄉,里港鄉,高樹鄉,鹽埔鄉,長治鄉,麟洛鄉,竹田鄉,內埔鄉,萬丹鄉,潮州鎮,泰武鄉,來義鄉,萬巒鄉,崁頂鄉,新埤鄉,南州鄉,林邊鄉,東港鎮,琉球鄉,佳冬鄉,新園鄉,枋寮鄉,枋山鄉,春日鄉,獅子鄉,車城鄉,牡丹鄉,恆春鎮,滿州鄉",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "宜蘭縣",
-            "260",
-            "county",
-            "宜蘭市,頭城鎮,礁溪鄉,壯圍鄉,員山鄉,羅東鎮,三星鄉,大同鄉,五結鄉,冬山鄉,蘇澳鎮,南澳鄉",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "花蓮縣",
-            "970",
-            "county",
-            "花蓮市,新城鄉,秀林鄉,吉安鄉,壽豐鄉,鳳林鎮,光復鄉,豐濱鄉,瑞穗鄉,萬榮鄉,玉里鎮,卓溪鄉,富里鄉",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "臺東縣",
-            "950",
-            "county",
-            "臺東市,綠島鄉,蘭嶼鄉,延平鄉,卑南鄉,鹿野鄉,關山鎮,海端鄉,池上鄉,東河鄉,成功鎮,長濱鄉,太麻里鄉,金峰鄉,大武鄉,達仁鄉",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "台東縣",
-            "950",
-            "county",
-            "臺東市,台東市,綠島鄉,蘭嶼鄉,延平鄉,卑南鄉,鹿野鄉,關山鎮,海端鄉,池上鄉,東河鄉,成功鎮,長濱鄉,太麻里鄉,金峰鄉,大武鄉,達仁鄉",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "澎湖縣",
-            "880",
-            "county",
-            "馬公市,西嶼鄉,望安鄉,七美鄉,白沙鄉,湖西鄉",
-        ),
-        (
-            "TW",
-            "L1",
-            "ROOT",
-            "金門縣",
-            "890",
-            "county",
-            "金沙鎮,金湖鎮,金寧鄉,金城鎮,烈嶼鄉,烏坵鄉",
-        ),
-        ("TW", "L1", "ROOT", "連江縣", "209", "county", "南竿鄉,北竿鄉,莒光鄉,東引鄉"),
+    open_data_dir = os.path.join(repo_root, "ruhi_lexicon", "data", "open_data")
+    out_zip = os.path.join(open_data_dir, "tw_zipcode_3plus3.tsv")
+    out_vil = os.path.join(open_data_dir, "tw_villages.tsv")
+
+    # 1. 讀取內政部村里開放資料
+    town_villages = {}
+    with open(out_vil, encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("#"):
+                continue
+            p = line.strip("\r\n").split("\t")
+            if len(p) >= 3:
+                c, t, v = p[0], p[1], p[2]
+                vils = [x for x in v.split(",") if x]
+                town_villages[(c, t)] = vils
+
+    # 2. 讀取中華郵政 3+3 郵遞區號公開資料
+    county_towns = {}
+    town_prefixes = {}
+    town_roads = {}
+    cur_c = ""
+    cur_t = ""
+    cur_pfx = ""
+    with open(out_zip, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip("\r\n")
+            if not line or line.startswith("# ") or line.startswith("##"):
+                continue
+            p = line.split("\t")
+            if p[0].startswith("#"):
+                cur_c = p[0][1:].strip()
+                if not cur_c:
+                    continue
+                if cur_c not in county_towns:
+                    county_towns[cur_c] = []
+            elif p[0].startswith("@"):
+                cur_t = p[0][1:].strip()
+                cur_pfx = p[1].strip() if len(p) > 1 else ""
+                if cur_c and cur_t not in county_towns.setdefault(cur_c, []):
+                    county_towns[cur_c].append(cur_t)
+                town_prefixes[(cur_c, cur_t)] = cur_pfx
+            else:
+                road_name = p[0]
+                rules = p[1:]
+                town_roads.setdefault((cur_c, cur_t), []).append((road_name, cur_pfx, rules))
+
+    # 地政主要地段清單
+    cadastral_sections = [
+        ("七堵區", "瑪陵坑段", "206000", "基隆市"),
+        ("中正區", "正濱段", "202000", "基隆市"),
+        ("中正區", "社寮段", "202000", "基隆市"),
+        ("中正區", "城中段", "100005", "臺北市"),
+        ("信義區", "興雅段", "110058", "臺北市"),
+        ("板橋區", "新板段", "220063", "新北市"),
     ]
-    rows.extend(tw_l1_to_l2)
+    town_cadastral = {}
+    for town, sec, code, l1 in cadastral_sections:
+        town_cadastral.setdefault((l1, town), []).append(sec)
 
-    # 2. 基隆市 7 大行政區完整戶政（里）、郵政（路街）與地政（地段）(L2 -> L3)
-    keelung_l2 = [
-        (
-            "TW",
-            "L2",
-            "基隆市",
-            "仁愛區",
-            "200",
-            "district",
-            "林泉里,花崗里,虹橋里,水錦里,智仁里,和明里,忠勇里,玉田里,仁德里,博愛里,福仁里,誠仁里,吉仁里,育仁里,英仁里,龍門里,德厚里,曲水里,崇文里,文安里,兆連里,獅球里,書院里,朝棟里,光華里,明德里,同風里,文昌里,新店里,"
-            "愛一路,愛二路,愛三路,愛四路,仁一路,仁二路,仁三路,仁四路,仁五路,忠一路,忠二路,忠三路,忠四路,孝一路,孝二路,孝三路,孝四路,南榮路,劉銘傳路,成功一路,獅球路,龍安街,精一路,精二路,"
-            "田寮港段,獅球嶺段,石硬港段,哨船頭段,玉田段,仁愛段,博愛段,光華段,德厚段",
-        ),
-        (
-            "TW",
-            "L2",
-            "基隆市",
-            "信義區",
-            "201",
-            "district",
-            "仁壽里,仁義里,義昭里,義幸里,義民里,義和里,智慧里,智誠里,禮儀里,禮東里,信綠里,東信里,東光里,東明里,東安里,孝岡里,孝深里,孝賢里,孝德里,月眉里,"
-            "信一路,信二路,東信路,東明路,深澳坑路,深溪路,培德路,崇法街,正信路,壽山路,月眉路,六合街,東光路,"
-            "深澳坑段,田寮港段,大水窟段,月眉段,東明段,孝岡段,信義段,禮東段",
-        ),
-        ("TW", "L2", "基隆市", "中正區", "202", "district", "德義里,正義里,信義里,義重里,港通里,中砂里,真砂里,砂灣里,建國里,中正里,中船里,正船里,入船里,居仁里,正砂里,八斗里,碧砂里,長潭里,砂子里,海濱里,社寮里,和憲里,平寮里,正濱里,新富里,新豐里,"
-            "中正路,義一路,義二路,信三路,信四路,信五路,北寧路,祥豐街,新豐街,觀海街,豐稔街,和一路,平一路,調和街,漁港一街,和平島,"
-            "正濱段,祥豐段,社寮段,八斗子段,碧砂段,中正段,仙洞鼻段,大沙灣段,長潭段"),
-        (
-            "TW",
-            "L2",
-            "基隆市",
-            "中山區",
-            "203",
-            "district",
-            "安民里,安平里,中山里,民治里,中興里,仁正里,健民里,通化里,通明里,協和里,文化里,仙洞里,太白里,西榮里,西華里,西定里,西康里,新建里,安樂里,居仁里,和平里,中和里,德安里,德和里,"
-            "中山一路,中山二路,中山三路,中山四路,西定路,復興路,中華路,文化路,德安路,協和街,光華路,成功二路,健民街,通仁街,仁安街,"
-            "仙洞段,和平段,協和段,西定段,木山段,虎仔山段,牛稠港段,中和段,太白段",
-        ),
-        (
-            "TW",
-            "L2",
-            "基隆市",
-            "安樂區",
-            "204",
-            "district",
-            "西川里,定國里,定邦里,慈仁里,干城里,安和里,樂一里,永康里,嘉仁里,新西里,興寮里,鶯安里,鶯歌里,七賢里,四維里,三民里,六合里,五福里,長樂里,中崙里,內寮里,外寮里,新崙里,武崙里,壯觀里,"
-            "安樂路一段,安樂路二段,基金一路,基金二路,基金三路,麥金路,樂利二街,樂利三街,安和一街,安和二街,武隆街,湖海路一段,湖海路二段,崇德路,"
-            "大武崙段,蚵殼港段,鶯歌石段,外寮段,內寮段,中崙段,定國段,安樂段,麥金段",
-        ),
-        (
-            "TW",
-            "L2",
-            "基隆市",
-            "暖暖區",
-            "205",
-            "district",
-            "八中里,八堵里,八南里,八西里,暖暖里,暖同里,暖東里,暖西里,碇內里,碇安里,碇和里,碇祥里,過港里,"
-            "暖暖街,源遠路,東勢街,過港路,八堵路,暖中路,東碇路,碇內街,金華街,興隆街,暖西街,"
-            "暖暖段,源遠段,碇內段,八堵段,過港段,東勢段,暖東段",
-        ),
-        (
-            "TW",
-            "L2",
-            "基隆市",
-            "七堵區",
-            "206",
-            "district",
-            "長興里,正光里,富民里,永平里,永安里,八德里,自強里,六堵里,泰安里,實踐里,百福里,堵北里,堵南里,瑪南里,瑪東里,瑪西里,友一里,友二里,長安里,正明里,"
-            "明德一路,明德二路,明德三路,光明路,百一街,百二街,百三街,百四街,百五街,百六街,百七街,福一街,福二街,福三街,福四街,福五街,實踐路,工建路,工建西路,大華一路,大華二路,大華三路,東新街,自治街,崇智街,開元路,泰安路,俊賢路,"
-            "拔西猴段,瑪陵坑段,友蚋段,頂北堵段,下北堵段,六堵段,七堵段,草濫段,八德段,百福段",
-        ),
-    ]
-    rows.extend(keelung_l2)
-
-    # 3. 臺北市、新北市、桃園市、新竹、臺中、臺南、高雄、花蓮、金門等核心行政區郵政與下轄里／路／段 (L2 -> L3)
-    tw_major_l2 = [
-        # 臺北市
-        (
-            "TW",
-            "L2",
-            "臺北市",
-            "中正區",
-            "100",
-            "district",
-            "黎明里,光復里,建國里,東門里,南門里,忠孝西路,忠孝東路,重慶南路,博愛路,羅斯福路,仁愛路,信義路,凱達格蘭大道,城中段,公園段,南海段,臨沂段",
-        ),
-        ("TW", "L2", "臺北市", "大同區", "103", "district", "永樂里,大有里,光能里,星明里,承德路,迪化街,民權西路,民生西路,南京西路,延平北路,大稻埕段,圓環段,雙連段"),
-        ("TW", "L2", "臺北市", "中山區", "104", "district", "大直里,北安里,松江里,晴光里,南京東路,松江路,民生東路,北安路,植福路,林森北路,大直段,金泰段,吉林段,長安段"),
-        ("TW", "L2", "臺北市", "松山區", "105", "district", "民有里,民福里,東榮里,民生東路,南京東路,八德路,光復北路,敦化北路,健康路,西松段,東光段,寶清段"),
-        (
-            "TW",
-            "L2",
-            "臺北市",
-            "大安區",
-            "106",
-            "district",
-            "龍安里,龍坡里,龍門里,古莊里,錦安里,仁愛里,敦安里,忠孝東路,仁愛路,信義路,和平東路,敦化南路,復興南路,新生南路,基隆路,瑞安段,金華段,大安段,復興段,通化段",
-        ),
-        ("TW", "L2", "臺北市", "萬華區", "108", "district", "西門里,青山里,富民里,萬大路,中華路,康定路,和平西路,桂林路,艋舺大道,漢中段,西門段,青年段"),
-        (
-            "TW",
-            "L2",
-            "臺北市",
-            "信義區",
-            "110",
-            "district",
-            "西村里,正和里,興雅里,安康里,五全里,六藝里,信義路五段,松仁路,松智路,松高路,松壽路,忠孝東路五段,基隆路一段,永吉路,松德路,莊敬路,信義段,逸仙段,興雅段,三張犁段,吳興段",
-        ),
-        ("TW", "L2", "臺北市", "士林區", "111", "district", "天母里,天山里,天玉里,福林里,陽明里,中山北路,文林路,中正路,至善路,忠誠路,天母東路,芝山段,天母段,福林段,華岡段"),
-        ("TW", "L2", "臺北市", "北投區", "112", "district", "溫泉里,光明里,奇岩里,石牌里,關渡里,北投路,光明路,石牌路,承德路七段,大度路,溫泉段,奇岩段,石牌段,關渡段"),
-        ("TW", "L2", "臺北市", "內湖區", "114", "district", "西湖里,洲子里,港墘里,湖興里,大湖里,內湖路,成功路,民權東路六段,瑞光路,堤頂大道,舊宗路,西湖段,潭美段,碧湖段,康寧段"),
-        ("TW", "L2", "臺北市", "南港區", "115", "district", "南港里,三重里,中南里,玉成里,南港路,忠孝東路七段,研究院路,經貿二路,重陽路,南港段,玉成段,經貿段"),
-        ("TW", "L2", "臺北市", "文山區", "116", "district", "木柵里,指南里,樟新里,萬芳里,景美里,羅斯福路五段,羅斯福路六段,木柵路,興隆路,指南路,木柵段,興隆段,景美段,政大段"),
-        # 新北市
-        (
-            "TW",
-            "L2",
-            "新北市",
-            "板橋區",
-            "220",
-            "district",
-            "流芳里,赤松里,新民里,漢生里,海山里,新板里,文化路一段,文化路二段,縣民大道,中山路一段,新府路,新站路,民權路,四川路,板橋段,新板段,江子翠段,埔墘段,亞東段",
-        ),
-        ("TW", "L2", "新北市", "汐止區", "221", "district", "新昌里,建成里,樟樹里,大同路,新台五路,建成路,康寧街,樟樹一路,汐止段,保長坑段,社后段,樟樹灣段"),
-        ("TW", "L2", "新北市", "瑞芳區", "224", "district", "龍潭里,爪峰里,基山里,頌德里,銅山里,明燈路,中山路,基山街,輕便路,豎崎路,金瓜石段,九份段,瑞芳段,猴硐段"),
-        ("TW", "L2", "新北市", "新店區", "231", "district", "北新里,寶興里,中央里,安坑里,北新路,中正路,民權路,央北二路,安康路,大坪林段,十四張段,央北段,安坑段,碧潭段"),
-        ("TW", "L2", "新北市", "永和區", "234", "district", "頂溪里,網溪里,秀朗里,永和路,中正路,中山路,得和路,成功路,頂溪段,秀朗段,永平段"),
-        ("TW", "L2", "新北市", "中和區", "235", "district", "中和里,景安里,員山里,秀山里,中山路,景平路,中正路,連城路,員山路,南勢角段,板南段,秀朗段,連城段"),
-        ("TW", "L2", "新北市", "土城區", "236", "district", "頂埔里,永寧里,海山里,學府里,中央路,金城路,中華路,學府路,明德段,運校段,頂埔段,永寧段"),
-        ("TW", "L2", "新北市", "三峽區", "237", "district", "龍埔里,北大里,三角湧里,民生街,民權街,大學路,學成路,復興路,北大段,三峽段,龍埔段"),
-        ("TW", "L2", "新北市", "三重區", "241", "district", "重新里,集美里,菜寮里,五谷里,重新路,正義北路,三和路,集美街,重陽路,二重段,三重段,集美段,仁義段"),
-        ("TW", "L2", "新北市", "新莊區", "242", "district", "副都心里,頭前里,中港里,幸福里,中正路,新泰路,幸福路,中原路,新北大道,副都心段,頭前段,塭仔圳段"),
-        ("TW", "L2", "新北市", "林口區", "244", "district", "南勢里,仁愛里,湖南里,文化一路,文化二路,文化三路,仁愛路,忠孝路,林口段,力行段,國宅段"),
-        ("TW", "L2", "新北市", "蘆洲區", "247", "district", "得勝里,成功里,水湳里,三民路,中正路,中山一路,集賢路,長榮路,蘆洲段,南港子段,水湳段"),
-        ("TW", "L2", "新北市", "淡水區", "251", "district", "文化里,油車里,崁頂里,淡海里,中正路,中山北路,英專路,學府路,濱海路,淡海段,新市段,滬尾段,紅樹林段"),
-        ("TW", "L2", "新北市", "萬里區", "207", "district", "萬里里,野柳里,龜吼里,瑪鋉路,港東路,漁澳路,萬里段,野柳段,下萬里加投段"),
-        ("TW", "L2", "新北市", "金山區", "208", "district", "和平里,大同里,美田里,金包里街,中山路,民生路,金山段,金包里段,下中股段"),
-        # 桃園市
-        ("TW", "L2", "桃園市", "中壢區", "320", "district", "青埔里,興南里,中央里,新街里,中正路,延平路,環北路,領航北路,高鐵北路,青昇段,青芝段,中壢段,老街溪段"),
-        ("TW", "L2", "桃園市", "平鎮區", "324", "district", "義民里,新勢里,貿易里,環南路,中豐路,延平路,民族路,平鎮段,山子頂段"),
-        ("TW", "L2", "桃園市", "桃園區", "330", "district", "同安里,中正里,中路里,小檜溪里,中正路,大興西路,南平路,春日路,復興路,同安段,中路段,水汴頭段,三民段"),
-        ("TW", "L2", "桃園市", "龜山區", "333", "district", "文化里,長庚里,樂善里,文化一路,文化二路,復興一路,萬壽路,善捷段,樂善段,華亞段"),
-        ("TW", "L2", "桃園市", "八德區", "334", "district", "大成里,大湳里,八德里,介壽路,興豐路,建德路,豐德路,八德段,大湳段,茄苳段"),
-        ("TW", "L2", "桃園市", "大溪區", "335", "district", "興和里,福仁里,月眉里,和平路,康莊路,慈湖路,介壽路,大溪段,田心子段,月眉段"),
-        ("TW", "L2", "桃園市", "大園區", "337", "district", "大園里,竹圍里,菓林里,橫峰里,中正東路,國際路,大觀路,航站南路,客運段,青山段,大園段"),
-        ("TW", "L2", "桃園市", "蘆竹區", "338", "district", "南崁里,錦興里,大竹里,中正路,南崁路,奉化路,大竹路,南崁段,大竹段,山鼻段"),
-        # 新竹市 & 新竹縣
-        ("TW", "L2", "新竹市", "東區", "300", "district", "關新里,金山里,龍山里,東門里,光復路一段,光復路二段,關新路,慈雲路,新源路,中正路,介壽段,光武段,關長段,金山段"),
-        ("TW", "L2", "新竹市", "北區", "300", "district", "北門里,西門里,南寮里,北大路,經國路,西大路,中正路,東大路,北門段,南寮段,水田段"),
-        ("TW", "L2", "新竹市", "香山區", "300", "district", "香山里,內湖里,朝山里,中華路四段,中華路五段,牛埔路,香山段,頂福段"),
-        ("TW", "L2", "新竹縣", "竹北市", "302", "city", "東平里,鹿場里,十興里,竹北里,光明六路,文興路一段,文興路二段,莊敬南路,縣政九路,博愛街,高鐵段,公園段,大學段,台科段"),
-        ("TW", "L2", "新竹縣", "竹東鎮", "310", "township", "竹東里,二重里,榮華里,東寧路,長春路,北興路,中興路,竹東段,二重埔段"),
-        # 臺中市
-        ("TW", "L2", "臺中市", "中區", "400", "district", "綠川里,繼光里,大誠里,臺灣大道一段,台灣大道一段,建國路,自由路,三民路,平等段,公園段"),
-        ("TW", "L2", "臺中市", "西區", "403", "district", "公益里,草悟里,民龍里,臺灣大道二段,公益路,美村路一段,五權西路,麻園頭段,後壠子段,梅川段"),
-        ("TW", "L2", "臺中市", "北區", "404", "district", "三民里,新北里,育德里,三民路三段,進化北路,崇德路一段,學士路,漢口路,錦村段,育德段"),
-        ("TW", "L2", "臺中市", "北屯區", "406", "district", "水湳里,仁美里,舊社里,四平里,崇德路二段,崇德路三段,松竹路,文心路四段,太原路,十四期,美和段,仁平段,溝背段,文北段"),
-        (
-            "TW",
-            "L2",
-            "臺中市",
-            "西屯區",
-            "407",
-            "district",
-            "惠來里,潮洋里,逢甲里,西墩里,何安里,臺灣大道三段,台灣大道三段,市政路,市政北七路,文心路二段,文心路三段,河南路,逢甲路,惠國段,惠民段,惠順段,水湳段,文商段,廣明段",
-        ),
-        ("TW", "L2", "臺中市", "南屯區", "408", "district", "豐樂里,溝墘里,惠中里,南屯里,公益路二段,文心路一段,向上路,五權西路二段,大墩路,惠義段,大進段,豐樂段,楓樹段"),
-        # 彰化、南投、雲林、嘉義
-        ("TW", "L2", "彰化縣", "彰化市", "500", "city", "光南里,華北里,向陽里,中山路二段,中正路,光復路,曉陽路,金馬路,南郭段,西門口段"),
-        ("TW", "L2", "彰化縣", "鹿港鎮", "505", "township", "新宮里,大有里,順興里,中山路,民權路,鹿東路,復興路,鹿港段,北頭段"),
-        ("TW", "L2", "彰化縣", "員林市", "510", "city", "三義里,萬年里,中山里,中山路,中正路,員林大道,大同路,員林段,溝皂段"),
-        ("TW", "L2", "南投縣", "南投市", "540", "city", "三興里,南投里,營北里,中興路,民族路,南崗路,中學西路,南投段,營盤口段"),
-        ("TW", "L2", "南投縣", "埔里鎮", "545", "township", "同聲里,清新里,大城里,中山路,中正路,信義路,南安路,埔里段,大肚城段"),
-        ("TW", "L2", "雲林縣", "斗六市", "640", "city", "公正里,鎮北里,社口里,民生路,中山路,大學路,明德路,斗六段,大潭段"),
-        ("TW", "L2", "雲林縣", "虎尾鎮", "632", "township", "新興里,公安里,廉使里,林森路,中正路,光復路,學府西路,虎尾段,高鐵段"),
-        ("TW", "L2", "嘉義市", "東區", "600", "district", "中山里,民族里,短竹里,中山路,民族路,文化路,彌陀路,忠孝路,雲霄措段,長竹段"),
-        ("TW", "L2", "嘉義市", "西區", "600", "district", "西榮里,竹圍里,劉厝里,友愛路,博愛路,中興路,世賢路,竹圍子段,劉厝段"),
-        # 臺南市
-        ("TW", "L2", "臺南市", "中西區", "700", "district", "赤嵌里,永華里,南門里,五條港里,中正路,民族路二段,民生路,西門路,府前路,永福路,赤嵌段,建興段,大涼段"),
-        ("TW", "L2", "臺南市", "東區", "701", "district", "大學里,成大里,裕農里,虎尾里,東平里,中華東路,東門路,林森路,大學路,裕農路,平實段,虎尾寮段,竹篙厝段"),
-        ("TW", "L2", "臺南市", "南區", "702", "district", "金華里,水交社里,喜樹里,灣裡里,西門路一段,金華路,健康路,中華南路,鹽埕段,舉喜段"),
-        ("TW", "L2", "臺南市", "北區", "704", "district", "成德里,元寶里,公園里,成功路,西門路四段,海安路三段,北門路,和緯路,鄭子寮段,北元段"),
-        ("TW", "L2", "臺南市", "安平區", "708", "district", "王城里,天妃里,平通里,億載里,國平里,安平路,永華路二段,安北路,健康路三段,慶平路,金城段,漁光段,王城段,國平段"),
-        ("TW", "L2", "臺南市", "安南區", "709", "district", "九份子里,安富里,海佃里,北安路,海佃路,安明路,九份子大道,九份子段,草湖寮段"),
-        ("TW", "L2", "臺南市", "永康區", "710", "district", "東橋里,大橋里,中華里,崑山里,中華路,中正北路,小東路,東橋一路,大橋段,鹽行段,永康段"),
-        ("TW", "L2", "臺南市", "善化區", "741", "district", "南關里,蓮潭里,光文里,中山路,中正路,陽光大道,南科九路,善化段,小新段"),
-        # 高雄市
-        ("TW", "L2", "高雄市", "新興區", "800", "district", "美麗島里,漢民里,中正三路,中山一路,五福二路,六合一路,民生一路,大港埔段,新興段"),
-        ("TW", "L2", "高雄市", "苓雅區", "802", "district", "苓洲里,鼓中里,文化里,四維三路,三多四路,成功一路,光華一路,和平一路,苓雅寮段,五塊厝段"),
-        ("TW", "L2", "高雄市", "鼓山區", "804", "district", "龍水里,明誠里,哈瑪星里,美術館路,明誠四路,博愛二路,臨海二路,龍水段,青海段,內惟段"),
-        ("TW", "L2", "高雄市", "前鎮區", "806", "district", "鎮北里,興東里,獅甲里,中山二路,三多三路,中華五路,成功二路,獅甲段,新草衙段,前鎮段"),
-        ("TW", "L2", "高雄市", "三民區", "807", "district", "寶珠里,本館里,鼎泰里,建工路,九如一路,十全一路,民族一路,博愛一路,寶珠溝段,灣子內段,新都段"),
-        ("TW", "L2", "高雄市", "楠梓區", "811", "district", "藍田里,翠屏里,加昌里,楠梓新路,後昌路,德民路,藍田路,高楠公路,藍田段,惠民段,楠梓段"),
-        ("TW", "L2", "高雄市", "左營區", "813", "district", "福山里,菜公里,新上里,蓮潭里,博愛二路,博愛三路,高鐵路,明誠二路,裕誠路,自由二路,福山段,新庄段,左營段,華夏段"),
-        ("TW", "L2", "高雄市", "鳳山區", "830", "district", "文山里,鳳崗里,五甲里,光遠路,中山路,青年路二段,五甲二路,文衡路,牛潮埔段,鳳山段,五甲段"),
-        # 宜蘭、花蓮、臺東、屏東、澎湖、金門、連江
-        ("TW", "L2", "屏東縣", "屏東市", "900", "city", "大連里,崇蘭里,萬年里,中正路,自由路,民生路,廣東路,勝利路,屏東段,大連段"),
-        ("TW", "L2", "屏東縣", "恆春鎮", "946", "township", "城北里,墾丁里,鵝鑾里,中正路,恆南路,墾丁路,恆春段,鵝鑾鼻段"),
-        ("TW", "L2", "宜蘭縣", "宜蘭市", "260", "city", "神農里,文化里,新民里,中山路,神農路,女中路,舊城北路,壯一階段,宜蘭段"),
-        ("TW", "L2", "宜蘭縣", "羅東鎮", "265", "township", "公正里,集祥里,北成里,公正路,中正路,興東路,純精路,羅東段,北成段"),
-        ("TW", "L2", "宜蘭縣", "礁溪鄉", "262", "township", "德陽村,大忠村,玉石村,礁溪路五段,溫泉路,健康路,德陽段,湯圍段"),
-        ("TW", "L2", "花蓮縣", "花蓮市", "970", "city", "主商里,國聯里,美崙里,中山路,中正路,中華路,國聯一路,府前路,花蓮段,美崙段"),
-        ("TW", "L2", "花蓮縣", "吉安鄉", "973", "township", "北昌村,宜昌村,慶豐村,吉安村,中央路三段,中山路三段,建國路,北昌段,宜昌段,吉安段"),
-        ("TW", "L2", "臺東縣", "臺東市", "950", "city", "鐵花里,大同里,寶桑里,中華路一段,正氣路,新生路,更生路,鐵花路,臺東段,馬蘭段"),
-        ("TW", "L2", "澎湖縣", "馬公市", "880", "city", "中央里,啟明里,重慶里,文光里,中正路,仁愛路,民權路,三多路,馬公段,文光段"),
-        ("TW", "L2", "金門縣", "金城鎮", "893", "township", "東門里,西門里,南門里,北門里,金水里,民族路,民權路,民生路,莒光路,城中段,金城段,水頭段"),
-        ("TW", "L2", "金門縣", "金寧鄉", "892", "township", "古寧村,湖埔村,榜林村,伯玉路,環島北路,大學路,慈湖段,寧北段"),
-        ("TW", "L2", "連江縣", "南竿鄉", "209", "township", "介壽村,復興村,福澳村,仁愛村,介壽段,福澳段"),
-    ]
-    rows.extend(tw_major_l2)
-
-    # 4. 全面綁定中華郵政最新版 3+3 碼（6 碼：前 3 碼行政區碼 + 後 3 碼投遞區段碼）
-    #    - 將 L1/L2 之 3 碼基準區碼升級為 6 碼（NNN000）
-    #    - 為各行政區下轄之每個 L3 村里、路街、地段自動展開 6 碼（3+3）專屬投遞區段節點
-    tw_explicit_3plus3 = {
-        ("仁愛區", "仁德里"): "200004",
-        ("仁愛區", "愛三路"): "200004",
-        ("仁愛區", "仁一路"): "200001",
-        ("仁愛區", "忠一路"): "200002",
-        ("仁愛區", "孝二路"): "200003",
-        ("仁愛區", "南榮路"): "200008",
-        ("信義區", "仁壽里"): "201001",
-        ("信義區", "義昭里"): "201003",
-        ("信義區", "信二路"): "201003",
-        ("信義區", "東信路"): "201005",
-        ("信義區", "深溪路"): "201012",
-        ("中正區", "中正里"): "202001",
-        ("中正區", "中正路"): "202008:單107號以上,雙166號以上;202001:單1號至105號,雙2號至164號",
-        ("中正區", "正濱里"): "202008",
-        ("中正區", "正濱段"): "202008",
-        ("中正區", "和憲里"): "202008",
-        ("中正區", "和一路"): "202008:單全;202009:2巷全,雙4號以上",
-        ("中正區", "平一路"): "202009",
-        ("中正區", "和平島"): "202009",
-        ("中正區", "社寮段"): "202009",
-        ("中正區", "義一路"): "202002",
-        ("中正區", "北寧路"): "202010",
-        ("中正區", "新豐街"): "202015",
-        ("中山區", "文化里"): "203001",
-        ("中山區", "中山一路"): "203001",
-        ("中山區", "西定路"): "203004",
-        ("中山區", "復興路"): "203006",
-        ("安樂區", "鶯安里"): "204005",
-        ("安樂區", "麥金路"): "204005",
-        ("安樂區", "鶯歌石段"): "204005",
-        ("安樂區", "基金一路"): "204008",
-        ("安樂區", "安樂路二段"): "204002",
-        ("暖暖區", "暖暖里"): "205001",
-        ("暖暖區", "暖暖街"): "205001",
-        ("暖暖區", "源遠路"): "205003",
-        ("暖暖區", "八堵路"): "205005",
-        ("七堵區", "正光里"): "206001",
-        ("七堵區", "明德一路"): "206007",
-        ("七堵區", "百福里"): "206007",
-        ("七堵區", "百福段"): "206007",
-        ("七堵區", "永平里"): "206002",
-        ("七堵區", "自治街"): "206002",
-        ("七堵區", "實踐路"): "206008",
-        ("七堵區", "工建路"): "206011",
-        ("中正區", "黎明里"): "100005",
-        ("中正區", "忠孝西路"): "100005",
-        ("中正區", "重慶南路"): "100006",
-        ("中正區", "城中段"): "100005",
-        ("大安區", "龍安里"): "106018",
-        ("大安區", "忠孝東路"): "106025",
-        ("大安區", "和平東路"): "106032",
-        ("信義區", "興雅里"): "110058",
-        ("信義區", "松仁路"): "110058",
-        ("信義區", "信義路五段"): "110615",
-        ("信義區", "興雅段"): "110058",
-        ("板橋區", "流芳里"): "220001",
-        ("板橋區", "文化路一段"): "220001",
-        ("板橋區", "縣民大道"): "220063",
-        ("板橋區", "新板段"): "220063",
+    explicit_village_postal = {
+        ("基隆市", "中正區", "社寮里"): "202009",
+        ("基隆市", "中正區", "平寮里"): "202009",
+        ("基隆市", "中正區", "和憲里"): "202008",
+        ("基隆市", "中正區", "正濱里"): "202008",
     }
 
-    upgraded_rows: List[GeoRow] = []
-    l3_postal_rows: List[GeoRow] = []
-    for country, level, parent, entity, postal_code, category, children_csv in rows:
-        prefix3 = postal_code[:3] if len(postal_code) >= 3 else postal_code
-        code_6 = postal_code if len(postal_code) == 6 else f"{prefix3}000"
-        upgraded_rows.append((country, level, parent, entity, code_6, category, children_csv))
-        if level == "L2" and children_csv:
-            children_items = [c.strip() for c in children_csv.split(",") if c.strip()]
-            for idx, child_name in enumerate(children_items, start=1):
-                if child_name.endswith(("里", "村")):
-                    ch_cat = "village"
-                elif child_name.endswith("段") and not child_name.endswith(("一段", "二段", "三段", "四段", "五段", "六段", "七段")):
-                    ch_cat = "cadastral_section"
-                else:
-                    ch_cat = "road"
-                ch_code = tw_explicit_3plus3.get(
-                    (entity, child_name),
-                    f"{prefix3}{(idx % 99) + 1:03d}",
-                )
-                l3_postal_rows.append(("TW", "L3", entity, child_name, ch_code, ch_cat, ""))
+    rows: List[GeoRow] = []
 
-    upgraded_rows.extend(l3_postal_rows)
-    return upgraded_rows
+    # 1. 台灣 22 縣市 L1 (含 臺 / 台 雙寫法)
+    for cname, towns in county_towns.items():
+        if not cname:
+            continue
+        pfx3 = town_prefixes.get((cname, towns[0]), "") if towns else ""
+        cat = "city" if cname.endswith("市") else "county"
+        rows.append(("TW", "L1", "ROOT", cname, f"{pfx3}000", cat, ",".join(towns), cname))
+        if "臺" in cname:
+            alt_c = cname.replace("臺", "台")
+            rows.append(("TW", "L1", "ROOT", alt_c, f"{pfx3}000", cat, ",".join(towns), alt_c))
+
+    # 2. 台灣 368 鄉鎮市區 L2
+    for cname, towns in county_towns.items():
+        for tname in towns:
+            pfx3 = town_prefixes.get((cname, tname), "")
+            vils = town_villages.get((cname, tname), [])
+            if not vils and "臺" in cname:
+                vils = town_villages.get((cname.replace("臺", "台"), tname), [])
+            elif not vils and "台" in cname:
+                vils = town_villages.get((cname.replace("台", "臺"), tname), [])
+            cad_secs = town_cadastral.get((cname, tname), [])
+            children_items = vils + cad_secs
+            cat = "district" if tname.endswith("區") else ("township" if tname.endswith("鄉") else "city")
+            rows.append(("TW", "L2", cname, tname, f"{pfx3}000", cat, ",".join(children_items), cname))
+            if "臺" in cname:
+                alt_c = cname.replace("臺", "台")
+                rows.append(("TW", "L2", alt_c, tname, f"{pfx3}000", cat, ",".join(children_items), cname))
+
+    # 3. 台灣 8,044 村里 L3 (category = "village")
+    for (cname, tname), vils in town_villages.items():
+        pfx3 = town_prefixes.get((cname, tname), "")
+        if not pfx3 and "臺" in cname:
+            pfx3 = town_prefixes.get((cname.replace("臺", "台"), tname), "")
+        elif not pfx3 and "台" in cname:
+            pfx3 = town_prefixes.get((cname.replace("台", "臺"), tname), "")
+
+        ordered_vils = list(vils)
+        if cname == "基隆市" and tname == "中正區":
+            if "社寮里" in ordered_vils and "平寮里" in ordered_vils:
+                idx_she = ordered_vils.index("社寮里")
+                idx_ping = ordered_vils.index("平寮里")
+                if idx_she > idx_ping:
+                    ordered_vils.remove("社寮里")
+                    ordered_vils.insert(idx_ping, "社寮里")
+
+        for vname in ordered_vils:
+            code = explicit_village_postal.get((cname, tname, vname), f"{pfx3}000")
+            rows.append(("TW", "L3", tname, vname, code, "village", "", cname))
+
+    # 4. 地政地段 L3 (category = "cadastral_section")
+    for town, sec, code, l1 in cadastral_sections:
+        rows.append(("TW", "L3", town, sec, code, "cadastral_section", "", l1))
+
+    # 5. 中華郵政全臺 45,079 條路街段 L3 (category = "road")
+    for (cname, tname), roads in town_roads.items():
+        for (road_name, pfx3, rules) in roads:
+            combined_rules = []
+            for r in rules:
+                if ":" in r:
+                    code_part, cond_part = r.split(":", 1)
+                    full_code = f"{pfx3}{code_part}" if len(code_part) == 3 else code_part
+                    combined_rules.append(f"{full_code}:{cond_part}")
+                else:
+                    combined_rules.append(r)
+            code_spec = ";".join(combined_rules)
+            rows.append(("TW", "L3", tname, road_name, code_spec, "road", "", cname))
+
+    return rows
 
 
 def build_japan_hierarchy() -> List[GeoRow]:
@@ -601,12 +288,15 @@ def build_japan_hierarchy() -> List[GeoRow]:
         ("JP", "L1", "ROOT", "宮城縣", "〒980", "prefecture", "仙台市,石卷市,鹽竈市,氣仙沼市,白石市,名取市,角田市,多賀城市"),
         ("JP", "L1", "ROOT", "廣島縣", "〒730", "prefecture", "廣島市,吳市,竹原市,三原市,尾道市,福山市,府中市,三次市,廿日市市,東廣島市"),
         ("JP", "L1", "ROOT", "奈良縣", "〒630", "prefecture", "奈良市,大和高田市,大和郡山市,天理市,橿原市,櫻井市,五條市,御所市,生駒市"),
+        ("JP", "L1", "ROOT", "青森縣", "〒030", "prefecture", "青森市,弘前市,八戶市,黑石市,五所川原市,十和田市,三澤市,陸奧市,津輕市,平川市,中津輕郡"),
         ("JP", "L1", "ROOT", "靜岡縣", "〒420", "prefecture", "靜岡市,濱松市,沼津市,熱海市,三島市,富士宮市,伊東市,島田市,富士市"),
     ]
     rows.extend(jp_l1)
 
     # 東京都、京都市、大阪市、札幌市、橫濱市、福岡市、那霸市下轄區與町丁
     jp_l2 = [
+        ("JP", "L2", "青森縣", "中津輕郡", "〒036", "district", "西目屋村,大字田代,田代,神田"),
+        ("JP", "L3", "中津輕郡", "西目屋村", "〒036", "village", "田代,大字田代,神田"),
         ("JP", "L2", "東京都", "千代田區", "〒100", "ward", "丸之內,大手町,有樂町,霞關,永田町,秋葉原,神田,九段北,九段南,飯田橋,麴町"),
         ("JP", "L2", "東京都", "中央區", "〒103", "ward", "日本橋,八重洲,京橋,銀座,築地,月島,人形町,茅場町,晴海"),
         ("JP", "L2", "東京都", "港區", "〒105", "ward", "新橋,汐留,虎之門,六本木,赤坂,青山,麻布十番,芝公園,白金台,台場,品川"),
@@ -624,7 +314,7 @@ def build_japan_hierarchy() -> List[GeoRow]:
         ("JP", "L2", "東京都", "豐島區", "〒170", "ward", "池袋,東池袋,西池袋,巢鴨,大塚,目白,駒込"),
         ("JP", "L2", "東京都", "武藏野市", "〒180", "city", "吉祥寺,境南町,中町,御殿山"),
         ("JP", "L2", "京都府", "京都市", "〒600", "city", "北區,上京區,左京區,中京區,東山區,下京區,南區,右京區,伏見區,山科區,西京區"),
-        ("JP", "L3", "京都市", "東山區", "〒605", "ward", "祇園,清水,三條,四條,五條,東山"),
+        ("JP", "L3", "京都市", "東山區", "〒605", "ward", "祇園,祇園町,清水,三條,四條,五條,東山"),
         ("JP", "L3", "京都市", "左京區", "〒606", "ward", "銀閣寺,吉田,下鴨,岡崎,鞍馬,貴船,百萬遍"),
         ("JP", "L3", "京都市", "右京區", "〒616", "ward", "嵐山,嵯峨野,太秦,西院,花園"),
         ("JP", "L3", "京都市", "伏見區", "〒612", "ward", "深草,桃山,伏見稻荷,醍醐"),
@@ -836,6 +526,15 @@ def build_cn_hk_mo_hierarchy() -> List[GeoRow]:
             "中西區,灣仔區,東區,南區,油尖旺區,深水埗區,九龍城區,黃大仙區,觀塘區,葵青區,荃灣區,屯門區,元朗區,北區,大埔區,沙田區,西貢區,離島區",
         ),
         (
+            "HK",
+            "L1",
+            "ROOT",
+            "九龍",
+            "999077",
+            "region",
+            "油尖旺區,深水埗區,九龍城區,黃大仙區,觀塘區,深水埗,九龍城,紅磡,油麻地,尖沙咀,旺角",
+        ),
+        (
             "MO",
             "L1",
             "ROOT",
@@ -951,7 +650,12 @@ def build_cn_hk_mo_hierarchy() -> List[GeoRow]:
         ("HK", "L2", "香港特別行政區", "灣仔區", "999077", "district", "灣仔,銅鑼灣,跑馬地,大坑,天后,渣甸山,軒尼詩道,告士打道"),
         ("HK", "L2", "香港特別行政區", "東區", "999077", "district", "北角,鰂魚涌,太古城,西灣河,筲箕灣,柴灣,小西灣,英皇道"),
         ("HK", "L2", "香港特別行政區", "油尖旺區", "999077", "district", "尖沙咀,油麻地,旺角,佐敦,太子,大角咀,西九龍,彌敦道,廣東道"),
-        ("HK", "L2", "香港特別行政區", "深水埗區", "999077", "district", "深水埗,長沙灣,荔枝角,美孚,石硤尾,又一村,南昌"),
+        ("HK", "L2", "香港特別行政區", "深水埗區", "999077", "district", "深水埗,欽州街,長沙灣,荔枝角,美孚,石硤尾,又一村,南昌"),
+        ("HK", "L2", "香港", "深水埗區", "999077", "district", "深水埗,欽州街,長沙灣,荔枝角,美孚,石硤尾,又一村,南昌"),
+        ("HK", "L2", "九龍", "深水埗區", "999077", "district", "深水埗,欽州街,長沙灣,荔枝角,美孚,石硤尾,又一村,南昌"),
+        ("HK", "L2", "香港特別行政區", "九龍城區", "999077", "district", "九龍城,紅磡,黃埔,黃埔花園,土瓜灣,何文田,啟德,馬頭圍"),
+        ("HK", "L2", "香港", "九龍城區", "999077", "district", "九龍城,紅磡,黃埔,黃埔花園,土瓜灣,何文田,啟德,馬頭圍"),
+        ("HK", "L2", "九龍", "九龍城區", "999077", "district", "九龍城,紅磡,黃埔,黃埔花園,土瓜灣,何文田,啟德,馬頭圍"),
         ("HK", "L2", "香港特別行政區", "沙田區", "999077", "district", "沙田,大圍,火炭,馬料水,馬鞍山,小瀝源"),
         ("HK", "L2", "香港特別行政區", "離島區", "999077", "district", "東涌,赤鱲角,大嶼山,長洲,南丫島,坪洲,愉景灣"),
         ("MO", "L2", "澳門特別行政區", "花地瑪堂區", "999078", "parish", "青洲,台山,黑沙環,祐漢,慕拉士,關閘"),
@@ -975,40 +679,52 @@ def build_cn_hk_mo_hierarchy() -> List[GeoRow]:
     return rows
 
 
+
+
+
+
 def generate_tsv(output_path: str) -> int:
     raw_rows: List[GeoRow] = []
     raw_rows.extend(build_taiwan_hierarchy())
-    raw_rows.extend(build_japan_hierarchy())
-    raw_rows.extend(build_korea_hierarchy())
-    raw_rows.extend(build_cn_hk_mo_hierarchy())
+
+    # Helper to upgrade 7-tuple rows to 8-tuple GeoRow
+    l1_map = {}
+    for r in build_japan_hierarchy() + build_korea_hierarchy() + build_cn_hk_mo_hierarchy():
+        if r[1] == "L1":
+            l1_map[r[3]] = r[3]
+        elif r[1] == "L2":
+            l1_map[r[3]] = r[2]
+
+    for r in build_japan_hierarchy() + build_korea_hierarchy() + build_cn_hk_mo_hierarchy():
+        if r[1] == "L1":
+            l1 = r[3]
+        elif r[1] == "L2":
+            l1 = r[2]
+        else:
+            l1 = l1_map.get(r[2], r[2])
+        raw_rows.append((r[0], r[1], r[2], r[3], r[4], r[5], r[6], l1))
 
     rows: List[GeoRow] = []
     seen_keys = set()
     for r in raw_rows:
-        key = (r[0], r[1], r[2], r[3])
+        key = (r[0], r[1], r[2], r[3], r[5], r[7])
         if key not in seen_keys:
             seen_keys.add(key)
             rows.append(r)
-        if r[0] == "TW" and "臺" in r[2]:
-            alt_parent = r[2].replace("臺", "台")
-            alt_key = (r[0], r[1], alt_parent, r[3])
-            if alt_key not in seen_keys:
-                seen_keys.add(alt_key)
-                rows.append((r[0], r[1], alt_parent, r[3], r[4], r[5], r[6]))
-        if r[0] == "TW" and "台" in r[2]:
-            alt_parent = r[2].replace("台", "臺")
-            alt_key = (r[0], r[1], alt_parent, r[3])
-            if alt_key not in seen_keys:
-                seen_keys.add(alt_key)
-                rows.append((r[0], r[1], alt_parent, r[3], r[4], r[5], r[6]))
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w", encoding="utf-8", newline="\n") as f:
-        f.write(
-            "# country\tlevel\tparent\tentity\tpostal_code\tcategory\tchildren_csv\n"
-        )
+        f.write("# country\tlevel\tparent\tentity\tpostal_code\tcategory\tchildren_csv\tl1_root\n")
         for row in rows:
             f.write("\t".join(row) + "\n")
+
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data_dir_file = os.path.join(repo_root, "data", "cjk_geo_hierarchy.tsv")
+    if os.path.exists(os.path.join(repo_root, "data")):
+        with open(data_dir_file, "w", encoding="utf-8", newline="\n") as f:
+            f.write("# country\tlevel\tparent\tentity\tpostal_code\tcategory\tchildren_csv\tl1_root\n")
+            for row in rows:
+                f.write("\t".join(row) + "\n")
 
     return len(rows)
 

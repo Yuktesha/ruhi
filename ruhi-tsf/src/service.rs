@@ -132,6 +132,7 @@ pub fn is_focused_password_control() -> bool {
 
 static LAST_CONFIG_CHECK: Mutex<Option<(std::time::Instant, std::time::SystemTime, RuhiConfig)>> = Mutex::new(None);
 static LAST_FC_MTIME: Mutex<Option<std::time::SystemTime>> = Mutex::new(None);
+static LAST_TPL_MTIME: Mutex<Option<std::time::SystemTime>> = Mutex::new(None);
 static CURRENT_DLL_INSTANCES: Mutex<Option<std::collections::HashSet<usize>>> = Mutex::new(None);
 static INSTANCE_LEX_MTIMES: Mutex<Option<std::collections::HashMap<usize, std::time::SystemTime>>> = Mutex::new(None);
 
@@ -442,6 +443,7 @@ pub struct RuhiPaths {
     pub longkan: std::path::PathBuf,
     pub deleted_dict: std::path::PathBuf,
     pub rules_json: std::path::PathBuf,
+    pub templates: std::path::PathBuf,
 }
 
 impl RuhiPaths {
@@ -558,6 +560,11 @@ impl RuhiPaths {
         } else {
             data_dir.join("user_semantic_rules.json")
         };
+        let templates = if sandbox_dir.join("templates.tsv").exists() {
+            sandbox_dir.join("templates.tsv")
+        } else {
+            find_file("templates.tsv")
+        };
 
         Self {
             data_dir,
@@ -576,6 +583,7 @@ impl RuhiPaths {
             longkan,
             deleted_dict,
             rules_json,
+            templates,
         }
     }
 }
@@ -1290,6 +1298,16 @@ impl RuhiTextService {
                 }
             }
         }
+        if paths.templates.exists() {
+            let _ = engine.templates.load_tsv(&paths.templates);
+            if let Ok(meta) = std::fs::metadata(&paths.templates) {
+                if let Ok(mtime) = meta.modified() {
+                    if let Ok(mut tpl_lock) = LAST_TPL_MTIME.lock() {
+                        *tpl_lock = Some(mtime);
+                    }
+                }
+            }
+        }
 
         logger::log(&format!("RuhiTextService::new() initialized with data_dir={:?}, punct_mode={}, quick_key={}",
             paths.data_dir, config.punctuation_commit_mode, config.candidate_quick_key));
@@ -1409,6 +1427,9 @@ impl RuhiTextService {
             if let Some(p_str) = paths.transitions.to_str() {
                 let _ = engine.transitions.load_tsv(p_str);
             }
+        }
+        if paths.templates.exists() {
+            let _ = engine.templates.load_tsv(&paths.templates);
         }
         engine.longkan.table.configure_data_dir(&paths.data_dir);
 
@@ -3875,6 +3896,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         && !is_inline_digit_op
                         && !is_jp_romaji_key
                         && !is_kr_romaja_key
+                        && !matches!(engine.mode, ruhi::engine::EngineMode::QuickNum | ruhi::engine::EngineMode::TemplateSelect | ruhi::engine::EngineMode::LexiconSwitch)
                         && (engine.resolve_punctuation_char(ch).is_some()
                             || (is_jp && matches!(ch, ',' | '.' | '?' | '!' | '[' | ']' | '(' | ')' | ':' | ';')));
                     let raw_lower = engine.raw_ascii_buffer.to_ascii_lowercase();
@@ -3900,6 +3922,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                         && !engine.array30.has_buffer()
                         && !engine.four_corner.has_buffer()
                         && !engine.longkan.has_buffer()
+                        && !matches!(engine.mode, ruhi::engine::EngineMode::QuickNum | ruhi::engine::EngineMode::TemplateSelect | ruhi::engine::EngineMode::LexiconSwitch)
                         && (!engine.fsm.syllables.is_empty() || engine.fsm.has_pending() || engine.japanese.has_buffer() || engine.korean.has_buffer());
                     if (punct_consolidate || digit_consolidate) && engine.fsm.has_pending() {
                         engine.fsm.commit_current('1');
@@ -6644,11 +6667,11 @@ impl RuhiTextService_Impl {
             let hint = if engine.mode == ruhi::engine::EngineMode::LexiconSwitch {
                 format!("📚 請按數字 1~5、Q 鍵或空白鍵切換專業詞庫（目前：{}）", engine.active_lexicon_profile)
             } else if engine.mode == ruhi::engine::EngineMode::TemplateSelect {
-                "📋 使用者自訂文字範本：按數字鍵 1~9/0 直接選取，或按 Q/↓/↑ 切換、空白鍵確認".to_string()
+                "📋 使用者自訂文字範本 (templates.tsv)：按數字鍵 1~9/0 直接選取，或按 Q/↓/↑ 切換、空白鍵確認".to_string()
             } else if engine.quick_num_buffer.is_empty() {
-                "🔢 數字快打模式：請輸入數字 (0-9 / .) 即時轉中文大小寫與財務金額（Q/↓/↑ 切換格式，空白鍵確認）".to_string()
+                "🔢 數字快打模式：請輸入數字或日期 (0-9 / . / -，如 20261112 / 2026/11/12) 即時轉金額與日期（Q/↓/↑ 切換格式，空白鍵確認）".to_string()
             } else {
-                format!("🔢 數字快打：{}（按 Q/↓/↑ 切換大寫/小寫格式，空白鍵確認）", engine.quick_num_buffer)
+                format!("🔢 數字快打：{}（按 a~i 或 Q/↓/↑ 切換格式，空白鍵確認）", engine.quick_num_buffer)
             };
             return (hint, is_live_preview, live_cands);
         }
@@ -6818,6 +6841,32 @@ impl RuhiTextService_Impl {
                                 ));
                                 if eng.four_corner.has_buffer() {
                                     eng.four_corner.refresh_candidates(None, None, None);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if let Ok(tpl_meta) = std::fs::metadata(&paths.templates) {
+                if let Ok(tpl_mtime) = tpl_meta.modified() {
+                    let needs_tpl_reload = {
+                        let mut tpl_lock = LAST_TPL_MTIME.lock().unwrap();
+                        let reload = match *tpl_lock {
+                            Some(prev) => tpl_mtime > prev,
+                            None => true,
+                        };
+                        *tpl_lock = Some(tpl_mtime);
+                        reload
+                    };
+                    if needs_tpl_reload {
+                        if let Ok(mut eng) = self.engine.lock() {
+                            if let Ok(cnt) = eng.templates.load_tsv(&paths.templates) {
+                                logger::log(&format!(
+                                    "Hot-reloaded templates.tsv from {:?}: {} entries",
+                                    paths.templates, cnt
+                                ));
+                                if eng.mode == ruhi::engine::EngineMode::TemplateSelect {
+                                    eng.refresh_quick_num_or_template_candidates();
                                 }
                             }
                         }

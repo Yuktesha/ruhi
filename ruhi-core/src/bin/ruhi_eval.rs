@@ -1264,6 +1264,129 @@ pub fn run_ablation_study(
     })
 }
 
+/// 線性特徵安全邊界（Trust-Region Bounds，保護構式雙字詞與既有單元測試不退化）
+fn feature_bounds(k: &str) -> (f64, f64) {
+    match k {
+        "coord_he_huo_prior" => (0.0, 0.20),
+        "multi_char_len" | "cohesion_len3" | "cohesion_len4" => (0.98, 1.05),
+        "freq_ln_char1" => (1.02, 1.0845),
+        "freq_ln_compound" => (1.0845, 1.15),
+        "construction_topological_core"
+        | "construction_boundary_guard"
+        | "construction_ctx31_bifurcation"
+        | "construction_trigram_slot"
+        | "geo_hierarchy" => (0.9437, 1.08),
+        "family_core_syntax" | "family_morph_phonetic_guard" => (0.92, 1.08),
+        _ => (0.90, 1.10),
+    }
+}
+
+/// 關鍵金絲雀語句驗證（保證回歸單元測試 100% 綠燈）
+fn check_canary_sentences(engine: &RuhiEngine, cand_w: &HashMap<String, f64>) -> bool {
+    let mut worker = engine.clone();
+    worker.transitions.feature_weights = cand_w.clone();
+    let canaries = [
+        ("eef gmf kif", "也感慨"),
+        ("eef gmf kij", "也感慨"),
+        ("z lewjvxflefdscdfn txhfdkj", "資料處理得十分妥當"),
+        ("hidzijceo gifvldcjmyf", "還在修改程式碼"),
+        ("cm ckjdshojcuefhidzijcerjggsmadxmdmadlewf", "山上的厚雪還在下個沒完沒了"),
+        ("nyflefcu ewjbk mkdjeojvujnyflef", "哪裡需要幫忙就去哪裡"),
+        ("je lxldcjjxl jljvu hgdcemjlefe lendhgde lxjcdsm hwj", "基隆市中正區和憲里一鄰和一路十三號"),
+        ("tidbafcjdrjm vu hxrdcl lef 11 lendjxl cewj dxl lxj sj dxmj 295 hwj ", "台北市大安區華聲里11鄰忠孝東路四段295號"),
+    ];
+    for (keys, expected) in &canaries {
+        worker.reset_buffer();
+        worker.last_committed_word.clear();
+        worker.active_geo_context.clear();
+        let mut out = String::new();
+        for c in keys.chars() {
+            let r = worker.process_key(c);
+            if !r.committed_chunk.is_empty() {
+                out.push_str(&r.committed_chunk);
+            }
+        }
+        out.push_str(&worker.get_display_text());
+        if out != *expected {
+            return false;
+        }
+    }
+    true
+}
+
+/// 平行快速評估候選特徵權重映射
+fn eval_candidate_weights(
+    base_engine: &RuhiEngine,
+    cand_w: &HashMap<String, f64>,
+    compiled: &[CompiledSentence],
+    dags: &[HashMap<usize, Vec<ruhi::router::LatticeNode>>],
+    init_exact_flags: &[bool],
+) -> (usize, usize, usize, usize) {
+    let n_threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(16);
+    let chunk_size = (compiled.len() + n_threads - 1) / n_threads.max(1);
+    if chunk_size == 0 {
+        return (0, 0, 0, 0);
+    }
+
+    let thread_results: Vec<(usize, usize, usize, usize)> = std::thread::scope(|s| {
+        let mut handles = Vec::new();
+        for (c_chunk, (d_chunk, init_chunk)) in compiled
+            .chunks(chunk_size)
+            .zip(dags.chunks(chunk_size).zip(init_exact_flags.chunks(chunk_size)))
+        {
+            let mut worker = base_engine.clone();
+            worker.transitions.feature_weights = cand_w.clone();
+            handles.push(s.spawn(move || {
+                let mut errs = 0usize;
+                let mut exact = 0usize;
+                let mut fixed = 0usize;
+                let mut broken = 0usize;
+                for i in 0..c_chunk.len() {
+                    let cs = &c_chunk[i];
+                    let dag = &d_chunk[i];
+                    let init_ex = init_chunk[i];
+                    let (nodes, _) = worker.router.solve_best_path(
+                        cs.syllables.len(),
+                        dag,
+                        Some(&mut worker.transitions),
+                    );
+                    let pred: String = nodes.iter().map(|n| n.word.as_str()).collect();
+                    let e = char_levenshtein(&pred, &cs.item.text);
+                    errs += e;
+                    if e == 0 {
+                        exact += 1;
+                        if !init_ex {
+                            fixed += 1;
+                        }
+                    } else if init_ex {
+                        broken += 1;
+                    }
+                }
+                (errs, exact, fixed, broken)
+            }));
+        }
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+
+    let mut tot_errs = 0;
+    let mut tot_exact = 0;
+    let mut tot_fixed = 0;
+    let mut tot_broken = 0;
+    for (e, ex, fix, brk) in thread_results {
+        tot_errs += e;
+        tot_exact += ex;
+        tot_fixed += fix;
+        tot_broken += brk;
+    }
+    if !check_canary_sentences(base_engine, cand_w) {
+        tot_broken += 99999;
+    }
+    (tot_errs, tot_exact, tot_fixed, tot_broken)
+}
+
 /// 執行平均結構化感知機 (Averaged Structured Perceptron) 權重校準 (`--calibrate`)
 pub fn run_perceptron_calibration(
     base_engine: &RuhiEngine,
@@ -1274,19 +1397,24 @@ pub fn run_perceptron_calibration(
         "[Calibration] 正在對 {} 句開發集執行強制對齊 (Forced Alignment) 與特徵擷取...",
         compiled.len()
     );
-    let dag_builder = LatticeDAG::new(&base_engine.lexicon);
 
     let feature_keys = [
-        "freq_ln",
+        "freq_ln_char1",
+        "freq_ln_compound",
         "multi_char_len",
         "cohesion_len3",
         "cohesion_len4",
         "coord_prior",
+        "coord_he_huo_prior",
         "user_bigram_pos",
         "user_bigram_neg",
         "builtin_bigram",
         "vo_separable_lookback",
-        "construction_hierarchical_matrix",
+        "construction_topological_core",
+        "construction_trigram_slot",
+        "geo_hierarchy",
+        "construction_ctx31_bifurcation",
+        "construction_boundary_guard",
         "family_user_pattern",
         "family_vo_complement",
         "family_classifier_numeric",
@@ -1297,79 +1425,167 @@ pub fn run_perceptron_calibration(
         "family_core_syntax",
     ];
 
-    let mut dags = Vec::with_capacity(compiled.len());
-    let mut gold_paths: Vec<Option<(Vec<ruhi::router::LatticeNode>, HashMap<String, f64>)>> =
-        Vec::with_capacity(compiled.len());
-    let mut unreachable_count = 0usize;
-    let mut total_chars = 0usize;
-    let mut init_errors = 0usize;
+    // 代數恆等溫啟動 (Warm-Start Algebraic Identity Initialization)
+    let base_fw = &base_engine.transitions.feature_weights;
+    let w0: HashMap<String, f64> = feature_keys
+        .iter()
+        .map(|&k| {
+            let val = match k {
+                "freq_ln_char1" | "freq_ln_compound" => base_fw
+                    .get(k)
+                    .or_else(|| base_fw.get("freq_ln"))
+                    .copied()
+                    .unwrap_or(1.0),
+                "construction_topological_core"
+                | "construction_trigram_slot"
+                | "geo_hierarchy"
+                | "construction_ctx31_bifurcation"
+                | "construction_boundary_guard" => base_fw
+                    .get(k)
+                    .or_else(|| base_fw.get("construction_hierarchical_matrix"))
+                    .copied()
+                    .unwrap_or(1.0),
+                "coord_he_huo_prior" => base_fw.get(k).copied().unwrap_or(0.0),
+                _ => base_fw.get(k).copied().unwrap_or(1.0),
+            };
+            (k.to_string(), val)
+        })
+        .collect();
 
-    let mut work_engine = base_engine.clone();
-    work_engine.transitions.feature_weights.clear();
+    let n_threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(16);
+    let chunk_size = (compiled.len() + n_threads - 1) / n_threads.max(1);
 
-    for cs in compiled {
-        let dag = dag_builder.build_dag(&cs.syllables, true);
-        let (pred_nodes, _) = work_engine.router.solve_best_path(
-            cs.syllables.len(),
-            &dag,
-            Some(&mut work_engine.transitions),
-        );
-        let pred: String = pred_nodes.iter().map(|n| n.word.as_str()).collect();
-        let ch_len = cs.item.text.chars().count();
-        let errs = char_levenshtein(&pred, &cs.item.text);
-        total_chars += ch_len;
-        init_errors += errs;
+    struct PrebuildItem {
+        dag: HashMap<usize, Vec<ruhi::router::LatticeNode>>,
+        gold_path: Option<(Vec<ruhi::router::LatticeNode>, HashMap<String, f64>)>,
+        init_exact: bool,
+        init_errors: usize,
+        char_len: usize,
+    }
 
-        let target_chars: Vec<char> = cs.item.text.chars().collect();
-        if let Some((g_nodes, _)) = work_engine.router.solve_forced_alignment(
-            cs.syllables.len(),
-            &dag,
-            Some(&mut work_engine.transitions),
-            &target_chars,
-        ) {
-            let (g_feats, _) = work_engine.router.extract_path_features_and_triggers(
-                &g_nodes,
-                &dag,
-                &mut work_engine.transitions,
-            );
-            gold_paths.push(Some((g_nodes, g_feats)));
-        } else {
-            unreachable_count += 1;
-            gold_paths.push(None);
+    let prebuild_results: Vec<Vec<PrebuildItem>> = std::thread::scope(|s| {
+        let mut handles = Vec::new();
+        for chunk in compiled.chunks(chunk_size) {
+            let mut worker = base_engine.clone();
+            worker.transitions.feature_weights = w0.clone();
+            handles.push(s.spawn(move || {
+                let mut chunk_out = Vec::with_capacity(chunk.len());
+                let dag_builder = LatticeDAG::new(&worker.lexicon);
+                for cs in chunk {
+                    let dag = dag_builder.build_dag(&cs.syllables, true);
+                    let (pred_nodes, _) = worker.router.solve_best_path(
+                        cs.syllables.len(),
+                        &dag,
+                        Some(&mut worker.transitions),
+                    );
+                    let pred: String = pred_nodes.iter().map(|n| n.word.as_str()).collect();
+                    let ch_len = cs.item.text.chars().count();
+                    let errs = char_levenshtein(&pred, &cs.item.text);
+                    let is_exact = errs == 0;
+
+                    let target_chars: Vec<char> = cs.item.text.chars().collect();
+                    let gold_path = if let Some((g_nodes, _)) = worker.router.solve_forced_alignment(
+                        cs.syllables.len(),
+                        &dag,
+                        Some(&mut worker.transitions),
+                        &target_chars,
+                    ) {
+                        let (g_feats, _) = worker.router.extract_path_features_and_triggers(
+                            &g_nodes,
+                            &dag,
+                            &mut worker.transitions,
+                        );
+                        Some((g_nodes, g_feats))
+                    } else {
+                        None
+                    };
+
+                    chunk_out.push(PrebuildItem {
+                        dag,
+                        gold_path,
+                        init_exact: is_exact,
+                        init_errors: errs,
+                        char_len: ch_len,
+                    });
+                }
+                chunk_out
+            }));
         }
-        dags.push(dag);
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+
+    let mut dags = Vec::with_capacity(compiled.len());
+    let mut gold_paths = Vec::with_capacity(compiled.len());
+    let mut init_exact_flags = Vec::with_capacity(compiled.len());
+    let mut init_errors = 0usize;
+    let mut total_chars = 0usize;
+    let mut init_exact_count = 0usize;
+    let mut unreachable_count = 0usize;
+
+    for chunk_res in prebuild_results {
+        for item in chunk_res {
+            if item.gold_path.is_none() {
+                unreachable_count += 1;
+            }
+            if item.init_exact {
+                init_exact_count += 1;
+            }
+            init_errors += item.init_errors;
+            total_chars += item.char_len;
+            init_exact_flags.push(item.init_exact);
+            dags.push(item.dag);
+            gold_paths.push(item.gold_path);
+        }
     }
 
     let init_cer = init_errors as f64 / total_chars.max(1) as f64;
+    let init_ser = init_exact_count as f64 / compiled.len().max(1) as f64;
     println!(
-        "[Calibration] 初始 CER = {:.2}% ({}/{} 字錯誤)，黃金路徑可達率 = {:.2}% ({}/{} 句)",
+        "[Calibration] 初始 CER = {:.2}% ({}/{} 字錯誤)，完全匹配 = {:.2}% ({}/{} 句)，黃金路徑可達率 = {:.2}% ({}/{} 句)",
         init_cer * 100.0,
         init_errors,
         total_chars,
+        init_ser * 100.0,
+        init_exact_count,
+        compiled.len(),
         ((compiled.len() - unreachable_count) as f64 / compiled.len().max(1) as f64) * 100.0,
         compiled.len() - unreachable_count,
         compiled.len()
     );
 
-    let mut w: HashMap<String, f64> = feature_keys.iter().map(|&k| (k.to_string(), 1.0)).collect();
+    // Stage A: 10 輪洗牌損失增強 AdaGrad 平均結構化感知機
+    let mut w = w0.clone();
     let mut w_sum: HashMap<String, f64> =
         feature_keys.iter().map(|&k| (k.to_string(), 0.0)).collect();
+    let mut grad_sq: HashMap<String, f64> =
+        feature_keys.iter().map(|&k| (k.to_string(), 1.0)).collect();
     let mut total_steps = 0f64;
 
-    let mut best_weights = w.clone();
+    let mut best_weights = w0.clone();
     let mut best_errors = init_errors;
+    let mut best_exact = init_exact_count;
     let mut epoch_history = Vec::new();
 
-    let epochs = 5;
+    let mut work_engine = base_engine.clone();
+
+    let epochs = 10;
     for ep in 1..=epochs {
-        let lr = 0.00004 / (ep as f64).sqrt();
+        let mut rng = XorShift64::new(20261111 + ep as u64);
+        let mut indices: Vec<usize> = (0..compiled.len()).collect();
+        rng.shuffle(&mut indices);
+
+        let eta = 0.012 / (ep as f64).sqrt();
         let mut updates_in_epoch = 0usize;
 
-        for (idx, cs) in compiled.iter().enumerate() {
+        for &idx in &indices {
             let Some((_, ref g_feats)) = gold_paths[idx] else {
                 continue;
             };
             work_engine.transitions.feature_weights = w.clone();
+            let cs = &compiled[idx];
             let (pred_nodes, _) = work_engine.router.solve_best_path(
                 cs.syllables.len(),
                 &dags[idx],
@@ -1377,6 +1593,7 @@ pub fn run_perceptron_calibration(
             );
             let pred_str: String = pred_nodes.iter().map(|n| n.word.as_str()).collect();
             if pred_str != cs.item.text {
+                let err_scale = (char_levenshtein(&pred_str, &cs.item.text) as f64).sqrt().min(3.0);
                 let (p_feats, _) = work_engine.router.extract_path_features_and_triggers(
                     &pred_nodes,
                     &dags[idx],
@@ -1385,16 +1602,15 @@ pub fn run_perceptron_calibration(
                 for &k in &feature_keys {
                     let gv = g_feats.get(k).copied().unwrap_or(0.0);
                     let pv = p_feats.get(k).copied().unwrap_or(0.0);
-                    let diff = (gv - pv).clamp(-25.0, 25.0);
+                    let diff = (gv - pv).clamp(-40.0, 40.0);
                     if diff.abs() > 1e-9 {
+                        let g = (diff / 15.0) * err_scale;
+                        let gsq = grad_sq.entry(k.to_string()).or_insert(1.0);
+                        *gsq += g * g;
                         let cur_w = w.get(k).copied().unwrap_or(1.0);
-                        // L2 正則化錨定於 1.0，保護雙字詞凝聚力與既有 107 組單元測試不退化
-                        let (lo, hi) = match k {
-                            "multi_char_len" | "cohesion_len3" | "cohesion_len4" | "coord_prior" => (0.98, 1.05),
-                            "family_core_syntax" | "family_morph_phonetic_guard" | "construction_hierarchical_matrix" => (0.94, 1.06),
-                            _ => (0.88, 1.12),
-                        };
-                        let next_w = (cur_w + lr * diff - lr * 0.25 * (cur_w - 1.0)).clamp(lo, hi);
+                        let w_init = w0.get(k).copied().unwrap_or(1.0);
+                        let (lo, hi) = feature_bounds(k);
+                        let next_w = (cur_w + eta * g / gsq.sqrt() - 0.02 * eta * (cur_w - w_init)).clamp(lo, hi);
                         w.insert(k.to_string(), next_w);
                     }
                 }
@@ -1412,53 +1628,110 @@ pub fn run_perceptron_calibration(
                 let v = if total_steps > 0.0 {
                     w_sum.get(k).copied().unwrap_or(total_steps) / total_steps
                 } else {
-                    1.0
+                    w0.get(k).copied().unwrap_or(1.0)
                 };
                 (k.to_string(), (v * 10000.0).round() / 10000.0)
             })
             .collect();
 
-        // 評估當前平均權重於 dev.tsv 之 CER（直接使用預先建構之 dags 加速）
-        let mut ep_errors = 0usize;
-        let mut ep_exact = 0usize;
-        work_engine.transitions.feature_weights = avg_w.clone();
-        for (idx, cs) in compiled.iter().enumerate() {
-            let (p_nodes, _) = work_engine.router.solve_best_path(
-                cs.syllables.len(),
-                &dags[idx],
-                Some(&mut work_engine.transitions),
-            );
-            let pred_s: String = p_nodes.iter().map(|n| n.word.as_str()).collect();
-            let e = char_levenshtein(&pred_s, &cs.item.text);
-            ep_errors += e;
-            if e == 0 {
-                ep_exact += 1;
-            }
-        }
+        let (ep_errors, ep_exact, fixed_vs_init, broken_vs_init) = eval_candidate_weights(
+            base_engine,
+            &avg_w,
+            compiled,
+            &dags,
+            &init_exact_flags,
+        );
+
         let ep_cer = ep_errors as f64 / total_chars.max(1) as f64;
         let ep_ser = ep_exact as f64 / compiled.len().max(1) as f64;
         println!(
-            "[Calibration] Epoch {}/{}: updates={}, dev CER={:.2}% ({} errors), SER={:.2}%",
+            "[Calibration] Epoch {}/{}: updates={}, dev CER={:.2}% ({} errors, fixed={}, broken={}), SER={:.2}%",
             ep,
             epochs,
             updates_in_epoch,
             ep_cer * 100.0,
             ep_errors,
+            fixed_vs_init,
+            broken_vs_init,
             ep_ser * 100.0
         );
+
         epoch_history.push(json!({
             "epoch": ep,
             "updates": updates_in_epoch,
             "dev_cer": ep_cer,
             "dev_cer_percent": format!("{:.2}%", ep_cer * 100.0),
             "dev_char_errors": ep_errors,
+            "dev_exact_matches": ep_exact,
+            "fixed_vs_init": fixed_vs_init,
+            "broken_vs_init": broken_vs_init,
             "dev_sentence_accuracy_percent": format!("{:.2}%", ep_ser * 100.0),
             "averaged_weights": avg_w
         }));
 
-        if ep_errors < best_errors {
+        if (ep_errors < best_errors || (ep_errors == best_errors && ep_exact > best_exact))
+            && broken_vs_init <= fixed_vs_init
+        {
             best_errors = ep_errors;
+            best_exact = ep_exact;
             best_weights = avg_w;
+        }
+    }
+
+    // Stage B: 雙輪特徵座標軸精細拋光 (Coordinate Line-Search Refinement)
+    println!(
+        "[Calibration] 進入 Stage B: 雙輪特徵座標軸精細拋光 (Coordinate Line-Search Refinement)，基準錯誤數: {}",
+        best_errors
+    );
+    let mut coordinate_polish_steps = Vec::new();
+    let deltas = [-0.03, -0.015, -0.006, 0.006, 0.015, 0.03];
+
+    for pass in 1..=2 {
+        println!("[Calibration] Coordinate Polish Pass {}/2...", pass);
+        for &k in &feature_keys {
+            let base_val = best_weights.get(k).copied().unwrap_or(1.0);
+            let (lo, hi) = feature_bounds(k);
+
+            for &d in &deltas {
+                let cand_val = ((base_val + d).clamp(lo, hi) * 10000.0).round() / 10000.0;
+                if (cand_val - base_val).abs() < 1e-6 {
+                    continue;
+                }
+                let mut cand_w = best_weights.clone();
+                cand_w.insert(k.to_string(), cand_val);
+
+                let (c_errors, c_exact, c_fixed, c_broken) = eval_candidate_weights(
+                    base_engine,
+                    &cand_w,
+                    compiled,
+                    &dags,
+                    &init_exact_flags,
+                );
+
+                if (c_errors < best_errors || (c_errors == best_errors && c_exact > best_exact))
+                    && c_broken <= c_fixed
+                {
+                    println!(
+                        "  [Polish] 特徵 {}: {:.4} -> {:.4} (錯誤數 {} -> {}, 正確率 {} -> {}, fix={}, brk={})",
+                        k, base_val, cand_val, best_errors, c_errors, best_exact, c_exact, c_fixed, c_broken
+                    );
+                    coordinate_polish_steps.push(json!({
+                        "pass": pass,
+                        "feature": k,
+                        "old_val": base_val,
+                        "new_val": cand_val,
+                        "old_errors": best_errors,
+                        "new_errors": c_errors,
+                        "old_exact": best_exact,
+                        "new_exact": c_exact,
+                        "fixed": c_fixed,
+                        "broken": c_broken
+                    }));
+                    best_errors = c_errors;
+                    best_exact = c_exact;
+                    best_weights.insert(k.to_string(), cand_val);
+                }
+            }
         }
     }
 
@@ -1467,16 +1740,27 @@ pub fn run_perceptron_calibration(
         "# RuhI 線性評估模型特徵與規則族權重表 (Averaged Structured Perceptron Calibrated)".to_string(),
         "# 格式: feature_or_family_name\tweight_multiplier".to_string(),
     ];
+    let f_c1 = best_weights.get("freq_ln_char1").copied().unwrap_or(1.0);
+    let f_cmp = best_weights.get("freq_ln_compound").copied().unwrap_or(1.0);
+    let f_legacy = (0.5 * (f_c1 + f_cmp) * 10000.0).round() / 10000.0;
+    tsv_lines.push(format!("freq_ln\t{f_legacy:.4}"));
+
     for &k in &feature_keys {
         let val = best_weights.get(k).copied().unwrap_or(1.0);
         tsv_lines.push(format!("{k}\t{val:.4}"));
     }
+
+    let c_topo = best_weights.get("construction_topological_core").copied().unwrap_or(1.0);
+    tsv_lines.push(format!("construction_hierarchical_matrix\t{c_topo:.4}"));
+
     let tsv_content = tsv_lines.join("\n") + "\n";
 
     let target_paths = [
         root.join("ruhi_lexicon").join("data").join("feature_weights.tsv"),
         root.join("data").join("feature_weights.tsv"),
         root.join("dist").join("data").join("feature_weights.tsv"),
+        root.join("scripts").join("data").join("feature_weights.tsv"),
+        root.join("dist").join("RuhI_v0.7.0_Windows_x64").join("data").join("feature_weights.tsv"),
     ];
     for p in &target_paths {
         if let Some(parent) = p.parent() {
@@ -1487,17 +1771,24 @@ pub fn run_perceptron_calibration(
     }
 
     let best_cer = best_errors as f64 / total_chars.max(1) as f64;
+    let best_ser = best_exact as f64 / compiled.len().max(1) as f64;
     json!({
         "status": "ok",
         "initial_dev_cer": init_cer,
         "initial_dev_cer_percent": format!("{:.2}%", init_cer * 100.0),
+        "initial_dev_char_errors": init_errors,
+        "initial_dev_sentence_accuracy_percent": format!("{:.2}%", init_ser * 100.0),
         "calibrated_dev_cer": best_cer,
         "calibrated_dev_cer_percent": format!("{:.2}%", best_cer * 100.0),
+        "calibrated_dev_char_errors": best_errors,
+        "calibrated_dev_sentence_accuracy_percent": format!("{:.2}%", best_ser * 100.0),
         "delta_dev_cer": best_cer - init_cer,
+        "delta_char_errors": (best_errors as isize) - (init_errors as isize),
         "unreachable_gold_sentences": unreachable_count,
         "unreachable_gold_ratio": format!("{:.2}%", (unreachable_count as f64 / compiled.len().max(1) as f64) * 100.0),
         "best_weights": best_weights,
-        "epoch_history": epoch_history
+        "epoch_history": epoch_history,
+        "coordinate_polish_steps": coordinate_polish_steps
     })
 }
 
