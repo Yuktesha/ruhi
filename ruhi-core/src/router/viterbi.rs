@@ -19,6 +19,9 @@ pub struct LatticeBackwardProfile {
     pub best_right_word: Vec<String>,
     pub is_clause_tail: Vec<bool>,
     pub is_clause_tail_or_particle: Vec<bool>,
+    pub company_suffix_at: Vec<bool>,
+    pub max_len2_weight_at: Vec<u32>,
+    pub max_len3_weight_at: Vec<u32>,
 }
 
 impl LatticeBackwardProfile {
@@ -30,6 +33,9 @@ impl LatticeBackwardProfile {
             best_right_word: Vec::new(),
             is_clause_tail: Vec::new(),
             is_clause_tail_or_particle: Vec::new(),
+            company_suffix_at: Vec::new(),
+            max_len2_weight_at: Vec::new(),
+            max_len3_weight_at: Vec::new(),
         }
     }
 
@@ -52,6 +58,9 @@ impl LatticeBackwardProfile {
         is_clause_tail[n_syllables] = true;
         let mut is_clause_tail_or_particle = vec![false; n_syllables + 1];
         is_clause_tail_or_particle[n_syllables] = true;
+        let mut company_suffix_at = vec![false; n_syllables + 2];
+        let mut max_len2_weight_at = vec![0u32; n_syllables + 2];
+        let mut max_len3_weight_at = vec![0u32; n_syllables + 2];
 
         let (w_freq_c1, w_freq_cmp, w_mchar, w_coh3, w_coh4) = if let Some(eng) = transitions {
             (
@@ -87,6 +96,23 @@ impl LatticeBackwardProfile {
             let mut best_bpm = String::new();
 
             for node in nodes {
+                if node.weight >= 180 {
+                    let c_len = node.word.chars().count();
+                    if c_len >= 3 {
+                        if node.weight > max_len3_weight_at[pos] {
+                            max_len3_weight_at[pos] = node.weight;
+                        }
+                        if node.weight > max_len2_weight_at[pos] {
+                            max_len2_weight_at[pos] = node.weight;
+                        }
+                    } else if c_len >= 2 && node.weight > max_len2_weight_at[pos] {
+                        max_len2_weight_at[pos] = node.weight;
+                    }
+                }
+                if super::onomastics::is_company_suffix_word(&node.word) {
+                    company_suffix_at[pos] = true;
+                }
+
                 let j = node.end_idx;
                 if j <= pos || j > n_syllables {
                     continue;
@@ -166,6 +192,9 @@ impl LatticeBackwardProfile {
             best_right_word,
             is_clause_tail,
             is_clause_tail_or_particle,
+            company_suffix_at,
+            max_len2_weight_at,
+            max_len3_weight_at,
         }
     }
 
@@ -290,8 +319,105 @@ impl ViterbiRouter {
                     (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0)
                 };
 
+                let (trellis_past, trellis_future) = trellis.split_at_mut(i + 1);
+                let p_count = trellis_past[i].len();
+                const MAX_LOOKBACK: usize = 24;
+                let mut lookback_bufs: [[&str; MAX_LOOKBACK]; 32] = [[""; MAX_LOOKBACK]; 32];
+                let mut lookback_lens: [usize; 32] = [0usize; 32];
+                for prev_idx in 0..p_count.min(32) {
+                    let prev_state = &trellis_past[i][prev_idx];
+                    if !prev_state.node.word.is_empty() {
+                        let mut lb_count = 0usize;
+                        lookback_bufs[prev_idx][MAX_LOOKBACK - 1 - lb_count] = prev_state.node.word.as_str();
+                        lb_count += 1;
+
+                        let mut cur_b = prev_state.prev_boundary;
+                        let mut cur_s = prev_state.prev_state_idx;
+                        while lb_count < MAX_LOOKBACK && cur_b > 0 {
+                            let st = &trellis_past[cur_b][cur_s];
+                            if !st.node.word.is_empty() {
+                                lookback_bufs[prev_idx][MAX_LOOKBACK - 1 - lb_count] = st.node.word.as_str();
+                                lb_count += 1;
+                            }
+                            if st.prev_boundary == cur_b && st.prev_state_idx == cur_s {
+                                break;
+                            }
+                            cur_b = st.prev_boundary;
+                            cur_s = st.prev_state_idx;
+                        }
+                        if lb_count < MAX_LOOKBACK && cur_b == 0 && !trellis_past[0].is_empty() {
+                            let st0 = &trellis_past[0][0];
+                            if !st0.node.word.is_empty() {
+                                lookback_bufs[prev_idx][MAX_LOOKBACK - 1 - lb_count] = st0.node.word.as_str();
+                                lb_count += 1;
+                            }
+                        }
+                        if !geo_ctx_prefix.is_empty() && cur_b == 0 && lb_count < MAX_LOOKBACK {
+                            lookback_bufs[prev_idx][MAX_LOOKBACK - 1 - lb_count] = geo_ctx_prefix;
+                            lb_count += 1;
+                        }
+                        lookback_lens[prev_idx] = lb_count;
+                    }
+                }
+
+                let geo = super::geo_hierarchy::CjkGeoHierarchy::global();
+                let geo_enabled = transitions
+                    .as_ref()
+                    .map_or(false, |eng| !eng.is_rule_disabled("geo_hierarchy"));
+                let mut geo_ctxs: [Option<super::geo_hierarchy::GeoPrefixCtx<'_, '_>>; 32] =
+                    std::array::from_fn(|_| None);
+                let empty_geo_ctx = if geo_enabled
+                    && trellis_past[i].iter().any(|s| s.node.word.is_empty())
+                {
+                    Some(geo.prepare_prefix_ctx(&[]))
+                } else {
+                    None
+                };
+                if geo_enabled {
+                    for prev_idx in 0..p_count.min(32) {
+                        if !trellis_past[i][prev_idx].node.word.is_empty() {
+                            let lb_count = lookback_lens[prev_idx];
+                            geo_ctxs[prev_idx] =
+                                Some(geo.prepare_prefix_ctx(&lookback_bufs[prev_idx][MAX_LOOKBACK - lb_count..MAX_LOOKBACK]));
+                        }
+                    }
+                }
+
+                let ono_enabled = transitions
+                    .as_ref()
+                    .map_or(false, |eng| !eng.is_rule_disabled("onomastics"));
+                let mut ono_ctxs: [super::onomastics::OnomasticPrefixCtx; 32] =
+                    [Default::default(); 32];
+                if ono_enabled {
+                    for prev_idx in 0..p_count.min(32) {
+                        if !trellis_past[i][prev_idx].node.word.is_empty() {
+                            let lb_count = lookback_lens[prev_idx];
+                            if lb_count >= 2 {
+                                ono_ctxs[prev_idx] =
+                                    super::onomastics::prepare_onomastic_prefix_ctx(
+                                        &lookback_bufs[prev_idx][MAX_LOOKBACK - lb_count..MAX_LOOKBACK],
+                                    );
+                            }
+                        }
+                    }
+                }
+
+                let mut prev_archaic = [false; 32];
+                for prev_idx in 0..p_count.min(32) {
+                    let st = &trellis_past[i][prev_idx];
+                    if !st.node.word.is_empty() {
+                        prev_archaic[prev_idx] =
+                            super::archaic_table::is_archaic_polyphonic(&st.node.word, &st.node.bopomofo);
+                    }
+                }
+
                 for node in nodes {
                     let j = node.end_idx;
+                    if j <= i {
+                        continue;
+                    }
+                    let curr_archaic =
+                        super::archaic_table::is_archaic_polyphonic(&node.word, &node.bopomofo);
                     let word_len = node.length() as f64;
                     let base_weight = (std::cmp::max(1, node.weight)) as f64;
 
@@ -315,52 +441,46 @@ impl ViterbiRouter {
                     let mut best_prev_idx = 0;
                     let mut coord_candidates: Vec<(f64, usize)> = Vec::new();
 
-                    for (prev_idx, prev_state) in trellis[i].iter().enumerate() {
+                    for (prev_idx, prev_state) in trellis_past[i].iter().enumerate() {
                         let trans_bonus = if let Some(ref mut engine) = transitions {
                             if !prev_state.node.word.is_empty() {
-                                let mut b = engine.calculate_transition_bonus(
+                                let p_arch = if prev_idx < 32 {
+                                    prev_archaic[prev_idx]
+                                } else {
+                                    super::archaic_table::is_archaic_polyphonic(
+                                        &prev_state.node.word,
+                                        &prev_state.node.bopomofo,
+                                    )
+                                };
+                                let mut b = engine.calculate_transition_bonus_prechecked(
+                                    curr_archaic || p_arch,
                                     &prev_state.node.word,
                                     &prev_state.node.bopomofo,
                                     &node.word,
                                     &node.bopomofo,
                                 );
 
-                                // Layer 3: 沿 trellis 的 prev_boundary 與 prev_state_idx 往前輕量回溯最多 12 個前驅詞（棧上固定緩衝陣列，零 Heap 配置）
-                                const MAX_LOOKBACK: usize = 12;
-                                let mut lookback_buf: [&str; MAX_LOOKBACK] = [""; MAX_LOOKBACK];
-                                let mut lb_count = 0;
-                                lookback_buf[MAX_LOOKBACK - 1 - lb_count] = prev_state.node.word.as_str();
-                                lb_count += 1;
-
-                                let mut cur_b = prev_state.prev_boundary;
-                                let mut cur_s = prev_state.prev_state_idx;
-                                while lb_count < MAX_LOOKBACK && cur_b > 0 {
-                                    let st = &trellis[cur_b][cur_s];
-                                    if !st.node.word.is_empty() {
-                                        lookback_buf[MAX_LOOKBACK - 1 - lb_count] = st.node.word.as_str();
-                                        lb_count += 1;
-                                    }
-                                    if st.prev_boundary == cur_b && st.prev_state_idx == cur_s {
-                                        break;
-                                    }
-                                    cur_b = st.prev_boundary;
-                                    cur_s = st.prev_state_idx;
-                                }
-                                if lb_count < MAX_LOOKBACK && cur_b == 0 && !trellis[0].is_empty() {
-                                    let st0 = &trellis[0][0];
-                                    if !st0.node.word.is_empty() {
-                                        lookback_buf[MAX_LOOKBACK - 1 - lb_count] = st0.node.word.as_str();
-                                        lb_count += 1;
-                                    }
-                                }
-                                if !geo_ctx_prefix.is_empty() && cur_b == 0 && lb_count < MAX_LOOKBACK {
-                                    lookback_buf[MAX_LOOKBACK - 1 - lb_count] = geo_ctx_prefix;
-                                    lb_count += 1;
-                                }
-                                let lookback_slice = &lookback_buf[MAX_LOOKBACK - lb_count..MAX_LOOKBACK];
+                                let lb_count = if prev_idx < 32 { lookback_lens[prev_idx] } else { 0 };
+                                let lookback_slice = if prev_idx < 32 {
+                                    &lookback_bufs[prev_idx][MAX_LOOKBACK - lb_count..MAX_LOOKBACK]
+                                } else {
+                                    &[prev_state.node.word.as_str()]
+                                };
                                 b += engine.calculate_vo_lookback_bonus(lookback_slice, &node.word);
-                                b += engine.calculate_hierarchical_construction_bonus(
+                                let gctx = if prev_idx < 32 {
+                                    geo_ctxs[prev_idx].as_ref()
+                                } else {
+                                    None
+                                };
+                                let octx = if prev_idx < 32 {
+                                    Some(&ono_ctxs[prev_idx])
+                                } else {
+                                    None
+                                };
+                                b += engine.calculate_hierarchical_construction_bonus_with_ctxs(
                                     lookback_slice,
+                                    gctx,
+                                    octx,
                                     &node.word,
                                     &node.bopomofo,
                                     j,
@@ -374,8 +494,10 @@ impl ViterbiRouter {
                                 }
                                 b
                             } else {
-                                engine.calculate_hierarchical_construction_bonus(
+                                engine.calculate_hierarchical_construction_bonus_with_ctxs(
                                     &[],
+                                    empty_geo_ctx.as_ref(),
+                                    None,
                                     &node.word,
                                     &node.bopomofo,
                                     j,
@@ -397,10 +519,11 @@ impl ViterbiRouter {
                         }
                     }
 
+                    let future_slot = &mut trellis_future[j - (i + 1)];
                     if is_coord_conj && !coord_candidates.is_empty() {
                         coord_candidates.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
                         for (score, prev_idx) in coord_candidates.into_iter().take(4) {
-                            trellis[j].push(TrellisState {
+                            future_slot.push(TrellisState {
                                 node: node.clone(),
                                 score,
                                 prev_boundary: i,
@@ -409,7 +532,7 @@ impl ViterbiRouter {
                         }
                     } else if best_incoming_score > -f64::INFINITY {
                         // 若同一邊界已有相同字詞，保留最高分前驅路徑
-                        if let Some(existing) = trellis[j].iter_mut().find(|s| s.node.word == node.word) {
+                        if let Some(existing) = future_slot.iter_mut().find(|s| s.node.word == node.word) {
                             if best_incoming_score > existing.score {
                                 existing.score = best_incoming_score;
                                 existing.prev_boundary = i;
@@ -417,7 +540,7 @@ impl ViterbiRouter {
                                 existing.node = node.clone();
                             }
                         } else {
-                            trellis[j].push(TrellisState {
+                            future_slot.push(TrellisState {
                                 node: node.clone(),
                                 score: best_incoming_score,
                                 prev_boundary: i,

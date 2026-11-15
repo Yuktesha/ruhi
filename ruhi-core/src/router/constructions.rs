@@ -162,11 +162,137 @@ impl TransitionEngine {
             && Self::is_inner_directional_morpheme(&cs[1].to_string())
     }
 
+    pub(crate) fn is_coding_stem_prefix(w: &str) -> bool {
+        matches!(
+            w,
+            "注音" | "拼音" | "倉頡" | "行列" | "大易" | "龍龕" | "編碼" | "組字"
+                | "按鍵" | "檢索" | "縮略" | "輸入" | "區位" | "字元" | "位元"
+                | "內" | "外" | "頭" | "首" | "尾" | "末" | "亂" | "密" | "錯" | "誤"
+        )
+    }
+
+    pub(crate) fn is_strict_coding_system_noun(w: &str) -> bool {
+        matches!(
+            w,
+            "注音" | "拼音" | "倉頡" | "行列" | "大易" | "龍龕" | "編碼" | "組字"
+                | "按鍵" | "檢索" | "縮略" | "區位" | "字元" | "位元"
+        )
+    }
+
+    pub(crate) fn is_investigative_verb(w: &str) -> bool {
+        matches!(
+            w,
+            "檢查" | "查看" | "檢視" | "調查" | "追查" | "清查" | "查明" | "查出"
+                | "探究" | "研究" | "分析" | "找出" | "釐清" | "解釋" | "說明"
+                | "了解" | "瞭解" | "確認"
+        )
+    }
+
+    pub(crate) fn is_cause_noun(w: &str) -> bool {
+        matches!(w, "原因" | "起因" | "成因" | "主因" | "根因" | "緣故" | "緣由")
+    }
+
+    pub(crate) fn is_degree_adverb_modifier(w: &str) -> bool {
+        matches!(
+            w,
+            "好" | "超" | "真" | "太" | "挺" | "蠻" | "很" | "更" | "最"
+                | "非常" | "特別" | "實在" | "真是" | "超級"
+        )
+    }
+
+    pub(crate) fn is_sentence_boundary_or_punct(w: &str) -> bool {
+        w.is_empty()
+            || w.chars().all(|c| {
+                c.is_ascii_punctuation()
+                    || matches!(
+                        c,
+                        '，' | '。' | '！' | '？' | '；' | '：' | '、' | '…' | '—' | '～'
+                            | '（' | '）' | '「' | '」' | '『' | '』' | '《' | '》'
+                    )
+            })
+    }
+
+    pub(crate) fn is_modal_or_punctuation_node(w: &str) -> bool {
+        matches!(
+            w,
+            "的" | "耶" | "喔" | "哦" | "啦" | "吧" | "啊" | "呀" | "呢" | "嗎"
+                | "！" | "？" | "，" | "。" | "…" | "～" | "；" | "：" | "、"
+                | "」" | "）" | "』" | "》"
+        ) || w.chars().all(|c| c.is_ascii_punctuation())
+    }
+
+    pub(crate) fn is_zan_bound_suffix(w: &str) -> bool {
+        matches!(w, "成" | "助" | "同" | "賞" | "許" | "美" | "嘆")
+    }
+
+    pub(crate) fn is_spatial_enclosure_suffix(w: &str) -> bool {
+        matches!(w, "中" | "裡" | "內" | "上")
+            || w.ends_with('中')
+            || w.ends_with('裡')
+            || w.ends_with('內')
+            || w.ends_with('上')
+    }
+
+    pub(crate) fn is_key_press_action_morpheme(w: &str) -> bool {
+        matches!(
+            w,
+            "下" | "鍵" | "鈕" | "住" | "著" | "了"
+                | "shift" | "ctrl" | "alt" | "enter" | "tab"
+                | "Shift" | "Ctrl" | "Alt" | "Enter" | "Tab"
+        )
+    }
+
     /// 階層式集合槽位構式引擎 (Hierarchical Slot-Set Construction Engine)
     /// 支援 `[A] → [B] → [({C} → {D})]`、`[ 大 X 特 X ]`、`[更常 + 動詞]` 與 `[X] 與 [Y]` 對比並列連詞之左向回溯與右向 DAG 預看評估
+    #[inline]
     pub fn calculate_hierarchical_construction_bonus(
         &mut self,
         prefix_words: &[&str],
+        curr_word: &str,
+        curr_bopomofo: &str,
+        end_idx: usize,
+        dag: &HashMap<usize, Vec<LatticeNode>>,
+        backward: &super::viterbi::LatticeBackwardProfile,
+    ) -> f64 {
+        self.calculate_hierarchical_construction_bonus_with_geo_ctx(
+            prefix_words,
+            None,
+            curr_word,
+            curr_bopomofo,
+            end_idx,
+            dag,
+            backward,
+        )
+    }
+
+    #[inline]
+    pub fn calculate_hierarchical_construction_bonus_with_geo_ctx(
+        &mut self,
+        prefix_words: &[&str],
+        geo_ctx: Option<&crate::router::geo_hierarchy::GeoPrefixCtx<'_, '_>>,
+        curr_word: &str,
+        curr_bopomofo: &str,
+        end_idx: usize,
+        dag: &HashMap<usize, Vec<LatticeNode>>,
+        backward: &super::viterbi::LatticeBackwardProfile,
+    ) -> f64 {
+        self.calculate_hierarchical_construction_bonus_with_ctxs(
+            prefix_words,
+            geo_ctx,
+            None,
+            curr_word,
+            curr_bopomofo,
+            end_idx,
+            dag,
+            backward,
+        )
+    }
+
+    pub fn calculate_hierarchical_construction_bonus_with_ctxs(
+        &mut self,
+        prefix_words: &[&str],
+        geo_ctx: Option<&crate::router::geo_hierarchy::GeoPrefixCtx<'_, '_>>,
+        ono_ctx: Option<&super::onomastics::OnomasticPrefixCtx>,
         curr_word: &str,
         curr_bopomofo: &str,
         end_idx: usize,
@@ -180,8 +306,12 @@ impl TransitionEngine {
         let prev_word = if n >= 1 { prefix_words[n - 1] } else { "" };
         let prev2_word = if n >= 2 { prefix_words[n - 2] } else { "" };
         let prev3_word = if n >= 3 { prefix_words[n - 3] } else { "" };
+        let curr_char_len = curr_word.chars().count();
+        let prev_char_len = prev_word.chars().count();
+        let start_idx = end_idx.saturating_sub(curr_char_len);
         let mut bonus = 0.0;
         let mut trigram_scored = 0.0;
+        let right_nodes_at_end: &[LatticeNode] = dag.get(&end_idx).map(|v| v.as_slice()).unwrap_or(&[]);
 
         // ── 構式一：頻率全稱量化 × 動作動量構式 `[每/各/凡/逢] → [動作動詞] → [({一..十, 兩, 幾} → {次, 回, 下, 遍, 趟})]` ──
         if matches!(prev_word, "每" | "各" | "凡" | "逢" | "每當" | "每次")
@@ -200,10 +330,8 @@ impl TransitionEngine {
             if Self::is_verbal_qp_word(curr_word) {
                 bonus += 24.0;
             } else if Self::is_verbal_numeral(curr_word) {
-                if let Some(next_nodes) = dag.get(&end_idx) {
-                    if next_nodes.iter().any(|m| Self::is_verbal_classifier(&m.word)) {
-                        bonus += 20.0;
-                    }
+                if right_nodes_at_end.iter().any(|m| Self::is_verbal_classifier(&m.word)) {
+                    bonus += 20.0;
                 }
             }
         }
@@ -244,27 +372,29 @@ impl TransitionEngine {
         if is_ui_select_root(prev_word) && is_ui_select_act(curr_word) {
             bonus += 28.0;
         }
-        if let Some(next_nodes) = dag.get(&end_idx) {
-            let next_has_select = next_nodes
-                .iter()
-                .any(|m| is_ui_select_act(&m.word) || m.word == "選框" || m.word == "選取");
-            if next_has_select {
-                if curr_word == "框" && curr_bopomofo.starts_with("ㄎㄨㄤ") {
-                    bonus += 30.0;
-                } else if curr_word == "圈" {
-                    let has_container_after = next_nodes.iter().any(|m| {
-                        m.word == "選框"
-                            || (is_ui_select_act(&m.word)
-                                && dag
-                                    .get(&m.end_idx)
-                                    .map(|k| k.iter().any(|x| is_ui_container_head(&x.word)))
-                                    .unwrap_or(false))
-                    });
-                    if has_container_after {
-                        bonus += 26.0;
+        if matches!(curr_word, "框" | "圈" | "筐" | "匡" | "哐" | "誆" | "眶") {
+            if !right_nodes_at_end.is_empty() {
+                let next_has_select = right_nodes_at_end
+                    .iter()
+                    .any(|m| is_ui_select_act(&m.word) || m.word == "選框" || m.word == "選取");
+                if next_has_select {
+                    if curr_word == "框" && curr_bopomofo.starts_with("ㄎㄨㄤ") {
+                        bonus += 30.0;
+                    } else if curr_word == "圈" {
+                        let has_container_after = right_nodes_at_end.iter().any(|m| {
+                            m.word == "選框"
+                                || (is_ui_select_act(&m.word)
+                                    && dag
+                                        .get(&m.end_idx)
+                                        .map(|k| k.iter().any(|x| is_ui_container_head(&x.word)))
+                                        .unwrap_or(false))
+                        });
+                        if has_container_after {
+                            bonus += 26.0;
+                        }
+                    } else {
+                        bonus -= 28.0;
                     }
-                } else if matches!(curr_word, "筐" | "匡" | "哐" | "誆" | "眶") {
-                    bonus -= 28.0;
                 }
             }
         }
@@ -311,13 +441,11 @@ impl TransitionEngine {
             } else if (curr_word == "框" && curr_bopomofo.starts_with("ㄎㄨㄤ"))
                 || matches!(curr_word, "圈" | "點" | "勾" | "拖" | "拉")
             {
-                if let Some(next_nodes) = dag.get(&end_idx) {
-                    if next_nodes
-                        .iter()
-                        .any(|m| matches!(m.word.as_str(), "選" | "取" | "曳" | "動" | "擊"))
-                    {
-                        bonus += 34.0;
-                    }
+                if right_nodes_at_end
+                    .iter()
+                    .any(|m| matches!(m.word.as_str(), "選" | "取" | "曳" | "動" | "擊"))
+                {
+                    bonus += 34.0;
                 }
             } else if matches!(curr_word, "筐" | "匡" | "哐" | "誆" | "眶") {
                 bonus -= 32.0;
@@ -335,7 +463,13 @@ impl TransitionEngine {
             || prev_word.ends_with('在')
             || prev_word.ends_with('於')
             || prev_word.ends_with('從');
-        if prev_is_loc_prep {
+        if prev_is_loc_prep
+            && ((curr_word == "框" && curr_bopomofo.starts_with("ㄎㄨㄤ"))
+                || matches!(
+                    curr_word,
+                    "欄" | "區" | "窗" | "頁" | "表" | "列" | "格" | "盒" | "筐" | "匡" | "哐" | "誆" | "眶"
+                ))
+        {
             let dag_has_localizer = dag
                 .get(&end_idx)
                 .map(|ns| {
@@ -349,7 +483,7 @@ impl TransitionEngine {
                     || matches!(curr_word, "欄" | "區" | "窗" | "頁" | "表" | "列" | "格" | "盒")
                 {
                     bonus += 32.0;
-                } else if matches!(curr_word, "筐" | "匡" | "哐" | "誆" | "眶") {
+                } else {
                     bonus -= 30.0;
                 }
             }
@@ -460,7 +594,7 @@ impl TransitionEngine {
 
         // ── 構式七：動補狀態構式 `[動詞/狀態述語] → [得] / [V+得] → [程度副詞(十分/很/非常/太/更/最/真/超/相當/特別/格外/夠)`
         //    `或典型可能/結果補語]`（如：收羅得十分齊全、寫得非常精彩、做得很好、講得很清楚，杜絕「的 / V+的」搶佔補語標記「得 / V+得」）──
-        let is_valid_de2_stem = matches!(
+        let is_valid_de2_stem = matches!(curr_word, "得" | "的") && matches!(
             prev_word,
             "看" | "聽" | "讀" | "寫" | "說" | "講" | "走" | "跑" | "跳" | "飛" | "做" | "弄"
                 | "搞" | "打" | "吃" | "喝" | "睡" | "穿" | "買" | "賣" | "學" | "教" | "唱"
@@ -711,7 +845,7 @@ impl TransitionEngine {
                 || w.ends_with('線')
                 || w.ends_with('橋')
         };
-        let has_left_dimension_noun = prefix_words.iter().rev().take(4).any(|w| is_dimension_noun(w));
+        let has_left_dimension_noun = || prefix_words.iter().rev().take(4).any(|w| is_dimension_noun(w));
 
         if matches!(curr_word, "更常" | "更長" | "很常" | "很長" | "太常" | "太長" | "最常" | "最長") {
             let next_is_freq_verb = dag
@@ -724,7 +858,7 @@ impl TransitionEngine {
                 } else {
                     bonus -= 28.0;
                 }
-            } else if has_left_dimension_noun {
+            } else if has_left_dimension_noun() {
                 if curr_word.ends_with('長') {
                     bonus += 32.0;
                 } else {
@@ -745,7 +879,7 @@ impl TransitionEngine {
                 } else {
                     bonus -= 25.0;
                 }
-            } else if has_left_dimension_noun {
+            } else if has_left_dimension_noun() {
                 if curr_word == "長" {
                     bonus += 30.0;
                 } else {
@@ -1135,28 +1269,40 @@ impl TransitionEngine {
                     })
                     .unwrap_or(false);
 
-                // 檢查緊接在「在/再」之後是否為後接嘗試/動量補語（一下、一次、一回、一遍、一趟、一點、看看、試試、想想）、天生重複/決策性動詞（想想、看看、試試、來、去、決定）或兼語致使動詞（讓、請、叫、派、換、交給）
+                // 檢查緊接在「在/再」之後是否為後接嘗試/動量補語（一下、一次、一回、一遍、一趟、一點、看看、試試、想想）、天生重複/決策性動詞（想想、看看、試試、來、去、決定）、客氣託付動詞（麻煩、拜託、煩請、勞煩、有勞）或兼語致使動詞（讓、請、叫、派、換、交給）
+                let prev_is_progressive_cue = matches!(
+                    prev_word,
+                    "正" | "正在" | "還" | "還在" | "仍" | "仍在" | "一直"
+                );
                 let next_has_iterative_cue = dag
                     .get(&end_idx)
                     .map(|ns| {
                         ns.iter().any(|m| {
-                            matches!(
+                            let is_base_iter = matches!(
                                 m.word.as_str(),
                                 "想想" | "看看" | "試試" | "問問" | "找找" | "說說" | "算算"
                                     | "來" | "去" | "決定" | "讓" | "請" | "叫" | "派" | "換"
                                     | "交給"
-                            ) || dag
-                                .get(&m.end_idx)
-                                .map(|after_ns| {
-                                    after_ns.iter().any(|comp| {
-                                        matches!(
-                                            comp.word.as_str(),
-                                            "一下" | "一次" | "一回" | "一遍" | "一趟" | "一點"
-                                                | "一些" | "看看" | "試試" | "想想"
-                                        )
+                            );
+                            let is_polite_commission = !prev_is_progressive_cue
+                                && matches!(
+                                    m.word.as_str(),
+                                    "麻煩" | "拜託" | "煩請" | "勞煩" | "有勞"
+                                );
+                            is_base_iter
+                                || is_polite_commission
+                                || dag
+                                    .get(&m.end_idx)
+                                    .map(|after_ns| {
+                                        after_ns.iter().any(|comp| {
+                                            matches!(
+                                                comp.word.as_str(),
+                                                "一下" | "一次" | "一回" | "一遍" | "一趟" | "一點"
+                                                    | "一些" | "看看" | "試試" | "想想"
+                                            )
+                                        })
                                     })
-                                })
-                                .unwrap_or(false)
+                                    .unwrap_or(false)
                         })
                     })
                     .unwrap_or(false);
@@ -1177,7 +1323,7 @@ impl TransitionEngine {
                                     | "吃飯" | "睡覺" | "休息" | "聊天" | "運動" | "觀察"
                                     | "等待" | "尋找" | "處理" | "進行" | "使用" | "測試"
                                     | "說話" | "講話" | "看書" | "聽歌" | "開車" | "散步"
-                                    | "洗澡" | "煮飯"
+                                    | "洗澡" | "煮飯" | "麻煩" | "打擾"
                             )
                         })
                     })
@@ -1341,17 +1487,16 @@ impl TransitionEngine {
                 })
                 .unwrap_or(false)
         };
-        let has_left_normative_verb = prefix_words.iter().rev().take(3).any(|&w| {
-            matches!(
-                w,
-                "恪守" | "謹守" | "奉行" | "秉持" | "實踐" | "發揚" | "弘揚" | "講求" | "重視" | "違背" | "固守" | "盡"
-            )
-        });
-        let has_left_passive_marker = prefix_words.iter().rev().take(2).any(|&w| {
-            matches!(w, "被" | "讓人" | "被人" | "給人" | "害他" | "害我")
-        });
-
         if curr_word == "孝道" {
+            let has_left_normative_verb = prefix_words.iter().rev().take(3).any(|&w| {
+                matches!(
+                    w,
+                    "恪守" | "謹守" | "奉行" | "秉持" | "實踐" | "發揚" | "弘揚" | "講求" | "重視" | "違背" | "固守" | "盡"
+                )
+            });
+            let has_left_passive_marker = prefix_words.iter().rev().take(2).any(|&w| {
+                matches!(w, "被" | "讓人" | "被人" | "給人" | "害他" | "害我")
+            });
             let next_is_baoshou = is_bao_subsumed_at(end_idx);
             let next_is_standalone_bao = !next_is_baoshou
                 && dag
@@ -1365,6 +1510,15 @@ impl TransitionEngine {
             }
         }
         if curr_word == "笑" {
+            let has_left_normative_verb = prefix_words.iter().rev().take(3).any(|&w| {
+                matches!(
+                    w,
+                    "恪守" | "謹守" | "奉行" | "秉持" | "實踐" | "發揚" | "弘揚" | "講求" | "重視" | "違背" | "固守" | "盡"
+                )
+            });
+            let has_left_passive_marker = prefix_words.iter().rev().take(2).any(|&w| {
+                matches!(w, "被" | "讓人" | "被人" | "給人" | "害他" | "害我")
+            });
             if has_left_normative_verb {
                 bonus -= 42.0;
             } else if has_left_passive_marker {
@@ -1933,10 +2087,10 @@ impl TransitionEngine {
                     "幫" | "幫我" | "幫你" | "幫他" | "替" | "替我" | "順便" | "多" | "忘記" | "忘了"
                 )
             });
-            if let Some(next_nodes) = dag.get(&end_idx) {
+            if !right_nodes_at_end.is_empty() {
                 let mut has_wearable_delivery = false;
                 let mut has_wearable_only = false;
-                for m in next_nodes {
+                for m in right_nodes_at_end {
                     if is_wearable(&m.word) {
                         let followed_by_delivery = dag
                             .get(&m.end_idx)
@@ -2247,85 +2401,170 @@ impl TransitionEngine {
         }
 
         // ── 動態外掛三元槽位構式 (`patterns_user.jsonl` 中 slots.len() >= 3) ──
-        let mut trigram_matches: Vec<(String, f64)> = Vec::new();
-        for pat in &self.user_trigram_patterns {
-            let mut pat_raw = 0.0;
-            if !prev_word.is_empty()
-                && pat.slot0.contains(prev_word)
-                && pat.slot1.contains(curr_word)
-                && !self
-                    .excluded_pairs
-                    .contains(&(prev_word.to_string(), curr_word.to_string()))
-            {
-                let next_subsumed = pat.name == "v_dao_bao_satiation_3d_array" && is_bao_subsumed_at(end_idx);
-                let next_matches = !next_subsumed
-                    && dag
-                        .get(&end_idx)
-                        .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
-                        .unwrap_or(false);
-                if next_matches {
-                    pat_raw += pat.bonus;
+        let excl_prev_curr = !prev_word.is_empty() && self.is_excluded_pair(prev_word, curr_word);
+        let excl_prev2_prev = !prev2_word.is_empty() && self.is_excluded_pair(prev2_word, prev_word);
+
+        let curr_two: Option<(&str, &str)> = {
+            let mut it = curr_word.char_indices();
+            if let (Some((0, _)), Some((idx1, _))) = (it.next(), it.next()) {
+                if it.next().is_none() {
+                    Some((&curr_word[..idx1], &curr_word[idx1..]))
+                } else {
+                    None
                 }
+            } else {
+                None
             }
-            if !prev2_word.is_empty()
-                && pat.slot0.contains(prev2_word)
-                && pat.slot1.contains(prev_word)
-                && !self
-                    .excluded_pairs
-                    .contains(&(prev2_word.to_string(), prev_word.to_string()))
-                && !self
-                    .excluded_pairs
-                    .contains(&(prev_word.to_string(), curr_word.to_string()))
-            {
-                let curr_subsumed = pat.name == "v_dao_bao_satiation_3d_array"
-                    && curr_word == "飽"
-                    && end_idx >= 1
-                    && is_bao_subsumed_at(end_idx - 1);
-                if !curr_subsumed {
-                    if pat.slot2.contains(curr_word) {
-                        pat_raw += pat.bonus;
-                    } else if pat.name == "v_dao_bao_satiation_3d_array"
-                        && matches!(curr_word, "保" | "寶" | "堡" | "葆")
+        };
+
+        let prev_two: Option<(&str, &str)> = {
+            let mut it = prev_word.char_indices();
+            if let (Some((0, _)), Some((idx1, _))) = (it.next(), it.next()) {
+                if it.next().is_none() {
+                    Some((&prev_word[..idx1], &prev_word[idx1..]))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        let c0_opt = curr_two.map(|(c, _)| c);
+        let p0_opt = prev_two.map(|(p, _)| p);
+        let can_match_trigram = (!prev_word.is_empty() && self.trigram_slot0_words.contains(prev_word))
+            || (!prev2_word.is_empty() && self.trigram_slot0_words.contains(prev2_word))
+            || c0_opt.map(|c| self.trigram_slot0_words.contains(c)).unwrap_or(false)
+            || p0_opt.map(|p| self.trigram_slot0_words.contains(p)).unwrap_or(false);
+
+        if can_match_trigram {
+            let l0 = if !prev_word.is_empty() {
+                self.trigram_by_slot0.get(prev_word).map(|v| v.as_slice()).unwrap_or(&[])
+            } else {
+                &[]
+            };
+            let l1 = if !prev2_word.is_empty() {
+                self.trigram_by_slot0.get(prev2_word).map(|v| v.as_slice()).unwrap_or(&[])
+            } else {
+                &[]
+            };
+            let l2 = c0_opt
+                .and_then(|c| self.trigram_by_slot0.get(c).map(|v| v.as_slice()))
+                .unwrap_or(&[]);
+            let l3 = p0_opt
+                .and_then(|p| self.trigram_by_slot0.get(p).map(|v| v.as_slice()))
+                .unwrap_or(&[]);
+            let total_idxs = l0.len() + l1.len() + l2.len() + l3.len();
+            if total_idxs > 0 {
+                let mut stack_idxs = [0usize; 64];
+                let mut heap_idxs;
+                let idx_slice: &mut [usize] = if total_idxs <= 64 {
+                    let mut k = 0usize;
+                    for &idx in l0 {
+                        stack_idxs[k] = idx;
+                        k += 1;
+                    }
+                    for &idx in l1 {
+                        stack_idxs[k] = idx;
+                        k += 1;
+                    }
+                    for &idx in l2 {
+                        stack_idxs[k] = idx;
+                        k += 1;
+                    }
+                    for &idx in l3 {
+                        stack_idxs[k] = idx;
+                        k += 1;
+                    }
+                    &mut stack_idxs[..k]
+                } else {
+                    heap_idxs = Vec::with_capacity(total_idxs);
+                    heap_idxs.extend_from_slice(l0);
+                    heap_idxs.extend_from_slice(l1);
+                    heap_idxs.extend_from_slice(l2);
+                    heap_idxs.extend_from_slice(l3);
+                    &mut heap_idxs[..]
+                };
+                idx_slice.sort_unstable();
+                let mut prev_seen = usize::MAX;
+                for &pat_idx in idx_slice.iter() {
+                    if pat_idx == prev_seen {
+                        continue;
+                    }
+                    prev_seen = pat_idx;
+                    let pat = &self.user_trigram_patterns[pat_idx];
+                    let mut pat_raw = 0.0;
+                    if !prev_word.is_empty()
+                        && !excl_prev_curr
+                        && pat.slot0.contains(prev_word)
+                        && pat.slot1.contains(curr_word)
                     {
-                        pat_raw -= pat.bonus;
+                        let next_subsumed = pat.name == "v_dao_bao_satiation_3d_array" && is_bao_subsumed_at(end_idx);
+                        let next_matches = !next_subsumed
+                            && dag
+                                .get(&end_idx)
+                                .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
+                                .unwrap_or(false);
+                        if next_matches {
+                            pat_raw += pat.bonus;
+                        }
+                    }
+                    if !prev2_word.is_empty()
+                        && !excl_prev2_prev
+                        && !excl_prev_curr
+                        && pat.slot0.contains(prev2_word)
+                        && pat.slot1.contains(prev_word)
+                    {
+                        let curr_subsumed = pat.name == "v_dao_bao_satiation_3d_array"
+                            && curr_word == "飽"
+                            && end_idx >= 1
+                            && is_bao_subsumed_at(end_idx - 1);
+                        if !curr_subsumed {
+                            if pat.slot2.contains(curr_word) {
+                                pat_raw += pat.bonus;
+                            } else if pat.name == "v_dao_bao_satiation_3d_array"
+                                && matches!(curr_word, "保" | "寶" | "堡" | "葆")
+                            {
+                                pat_raw -= pat.bonus;
+                            }
+                        }
+                    }
+                    // 當 slot0 + slot1 在詞庫中已凝聚為雙字詞（如「笑到」、「看到」、「吃到」）時，與後繼 slot2（如「飽」）共同構成完整三元構式
+                    if let Some((c0, c1)) = curr_two {
+                        if pat.slot0.contains(c0) && pat.slot1.contains(c1) {
+                            let next_subsumed = pat.name == "v_dao_bao_satiation_3d_array" && is_bao_subsumed_at(end_idx);
+                            let next_matches = !next_subsumed
+                                && dag
+                                    .get(&end_idx)
+                                    .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
+                                    .unwrap_or(false);
+                            if next_matches {
+                                pat_raw += pat.bonus;
+                            }
+                        }
+                    }
+                    if let Some((p0, p1)) = prev_two {
+                        if pat.slot2.contains(curr_word) {
+                            let curr_subsumed = pat.name == "v_dao_bao_satiation_3d_array"
+                                && curr_word == "飽"
+                                && end_idx >= 1
+                                && is_bao_subsumed_at(end_idx - 1);
+                            if !curr_subsumed && pat.slot0.contains(p0) && pat.slot1.contains(p1) {
+                                pat_raw += pat.bonus;
+                            }
+                        }
+                    }
+                    if pat_raw != 0.0 {
+                        trigram_scored += Self::apply_rule_score_fields(
+                            &self.disabled_rules,
+                            &self.feature_weights,
+                            &mut self.active_trace,
+                            &pat.trigram_rule_name,
+                            pat_raw,
+                        );
                     }
                 }
             }
-            // 當 slot0 + slot1 在詞庫中已凝聚為雙字詞（如「笑到」、「看到」、「吃到」）時，與後繼 slot2（如「飽」）共同構成完整三元構式
-            if curr_word.chars().count() == 2 {
-                let mut chars = curr_word.chars();
-                let c0 = chars.next().unwrap().to_string();
-                let c1 = chars.next().unwrap().to_string();
-                if pat.slot0.contains(&c0) && pat.slot1.contains(&c1) {
-                    let next_subsumed = pat.name == "v_dao_bao_satiation_3d_array" && is_bao_subsumed_at(end_idx);
-                    let next_matches = !next_subsumed
-                        && dag
-                            .get(&end_idx)
-                            .map(|ns| ns.iter().any(|m| pat.slot2.contains(&m.word)))
-                            .unwrap_or(false);
-                    if next_matches {
-                        pat_raw += pat.bonus;
-                    }
-                }
-            }
-            if prev_word.chars().count() == 2 && pat.slot2.contains(curr_word) {
-                let mut chars = prev_word.chars();
-                let p0 = chars.next().unwrap().to_string();
-                let p1 = chars.next().unwrap().to_string();
-                let curr_subsumed = pat.name == "v_dao_bao_satiation_3d_array"
-                    && curr_word == "飽"
-                    && end_idx >= 1
-                    && is_bao_subsumed_at(end_idx - 1);
-                if !curr_subsumed && pat.slot0.contains(&p0) && pat.slot1.contains(&p1) {
-                    pat_raw += pat.bonus;
-                }
-            }
-            if pat_raw != 0.0 {
-                trigram_matches.push((format!("trigram_{}", pat.name), pat_raw));
-            }
-        }
-        for (trigram_rule, pat_raw) in trigram_matches {
-            trigram_scored += self.apply_rule_score(&trigram_rule, pat_raw);
         }
 
         // 21. `C01` 處所介詞構式 `[在] + [家] + [休息/睡覺/工作/上班/讀書/吃飯/看書]` vs. 累加構式 `[再] + [加] + [數量/名詞]`：
@@ -2803,19 +3042,16 @@ impl TransitionEngine {
                 "會" | "不會" | "能" | "不能" | "要" | "別" | "沒" | "沒有" | "又" | "都"
                     | "卻" | "竟" | "竟然" | "居然" | "還是" | "不"
             );
-            let next_is_comp_target = dag
-                .get(&end_idx)
-                .map(|ns| {
-                    ns.iter().any(|m| {
-                        matches!(
-                            m.word.as_str(),
-                            "給" | "了" | "過" | "「" | "『" | "他" | "她" | "你" | "我"
-                                | "人" | "別人" | "對手" | "？" | "。" | "，"
-                        )
-                    })
+            let next_is_comp_target = right_nodes_at_end
+                .iter()
+                .any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "給" | "了" | "過" | "「" | "『" | "他" | "她" | "你" | "我"
+                            | "人" | "別人" | "對手" | "？" | "。" | "，"
+                    )
                 })
-                .unwrap_or(false)
-                || dag.get(&end_idx).map(|ns| ns.is_empty()).unwrap_or(true);
+                || right_nodes_at_end.is_empty();
             if prev2_is_modal_or_neg || next_is_comp_target || matches!(prev_word, "認" | "服" | "比" | "賭") {
                 if curr_word == "輸" {
                     bonus += 36.0;
@@ -3006,14 +3242,16 @@ impl TransitionEngine {
                 left_anchor,
                 "錯誤" | "錯字" | "訛誤" | "疏漏" | "筆誤" | "錯別字" | "原文" | "貼入"
                     | "輸入" | "進行" | "執行" | "負責" | "對照" | "校對" | "修訂" | "語意"
+                    | "自動" | "智慧" | "拼音" | "拼字" | "歐文" | "近似" | "也能"
             ) || dag
                 .get(&end_idx)
                 .map(|ns| {
                     ns.iter().any(|m| {
                         matches!(
                             m.word.as_str(),
-                            "校對" | "訂正" | "比對" | "對照" | "修正" | "表" | "清單" | "雙句"
-                                | "單句" | "紀錄" | "記錄"
+                            "校對" | "訂正" | "比對" | "對照" | "修正" | "校正" | "補全"
+                                | "補完" | "聯想" | "功能" | "機制" | "引擎" | "表" | "清單"
+                                | "雙句" | "單句" | "紀錄" | "記錄"
                         )
                     })
                 })
@@ -3679,7 +3917,7 @@ impl TransitionEngine {
         // =========================================================================
         if end_idx == 1
             && curr_bopomofo.contains('˙')
-            && dag.get(&end_idx).map(|ns| ns.is_empty()).unwrap_or(true)
+            && right_nodes_at_end.is_empty()
             && !matches!(prev_word, "覺" | "記" | "懂" | "值" | "認" | "捨" | "顯" | "變" | "曉")
         {
             if curr_word == "的" {
@@ -3700,13 +3938,27 @@ impl TransitionEngine {
                     | "啟動" | "關閉" | "安裝" | "更新" | "開發" | "撰寫" | "寫" | "修改" | "調整"
                     | "呼叫" | "載入" | "掛載" | "除錯" | "測試" | "輸入法" | "系統" | "軟體"
                     | "外掛" | "驅動" | "背景" | "視窗" | "主" | "子" | "應用"
-            ) || prefix_words.iter().any(|&w| {
-                matches!(
-                    w,
-                    "輸入法" | "系統" | "軟體" | "外掛" | "驅動" | "引擎" | "視窗" | "編譯"
-                        | "記憶體" | "資料庫" | "模型" | "執行緒" | "伺服器" | "瀏覽器"
-                )
-            });
+                    | "保全" | "防毒" | "監控" | "常駐" | "守護" | "惡意" | "公用" | "工具"
+                    | "服務" | "代理" | "終端"
+            ) || prev_word.ends_with("牆") || {
+                let mut found_clause_software = false;
+                for &w in prefix_words.iter().rev() {
+                    if matches!(w, "，" | "。" | "；" | "？" | "！" | "：" | "、") {
+                        break;
+                    }
+                    if matches!(
+                        w,
+                        "輸入法" | "系統" | "軟體" | "外掛" | "驅動" | "引擎" | "視窗" | "編譯"
+                            | "記憶體" | "資料庫" | "模型" | "執行緒" | "伺服器" | "瀏覽器"
+                            | "凍結" | "中斷" | "終止" | "暫停" | "掛起" | "阻擋" | "攔截"
+                            | "掃描" | "移除" | "卸載" | "保全"
+                    ) || w == "無預警" {
+                        found_clause_software = true;
+                        break;
+                    }
+                }
+                found_clause_software
+            };
             let right_is_software_state = dag
                 .get(&end_idx)
                 .map(|ns| {
@@ -3726,8 +3978,11 @@ impl TransitionEngine {
                 || matches!(
                     prev_word,
                     "座" | "大" | "小" | "現代" | "古老" | "繁華" | "美麗" | "首都" | "沿海"
-                        | "離開" | "來到" | "走進"
-                ) || dag
+                        | "離開" | "來到" | "走進" | "偉大"
+                ) || (prev_word == "的" && (matches!(
+                    prev2_word,
+                    "偉大" | "美麗" | "繁華" | "古老" | "現代" | "自由" | "安全" | "文明" | "進步" | "宜居" | "國際"
+                ) || prev2_word.starts_with("現代"))) || dag
                 .get(&end_idx)
                 .map(|ns| {
                     ns.iter().any(|m| {
@@ -3798,20 +4053,24 @@ impl TransitionEngine {
             }
             false
         };
-        let left_has_inversion_weather_verb = prefix_words.iter().rev().take(3).any(|&w| {
-            matches!(
-                w,
-                "下著" | "飄著" | "吹著" | "刮著" | "下起" | "飄起" | "吹起" | "刮起"
-                    | "下了" | "飄了" | "吹了" | "一場" | "陣陣"
-            )
-        });
-        let left_has_weather_loc = is_weather_loc_token(prev_word)
-            || (prev_word == "的" && is_weather_loc_token(prev2_word))
-            || left_has_inversion_weather_verb
-            || prefix_words.iter().rev().take(5).any(|&w| {
-                is_weather_loc_token(w)
-                    || matches!(w, "傾盆" | "鵝毛" | "毛毛" | "綿綿" | "一場" | "陣陣")
-            });
+        let left_has_inversion_weather_verb = || {
+            prefix_words.iter().rev().take(3).any(|&w| {
+                matches!(
+                    w,
+                    "下著" | "飄著" | "吹著" | "刮著" | "下起" | "飄起" | "吹起" | "刮起"
+                        | "下了" | "飄了" | "吹了" | "一場" | "陣陣"
+                )
+            })
+        };
+        let left_has_weather_loc = || {
+            is_weather_loc_token(prev_word)
+                || (prev_word == "的" && is_weather_loc_token(prev2_word))
+                || left_has_inversion_weather_verb()
+                || prefix_words.iter().rev().take(5).any(|&w| {
+                    is_weather_loc_token(w)
+                        || matches!(w, "傾盆" | "鵝毛" | "毛毛" | "綿綿" | "一場" | "陣陣")
+                })
+        };
         let check_weather_pred_at = |idx: usize| -> bool {
             dag.get(&idx)
                 .map(|ns| {
@@ -3842,16 +4101,16 @@ impl TransitionEngine {
                 })
                 .unwrap_or(false)
         };
-        let right_has_weather_pred = check_weather_pred_at(end_idx);
 
         // (1a) 當 curr_word 為因式分解之氣象修飾詞 `[毛毛/微/小/中/大/豪/強/暴/濃/厚/稀/薄/冰]`，且後接氣象中心詞 `[雨/雪/風/霧/霜/雹/雷/太陽/陽光]` 時給予雙節點結合獎勵
-        if is_weather_modifier_token(curr_word) && left_has_weather_loc {
+        if is_weather_modifier_token(curr_word) && left_has_weather_loc() {
+            let inv_verb = left_has_inversion_weather_verb();
             let followed_by_weather_head = dag
                 .get(&end_idx)
                 .map(|ns| {
                     ns.iter().any(|h| {
                         is_weather_head_token(h.word.as_str())
-                            && (left_has_inversion_weather_verb || check_weather_pred_at(h.end_idx) || !dag.contains_key(&h.end_idx))
+                            && (inv_verb || check_weather_pred_at(h.end_idx) || !dag.contains_key(&h.end_idx))
                     })
                 })
                 .unwrap_or(false);
@@ -3867,8 +4126,10 @@ impl TransitionEngine {
                 | "雪" | "血" | "霜" | "雙" | "傷" | "雹" | "包" | "抱" | "飽" | "雷" | "累"
         ) {
             let prev_is_weather_mod = is_weather_modifier_token(prev_word);
-            if (left_has_weather_loc && (right_has_weather_pred || left_has_inversion_weather_verb))
-                || (prev_is_weather_mod && (left_has_weather_loc || right_has_weather_pred))
+            let l_loc = left_has_weather_loc();
+            let r_pred = check_weather_pred_at(end_idx);
+            if (l_loc && (r_pred || left_has_inversion_weather_verb()))
+                || (prev_is_weather_mod && (l_loc || r_pred))
             {
                 if is_weather_head_token(curr_word) {
                     bonus += if prev_is_weather_mod { 34.0 } else { 32.0 };
@@ -3876,15 +4137,23 @@ impl TransitionEngine {
                     bonus -= 28.0;
                 }
             }
-        } else if left_has_weather_loc && (right_has_weather_pred || left_has_inversion_weather_verb) {
-            if is_factorized_weather_np(curr_word) && curr_word.chars().count() >= 2 {
-                bonus += 34.0;
-            } else if matches!(
-                curr_word,
-                "豪語" | "小語" | "大語" | "中語" | "微語" | "濃務" | "大務" | "薄務" | "稀務"
-                    | "厚血" | "小血" | "大血" | "微豐" | "強豐" | "暴豐" | "冰包" | "冰抱" | "冰飽"
-            ) {
-                bonus -= 32.0;
+        } else {
+            let is_comp_weather = is_factorized_weather_np(curr_word) && curr_word.chars().count() >= 2;
+            let is_impostor_weather = !is_comp_weather
+                && matches!(
+                    curr_word,
+                    "豪語" | "小語" | "大語" | "中語" | "微語" | "濃務" | "大務" | "薄務" | "稀務"
+                        | "厚血" | "小血" | "大血" | "微豐" | "強豐" | "暴豐" | "冰包" | "冰抱" | "冰飽"
+                );
+            if (is_comp_weather || is_impostor_weather)
+                && left_has_weather_loc()
+                && (check_weather_pred_at(end_idx) || left_has_inversion_weather_verb())
+            {
+                if is_comp_weather {
+                    bonus += 34.0;
+                } else {
+                    bonus -= 32.0;
+                }
             }
         }
 
@@ -3914,7 +4183,7 @@ impl TransitionEngine {
         // 3. 8D 氣象持續體副詞與動量補語尾段 `[修飾詞]? × [雨/雪/風/霧/霜/雹/雷] × [一直/還在/持續]? × [下/飄/吹/刮] × [個] × [不停/沒完/沒完沒了/不休/不止]`
         if matches!(curr_word, "還在" | "一直" | "持續" | "不斷" | "總是")
             && is_factorized_weather_np(prev_word)
-            && right_has_weather_pred
+            && check_weather_pred_at(end_idx)
         {
             bonus += 28.0;
         }
@@ -4154,7 +4423,14 @@ impl TransitionEngine {
                     | "好玩" | "好聽" | "明白" | "害怕" | "擔心" | "介意" | "需要" | "打算"
             )
         };
-        if curr_word.chars().count() == 1 {
+        if curr_char_len == 1
+            && matches!(
+                curr_word,
+                "同" | "願" | "喜" | "可" | "知" | "清" | "高" | "方" | "確" | "贊"
+                    | "滿" | "在" | "應" | "習" | "認" | "相" | "划" | "舒" | "容" | "重"
+                    | "公" | "安" | "正" | "好" | "明" | "害" | "擔" | "介" | "需" | "打"
+            )
+        {
             let has_disyllabic_a_not_a_tail = dag
                 .get(&end_idx)
                 .map(|ns| {
@@ -4169,12 +4445,11 @@ impl TransitionEngine {
                                     })
                                 })
                                 .unwrap_or(false))
-                            || ((m1.word.starts_with('不') || m1.word.starts_with('沒'))
-                                && m1.word.chars().count() == 3
-                                && {
-                                    let tail: String = m1.word.chars().skip(1).collect();
-                                    is_disyllabic_a_not_a_pred(&tail) && tail.starts_with(curr_word)
-                                })
+                            || (if let Some(tail) = m1.word.strip_prefix(['不', '沒']) {
+                                is_disyllabic_a_not_a_pred(tail) && tail.starts_with(curr_word)
+                            } else {
+                                false
+                            })
                     })
                 })
                 .unwrap_or(false);
@@ -4182,7 +4457,7 @@ impl TransitionEngine {
                 bonus += 26.0;
             }
         }
-        if prev_word.chars().count() == 1 && matches!(curr_word, "不" | "沒" | "部" | "步" | "簿") {
+        if prev_char_len == 1 && matches!(curr_word, "不" | "沒" | "部" | "步" | "簿") {
             let next_is_matching_ab = dag
                 .get(&end_idx)
                 .map(|ns| {
@@ -4307,7 +4582,7 @@ impl TransitionEngine {
         }
 
         //   (Ic) 反覆動作對稱變數統一拓撲 `[一] × [V_1] × [再] × [V_2]`（當 V_1 == V_2 時觸發，如：一試再試、一錯再錯、一拖再拖、一改再改、一問再問、一看再看、一想再想、一退再退、一變再變、一犯再犯）
-        if prev_word == "一" && curr_word.chars().count() == 1 && !self.function_words.contains(curr_word) {
+        if prev_word == "一" && curr_char_len == 1 && !self.function_words.contains(curr_word) {
             let followed_by_zai_same_v = dag
                 .get(&end_idx)
                 .map(|ns| {
@@ -4324,7 +4599,7 @@ impl TransitionEngine {
                 bonus += 28.0;
             }
         }
-        if prev2_word == "一" && prev_word.chars().count() == 1 && matches!(curr_word, "再" | "在") {
+        if prev2_word == "一" && prev_char_len == 1 && matches!(curr_word, "再" | "在") {
             let next_repeats_v = dag
                 .get(&end_idx)
                 .map(|ns| ns.iter().any(|v2| v2.word == prev_word))
@@ -4340,7 +4615,7 @@ impl TransitionEngine {
         if prev3_word == "一"
             && prev_word == "再"
             && curr_word == prev2_word
-            && curr_word.chars().count() == 1
+            && curr_char_len == 1
         {
             bonus += 32.0;
         }
@@ -4348,7 +4623,7 @@ impl TransitionEngine {
         // (II) T_bisect(W_{i, i+2} | G)：跨詞界反腰斬拓撲守恆定律 (Anti-Bisection Cross-Boundary Integrity Law: 2+2 > 1+2+1)
         // 當候選詞 W 為跨越 [i, i+2] 之低先驗雙字詞（weight <= 450.0），且選擇 W 會同時將左鄰高凝聚雙字詞 L_{i-1, i+1}（weight >= 480.0）
         // 與右鄰高凝聚雙字詞 R_{i+1, i+3}（weight >= 480.0）腰斬為前後孤立單字 [1 + 2 + 1] 時，自動施加拓撲守恆懲罰！
-        if curr_word.chars().count() == 2 && prev_word.chars().count() == 1 && end_idx >= 3 {
+        if curr_char_len == 2 && prev_char_len == 1 && end_idx >= 3 {
             let i = end_idx - 2;
             let curr_weight: u32 = dag
                 .get(&i)
@@ -4474,6 +4749,88 @@ impl TransitionEngine {
             }
         }
 
+        // ── 構式一：注音碼 ([符號／編碼／輸入系統] × [碼]) ──
+        if curr_word == "碼" && Self::is_coding_stem_prefix(prev_word) {
+            bonus += 16.0;
+        } else if curr_word == "馬" && Self::is_strict_coding_system_noun(prev_word) {
+            bonus -= 10.0;
+        }
+
+        // ── 構式二：檢查原因 ([探查／解析動詞] × [原因系名詞] 與 3+1 邊界護欄) ──
+        if Self::is_cause_noun(curr_word) && Self::is_investigative_verb(prev_word) {
+            bonus += 18.0;
+            if right_nodes_at_end.iter().any(|m| matches!(m.word.as_str(), "何在" | "所在" | "為何")) {
+                bonus += 6.0;
+            }
+        }
+        if curr_word == "音" && prev_word.chars().count() >= 3 && prev_word.ends_with('員') {
+            if start_idx >= 1 {
+                if let Some(prev_nodes) = dag.get(&(start_idx - 1)) {
+                    if prev_nodes.iter().any(|m| m.word == "原因") {
+                        bonus -= 18.0;
+                    }
+                }
+            }
+        }
+
+        // ── 構式三：讚， (獨立語句／句尾停頓／程度副詞修飾之「讚」vs 黏著詞素「贊」) ──
+        if matches!(curr_word, "讚" | "贊") {
+            let left_is_zan_boundary = Self::is_sentence_boundary_or_punct(prev_word)
+                || Self::is_degree_adverb_modifier(prev_word);
+            let right_is_zan_boundary = right_nodes_at_end.is_empty()
+                || right_nodes_at_end.iter().any(|m| Self::is_modal_or_punctuation_node(&m.word));
+            if left_is_zan_boundary && right_is_zan_boundary {
+                if curr_word == "讚" {
+                    bonus += 14.0;
+                } else if curr_word == "贊" {
+                    let has_bound_continuation =
+                        right_nodes_at_end.iter().any(|m| Self::is_zan_bound_suffix(&m.word));
+                    if !has_bound_continuation {
+                        bonus -= 10.0;
+                    }
+                }
+            }
+        }
+
+        // ── 構式四：這時候 (護欄殘留「這十後」誤切) ──
+        if curr_word == "十" && matches!(prev_word, "這" | "那" | "有" | "某") {
+            let right_has_single_hou = right_nodes_at_end
+                .iter()
+                .any(|m| m.word == "後" && m.word.chars().count() == 1)
+                && !right_nodes_at_end.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "個" | "天" | "年" | "月" | "日" | "分" | "秒" | "歲" | "點" | "隻" | "條" | "位"
+                    )
+                });
+            let start_has_shihou = dag
+                .get(&start_idx)
+                .map(|nodes| nodes.iter().any(|m| m.word == "時候"))
+                .unwrap_or(false);
+            if right_has_single_hou && start_has_shihou {
+                bonus -= 16.0;
+            }
+        }
+
+        // ── 構式五：在輸入座中按 (處所環綴 [在/於..中/裡/內/上] + 按 搭配動作指標) ──
+        if curr_word == "按" && Self::is_spatial_enclosure_suffix(prev_word) {
+            let left_has_zai_or_yu = prefix_words
+                .iter()
+                .rev()
+                .take(6)
+                .any(|w| w.contains('在') || w.contains('於'));
+            if left_has_zai_or_yu {
+                let right_has_action =
+                    right_nodes_at_end.iter().any(|m| Self::is_key_press_action_morpheme(&m.word));
+                let right_is_empty = right_nodes_at_end.is_empty();
+                if right_has_action {
+                    bonus += 16.0;
+                } else if right_is_empty {
+                    bonus += 10.0;
+                }
+            }
+        }
+
         // =========================================================================
         // 30. 漢字圈條件式郵政／地政／戶政階層知識樹（平時休眠，僅在上層行政區錨點出現於前文時喚醒下層里、路、段）
         //     總貢獻以 ±35 為上限，可用 RUHI_DISABLE_RULES=geo_hierarchy 停用。
@@ -4482,9 +4839,30 @@ impl TransitionEngine {
         bonus = 0.0;
 
         let geo_raw = if !self.is_rule_disabled("geo_hierarchy") {
-            crate::router::geo_hierarchy::CjkGeoHierarchy::global()
-                .score_geo_hierarchy_bonus(prefix_words, curr_word, curr_bopomofo, end_idx, dag)
-                .clamp(-35.0, 35.0)
+            let geo = crate::router::geo_hierarchy::CjkGeoHierarchy::global();
+            if let Some(ctx) = geo_ctx {
+                geo.score_geo_hierarchy_with_ctx(ctx, curr_word, curr_bopomofo, end_idx, dag)
+                    .clamp(-35.0, 35.0)
+            } else {
+                geo.score_geo_hierarchy_bonus(prefix_words, curr_word, curr_bopomofo, end_idx, dag)
+                    .clamp(-35.0, 35.0)
+            }
+        } else {
+            0.0
+        };
+
+        let onomastic_raw = if !self.is_rule_disabled("onomastics") {
+            crate::router::onomastics::score_onomastic_bonus_with_ctx(
+                prefix_words,
+                ono_ctx,
+                Some(backward),
+                curr_word,
+                curr_bopomofo,
+                end_idx,
+                dag,
+                &self.session_given_names,
+            )
+            .clamp(-28.0, 28.0)
         } else {
             0.0
         };
@@ -4493,10 +4871,10 @@ impl TransitionEngine {
         // 31. 語境分岔構式（2026-11-05，分數上限 35；左右語意類別一律引用 morpheme_ontology.json）
         //     原則：左右兩側語意場同時成立才加分；僅單側成立或無語境時 bonus = 0，回歸詞庫統計頻率。
         // =========================================================================
+        let right_nodes: &[LatticeNode] = right_nodes_at_end;
         {
             use super::morpheme_ontology::{MorphemeClass as MC, MorphemeOntology};
             let ont = MorphemeOntology::global();
-            let right_nodes: &[LatticeNode] = dag.get(&end_idx).map(|v| v.as_slice()).unwrap_or(&[]);
             // 右側為輸入段尾（其後通常緊接阿拉伯數字、百分比或標點，這些字元不進入詞網格）
             let right_is_segment_end = right_nodes.is_empty();
             let right_any = |cls: MC| right_nodes.iter().any(|m| ont.has_class(&m.word, cls));
@@ -4507,9 +4885,6 @@ impl TransitionEngine {
                         || "一二三四五六七八九十百千萬兩幾半零".contains(c)
                 })
             };
-            let right_is_quantity = right_nodes
-                .iter()
-                .any(|m| is_numeral_lead(&m.word) || ont.has_class(&m.word, MC::QuantityExprWord));
             let prev_is_number_de = prev_word == "的"
                 && prev2_word.chars().last().map_or(false, |c| {
                     c.is_ascii_digit() || ('０'..='９').contains(&c) || c == '%' || c == '％'
@@ -4531,6 +4906,9 @@ impl TransitionEngine {
 
             // 31-2. 「剩 vs 勝」雙線性分岔：左鄰資源存量名詞／限定副詞 × 右鄰數量 ➔ 剩；左鄰競賽評比名詞／勝負程度副詞 × 右鄰數量或對手 ➔ 勝
             if !self.is_rule_disabled("ctx31_sheng") && matches!(curr_word, "剩" | "勝") {
+                let right_is_quantity = right_nodes
+                    .iter()
+                    .any(|m| is_numeral_lead(&m.word) || ont.has_class(&m.word, MC::QuantityExprWord));
                 let right_ok = right_is_quantity || right_is_segment_end;
                 let stock_left = ont.has_class(prev_word, MC::ResourceStockNoun)
                     || ont.has_class(prev_word, MC::RestrictiveAdv);
@@ -4693,7 +5071,7 @@ impl TransitionEngine {
 
             // 31-5. 詞界與補語／定語結構防劫掠守門（因式分解右鄰驗證）：
             // (a) 可能補語與飽足補語「V + 得 + 補語」：僅當右鄰確實為可能／結果補語時才賦予「得」+28.0
-            let right_nodes_31_5: &[LatticeNode] = dag.get(&end_idx).map(|v| v.as_slice()).unwrap_or(&[]);
+            let right_nodes_31_5 = right_nodes;
             if curr_word == "得" {
                 let is_pot_or_sat_v = matches!(
                     prev_word,
@@ -5742,7 +6120,7 @@ impl TransitionEngine {
                     "可以" | "能" | "能夠" | "可" | "會" | "車" | "公車" | "客運" | "列車"
                         | "火車" | "捷運" | "高鐵" | "飛機" | "船" | "貨車" | "卡車" | "計程車"
                         | "滿" | "超" | "下" | "上" | "轉" | "刊" | "登" | "記" | "連" | "附"
-                        | "千" | "萬" | "三" | "五" | "幾" | "半" | "一" | "年"
+                        | "掛" | "卸" | "千" | "萬" | "三" | "五" | "幾" | "半" | "一" | "年"
                 );
                 let valid_zai_load_right = right_nodes_31_5.iter().any(|m| {
                     matches!(
@@ -6063,7 +6441,7 @@ impl TransitionEngine {
 
             // (j) 單字樞紐「未 (ㄨㄟˋ)」vs「為／味／位」：否定完成副詞語境
             if matches!(curr_word, "未" | "為" | "味" | "位") {
-                let shatters_wei_compound = end_idx >= 1
+                let shatters_wei_compound = (end_idx >= 1
                     && dag
                         .get(&(end_idx - 1))
                         .map(|ns| {
@@ -6073,15 +6451,43 @@ impl TransitionEngine {
                                         || m.word.starts_with('為')
                                         || m.word.starts_with('味')
                                         || m.word.starts_with('維')
-                                        || m.word.starts_with('唯'))
+                                        || m.word.starts_with('唯')
+                                        || m.word.starts_with('未'))
+                            })
+                        })
+                        .unwrap_or(false))
+                    || dag
+                        .get(&start_idx)
+                        .map(|ns| {
+                            ns.iter().any(|m| {
+                                m.word.chars().count() >= 2
+                                    && (m.word.starts_with('未')
+                                        || m.word.starts_with('為')
+                                        || m.word.starts_with('位')
+                                        || m.word.starts_with('味'))
                             })
                         })
                         .unwrap_or(false);
+                let is_legit_wei_frame = matches!(
+                    prev_word,
+                    "成" | "作" | "以" | "認" | "稱" | "因" | "極" | "較" | "大" | "甚" | "更"
+                        | "頗" | "視" | "化" | "變" | "列" | "評" | "選" | "改" | "定" | "設"
+                        | "轉" | "歸" | "立" | "降" | "廣" | "尤" | "實" | "謂" | "名" | "號"
+                        | "身" | "同" | "專" | "您"
+                ) || (prev_word == "之" && matches!(prev2_word, "稱" | "視" | "謂"))
+                    || prev2_word == "以"
+                    || right_nodes_31_5.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "了" | "何" | "依歸" | "依" | "主" | "核心" | "目的" | "原則" | "基礎"
+                        )
+                    });
                 let right_favors_wei_not_yet = right_nodes_31_5.iter().any(|m| {
                     matches!(
                         m.word.as_str(),
-                        "受過" | "受到" | "達成" | "達到" | "能" | "能夠" | "曾" | "嘗"
-                            | "壓縮" | "發展" | "開發" | "完成" | "成年" | "婚" | "公開" | "必" | "免"
+                        "受過" | "受到" | "受教育" | "受影響" | "達成" | "達到" | "能夠"
+                            | "壓縮" | "發展" | "開發" | "完成" | "成年" | "婚" | "公開"
+                            | "公布" | "公佈"
                     )
                 });
                 let left_favors_wei_not_yet = matches!(
@@ -6089,10 +6495,16 @@ impl TransitionEngine {
                     "尚" | "還" | "仍" | "從" | "並" | "卻" | "而" | "或" | "既" | "雖" | "若"
                 );
                 if !shatters_wei_compound
+                    && !is_legit_wei_frame
                     && right_favors_wei_not_yet
                     && (left_favors_wei_not_yet
                         || prev_word.is_empty()
-                        || matches!(prev_word, "的" | "在" | "於" | "對" | "與" | "和" | "是" | "裡" | "中"))
+                        || matches!(
+                            prev_word,
+                            "的" | "在" | "於" | "對" | "與" | "和" | "是" | "裡" | "中"
+                                | "可能" | "皆" | "均" | "都" | "也" | "亦" | "猶" | "且" | "則" | "即"
+                                | "婦女" | "兒童" | "輸出" | "結果" | "資料" | "至今"
+                        ))
                 {
                     if curr_word == "未" {
                         bonus += 28.0;
@@ -6513,8 +6925,8 @@ impl TransitionEngine {
                         || w.ends_with('丸')
                         || w.ends_with('粒')))
             };
-            let right_has_granular_noun = right_nodes_31_5.iter().any(|m| is_granular_noun(&m.word));
             if matches!(curr_word, "美麗" | "美妙" | "美好" | "每粒") {
+                let right_has_granular_noun = right_nodes_31_5.iter().any(|m| is_granular_noun(&m.word));
                 if right_has_granular_noun {
                     if curr_word == "每粒" {
                         bonus += 28.0;
@@ -6552,7 +6964,7 @@ impl TransitionEngine {
             }
             if prev_word == "每"
                 && matches!(curr_word, "粒" | "力" | "麗" | "立" | "利" | "例")
-                && right_has_granular_noun
+                && right_nodes_31_5.iter().any(|m| is_granular_noun(&m.word))
             {
                 if curr_word == "粒" {
                     bonus += 28.0;
@@ -7607,7 +8019,7 @@ impl TransitionEngine {
                 bonus += 30.0;
             }
 
-            // (r) 屬性修飾語素「新 (ㄒㄧㄣ)」× 系統／模型／世代抽象中心語構式（防「心模型」誤選，同時守護「核心模型／心理模型」）
+            // (r) 屬性修飾語素「新 (ㄒㄧㄣ)」× 系統／模型／世代／對話視窗抽象中心語構式（防「心模型／心對話」誤選，同時以詞網格跨度不變量守護「核心模型／內心對話／與心對話」）
             if matches!(curr_word, "新" | "心" | "薪" | "辛" | "欣")
                 && (curr_bopomofo.is_empty() || curr_bopomofo == "ㄒㄧㄣ")
             {
@@ -7617,18 +8029,98 @@ impl TransitionEngine {
                         "模型" | "架構" | "系統" | "世代" | "版本" | "功能" | "專案" | "技術"
                             | "標準" | "紀錄" | "突破" | "時代" | "成員" | "階段" | "篇章" | "起點"
                             | "氣象" | "思維" | "方法" | "方向" | "引擎" | "介面" | "規則" | "演算法" | "輸入法"
+                            | "視窗" | "分頁" | "檔案" | "資料夾" | "帳號" | "帳戶" | "工作階段" | "回合" | "頁面" | "章節"
+                            | "話題" | "對話框"
                     )
                 });
+                let right_is_pure_dialogue = right_nodes_31_5.iter().any(|m| m.word == "對話");
                 let left_is_heart_head = matches!(
                     prev_word,
-                    "核" | "合" | "中" | "內" | "身" | "愛" | "關" | "耐" | "細" | "真" | "誠" | "專" | "用" | "良"
+                    "核" | "合" | "中" | "內" | "身" | "愛" | "關" | "耐" | "細" | "真" | "誠"
+                        | "專" | "用" | "良" | "交" | "傾" | "貼" | "暖" | "苦" | "平" | "靜" | "虛"
                 );
-                if right_is_abstract_model && !left_is_heart_head {
+                let shatters_heart_compound = prev_word.chars().count() == 1
+                    && end_idx >= 2
+                    && dag.get(&(end_idx - 2)).map_or(false, |ns| {
+                        ns.iter().any(|n| {
+                            n.end_idx == end_idx
+                                && (matches!(
+                                    n.word.as_str(),
+                                    "內心" | "真心" | "誠心" | "身心" | "愛心" | "關心"
+                                        | "耐心" | "細心" | "專心" | "良心" | "交心" | "談心"
+                                        | "傾心" | "貼心" | "苦心" | "傷心" | "平心" | "靜心" | "虛心"
+                                ) || (right_is_pure_dialogue
+                                    && matches!(n.word.as_str(), "用心" | "同心")))
+                        })
+                    });
+                let has_lattice_comitative_yu = prev_word.chars().count() == 1
+                    && end_idx >= 2
+                    && dag.get(&(end_idx - 2)).map_or(false, |ns| {
+                        ns.iter().any(|n| n.end_idx == end_idx - 1 && n.word == "與")
+                    });
+                let has_reciprocal_jiao_xin = prev_word.chars().count() == 1
+                    && matches!(
+                        prev2_word,
+                        "彼此" | "互相" | "相互" | "促膝" | "推誠" | "坦誠"
+                    )
+                    && end_idx >= 2
+                    && dag.get(&(end_idx - 2)).map_or(false, |ns| {
+                        ns.iter().any(|n| n.end_idx == end_idx - 1 && n.word == "交")
+                    });
+                let left_is_comitative_heart_prep = matches!(
+                    prev_word,
+                    "與" | "跟" | "和" | "同"
+                ) || has_lattice_comitative_yu;
+                if has_reciprocal_jiao_xin {
+                    if curr_word == "心" {
+                        bonus += 24.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                } else if !left_is_heart_head
+                    && !shatters_heart_compound
+                    && (right_is_abstract_model
+                        || (right_is_pure_dialogue && !left_is_comitative_heart_prep))
+                {
                     if curr_word == "新" {
                         bonus += 32.0;
                     } else {
                         bonus -= 28.0;
                     }
+                }
+            }
+
+            // (r2) 人際溝通構式「[彼此/互相] × [交] × [心]」與雙字同音詞「交心 vs 焦心」消歧（保護「令人焦心／互相教學」）
+            if matches!(curr_word, "交心" | "焦心" | "燋心") {
+                let left_is_reciprocal = matches!(
+                    prev_word,
+                    "彼此" | "互相" | "相互" | "促膝" | "推誠" | "坦誠"
+                );
+                let right_is_comm = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "對話" | "話題" | "談話" | "聊天" | "交流" | "好友" | "朋友" | "知己"
+                    )
+                });
+                if left_is_reciprocal || right_is_comm {
+                    if curr_word == "交心" {
+                        bonus += 24.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                }
+            } else if matches!(curr_word, "交" | "教" | "焦" | "膠")
+                && (curr_bopomofo.is_empty() || curr_bopomofo == "ㄐㄧㄠ")
+                && matches!(
+                    prev_word,
+                    "彼此" | "互相" | "相互" | "促膝" | "推誠" | "坦誠"
+                )
+                && right_nodes_31_5.iter().any(|m| m.word == "心")
+            {
+                if curr_word == "交" {
+                    bonus += 24.0;
+                } else {
+                    bonus -= 20.0;
                 }
             }
 
@@ -7650,11 +8142,1149 @@ impl TransitionEngine {
                 bonus -= 34.0;
             }
 
+            // (t) 「稍後」vs.「稍候」與「片刻」邊界構式
+            if matches!(curr_word, "稍後" | "稍候") {
+                let right_is_future_act = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "要" | "再" | "會" | "將" | "便" | "就" | "才" | "出發" | "出門" | "進行"
+                            | "開始" | "公布" | "公佈" | "說明" | "回覆" | "處理" | "回來" | "繼續"
+                            | "寄出" | "補上" | "提供" | "更新"
+                    )
+                });
+                let left_is_polite = matches!(prev_word, "請" | "敬請" | "煩請");
+                let right_is_moment = right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "片刻" | "片" | "一下" | "些許") || m.word.starts_with("一會")
+                });
+                if right_is_future_act && !(left_is_polite && right_is_moment) {
+                    if curr_word == "稍後" {
+                        bonus += 26.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                } else if (left_is_polite && !right_is_future_act) || right_is_moment {
+                    if curr_word == "稍候" {
+                        bonus += 26.0;
+                    } else {
+                        bonus -= 22.0;
+                    }
+                }
+            }
+            if curr_word == "片刻" && matches!(
+                prev_word,
+                "稍候" | "等候" | "等待" | "靜候" | "佇候" | "停留" | "沉默" | "沉思" | "駐足" | "休息" | "小憩" | "暫停"
+            ) {
+                bonus += 32.0;
+            }
+            if curr_word == "客" && prev_word == "片" && matches!(
+                prev2_word,
+                "稍候" | "等候" | "等待" | "靜候" | "佇候" | "停留" | "沉默" | "沉思" | "駐足" | "休息" | "小憩" | "暫停"
+            ) {
+                bonus -= 30.0;
+            }
+
+            // (u) 「以下」vs.「已 + 下」後指語篇定語構式
+            let is_cataphoric_discourse_head = |w: &str| {
+                matches!(
+                    w,
+                    "例句" | "例子" | "案例" | "範例" | "清單" | "列表" | "項目" | "幾點"
+                        | "幾項" | "數點" | "事項" | "內容" | "說明" | "規定" | "規則" | "條件"
+                        | "步驟" | "原則" | "方法" | "方式" | "資料" | "資訊" | "數據" | "圖表"
+                        | "表格" | "文字" | "段落" | "章節" | "問題" | "情形" | "情況" | "幾種"
+                        | "各點" | "幾類" | "數種" | "之"
+                )
+            };
+            if curr_word == "以下" {
+                let left_is_intro = prev_word.is_empty()
+                    || matches!(
+                        prev_word,
+                        "就" | "在" | "依" | "由" | "從" | "按" | "按照" | "針對" | "關於"
+                            | "參考" | "參閱" | "見" | "如" | "請" | "將" | "對"
+                    );
+                let right_has_cataphoric = right_nodes_31_5.iter().any(|m| is_cataphoric_discourse_head(&m.word));
+                if left_is_intro && right_has_cataphoric {
+                    bonus += 28.0;
+                }
+            } else if curr_word == "下" && prev_word == "已" {
+                let right_has_cataphoric = right_nodes_31_5.iter().any(|m| is_cataphoric_discourse_head(&m.word));
+                let has_xia_compound = dag
+                    .get(&start_idx)
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            m.word.chars().count() >= 2 && m.word.starts_with('下')
+                        })
+                    })
+                    .unwrap_or(false);
+                if right_has_cataphoric && !has_xia_compound {
+                    bonus -= 28.0;
+                }
+            }
+            if curr_word == "以前" {
+                bonus += 28.0;
+            } else if curr_word == "前" && prev_word == "已" {
+                let has_qian_compound = dag
+                    .get(&start_idx)
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            m.word.chars().count() >= 2 && m.word.starts_with('前')
+                        })
+                    })
+                    .unwrap_or(false);
+                if !has_qian_compound {
+                    bonus -= 26.0;
+                }
+            }
+            if prev_word == "即" && matches!(curr_word, "以" | "已") {
+                if curr_word == "以" {
+                    bonus += 28.0;
+                } else {
+                    bonus -= 26.0;
+                }
+            }
+
+            // (v) 「有去」vs.「有趣」雙側句法框架
+            if matches!(curr_word, "有去" | "有趣") {
+                let is_experiential_go_ctx = (matches!(
+                    prev_word,
+                    "你" | "妳" | "您" | "我" | "他" | "她" | "我們" | "你們" | "他們" | "她們"
+                        | "大家" | "誰" | "有人" | "沒"
+                ) || (matches!(prev_word, "到底" | "究竟" | "還" | "也" | "曾經" | "都")
+                    && matches!(prev2_word, "你" | "妳" | "您" | "我" | "他" | "她")))
+                    && right_nodes_31_5.iter().any(|m| {
+                        matches!(m.word.as_str(), "過" | "嗎" | "看" | "找" | "問" | "買" | "吃" | "玩" | "試")
+                            || m.word.starts_with('那')
+                            || m.word.starts_with('這')
+                            || m.word.starts_with('哪')
+                    });
+                let is_interesting_adj_ctx = !is_experiential_go_ctx && {
+                    let left_is_degree = matches!(
+                        prev_word,
+                        "很" | "真" | "挺" | "超" | "非常" | "相當" | "頗" | "十分" | "極為"
+                            | "多麼" | "蠻" | "滿" | "太" | "更" | "最" | "這麼" | "那麼" | "更加"
+                    );
+                    let left_is_classifier = matches!(
+                        prev_word,
+                        "家" | "間" | "個" | "本" | "部" | "段" | "種" | "件" | "篇" | "則" | "場" | "名" | "位"
+                    );
+                    let right_has_de = right_nodes_31_5.iter().any(|m| {
+                        matches!(m.word.as_str(), "的" | "得" | "極了")
+                    });
+                    left_is_degree || (left_is_classifier && right_has_de)
+                };
+                if is_experiential_go_ctx {
+                    if curr_word == "有去" {
+                        bonus += 32.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                } else if is_interesting_adj_ctx {
+                    if curr_word == "有趣" {
+                        bonus += 24.0;
+                    } else {
+                        bonus -= 22.0;
+                    }
+                }
+            }
+
+            // (w) 「編制」vs.「編製」vs.「編織」正交論元框
+            if matches!(curr_word, "編制" | "編製" | "編織") {
+                let is_org_institution = matches!(
+                    prev_word,
+                    "此" | "現行" | "原有" | "正式" | "公司" | "政府" | "部隊" | "機關" | "組織"
+                        | "人員" | "部門" | "員額" | "擴大" | "縮減" | "納入" | "超出"
+                ) && right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "中" | "內" | "裡" | "外" | "上" | "下" | "表" | "數" | "員額" | "名額"
+                            | "標準" | "規模" | "體制" | "制度"
+                    )
+                });
+                let right_has_doc_obj = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "文宣" | "教材" | "手冊" | "報告" | "報表" | "預算" | "計畫" | "計劃"
+                            | "名冊" | "目錄" | "索引" | "年報" | "綱要" | "法規" | "詞典" | "字典"
+                            | "軟體" | "程式" | "課程" | "題庫"
+                    )
+                });
+                let is_doc_compilation = right_has_doc_obj || (
+                    matches!(
+                        prev_word,
+                        "人員" | "團隊" | "部門" | "單位" | "作者" | "編輯" | "專家" | "委員" | "政府" | "機關"
+                    ) && right_nodes_31_5.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "各種" | "各類" | "許多" | "大量" | "相關" | "完整" | "詳細"
+                        )
+                    })
+                );
+                let is_textile_or_metaphor = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "毛衣" | "圍巾" | "毛線" | "竹籃" | "花籃" | "草帽" | "地毯" | "布匹"
+                            | "網" | "漁網" | "夢想" | "美夢" | "謊言" | "故事" | "花環"
+                    )
+                }) || (matches!(prev_word, "手工" | "親手" | "細心" | "正在") && !right_has_doc_obj);
+
+                if is_org_institution && !is_doc_compilation {
+                    if curr_word == "編制" {
+                        bonus += 30.0;
+                    } else {
+                        bonus -= 26.0;
+                    }
+                } else if is_doc_compilation {
+                    if curr_word == "編製" {
+                        bonus += 32.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                } else if is_textile_or_metaphor {
+                    if curr_word == "編織" {
+                        bonus += 30.0;
+                    } else {
+                        bonus -= 26.0;
+                    }
+                }
+            }
+
+            // (x) 七項 dev 高收益精準構式（階段、各自、各/個維度、事實、認定、犯罪、極+Adj）
+            // 1. 階段 vs 街段
+            if matches!(curr_word, "階段" | "街段") {
+                let is_stage_ord = matches!(
+                    prev_word,
+                    "一" | "二" | "三" | "四" | "五" | "六" | "七" | "八" | "九" | "十"
+                        | "第一" | "第二" | "第三" | "第四" | "第五" | "第六" | "第七" | "第八" | "第九" | "第十"
+                        | "某一" | "此一" | "另一" | "下一" | "上一"
+                        | "初" | "這" | "該" | "各" | "現" | "前" | "後" | "某" | "同" | "每"
+                ) || matches!(prev2_word, "第" | "某一" | "此一" | "另一" | "下一" | "上一");
+                let right_has_stage_ctx = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "中" | "內" | "裡" | "之" | "的" | "時" | "結束" | "開始" | "狀態" | "差異"
+                    )
+                });
+                if is_stage_ord || right_has_stage_ctx {
+                    if curr_word == "階段" {
+                        bonus += 32.0;
+                    } else {
+                        bonus -= 30.0;
+                    }
+                }
+            }
+
+            // 2. 各自 vs 個字 / 個自
+            if matches!(curr_word, "各自" | "個字" | "個自") {
+                let left_is_subject_or_adv = matches!(
+                    prev_word,
+                    "又" | "都" | "要" | "能" | "會" | "應" | "可" | "將" | "讓" | "請"
+                        | "由" | "需" | "並" | "已" | "在" | "大家" | "彼此" | "雙方" | "我們" | "你們" | "他們"
+                );
+                let right_is_action_or_prop = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "發展" | "履行" | "表達" | "負責" | "承擔" | "表述" | "努力" | "擁有"
+                            | "有" | "生活" | "工作" | "獨立" | "的" | "去" | "回" | "尋找" | "追求" | "選擇"
+                    )
+                });
+                if left_is_subject_or_adv || right_is_action_or_prop {
+                    if curr_word == "各自" {
+                        bonus += 32.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                }
+            }
+
+            // 3. 各 vs 個 維度名詞分配框
+            if matches!(curr_word, "各" | "個") {
+                let right_is_dim_noun = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "層面" | "階段" | "方面" | "領域" | "階層" | "地方" | "角落" | "國家"
+                            | "時期" | "部門" | "項目" | "類型" | "語種" | "民族" | "單位" | "機關"
+                            | "院校" | "學科" | "行業" | "政黨" | "縣市" | "鄉鎮" | "界" | "級"
+                    )
+                });
+                let left_has_no_numeral = !matches!(
+                    prev_word,
+                    "一" | "兩" | "二" | "三" | "四" | "五" | "六" | "七" | "八" | "九" | "十"
+                        | "百" | "千" | "萬" | "幾" | "某" | "單" | "整" | "數" | "多" | "半"
+                        | "這" | "那" | "每" | "哪" | "上" | "下" | "前" | "後"
+                );
+                if right_is_dim_noun && left_has_no_numeral {
+                    if curr_word == "各" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                }
+            }
+
+            // 4. 事實 vs 是時 / 是實
+            if matches!(curr_word, "事實" | "是時" | "是實") {
+                let left_is_fact_specifier = matches!(
+                    prev_word,
+                    "項" | "個" | "基本" | "歷史" | "客觀"
+                ) || matches!(prev2_word, "一項" | "這項" | "該項" | "此項");
+                if left_is_fact_specifier {
+                    if curr_word == "事實" {
+                        bonus += 32.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                }
+            } else if matches!(curr_word, "事" | "是") {
+                if prev_word == "項" && right_nodes_31_5.iter().any(|m| m.word == "實") {
+                    if curr_word == "事" {
+                        bonus += 30.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                } else if curr_word == "事" && matches!(prev_word, "的" | "些" | "件")
+                    && matches!(prev2_word, "做" | "該做" | "害怕" | "所有" | "任何" | "這些" | "那些")
+                {
+                    bonus += 26.0;
+                }
+            }
+
+            // 5. 認定構式「稱之為 / 視為」與「未知」
+            if curr_word == "為" && (matches!(
+                prev_word,
+                "稱之" | "謂之" | "視之" | "被稱" | "稱為" | "命名" | "認定"
+            ) || (prev_word == "視"
+                && !right_nodes_31_5.is_empty()
+                && !prev2_word.ends_with('上')
+                && !matches!(prev2_word, "本質" | "實際" | "事實")))
+            {
+                bonus += 30.0;
+            } else if curr_word == "未知" && right_nodes_31_5.iter().any(|m| {
+                matches!(m.word.as_str(), "的" | "領域" | "世界" | "朋友" | "宇宙" | "力量" | "事物")
+            }) {
+                bonus += 30.0;
+            } else if curr_word == "為之" && right_nodes_31_5.iter().any(|m| {
+                matches!(m.word.as_str(), "的朋友" | "的領域" | "的世界")
+            }) {
+                bonus -= 28.0;
+            }
+
+            // 6. 所犯的 / 犯了...罪 / 犯錯 刑責動詞框 vs 範（嚴格保護「犯罪／範圍／範疇」複詞）
+            if curr_word == "犯錯"
+                && matches!(
+                    prev_word,
+                    "但" | "所" | "又" | "再" | "常" | "敢" | "會" | "容易" | "不" | "未" | "已"
+                )
+            {
+                bonus += 24.0;
+            } else if matches!(curr_word, "犯" | "範") {
+                let shatters_fan_compound = dag
+                    .get(&start_idx)
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            matches!(
+                                m.word.as_str(),
+                                "犯罪" | "犯法" | "犯規" | "犯錯" | "範圍" | "範疇" | "範例"
+                            )
+                        })
+                    })
+                    .unwrap_or(false);
+                let is_crime_act = (prev_word == "所"
+                    && right_nodes_31_5.iter().any(|m| m.word == "的" || m.word.starts_with('的')))
+                    || right_nodes_31_5.iter().any(|m| matches!(m.word.as_str(), "了" | "下" | "過"))
+                    || (matches!(prev_word, "所" | "又" | "再" | "曾" | "敢" | "會" | "不" | "未" | "已" | "自己")
+                        && right_nodes_31_5.iter().any(|m| m.word == "錯" || m.word == "罪"));
+                let is_norm_noun = matches!(prev_word, "模" | "規" | "防" | "示" | "典");
+                if !shatters_fan_compound && is_crime_act && !is_norm_noun {
+                    if curr_word == "犯" {
+                        bonus += 32.0;
+                    } else {
+                        bonus -= 30.0;
+                    }
+                }
+            }
+
+            // 7. 極 + 形容詞框 vs 及（嚴格保護「階級／衝擊／分級／選輯／以及／極致／極具」）
+            if matches!(curr_word, "極大" | "極高" | "極低" | "極佳")
+                && (matches!(
+                    prev_word,
+                    "承受" | "產生" | "獲得" | "造成" | "帶來" | "具有" | "存在" | "遇到" | "面臨"
+                ) || right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "的" | "地" | "成就" | "痛苦" | "阻礙" | "影響" | "壓力" | "困難" | "幫助" | "風險"
+                    )
+                }))
+            {
+                bonus += 26.0;
+            } else if matches!(curr_word, "極" | "及") {
+                let shatters_left_ji = start_idx >= 1
+                    && dag
+                        .get(&(start_idx - 1))
+                        .map(|ns| {
+                            ns.iter().any(|m| {
+                                m.word.chars().count() == 2
+                                    && m.word != "已極"
+                                    && matches!(
+                                        m.word.chars().nth(1),
+                                        Some('極' | '及' | '級' | '擊' | '輯' | '即' | '集' | '積')
+                                    )
+                            })
+                        })
+                        .unwrap_or(false);
+                let shatters_right_ji = dag
+                    .get(&start_idx)
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            m.word.chars().count() >= 2
+                                && (m.word.starts_with('極') || m.word.starts_with('及'))
+                        })
+                    })
+                    .unwrap_or(false);
+                let right_is_extreme_adj = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "大" | "高" | "低" | "強" | "多" | "少" | "長" | "短" | "難"
+                            | "重" | "深" | "快" | "慢" | "廣" | "薄"
+                    )
+                });
+                let left_favors_degree_ji = matches!(
+                    prev_word,
+                    "在" | "於" | "承受" | "產生" | "獲得" | "處於" | "具備" | "顯得" | "變得"
+                );
+                if !shatters_left_ji && !shatters_right_ji && right_is_extreme_adj && left_favors_degree_ji {
+                    if curr_word == "極" {
+                        bonus += 30.0;
+                    } else {
+                        bonus -= 26.0;
+                    }
+                } else if curr_word == "極" && prev_word == "已" && matches!(
+                    prev2_word,
+                    "墮落" | "敗壞" | "痛苦" | "窮困" | "無聊" | "惡劣" | "危險" | "疲憊" | "悲痛" | "混亂" | "殘酷"
+                ) {
+                    bonus += 30.0;
+                }
+            }
+
+            // (y1) 「句子」vs.「鋸子」與「鋒利」vs.「風力」語篇／木工器具雙側消歧
+            if matches!(curr_word, "鋒利" | "風力") {
+                let left_tool = prefix_words.iter().rev().take(3).any(|w| {
+                    matches!(
+                        *w,
+                        "把" | "一把" | "磨" | "刃" | "劍" | "刀" | "鋸" | "匕首" | "爪" | "牙"
+                    )
+                });
+                let right_de_tool = right_nodes_31_5.iter().any(|m| m.word == "的")
+                    && dag
+                        .get(&(end_idx + 1))
+                        .map(|ns| {
+                            ns.iter().any(|nd| {
+                                matches!(
+                                    nd.word.as_str(),
+                                    "鋸子" | "刀" | "刀片" | "刀刃" | "匕首" | "武器" | "長劍" | "牙齒" | "爪子"
+                                )
+                            })
+                        })
+                        .unwrap_or(false);
+                if left_tool || right_de_tool {
+                    if curr_word == "鋒利" {
+                        bonus += 30.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                }
+            } else if matches!(curr_word, "句子" | "鋸子") {
+                let is_sentence_ctx = matches!(
+                    prev_word,
+                    "寫" | "書寫" | "造" | "讀" | "唸" | "念" | "說" | "講" | "段" | "個" | "條" | "長" | "短" | "通順"
+                ) || (prev_word == "的"
+                    && matches!(
+                        prev2_word,
+                        "符號" | "標點" | "沒有" | "完整" | "優美" | "通順" | "冗長" | "複雜" | "簡單" | "很長" | "太長"
+                    ))
+                    || right_nodes_31_5.iter().any(|m| {
+                        matches!(m.word.as_str(), "結構" | "成分" | "通順" | "太長" | "很長")
+                    });
+                let is_saw_tool_ctx = matches!(
+                    prev_word,
+                    "把" | "一把" | "拿" | "拿著" | "用" | "磨" | "鋒利" | "生鏽" | "鐵" | "木工" | "電"
+                ) || (prev_word == "的"
+                    && (matches!(prev2_word, "鋒利" | "生鏽" | "木工")
+                        || prefix_words.iter().rev().take(4).any(|w| {
+                            matches!(*w, "一把" | "拿著" | "磨" | "鋒利" | "生鏽" | "木工")
+                        })))
+                    || right_nodes_31_5.iter().any(|m| {
+                        matches!(m.word.as_str(), "鋸" | "鋸開" | "鋸斷" | "切" | "割")
+                    });
+                if is_saw_tool_ctx && !is_sentence_ctx {
+                    if curr_word == "鋸子" {
+                        bonus += 30.0;
+                    } else {
+                        bonus -= 26.0;
+                    }
+                } else if is_sentence_ctx {
+                    if curr_word == "句子" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                }
+            }
+
+            // (y2) 「按需」vs.「案需」介賓框架構式（嚴格保護「案件／方案／需要／需求」）
+            if matches!(curr_word, "按" | "案") {
+                let shatters_left_an = start_idx >= 1
+                    && dag
+                        .get(&(start_idx - 1))
+                        .map(|ns| {
+                            ns.iter().any(|m| {
+                                m.word.chars().count() == 2
+                                    && matches!(m.word.chars().nth(1), Some('案' | '按'))
+                            })
+                        })
+                        .unwrap_or(false);
+                let shatters_right_an = dag
+                    .get(&start_idx)
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            m.word.chars().count() >= 2
+                                && (m.word.starts_with('案') || m.word.starts_with('按'))
+                        })
+                    })
+                    .unwrap_or(false);
+                let right_is_need = right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "需" | "需求" | "需要")
+                });
+                let left_allows_anxu = prev_word.is_empty()
+                    || matches!(
+                        prev_word,
+                        "可" | "可以" | "能" | "能夠" | "將" | "會" | "應" | "皆" | "均" | "都"
+                            | "也" | "亦" | "再" | "請" | "由" | "系統" | "自動" | "動態" | "彈性" | "隨時"
+                    );
+                if !shatters_left_an && !shatters_right_an && right_is_need && left_allows_anxu {
+                    if curr_word == "按" {
+                        bonus += 30.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                }
+            } else if curr_word == "需" && prev_word == "按" {
+                if right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "指派" | "分配" | "載入" | "調整" | "啟用" | "切換" | "呼叫" | "配置"
+                            | "擴充" | "提供" | "選擇" | "使用" | "購買" | "生產" | "取用" | "計費" | "付款"
+                    )
+                }) {
+                    bonus += 24.0;
+                }
+            }
+
+            // (y3) 「滿常」vs.「滿長」程度副詞＋頻率副詞／維度形容詞構式
+            if prev_word == "滿" && matches!(curr_word, "常" | "長") {
+                let shatters_chang = dag
+                    .get(&start_idx)
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            m.word.chars().count() >= 2
+                                && (m.word.starts_with('常') || m.word.starts_with('長'))
+                        })
+                    })
+                    .unwrap_or(false);
+                let right_is_vp = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "書寫" | "寫" | "用" | "使用" | "去" | "來" | "看" | "看到" | "看見"
+                            | "聽" | "聽到" | "說" | "講" | "吃" | "喝" | "買" | "玩" | "做"
+                            | "出現" | "發生" | "遇到" | "碰到" | "忘記" | "出門" | "加班"
+                            | "運動" | "聯絡" | "聊天" | "提起" | "收到" | "穿" | "走" | "跑"
+                            | "在" | "有" | "會" | "被"
+                    )
+                }) && !right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "的" | "得" | "一段" | "一陣")
+                });
+                let is_dim_len = right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "的" | "一段")
+                }) || (right_nodes_31_5.is_empty()
+                    && matches!(
+                        prev2_word,
+                        "時間" | "距離" | "路" | "篇幅" | "隊伍" | "頭髮" | "壽命"
+                    ));
+                if !shatters_chang && right_is_vp {
+                    if curr_word == "常" {
+                        bonus += 30.0;
+                    } else {
+                        bonus -= 26.0;
+                    }
+                } else if !shatters_chang && is_dim_len {
+                    if curr_word == "長" {
+                        bonus += 24.0;
+                    } else {
+                        bonus -= 22.0;
+                    }
+                }
+            }
+
+            // (y4) 「舞弄」vs.「五弄」非地址數詞巷弄過擬合中和與動作框
+            if curr_word == "弄" && prev_word == "五" {
+                let has_wunong_in_lat = start_idx >= 1
+                    && dag
+                        .get(&(start_idx - 1))
+                        .map(|ns| ns.iter().any(|m| m.word == "舞弄"))
+                        .unwrap_or(false);
+                let has_addr_anchor = prev2_word.ends_with('巷')
+                    || prev2_word.ends_with('路')
+                    || prev2_word.ends_with('街')
+                    || prev2_word.ends_with('段')
+                    || prefix_words
+                        .iter()
+                        .rev()
+                        .take(6)
+                        .any(|w| w.ends_with('巷') || w.ends_with('路') || w.ends_with('街') || w.ends_with('段'));
+                if has_wunong_in_lat && !has_addr_anchor {
+                    bonus -= 28.0;
+                }
+            } else if curr_word == "舞弄" {
+                let left_is_wunong_ctx = matches!(
+                    prev_word,
+                    "晃腦" | "搖頭" | "正在" | "隨意" | "肆意" | "擅長" | "喜歡" | "不停" | "揮動"
+                ) || prev_word.ends_with("晃腦");
+                let right_is_wunong_ctx = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "著" | "長尾" | "尾巴" | "刀" | "劍" | "槍" | "棍" | "棒" | "旗"
+                            | "權術" | "文墨" | "筆墨" | "玄虛" | "是非" | "爪子"
+                    )
+                });
+                if left_is_wunong_ctx || right_is_wunong_ctx {
+                    bonus += 28.0;
+                }
+            }
+
+            // (y5) 「長尾」vs.「常委」動物／統計與政治職務論元消歧
+            if matches!(curr_word, "長尾" | "常委") {
+                let right_de_animal = right_nodes_31_5.iter().any(|m| m.word == "的")
+                    && (1..=2).any(|off| {
+                        dag.get(&(end_idx + off))
+                            .map(|ns| {
+                                ns.iter().any(|nd| {
+                                    matches!(
+                                        nd.word.as_str(),
+                                        "貓" | "花貓" | "小貓" | "狗" | "小狗" | "狐" | "猴" | "猿"
+                                            | "鼠" | "松鼠" | "鳥" | "雀" | "雉" | "雞" | "魚" | "獸" | "動物"
+                                    ) || nd.word.ends_with('貓')
+                                        || nd.word.ends_with('鳥')
+                                        || nd.word.ends_with('猴')
+                                })
+                            })
+                            .unwrap_or(false)
+                    });
+                let is_longtail_ctx = matches!(
+                    prev_word,
+                    "舞弄" | "弄" | "搖" | "搖著" | "搖動" | "甩" | "甩著" | "甩動"
+                        | "擺" | "擺動" | "拖" | "拖著" | "翹" | "翹著" | "翹起"
+                        | "捲" | "捲著" | "夾著" | "長著" | "條" | "根"
+                ) || right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "效應" | "理論" | "分布" | "分佈" | "市場" | "關鍵"
+                            | "鳥" | "猿" | "猴" | "狐" | "鼠" | "貓" | "雉"
+                    )
+                }) || right_de_animal;
+                let is_committee_ctx = matches!(
+                    prev_word,
+                    "黨" | "中央" | "省委" | "市委" | "縣委" | "政治" | "人大" | "政協"
+                        | "中常" | "擔任" | "當選" | "各位" | "全體" | "召開"
+                ) || right_nodes_31_5.iter().any(|m| {
+                    matches!(m.word.as_str(), "會" | "會議" | "委員")
+                });
+                if is_longtail_ctx && !is_committee_ctx {
+                    if curr_word == "長尾" {
+                        bonus += 32.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                } else if is_committee_ctx {
+                    if curr_word == "常委" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                }
+            }
+
+            // (y6) 植群花卉纖維叢：「滿＋樹/數」與「桐/同＋花」（保護「同花順／同花色／同時／同意」）
+            if prev_word == "滿" && matches!(curr_word, "樹" | "數") {
+                let shatters_shu = dag
+                    .get(&start_idx)
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            m.word.chars().count() >= 2
+                                && (m.word.starts_with('數') || m.word.starts_with('樹'))
+                        })
+                    })
+                    .unwrap_or(false);
+                let is_tree_canopy = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "盛開" | "開" | "開滿" | "繁花" | "花" | "桃花" | "櫻花" | "梅花"
+                            | "梨花" | "桂花" | "果" | "果實" | "紅" | "綠" | "黃" | "白" | "金"
+                            | "葉" | "落葉" | "枝" | "蟬" | "鳥"
+                    )
+                }) || (matches!(prev2_word, "在" | "走在" | "看" | "見" | "望" | "賞")
+                    && right_nodes_31_5.iter().any(|m| m.word == "的"));
+                if !shatters_shu && is_tree_canopy {
+                    if curr_word == "樹" {
+                        bonus += 32.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                }
+            }
+            if matches!(curr_word, "桐" | "同")
+                && right_nodes_31_5.iter().any(|m| m.word == "花")
+            {
+                let shatters_tong = dag
+                    .get(&start_idx)
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            m.word.chars().count() >= 2
+                                && (m.word.starts_with('同') || m.word.starts_with('桐'))
+                        })
+                    })
+                    .unwrap_or(false);
+                let is_poker_or_color = dag
+                    .get(&(end_idx + 1))
+                    .map(|ns| {
+                        ns.iter().any(|nd| {
+                            matches!(nd.word.as_str(), "順" | "大順" | "色" | "牌")
+                        })
+                    })
+                    .unwrap_or(false)
+                    || matches!(prev_word, "副" | "手" | "拿到" | "打出" | "湊成");
+                let is_blossom_ctx = matches!(
+                    prev_word,
+                    "盛開" | "開滿" | "滿樹" | "飄落" | "五月" | "客家" | "賞" | "白" | "油" | "看"
+                ) || dag
+                    .get(&(end_idx + 1))
+                    .map(|ns| {
+                        ns.iter().any(|nd| {
+                            matches!(
+                                nd.word.as_str(),
+                                "的" | "樹" | "樹蔭" | "林" | "季" | "祭" | "步道" | "雪" | "雨" | "開" | "落" | "飄"
+                            )
+                        })
+                    })
+                    .unwrap_or(false);
+                if !shatters_tong && is_poker_or_color {
+                    if curr_word == "同" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 24.0;
+                    }
+                } else if !shatters_tong && is_blossom_ctx {
+                    if curr_word == "桐" {
+                        bonus += 32.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                }
+            }
+
+            // (y7) 非局域量詞—中心名詞遠距閉包：「數詞/指示詞＋隻/支/枝 ... 的 [形容]＋中心名詞」
+            if matches!(curr_word, "隻" | "支" | "枝" | "一隻" | "一支" | "一枝") {
+                let has_det_left = curr_word.starts_with('一')
+                    || matches!(
+                        prev_word,
+                        "一" | "兩" | "二" | "三" | "四" | "五" | "六" | "七" | "八" | "九"
+                            | "十" | "幾" | "每" | "這" | "那" | "哪" | "半" | "數"
+                    );
+                if has_det_left {
+                    let is_animate_zol_head = |w: &str| -> bool {
+                        matches!(
+                            w,
+                            "貓" | "小貓" | "花貓" | "小花貓" | "狗" | "小狗" | "鳥" | "小鳥"
+                                | "雞" | "鴨" | "鵝" | "羊" | "虎" | "豹" | "獅" | "熊" | "兔"
+                                | "鼠" | "松鼠" | "猴" | "狐" | "蝶" | "蝴蝶" | "蜜蜂" | "蟲"
+                                | "蝦" | "蟹" | "蛙" | "龜" | "獸" | "動物" | "手" | "腳"
+                                | "眼" | "眼睛" | "耳朵" | "翅膀"
+                        ) || (w.chars().count() <= 4
+                            && (w.ends_with('貓')
+                                || w.ends_with('狗')
+                                || w.ends_with('鳥')
+                                || w.ends_with('兔')
+                                || w.ends_with('猴')
+                                || w.ends_with('鼠')
+                                || w.ends_with('蝶')
+                                || w.ends_with('雞')
+                                || w.ends_with('鴨')))
+                    };
+                    let is_rod_or_team_zhi_head = |w: &str| -> bool {
+                        matches!(
+                            w,
+                            "筆" | "鉛筆" | "鋼筆" | "毛筆" | "槍" | "步槍" | "手槍" | "箭"
+                                | "菸" | "香菸" | "煙" | "笛" | "手機" | "電話" | "隊伍"
+                                | "球隊" | "部隊" | "軍隊" | "樂團" | "曲" | "歌" | "股票"
+                                | "影片" | "廣告"
+                        ) || (w.chars().count() <= 4
+                            && (w.ends_with('筆') || w.ends_with('槍') || w.ends_with('隊')))
+                    };
+                    let imm_animate = right_nodes_31_5.iter().any(|m| {
+                        is_animate_zol_head(&m.word)
+                            || matches!(m.word.as_str(), "穿著" | "搖頭" | "活蹦" | "毛茸")
+                    });
+                    let imm_zhi = right_nodes_31_5.iter().any(|m| is_rod_or_team_zhi_head(&m.word));
+
+                    let mut distant_animate = false;
+                    let mut distant_zhi = false;
+                    for offset in 1..=22usize {
+                        let Some(pos_nodes) = dag.get(&(end_idx + offset)) else {
+                            continue;
+                        };
+                        if pos_nodes.iter().any(|nd| {
+                            matches!(nd.word.as_str(), "，" | "。" | "；" | "？" | "！" | "、")
+                        }) {
+                            break;
+                        }
+                        if pos_nodes.iter().any(|nd| nd.word == "的") {
+                            let mut matched_head = false;
+                            if let Some(ns1) = dag.get(&(end_idx + offset + 1)) {
+                                if ns1.iter().any(|nd| is_animate_zol_head(&nd.word)) {
+                                    distant_animate = true;
+                                    matched_head = true;
+                                }
+                                if ns1.iter().any(|nd| is_rod_or_team_zhi_head(&nd.word)) {
+                                    distant_zhi = true;
+                                    matched_head = true;
+                                }
+                                let has_single_mod = ns1.iter().any(|nd| {
+                                    matches!(
+                                        nd.word.as_str(),
+                                        "小" | "大" | "老" | "白" | "黑" | "花" | "紅" | "綠" | "新" | "舊" | "好"
+                                    )
+                                });
+                                if has_single_mod {
+                                    if let Some(ns2) = dag.get(&(end_idx + offset + 2)) {
+                                        if ns2.iter().any(|nd| is_animate_zol_head(&nd.word)) {
+                                            distant_animate = true;
+                                            matched_head = true;
+                                        }
+                                        if ns2.iter().any(|nd| is_rod_or_team_zhi_head(&nd.word)) {
+                                            distant_zhi = true;
+                                            matched_head = true;
+                                        }
+                                    }
+                                }
+                            }
+                            if matched_head {
+                                break;
+                            }
+                        }
+                    }
+
+                    if (imm_animate || distant_animate) && !imm_zhi && !distant_zhi {
+                        if matches!(curr_word, "隻" | "一隻") {
+                            bonus += 30.0;
+                        } else {
+                            bonus -= 26.0;
+                        }
+                    } else if (imm_zhi || distant_zhi) && !imm_animate && !distant_animate {
+                        if matches!(curr_word, "支" | "一支") {
+                            bonus += 28.0;
+                        } else {
+                            bonus -= 24.0;
+                        }
+                    }
+                }
+            }
+
+            // (y8) 「助益」vs.「注意」效益量化評價框與心理警覺框消歧
+            if matches!(curr_word, "助益" | "注意") {
+                let left_mod = if matches!(prev_word, "的" | "之") {
+                    prev2_word
+                } else {
+                    prev_word
+                };
+                let has_attn_verb = prefix_words.iter().rev().take(4).any(|&w| {
+                    matches!(
+                        w,
+                        "引起" | "受到" | "吸引" | "博得" | "引來" | "值得" | "多加" | "特別"
+                            | "格外" | "隨時" | "密切"
+                    )
+                });
+                let has_benefit_verb = prefix_words.iter().rev().take(4).any(|&w| {
+                    matches!(
+                        w,
+                        "有" | "將有" | "會有" | "具有" | "具" | "帶來" | "提供" | "產生"
+                            | "頗有" | "大有" | "有所"
+                    )
+                });
+                let is_benefit_mod = matches!(
+                    left_mod,
+                    "莫大" | "極大" | "很大" | "甚大" | "重大" | "實質" | "顯著" | "正面"
+                        | "不少" | "諸多" | "許多"
+                );
+                let is_direct_benefit = matches!(
+                    prev_word,
+                    "頗有" | "大有" | "甚有" | "有所" | "毫無"
+                );
+                if !has_attn_verb
+                    && (is_direct_benefit
+                        || (is_benefit_mod
+                            && (matches!(left_mod, "莫大" | "實質") || has_benefit_verb)))
+                {
+                    if curr_word == "助益" {
+                        bonus += 34.0;
+                    } else {
+                        bonus -= 30.0;
+                    }
+                }
+            }
+
+            // (y9) 「均（全稱量化副詞）」vs.「軍／君／鈞／菌」主語—情態副詞框消歧
+            if matches!(curr_word, "均" | "軍" | "君" | "鈞" | "菌") {
+                let shatters_curr = dag
+                    .get(&start_idx)
+                    .map(|ns| ns.iter().any(|m| m.word.chars().count() >= 2))
+                    .unwrap_or(false);
+                let prev_last_ch = prev_word.chars().last();
+                let shatters_prev = start_idx >= 1
+                    && prev_last_ch.is_some_and(|lc| {
+                        dag.get(&(start_idx - 1))
+                            .map(|ns| {
+                                ns.iter().any(|m| {
+                                    m.end_idx >= end_idx
+                                        && m.word.chars().count() >= 2
+                                        && m.word.starts_with(lc)
+                                })
+                            })
+                            .unwrap_or(false)
+                    });
+                let prev_is_mil_single = matches!(
+                    prev_word,
+                    "國" | "美" | "日" | "共" | "敵" | "友" | "盟" | "陸" | "海" | "空"
+                        | "大" | "將" | "冠" | "亞" | "季" | "進" | "行" | "參" | "從" | "撤"
+                        | "駐" | "全" | "三" | "兩" | "各" | "我" | "俄" | "烏" | "英" | "法"
+                        | "德" | "韓"
+                );
+                let prev_ends_agentive = prev_word.chars().count() >= 2
+                    && (prev_word.ends_with('員') || prev_word.ends_with('者'));
+                let prev_is_group = matches!(
+                    prev_word,
+                    "雙方" | "各方" | "各界" | "大家" | "眾人" | "人人" | "民眾" | "學生"
+                        | "專家" | "員工" | "廠商" | "選手" | "代表" | "師生" | "男女" | "老少"
+                        | "上下" | "內外" | "各地" | "各國" | "各項" | "各種" | "各類" | "全體"
+                        | "全部" | "所有" | "上述" | "以上"
+                );
+                let has_universal_det_in_subj = prev_word.chars().count() >= 2
+                    && prefix_words.iter().rev().take(3).any(|&w| {
+                        matches!(
+                            w,
+                            "各" | "各項" | "各種" | "各類" | "各國" | "各地" | "所有" | "全部"
+                                | "全體"
+                        )
+                    });
+                let right_is_modal_or_aux = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "能" | "能夠" | "可" | "可以" | "會" | "已" | "已經" | "有" | "無"
+                            | "未" | "不" | "須" | "必須" | "應" | "應該" | "需" | "為" | "是"
+                            | "屬" | "在" | "獲" | "獲得" | "得" | "享" | "享有" | "採" | "採用"
+                            | "具" | "具備" | "符合" | "依" | "依循"
+                    )
+                });
+                if !shatters_curr
+                    && !shatters_prev
+                    && !prev_is_mil_single
+                    && (prev_ends_agentive || prev_is_group || has_universal_det_in_subj)
+                    && right_is_modal_or_aux
+                {
+                    if curr_word == "均" {
+                        bonus += 34.0;
+                    } else {
+                        bonus -= 30.0;
+                    }
+                }
+            }
+
+            // (aa) V+到 後接結構助詞「的／地」分流（把剛剛想到的寫進來 vs 開心地寫／周到地安排）
+            if curr_bopomofo == "˙ㄉㄜ" && matches!(curr_word, "的" | "地") {
+                let prev_is_epistemic_dao = matches!(
+                    prev_word,
+                    "想到" | "看到" | "聽到" | "找到" | "拿到" | "買到" | "遇到" | "學到"
+                        | "查到" | "收到" | "提到" | "讀到" | "撿到" | "抓到" | "拍到" | "碰到"
+                        | "領到" | "賺到" | "記到" | "問到" | "猜到" | "寫到" | "畫到"
+                );
+                let right_is_loc_noun = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "上" | "下" | "方" | "面" | "區" | "點" | "地方" | "地面"
+                    )
+                });
+                if prev_is_epistemic_dao && !right_is_loc_noun {
+                    if curr_word == "的" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                }
+            }
+
+            // (ab) 掛載／卸載 雙字詞結構保護（選擇只掛載一種鍵盤模式 vs 掛在牆上／主宰一切）
+            if matches!(curr_word, "掛載" | "卸載") {
+                let prev_is_load_ctrl = matches!(
+                    prev_word,
+                    "只" | "僅" | "可" | "可以" | "能" | "能夠" | "選擇" | "單獨" | "動態"
+                        | "自動" | "自由" | "重新" | "已經" | "完成" | "尚未" | "無法" | "需要"
+                );
+                let right_is_mount_obj = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "一" | "兩" | "單" | "多" | "種" | "個" | "模式" | "模組" | "系統"
+                            | "程式" | "驅動" | "磁碟" | "硬碟" | "映像" | "檔案" | "套件"
+                    )
+                });
+                let right_is_physical_hang_loc = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "牆" | "門" | "樹" | "桌" | "窗" | "身上" | "心頭" | "這裡" | "那裡"
+                    )
+                });
+                if right_is_physical_hang_loc {
+                    bonus -= 20.0;
+                } else {
+                    bonus += 18.0;
+                    if prev_is_load_ctrl || right_is_mount_obj {
+                        bonus += 10.0;
+                    }
+                }
+            } else if curr_word == "宰" {
+                let prev_is_load_prefix = matches!(
+                    prev_word,
+                    "掛" | "卸" | "下" | "上" | "轉" | "預" | "裝" | "搭"
+                );
+                if prev_is_load_prefix {
+                    bonus -= 28.0;
+                }
+            }
+
+            // (ac) 「韓語諺文」專名保護 vs 「檢驗文件／經驗文字／討厭文學」詞網格跨度防護
+            if curr_word == "諺文" {
+                let prev_is_kr_or_script = matches!(
+                    prev_word,
+                    "韓" | "韓語" | "韓文" | "韓國" | "朝鮮" | "朝鮮語" | "北韓" | "南韓"
+                        | "訓民" | "拼寫" | "創製"
+                ) || prefix_words.iter().rev().take(3).any(|&w| {
+                    matches!(w, "韓" | "韓語" | "韓文" | "韓國" | "朝鮮")
+                });
+                let prev_last_ch = prev_word.chars().last();
+                let shatters_left = start_idx >= 1
+                    && prev_last_ch.is_some_and(|lc| {
+                        dag.get(&(start_idx - 1))
+                            .map(|ns| {
+                                ns.iter().any(|m| {
+                                    m.end_idx > start_idx
+                                        && m.word.chars().count() >= 2
+                                        && m.weight >= 180
+                                        && m.word.starts_with(lc)
+                                })
+                            })
+                            .unwrap_or(false)
+                    });
+                let shatters_right = dag
+                    .get(&(start_idx + 1))
+                    .map(|ns| {
+                        ns.iter().any(|m| {
+                            m.end_idx > end_idx
+                                && m.word.chars().count() >= 2
+                                && m.weight >= 180
+                                && m.word.starts_with('文')
+                        })
+                    })
+                    .unwrap_or(false);
+                if prev_is_kr_or_script && !shatters_left {
+                    bonus += 32.0;
+                } else if shatters_left || shatters_right {
+                    bonus -= 28.0;
+                }
+            }
+
+            // (ad) 時點／主語後「又」vs 方位「右」（我這時候又想到一件事情 vs 向右轉）
+            if curr_bopomofo == "ㄧㄡˋ" && matches!(curr_word, "又" | "右") {
+                let prev_is_temporal_or_subj = matches!(
+                    prev_word,
+                    "時候" | "這時候" | "那時候" | "這個時候" | "那個時候" | "這時"
+                        | "那時" | "此時" | "當時" | "有時候" | "有時" | "我" | "你"
+                        | "他" | "她"
+                );
+                let right_is_you_verb_or_modal = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "想到" | "想" | "想起" | "覺得" | "發現" | "看到" | "聽到" | "說"
+                            | "問" | "要" | "會" | "能" | "是" | "有" | "不" | "沒" | "忘"
+                            | "開始" | "多" | "少" | "來" | "去"
+                    )
+                });
+                let right_is_you_dir = right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "轉" | "邊" | "側" | "方" | "手" | "腳" | "眼" | "拐"
+                            | "面" | "耳" | "臂" | "肩"
+                    )
+                });
+                if prev_is_temporal_or_subj && right_is_you_verb_or_modal && !right_is_you_dir {
+                    if curr_word == "又" {
+                        bonus += 28.0;
+                    } else {
+                        bonus -= 28.0;
+                    }
+                }
+            }
+            if matches!(curr_word, "向右" | "向左")
+                && right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "轉" | "拐" | "看" | "走" | "移" | "傾" | "偏" | "彎"
+                    )
+                })
+            {
+                bonus += 28.0;
+            } else if curr_bopomofo == "ㄒㄧㄤˋ"
+                && matches!(curr_word, "向" | "像")
+                && !matches!(prev_word, "好" | "就" | "真" | "太" | "更" | "不")
+                && right_nodes_31_5.iter().any(|m| {
+                    matches!(
+                        m.word.as_str(),
+                        "右轉" | "左轉" | "右拐" | "左拐" | "後轉" | "前走"
+                            | "右看" | "左看" | "右移" | "左移"
+                    )
+                })
+            {
+                if curr_word == "向" {
+                    bonus += 28.0;
+                } else {
+                    bonus -= 28.0;
+                }
+            }
+
+            // (ae) 黏著罕見語素「瘌」隔離防護（保護「我啦」免遭「瘌(180)」搶佔，同時完整保留「瘌痢頭」）
+            if curr_word == "瘌" {
+                let valid_la_li = prev_word == "禿"
+                    || right_nodes_31_5.iter().any(|m| {
+                        m.word.starts_with('痢') || m.word.starts_with('疤')
+                    });
+                if !valid_la_li {
+                    bonus -= 32.0;
+                }
+            } else if curr_word == "啦" && right_nodes_31_5.is_empty() {
+                bonus += 14.0;
+            }
+
 
         let guard31_raw = bonus;
+
         let mut total_scored = trigram_scored;
         total_scored += self.apply_rule_score("construction_topological_core", topological_core_raw);
         total_scored += self.apply_rule_score("geo_hierarchy", geo_raw);
+        total_scored += self.apply_rule_score("onomastics", onomastic_raw);
         total_scored += self.apply_rule_score("construction_ctx31_bifurcation", ctx31_raw);
         total_scored += self.apply_rule_score("construction_boundary_guard", guard31_raw);
         total_scored

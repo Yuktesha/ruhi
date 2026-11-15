@@ -7,6 +7,7 @@ pub mod vo_lexicon;
 pub mod archaic_table;
 pub mod geo_hierarchy;
 pub mod pattern_audit;
+pub mod onomastics;
 
 pub use lattice::{LatticeDAG, LatticeNode};
 pub use viterbi::{LatticeBackwardProfile, ViterbiRouter};

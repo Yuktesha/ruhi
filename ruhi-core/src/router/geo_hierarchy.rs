@@ -26,6 +26,69 @@ pub struct GeoPostalMatch {
     pub formatted_with_postal: String,
 }
 
+#[derive(Clone)]
+struct BmpCharBits([u64; 1024]);
+
+impl BmpCharBits {
+    fn new() -> Self {
+        Self([0u64; 1024])
+    }
+
+    #[inline]
+    fn insert(&mut self, ch: char) {
+        let cp = ch as u32;
+        if cp < 0x10000 {
+            self.0[(cp >> 6) as usize] |= 1u64 << (cp & 63);
+        }
+    }
+
+    #[inline]
+    fn contains(&self, ch: char) -> bool {
+        let cp = ch as u32;
+        if cp < 0x10000 {
+            ((self.0[(cp >> 6) as usize] >> (cp & 63)) & 1) != 0
+        } else {
+            true
+        }
+    }
+}
+
+#[inline]
+fn concat_tokens_buf<'a>(tokens: &[&str], stack: &'a mut [u8], heap: &'a mut String) -> &'a str {
+    let total_len: usize = tokens.iter().map(|t| t.len()).sum();
+    if total_len <= stack.len() {
+        let mut pos = 0usize;
+        for t in tokens {
+            let b = t.as_bytes();
+            stack[pos..pos + b.len()].copy_from_slice(b);
+            pos += b.len();
+        }
+        std::str::from_utf8(&stack[..pos]).unwrap_or("")
+    } else {
+        heap.clear();
+        heap.reserve(total_len);
+        for t in tokens {
+            heap.push_str(t);
+        }
+        heap.as_str()
+    }
+}
+
+pub struct GeoPrefixCtx<'g, 'p> {
+    pub cleaned_history_buf: [&'p str; 24],
+    pub hlen: usize,
+    pub active_anchors: Vec<String>,
+    pub stem_l1_anchors: Vec<String>,
+    pub a2_cands: [(&'g str, &'g str); 32],
+    pub a2_len: usize,
+    pub a2_overflow: bool,
+    pub last_word: &'p str,
+    pub prev2_word: &'p str,
+    pub is_numeral_end: bool,
+    pub prev_is_road_or_section: bool,
+    pub allow_building_unit: bool,
+}
+
 pub struct CjkGeoHierarchy {
     /// entity name (e.g. "基隆市", "七堵區", "東京都", "江南區") -> list of GeoEntityMeta
     pub entities_by_name: HashMap<String, Vec<GeoEntityMeta>>,
@@ -35,12 +98,28 @@ pub struct CjkGeoHierarchy {
     pub parent_children_list: HashMap<String, Vec<String>>,
     /// Ordered list of L1 root entities for character-level prefix matching (e.g. "首"+"爾"+"特別"+"市")
     pub l1_roots_list: Vec<String>,
+    /// O(1) L1 membership set
+    pub l1_roots_set: HashSet<String>,
+    /// O(1) first-char index for L1 roots
+    pub l1_roots_by_first_char: HashMap<char, Vec<String>>,
+    /// O(1) first-char index for L1 stems (`strip_suffix('市'|'縣')`): first_char -> Vec<(stem, full_l1)>
+    pub l1_stems_by_first_char: HashMap<char, Vec<(String, String)>>,
+    /// O(1) BMP first-char bitset of all `parent_to_children` keys
+    parent_first_bits: BmpCharBits,
+    /// O(1) BMP first-char bitset of all `l1_roots_list` entries
+    l1_first_bits: BmpCharBits,
+    /// O(1) BMP first-char bitset of all L1 stems
+    l1_stem_first_bits: BmpCharBits,
     /// O(1) 首字索引：(parent_entity, first_char) -> 子節點清單
     pub children_by_parent_first_char: HashMap<(String, char), Vec<String>>,
+    /// O(1) 零配置巢狀首字索引：parent_entity -> first_char -> 子節點清單
+    pub children_by_parent_nested: HashMap<String, HashMap<char, Vec<String>>>,
     /// O(1) 首字索引：(l1_root, l2_district, first_char) -> 子節點清單
     pub children_by_l1_l2_first_char: HashMap<(String, String, char), Vec<String>>,
     /// O(1) 首字索引：(l1_root, first_char) -> 路街段清單
     pub roads_by_l1_first_char: HashMap<(String, char), Vec<String>>,
+    /// O(1) 零配置巢狀首字索引：l1_root -> first_char -> 路街段清單
+    pub roads_by_l1_nested: HashMap<String, HashMap<char, Vec<String>>>,
 }
 
 static GLOBAL_CJK_GEO: OnceLock<CjkGeoHierarchy> = OnceLock::new();
@@ -179,14 +258,66 @@ impl CjkGeoHierarchy {
                 });
         }
 
+        let mut l1_roots_by_first_char: HashMap<char, Vec<String>> = HashMap::new();
+        let mut l1_stems_by_first_char: HashMap<char, Vec<(String, String)>> = HashMap::new();
+        let mut parent_first_bits = BmpCharBits::new();
+        let mut l1_first_bits = BmpCharBits::new();
+        let mut l1_stem_first_bits = BmpCharBits::new();
+
+        for l1 in &l1_roots_list {
+            if let Some(fc) = l1.chars().next() {
+                l1_first_bits.insert(fc);
+                l1_roots_by_first_char.entry(fc).or_default().push(l1.clone());
+            }
+            if let Some(stem) = l1.strip_suffix('市').or_else(|| l1.strip_suffix('縣')) {
+                if stem.chars().count() >= 2 {
+                    if let Some(fc) = stem.chars().next() {
+                        l1_stem_first_bits.insert(fc);
+                        l1_stems_by_first_char
+                            .entry(fc)
+                            .or_default()
+                            .push((stem.to_string(), l1.clone()));
+                    }
+                }
+            }
+        }
+        for p in parent_to_children.keys() {
+            if let Some(fc) = p.chars().next() {
+                parent_first_bits.insert(fc);
+            }
+        }
+
+        let mut children_by_parent_nested: HashMap<String, HashMap<char, Vec<String>>> = HashMap::new();
+        for ((p, ch), list) in &children_by_parent_first_char {
+            children_by_parent_nested
+                .entry(p.clone())
+                .or_default()
+                .insert(*ch, list.clone());
+        }
+        let mut roads_by_l1_nested: HashMap<String, HashMap<char, Vec<String>>> = HashMap::new();
+        for ((l1, ch), list) in &roads_by_l1_first_char {
+            roads_by_l1_nested
+                .entry(l1.clone())
+                .or_default()
+                .insert(*ch, list.clone());
+        }
+
         Self {
             entities_by_name,
             parent_to_children,
             parent_children_list,
             l1_roots_list,
+            l1_roots_set: l1_roots,
+            l1_roots_by_first_char,
+            l1_stems_by_first_char,
+            parent_first_bits,
+            l1_first_bits,
+            l1_stem_first_bits,
             children_by_parent_first_char,
+            children_by_parent_nested,
             children_by_l1_l2_first_char,
             roads_by_l1_first_char,
+            roads_by_l1_nested,
         }
     }
 
@@ -227,39 +358,76 @@ impl CjkGeoHierarchy {
 
         let window_start = prefix_words.len().saturating_sub(24);
         let slice = &prefix_words[window_start..];
-        let cleaned: Vec<&str> = slice.iter().map(|w| Self::clean_token(w)).collect();
+        let mut cleaned_buf: [&str; 24] = [""; 24];
+        let mut clen = 0usize;
+        for w in slice {
+            if clen < 24 {
+                cleaned_buf[clen] = Self::clean_token(w);
+                clen += 1;
+            }
+        }
+        let cleaned = &cleaned_buf[..clen];
 
-        for i in 0..cleaned.len() {
-            let mut acc = String::new();
-            for j in i..(i + 6).min(cleaned.len()) {
-                let tok = cleaned[j];
-                if tok.is_empty() {
-                    break;
-                }
-                acc.push_str(tok);
-                if self.parent_to_children.contains_key(&acc) {
-                    if !active.iter().any(|x| x == &acc) {
-                        active.push(acc.clone());
+        let mut stack_acc = [0u8; 256];
+        let mut heap_acc = String::new();
+        for i in 0..clen {
+            let Some(fc0) = cleaned[i].chars().next() else {
+                continue;
+            };
+            if !self.parent_first_bits.contains(fc0) {
+                continue;
+            }
+            let max_j = (i + 6).min(clen);
+            let mut end = i;
+            while end < max_j && !cleaned[end].is_empty() {
+                end += 1;
+                let acc_str = concat_tokens_buf(&cleaned[i..end], &mut stack_acc, &mut heap_acc);
+                if self.parent_to_children.contains_key(acc_str) {
+                    if !active.iter().any(|x| x == acc_str) {
+                        active.push(acc_str.to_string());
                     }
                 }
             }
         }
 
         // Also extract L1/L2 anchors embedded inside committed multi-entity prefix chunks (e.g., "基隆市中正區和憲里")
-        let joined_all: String = cleaned.iter().copied().collect();
-        if !joined_all.is_empty() {
-            for l1 in &self.l1_roots_list {
-                if joined_all.contains(l1.as_str()) {
-                    if !active.iter().any(|x| x == l1) {
-                        active.push(l1.clone());
+        let has_l1_first = cleaned
+            .iter()
+            .any(|t| t.chars().any(|c| self.l1_first_bits.contains(c)));
+        if has_l1_first {
+            let mut stack_all = [0u8; 512];
+            let mut heap_all = String::new();
+            let joined_all = concat_tokens_buf(cleaned, &mut stack_all, &mut heap_all);
+            if !joined_all.is_empty() {
+                let mut seen_fc = ['\0'; 24];
+                let mut seen_fc_len = 0usize;
+                for ch in joined_all.chars() {
+                    if !self.l1_first_bits.contains(ch) {
+                        continue;
                     }
-                    if let Some(children) = self.parent_children_list.get(l1) {
-                        for ch in children {
-                            if joined_all.contains(ch.as_str())
-                                && self.parent_to_children.contains_key(ch)
-                            {
-                                if !active.iter().any(|x| x == ch) {
-                                    active.push(ch.clone());
+                    if seen_fc[..seen_fc_len].contains(&ch) {
+                        continue;
+                    }
+                    if seen_fc_len < seen_fc.len() {
+                        seen_fc[seen_fc_len] = ch;
+                        seen_fc_len += 1;
+                    }
+                    if let Some(l1_cands) = self.l1_roots_by_first_char.get(&ch) {
+                        for l1 in l1_cands {
+                            if joined_all.contains(l1.as_str()) {
+                                if !active.iter().any(|x| x == l1) {
+                                    active.push(l1.clone());
+                                }
+                                if let Some(children) = self.parent_children_list.get(l1) {
+                                    for ch_ent in children {
+                                        if joined_all.contains(ch_ent.as_str())
+                                            && self.parent_to_children.contains_key(ch_ent)
+                                        {
+                                            if !active.iter().any(|x| x == ch_ent) {
+                                                active.push(ch_ent.clone());
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -312,12 +480,15 @@ impl CjkGeoHierarchy {
             let Some(nodes) = dag.get(&start_idx) else {
                 return false;
             };
+            let Some(by_fc) = self.children_by_parent_nested.get(parent_entity) else {
+                return false;
+            };
             for node in nodes {
                 let w = Self::clean_token(&node.word);
                 let Some(ch0) = w.chars().next() else {
                     continue;
                 };
-                if let Some(cand_children) = self.children_by_parent_first_char.get(&(parent_entity.to_string(), ch0)) {
+                if let Some(cand_children) = by_fc.get(&ch0) {
                     for ch in cand_children {
                         if Self::dag_can_spell(dag, start_idx, ch) {
                             return true;
@@ -370,15 +541,14 @@ impl CjkGeoHierarchy {
 
         // 2. Continuation of `entity_str` from the last 1..=2 tokens of `history_tokens`:
         let n = history_tokens.len();
+        let mut stack_pb = [0u8; 192];
+        let mut heap_pb = String::new();
         for k in 1..=2.min(n) {
-            let mut prefix_built = String::new();
-            for &t in &history_tokens[n - k..] {
-                prefix_built.push_str(t);
-            }
+            let prefix_built = concat_tokens_buf(&history_tokens[n - k..], &mut stack_pb, &mut heap_pb);
             if prefix_built.is_empty() {
                 continue;
             }
-            if let Some(after_hist) = entity_str.strip_prefix(&prefix_built) {
+            if let Some(after_hist) = entity_str.strip_prefix(prefix_built) {
                 if let Some(rem) = after_hist.strip_prefix(curr_clean) {
                     if rem.is_empty() {
                         return Some(true);
@@ -392,12 +562,179 @@ impl CjkGeoHierarchy {
         None
     }
 
+    /// Precompute prefix-dependent geo anchors and A2/suffix state once per lookback state.
+    pub fn prepare_prefix_ctx<'g, 'p>(&'g self, prefix_words: &[&'p str]) -> GeoPrefixCtx<'g, 'p> {
+        let window_start = prefix_words.len().saturating_sub(24);
+        let mut cleaned_history_buf: [&'p str; 24] = [""; 24];
+        let mut hlen = 0usize;
+        for w in &prefix_words[window_start..] {
+            let cw = Self::clean_token(w);
+            if !cw.is_empty() && hlen < 24 {
+                cleaned_history_buf[hlen] = cw;
+                hlen += 1;
+            }
+        }
+        let cleaned_history = &cleaned_history_buf[..hlen];
+
+        let mut a2_cands: [(&'g str, &'g str); 32] = [("", ""); 32];
+        let mut a2_len = 0usize;
+        let mut a2_overflow = false;
+        let mut stack_pfx = [0u8; 192];
+        let mut heap_pfx = String::new();
+        for k in 1..=4.min(hlen) {
+            if let Some(h_ch0) = cleaned_history[hlen - k].chars().next() {
+                if !self.l1_first_bits.contains(h_ch0) {
+                    continue;
+                }
+                if let Some(l1_cands) = self.l1_roots_by_first_char.get(&h_ch0) {
+                    let hist_pfx = concat_tokens_buf(&cleaned_history[hlen - k..], &mut stack_pfx, &mut heap_pfx);
+                    for l1 in l1_cands {
+                        let l1_str = l1.as_str();
+                        if let Some(after_hist) = l1_str.strip_prefix(hist_pfx) {
+                            if a2_len < a2_cands.len() {
+                                a2_cands[a2_len] = (after_hist, l1_str);
+                                a2_len += 1;
+                            } else {
+                                a2_overflow = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut active_anchors = self.collect_active_anchors(prefix_words);
+        let mut stem_l1_anchors: Vec<String> = Vec::new();
+        let tail_start = hlen.saturating_sub(4);
+        let tail_slice = &cleaned_history[tail_start..];
+        let has_stem_first = tail_slice
+            .iter()
+            .any(|t| t.chars().any(|c| self.l1_stem_first_bits.contains(c)));
+        if has_stem_first {
+            let mut stack_tail = [0u8; 256];
+            let mut heap_tail = String::new();
+            let recent_tail = concat_tokens_buf(tail_slice, &mut stack_tail, &mut heap_tail);
+            if !recent_tail.is_empty() {
+                let mut seen_fc = ['\0'; 16];
+                let mut seen_fc_len = 0usize;
+                for ch in recent_tail.chars() {
+                    if !self.l1_stem_first_bits.contains(ch) {
+                        continue;
+                    }
+                    if seen_fc[..seen_fc_len].contains(&ch) {
+                        continue;
+                    }
+                    if seen_fc_len < seen_fc.len() {
+                        seen_fc[seen_fc_len] = ch;
+                        seen_fc_len += 1;
+                    }
+                    if let Some(stems) = self.l1_stems_by_first_char.get(&ch) {
+                        for (stem, l1) in stems {
+                            if recent_tail.contains(stem.as_str())
+                                && !active_anchors.contains(l1)
+                                && !stem_l1_anchors.contains(l1)
+                            {
+                                stem_l1_anchors.push(l1.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if !active_anchors.is_empty() {
+            let mut stack_tj = [0u8; 512];
+            let mut heap_tj = String::new();
+            let tail_joined = concat_tokens_buf(cleaned_history, &mut stack_tj, &mut heap_tj);
+            let initial_anchors_len = active_anchors.len();
+            for anc_idx in 0..initial_anchors_len {
+                let anc = active_anchors[anc_idx].clone();
+                if let Some(children) = self.parent_children_list.get(&anc) {
+                    for ch in children {
+                        if tail_joined.contains(ch.as_str()) && self.parent_to_children.contains_key(ch)
+                        {
+                            if !active_anchors.contains(ch) {
+                                active_anchors.push(ch.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let last_word = cleaned_history.last().copied().unwrap_or("");
+        let prev2_word = if hlen >= 2 {
+            cleaned_history[hlen - 2]
+        } else {
+            ""
+        };
+        let is_numeral_end = (last_word.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false)
+            && last_word.chars().all(|c| c.is_ascii_alphanumeric()))
+            || last_word.ends_with(|c: char| {
+                matches!(
+                    c,
+                    '一' | '二' | '三' | '四' | '五' | '六' | '七' | '八' | '九' | '十'
+                        | '百' | '零' | '〇'
+                        | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '0'
+                )
+            });
+        let prev_is_road_or_section = last_word.ends_with('路')
+            || last_word.ends_with('街')
+            || last_word.ends_with("大道")
+            || last_word.ends_with('段')
+            || last_word.ends_with('里')
+            || last_word.ends_with('村')
+            || last_word.ends_with('鄰')
+            || last_word.ends_with('巷')
+            || last_word.ends_with('弄')
+            || last_word.ends_with('號')
+            || last_word.ends_with('樓')
+            || last_word.ends_with('町')
+            || last_word.ends_with("丁目")
+            || last_word.ends_with('洞')
+            || prev2_word.ends_with('路')
+            || prev2_word.ends_with('街')
+            || prev2_word.ends_with('段')
+            || prev2_word.ends_with('里')
+            || prev2_word.ends_with('巷')
+            || prev2_word.ends_with('號');
+        let is_ascii_num = !last_word.is_empty() && last_word.chars().all(|c| c.is_ascii_alphanumeric());
+        let allow_building_unit = is_ascii_num || !active_anchors.is_empty() || prev_is_road_or_section;
+
+        GeoPrefixCtx {
+            cleaned_history_buf,
+            hlen,
+            active_anchors,
+            stem_l1_anchors,
+            a2_cands,
+            a2_len,
+            a2_overflow,
+            last_word,
+            prev2_word,
+            is_numeral_end,
+            prev_is_road_or_section,
+            allow_building_unit,
+        }
+    }
+
     /// Compute the conditional geo/postal/cadastral/household hierarchy bonus for `curr_word`.
     /// Returns `0.0` immediately when no geo anchor is present in `prefix_words` and `curr_word`
     /// is not initiating a verified L1->L2 geo cascade.
     pub fn score_geo_hierarchy_bonus(
         &self,
         prefix_words: &[&str],
+        curr_word: &str,
+        curr_bopomofo: &str,
+        end_idx: usize,
+        dag: &HashMap<usize, Vec<LatticeNode>>,
+    ) -> f64 {
+        let ctx = self.prepare_prefix_ctx(prefix_words);
+        self.score_geo_hierarchy_with_ctx(&ctx, curr_word, curr_bopomofo, end_idx, dag)
+    }
+
+    pub fn score_geo_hierarchy_with_ctx(
+        &self,
+        ctx: &GeoPrefixCtx<'_, '_>,
         curr_word: &str,
         _curr_bopomofo: &str,
         end_idx: usize,
@@ -409,60 +746,79 @@ impl CjkGeoHierarchy {
         }
 
         let mut bonus = 0.0;
-        let window_start = prefix_words.len().saturating_sub(24);
-        let cleaned_history: Vec<&str> = prefix_words[window_start..]
-            .iter()
-            .map(|w| Self::clean_token(w))
-            .filter(|w| !w.is_empty())
-            .collect();
+        let cleaned_history = &ctx.cleaned_history_buf[..ctx.hlen];
 
         // ---------------------------------------------------------------------
-        // A. Forward Lookahead Activation for L1 Root Anchor (including multi-token L1 roots
-        //    such as "首"+"爾"+"特別"+"市", "釜山"+"廣"+"域"+"市", "仁"+"川"+"廣"+"域"+"市",
-        //    "濟"+"州"+"特別"+"自治"+"道") when followed by one of its L2 children in `dag`!
+        // A. Forward Lookahead Activation for L1 Root Anchor
         // ---------------------------------------------------------------------
-        for l1 in &self.l1_roots_list {
-            let l1_str = l1.as_str();
-            // Case A1: `curr_clean` starts or is `l1_str`
-            if let Some(rem_l1) = l1_str.strip_prefix(curr_clean) {
-                if self.dag_can_spell_prefix_then_any_child(dag, end_idx, rem_l1, l1_str)
-                    || (curr_clean.chars().count() >= 2
-                        && matches!(rem_l1, "市" | "縣")
-                        && self.dag_can_spell_prefix_then_any_child(dag, end_idx, "", l1_str))
-                {
-                    bonus += 68.0;
-                    break;
-                }
-            }
-            // Case A2: `cleaned_history` ends with a prefix of `l1_str` and `curr_clean` continues/completes `l1_str`
-            let hn = cleaned_history.len();
-            let mut matched_l1_cont = false;
-            for k in 1..=4.min(hn) {
-                let mut hist_pfx = String::new();
-                for &t in &cleaned_history[hn - k..] {
-                    hist_pfx.push_str(t);
-                }
-                if let Some(after_hist) = l1_str.strip_prefix(&hist_pfx) {
-                    if let Some(rem_l1) = after_hist.strip_prefix(curr_clean) {
-                        if self.dag_can_spell_prefix_then_any_child(dag, end_idx, rem_l1, l1_str)
-                    || (curr_clean.chars().count() >= 2
-                        && matches!(rem_l1, "市" | "縣")
-                        && self.dag_can_spell_prefix_then_any_child(dag, end_idx, "", l1_str))
-                {
-                            bonus += 70.0;
-                            matched_l1_cont = true;
-                            break;
+        let mut matched_a = false;
+        if let Some(c0) = curr_clean.chars().next() {
+            if self.l1_first_bits.contains(c0) {
+                if let Some(l1_cands) = self.l1_roots_by_first_char.get(&c0) {
+                    for l1 in l1_cands {
+                        let l1_str = l1.as_str();
+                        if let Some(rem_l1) = l1_str.strip_prefix(curr_clean) {
+                            if self.dag_can_spell_prefix_then_any_child(dag, end_idx, rem_l1, l1_str)
+                                || (curr_clean.chars().count() >= 2
+                                    && matches!(rem_l1, "市" | "縣")
+                                    && self.dag_can_spell_prefix_then_any_child(dag, end_idx, "", l1_str))
+                            {
+                                bonus += 68.0;
+                                matched_a = true;
+                                break;
+                            }
                         }
                     }
                 }
             }
-            if matched_l1_cont {
-                break;
+        }
+        if !matched_a {
+            if !ctx.a2_overflow {
+                for &(after_hist, l1_str) in &ctx.a2_cands[..ctx.a2_len] {
+                    if let Some(rem_l1) = after_hist.strip_prefix(curr_clean) {
+                        if self.dag_can_spell_prefix_then_any_child(dag, end_idx, rem_l1, l1_str)
+                            || (curr_clean.chars().count() >= 2
+                                && matches!(rem_l1, "市" | "縣")
+                                && self.dag_can_spell_prefix_then_any_child(dag, end_idx, "", l1_str))
+                        {
+                            bonus += 70.0;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                let hn = cleaned_history.len();
+                let mut stack_pfx = [0u8; 192];
+                let mut heap_pfx = String::new();
+                'a2_outer: for k in 1..=4.min(hn) {
+                    if let Some(h_ch0) = cleaned_history[hn - k].chars().next() {
+                        if !self.l1_first_bits.contains(h_ch0) {
+                            continue;
+                        }
+                        if let Some(l1_cands) = self.l1_roots_by_first_char.get(&h_ch0) {
+                            let hist_pfx = concat_tokens_buf(&cleaned_history[hn - k..], &mut stack_pfx, &mut heap_pfx);
+                            for l1 in l1_cands {
+                                let l1_str = l1.as_str();
+                                if let Some(after_hist) = l1_str.strip_prefix(hist_pfx) {
+                                    if let Some(rem_l1) = after_hist.strip_prefix(curr_clean) {
+                                        if self.dag_can_spell_prefix_then_any_child(dag, end_idx, rem_l1, l1_str)
+                                            || (curr_clean.chars().count() >= 2
+                                                && matches!(rem_l1, "市" | "縣")
+                                                && self.dag_can_spell_prefix_then_any_child(dag, end_idx, "", l1_str))
+                                        {
+                                            bonus += 70.0;
+                                            break 'a2_outer;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // Collect all active parent anchors from `prefix_words`
-        // A-2. Prevent "基隆河" (ㄐㄧ ㄌㄨㄥˊ ㄏㄜˊ) from hijacking "基隆(市)和一路 / 和二路 / 和三路" when 市 is omitted!
+        // A-2. Prevent "基隆河" from hijacking "基隆(市)和一路 / 和二路 / 和三路" when 市 is omitted!
         if curr_clean == "基隆河"
             && (Self::dag_can_spell(dag, end_idx, "一路")
                 || Self::dag_can_spell(dag, end_idx, "二路")
@@ -471,61 +827,8 @@ impl CjkGeoHierarchy {
             bonus -= 88.0;
         }
 
-        let mut active_anchors = self.collect_active_anchors(prefix_words);
-        let mut stem_l1_anchors: Vec<String> = Vec::new();
-        let recent_tail: String = cleaned_history
-            .iter()
-            .rev()
-            .take(4)
-            .copied()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect();
-        if !recent_tail.is_empty() {
-            for l1 in &self.l1_roots_list {
-                if let Some(stem) = l1.strip_suffix('市').or_else(|| l1.strip_suffix('縣')) {
-                    if stem.chars().count() >= 2
-                        && recent_tail.contains(stem)
-                        && !active_anchors.contains(l1)
-                        && !stem_l1_anchors.contains(l1)
-                    {
-                        stem_l1_anchors.push(l1.clone());
-                    }
-                }
-            }
-        }
-        for &recent_tok in cleaned_history.iter().rev().take(3) {
-            if recent_tok.chars().count() >= 2 {
-                for l1 in &self.l1_roots_list {
-                    if let Some(stem) = l1.strip_suffix('市').or_else(|| l1.strip_suffix('縣')) {
-                        if stem == recent_tok
-                            && !active_anchors.contains(l1)
-                            && !stem_l1_anchors.contains(l1)
-                        {
-                            stem_l1_anchors.push(l1.clone());
-                        }
-                    }
-                }
-            }
-        }
-
-        // Expand `active_anchors` with any L2 child that has already been spelled in `cleaned_history`
-        // under an active L1 anchor (so L3 grandchildren wake up even if L2 was split into multiple tokens!).
-        let tail_joined: String = cleaned_history.iter().copied().collect();
-        let initial_anchors = active_anchors.clone();
-        for anc in &initial_anchors {
-            if let Some(children) = self.parent_children_list.get(anc) {
-                for ch in children {
-                    if tail_joined.contains(ch.as_str()) && self.parent_to_children.contains_key(ch)
-                    {
-                        if !active_anchors.contains(ch) {
-                            active_anchors.push(ch.clone());
-                        }
-                    }
-                }
-            }
-        }
+        let active_anchors = &ctx.active_anchors;
+        let stem_l1_anchors = &ctx.stem_l1_anchors;
 
         let mut matched_child_entity: Option<&str> = None;
         let mut completed_child_entity: Option<&str> = None;
@@ -534,22 +837,21 @@ impl CjkGeoHierarchy {
         // ---------------------------------------------------------------------
         // B. Downstream Child Branch Wakeup (L1 -> L2 -> L3 Villages/Streets/Sections/Dongs/Chos)
         // ---------------------------------------------------------------------
+        let mut stack_pfx_b = [0u8; 192];
+        let mut heap_pfx_b = String::new();
         'anchor_loop: for anchor in stem_l1_anchors.iter().chain(active_anchors.iter()).rev() {
             let cand_children: Vec<&String> = if let Some(ch0) = curr_clean.chars().next() {
                 let mut cands = Vec::new();
-                if let Some(list) = self.children_by_parent_first_char.get(&(anchor.clone(), ch0)) {
+                let by_fc = self.children_by_parent_nested.get(anchor.as_str());
+                if let Some(list) = by_fc.and_then(|m| m.get(&ch0)) {
                     cands.extend(list);
                 }
                 let hn = cleaned_history.len();
-                let mut pfx = String::new();
                 for k in (1..=2.min(hn)).rev() {
-                    pfx.clear();
-                    for &t in &cleaned_history[hn - k..] {
-                        pfx.push_str(t);
-                    }
+                    let pfx = concat_tokens_buf(&cleaned_history[hn - k..], &mut stack_pfx_b, &mut heap_pfx_b);
                     if let Some(hist_ch0) = pfx.chars().next() {
                         if hist_ch0 != ch0 {
-                            if let Some(list) = self.children_by_parent_first_char.get(&(anchor.clone(), hist_ch0)) {
+                            if let Some(list) = by_fc.and_then(|m| m.get(&hist_ch0)) {
                                 for item in list {
                                     if !cands.contains(&item) {
                                         cands.push(item);
@@ -567,7 +869,7 @@ impl CjkGeoHierarchy {
             for child in cand_children {
                 let child_str = child.as_str();
                 if let Some(is_complete) = Self::matches_entity_path(
-                    &cleaned_history,
+                    cleaned_history,
                     curr_clean,
                     end_idx,
                     dag,
@@ -584,30 +886,26 @@ impl CjkGeoHierarchy {
         }
 
         // ---------------------------------------------------------------------
-        // B2. District-omitted L1 -> L3 Cascade Wakeup (e.g. "基隆市和二路15號", "基隆市和一路13號"):
-        //     When the user types L1 (city/county) and skips L2 (區/鄉/鎮/市), wake up L3 roads/villages/sections under L1's L2 children.
+        // B2. District-omitted L1 -> L3 Cascade Wakeup
         // ---------------------------------------------------------------------
         if matched_child_entity.is_none() {
             'l1_skip_loop: for anchor in stem_l1_anchors.iter().chain(active_anchors.iter()).rev() {
-                if !self.l1_roots_list.contains(anchor) {
+                if !self.l1_roots_set.contains(anchor) {
                     continue;
                 }
                 let cand_roads: Vec<&String> = if let Some(ch0) = curr_clean.chars().next() {
                     let mut cands = Vec::new();
-                    if let Some(list) = self.roads_by_l1_first_char.get(&(anchor.clone(), ch0)) {
+                    let by_fc = self.roads_by_l1_nested.get(anchor.as_str());
+                    if let Some(list) = by_fc.and_then(|m| m.get(&ch0)) {
                         cands.extend(list);
                     }
                     let hn = cleaned_history.len();
-                    let mut pfx = String::new();
                     for k in (1..=2.min(hn)).rev() {
-                        pfx.clear();
-                        for &t in &cleaned_history[hn - k..] {
-                            pfx.push_str(t);
-                        }
-                        if !anchor.starts_with(&pfx) {
+                        let pfx = concat_tokens_buf(&cleaned_history[hn - k..], &mut stack_pfx_b, &mut heap_pfx_b);
+                        if !anchor.starts_with(pfx) {
                             if let Some(hist_ch0) = pfx.chars().next() {
                                 if hist_ch0 != ch0 {
-                                    if let Some(list) = self.roads_by_l1_first_char.get(&(anchor.clone(), hist_ch0)) {
+                                    if let Some(list) = by_fc.and_then(|m| m.get(&hist_ch0)) {
                                         for item in list {
                                             if !cands.contains(&item) {
                                                 cands.push(item);
@@ -626,7 +924,7 @@ impl CjkGeoHierarchy {
                 for l3 in cand_roads {
                     let l3_str = l3.as_str();
                     if let Some(is_complete) = Self::matches_entity_path(
-                        &cleaned_history,
+                        cleaned_history,
                         curr_clean,
                         end_idx,
                         dag,
@@ -644,12 +942,8 @@ impl CjkGeoHierarchy {
         }
         }
 
-        let last_word = cleaned_history.last().copied().unwrap_or("");
-        let prev2_word = if cleaned_history.len() >= 2 {
-            cleaned_history[cleaned_history.len() - 2]
-        } else {
-            ""
-        };
+        let last_word = ctx.last_word;
+        let prev2_word = ctx.prev2_word;
 
         // ---------------------------------------------------------------------
         // C. Cross-Token Boundary Protection AFTER an Address Entity!
@@ -696,8 +990,7 @@ impl CjkGeoHierarchy {
             }
         }
 
-        // 2. Penalize cross-boundary 2-char impostor words ("露雨", "斷語", "侗語", "接到", "大到", "不屈", "理屈", "中斷", "普世", "浴室", "時段", "新版", "只原", "美食接")
-        //    when an address anchor is active!
+        // 2. Penalize cross-boundary 2-char impostor words when an address anchor is active!
         if matches!(
             curr_clean,
             "露雨"
@@ -789,60 +1082,8 @@ impl CjkGeoHierarchy {
         // ---------------------------------------------------------------------
         // D. Address / Cadastral / Household Structural Slot & Homophone Guard
         // ---------------------------------------------------------------------
-        let is_numeral_end = (last_word.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false)
-            && last_word.chars().all(|c| c.is_ascii_alphanumeric()))
-            || last_word.ends_with(|c: char| {
-            matches!(
-                c,
-                '一' | '二'
-                    | '三'
-                    | '四'
-                    | '五'
-                    | '六'
-                    | '七'
-                    | '八'
-                    | '九'
-                    | '十'
-                    | '百'
-                    | '零'
-                    | '〇'
-                    | '1'
-                    | '2'
-                    | '3'
-                    | '4'
-                    | '5'
-                    | '6'
-                    | '7'
-                    | '8'
-                    | '9'
-                    | '0'
-            )
-        });
-
-        let prev_is_road_or_section = last_word.ends_with('路')
-            || last_word.ends_with('街')
-            || last_word.ends_with("大道")
-            || last_word.ends_with('段')
-            || last_word.ends_with('里')
-            || last_word.ends_with('村')
-            || last_word.ends_with('鄰')
-            || last_word.ends_with('巷')
-            || last_word.ends_with('弄')
-            || last_word.ends_with('號')
-            || last_word.ends_with('樓')
-            || last_word.ends_with('町')
-            || last_word.ends_with("丁目")
-            || last_word.ends_with('洞')
-            || prev2_word.ends_with('路')
-            || prev2_word.ends_with('街')
-            || prev2_word.ends_with('段')
-            || prev2_word.ends_with('里')
-            || prev2_word.ends_with('巷')
-            || prev2_word.ends_with('號');
-
-        if is_numeral_end {
-            let is_ascii_num = last_word.chars().all(|c| c.is_ascii_alphanumeric());
-            let allow_building_unit = is_ascii_num || !active_anchors.is_empty() || prev_is_road_or_section;
+        if ctx.is_numeral_end {
+            let allow_building_unit = ctx.allow_building_unit;
             if matches!(
                 curr_clean,
                 "鄰" | "段"
@@ -871,7 +1112,7 @@ impl CjkGeoHierarchy {
             }
         }
 
-        if prev_is_road_or_section {
+        if ctx.prev_is_road_or_section {
             if matches!(
                 curr_clean,
                 "小段"
@@ -1533,6 +1774,11 @@ impl CjkGeoHierarchy {
     }
     /// 將標記之地址片段展開為補齊「縣市 (`L1`) ＋ 鄉鎮市區 (`L2`) ＋ 村里 (`里/村`)」之戶籍地址候選清單。
     pub fn expand_household_address_candidates(&self, sentence: &str) -> Vec<String> {
+        self.expand_household_address_candidates_with_limit(sentence, 4)
+    }
+
+    /// 將標記之地址片段展開為補齊「縣市 (`L1`) ＋ 鄉鎮市區 (`L2`) ＋ 村里 (`里/村`)」之戶籍地址候選清單（支援村里數量上限設定）。
+    pub fn expand_household_address_candidates_with_limit(&self, sentence: &str, max_villages: usize) -> Vec<String> {
         let norm_cow = Self::normalize_hijacked_tw_road(sentence.trim());
         let trimmed = norm_cow.as_ref();
         if trimmed.is_empty() {
@@ -1862,7 +2108,7 @@ impl CjkGeoHierarchy {
             }
             if !matched_villages.contains(v_name) {
                 matched_villages.push(v_name.clone());
-                if matched_villages.len() >= 4 {
+                if matched_villages.len() >= max_villages {
                     break;
                 }
             }
@@ -1914,6 +2160,676 @@ impl CjkGeoHierarchy {
         }
 
         cands
+    }
+
+    fn find_exact_road_match(
+        &self,
+        opt_l1: Option<&str>,
+        opt_l2: Option<&str>,
+        road_name: &str,
+    ) -> Option<Vec<GeoEntityMeta>> {
+        let metas = self.entities_by_name.get(road_name)?;
+        let mut matched = Vec::new();
+        for m in metas {
+            if m.level == "L3" && (m.category == "road" || m.category.is_empty()) {
+                if let Some(l2) = opt_l2 {
+                    if m.parent == l2 {
+                        matched.push(m.clone());
+                    }
+                } else if let Some(l1) = opt_l1 {
+                    let grandparents = self.find_l1_grandparents_for_l3(m);
+                    if grandparents.iter().any(|gp| Self::text_contains_tw_norm(l1, gp) || Self::text_contains_tw_norm(gp, l1)) {
+                        matched.push(m.clone());
+                    }
+                } else {
+                    matched.push(m.clone());
+                }
+            }
+        }
+        if !matched.is_empty() {
+            Some(matched)
+        } else {
+            None
+        }
+    }
+
+    fn find_postal_specs_for_road(
+        &self,
+        opt_l1: Option<&str>,
+        opt_l2: Option<&str>,
+        road_name: &str,
+    ) -> Vec<String> {
+        let mut specs = Vec::new();
+        if let Some(metas) = self.find_exact_road_match(opt_l1, opt_l2, road_name) {
+            for m in metas {
+                if !m.postal_code.is_empty() && !specs.contains(&m.postal_code) {
+                    specs.push(m.postal_code);
+                }
+            }
+        }
+        specs
+    }
+
+    fn find_longer_road_suffixes(
+        &self,
+        opt_l1: Option<&str>,
+        opt_l2: Option<&str>,
+        road_prefix: &str,
+    ) -> Vec<String> {
+        let mut suffixes = Vec::new();
+        if road_prefix.is_empty() {
+            return suffixes;
+        }
+
+        if let Some(l2) = opt_l2 {
+            if let Some(children) = self.parent_children_list.get(l2) {
+                for ch in children {
+                    if ch.starts_with(road_prefix) && ch.len() > road_prefix.len() {
+                        let sfx = ch[road_prefix.len()..].to_string();
+                        if !suffixes.contains(&sfx) {
+                            suffixes.push(sfx);
+                        }
+                    }
+                }
+            }
+        } else if let Some(l1) = opt_l1 {
+            if let Some(fc) = road_prefix.chars().next() {
+                let l1_norm = l1.to_string();
+                if let Some(roads) = self.roads_by_l1_first_char.get(&(l1_norm.clone(), fc)) {
+                    for r in roads {
+                        if r.starts_with(road_prefix) && r.len() > road_prefix.len() {
+                            let sfx = r[road_prefix.len()..].to_string();
+                            if !suffixes.contains(&sfx) {
+                                suffixes.push(sfx);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        suffixes
+    }
+
+    fn push_unique_address_cand(cands: &mut Vec<String>, item: String) {
+        if !item.is_empty() && !cands.contains(&item) {
+            cands.push(item);
+        }
+    }
+
+    /// 解析地址輸入狀態並產生 Tab 鍵聯想動作（支援階層路名／段／巷／弄續寫與門牌 3+3 郵遞區號／完整戶籍地址補完）
+    pub fn resolve_address_associative_action(
+        &self,
+        chars: &[char],
+        cur: usize,
+    ) -> Option<((usize, usize), Vec<String>)> {
+        let p_end = cur.min(chars.len());
+        if p_end == 0 {
+            return None;
+        }
+
+        let is_addr_char = |c: char| -> bool {
+            if c.is_whitespace() {
+                return false;
+            }
+            if matches!(
+                c,
+                '：' | ':' | ',' | '，' | '。' | '！' | '!' | '？' | '?' | '（' | '）'
+                    | '(' | ')' | '「' | '」' | '『' | '』' | '、' | '；' | ';' | '\n' | '\r'
+            ) {
+                return false;
+            }
+            true
+        };
+
+        let mut raw_start = p_end;
+        while raw_start > 0 && is_addr_char(chars[raw_start - 1]) {
+            raw_start -= 1;
+        }
+        if raw_start == p_end {
+            return None;
+        }
+
+        let raw_window: String = chars[raw_start..p_end].iter().collect();
+
+        // 尋找最早出現的台灣／CJK 地址錨點起點 addr_start
+        // 1. 先找任何 l1 in self.l1_roots_list（支援 台 ⇄ 臺）
+        let mut best_l1_match: Option<(usize, String)> = None;
+        for l1 in &self.l1_roots_list {
+            let l1_norm = l1.clone();
+            let mut variants = vec![l1_norm];
+            if l1.contains('臺') {
+                variants.push(l1.replace('臺', "台"));
+            } else if l1.contains('台') {
+                variants.push(l1.replace('台', "臺"));
+            }
+
+            for v in variants {
+                if let Some(byte_pos) = raw_window.find(&v) {
+                    let char_pos = raw_window[..byte_pos].chars().count();
+                    let abs_char_pos = raw_start + char_pos;
+                    if best_l1_match.as_ref().map_or(true, |(p, _)| abs_char_pos < *p) {
+                        best_l1_match = Some((abs_char_pos, v));
+                    }
+                }
+            }
+        }
+
+        let addr_start = if let Some((mut pos, _)) = best_l1_match {
+            // 若 l1 前方緊鄰 3~6 碼郵遞區號數字，將數字一併納入 addr_start
+            let mut digit_start = pos;
+            while digit_start > raw_start
+                && (chars[digit_start - 1].is_ascii_digit()
+                    || ('\u{FF10}'..='\u{FF19}').contains(&chars[digit_start - 1])
+                    || chars[digit_start - 1] == '-')
+            {
+                digit_start -= 1;
+            }
+            let digit_count = chars[digit_start..pos]
+                .iter()
+                .filter(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(c))
+                .count();
+            if (3..=6).contains(&digit_count) {
+                pos = digit_start;
+            }
+            pos
+        } else {
+            // 若無 l1，僅在 raw_window 開頭即為明確唯一 L2 行政區（如 "大安區", "板橋區", "七堵區"）時採用 raw_start
+            let mut matched_l2 = false;
+            for (name, metas) in &self.entities_by_name {
+                if metas.iter().any(|m| m.level == "L2") && raw_window.starts_with(name) {
+                    matched_l2 = true;
+                    break;
+                }
+            }
+            if matched_l2 {
+                raw_start
+            } else {
+                return None;
+            }
+        };
+
+        let addr_slice: String = chars[addr_start..p_end].iter().collect();
+        if addr_slice.is_empty() {
+            return None;
+        }
+
+        // 檢查情境 A: 門牌號碼已輸入至「號」結尾（且尚未以 6 碼郵遞區號開頭）
+        let has_leading_6digit_postal = {
+            let digit_count = addr_slice
+                .chars()
+                .take(6)
+                .filter(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(c))
+                .count();
+            digit_count == 6
+        };
+
+        let ends_with_house_number = if addr_slice.ends_with('號') {
+            let chars_as: Vec<char> = addr_slice.chars().collect();
+            let n_as = chars_as.len();
+            if n_as >= 2 {
+                let prev_c = chars_as[n_as - 2];
+                prev_c.is_ascii_digit()
+                    || ('\u{FF10}'..='\u{FF19}').contains(&prev_c)
+                    || matches!(
+                        prev_c,
+                        '一' | '二' | '三' | '四' | '五' | '六' | '七' | '八' | '九' | '十' | '百' | '-'
+                    )
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if ends_with_house_number && !has_leading_6digit_postal {
+            // 情境 A — 門牌號碼已輸入至「號」結尾
+            let replace_range = (addr_start, p_end);
+            let mut cands = Vec::new();
+
+            let opt_postal = self.resolve_postal_code_for_sentence(&addr_slice);
+            let hh_cands = self.expand_household_address_candidates_with_limit(&addr_slice, 12);
+
+            if let Some(pm) = opt_postal {
+                let postal_code = pm.postal_code;
+                // 檢查 addr_slice 是否包含 L2 行政區
+                let has_l2_in_slice = self.parent_children_list.values().any(|children| {
+                    children.iter().any(|c| (c.ends_with('區') || c.ends_with('市') || c.ends_with('鎮') || c.ends_with('鄉')) && addr_slice.contains(c.as_str()))
+                });
+
+                if !has_l2_in_slice {
+                    // 省略行政區（如 "台北市忠孝東路四段295號"），從 hh_cands 尋找補齊行政區之項目
+                    let filled_with_postal = hh_cands.iter().find(|s| s.starts_with(&postal_code) && !s.contains('里') && !s.contains('村')).cloned();
+                    let filled_no_postal = hh_cands.iter().find(|s| !s.starts_with(&postal_code) && !s.contains('里') && !s.contains('村')).cloned();
+
+                    if let Some(fwp) = filled_with_postal {
+                        Self::push_unique_address_cand(&mut cands, fwp);
+                    } else {
+                        Self::push_unique_address_cand(&mut cands, format!("{}{}", postal_code, addr_slice));
+                    }
+                    Self::push_unique_address_cand(&mut cands, format!("{}{}", postal_code, addr_slice));
+                    if let Some(fnp) = filled_no_postal {
+                        Self::push_unique_address_cand(&mut cands, fnp);
+                    }
+                } else {
+                    Self::push_unique_address_cand(&mut cands, format!("{}{}", postal_code, addr_slice));
+                }
+
+                // 放入前 3 筆帶郵遞區號之完整戶籍地址與不帶郵遞區號之戶籍地址
+                for h in &hh_cands {
+                    if h.starts_with(&postal_code) {
+                        Self::push_unique_address_cand(&mut cands, h.clone());
+                        if cands.len() >= 4 {
+                            break;
+                        }
+                    }
+                }
+                for h in &hh_cands {
+                    if !h.starts_with(&postal_code) {
+                        Self::push_unique_address_cand(&mut cands, h.clone());
+                        if cands.len() >= 5 {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 樓層／之號續寫
+            Self::push_unique_address_cand(&mut cands, format!("{}1樓", addr_slice));
+            Self::push_unique_address_cand(&mut cands, format!("{}2樓", addr_slice));
+            Self::push_unique_address_cand(&mut cands, format!("{}3樓", addr_slice));
+            Self::push_unique_address_cand(&mut cands, format!("{}之", addr_slice));
+
+            // 其餘完整戶籍地址與其他樓層
+            for h in hh_cands {
+                Self::push_unique_address_cand(&mut cands, h);
+            }
+            Self::push_unique_address_cand(&mut cands, format!("{}4樓", addr_slice));
+            Self::push_unique_address_cand(&mut cands, format!("{}5樓", addr_slice));
+            Self::push_unique_address_cand(&mut cands, format!("{}地下1樓", addr_slice));
+
+            return Some((replace_range, cands));
+        }
+
+        // 情境 B — 地址階層／路名／段／巷／弄漸進式續寫
+        let replace_range = (p_end, p_end);
+        let mut cands = Vec::new();
+
+        // 解析 addr_slice 的結構 (opt_l1, opt_l2, opt_village, after_tail)
+        let (opt_l1, rem_after_l1) = {
+            let mut found_l1 = None;
+            for l1 in &self.l1_roots_list {
+                if addr_slice.starts_with(l1.as_str()) {
+                    found_l1 = Some((l1.clone(), &addr_slice[l1.len()..]));
+                    break;
+                } else if l1.contains('臺') && addr_slice.starts_with(&l1.replace('臺', "台")) {
+                    let v = l1.replace('臺', "台");
+                    found_l1 = Some((l1.clone(), &addr_slice[v.len()..]));
+                    break;
+                } else if l1.contains('台') && addr_slice.starts_with(&l1.replace('台', "臺")) {
+                    let v = l1.replace('台', "臺");
+                    found_l1 = Some((l1.clone(), &addr_slice[v.len()..]));
+                    break;
+                }
+            }
+            if let Some((l1, rem)) = found_l1 {
+                (Some(l1), rem)
+            } else {
+                (None, addr_slice.as_str())
+            }
+        };
+
+        // 1. 剛輸入完 L1（如 "台北市"，rem_after_l1 為空）
+        if let Some(ref l1) = opt_l1 {
+            if rem_after_l1.is_empty() {
+                if let Some(l2_list) = self.parent_children_list.get(l1) {
+                    for l2 in l2_list {
+                        Self::push_unique_address_cand(&mut cands, l2.clone());
+                    }
+                }
+                return Some((replace_range, cands));
+            }
+        }
+
+        // 檢查是否輸入了部分 L2 前綴，或完整 L2
+        let (opt_l2, rem_after_l2) = if let Some(ref l1) = opt_l1 {
+            let mut matched_l2 = None;
+            if let Some(l2_list) = self.parent_children_list.get(l1) {
+                for l2 in l2_list {
+                    if rem_after_l1.starts_with(l2.as_str()) {
+                        matched_l2 = Some((l2.clone(), &rem_after_l1[l2.len()..]));
+                        break;
+                    }
+                }
+            }
+            if let Some(res) = matched_l2 {
+                (Some(res.0), res.1)
+            } else {
+                (None, rem_after_l1)
+            }
+        } else {
+            // 無 L1，檢查是否直接以 L2 開頭
+            let mut matched_l2 = None;
+            for (name, metas) in &self.entities_by_name {
+                if metas.iter().any(|m| m.level == "L2") && rem_after_l1.starts_with(name.as_str()) {
+                    matched_l2 = Some((name.clone(), &rem_after_l1[name.len()..]));
+                    break;
+                }
+            }
+            if let Some(res) = matched_l2 {
+                (Some(res.0), res.1)
+            } else {
+                (None, rem_after_l1)
+            }
+        };
+
+        // 2. L1 + 部分 L2 前綴（如 "台北市大安" -> ["區"]；"台北市大" -> ["同區", "安區"]）
+        if opt_l2.is_none() && opt_l1.is_some() {
+            let l1 = opt_l1.as_ref().unwrap();
+            let mut prefix_matched_l2 = Vec::new();
+            if let Some(l2_list) = self.parent_children_list.get(l1) {
+                for l2 in l2_list {
+                    if l2.starts_with(rem_after_l1) && l2.len() > rem_after_l1.len() {
+                        prefix_matched_l2.push(l2[rem_after_l1.len()..].to_string());
+                    }
+                }
+            }
+            if !prefix_matched_l2.is_empty() {
+                for suffix in prefix_matched_l2 {
+                    Self::push_unique_address_cand(&mut cands, suffix);
+                }
+                // 同時檢查是否有省略行政區之路名以該前綴開頭
+                if let Some(fc) = rem_after_l1.chars().next() {
+                    if let Some(roads) = self.roads_by_l1_first_char.get(&(l1.clone(), fc)) {
+                        for r in roads {
+                            if r.starts_with(rem_after_l1) && r.len() > rem_after_l1.len() {
+                                Self::push_unique_address_cand(&mut cands, r[rem_after_l1.len()..].to_string());
+                            }
+                        }
+                    }
+                }
+                return Some((replace_range, cands));
+            }
+        }
+
+        // 3. 剛輸入完 L1 + L2（如 "台北市大安區"，rem_after_l2 為空）
+        if let Some(ref l2) = opt_l2 {
+            if rem_after_l2.is_empty() {
+                if let Some(children) = self.parent_children_list.get(l2) {
+                    let mut roads_da_dao = Vec::new();
+                    let mut roads_lu_duan = Vec::new();
+                    let mut roads_jie = Vec::new();
+                    let mut villages = Vec::new();
+
+                    for ch in children {
+                        if ch.ends_with('里') || ch.ends_with('村') {
+                            villages.push(ch.clone());
+                        } else if ch.contains("大道") {
+                            roads_da_dao.push(ch.clone());
+                        } else if ch.contains('路') || ch.contains('段') {
+                            roads_lu_duan.push(ch.clone());
+                        } else if ch.contains('街') {
+                            roads_jie.push(ch.clone());
+                        } else {
+                            roads_lu_duan.push(ch.clone());
+                        }
+                    }
+
+                    for r in roads_da_dao {
+                        Self::push_unique_address_cand(&mut cands, r);
+                    }
+                    for r in roads_lu_duan.into_iter().take(25) {
+                        Self::push_unique_address_cand(&mut cands, r);
+                    }
+                    for r in roads_jie.into_iter().take(10) {
+                        Self::push_unique_address_cand(&mut cands, r);
+                    }
+                    for v in villages.into_iter().take(15) {
+                        Self::push_unique_address_cand(&mut cands, v);
+                    }
+                }
+                return Some((replace_range, cands));
+            }
+        }
+
+        // 4. 剛輸入完村里或鄰（如 "台北市大安區華聲里" 或 "台北市大安區華聲里11鄰"）
+        let (opt_village, rem_after_village) = if let Some(ref l2) = opt_l2 {
+            let mut matched_v = None;
+            if let Some(children) = self.parent_children_list.get(l2) {
+                for ch in children {
+                    if (ch.ends_with('里') || ch.ends_with('村')) && rem_after_l2.starts_with(ch.as_str()) {
+                        matched_v = Some((ch.clone(), &rem_after_l2[ch.len()..]));
+                        break;
+                    }
+                }
+            }
+            if let Some(res) = matched_v {
+                (Some(res.0), res.1)
+            } else {
+                (None, rem_after_l2)
+            }
+        } else {
+            (None, rem_after_l2)
+        };
+
+        if let Some(ref _v) = opt_village {
+            // 檢查是否停在村里結尾、村里後純數字、或村里+數字鄰
+            let rem_v_chars: Vec<char> = rem_after_village.chars().collect();
+            if rem_after_village.is_empty() {
+                Self::push_unique_address_cand(&mut cands, "鄰".to_string());
+                Self::push_unique_address_cand(&mut cands, "1鄰".to_string());
+                if let Some(ref l2) = opt_l2 {
+                    if let Some(children) = self.parent_children_list.get(l2) {
+                        for ch in children {
+                            if !ch.ends_with('里') && !ch.ends_with('村') {
+                                Self::push_unique_address_cand(&mut cands, ch.clone());
+                                if cands.len() >= 30 {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                return Some((replace_range, cands));
+            } else if rem_v_chars.iter().all(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(c) || matches!(c, '一'..='九' | '十')) {
+                Self::push_unique_address_cand(&mut cands, "鄰".to_string());
+                return Some((replace_range, cands));
+            } else if rem_after_village.ends_with('鄰') {
+                if let Some(ref l2) = opt_l2 {
+                    if let Some(children) = self.parent_children_list.get(l2) {
+                        for ch in children {
+                            if !ch.ends_with('里') && !ch.ends_with('村') {
+                                Self::push_unique_address_cand(&mut cands, ch.clone());
+                                if cands.len() >= 30 {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                return Some((replace_range, cands));
+            }
+        }
+
+        // 5~9. 路街段、巷、弄、門牌續寫
+        let road_candidate_text = if opt_village.is_some() {
+            // 若有村里，剝除村里與鄰之後的部分作為路街分析
+            let mut t = rem_after_village;
+            if let Some(idx) = t.find('鄰') {
+                t = &t[idx + '鄰'.len_utf8()..];
+            }
+            t
+        } else {
+            rem_after_l2
+        };
+
+        // 9. 門牌後尾端數字或之號續寫（如 "...295號1" -> ["樓", "樓之1", "樓之2"]；"...295號之" -> ["1", "2", "3"]）
+        if let Some(idx) = road_candidate_text.rfind('號') {
+            let tail_after_hao = &road_candidate_text[idx + '號'.len_utf8()..];
+            if tail_after_hao.starts_with('之') {
+                let tail_after_zhi = &tail_after_hao['之'.len_utf8()..];
+                if tail_after_zhi.is_empty() {
+                    Self::push_unique_address_cand(&mut cands, "1".to_string());
+                    Self::push_unique_address_cand(&mut cands, "2".to_string());
+                    Self::push_unique_address_cand(&mut cands, "3".to_string());
+                    return Some((replace_range, cands));
+                }
+            } else if !tail_after_hao.is_empty() && tail_after_hao.chars().all(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(&c)) {
+                Self::push_unique_address_cand(&mut cands, "樓".to_string());
+                Self::push_unique_address_cand(&mut cands, "樓之1".to_string());
+                Self::push_unique_address_cand(&mut cands, "樓之2".to_string());
+                return Some((replace_range, cands));
+            }
+        }
+
+        // 8. 已輸入路街段巷弄＋尾端純數字（如 "...忠孝東路四段295"，尚未打「號／巷／弄」）
+        let trailing_digits: String = road_candidate_text
+            .chars()
+            .rev()
+            .take_while(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(c) || matches!(c, '一'..='九' | '十' | '百'))
+            .collect();
+        if !trailing_digits.is_empty() && trailing_digits.chars().count() < road_candidate_text.chars().count() {
+            let prefix_before_digits = &road_candidate_text[..road_candidate_text.len() - trailing_digits.len()];
+            if prefix_before_digits.ends_with('段')
+                || prefix_before_digits.ends_with('路')
+                || prefix_before_digits.ends_with('街')
+                || prefix_before_digits.ends_with('巷')
+                || prefix_before_digits.ends_with('弄')
+                || prefix_before_digits.ends_with("大道")
+            {
+                Self::push_unique_address_cand(&mut cands, "號".to_string());
+                Self::push_unique_address_cand(&mut cands, "巷".to_string());
+                Self::push_unique_address_cand(&mut cands, "弄".to_string());
+                Self::push_unique_address_cand(&mut cands, "號1樓".to_string());
+                Self::push_unique_address_cand(&mut cands, "號2樓".to_string());
+                Self::push_unique_address_cand(&mut cands, "號3樓".to_string());
+                return Some((replace_range, cands));
+            }
+        }
+
+        // 7. 已輸入 <路街段><N>巷（如 "...忠孝東路四段216巷"）
+        if let Some(lane_idx) = road_candidate_text.rfind('巷') {
+            let road_before_lane = &road_candidate_text[..lane_idx];
+            let lane_text = &road_candidate_text[..lane_idx + '巷'.len_utf8()];
+            // 擷取巷號數字
+            let lane_num = Self::extract_number_before_unit(lane_text, '巷');
+            if let Some(ln) = lane_num {
+                // 找出該路段對應的 L3 實體之 postal_spec
+                let matched_postal_specs = self.find_postal_specs_for_road(opt_l1.as_deref(), opt_l2.as_deref(), road_before_lane);
+                let mut nongs = Vec::new();
+                for spec in matched_postal_specs {
+                    for clause in spec.split(';') {
+                        if clause.contains(&format!("{}巷", ln)) {
+                            // 擷取 (\d+)弄
+                            let mut cur_num = 0u32;
+                            let mut has_digit = false;
+                            for c in clause.chars() {
+                                if c.is_ascii_digit() {
+                                    cur_num = cur_num * 10 + (c as u32 - '0' as u32);
+                                    has_digit = true;
+                                } else if c == '弄' {
+                                    if has_digit && cur_num > 0 && !nongs.contains(&cur_num) {
+                                        nongs.push(cur_num);
+                                    }
+                                    cur_num = 0;
+                                    has_digit = false;
+                                } else {
+                                    cur_num = 0;
+                                    has_digit = false;
+                                }
+                            }
+                        }
+                    }
+                }
+                nongs.sort_unstable();
+                Self::push_unique_address_cand(&mut cands, "號".to_string());
+                Self::push_unique_address_cand(&mut cands, "弄".to_string());
+                for ng in nongs {
+                    Self::push_unique_address_cand(&mut cands, format!("{}弄", ng));
+                }
+                return Some((replace_range, cands));
+            }
+        }
+
+        // 6. 剛輸入完完整 L3 路／街／段（如 "台北市大安區忠孝東路四段" 或 "台北市忠孝東路四段"）
+        let exact_road_match = self.find_exact_road_match(opt_l1.as_deref(), opt_l2.as_deref(), road_candidate_text);
+        if let Some(matched_metas) = exact_road_match {
+            // 若同時有更長之同前綴路名（如段數），先放段數後綴
+            let longer_suffixes = self.find_longer_road_suffixes(opt_l1.as_deref(), opt_l2.as_deref(), road_candidate_text);
+            for sfx in longer_suffixes {
+                Self::push_unique_address_cand(&mut cands, sfx);
+            }
+
+            // 擷取真實巷號清單
+            let mut lanes = Vec::new();
+            for meta in &matched_metas {
+                for clause in meta.postal_code.split(';') {
+                    let mut cur_num = 0u32;
+                    let mut has_digit = false;
+                    for c in clause.chars() {
+                        if c.is_ascii_digit() {
+                            cur_num = cur_num * 10 + (c as u32 - '0' as u32);
+                            has_digit = true;
+                        } else if c == '巷' {
+                            if has_digit && cur_num > 0 && !lanes.contains(&cur_num) {
+                                lanes.push(cur_num);
+                            }
+                            cur_num = 0;
+                            has_digit = false;
+                        } else {
+                            cur_num = 0;
+                            has_digit = false;
+                        }
+                    }
+                }
+            }
+            lanes.sort_unstable();
+
+            Self::push_unique_address_cand(&mut cands, "號".to_string());
+            Self::push_unique_address_cand(&mut cands, "巷".to_string());
+            for ln in lanes {
+                Self::push_unique_address_cand(&mut cands, format!("{}巷", ln));
+            }
+            return Some((replace_range, cands));
+        }
+
+        // 5. 已輸入部分路名／村里前綴（如 "台北市大安區忠孝"、"台北市忠孝"、"台北市大安區華聲"）
+        let mut prefix_candidates = self.find_longer_road_suffixes(opt_l1.as_deref(), opt_l2.as_deref(), road_candidate_text);
+        // 如果也匹配村里前綴
+        if let Some(ref l2) = opt_l2 {
+            if let Some(children) = self.parent_children_list.get(l2) {
+                for ch in children {
+                    if (ch.ends_with('里') || ch.ends_with('村')) && ch.starts_with(road_candidate_text) && ch.len() > road_candidate_text.len() {
+                        prefix_candidates.push(ch[road_candidate_text.len()..].to_string());
+                    }
+                }
+            }
+        }
+
+        if !prefix_candidates.is_empty() {
+            // 依段數自然順序與長度排序
+            let section_order = |s: &str| -> usize {
+                if s.contains("一段") || s.contains("1段") { 1 }
+                else if s.contains("二段") || s.contains("2段") { 2 }
+                else if s.contains("三段") || s.contains("3段") { 3 }
+                else if s.contains("四段") || s.contains("4段") { 4 }
+                else if s.contains("五段") || s.contains("5段") { 5 }
+                else if s.contains("六段") || s.contains("6段") { 6 }
+                else if s.contains("七段") || s.contains("7段") { 7 }
+                else if s.contains("八段") || s.contains("8段") { 8 }
+                else if s.contains("九段") || s.contains("9段") { 9 }
+                else { 99 }
+            };
+            prefix_candidates.sort_by(|a, b| {
+                section_order(a).cmp(&section_order(b)).then_with(|| a.len().cmp(&b.len()))
+            });
+
+            for cand in prefix_candidates {
+                Self::push_unique_address_cand(&mut cands, cand);
+            }
+            return Some((replace_range, cands));
+        }
+
+        None
     }
 
     #[allow(dead_code)]

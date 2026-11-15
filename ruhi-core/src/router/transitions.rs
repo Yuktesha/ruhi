@@ -77,27 +77,22 @@ impl WordPattern {
         }
         // 1. 阿拉伯數字、小數、百分比或帶千分位數值（如 "10", "2026", "3.5", "1,000", "50%"）
         if trimmed
-            .chars()
+            .as_bytes()
             .last()
-            .map(|c| c.is_ascii_digit() || c == '%')
-            .unwrap_or(false)
-            && trimmed.chars().any(|c| c.is_ascii_digit())
+            .map_or(false, |&b| b.is_ascii_digit() || b == b'%')
+            && trimmed.bytes().any(|b| b.is_ascii_digit())
         {
             return true;
         }
         // 2. 中文數詞與概數/序數詞元（可帶「第、約、近、共、計、滿、逾、達、超」前綴）
-        let mut chars = trimmed.chars().peekable();
-        if let Some(&first) = chars.peek() {
-            if matches!(first, '第' | '約' | '近' | '共' | '計' | '滿' | '逾' | '達' | '超') {
-                chars.next();
-            }
-        }
-        let rest: String = chars.collect();
+        let rest = trimmed
+            .strip_prefix(['第', '約', '近', '共', '計', '滿', '逾', '達', '超'])
+            .unwrap_or(trimmed);
         if rest.is_empty() {
             return false;
         }
         // 單字「多」、「數」或「點」若單獨出現多為形容詞/動詞/名詞，但「十多」、「二十多」、「數十」、「數百」、「三點五」為合法數詞
-        if matches!(rest.as_str(), "多" | "數" | "點" | ".") {
+        if matches!(rest, "多" | "數" | "點" | ".") {
             return false;
         }
         rest.chars().all(|c| {
@@ -116,30 +111,121 @@ impl WordPattern {
             WordPattern::OneOf(ws) => ws.iter().any(|w| w == word),
             WordPattern::ContentWord => {
                 // 實詞 = 不是功能詞、不是標點、長度合理、且非罕見生僻孤立字劫掠者
-                !function_words.contains(word) && !is_rare_impostor(word) && word.chars().count() <= 4
-                    && !word.is_empty()
+                !word.is_empty()
+                    && !function_words.contains(word)
+                    && !is_rare_impostor(word)
+                    && char_count_bounded(word, 4) <= 4
             }
             WordPattern::CompoundContentWord => {
                 // 複合實詞 = 實詞且長度 >= 2（杜絕孤立單字切碎搭便車）
-                !function_words.contains(word) && !is_rare_impostor(word)
-                    && word.chars().count() >= 2 && word.chars().count() <= 4
+                let cnt = char_count_bounded(word, 4);
+                cnt >= 2
+                    && cnt <= 4
+                    && !function_words.contains(word)
+                    && !is_rare_impostor(word)
             }
             WordPattern::ContentWordExcept(excludes) => {
-                !function_words.contains(word) && !is_rare_impostor(word) && !excludes.iter().any(|ex| ex == word)
-                    && word.chars().count() <= 4 && !word.is_empty()
+                !word.is_empty()
+                    && !function_words.contains(word)
+                    && !is_rare_impostor(word)
+                    && !excludes.iter().any(|ex| ex == word)
+                    && char_count_bounded(word, 4) <= 4
             }
             WordPattern::Nominal => {
-                (word.chars().count() >= 2
+                let cnt = char_count_bounded(word, 4);
+                (cnt >= 2
+                    && cnt <= 4
                     && !function_words.contains(word)
                     && !is_rare_impostor(word)
                     && !word.ends_with('了')
                     && !word.ends_with('過')
-                    && !word.ends_with('著')
-                    && word.chars().count() <= 4)
+                    && !word.ends_with('著'))
                     || matches!(word, "我" | "你" | "妳" | "他" | "她" | "它" | "牠" | "祂" | "我們" | "你們" | "他們" | "人" | "書" | "車" | "貓" | "狗" | "爸" | "媽" | "兄" | "弟" | "姐" | "妹")
             }
             WordPattern::Numeric => Self::is_numeric_token(word),
             WordPattern::Any => !word.is_empty(),
+        }
+    }
+}
+
+#[inline]
+fn char_count_bounded(word: &str, limit: usize) -> usize {
+    let mut n = 0usize;
+    for _ in word.chars() {
+        n += 1;
+        if n > limit {
+            return n;
+        }
+    }
+    n
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum FastPattern {
+    Exact(String),
+    OneOfSet(HashSet<String>),
+    ContentWord,
+    CompoundContentWord,
+    ContentWordExceptSet(HashSet<String>),
+    Nominal,
+    Numeric,
+    Any,
+}
+
+impl FastPattern {
+    fn from_word_pattern(p: &WordPattern) -> Self {
+        match p {
+            WordPattern::Exact(w) => FastPattern::Exact(w.clone()),
+            WordPattern::OneOf(ws) => FastPattern::OneOfSet(ws.iter().cloned().collect()),
+            WordPattern::ContentWord => FastPattern::ContentWord,
+            WordPattern::CompoundContentWord => FastPattern::CompoundContentWord,
+            WordPattern::ContentWordExcept(ex) => {
+                FastPattern::ContentWordExceptSet(ex.iter().cloned().collect())
+            }
+            WordPattern::Nominal => FastPattern::Nominal,
+            WordPattern::Numeric => FastPattern::Numeric,
+            WordPattern::Any => FastPattern::Any,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn matches(&self, word: &str, function_words: &HashSet<String>) -> bool {
+        match self {
+            FastPattern::Exact(w) => word == w,
+            FastPattern::OneOfSet(set) => set.contains(word),
+            FastPattern::ContentWord => {
+                !word.is_empty()
+                    && char_count_bounded(word, 4) <= 4
+                    && !function_words.contains(word)
+                    && !is_rare_impostor(word)
+            }
+            FastPattern::CompoundContentWord => {
+                let cnt = char_count_bounded(word, 4);
+                cnt >= 2
+                    && cnt <= 4
+                    && !function_words.contains(word)
+                    && !is_rare_impostor(word)
+            }
+            FastPattern::ContentWordExceptSet(excludes) => {
+                !word.is_empty()
+                    && char_count_bounded(word, 4) <= 4
+                    && !excludes.contains(word)
+                    && !function_words.contains(word)
+                    && !is_rare_impostor(word)
+            }
+            FastPattern::Nominal => {
+                let cnt = char_count_bounded(word, 4);
+                (cnt >= 2
+                    && cnt <= 4
+                    && !word.ends_with('了')
+                    && !word.ends_with('過')
+                    && !word.ends_with('著')
+                    && !function_words.contains(word)
+                    && !is_rare_impostor(word))
+                    || matches!(word, "我" | "你" | "妳" | "他" | "她" | "它" | "牠" | "祂" | "我們" | "你們" | "他們" | "人" | "書" | "車" | "貓" | "狗" | "爸" | "媽" | "兄" | "弟" | "姐" | "妹")
+            }
+            FastPattern::Numeric => WordPattern::is_numeric_token(word),
+            FastPattern::Any => !word.is_empty(),
         }
     }
 }
@@ -152,12 +238,15 @@ pub struct TrigramSlotPattern {
     pub slot2: HashSet<String>,
     pub bonus: f64,
     pub name: String,
+    pub trigram_rule_name: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct TransitionEngine {
     /// Layer 1: 語法規則（通配模式）
     pub grammar_rules: Vec<GrammarRule>,
+    /// 預編譯 O(1) 語法匹配規則快取（與 `grammar_rules` 一一對應）
+    pub(crate) compiled_rules: Vec<(FastPattern, FastPattern)>,
     /// 內建語法規則數量（用於 patterns_user.jsonl 熱重載時保留內建規則、截斷外掛規則）
     pub builtin_grammar_rule_count: usize,
     /// Layer 1 雙向倒排索引（加速 40~80 倍，杜絕長句 Trellis 計算卡頓）
@@ -169,14 +258,25 @@ pub struct TransitionEngine {
     pub wildcard_rules: Vec<usize>,
     /// 內建精確二元轉移雜湊表: (prev_word, curr_word) -> bonus_score (O(1) 結構化收斂，不會被 load_tsv 清空)
     pub builtin_transitions: HashMap<(String, String), f64>,
+    /// 零配置快速雙層查詢索引（與 `builtin_transitions` 同步）
+    pub(crate) builtin_nested: HashMap<String, HashMap<String, f64>>,
     /// Layer 2: 使用者自訂二元轉移快取: (prev_word, curr_word) -> bonus_score
     pub transitions: HashMap<(String, String), f64>,
+    /// 零配置快速雙層查詢索引（與 `transitions` 同步）
+    pub(crate) user_nested: HashMap<String, HashMap<String, f64>>,
     /// Layer 3: 離合動賓搭配群
     pub vo_pairs: Vec<VOCollocation>,
+    pub(crate) vo_object_ends: HashSet<char>,
+    pub(crate) vo_by_end_char: HashMap<char, Vec<usize>>,
     /// 動態載入之三元階層槽位構式群 (來自 patterns_user.jsonl)
     pub user_trigram_patterns: Vec<TrigramSlotPattern>,
     /// 對衝抑制陣列集合 (Type C exclude_pairs)：於 O(1) 查找時直接攔截與真實詞同音對衝之二元陣列展開對
     pub excluded_pairs: HashSet<(String, String)>,
+    pub(crate) excluded_nested: HashMap<String, HashSet<String>>,
+    pub(crate) excluded_firsts: HashSet<String>,
+    pub(crate) bigram_firsts: HashSet<String>,
+    pub(crate) trigram_slot0_words: HashSet<String>,
+    pub(crate) trigram_by_slot0: HashMap<String, Vec<usize>>,
     /// 功能詞集合（用於 ContentWord 模式的排除判斷）
     pub function_words: HashSet<String>,
     /// 已停用之規則名稱或前綴集合（支援 `RUHI_DISABLE_RULES` 環境變數與 `ruhi_eval --ablation` 消融分析）
@@ -190,6 +290,58 @@ pub struct TransitionEngine {
     pub patterns_file_path: Option<PathBuf>,
     pub patterns_last_modified: Option<SystemTime>,
     pub last_check_instant: Option<std::time::Instant>,
+    /// 跨句 Session 識別與採集之 2 字人名快取
+    pub session_given_names: HashSet<String>,
+}
+
+impl TransitionEngine {
+    #[inline]
+    pub(crate) fn is_excluded_pair(&self, prev: &str, curr: &str) -> bool {
+        if !self.excluded_firsts.contains(prev) {
+            return false;
+        }
+        self.excluded_nested
+            .get(prev)
+            .map_or(false, |s| s.contains(curr))
+    }
+
+    pub(crate) fn rebuild_bigram_firsts(&mut self) {
+        self.bigram_firsts.clear();
+        self.builtin_nested.clear();
+        self.user_nested.clear();
+        self.excluded_nested.clear();
+        for ((p, c), &score) in &self.builtin_transitions {
+            self.bigram_firsts.insert(p.clone());
+            self.builtin_nested
+                .entry(p.clone())
+                .or_default()
+                .insert(c.clone(), score);
+        }
+        for ((p, c), &score) in &self.transitions {
+            self.bigram_firsts.insert(p.clone());
+            self.user_nested
+                .entry(p.clone())
+                .or_default()
+                .insert(c.clone(), score);
+        }
+        for (p, c) in &self.excluded_pairs {
+            self.excluded_nested
+                .entry(p.clone())
+                .or_default()
+                .insert(c.clone());
+        }
+    }
+
+    pub(crate) fn rebuild_trigram_slot0_words(&mut self) {
+        self.trigram_slot0_words.clear();
+        self.trigram_by_slot0.clear();
+        for (idx, pat) in self.user_trigram_patterns.iter().enumerate() {
+            for w in &pat.slot0 {
+                self.trigram_slot0_words.insert(w.clone());
+                self.trigram_by_slot0.entry(w.clone()).or_default().push(idx);
+            }
+        }
+    }
 }
 
 impl Default for TransitionEngine {
@@ -206,15 +358,25 @@ impl Default for TransitionEngine {
 
         let mut engine = Self {
             grammar_rules: Vec::new(),
+            compiled_rules: Vec::new(),
             builtin_grammar_rule_count: 0,
             rules_by_prev: HashMap::new(),
             rules_by_curr: HashMap::new(),
             wildcard_rules: Vec::new(),
             builtin_transitions: HashMap::new(),
+            builtin_nested: HashMap::new(),
             transitions: HashMap::new(),
+            user_nested: HashMap::new(),
             vo_pairs: Vec::new(),
+            vo_object_ends: HashSet::new(),
+            vo_by_end_char: HashMap::new(),
             user_trigram_patterns: Vec::new(),
             excluded_pairs: HashSet::new(),
+            excluded_nested: HashMap::new(),
+            excluded_firsts: HashSet::new(),
+            bigram_firsts: HashSet::new(),
+            trigram_slot0_words: HashSet::new(),
+            trigram_by_slot0: HashMap::new(),
             function_words: HashSet::new(),
             disabled_rules,
             feature_weights: HashMap::new(),
@@ -224,6 +386,7 @@ impl Default for TransitionEngine {
             patterns_file_path: None,
             patterns_last_modified: None,
             last_check_instant: None,
+            session_given_names: HashSet::new(),
         };
         engine.init_builtin_knowledge();
         engine
@@ -243,6 +406,7 @@ impl TransitionEngine {
         self.init_construction_and_xiang_rules();
         self.init_builtin_vo_pairs();
         self.init_builtin_exact_bigrams();
+        self.rebuild_bigram_firsts();
 
         self.builtin_grammar_rule_count = self.grammar_rules.len();
         self.rebuild_rule_index();
@@ -2801,7 +2965,10 @@ impl TransitionEngine {
             "一株", "一頭", "一匹", "一群", "一類", "一樣", "這", "那", "這個", "那個",
         ];
         self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::OneOf(vec!["是".to_string(), "的是".to_string()]),
+            prev_pattern: WordPattern::OneOf(vec![
+                "是".to_string(), "的是".to_string(), "這是".to_string(),
+                "那是".to_string(), "也是".to_string(), "還是".to_string(), "不是".to_string(),
+            ]),
             curr_pattern: WordPattern::OneOf(indefinite_num_classifiers.into_iter().map(|s| s.to_string()).collect()),
             bonus: 24.0,
             name: "copula_shi_indefinite_np".to_string(),
@@ -2939,10 +3106,12 @@ impl TransitionEngine {
             bonus: 16.0,
             name: "adverb_before_negation".to_string(),
         });
-        // 情態/時間詞後接重複副詞「又」（如：現在好像又不厲害了、怎麼又、居然又）
+        // 情態/時間詞後接重複副詞「又」（如：現在好像又不厲害了、怎麼又、居然又、這時候又）
         let modal_temporal_before_you4 = vec![
             "好像", "似乎", "現在", "如今", "今天", "昨天", "最近", "剛才", "剛剛", "後來", "最後",
             "怎麼", "為何", "為什麼", "居然", "竟然", "明明", "偏偏", "果然", "終究", "結果", "反倒", "反而",
+            "這時候", "那時候", "這個時候", "那個時候", "這時", "那時", "此時", "當時", "有時候", "有時",
+            "同時", "隨即", "接著", "馬上", "立刻", "忽然", "突然",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(modal_temporal_before_you4.into_iter().map(|s| s.to_string()).collect()),
@@ -4346,6 +4515,11 @@ impl TransitionEngine {
             ("個", "相"),
             ("個", "試"),
         ] {
+            self.excluded_firsts.insert(p.to_string());
+            self.excluded_nested
+                .entry(p.to_string())
+                .or_default()
+                .insert(n.to_string());
             self.excluded_pairs.insert((p.to_string(), n.to_string()));
         }
 
@@ -5364,11 +5538,17 @@ impl TransitionEngine {
 
     /// 重建語法規則雙向倒排索引（加速 40~80 倍，O(1) 精準規則定位）
     pub fn rebuild_rule_index(&mut self) {
+        self.compiled_rules.clear();
+        self.compiled_rules.reserve(self.grammar_rules.len());
         self.rules_by_prev.clear();
         self.rules_by_curr.clear();
         self.wildcard_rules.clear();
 
         for (idx, rule) in self.grammar_rules.iter().enumerate() {
+            self.compiled_rules.push((
+                FastPattern::from_word_pattern(&rule.prev_pattern),
+                FastPattern::from_word_pattern(&rule.curr_pattern),
+            ));
             let mut indexed_by_prev = false;
             match &rule.prev_pattern {
                 WordPattern::Exact(w) => {
@@ -5463,6 +5643,8 @@ impl TransitionEngine {
             self.grammar_rules.truncate(self.builtin_grammar_rule_count);
         }
         self.user_trigram_patterns.clear();
+        self.trigram_slot0_words.clear();
+        self.trigram_by_slot0.clear();
 
         let mut count = 0;
         for line_res in reader.lines() {
@@ -5492,7 +5674,14 @@ impl TransitionEngine {
                         && Self::is_valid_cjk_token(&pair[0])
                         && Self::is_valid_cjk_token(&pair[1])
                     {
-                        self.excluded_pairs.insert((pair[0].trim().to_string(), pair[1].trim().to_string()));
+                        let p = pair[0].trim().to_string();
+                        let n = pair[1].trim().to_string();
+                        self.excluded_firsts.insert(p.clone());
+                        self.excluded_nested
+                            .entry(p.clone())
+                            .or_default()
+                            .insert(n.clone());
+                        self.excluded_pairs.insert((p, n));
                     }
                 }
 
@@ -5565,7 +5754,7 @@ impl TransitionEngine {
                             let mut pure_comp = Vec::new();
                             for mw in mod_slot {
                                 for hw in head_slot {
-                                    if !self.excluded_pairs.contains(&(mw.clone(), hw.clone())) {
+                                    if !self.is_excluded_pair(mw, hw) {
                                         let comp = format!("{mw}{hw}");
                                         if !expanded.contains(&comp) {
                                             expanded.push(comp.clone());
@@ -5664,6 +5853,7 @@ impl TransitionEngine {
                                 slot1: s1,
                                 slot2: s2,
                                 bonus: safe_bonus,
+                                trigram_rule_name: format!("trigram_{}", label),
                                 name: label.clone(),
                             });
                             if idx_pos == 0 {
@@ -5818,6 +6008,7 @@ impl TransitionEngine {
             self.patterns_last_modified = meta.modified().ok();
         }
 
+        self.rebuild_trigram_slot0_words();
         self.rebuild_rule_index();
         Ok(count)
     }
@@ -5854,6 +6045,7 @@ impl TransitionEngine {
             self.last_modified = meta.modified().ok();
         }
 
+        self.rebuild_bigram_firsts();
         Ok(count)
     }
 
@@ -5967,32 +6159,48 @@ impl TransitionEngine {
     }
 
     #[inline]
-    pub fn is_rule_disabled(&self, rule_name: &str) -> bool {
-        if self.disabled_rules.is_empty() {
+    fn is_rule_disabled_in(disabled_rules: &HashSet<String>, rule_name: &str) -> bool {
+        if disabled_rules.is_empty() {
             return false;
         }
-        if self.disabled_rules.contains(rule_name) {
+        if disabled_rules.contains(rule_name) {
             return true;
         }
         let fam = Self::classify_rule_family(rule_name);
-        if self.disabled_rules.contains(fam) {
+        if disabled_rules.contains(fam) {
             return true;
         }
-        self.disabled_rules
+        disabled_rules
             .iter()
             .any(|pat| !pat.is_empty() && rule_name.starts_with(pat.as_str()))
     }
 
     #[inline]
-    pub fn apply_rule_score(&mut self, rule_name: &str, raw_score: f64) -> f64 {
-        if raw_score == 0.0 || self.is_rule_disabled(rule_name) {
+    pub fn is_rule_disabled(&self, rule_name: &str) -> bool {
+        Self::is_rule_disabled_in(&self.disabled_rules, rule_name)
+    }
+
+    #[inline]
+    pub(crate) fn apply_rule_score_fields(
+        disabled_rules: &HashSet<String>,
+        feature_weights: &HashMap<String, f64>,
+        active_trace: &mut Option<Vec<(String, String, f64)>>,
+        rule_name: &str,
+        raw_score: f64,
+    ) -> f64 {
+        if raw_score == 0.0 {
+            return 0.0;
+        }
+        if disabled_rules.is_empty() && feature_weights.is_empty() && active_trace.is_none() {
+            return raw_score;
+        }
+        if Self::is_rule_disabled_in(disabled_rules, rule_name) {
             return 0.0;
         }
         let fam = Self::classify_rule_family(rule_name);
-        let w = self
-            .feature_weights
+        let w = feature_weights
             .get(rule_name)
-            .or_else(|| self.feature_weights.get(fam))
+            .or_else(|| feature_weights.get(fam))
             .or_else(|| {
                 if matches!(
                     fam,
@@ -6002,17 +6210,40 @@ impl TransitionEngine {
                         | "construction_ctx31_bifurcation"
                         | "construction_boundary_guard"
                 ) {
-                    self.feature_weights.get("construction_hierarchical_matrix")
+                    feature_weights.get("construction_hierarchical_matrix")
                 } else {
                     None
                 }
             })
             .copied()
             .unwrap_or(1.0);
-        if let Some(ref mut trace) = self.active_trace {
+        if let Some(ref mut trace) = active_trace {
             trace.push((rule_name.to_string(), fam.to_string(), raw_score));
         }
         raw_score * w
+    }
+
+    #[inline]
+    pub fn apply_rule_score(&mut self, rule_name: &str, raw_score: f64) -> f64 {
+        Self::apply_rule_score_fields(
+            &self.disabled_rules,
+            &self.feature_weights,
+            &mut self.active_trace,
+            rule_name,
+            raw_score,
+        )
+    }
+
+    #[inline]
+    fn apply_grammar_rule_score(&mut self, rule_idx: usize, raw_score: f64) -> f64 {
+        let rule_name = self.grammar_rules[rule_idx].name.as_str();
+        Self::apply_rule_score_fields(
+            &self.disabled_rules,
+            &self.feature_weights,
+            &mut self.active_trace,
+            rule_name,
+            raw_score,
+        )
     }
 
     /// 從 TSV 載入線性模型特徵與規則族權重 (`feature_weights.tsv`)
@@ -6052,15 +6283,17 @@ impl TransitionEngine {
         {
             return -45.0;
         }
-        let pair_key = (prev_word.to_string(), curr_word.to_string());
-        if self.excluded_pairs.contains(&pair_key) {
+        if !self.bigram_firsts.contains(prev_word) {
+            return 0.0;
+        }
+        if self.is_excluded_pair(prev_word, curr_word) {
             return 0.0;
         }
         let mut b = 0.0;
-        if let Some(&s) = self.transitions.get(&pair_key) {
+        if let Some(&s) = self.user_nested.get(prev_word).and_then(|m| m.get(curr_word)) {
             b += s;
         }
-        if let Some(&s) = self.builtin_transitions.get(&pair_key) {
+        if let Some(&s) = self.builtin_nested.get(prev_word).and_then(|m| m.get(curr_word)) {
             b += s;
         }
         b
@@ -6078,12 +6311,27 @@ impl TransitionEngine {
         curr_word: &str,
         curr_bopomofo: &str,
     ) -> f64 {
-        self.maybe_reload();
+        let is_archaic = crate::router::archaic_table::is_archaic_polyphonic(curr_word, curr_bopomofo)
+            || crate::router::archaic_table::is_archaic_polyphonic(prev_word, prev_bopomofo);
+        self.calculate_transition_bonus_prechecked(
+            is_archaic,
+            prev_word,
+            prev_bopomofo,
+            curr_word,
+            curr_bopomofo,
+        )
+    }
 
+    pub(crate) fn calculate_transition_bonus_prechecked(
+        &mut self,
+        is_archaic: bool,
+        prev_word: &str,
+        prev_bopomofo: &str,
+        curr_word: &str,
+        curr_bopomofo: &str,
+    ) -> f64 {
         // ── 破音字古音與孤例隔離層 (Archaic & Isolated Polyphonic Isolation Layer) ──
-        if crate::router::archaic_table::is_archaic_polyphonic(curr_word, curr_bopomofo)
-            || crate::router::archaic_table::is_archaic_polyphonic(prev_word, prev_bopomofo)
-        {
+        if is_archaic {
             return self.apply_rule_score("guard_archaic_polyphonic", -45.0);
         }
 
@@ -6095,67 +6343,101 @@ impl TransitionEngine {
         }
 
         // Layer 2: 精確二元搭配 O(1) 雜湊查表（使用者自訂 transitions + 內建結構化收斂 builtin_transitions）
-        let pair_key = (prev_word.to_string(), curr_word.to_string());
-        if let Some(&score) = self.transitions.get(&pair_key) {
-            if self.active_trace.is_some() || !self.disabled_rules.is_empty() {
-                let rid = if score >= 0.0 {
-                    format!("user_bigram_pos:{}->{}", prev_word, curr_word)
+        if self.bigram_firsts.contains(prev_word) {
+            if let Some(&score) = self.user_nested.get(prev_word).and_then(|m| m.get(curr_word)) {
+                if self.active_trace.is_some() || !self.disabled_rules.is_empty() {
+                    let rid = if score >= 0.0 {
+                        format!("user_bigram_pos:{}->{}", prev_word, curr_word)
+                    } else {
+                        format!("user_bigram_neg:{}->{}", prev_word, curr_word)
+                    };
+                    bonus += self.apply_rule_score(&rid, score);
+                } else if score >= 0.0 {
+                    bonus += self.apply_rule_score("user_bigram_pos", score);
                 } else {
-                    format!("user_bigram_neg:{}->{}", prev_word, curr_word)
-                };
-                bonus += self.apply_rule_score(&rid, score);
-            } else if score >= 0.0 {
-                bonus += self.apply_rule_score("user_bigram_pos", score);
-            } else {
-                bonus += self.apply_rule_score("user_bigram_neg", score);
+                    bonus += self.apply_rule_score("user_bigram_neg", score);
+                }
             }
-        }
-        if let Some(&score) = self.builtin_transitions.get(&pair_key) {
-            if self.active_trace.is_some() || !self.disabled_rules.is_empty() {
-                let rid = format!("builtin_bigram:{}->{}", prev_word, curr_word);
-                bonus += self.apply_rule_score(&rid, score);
-            } else {
-                bonus += self.apply_rule_score("builtin_bigram", score);
+            if let Some(&score) = self.builtin_nested.get(prev_word).and_then(|m| m.get(curr_word)) {
+                if self.active_trace.is_some() || !self.disabled_rules.is_empty() {
+                    let rid = format!("builtin_bigram:{}->{}", prev_word, curr_word);
+                    bonus += self.apply_rule_score(&rid, score);
+                } else {
+                    bonus += self.apply_rule_score("builtin_bigram", score);
+                }
             }
         }
 
         // Layer 1 & Layer 0: 語法規則索引匹配（雙向倒排索引，O(1) 精準定位）
-        let mut candidate_indices: Vec<usize> = Vec::new();
-        if let Some(list) = self.rules_by_prev.get(prev_word) {
-            candidate_indices.extend_from_slice(list);
-        }
-        if let Some(list) = self.rules_by_curr.get(curr_word) {
-            candidate_indices.extend_from_slice(list);
-        }
-        if !self.wildcard_rules.is_empty() {
-            candidate_indices.extend_from_slice(&self.wildcard_rules);
-        }
+        let prev_list = self.rules_by_prev.get(prev_word).map(|v| v.as_slice()).unwrap_or(&[]);
+        let curr_list = self.rules_by_curr.get(curr_word).map(|v| v.as_slice()).unwrap_or(&[]);
+        let wild_list = self.wildcard_rules.as_slice();
+        let total_cands = prev_list.len() + curr_list.len() + wild_list.len();
 
-        // 依照規則原始宣告順序檢查（保持第一條命中的最高優先度特性）
-        candidate_indices.sort_unstable();
-        candidate_indices.dedup();
+        let mut matched_rule: Option<(usize, f64)> = None;
 
-        let mut matched_rule: Option<(String, f64)> = None;
+        if total_cands > 0 {
+            let mut stack_buf = [0usize; 128];
+            let mut heap_buf;
+            let candidate_slice: &mut [usize] = if total_cands <= 128 {
+                let mut idx = 0;
+                for &r in prev_list {
+                    stack_buf[idx] = r;
+                    idx += 1;
+                }
+                for &r in curr_list {
+                    stack_buf[idx] = r;
+                    idx += 1;
+                }
+                for &r in wild_list {
+                    stack_buf[idx] = r;
+                    idx += 1;
+                }
+                &mut stack_buf[..idx]
+            } else {
+                heap_buf = Vec::with_capacity(total_cands);
+                heap_buf.extend_from_slice(prev_list);
+                heap_buf.extend_from_slice(curr_list);
+                heap_buf.extend_from_slice(wild_list);
+                &mut heap_buf[..]
+            };
 
-        for &rule_idx in &candidate_indices {
-            if self.is_rule_disabled(&self.grammar_rules[rule_idx].name) {
-                continue;
+            candidate_slice.sort_unstable();
+            let mut dedup_len = 0;
+            if !candidate_slice.is_empty() {
+                let mut i = 0;
+                for j in 1..candidate_slice.len() {
+                    if candidate_slice[i] != candidate_slice[j] {
+                        i += 1;
+                        candidate_slice[i] = candidate_slice[j];
+                    }
+                }
+                dedup_len = i + 1;
             }
-            let rule = &self.grammar_rules[rule_idx];
-            if rule.prev_pattern.matches(prev_word, &self.function_words)
-                && rule.curr_pattern.matches(curr_word, &self.function_words)
-            {
-                if rule.bonus > 0.0
-                    && (rule.name.starts_with("user_chain:")
-                        || rule.name.starts_with("user_pattern:")
-                        || rule.name.starts_with("potential_")
-                        || rule.name.starts_with("vo_"))
-                    && self
-                        .excluded_pairs
-                        .contains(&(prev_word.to_string(), curr_word.to_string()))
-                {
+
+            for &rule_idx in &candidate_slice[..dedup_len] {
+                if self.is_rule_disabled(&self.grammar_rules[rule_idx].name) {
                     continue;
                 }
+                let rule = &self.grammar_rules[rule_idx];
+                let matched_pair = if let Some((pf, cf)) = self.compiled_rules.get(rule_idx) {
+                    pf.matches(prev_word, &self.function_words)
+                        && cf.matches(curr_word, &self.function_words)
+                } else {
+                    rule.prev_pattern.matches(prev_word, &self.function_words)
+                        && rule.curr_pattern.matches(curr_word, &self.function_words)
+                };
+                if matched_pair
+                {
+                    if rule.bonus > 0.0
+                        && (rule.name.starts_with("user_chain:")
+                            || rule.name.starts_with("user_pattern:")
+                            || rule.name.starts_with("potential_")
+                            || rule.name.starts_with("vo_"))
+                        && self.is_excluded_pair(prev_word, curr_word)
+                    {
+                        continue;
+                    }
                 // ── 讀音錨定檢查 (Phonetic Anchoring Guards) ──
                 // -1. 單字輕聲音節（含 `˙`）在現代漢語中恆為助詞／語氣詞／詞綴，絕不可冒充通配實詞 (`ContentWord` / `Nominal`) 領取語法加分（防罕用輕聲異體字如 `嶳 ㄉㄜ˙` 劫掠 `的`）
                 if rule.bonus > 0.0
@@ -6390,17 +6672,18 @@ impl TransitionEngine {
                     if matches!(curr_word, "克" | "坪") {
                         extra += 6.0;
                     }
-                    matched_rule = Some((rule.name.clone(), rule.bonus + extra));
+                    matched_rule = Some((rule_idx, rule.bonus + extra));
                     break;
                 }
 
-                matched_rule = Some((rule.name.clone(), rule.bonus));
+                matched_rule = Some((rule_idx, rule.bonus));
                 break; // 只取第一條匹配的規則（避免多條規則重複加分）
             }
         }
+        }
 
-        if let Some((rname, rscore)) = matched_rule {
-            bonus += self.apply_rule_score(&rname, rscore);
+        if let Some((ridx, rscore)) = matched_rule {
+            bonus += self.apply_grammar_rule_score(ridx, rscore);
         }
 
         // ── 形態學與音韻特徵動態守門規則 (Morphological & Phonetic Guards) ──
@@ -6439,10 +6722,13 @@ impl TransitionEngine {
         }
 
         // 3. 疊字後接修飾標記 (AA+的, AA+地, AABB+的, AABB+地)
-        if (curr_word == "的" || curr_word == "地") && prev_word.chars().count() >= 2 {
-            let chars: Vec<char> = prev_word.chars().collect();
-            let is_reduplicated = (chars.len() == 2 && chars[0] == chars[1])
-                || (chars.len() == 4 && chars[0] == chars[1] && chars[2] == chars[3]);
+        if curr_word == "的" || curr_word == "地" {
+            let mut pit = prev_word.chars();
+            let is_reduplicated = match (pit.next(), pit.next(), pit.next(), pit.next(), pit.next()) {
+                (Some(a), Some(b), None, _, _) => a == b,
+                (Some(a), Some(b), Some(c), Some(d), None) => a == b && c == d,
+                _ => false,
+            };
             if is_reduplicated {
                 bonus += self.apply_rule_score("morph_reduplicated_de", 18.0);
             }

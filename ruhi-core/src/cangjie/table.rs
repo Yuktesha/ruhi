@@ -162,6 +162,53 @@ impl CangjieTable {
         code.chars().filter_map(Self::radical_name).collect()
     }
 
+    /// 前綴補全查詢：找出符合或延伸 `prefix` 之倉頡漢字候選（供組字期按 Tab 展開前綴候選）
+    pub fn lookup_with_prefix(&self, prefix: &str, max_results: usize) -> Vec<String> {
+        let pfx = prefix.trim().to_ascii_lowercase();
+        if pfx.is_empty() || max_results == 0 {
+            return Vec::new();
+        }
+
+        let mut ranked: Vec<(u8, usize, u32, &str, &str)> = Vec::new();
+        for (code, entries) in &self.map {
+            let code_lower = code.to_ascii_lowercase();
+            let is_exact = code_lower == pfx;
+            if !is_exact && !(code_lower.len() > pfx.len() && code_lower.starts_with(&pfx)) {
+                continue;
+            }
+            let exact_rank = if is_exact { 0 } else { 1 };
+            let code_len = code_lower.len();
+            for entry in entries {
+                ranked.push((
+                    exact_rank,
+                    code_len,
+                    entry.weight,
+                    code.as_str(),
+                    entry.hanzi.as_str(),
+                ));
+            }
+        }
+
+        ranked.sort_by(|a, b| {
+            a.0.cmp(&b.0)
+                .then_with(|| a.1.cmp(&b.1))
+                .then_with(|| b.2.cmp(&a.2))
+                .then_with(|| a.3.cmp(b.3))
+                .then_with(|| a.4.cmp(b.4))
+        });
+
+        let mut results = Vec::new();
+        for (_, _, _, _, hanzi) in ranked {
+            if !results.iter().any(|existing| existing == hanzi) {
+                results.push(hanzi.to_string());
+                if results.len() >= max_results {
+                    break;
+                }
+            }
+        }
+        results
+    }
+
     /// 查詢指定倉頡碼的漢字候選列表
     pub fn lookup(&self, code: &str) -> Option<&Vec<CangjieEntry>> {
         self.map.get(code)

@@ -938,7 +938,6 @@ pub static ARCHAIC_POLYPHONICS: &[(&str, &str)] = &[
     ("獺", "ㄊㄚˇ"),
     ("率", "ㄕㄨㄛˋ"),
     ("王", "ㄩˋ"),
-    ("玟", "ㄨㄣˊ"),
     ("玤", "ㄅㄤˋ"),
     ("玭", "ㄆㄧㄢˊ"),
     ("玭", "ㄆㄧㄣˊ"),
@@ -1797,12 +1796,52 @@ pub static ARCHAIC_POLYPHONICS: &[(&str, &str)] = &[
     ("龜", "ㄑㄧㄡ"),
 ];
 
+use std::sync::OnceLock;
+
+static ARCHAIC_FIRST_CHAR_BITS: OnceLock<[u64; 1024]> = OnceLock::new();
+
+#[inline]
+fn archaic_first_char_bits() -> &'static [u64; 1024] {
+    ARCHAIC_FIRST_CHAR_BITS.get_or_init(|| {
+        let mut bits = [0u64; 1024];
+        for &(w, _) in ARCHAIC_POLYPHONICS {
+            if let Some(ch) = w.chars().next() {
+                let code = ch as u32;
+                if code < 65536 {
+                    bits[(code >> 6) as usize] |= 1u64 << (code & 63);
+                }
+            }
+        }
+        for ch in ['說', '無', '上', '日', '六', '紅', '導', '滑'] {
+            let code = ch as u32;
+            if code < 65536 {
+                bits[(code >> 6) as usize] |= 1u64 << (code & 63);
+            }
+        }
+        bits
+    })
+}
+
 /// 判定單字讀音是否屬於破音字之零複詞古音或成語孤例
 #[inline]
 pub fn is_archaic_polyphonic(word: &str, bopomofo: &str) -> bool {
     // 孤例成語複詞（如「庫狄」、「身毒」、「金日磾」等詞長 >= 2）為合法固有複詞，絕不攔截
-    if word.chars().count() != 1 {
+    if bopomofo.is_empty() || word.is_empty() || word.len() > 4 {
         return false;
+    }
+    let mut chars = word.chars();
+    let Some(ch) = chars.next() else {
+        return false;
+    };
+    if chars.next().is_some() {
+        return false;
+    }
+    let code = ch as u32;
+    if code < 65536 {
+        let bits = archaic_first_char_bits();
+        if (bits[(code >> 6) as usize] & (1u64 << (code & 63))) == 0 {
+            return false;
+        }
     }
     if matches!((word, bopomofo), ("說", "ㄩㄝˋ") | ("說", "ㄕㄨㄟˋ") | ("無", "ㄇㄛˊ") | ("上", "ㄕㄤˇ") | ("日", "ㄇㄧˋ") | ("六", "ㄌㄨˋ") | ("紅", "ㄍㄨㄥ") | ("導", "ㄉㄠˋ") | ("滑", "ㄍㄨˇ")) { return true; }
     ARCHAIC_POLYPHONICS.binary_search_by(|&(w, b)| {

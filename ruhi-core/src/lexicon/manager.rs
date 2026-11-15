@@ -14,6 +14,10 @@ pub struct LexiconEntry {
     pub category: String,
     pub note: String,
     pub headcode: String,
+    #[serde(default)]
+    pub custom_abbrevs: Vec<String>,
+    #[serde(default)]
+    pub is_user_word: bool,
 }
 
 impl LexiconEntry {
@@ -26,6 +30,8 @@ impl LexiconEntry {
             category: category.to_string(),
             note: note.to_string(),
             headcode,
+            custom_abbrevs: Vec::new(),
+            is_user_word: false,
         }
     }
 
@@ -179,27 +185,29 @@ impl LexiconEntry {
         results
     }
 
-    pub fn extract_headcode(bpm: &str) -> String {
-        let initial_map: HashMap<char, char> = [
-            ('ㄅ', 'b'), ('ㄆ', 'p'), ('ㄇ', 'm'), ('ㄈ', 'f'),
-            ('ㄉ', 'd'), ('ㄊ', 't'), ('ㄋ', 'n'), ('ㄌ', 'l'),
-            ('ㄍ', 'g'), ('ㄎ', 'k'), ('ㄏ', 'h'),
-            ('ㄐ', 'j'), ('ㄑ', 'v'), ('ㄒ', 'c'),
-            ('ㄓ', 'j'), ('ㄔ', 'v'), ('ㄕ', 'c'), ('ㄖ', 'r'),
-            ('ㄗ', 'z'), ('ㄘ', 'a'), ('ㄙ', 's'),
-            ('ㄧ', 'e'), ('ㄨ', 'x'), ('ㄩ', 'u'),
-            // 零聲母韻母字首對應許氏鍵位（如 安 ㄢ->m、歐 ㄡ->o、愛 ㄞ->i、二 ㄦ->l、阿 ㄚ->y、餓 ㄜ->g）
-            ('ㄚ', 'y'), ('ㄛ', 'h'), ('ㄜ', 'g'), ('ㄝ', 'e'),
-            ('ㄞ', 'i'), ('ㄟ', 'a'), ('ㄠ', 'w'), ('ㄡ', 'o'),
-            ('ㄢ', 'm'), ('ㄣ', 'n'), ('ㄤ', 'k'), ('ㄥ', 'l'),
-            ('ㄦ', 'l'),
-        ].iter().cloned().collect();
+    pub fn bpm_char_to_hsu(c: char) -> Option<char> {
+        match c {
+            'ㄅ' => Some('b'), 'ㄆ' => Some('p'), 'ㄇ' => Some('m'), 'ㄈ' => Some('f'),
+            'ㄉ' => Some('d'), 'ㄊ' => Some('t'), 'ㄋ' => Some('n'), 'ㄌ' => Some('l'),
+            'ㄍ' => Some('g'), 'ㄎ' => Some('k'), 'ㄏ' => Some('h'),
+            'ㄐ' => Some('j'), 'ㄑ' => Some('v'), 'ㄒ' => Some('c'),
+            'ㄓ' => Some('j'), 'ㄔ' => Some('v'), 'ㄕ' => Some('c'), 'ㄖ' => Some('r'),
+            'ㄗ' => Some('z'), 'ㄘ' => Some('a'), 'ㄙ' => Some('s'),
+            'ㄧ' => Some('e'), 'ㄨ' => Some('x'), 'ㄩ' => Some('u'),
+            'ㄚ' => Some('y'), 'ㄛ' => Some('h'), 'ㄜ' => Some('g'), 'ㄝ' => Some('e'),
+            'ㄞ' => Some('i'), 'ㄟ' => Some('a'), 'ㄠ' => Some('w'), 'ㄡ' => Some('o'),
+            'ㄢ' => Some('m'), 'ㄣ' => Some('n'), 'ㄤ' => Some('k'), 'ㄥ' => Some('l'),
+            'ㄦ' => Some('l'),
+            _ => None,
+        }
+    }
 
+    pub fn extract_headcode(bpm: &str) -> String {
         let mut res = String::new();
         for s in bpm.split_whitespace() {
             let clean = s.replace(['˙', 'ˊ', 'ˇ', 'ˋ'], "");
             if let Some(first) = clean.chars().next() {
-                if let Some(&code) = initial_map.get(&first) {
+                if let Some(code) = Self::bpm_char_to_hsu(first) {
                     res.push(code);
                 }
             }
@@ -267,6 +275,157 @@ impl LexiconEntry {
             _ => None,
         }
     }
+
+    /// 將使用者在當前輸入法模式 typed 之按鍵轉換為注音符號首碼字串
+    pub fn raw_query_to_bpm_headcode(query: &str, keyboard_mode: &str) -> Option<String> {
+        let q = query.trim();
+        if q.is_empty() {
+            return None;
+        }
+        if q.chars().all(|c| ('\u{3105}'..='\u{3129}').contains(&c)) {
+            return Some(q.to_string());
+        }
+        match keyboard_mode {
+            "standard" | "daikien" => Self::convert_keys_to_bpm_headcode(q, "standard"),
+            "et26" | "eten26" => Self::convert_keys_to_bpm_headcode(q, "et26"),
+            _ => None,
+        }
+    }
+
+    /// 解析 user_dict.tsv 之第 6 欄 (`HEADCODE`) 與第 7 欄起之自訂縮略語 (`ABBREVIATIONS`)
+    /// 支援以 Tab `\t` 或連續空格 `\s+` 隔開多個自訂縮略語
+    pub fn parse_user_dict_extra_columns(parts: &[&str], auto_bpm_hc: &str) -> (String, Vec<String>) {
+        let mut abbrevs: Vec<String> = Vec::new();
+        let push_tok = |list: &mut Vec<String>, tok: &str| {
+            let t = tok.trim();
+            if !t.is_empty() {
+                let norm = if t.chars().all(|c| c.is_ascii()) {
+                    t.to_ascii_lowercase()
+                } else {
+                    t.to_string()
+                };
+                if !list.contains(&norm) {
+                    list.push(norm);
+                }
+            }
+        };
+
+        if parts.len() > 5 {
+            let col5 = parts[5].trim();
+            let tokens5: Vec<&str> = col5.split_whitespace().collect();
+            if !tokens5.is_empty() {
+                let first = tokens5[0];
+                let is_bpm = first == auto_bpm_hc
+                    || first.chars().all(|c| ('\u{3105}'..='\u{3129}').contains(&c));
+                if is_bpm {
+                    for &t in &tokens5[1..] {
+                        push_tok(&mut abbrevs, t);
+                    }
+                } else {
+                    for &t in &tokens5 {
+                        push_tok(&mut abbrevs, t);
+                    }
+                }
+            }
+        }
+        for col in parts.iter().skip(6) {
+            for t in col.split_whitespace() {
+                push_tok(&mut abbrevs, t);
+            }
+        }
+        (auto_bpm_hc.to_string(), abbrevs)
+    }
+
+    /// 自動檢查並補齊 user_dict.tsv 的第 6 欄注音首碼 (HEADCODE)，僅在檔案內容有變更時才重新寫入磁碟以維護 mtime
+    pub fn backfill_user_dict_headcodes<P: AsRef<Path>>(path: P) {
+        let p = path.as_ref();
+        let content = match std::fs::read_to_string(p) {
+            Ok(c) => c,
+            Err(_) => return,
+        };
+        if content.trim().is_empty() {
+            return;
+        }
+
+        let mut out_lines: Vec<String> = Vec::new();
+        let mut has_help_comment = content.lines().any(|l| l.contains("第 6 欄 HEADCODE"));
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('#') {
+                if trimmed.contains("格式規範:") {
+                    out_lines.push("# 格式規範: WORD\tBOPOMOFO\tWEIGHT\tCATEGORY\tNOTE\tHEADCODE\tABBREVIATIONS".to_string());
+                    if !has_help_comment {
+                        out_lines.push("# 說明: 第 6 欄 HEADCODE 自動補上注音頭碼；第 7 欄起可自由輸入多個自訂縮略語（支援以 Tab 或連續空格隔開）".to_string());
+                        has_help_comment = true;
+                    }
+                } else {
+                    out_lines.push(line.to_string());
+                }
+                continue;
+            }
+            if trimmed.is_empty() {
+                out_lines.push(line.to_string());
+                continue;
+            }
+
+            let cols: Vec<&str> = line.split('\t').collect();
+            if cols.len() >= 2 {
+                let norm_bpm = Self::normalize_bpm(cols[1].trim());
+                let auto_hc = Self::extract_bpm_headcode(&norm_bpm);
+                if !auto_hc.is_empty() {
+                    let w = cols[0].trim();
+                    let bpm = cols[1].trim();
+                    let wt = cols.get(2).map(|s| s.trim()).filter(|s| !s.is_empty()).unwrap_or("600");
+                    let cat = cols.get(3).map(|s| s.trim()).filter(|s| !s.is_empty()).unwrap_or("user");
+                    let note = cols.get(4).copied().unwrap_or("").trim();
+
+                    let mut new_cols: Vec<String> = vec![
+                        w.to_string(),
+                        bpm.to_string(),
+                        wt.to_string(),
+                        cat.to_string(),
+                        note.to_string(),
+                    ];
+
+                    if cols.len() <= 5 {
+                        new_cols.push(auto_hc);
+                    } else {
+                        let col5 = cols[5].trim();
+                        let first_tok = col5.split_whitespace().next().unwrap_or("");
+                        if col5.is_empty() {
+                            new_cols.push(auto_hc);
+                            for c in cols.iter().skip(6) {
+                                new_cols.push(c.to_string());
+                            }
+                        } else if !first_tok.chars().all(|c| ('\u{3105}'..='\u{3129}').contains(&c)) {
+                            new_cols.push(auto_hc);
+                            for c in cols.iter().skip(5) {
+                                new_cols.push(c.to_string());
+                            }
+                        } else {
+                            new_cols.push(cols[5].to_string());
+                            for c in cols.iter().skip(6) {
+                                new_cols.push(c.to_string());
+                            }
+                        }
+                    }
+                    out_lines.push(new_cols.join("\t"));
+                    continue;
+                }
+            }
+            out_lines.push(line.to_string());
+        }
+
+        let ending = if content.contains("\r\n") { "\r\n" } else { "\n" };
+        let mut new_content = out_lines.join(ending);
+        if content.ends_with('\n') {
+            new_content.push_str(ending);
+        }
+        if new_content != content {
+            let _ = std::fs::write(p, new_content);
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -284,6 +443,10 @@ pub struct LexiconManager {
     pub notone_index: HashMap<String, Vec<usize>>,
     pub headcode_index: HashMap<String, Vec<usize>>,
     pub word_index: HashMap<String, Vec<usize>>,
+    #[serde(default)]
+    pub user_abbrev_index: HashMap<String, Vec<usize>>,
+    #[serde(default)]
+    pub user_word_indices: Vec<usize>,
     #[serde(skip)]
     pub watched_files: Vec<WatchedLexiconFile>,
     #[serde(skip)]
@@ -293,6 +456,65 @@ pub struct LexiconManager {
 impl LexiconManager {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// 註冊使用者詞條之首碼與多組自訂縮略語索引（適用於 1 字、2 字、3 字及 4+ 字自建詞）
+    pub fn register_user_entry_indices(&mut self, idx: usize) {
+        if idx >= self.entries.len() {
+            return;
+        }
+        self.entries[idx].is_user_word = true;
+        if !self.user_word_indices.contains(&idx) {
+            self.user_word_indices.push(idx);
+        }
+        let hsu_hc = self.entries[idx].headcode.to_ascii_lowercase();
+        let bpm_hc = LexiconEntry::extract_bpm_headcode(&self.entries[idx].bopomofo);
+        let abbrevs = self.entries[idx].custom_abbrevs.clone();
+        let char_count = self.entries[idx].word.chars().count();
+
+        if !bpm_hc.is_empty() {
+            let list = self.user_abbrev_index.entry(bpm_hc.clone()).or_default();
+            if !list.contains(&idx) {
+                list.push(idx);
+            }
+        }
+        if !hsu_hc.is_empty() {
+            let list = self.user_abbrev_index.entry(hsu_hc.clone()).or_default();
+            if !list.contains(&idx) {
+                list.push(idx);
+            }
+        }
+        for abbr in &abbrevs {
+            let norm = abbr.to_ascii_lowercase();
+            let list = self.user_abbrev_index.entry(norm).or_default();
+            if !list.contains(&idx) {
+                list.push(idx);
+            }
+        }
+
+        // 同步登記至 headcode_index，供 ↑/lookup_multi_char_headcode 擴展
+        if char_count >= 3 {
+            if !bpm_hc.is_empty() {
+                let list = self.headcode_index.entry(bpm_hc).or_default();
+                if !list.contains(&idx) {
+                    list.push(idx);
+                }
+            }
+            if !hsu_hc.is_empty() {
+                let list = self.headcode_index.entry(hsu_hc).or_default();
+                if !list.contains(&idx) {
+                    list.push(idx);
+                }
+            }
+        }
+        for abbr in &abbrevs {
+            if abbr.chars().count() >= 2 {
+                let list = self.headcode_index.entry(abbr.to_ascii_lowercase()).or_default();
+                if !list.contains(&idx) {
+                    list.push(idx);
+                }
+            }
+        }
     }
 
     pub fn watch_dynamic_file<P: AsRef<Path>>(&mut self, path: P, category: &str) {
@@ -334,6 +556,12 @@ impl LexiconManager {
         } else {
             orig_p
         };
+
+        let is_user_dict = p.file_name().and_then(|n| n.to_str()).map(|s| s == "user_dict.tsv").unwrap_or(false);
+        if is_user_dict {
+            LexiconEntry::backfill_user_dict_headcodes(p);
+        }
+
         let file = File::open(p)?;
         let reader = BufReader::new(file);
         let mut count = 0;
@@ -360,7 +588,7 @@ impl LexiconManager {
                 let cat = if raw_cat.is_empty() {
                     if default_cat == "user" {
                         "user"
-                    } else if word.chars().count() == 2 && weight < 90 {
+                    } else if word.chars().count() == 2 && weight < 90 && word != "諺文" {
                         "moe_unattested2"
                     } else {
                         default_cat
@@ -370,11 +598,17 @@ impl LexiconManager {
                 };
                 let note = parts.get(4).unwrap_or(&"").trim();
 
-                let entry = LexiconEntry::new(word, &norm_bpm, weight, cat, note);
+                let mut entry = LexiconEntry::new(word, &norm_bpm, weight, cat, note);
                 if cat == "user" || default_cat == "user" {
+                    let (_, abbrevs) = LexiconEntry::parse_user_dict_extra_columns(&parts, &LexiconEntry::extract_bpm_headcode(&norm_bpm));
+                    entry.category = "user".to_string();
+                    entry.custom_abbrevs = abbrevs;
+                    entry.is_user_word = true;
                     self.upsert_entry(entry);
                     let (sub_entries, _) = Self::decompose_entity_subentries(word, &norm_bpm, weight);
-                    for sub in sub_entries {
+                    for mut sub in sub_entries {
+                        sub.category = "user".to_string();
+                        sub.is_user_word = true;
                         self.upsert_entry(sub);
                     }
                 } else {
@@ -410,11 +644,23 @@ impl LexiconManager {
     }
 
     /// 新增或提升既有詞條權重（防止同一詞條與讀音重複堆疊，同時確保使用者詞條與拆分子詞權重生效）
-    pub fn upsert_entry(&mut self, entry: LexiconEntry) {
+    pub fn upsert_entry(&mut self, mut entry: LexiconEntry) {
         if Self::is_archaic_polyphone(&entry.word, &entry.bopomofo) {
             return;
         }
         let norm_bpm = LexiconEntry::normalize_bpm(&entry.bopomofo);
+        if entry.note == "auto_given_name" || entry.note == "ephemeral_given_name" {
+            let mut max_homophone_wt = 0u32;
+            if let Some(indices) = self.bopomofo_index.get(&norm_bpm) {
+                for &idx in indices {
+                    let e = &self.entries[idx];
+                    if e.word.chars().count() == 2 && e.weight > max_homophone_wt {
+                        max_homophone_wt = e.weight;
+                    }
+                }
+            }
+            entry.weight = entry.weight.max(1150).max(max_homophone_wt.saturating_add(100)).min(1800);
+        }
         if let Some(indices) = self.word_index.get(&entry.word) {
             for &idx in indices {
                 let e_bpm = &self.entries[idx].bopomofo;
@@ -422,11 +668,86 @@ impl LexiconManager {
                     if entry.weight > self.entries[idx].weight {
                         self.entries[idx].weight = entry.weight;
                     }
+                    if entry.category == "user" {
+                        self.entries[idx].category = "user".to_string();
+                        self.entries[idx].is_user_word = true;
+                        for a in entry.custom_abbrevs {
+                            if !self.entries[idx].custom_abbrevs.contains(&a) {
+                                self.entries[idx].custom_abbrevs.push(a);
+                            }
+                        }
+                        self.register_user_entry_indices(idx);
+                    }
                     return;
                 }
             }
         }
         self.add_entry(entry);
+    }
+
+    /// 註冊跨句 Session 臨時名字詞條（依非古音全排列組合反查注音，並將權重提升至高於既有同音詞）
+    pub fn register_ephemeral_given_name(&mut self, given_word: &str) {
+        let chars: Vec<char> = given_word.chars().collect();
+        if chars.len() != 2 {
+            return;
+        }
+        let g1 = chars[0].to_string();
+        let g2 = chars[1].to_string();
+
+        let mut bpms_g1 = Vec::new();
+        if let Some(indices) = self.word_index.get(&g1) {
+            for &idx in indices {
+                let e = &self.entries[idx];
+                if !Self::is_archaic_polyphone(&e.word, &e.bopomofo) && e.weight >= 120 {
+                    let norm = LexiconEntry::normalize_bpm(&e.bopomofo);
+                    if !bpms_g1.contains(&norm) {
+                        bpms_g1.push(norm);
+                    }
+                }
+            }
+        }
+
+        let mut bpms_g2 = Vec::new();
+        if let Some(indices) = self.word_index.get(&g2) {
+            for &idx in indices {
+                let e = &self.entries[idx];
+                if !Self::is_archaic_polyphone(&e.word, &e.bopomofo) && e.weight >= 120 {
+                    let norm = LexiconEntry::normalize_bpm(&e.bopomofo);
+                    if !bpms_g2.contains(&norm) {
+                        bpms_g2.push(norm);
+                    }
+                }
+            }
+        }
+
+        let mut modified = false;
+        for b1 in &bpms_g1 {
+            for b2 in &bpms_g2 {
+                let combined = format!("{} {}", b1, b2);
+                let norm_bpm = LexiconEntry::normalize_bpm(&combined);
+                let mut max_exact_wt = 0u32;
+                if let Some(indices) = self.bopomofo_index.get(&norm_bpm) {
+                    for &idx in indices {
+                        let e = &self.entries[idx];
+                        if e.word.chars().count() == 2 && e.weight > max_exact_wt {
+                            max_exact_wt = e.weight;
+                        }
+                    }
+                }
+                let eff_wt = 1150u32.max(max_exact_wt.saturating_add(100)).min(1800);
+                self.upsert_entry(LexiconEntry::new(
+                    given_word,
+                    &combined,
+                    eff_wt,
+                    "user",
+                    "ephemeral_given_name",
+                ));
+                modified = true;
+            }
+        }
+        if modified {
+            self.sort_indices();
+        }
     }
 
     /// 執行期增量熱重載（內建 2000ms 節流防護，僅針對 lexicon_domain.tsv 與 user_dict.tsv 動態感知新增或權重更新詞條）
@@ -453,6 +774,10 @@ impl LexiconManager {
                     _ => false,
                 };
                 if need_reload {
+                    let is_user_dict = wf.path.file_name().and_then(|n| n.to_str()) == Some("user_dict.tsv");
+                    if is_user_dict {
+                        LexiconEntry::backfill_user_dict_headcodes(&wf.path);
+                    }
                     if let Ok(file) = File::open(&wf.path) {
                         let reader = BufReader::new(file);
                         let mut file_entries = Vec::new();
@@ -478,7 +803,7 @@ impl LexiconManager {
                                     let cat = if raw_cat.is_empty() {
                                         if default_cat == "user" {
                                             "user"
-                                        } else if word.chars().count() == 2 && weight < 90 {
+                                        } else if word.chars().count() == 2 && weight < 90 && word != "諺文" {
                                             "moe_unattested2"
                                         } else {
                                             default_cat
@@ -487,10 +812,22 @@ impl LexiconManager {
                                         raw_cat
                                     };
                                     let note = parts.get(4).unwrap_or(&"").trim();
-                                    file_entries.push(LexiconEntry::new(word, &norm_bpm, weight, cat, note));
+
+                                    let mut entry = LexiconEntry::new(word, &norm_bpm, weight, cat, note);
                                     if cat == "user" || default_cat == "user" {
+                                        let (_, abbrevs) = LexiconEntry::parse_user_dict_extra_columns(&parts, &LexiconEntry::extract_bpm_headcode(&norm_bpm));
+                                        entry.category = "user".to_string();
+                                        entry.custom_abbrevs = abbrevs;
+                                        entry.is_user_word = true;
+                                        file_entries.push(entry);
                                         let (sub_entries, _) = Self::decompose_entity_subentries(word, &norm_bpm, weight);
-                                        file_entries.extend(sub_entries);
+                                        for mut sub in sub_entries {
+                                            sub.category = "user".to_string();
+                                            sub.is_user_word = true;
+                                            file_entries.push(sub);
+                                        }
+                                    } else {
+                                        file_entries.push(entry);
                                     }
                                 }
                             }
@@ -510,11 +847,35 @@ impl LexiconManager {
             self.watched_files[w_idx].last_modified = mtime;
             self.watched_files[w_idx].last_line_count = line_count;
 
-            for entry in file_entries {
+            let is_user_dict = self.watched_files[w_idx].path.file_name().and_then(|n| n.to_str()) == Some("user_dict.tsv");
+            if is_user_dict {
+                self.user_abbrev_index.clear();
+                self.user_word_indices.clear();
+                for e in &mut self.entries {
+                    if e.category == "user" {
+                        e.is_user_word = false;
+                        e.custom_abbrevs.clear();
+                    }
+                }
+            }
+
+            for mut entry in file_entries {
                 if Self::is_archaic_polyphone(&entry.word, &entry.bopomofo) {
                     continue;
                 }
                 let norm_bpm = LexiconEntry::normalize_bpm(&entry.bopomofo);
+                if entry.note == "auto_given_name" || entry.note == "ephemeral_given_name" {
+                    let mut max_homophone_wt = 0u32;
+                    if let Some(indices) = self.bopomofo_index.get(&norm_bpm) {
+                        for &idx in indices {
+                            let e = &self.entries[idx];
+                            if e.word.chars().count() == 2 && e.weight > max_homophone_wt {
+                                max_homophone_wt = e.weight;
+                            }
+                        }
+                    }
+                    entry.weight = entry.weight.max(1150).max(max_homophone_wt.saturating_add(100)).min(1800);
+                }
                 let mut existing_idx = None;
                 if let Some(indices) = self.word_index.get(&entry.word) {
                     for &idx in indices {
@@ -528,6 +889,17 @@ impl LexiconManager {
                 if let Some(idx) = existing_idx {
                     if self.entries[idx].weight != entry.weight {
                         self.entries[idx].weight = entry.weight;
+                        added_or_updated += 1;
+                    }
+                    if entry.category == "user" {
+                        self.entries[idx].category = "user".to_string();
+                        self.entries[idx].is_user_word = true;
+                        for a in entry.custom_abbrevs {
+                            if !self.entries[idx].custom_abbrevs.contains(&a) {
+                                self.entries[idx].custom_abbrevs.push(a);
+                            }
+                        }
+                        self.register_user_entry_indices(idx);
                         added_or_updated += 1;
                     }
                 } else {
@@ -821,6 +1193,16 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                     cit_list.push(existing_idx);
                 }
             }
+            if entry.category == "user" {
+                self.entries[existing_idx].category = "user".to_string();
+                self.entries[existing_idx].is_user_word = true;
+                for a in entry.custom_abbrevs {
+                    if !self.entries[existing_idx].custom_abbrevs.contains(&a) {
+                        self.entries[existing_idx].custom_abbrevs.push(a);
+                    }
+                }
+                self.register_user_entry_indices(existing_idx);
+            }
             return;
         }
 
@@ -834,7 +1216,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         // 供 LatticeDAG 於連續長句（n >= 3）進行跨詞界劫掠免疫防護，同時 100% 保留單詞輸入（n == 2）與 ↑/↓ 選字列可達性
         if ((incoming_is_moe && entry.weight <= 180) || entry.weight < 90)
             && char_count == 2
-            && !matches!(entry.word.as_str(), "參雜" | "耆德" | "衚衕")
+            && !matches!(entry.word.as_str(), "參雜" | "耆德" | "衚衕" | "諺文")
         {
             entry.category = "moe_unattested2".to_string();
         }
@@ -878,9 +1260,12 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         }
 
         self.entries.push(entry);
+        if self.entries[idx].category == "user" {
+            self.register_user_entry_indices(idx);
+        }
     }
 
-    fn sort_indices(&mut self) {
+    pub fn sort_indices(&mut self) {
         let entries = &self.entries;
         for indices in self.word_index.values_mut() {
             indices.sort_by(|&a, &b| entries[b].weight.cmp(&entries[a].weight));
@@ -898,6 +1283,12 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             indices.sort_by(|&a, &b| entries[b].weight.cmp(&entries[a].weight));
             indices.dedup();
         }
+        for indices in self.user_abbrev_index.values_mut() {
+            indices.sort_by(|&a, &b| entries[b].weight.cmp(&entries[a].weight));
+            indices.dedup();
+        }
+        self.user_word_indices.sort_by(|&a, &b| entries[b].weight.cmp(&entries[a].weight));
+        self.user_word_indices.dedup();
     }
 
     /// 將記憶體中已去重、清洗並完成語體分級之核心詞庫，無損匯出為單一統整詞庫 `lexicon_core.tsv`
@@ -1043,6 +1434,148 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         scored.into_iter().take(27).map(|(w, _)| w).collect()
     }
 
+    /// 自訂詞庫縮略輸入與注音頭碼智慧查詢
+    pub fn lookup_user_abbrev_candidates(
+        &self,
+        query: &str,
+        keyboard_mode: &str,
+        prev_context: Option<&str>,
+        mut transitions: Option<&mut crate::router::transitions::TransitionEngine>,
+    ) -> Vec<String> {
+        let q = query.trim();
+        let prev_w = prev_context.unwrap_or("").trim();
+
+        if q.is_empty() {
+            let mut cands: Vec<(String, u32)> = Vec::new();
+            for &idx in &self.user_word_indices {
+                if idx < self.entries.len() {
+                    let entry = &self.entries[idx];
+                    if entry.note == "ephemeral_given_name" {
+                        continue;
+                    }
+                    if !cands.iter().any(|(w, _)| w == &entry.word) {
+                        cands.push((entry.word.clone(), entry.weight));
+                    }
+                }
+            }
+            cands.sort_by(|a, b| b.1.cmp(&a.1));
+            return cands.into_iter().take(200).map(|(w, _)| w).collect();
+        }
+
+        let q_lower = q.to_ascii_lowercase();
+        let q_bpm = LexiconEntry::raw_query_to_bpm_headcode(q, keyboard_mode);
+
+        let mut scored: Vec<(u8, i32, String)> = Vec::new();
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        for &idx in &self.user_word_indices {
+            if idx >= self.entries.len() {
+                continue;
+            }
+            let entry = &self.entries[idx];
+            if entry.note == "ephemeral_given_name" {
+                continue;
+            }
+            let entry_bpm_hc = LexiconEntry::extract_bpm_headcode(&entry.bopomofo);
+            let entry_hsu_hc = entry.headcode.to_ascii_lowercase();
+
+            let mut ctx_bonus = 0i32;
+            if !prev_w.is_empty() {
+                if let Some(ref mut trans) = transitions {
+                    ctx_bonus = (trans.calculate_transition_bonus(prev_w, "", &entry.word, "") * 8.0).round() as i32;
+                }
+            }
+
+            // Tier 1: Exact Custom Abbreviation
+            if entry.custom_abbrevs.iter().any(|a| a.eq_ignore_ascii_case(q) || a == q) {
+                let score = (entry.weight as i32) + 2000 + ctx_bonus;
+                scored.push((1, score, entry.word.clone()));
+                seen.insert(entry.word.clone());
+            }
+            // Tier 2: Exact Bopomofo Headcode in current keyboard layout or direct Bopomofo, or Hsu headcode
+            else if entry_bpm_hc == q || q_bpm.as_deref() == Some(entry_bpm_hc.as_str()) || (matches!(keyboard_mode, "hsu" | "") && entry_hsu_hc == q_lower) || entry_hsu_hc == q_lower {
+                let layout_bonus = if entry_bpm_hc == q || q_bpm.as_deref() == Some(entry_bpm_hc.as_str()) || (matches!(keyboard_mode, "hsu" | "") && entry_hsu_hc == q_lower) {
+                    150
+                } else {
+                    0
+                };
+                let score = (entry.weight as i32) + 1200 + layout_bonus + ctx_bonus;
+                scored.push((2, score, entry.word.clone()));
+                seen.insert(entry.word.clone());
+            }
+            // Tier 3: Prefix of Custom Abbreviation
+            else if let Some(min_len) = entry.custom_abbrevs.iter().filter_map(|a| {
+                let al = a.to_ascii_lowercase();
+                if al.starts_with(&q_lower) || a.starts_with(q) {
+                    Some(a.chars().count())
+                } else {
+                    None
+                }
+            }).min() {
+                let len_diff = min_len.saturating_sub(q.chars().count()) as i32;
+                let score = (entry.weight as i32) + 600 - (len_diff * 20) + ctx_bonus;
+                scored.push((3, score, entry.word.clone()));
+                seen.insert(entry.word.clone());
+            }
+            // Tier 4: Prefix of Bopomofo / Hsu Headcode
+            else if entry_bpm_hc.starts_with(q) || q_bpm.as_deref().map(|qb| entry_bpm_hc.starts_with(qb)).unwrap_or(false) || entry_hsu_hc.starts_with(&q_lower) {
+                let target_len = if entry_bpm_hc.starts_with(q) || q_bpm.as_deref().map(|qb| entry_bpm_hc.starts_with(qb)).unwrap_or(false) {
+                    entry_bpm_hc.chars().count()
+                } else {
+                    entry_hsu_hc.chars().count()
+                };
+                let len_diff = target_len.saturating_sub(q.chars().count()) as i32;
+                let score = (entry.weight as i32) + 300 - (len_diff * 20) + ctx_bonus;
+                scored.push((4, score, entry.word.clone()));
+                seen.insert(entry.word.clone());
+            }
+        }
+
+        // 排序：tier ASC (1 > 2 > 3 > 4), score DESC
+        scored.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| b.1.cmp(&a.1)));
+
+        let mut out: Vec<String> = Vec::new();
+        for (_, _, w) in scored {
+            if !out.contains(&w) {
+                out.push(w);
+            }
+        }
+
+        // Tier 5: 3 字以上詞彙且結果不足時，輔以核心詞庫之 3+ 字頭碼查詢結果
+        if q.chars().count() >= 3 && out.len() < 20 {
+            let core_cands = self.lookup_multi_char_headcode(&q_lower, keyboard_mode, prev_context, transitions.as_deref_mut());
+            for cw in core_cands {
+                if !out.contains(&cw) {
+                    out.push(cw);
+                    if out.len() >= 27 {
+                        break;
+                    }
+                }
+            }
+        }
+
+        out
+    }
+
+    /// 產生自訂詞條之頭碼與縮略語標籤（供候選窗教練提示使用）
+    pub fn format_user_word_abbrev_badge(&self, word: &str) -> Option<String> {
+        for &idx in &self.user_word_indices {
+            if idx < self.entries.len() {
+                let entry = &self.entries[idx];
+                if entry.word == word {
+                    let bpm_hc = LexiconEntry::extract_bpm_headcode(&entry.bopomofo);
+                    let abbrev_str = if entry.custom_abbrevs.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" ｜ 縮略碼: {}", entry.custom_abbrevs.join(", "))
+                    };
+                    return Some(format!("頭碼: {}{}", bpm_hc, abbrev_str));
+                }
+            }
+        }
+        None
+    }
+
     pub fn has_word(&self, word: &str) -> bool {
         self.word_index.contains_key(word)
     }
@@ -1179,12 +1712,15 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             }
         }
 
-        // 2. 四字複姓中文人名拆分（如「歐陽娜娜」-> 姓「歐陽」+ 名「娜娜」）
+        // 2. 四字複姓與雙姓／冠夫姓中文人名拆分（如「歐陽娜娜」-> 姓「歐陽」+ 名「娜娜」；「陳吳玟蓉」-> 姓「陳吳」+ 名「玟蓉」）
         const COMPOUND_SURNAMES: &[&str] = &[
             "歐陽", "司馬", "上官", "諸葛", "司徒", "司空", "獨孤", "慕容", "皇甫", "尉遲",
             "公孫", "長孫", "宇文", "軒轅", "令狐", "鍾離", "端木", "東方", "西門", "南宮",
             "百里", "東郭", "南門", "呼延", "羊舌", "微生", "范姜", "張簡",
         ];
+        // 台灣常見與百家姓 350+ 單姓
+        const SINGLE_SURNAMES: &str = "陳林黃張李王吳劉蔡楊許鄭謝郭洪曾邱廖賴周徐蘇葉莊呂江何蕭羅高簡朱鍾施游詹沈彭胡余盧潘顏梁趙柯翁魏方孫戴范宋鄧杜侯曹薛傅丁溫紀蔣歐藍唐馬董石卓程姚康馮古姜湯汪白田涂鄒巫尤龔嚴韓袁金童陸夏柳邵錢莫秦賈韋萬龐樊伍倪祝葛苗熊崔譚黎龍顧孟雷賀殷畢常于齊尹成屈項席駱凌霍虞管房單包裴榮富薄蒲蒙喬聞牛燕浦柴閻艾容易戈耿文寇關查荊權蓋辜饒利闕花官曲宮甯商阮戚柏章雲費岑魯鄔鮑史廉滕郝安樂時皮卞湛祁毛禹狄米貝明臧計伏談茅舒閔麻強路婁危梅盛支經裘繆干賁杭諸左吉鈕嵇邢滑荀羊於惠甄麴封芮羿儲靳汲邴糜松井段烏弓牧隗山宓蓬郗班仰秋仲伊仇欒暴钭厲戎祖武符景束幸司韶郜薊印宿懷邰從鄂索咸籍藺屠陰鬱胥蒼雙莘黨翟貢勞逄扶堵冉宰酈雍卻璩桑桂濮壽通扈冀郟尚農別晏瞿充慕茹習宦魚慎庾終暨居衡步滿弘匡國廣祿東殳沃蔚越夔隆師鞏厙聶晁勾敖融冷訾辛那空毋沙乜養鞠須豐巢蒯後紅竺逯益桓晉楚閆法汝鄢塗欽歸海岳帥緱亢況琴牟佘佴伯賞墨哈譙笪年愛陽佟池季向谷卜焦巴甘刁車申穆解應宗宣郁全邊姬昝";
+
         if chars.len() == 4 {
             let prefix2: String = chars[0..2].iter().collect();
             if COMPOUND_SURNAMES.contains(&prefix2.as_str()) {
@@ -1205,13 +1741,53 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                     "user",
                     "auto_given_name",
                 ));
-                sub_transitions.push((prefix2, given_name, 28.0));
+                sub_transitions.push((prefix2, given_name.clone(), 28.0));
+                sub_transitions.push(("叫".to_string(), given_name.clone(), 20.0));
+                sub_transitions.push(("找".to_string(), given_name.clone(), 18.0));
+                sub_transitions.push(("我是".to_string(), given_name, 22.0));
                 return (sub_entries, sub_transitions);
+            } else if SINGLE_SURNAMES.contains(chars[0]) && SINGLE_SURNAMES.contains(chars[1]) {
+                let prefix2_str = prefix2.clone();
+                let last_char = chars[3];
+                let is_non_name_prefix = matches!(
+                    prefix2_str.as_str(),
+                    "輸入" | "候選" | "使用" | "高解" | "不需" | "完全" | "自動" | "手動" | "預設"
+                        | "系統" | "資料" | "記憶" | "處理" | "工作" | "管理" | "開發" | "測試"
+                );
+                let is_non_name_suffix = matches!(
+                    last_char,
+                    '框' | '鍵' | '欄' | '列' | '檔' | '頁' | '表' | '圖' | '庫' | '區' | '鈕' | '窗'
+                        | '器' | '機' | '線' | '網' | '站' | '室' | '所' | '院' | '會' | '社' | '廠'
+                        | '店' | '局' | '處' | '部' | '科' | '組' | '隊' | '團' | '學' | '論' | '法'
+                        | '率' | '度' | '性' | '化' | '感' | '力' | '權' | '費' | '單' | '書' | '卡'
+                        | '券' | '票' | '證' | '號' | '碼' | '體' | '類' | '型' | '式' | '態' | '版'
+                        | '本' | '次' | '回' | '下' | '裡' | '內' | '外' | '中' | '上' | '前' | '後'
+                        | '間' | '旁' | '邊' | '面' | '頭' | '尾' | '的' | '得' | '地' | '了' | '著'
+                        | '過' | '們' | '者' | '員' | '師' | '家' | '生' | '長' | '物' | '品' | '質'
+                        | '量' | '值' | '數' | '點' | '層' | '級' | '段' | '期' | '日' | '月' | '年'
+                        | '時' | '分' | '秒'
+                );
+                if !is_non_name_prefix && !is_non_name_suffix {
+                    let given_name: String = chars[2..4].iter().collect();
+                    let given_bpm = syls[2..4].join(" ");
+                    sub_entries.push(LexiconEntry::new(
+                        &given_name,
+                        &given_bpm,
+                        sub_weight,
+                        "user",
+                        "auto_given_name",
+                    ));
+                    sub_transitions.push((prefix2_str, given_name.clone(), 28.0));
+                    sub_transitions.push((chars[1].to_string(), given_name.clone(), 24.0));
+                    sub_transitions.push(("叫".to_string(), given_name.clone(), 20.0));
+                    sub_transitions.push(("找".to_string(), given_name.clone(), 18.0));
+                    sub_transitions.push(("我是".to_string(), given_name, 22.0));
+                    return (sub_entries, sub_transitions);
+                }
             }
         }
 
         // 3. 三字單姓中文人名拆分（如「吳玟蓉」->「玟蓉」、「曹大十」->「大十」）
-        const SINGLE_SURNAMES: &str = "陳林黃張李王吳劉蔡楊許鄭謝郭洪曾邱廖賴周徐蘇葉莊呂江何蕭羅高簡朱鍾施游詹沈彭胡余盧潘顏梁趙柯翁魏方孫戴范宋鄧杜侯曹薛傅丁溫紀蔣歐藍連唐馬董石卓程姚康馮古姜湯汪白田涂鄒巫尤鐘龔嚴韓袁金童陸夏柳凃邵錢盧莫秦戴賈韋剛萬龐樊伍倪祝葛苗池季向谷涂卜焦巴甘紀刁車申穆解應宗宣郁全邊姬連昝";
         if chars.len() == 3 && SINGLE_SURNAMES.contains(chars[0]) {
             let prefix2: String = chars[0..2].iter().collect();
             let last_char = chars[2];
@@ -1244,7 +1820,10 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                     "user",
                     "auto_given_name",
                 ));
-                sub_transitions.push((surname, given_name, 28.0));
+                sub_transitions.push((surname, given_name.clone(), 28.0));
+                sub_transitions.push(("叫".to_string(), given_name.clone(), 20.0));
+                sub_transitions.push(("找".to_string(), given_name.clone(), 18.0));
+                sub_transitions.push(("我是".to_string(), given_name, 22.0));
                 return (sub_entries, sub_transitions);
             }
         }
@@ -2442,7 +3021,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                 if prev == pre2
                     && bonus > 5.0
                     && !curr.is_empty()
-                    && !transitions.excluded_pairs.contains(&(prev.clone(), curr.clone()))
+                    && !transitions.is_excluded_pair(prev, curr)
                 {
                     let w = self.max_compound_weight(curr).max(400) as f64;
                     upsert(curr.clone(), 18000.0 + bonus * 25.0 + w * 0.5);
@@ -2453,6 +3032,194 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                 if &vo.verb == pre2 && !vo.object.is_empty() {
                     upsert(vo.object.clone(), 18500.0 + vo.bonus_score * 25.0);
                     p2_hit_count += 1;
+                }
+            }
+        }
+
+        // 2b. 單字動詞動賓（VO）搭配、可離合體貌／量詞構式橋接（洗個->澡、吃了一頓->飯、開了一場->會）及同子句領域語境提升
+        {
+            let ctx_end = cur.min(chars.len());
+            if ctx_end >= 1 {
+                let tail1: String = chars[ctx_end - 1..ctx_end].iter().collect();
+                for vo in &transitions.vo_pairs {
+                    if vo.verb == tail1 && !vo.object.is_empty() {
+                        upsert(vo.object.clone(), 18200.0 + vo.bonus_score * 25.0);
+                    }
+                }
+
+                // 往回穿透最多 4 個透明體貌／數詞／量詞字元（了/過/著/一/兩/三/幾/這/那/半/個/頓/場/杯/碗...）
+                let is_sep_bridge = |ch: char| -> bool {
+                    matches!(
+                        ch,
+                        '了' | '過' | '著' | '着' | '一' | '兩' | '三' | '幾' | '這' | '那' | '半'
+                            | '個' | '頓' | '場' | '杯' | '碗' | '盤' | '瓶' | '罐' | '壺' | '趟'
+                            | '次' | '遍' | '點' | '些' | '陣' | '把' | '口' | '件' | '條' | '張'
+                            | '首' | '部' | '片' | '通' | '封' | '門' | '堂' | '節'
+                    )
+                };
+                let mut bridge_start = ctx_end;
+                let min_start = ctx_end.saturating_sub(4);
+                while bridge_start > min_start && is_sep_bridge(chars[bridge_start - 1]) {
+                    bridge_start -= 1;
+                }
+                if bridge_start < ctx_end && bridge_start >= 1 {
+                    let bridge_chars = &chars[bridge_start..ctx_end];
+                    let verb1: String = chars[bridge_start - 1..bridge_start].iter().collect();
+                    let verb2: Option<String> = if bridge_start >= 2 {
+                        Some(chars[bridge_start - 2..bridge_start].iter().collect())
+                    } else {
+                        None
+                    };
+                    let classifier = bridge_chars
+                        .iter()
+                        .copied()
+                        .rev()
+                        .find(|&c| {
+                            matches!(
+                                c,
+                                '頓' | '場' | '杯' | '碗' | '瓶' | '罐' | '壺' | '首' | '部'
+                                    | '片' | '通' | '封' | '個'
+                            )
+                        });
+                    let classifier_affinity = |cl: Option<char>, obj: &str| -> f64 {
+                        match cl {
+                            Some('頓') => {
+                                if matches!(
+                                    obj,
+                                    "飯" | "早餐" | "午餐" | "晚餐" | "宵夜" | "便當" | "大餐" | "餐點"
+                                ) {
+                                    3200.0
+                                } else {
+                                    -1200.0
+                                }
+                            }
+                            Some('場') => {
+                                if matches!(
+                                    obj,
+                                    "會" | "會議" | "比賽" | "演出" | "電影" | "夢" | "戲" | "雨" | "講座"
+                                ) {
+                                    3200.0
+                                } else {
+                                    -1200.0
+                                }
+                            }
+                            Some('杯' | '瓶' | '罐' | '壺') => {
+                                if matches!(
+                                    obj,
+                                    "咖啡" | "茶" | "水" | "牛奶" | "果汁" | "酒" | "飲料" | "奶茶"
+                                ) {
+                                    3000.0
+                                } else {
+                                    -1000.0
+                                }
+                            }
+                            Some('首') => {
+                                if matches!(obj, "歌" | "歌曲" | "音樂" | "詩") {
+                                    3000.0
+                                } else {
+                                    -1000.0
+                                }
+                            }
+                            Some('部' | '片') => {
+                                if matches!(obj, "電影" | "影片" | "紀錄片" | "劇") {
+                                    3000.0
+                                } else {
+                                    -1000.0
+                                }
+                            }
+                            Some('通') => {
+                                if matches!(obj, "電話") {
+                                    3000.0
+                                } else {
+                                    -1000.0
+                                }
+                            }
+                            Some('封') => {
+                                if matches!(obj, "信" | "郵件" | "簡訊") {
+                                    3000.0
+                                } else {
+                                    -1000.0
+                                }
+                            }
+                            Some('個') => {
+                                if matches!(obj, "澡" | "覺" | "便當" | "電話" | "會") {
+                                    1800.0
+                                } else {
+                                    0.0
+                                }
+                            }
+                            _ => 0.0,
+                        }
+                    };
+
+                    for vo in &transitions.vo_pairs {
+                        let verb_matched = vo.verb == verb1
+                            || verb2.as_ref().map_or(false, |v2| &vo.verb == v2);
+                        if verb_matched && !vo.object.is_empty() {
+                            let aff = classifier_affinity(classifier, vo.object.as_str());
+                            let sc = 18400.0 + vo.bonus_score * 25.0 + aff;
+                            if sc > 15000.0 {
+                                upsert(vo.object.clone(), sc);
+                            }
+                        }
+                    }
+
+                    // 典型動賓+量詞構式直映（確保 vo_lexicon 未收錄特定高頻詞對時仍可命中）
+                    match (verb1.as_str(), classifier) {
+                        ("吃", Some('頓')) => {
+                            upsert("飯".to_string(), 22000.0);
+                            upsert("大餐".to_string(), 21000.0);
+                            upsert("晚餐".to_string(), 20800.0);
+                        }
+                        ("開", Some('場')) => {
+                            upsert("會".to_string(), 22000.0);
+                            upsert("會議".to_string(), 21200.0);
+                        }
+                        ("喝", Some('杯')) => {
+                            upsert("咖啡".to_string(), 22000.0);
+                            upsert("水".to_string(), 21400.0);
+                            upsert("茶".to_string(), 21200.0);
+                        }
+                        ("洗", Some('個')) => {
+                            upsert("澡".to_string(), 22500.0);
+                        }
+                        ("睡", Some('個')) => {
+                            upsert("覺".to_string(), 22000.0);
+                        }
+                        _ => {}
+                    }
+                }
+
+                // 同子句語意場域連貫提升（停止於任何中英標點或換行）
+                let is_zh_clause_break = |ch: char| -> bool {
+                    matches!(
+                        ch,
+                        '，' | '。' | '、' | '；' | '：' | '！' | '？' | '「' | '」' | '（' | '）'
+                            | ',' | '.' | ';' | ':' | '!' | '?' | '\n' | '\r'
+                    )
+                };
+                let mut clause_start = ctx_end;
+                let clause_min = ctx_end.saturating_sub(18);
+                while clause_start > clause_min && !is_zh_clause_break(chars[clause_start - 1]) {
+                    clause_start -= 1;
+                }
+                let clause_str: String = chars[clause_start..ctx_end].iter().collect();
+                if tail1 == "看" {
+                    if ["醫院", "診所", "掛號", "生病", "發燒", "感冒", "傷科", "門診"]
+                        .iter()
+                        .any(|k| clause_str.contains(k))
+                    {
+                        upsert("醫生".to_string(), 21800.0);
+                        upsert("醫師".to_string(), 21400.0);
+                        upsert("診".to_string(), 21000.0);
+                        upsert("病".to_string(), 20500.0);
+                    } else if ["電影院", "戲院", "影城", "買票", "電影票"]
+                        .iter()
+                        .any(|k| clause_str.contains(k))
+                    {
+                        upsert("電影".to_string(), 21800.0);
+                        upsert("影片".to_string(), 21000.0);
+                    }
                 }
             }
         }
@@ -2482,7 +3249,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                 if prev == &p1
                     && bonus > 8.0
                     && !curr.is_empty()
-                    && !transitions.excluded_pairs.contains(&(prev.clone(), curr.clone()))
+                    && !transitions.is_excluded_pair(prev, curr)
                 {
                     let w = self.max_compound_weight(curr).max(400) as f64;
                     upsert(curr.clone(), 4500.0 + bonus * 20.0 + w * 0.5);
@@ -2623,6 +3390,8 @@ mod tests {
             weight: 1000,
             category: "general".to_string(),
             note: String::new(),
+            custom_abbrevs: Vec::new(),
+            is_user_word: false,
         });
         mgr.add_entry(LexiconEntry {
             word: "納".to_string(),
@@ -2631,6 +3400,8 @@ mod tests {
             weight: 800,
             category: "general".to_string(),
             note: String::new(),
+            custom_abbrevs: Vec::new(),
+            is_user_word: false,
         });
         mgr.add_entry(LexiconEntry {
             word: "哪".to_string(),
@@ -2639,6 +3410,8 @@ mod tests {
             weight: 900,
             category: "general".to_string(),
             note: String::new(),
+            custom_abbrevs: Vec::new(),
+            is_user_word: false,
         });
         mgr.sort_indices();
 

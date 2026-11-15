@@ -290,12 +290,17 @@ impl TransitionEngine {
             ("隨", "便", 10, 24.0),
         ];
         for &(v, o, dist, bonus) in &vo_list {
+            let idx = self.vo_pairs.len();
             self.vo_pairs.push(VOCollocation {
                 verb: v.to_string(),
                 object: o.to_string(),
                 max_distance: dist,
                 bonus_score: bonus,
             });
+            if let Some(ch) = o.chars().last() {
+                self.vo_object_ends.insert(ch);
+                self.vo_by_end_char.entry(ch).or_default().push(idx);
+            }
         }
     }
 
@@ -681,9 +686,19 @@ impl TransitionEngine {
             return 0.0;
         }
 
+        let cand_indices = if let Some(last_c) = curr_word.chars().last() {
+            let Some(indices) = self.vo_by_end_char.get(&last_c) else {
+                return 0.0;
+            };
+            indices
+        } else {
+            return 0.0;
+        };
+
         let curr_chars = curr_word.chars().count();
         let mut best_vo_bonus = 0.0;
-        for pair in &self.vo_pairs {
+        for &pair_idx in cand_indices {
+            let pair = &self.vo_pairs[pair_idx];
             let is_obj_match = if pair.object == curr_word {
                 true
             } else if curr_chars <= 3

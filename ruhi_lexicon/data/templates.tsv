@@ -6,3 +6,5 @@ letter	敬啟者：\n\t您好！\n\n\t感謝您的來信。祝\n商祺\n%CURSOR%
 sign	---\n{Shift+Enter}敬祝　研安\n大十　敬上	結尾簽名檔
 jhmg	中華民國	首碼對應範本 (中民國)
 egzc	一鼓作氣	首碼成語範本
+date	%YYYY%年%MM%月%DD%日（週%WEEK%）	完整日期含星期
+date	%YYYY%-%MM%-%DD%	ISO 日期

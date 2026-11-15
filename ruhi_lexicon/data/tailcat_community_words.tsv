@@ -1,0 +1,47 @@
+# RuhI 社群同步詞庫暫存 (Tailcat Community Words)
+# 格式規範: WORD	BOPOMOFO	WEIGHT	CATEGORY	NOTE
+調校	ㄊㄧㄠˊ ㄒㄧㄠˋ	540	tailcat	Community-Verified
+不斷	ㄅㄨˋ ㄉㄨㄢˋ	625	tailcat	Community-Verified
+自然語言	ㄗˋ ㄖㄢˊ ㄩˇ ㄧㄢˊ	580	tailcat	Community-Verified
+語言模型	ㄩˇ ㄧㄢˊ ㄇㄛˊ ㄒㄧㄥˊ	580	tailcat	Community-Verified
+語種	ㄩˇ ㄓㄨㄥˇ	540	tailcat	Community-Verified
+對接	ㄉㄨㄟˋ ㄐㄧㄝ	540	tailcat	Community-Verified
+釋出	ㄕˋ ㄔㄨ	550	tailcat	Community-Verified
+註記	ㄓㄨˋ ㄐㄧˋ	540	tailcat	Community-Verified
+寫下	ㄒㄧㄝˇ ㄒㄧㄚˋ	540	tailcat	Community-Verified
+實作	ㄕˊ ㄗㄨㄛˋ	610	tailcat	Community-Verified
+台灣大學	ㄊㄞˊ ㄨㄢ ㄉㄚˋ ㄒㄩㄝˊ	580	tailcat	Community-Verified
+清華大學	ㄑㄧㄥ ㄏㄨㄚˊ ㄉㄚˋ ㄒㄩㄝˊ	560	tailcat	Community-Verified
+成功大學	ㄔㄥˊ ㄍㄨㄥ ㄉㄚˋ ㄒㄩㄝˊ	560	tailcat	Community-Verified
+政治大學	ㄓㄥˋ ㄓˋ ㄉㄚˋ ㄒㄩㄝˊ	560	tailcat	Community-Verified
+台大醫院	ㄊㄞˊ ㄉㄚˋ ㄧ ㄩㄢˋ	560	tailcat	Community-Verified
+長庚醫院	ㄔㄤˊ ㄍㄥ ㄧ ㄩㄢˋ	550	tailcat	Community-Verified
+馬偕醫院	ㄇㄚˇ ㄐㄧㄝ ㄧ ㄩㄢˋ	550	tailcat	Community-Verified
+慈濟醫院	ㄘˊ ㄐㄧˋ ㄧ ㄩㄢˋ	550	tailcat	Community-Verified
+奇美醫院	ㄑㄧˊ ㄇㄟˇ ㄧ ㄩㄢˋ	540	tailcat	Community-Verified
+蔣萬安	ㄐㄧㄤˇ ㄨㄢˋ ㄢ	560	tailcat	Community-Verified
+文句	ㄨㄣˊ ㄐㄩˋ	550	tailcat	Community-Verified
+滑脆	ㄏㄨㄚˊ ㄘㄨㄟˋ	540	tailcat	Community-Verified
+自爆	ㄗˋ ㄅㄠˋ	540	tailcat	Community-Verified
+民調	ㄇㄧㄣˊ ㄉㄧㄠˋ	580	tailcat	Community-Verified
+個夠	˙ㄍㄜ ㄍㄡˋ	550	tailcat	Community-Verified
+鉛筆	ㄑㄧㄢ ㄅㄧˇ	560	tailcat	Community-Verified
+橡皮擦	ㄒㄧㄤˋ ㄆㄧˊ ㄘㄚ	560	tailcat	Community-Verified
+橡皮	ㄒㄧㄤ ㄆㄧˊ	520	tailcat	Community-Verified
+搶輸	ㄑㄧㄤˇ ㄕㄨ	540	tailcat	Community-Verified
+搶贏	ㄑㄧㄤˇ ㄧㄥˊ	540	tailcat	Community-Verified
+一般	ㄧˋ ㄅㄢ	650	tailcat	Community-Verified
+雙句	ㄕㄨㄤ ㄐㄩˋ	540	tailcat	Community-Verified
+雙具	ㄕㄨㄤ ㄐㄩˋ	500	tailcat	Community-Verified
+配備	ㄆㄟˋ ㄅㄟˋ	560	tailcat	Community-Verified
+實做	ㄕˊ ㄗㄨㄛˋ	580	tailcat	Community-Verified
+僅限	ㄐㄧㄣˇ ㄒㄧㄢˋ	580	tailcat	Community-Verified
+僅限於	ㄐㄧㄣˇ ㄒㄧㄢˋ ㄩˊ	580	tailcat	Community-Verified
+忘光	ㄨㄤˋ ㄍㄨㄤ	540	tailcat	Community-Verified
+忘光光	ㄨㄤˋ ㄍㄨㄤ ㄍㄨㄤ	560	tailcat	Community-Verified
+靈魂拷問	ㄌㄧㄥˊ ㄏㄨㄣˊ ㄎㄠˇ ㄨㄣˋ	580	tailcat	Community-Verified
+語意調校	ㄩˇ ㄧˋ ㄊㄧㄠˊ ㄐㄧㄠˋ	580	tailcat	Community-Verified
+語意調整	ㄩˇ ㄧˋ ㄊㄧㄠˊ ㄓㄥˇ	580	tailcat	Community-Verified
+許氏鍵盤	ㄒㄩˇ ㄕˋ ㄐㄧㄢˋ ㄆㄢˊ	580	tailcat	Community-Verified
+許氏	ㄒㄩˇ ㄕˋ	560	tailcat	Community-Verified
+掠劫	ㄌㄩㄝˋ ㄐㄧㄝˊ	520	tailcat	Community-Verified
