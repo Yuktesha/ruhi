@@ -1,4 +1,5 @@
 /// RuhI (如喜) Windows 11 TSF Native Text Service Implementation
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, OnceLock};
 use windows_core::*;
 use windows::Win32::Foundation::*;
@@ -717,12 +718,15 @@ const fn fnv1a_mix_u64(mut hash: u64, val: u64) -> u64 {
 }
 
 pub(crate) fn compute_layer_a_abi_hash() -> u64 {
-    use std::mem::{align_of, offset_of, size_of};
+    use std::mem::{align_of, needs_drop, offset_of, size_of};
+    const LAYER_B_ABI_EPOCH: usize = 2;
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    let dims: [usize; 50] = [
+    let dims: [usize; 53] = [
+        LAYER_B_ABI_EPOCH,
         size_of::<usize>(),
         size_of::<RuhiTextService>(),
         align_of::<RuhiTextService>(),
+        needs_drop::<RuhiTextService>() as usize,
         offset_of!(RuhiTextService, thread_mgr),
         offset_of!(RuhiTextService, client_id),
         offset_of!(RuhiTextService, engine),
@@ -766,6 +770,7 @@ pub(crate) fn compute_layer_a_abi_hash() -> u64 {
         align_of::<LexiconManager>(),
         size_of::<ruhi::western::WesternEngine>(),
         align_of::<ruhi::western::WesternEngine>(),
+        needs_drop::<ruhi::western::WesternEngine>() as usize,
         size_of::<ruhi::symbols::SymbolsManager>(),
         align_of::<ruhi::symbols::SymbolsManager>(),
         size_of::<ruhi::templates::TemplatesManager>(),
@@ -2047,8 +2052,16 @@ pub struct RuhiTextService {
     // ── 抑制厭惡詞即時過濾集合 ──
     deleted_words: Arc<Mutex<std::collections::HashSet<String>>>,
     // ── 編輯器復原/重做歷史快照堆疊 (Undo / Redo Stacks) ──
-    undo_stack: Arc<Mutex<Vec<EditorSnapshot>>>,
-    redo_stack: Arc<Mutex<Vec<EditorSnapshot>>>,
+    undo_stack: Arc<Mutex<VecDeque<EditorSnapshot>>>,
+    redo_stack: Arc<Mutex<VecDeque<EditorSnapshot>>>,
+}
+
+impl Drop for RuhiTextService {
+    fn drop(&mut self) {
+        let inst_key = Arc::as_ptr(&self.client_id) as usize;
+        let comp_key = Arc::as_ptr(&self.composition) as usize;
+        cleanup_instance_side_tables(inst_key, comp_key);
+    }
 }
 
 impl RuhiTextService {
@@ -2148,8 +2161,8 @@ impl RuhiTextService {
             manual_cuts: Arc::new(Mutex::new(std::collections::HashSet::new())),
             pending_pinned: Arc::new(Mutex::new(std::collections::HashSet::new())),
             deleted_words: Arc::new(Mutex::new(del_words)),
-            undo_stack: Arc::new(Mutex::new(Vec::new())),
-            redo_stack: Arc::new(Mutex::new(Vec::new())),
+            undo_stack: Arc::new(Mutex::new(VecDeque::new())),
+            redo_stack: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
 
@@ -5980,9 +5993,9 @@ impl RuhiTextService_Impl {
         let snap = self.take_snapshot();
         let mut undo = self.undo_stack.lock().unwrap();
         prune_western_undo_pins_above(inst_key, undo.len() + 1);
-        undo.push(snap);
+        undo.push_back(snap);
         if undo.len() > 100 {
-            undo.remove(0);
+            undo.pop_front();
             shift_western_undo_pins_after_cap_pop(inst_key);
         }
         self.redo_stack.lock().unwrap().clear();
@@ -5994,7 +6007,7 @@ impl RuhiTextService_Impl {
         self.set_last_western_autocorrect(None);
         let (snap_opt, popped_depth) = {
             let mut undo = self.undo_stack.lock().unwrap();
-            let popped = undo.pop();
+            let popped = undo.pop_back();
             let depth = undo.len() + 1;
             (popped, depth)
         };
@@ -6007,7 +6020,7 @@ impl RuhiTextService_Impl {
                 }
             }
             let current = self.take_snapshot();
-            self.redo_stack.lock().unwrap().push(current);
+            self.redo_stack.lock().unwrap().push_back(current);
 
             *self.pending_compose.lock().unwrap() = snap.pending;
             *self.sentence_cursor.lock().unwrap() = snap.cursor;
@@ -6025,10 +6038,10 @@ impl RuhiTextService_Impl {
 
     fn redo(&self) -> bool {
         self.set_last_western_autocorrect(None);
-        let snap_opt = self.redo_stack.lock().unwrap().pop();
+        let snap_opt = self.redo_stack.lock().unwrap().pop_back();
         if let Some(snap) = snap_opt {
             let current = self.take_snapshot();
-            self.undo_stack.lock().unwrap().push(current);
+            self.undo_stack.lock().unwrap().push_back(current);
 
             *self.pending_compose.lock().unwrap() = snap.pending;
             *self.sentence_cursor.lock().unwrap() = snap.cursor;
@@ -6478,9 +6491,9 @@ impl RuhiTextService_Impl {
         {
             let mut undo = self.undo_stack.lock().unwrap();
             prune_western_undo_pins_above(inst_key, undo.len() + 1);
-            undo.push(pre_snap.clone());
+            undo.push_back(pre_snap.clone());
             if undo.len() > 100 {
-                undo.remove(0);
+                undo.pop_front();
                 shift_western_undo_pins_after_cap_pop(inst_key);
             }
             record_western_undo_pin(inst_key, undo.len(), rep_start, cur);
@@ -9919,8 +9932,8 @@ mod tests {
             manual_cuts: Arc::new(Mutex::new(std::collections::HashSet::new())),
             pending_pinned: Arc::new(Mutex::new(std::collections::HashSet::new())),
             deleted_words: Arc::new(Mutex::new(std::collections::HashSet::new())),
-            undo_stack: Arc::new(Mutex::new(Vec::new())),
-            redo_stack: Arc::new(Mutex::new(Vec::new())),
+            undo_stack: Arc::new(Mutex::new(VecDeque::new())),
+            redo_stack: Arc::new(Mutex::new(VecDeque::new())),
         });
 
         // 2. 歐文空白鍵 Tier-1 自動勘誤 + 單鍵 Backspace 還原與釘選防復發
@@ -10010,8 +10023,8 @@ mod tests {
             manual_cuts: Arc::new(Mutex::new(std::collections::HashSet::new())),
             pending_pinned: Arc::new(Mutex::new(std::collections::HashSet::new())),
             deleted_words: Arc::new(Mutex::new(std::collections::HashSet::new())),
-            undo_stack: Arc::new(Mutex::new(Vec::new())),
-            redo_stack: Arc::new(Mutex::new(Vec::new())),
+            undo_stack: Arc::new(Mutex::new(VecDeque::new())),
+            redo_stack: Arc::new(Mutex::new(VecDeque::new())),
         })
     }
 
@@ -10321,8 +10334,8 @@ mod tests {
             manual_cuts: Arc::new(Mutex::new(std::collections::HashSet::new())),
             pending_pinned: Arc::new(Mutex::new(std::collections::HashSet::new())),
             deleted_words: Arc::new(Mutex::new(std::collections::HashSet::new())),
-            undo_stack: Arc::new(Mutex::new(Vec::new())),
-            redo_stack: Arc::new(Mutex::new(Vec::new())),
+            undo_stack: Arc::new(Mutex::new(VecDeque::new())),
+            redo_stack: Arc::new(Mutex::new(VecDeque::new())),
         });
 
         let all_modes: Vec<&'static str> = ruhi::engine::ALL_MODES.iter().map(|d| d.id).collect();
@@ -10700,6 +10713,45 @@ mod tests {
         assert_ne!(h1, 0);
         assert_eq!(h1, h2);
         assert_eq!(std::mem::size_of::<RuhiTextService>(), 27 * std::mem::size_of::<usize>());
+        assert!(std::mem::needs_drop::<ruhi::western::WesternEngine>());
+        assert!(std::mem::needs_drop::<RuhiTextService>());
+    }
+
+    #[test]
+    fn test_layer_b_undo_vecdeque_ring_cap_and_drop_cleanup() {
+        let svc = make_p1_t4_test_svc("hsu");
+        for i in 0..105usize {
+            *svc.pending_compose.lock().unwrap() = format!("s{i}");
+            *svc.sentence_cursor.lock().unwrap() = i;
+            svc.push_undo();
+        }
+        {
+            let undo = svc.undo_stack.lock().unwrap();
+            assert_eq!(undo.len(), 100, "undo_stack VecDeque 必須嚴格維持上限 100 筆");
+            assert_eq!(undo.front().map(|s| s.pending.as_str()), Some("s5"));
+            assert_eq!(undo.back().map(|s| s.pending.as_str()), Some("s104"));
+        }
+        assert!(svc.undo());
+        assert_eq!(*svc.pending_compose.lock().unwrap(), "s104");
+
+        let inst_key = Arc::as_ptr(&svc.client_id) as usize;
+        let comp_key = Arc::as_ptr(&svc.composition) as usize;
+        {
+            let mut guard = CURRENT_DLL_INSTANCES.lock().unwrap();
+            guard
+                .get_or_insert_with(std::collections::HashSet::new)
+                .insert(inst_key);
+        }
+        let (e1, f1) = current_composition_epoch(&svc.composition);
+        assert!(is_composition_epoch_valid(comp_key, e1, f1, true));
+
+        drop(svc);
+        assert!(!is_composition_epoch_valid(comp_key, e1, f1, true));
+        let guard = CURRENT_DLL_INSTANCES.lock().unwrap();
+        assert!(
+            !guard.as_ref().is_some_and(|set| set.contains(&inst_key)),
+            "RuhiTextService Drop 後必須清除 CURRENT_DLL_INSTANCES 條目"
+        );
     }
 
     #[test]

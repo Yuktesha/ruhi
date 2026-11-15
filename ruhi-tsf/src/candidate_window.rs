@@ -1,4 +1,4 @@
-use std::sync::{OnceLock, RwLock, Mutex};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::panic::catch_unwind;
 use windows_core::*;
@@ -215,9 +215,7 @@ pub fn resolve_mru_toggle_target(
 }
 
 pub fn current_effective_ui_lang() -> &'static str {
-    let cfg_lang = get_candidate_state()
-        .read()
-        .map(|s| s.ui_lang.clone())
+    let cfg_lang = read_candidate_state(|s| s.ui_lang.clone())
         .unwrap_or_else(|_| "auto".to_string());
     crate::service::resolve_effective_ui_lang(&cfg_lang)
 }
@@ -563,7 +561,7 @@ pub unsafe fn update_tray_icon_for_hwnd(hwnd: HWND, force: bool) {
             let mut fg_pid = 0u32;
             GetWindowThreadProcessId(fg_hwnd, Some(&mut fg_pid));
             let cur_pid = windows::Win32::System::Threading::GetCurrentProcessId();
-            let is_cands_only = get_candidate_state().read().map(|s| s.is_candidates_only).unwrap_or(true);
+            let is_cands_only = read_candidate_state(|s| s.is_candidates_only).unwrap_or(true);
             if fg_pid != 0 && fg_pid != cur_pid && !is_cands_only {
                 let _ = ShowWindow(hwnd, SW_HIDE);
             }
@@ -596,9 +594,7 @@ pub unsafe fn update_tray_icon_for_hwnd(hwnd: HWND, force: bool) {
         None
     }
     .unwrap_or_else(|| {
-        get_candidate_state()
-            .read()
-            .map(|s| s.keyboard_mode.clone())
+        read_candidate_state(|s| s.keyboard_mode.clone())
             .unwrap_or_else(|_| "hsu".to_string())
     });
 
@@ -610,10 +606,10 @@ pub unsafe fn update_tray_icon_for_hwnd(hwnd: HWND, force: bool) {
         return;
     }
 
-    if let Ok(mut st) = get_candidate_state().write() {
+    let _ = write_candidate_state(|st| {
         st.keyboard_mode = cfg_mode.clone();
         st.is_caps_on = is_caps;
-    }
+    });
     if !hwnd.0.is_null() && IsWindowVisible(hwnd).as_bool() {
         let _ = InvalidateRect(hwnd, None, false);
     }
@@ -755,7 +751,64 @@ static IS_DRAGGING: AtomicBool = AtomicBool::new(false);
 static DRAG_START_CURSOR: Mutex<(i32, i32)> = Mutex::new((0, 0));
 static DRAG_START_WINDOW: Mutex<(i32, i32)> = Mutex::new((0, 0));
 
-static CANDIDATE_STATE: OnceLock<RwLock<CandidateState>> = OnceLock::new();
+fn default_candidate_state() -> CandidateState {
+    CandidateState {
+        candidates: Vec::new(),
+        selected_index: 0,
+        page_offset: 0,
+        page_size: 9,
+        quick_key_mode: "asdf".to_string(),
+        is_dark_theme: CandidateWindow::detect_dark_theme(),
+        dpi_scale: 1.0,
+        input_display_mode: "inline_underline".to_string(),
+        is_candidates_only: false,
+        orientation: "horizontal".to_string(),
+        composition_text: String::new(),
+        cursor_pos: 0,
+        pending_syllable: String::new(),
+        is_cand_selecting: false,
+        target_char_idx: 0,
+        target_range: (0, 0),
+        selection_range: (0, 0),
+        is_caps_on: false,
+        font_size: 32.0,
+        candidate_font_size: 24.0,
+        desk_opacity: 95,
+        fixed_x: 350,
+        fixed_y: 550,
+        last_caret_x: crate::service::CARET_UNPROBED,
+        last_caret_y: crate::service::CARET_UNPROBED,
+        keyboard_mode: "hsu".to_string(),
+        enabled_keyboard_modes: vec!["hsu".to_string(), "japanese".to_string()],
+        gear_rect: RECT::default(),
+        mode_rect: RECT::default(),
+        ui_tune_toggle_rect: RECT::default(),
+        show_ui_tuner_bar: false,
+        ui_tune_buttons: Vec::new(),
+        max_composition_chars: 30,
+        enable_array30_coach: false,
+        array30_coach_hint: String::new(),
+        is_array30_live_preview: false,
+        force_num_labels: false,
+        force_asdf_labels: false,
+        is_shift_down_popup: false,
+        shift_down_mode: "longkan".to_string(),
+        shift_down_mode_buttons: Vec::new(),
+        ui_lang: "auto".to_string(),
+        is_fullwidth: false,
+        quick_edit_kind: String::new(),
+        quick_edit_rect: RECT::default(),
+    }
+}
+
+thread_local! {
+    // 審計確認：全體存取點均執行於所屬 UI STA 執行緒，且未跨任何會同步重入 WndProc 之 Win32 呼叫
+    // （ShowWindow / SetWindowPos / InvalidateRect / UpdateWindow / TrackPopupMenu / MessageBoxW）持有借用；
+    // 改採每執行緒 TLS RefCell + try_borrow 保護，並於同執行緒 CandidateWindow::drop 重置，兼顧零鎖競爭與跨視窗隔離。
+    static TLS_CANDIDATE_STATE: std::cell::RefCell<CandidateState> =
+        std::cell::RefCell::new(default_candidate_state());
+}
+
 static SHIFT_DOWN_QUICK_SWITCH_CB: Mutex<
     Option<Box<dyn Fn(&str) -> Option<(Vec<String>, String)> + Send + Sync>>,
 > = Mutex::new(None);
@@ -769,56 +822,19 @@ where
     }
 }
 
-fn get_candidate_state() -> &'static RwLock<CandidateState> {
-    CANDIDATE_STATE.get_or_init(|| {
-        RwLock::new(CandidateState {
-            candidates: Vec::new(),
-            selected_index: 0,
-            page_offset: 0,
-            page_size: 9,
-            quick_key_mode: "asdf".to_string(),
-            is_dark_theme: CandidateWindow::detect_dark_theme(),
-            dpi_scale: 1.0,
-            input_display_mode: "inline_underline".to_string(),
-            is_candidates_only: false,
-            orientation: "horizontal".to_string(),
-            composition_text: String::new(),
-            cursor_pos: 0,
-            pending_syllable: String::new(),
-            is_cand_selecting: false,
-            target_char_idx: 0,
-            target_range: (0, 0),
-            selection_range: (0, 0),
-            is_caps_on: false,
-            font_size: 32.0,
-            candidate_font_size: 24.0,
-            desk_opacity: 95,
-            fixed_x: 350,
-            fixed_y: 550,
-            last_caret_x: crate::service::CARET_UNPROBED,
-            last_caret_y: crate::service::CARET_UNPROBED,
-            keyboard_mode: "hsu".to_string(),
-            enabled_keyboard_modes: vec!["hsu".to_string(), "japanese".to_string()],
-            gear_rect: RECT::default(),
-            mode_rect: RECT::default(),
-            ui_tune_toggle_rect: RECT::default(),
-            show_ui_tuner_bar: false,
-            ui_tune_buttons: Vec::new(),
-            max_composition_chars: 30,
-            enable_array30_coach: false,
-            array30_coach_hint: String::new(),
-            is_array30_live_preview: false,
-            force_num_labels: false,
-            force_asdf_labels: false,
-            is_shift_down_popup: false,
-            shift_down_mode: "longkan".to_string(),
-            shift_down_mode_buttons: Vec::new(),
-            ui_lang: "auto".to_string(),
-            is_fullwidth: false,
-            quick_edit_kind: String::new(),
-            quick_edit_rect: RECT::default(),
-        })
-    })
+fn read_candidate_state<R>(f: impl FnOnce(&CandidateState) -> R) -> std::result::Result<R, std::cell::BorrowError> {
+    TLS_CANDIDATE_STATE.with(|cell| cell.try_borrow().map(|s| f(&*s)))
+}
+
+fn write_candidate_state<R>(f: impl FnOnce(&mut CandidateState) -> R) -> std::result::Result<R, std::cell::BorrowMutError> {
+    TLS_CANDIDATE_STATE.with(|cell| cell.try_borrow_mut().map(|mut s| f(&mut *s)))
+}
+
+fn reset_candidate_state() {
+    let fresh = default_candidate_state();
+    let _ = write_candidate_state(|s| {
+        *s = fresh;
+    });
 }
 
 pub struct CandidateWindow {
@@ -830,7 +846,10 @@ pub struct CandidateWindow {
 impl Drop for CandidateWindow {
     fn drop(&mut self) {
         unsafe {
+            let is_owner_thread = self.hwnd.0.is_null()
+                || GetWindowThreadProcessId(self.hwnd, None) == GetCurrentThreadId();
             let _ = KillTimer(self.hwnd, TIMER_TRAY_SYNC);
+            let _ = KillTimer(self.hwnd, TIMER_HIDE_TOAST);
             if self.is_tray_registered {
                 let mut nid = NOTIFYICONDATAW::default();
                 nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
@@ -844,6 +863,9 @@ impl Drop for CandidateWindow {
             }
             if let Some(h) = self.tray_mutex {
                 let _ = windows::Win32::Foundation::CloseHandle(h);
+            }
+            if is_owner_thread {
+                reset_candidate_state();
             }
         }
     }
@@ -910,12 +932,12 @@ impl CandidateWindow {
             let dpi = GetDpiForWindow(hwnd);
             let dpi_scale = if dpi > 0 { dpi as f32 / 96.0 } else { 1.0 };
 
-            let mut init_opacity = 95u32;
-            if let Ok(mut state) = get_candidate_state().write() {
+            let init_opacity = write_candidate_state(|state| {
                 state.is_dark_theme = is_dark_theme;
                 state.dpi_scale = dpi_scale;
-                init_opacity = state.desk_opacity;
-            }
+                state.desk_opacity
+            })
+            .unwrap_or(95);
             apply_window_opacity(hwnd, init_opacity);
 
             // 徹底移除舊版隱藏於「^」溢位匣之 Shell_NotifyIconW 圖示，將功能 100% 整合至右下角工作列 TSF 圖示本身
@@ -944,8 +966,14 @@ impl CandidateWindow {
     }
 
     pub fn apply_config(&mut self, cfg: &RuhiConfig) {
-        let mut opacity = 95u32;
-        if let Ok(mut state) = get_candidate_state().write() {
+        let is_dark = if cfg.theme == "dark" {
+            true
+        } else if cfg.theme == "light" {
+            false
+        } else {
+            Self::detect_dark_theme()
+        };
+        let opacity = write_candidate_state(|state| {
             state.quick_key_mode = cfg.candidate_quick_key.clone();
             state.input_display_mode = cfg.input_display_mode.clone();
             state.keyboard_mode = cfg.keyboard_mode.clone();
@@ -953,7 +981,6 @@ impl CandidateWindow {
             state.font_size = (cfg.font_size as f32).clamp(16.0, 96.0);
             state.candidate_font_size = (cfg.candidate_font_size as f32).clamp(14.0, 72.0);
             state.desk_opacity = cfg.desk_opacity.clamp(20, 100);
-            opacity = state.desk_opacity;
             state.orientation = cfg.orientation.clone();
             state.fixed_x = cfg.desk_x;
             state.fixed_y = cfg.desk_y;
@@ -962,29 +989,25 @@ impl CandidateWindow {
             state.shift_down_mode = cfg.shift_down_mode.clone();
             state.ui_lang = cfg.ui_lang.clone();
             state.is_fullwidth = cfg.fullwidth_mode;
-            if cfg.theme == "dark" {
-                state.is_dark_theme = true;
-            } else if cfg.theme == "light" {
-                state.is_dark_theme = false;
-            } else {
-                state.is_dark_theme = Self::detect_dark_theme();
-            }
-        }
+            state.is_dark_theme = is_dark;
+            state.desk_opacity
+        })
+        .unwrap_or(95);
         unsafe {
             apply_window_opacity(self.hwnd, opacity);
         }
     }
 
     pub fn set_keyboard_mode(&mut self, mode: &str) {
-        if let Ok(mut state) = get_candidate_state().write() {
+        let _ = write_candidate_state(|state| {
             state.keyboard_mode = mode.to_string();
-        }
+        });
     }
 
     pub fn set_quick_key_mode(&mut self, mode: &str) {
-        if let Ok(mut state) = get_candidate_state().write() {
+        let _ = write_candidate_state(|state| {
             state.quick_key_mode = mode.to_string();
-        }
+        });
     }
 
     pub fn set_coach_hint(&mut self, hint: &str, is_array30_live_preview: bool) {
@@ -998,16 +1021,16 @@ impl CandidateWindow {
         force_num_labels: bool,
         force_asdf_labels: bool,
     ) {
-        if let Ok(mut state) = get_candidate_state().write() {
+        let _ = write_candidate_state(|state| {
             state.array30_coach_hint = hint.to_string();
             state.is_array30_live_preview = is_array30_live_preview;
             state.force_num_labels = force_num_labels;
             state.force_asdf_labels = force_asdf_labels;
-        }
+        });
     }
 
     pub fn set_shift_down_popup_state(&mut self, is_active: bool, mode: &str) {
-        if let Ok(mut state) = get_candidate_state().write() {
+        let _ = write_candidate_state(|state| {
             state.is_shift_down_popup = is_active;
             if !mode.trim().is_empty() {
                 state.shift_down_mode = mode.to_string();
@@ -1015,13 +1038,13 @@ impl CandidateWindow {
             if !is_active {
                 state.shift_down_mode_buttons.clear();
             }
-        }
+        });
     }
 
     pub fn set_quick_edit_kind(&mut self, kind: &str) {
-        if let Ok(mut state) = get_candidate_state().write() {
+        let _ = write_candidate_state(|state| {
             state.quick_edit_kind = kind.to_string();
-        }
+        });
     }
 
     /// 計算如喜輸入座 (RuhI Floating Input Desk) 視窗幾何位置與多行自適應尺寸
@@ -1444,29 +1467,26 @@ impl CandidateWindow {
         caret_x: i32,
         caret_y: i32,
     ) {
-        let (final_x, final_y, width, height, opacity) = {
-            if let Ok(mut state) = get_candidate_state().write() {
-                state.composition_text = comp_text.to_string();
-                state.cursor_pos = cursor_pos;
-                state.pending_syllable = String::new();
-                state.candidates = candidates.to_vec();
-                state.selected_index = selected;
-                state.is_cand_selecting = is_cand_sel;
-                state.target_char_idx = target_char_idx;
-                state.target_range = target_range;
-                state.selection_range = selection_range;
-                state.is_caps_on = is_caps_on;
-                state.is_candidates_only = false;
-                if caret_x != crate::service::CARET_UNPROBED && caret_y != crate::service::CARET_UNPROBED {
-                    state.last_caret_x = caret_x;
-                    state.last_caret_y = caret_y;
-                }
-                let (fx, fy, w, h) = Self::compute_desk_geometry(&state, caret_x, caret_y);
-                (fx, fy, w, h, state.desk_opacity)
-            } else {
-                (350, 550, 460, 96, 95)
+        let (final_x, final_y, width, height, opacity) = write_candidate_state(|state| {
+            state.composition_text = comp_text.to_string();
+            state.cursor_pos = cursor_pos;
+            state.pending_syllable = String::new();
+            state.candidates = candidates.to_vec();
+            state.selected_index = selected;
+            state.is_cand_selecting = is_cand_sel;
+            state.target_char_idx = target_char_idx;
+            state.target_range = target_range;
+            state.selection_range = selection_range;
+            state.is_caps_on = is_caps_on;
+            state.is_candidates_only = false;
+            if caret_x != crate::service::CARET_UNPROBED && caret_y != crate::service::CARET_UNPROBED {
+                state.last_caret_x = caret_x;
+                state.last_caret_y = caret_y;
             }
-        };
+            let (fx, fy, w, h) = Self::compute_desk_geometry(state, caret_x, caret_y);
+            (fx, fy, w, h, state.desk_opacity)
+        })
+        .unwrap_or((350, 550, 460, 96, 95));
 
         unsafe {
             apply_window_opacity(self.hwnd, opacity);
@@ -1497,7 +1517,7 @@ impl CandidateWindow {
 
     /// 微軟新注音游標跟隨模式：僅在選字或開啟行列教練提示時彈出輕巧候選浮窗
     pub fn show_candidates_only(&mut self, candidates: &[String], selected: usize, x: i32, y: i32) {
-        let (dpi_scale, cand_font_size, orientation, coach_hint, page_sz, opacity, is_shift_down_popup, quick_edit_kind, ui_lang) = if let Ok(s) = get_candidate_state().read() {
+        let (dpi_scale, cand_font_size, orientation, coach_hint, page_sz, opacity, is_shift_down_popup, quick_edit_kind, ui_lang) = read_candidate_state(|s| {
             (
                 s.dpi_scale,
                 s.candidate_font_size,
@@ -1509,9 +1529,8 @@ impl CandidateWindow {
                 s.quick_edit_kind.clone(),
                 s.ui_lang.clone(),
             )
-        } else {
-            (1.0, 24.0, "horizontal".to_string(), String::new(), 9, 95, false, String::new(), "auto".to_string())
-        };
+        })
+        .unwrap_or_else(|_| (1.0, 24.0, "horizontal".to_string(), String::new(), 9, 95, false, String::new(), "auto".to_string()));
 
         if candidates.is_empty() && coach_hint.is_empty() {
             self.hide();
@@ -1593,7 +1612,7 @@ impl CandidateWindow {
     }
 
     pub fn hide(&mut self) {
-        if let Ok(mut state) = get_candidate_state().write() {
+        let _ = write_candidate_state(|state| {
             state.composition_text.clear();
             state.pending_syllable.clear();
             state.candidates.clear();
@@ -1612,7 +1631,7 @@ impl CandidateWindow {
             state.quick_edit_kind.clear();
             state.quick_edit_rect = RECT::default();
             state.is_candidates_only = true;
-        }
+        });
         unsafe {
             let _ = KillTimer(self.hwnd, TIMER_HIDE_TOAST);
             let _ = ShowWindow(self.hwnd, SW_HIDE);
@@ -1622,13 +1641,10 @@ impl CandidateWindow {
     /// 切換輸入模式或半全形時（無組字狀態下）短暫顯示 1.2 秒的狀態膠囊提示，讓使用者即時確認已切換至何種輸入狀態
     pub fn show_mode_toast(&mut self, mode_code: &str, is_caps: bool, x: i32, y: i32) {
         let (badge, mode_name) = get_mode_badge_and_name(mode_code, is_caps);
-        let is_fw = get_candidate_state()
-            .read()
-            .map(|s| s.is_fullwidth)
-            .unwrap_or(false);
+        let is_fw = read_candidate_state(|s| s.is_fullwidth).unwrap_or(false);
         let width_tag = if is_fw { "全" } else { "半" };
         let toast = format!("如喜輸入狀態  ➔  【 {}  {} 】 {}", width_tag, badge, mode_name);
-        if let Ok(mut state) = get_candidate_state().write() {
+        let _ = write_candidate_state(|state| {
             state.keyboard_mode = mode_code.to_string();
             state.is_caps_on = is_caps;
             state.array30_coach_hint = toast;
@@ -1636,7 +1652,7 @@ impl CandidateWindow {
             state.force_num_labels = false;
             state.force_asdf_labels = false;
             state.is_cand_selecting = false;
-        }
+        });
         self.show_candidates_only(&[], 0, x, y);
         unsafe {
             let _ = SetTimer(self.hwnd, TIMER_HIDE_TOAST, 1200, None);
@@ -1655,7 +1671,7 @@ impl CandidateWindow {
         dpi_scale: f32,
         opacity: u32,
     ) {
-        let (resolved_x, resolved_y) = if let Ok(mut state) = get_candidate_state().write() {
+        let (resolved_x, resolved_y) = write_candidate_state(|state| {
             state.candidates = candidates.to_vec();
             state.selected_index = selected;
             state.page_offset = page_start;
@@ -1665,12 +1681,15 @@ impl CandidateWindow {
                 state.last_caret_x = x;
                 state.last_caret_y = y;
             }
-            Self::resolve_valid_caret_or_cursor(&state, x, y)
-        } else if x != crate::service::CARET_UNPROBED && y != crate::service::CARET_UNPROBED {
-            (x, y)
-        } else {
-            (200, 300)
-        };
+            Self::resolve_valid_caret_or_cursor(state, x, y)
+        })
+        .unwrap_or_else(|_| {
+            if x != crate::service::CARET_UNPROBED && y != crate::service::CARET_UNPROBED {
+                (x, y)
+            } else {
+                (200, 300)
+            }
+        });
 
         let (screen_l, screen_t, screen_r, screen_b) = Self::get_monitor_work_area(resolved_x, resolved_y);
         let min_x = screen_l + 8;
@@ -1700,12 +1719,11 @@ impl CandidateWindow {
     }
 
     pub fn set_selected(&mut self, index: usize) {
-        let is_cands_only = if let Ok(mut state) = get_candidate_state().write() {
+        let is_cands_only = write_candidate_state(|state| {
             state.selected_index = index;
             state.is_candidates_only
-        } else {
-            true
-        };
+        })
+        .unwrap_or(true);
         unsafe {
             if !is_cands_only {
                 relayout_and_repaint_window(self.hwnd);
@@ -1716,13 +1734,12 @@ impl CandidateWindow {
     }
 
     pub fn set_selected_with_coach(&mut self, index: usize, coach_hint: &str) {
-        let is_cands_only = if let Ok(mut state) = get_candidate_state().write() {
+        let is_cands_only = write_candidate_state(|state| {
             state.selected_index = index;
             state.array30_coach_hint = coach_hint.to_string();
             state.is_candidates_only
-        } else {
-            true
-        };
+        })
+        .unwrap_or(true);
         unsafe {
             if !is_cands_only {
                 relayout_and_repaint_window(self.hwnd);
@@ -1855,11 +1872,11 @@ pub unsafe fn relayout_and_repaint_window(hwnd: HWND) {
     if hwnd.0.is_null() || !IsWindowVisible(hwnd).as_bool() {
         return;
     }
-    let (fx, fy, w, h, opacity, is_cands_only, is_empty_desk) = if let Ok(state) = get_candidate_state().read() {
-        let (x, y, width, height) = CandidateWindow::compute_desk_geometry(&state, state.last_caret_x, state.last_caret_y);
+    let Ok((fx, fy, w, h, opacity, is_cands_only, is_empty_desk)) = read_candidate_state(|state| {
+        let (x, y, width, height) = CandidateWindow::compute_desk_geometry(state, state.last_caret_x, state.last_caret_y);
         let empty = state.composition_text.is_empty() && state.candidates.is_empty() && state.array30_coach_hint.is_empty();
         (x, y, width, height, state.desk_opacity, state.is_candidates_only, empty)
-    } else {
+    }) else {
         return;
     };
     if is_empty_desk {
@@ -1880,8 +1897,7 @@ pub unsafe fn relayout_and_repaint_window(hwnd: HWND) {
 }
 
 pub unsafe fn apply_ui_tune_action(hwnd: HWND, action: UiTuneAction) {
-    let mut new_vals = None;
-    if let Ok(mut st) = get_candidate_state().write() {
+    let new_vals = write_candidate_state(|st| {
         match action {
             UiTuneAction::UiScaleDown => {
                 st.font_size = (st.font_size - 2.0).clamp(16.0, 96.0);
@@ -1916,13 +1932,14 @@ pub unsafe fn apply_ui_tune_action(hwnd: HWND, action: UiTuneAction) {
                 st.max_composition_chars = (st.max_composition_chars + 2).clamp(8, 80);
             }
         }
-        new_vals = Some((
+        (
             st.font_size.round() as u32,
             st.candidate_font_size.round() as u32,
             st.desk_opacity,
             st.max_composition_chars,
-        ));
-    }
+        )
+    })
+    .ok();
     if let Some((fs, cfs, op, mc)) = new_vals {
         save_ui_appearance_to_configs(fs, cfs, op, mc);
         relayout_and_repaint_window(hwnd);
@@ -2410,11 +2427,8 @@ pub fn maybe_spawn_background_telemetry_upload(paths: &crate::service::RuhiPaths
 }
 
 pub fn show_about_dialog(hwnd: HWND) {
-    let (kb_mode, is_caps) = if let Ok(s) = get_candidate_state().read() {
-        (s.keyboard_mode.to_lowercase(), s.is_caps_on)
-    } else {
-        ("hsu".to_string(), false)
-    };
+    let (kb_mode, is_caps) = read_candidate_state(|s| (s.keyboard_mode.to_lowercase(), s.is_caps_on))
+        .unwrap_or_else(|_| ("hsu".to_string(), false));
 
     let ui_lang = current_effective_ui_lang();
     let ver_str = env!("CARGO_PKG_VERSION");
@@ -2495,11 +2509,8 @@ pub fn show_about_dialog(hwnd: HWND) {
 }
 
 fn get_context_menu_labels() -> (&'static str, &'static str, &'static str) {
-    let (kb_mode, is_caps) = if let Ok(s) = get_candidate_state().read() {
-        (s.keyboard_mode.to_lowercase(), s.is_caps_on)
-    } else {
-        ("hsu".to_string(), false)
-    };
+    let (kb_mode, is_caps) = read_candidate_state(|s| (s.keyboard_mode.to_lowercase(), s.is_caps_on))
+        .unwrap_or_else(|_| ("hsu".to_string(), false));
 
     let ui_lang = current_effective_ui_lang();
     if ui_lang == "en-US" || is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
@@ -2681,9 +2692,7 @@ unsafe fn draw_quick_edit_pill(
 }
 
 unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
-    let state = if let Ok(s) = get_candidate_state().read() {
-        s.clone()
-    } else {
+    let Ok(state) = read_candidate_state(|s| s.clone()) else {
         return;
     };
 
@@ -3548,12 +3557,12 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             right: mode_right,
             bottom: status_rect.bottom,
         };
-        if let Ok(mut st) = get_candidate_state().write() {
+        let _ = write_candidate_state(|st| {
             st.gear_rect = gear_rect;
             st.ui_tune_toggle_rect = tune_toggle_rect;
             st.mode_rect = mode_hit_rect;
             st.ui_tune_buttons = recorded_tune_buttons;
-        }
+        });
 
         let mut mode_text: Vec<u16> = mode_label.encode_utf16().chain(Some(0)).collect();
         let mut mode_rect = RECT {
@@ -3567,10 +3576,10 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         SelectObject(mem_dc, old_f3);
     }
 
-    if let Ok(mut st) = get_candidate_state().write() {
+    let _ = write_candidate_state(|st| {
         st.shift_down_mode_buttons = recorded_shift_down_buttons;
         st.quick_edit_rect = recorded_quick_edit_rect;
-    }
+    });
 
     // 複製到視窗 DC
     let _ = BitBlt(hdc, 0, 0, width, height, mem_dc, 0, 0, SRCCOPY);
@@ -3586,9 +3595,9 @@ pub fn save_keyboard_mode(mode: &str) {
 }
 
 pub fn save_keyboard_mode_with_last(mode: &str, last_mode: Option<&str>) {
-    if let Ok(mut state) = get_candidate_state().write() {
+    let _ = write_candidate_state(|state| {
         state.keyboard_mode = mode.to_string();
-    }
+    });
     let paths = crate::service::RuhiPaths::resolve();
     let mut flat_targets = vec![
         paths.config.clone(),
@@ -3651,9 +3660,9 @@ pub fn save_keyboard_mode_with_last(mode: &str, last_mode: Option<&str>) {
 
 pub fn save_shift_down_mode(mode: &str) {
     let norm = ruhi::engine::RuhiEngine::normalize_keyboard_mode(mode);
-    if let Ok(mut state) = get_candidate_state().write() {
+    let _ = write_candidate_state(|state| {
         state.shift_down_mode = norm.clone();
-    }
+    });
     let paths = crate::service::RuhiPaths::resolve();
     let mut flat_targets = vec![
         paths.config.clone(),
@@ -3746,9 +3755,9 @@ pub fn save_capslock_switch_mode(capslock_switch: &str) {
 }
 
 pub fn save_fullwidth_mode(fullwidth: bool) {
-    if let Ok(mut state) = get_candidate_state().write() {
+    let _ = write_candidate_state(|state| {
         state.is_fullwidth = fullwidth;
-    }
+    });
     let paths = crate::service::RuhiPaths::resolve();
     let mut flat_targets = vec![
         paths.config.clone(),
@@ -3898,23 +3907,20 @@ fn show_mode_toast_on_current_thread(mode_code: &str, pt_opt: Option<POINT>) {
                     break;
                 }
                 if GetWindowThreadProcessId(found, None) == GetCurrentThreadId() {
-                    let is_idle = get_candidate_state()
-                        .read()
-                        .map(|s| s.composition_text.is_empty() && s.candidates.is_empty())
-                        .unwrap_or(true);
+                    let is_idle = read_candidate_state(|s| {
+                        s.composition_text.is_empty() && s.candidates.is_empty()
+                    })
+                    .unwrap_or(true);
                     if is_idle {
                         let (badge, mode_name) = get_mode_badge_and_name(mode_code, false);
-                        let is_fw = get_candidate_state()
-                            .read()
-                            .map(|s| s.is_fullwidth)
-                            .unwrap_or(false);
+                        let is_fw = read_candidate_state(|s| s.is_fullwidth).unwrap_or(false);
                         let toast = match current_effective_ui_lang() {
                             "en-US" => format!("RuhI Mode  ➔  [ {}  {} ] {}", if is_fw { "FW" } else { "HW" }, badge, mode_name),
                             "ja-JP" => format!("RuhI 入力状態  ➔  【 {}  {} 】 {}", if is_fw { "全" } else { "半" }, badge, mode_name),
                             "ko-KR" => format!("RuhI 입력 상태  ➔  【 {}  {} 】 {}", if is_fw { "전" } else { "반" }, badge, mode_name),
                             _ => format!("如喜輸入狀態  ➔  【 {}  {} 】 {}", if is_fw { "全" } else { "半" }, badge, mode_name),
                         };
-                        let (dpi_scale, opacity) = if let Ok(mut state) = get_candidate_state().write() {
+                        let (dpi_scale, opacity) = write_candidate_state(|state| {
                             state.keyboard_mode = mode_code.to_string();
                             state.is_caps_on = false;
                             state.array30_coach_hint = toast.clone();
@@ -3926,9 +3932,8 @@ fn show_mode_toast_on_current_thread(mode_code: &str, pt_opt: Option<POINT>) {
                             state.candidates.clear();
                             state.composition_text.clear();
                             (state.dpi_scale, state.desk_opacity)
-                        } else {
-                            (1.0, 95)
-                        };
+                        })
+                        .unwrap_or((1.0, 95));
                         let w = (((toast.chars().count() as f32 * 13.5 * dpi_scale) + (36.0 * dpi_scale))
                             .clamp(260.0 * dpi_scale, 900.0 * dpi_scale)) as i32;
                         let h = (32.0 * dpi_scale) as i32;
@@ -3961,9 +3966,9 @@ fn show_mode_toast_on_current_thread(mode_code: &str, pt_opt: Option<POINT>) {
 }
 
 pub fn toggle_ui_tuner_bar_global() {
-    if let Ok(mut st) = get_candidate_state().write() {
+    let _ = write_candidate_state(|st| {
         st.show_ui_tuner_bar = !st.show_ui_tuner_bar;
-    }
+    });
     unsafe {
         let class_name = w!("RuhICandidateWindow");
         let mut child = HWND::default();
@@ -4003,7 +4008,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
     let hw_caps = (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0;
     let paths = crate::service::RuhiPaths::resolve();
     let latest_cfg = crate::service::load_ruhi_config(&paths);
-    let (cur_kb, enabled_modes, cur_fs, cur_cfs, cur_op, cur_mc, cur_tuner_bar) = if let Ok(mut s) = get_candidate_state().write() {
+    let (cur_kb, enabled_modes, cur_fs, cur_cfs, cur_op, cur_mc, cur_tuner_bar) = write_candidate_state(|s| {
         s.is_caps_on = false;
         s.keyboard_mode = latest_cfg.keyboard_mode.clone();
         s.enabled_keyboard_modes = latest_cfg.enabled_keyboard_modes.clone();
@@ -4020,7 +4025,8 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
             s.max_composition_chars,
             s.show_ui_tuner_bar,
         )
-    } else {
+    })
+    .unwrap_or_else(|_| {
         (
             latest_cfg.keyboard_mode.to_lowercase(),
             latest_cfg.enabled_keyboard_modes.clone(),
@@ -4030,7 +4036,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
             latest_cfg.max_composition_chars,
             false,
         )
-    };
+    });
 
     let instance = GetModuleHandleW(None).unwrap_or_default();
     let host_hwnd = CreateWindowExW(
@@ -4371,11 +4377,11 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 toggle_ui_tuner_bar_global();
             } else if (3120..=3200).contains(&cmd_id) {
                 let pct = (cmd_id - 3100) as u32;
-                let mut vals = None;
-                if let Ok(mut st) = get_candidate_state().write() {
+                let vals = write_candidate_state(|st| {
                     st.desk_opacity = pct.clamp(20, 100);
-                    vals = Some((st.font_size.round() as u32, st.candidate_font_size.round() as u32, st.desk_opacity, st.max_composition_chars));
-                }
+                    (st.font_size.round() as u32, st.candidate_font_size.round() as u32, st.desk_opacity, st.max_composition_chars)
+                })
+                .ok();
                 if let Some((fs, cfs, op, mc)) = vals {
                     save_ui_appearance_to_configs(fs, cfs, op, mc);
                     if !cur_thread_cw.0.is_null() {
@@ -4384,11 +4390,11 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 }
             } else if (3316..=3396).contains(&cmd_id) {
                 let px = (cmd_id - 3300) as u32;
-                let mut vals = None;
-                if let Ok(mut st) = get_candidate_state().write() {
+                let vals = write_candidate_state(|st| {
                     st.font_size = (px as f32).clamp(16.0, 96.0);
-                    vals = Some((st.font_size.round() as u32, st.candidate_font_size.round() as u32, st.desk_opacity, st.max_composition_chars));
-                }
+                    (st.font_size.round() as u32, st.candidate_font_size.round() as u32, st.desk_opacity, st.max_composition_chars)
+                })
+                .ok();
                 if let Some((fs, cfs, op, mc)) = vals {
                     save_ui_appearance_to_configs(fs, cfs, op, mc);
                     if !cur_thread_cw.0.is_null() {
@@ -4397,11 +4403,11 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 }
             } else if (3514..=3572).contains(&cmd_id) {
                 let px = (cmd_id - 3500) as u32;
-                let mut vals = None;
-                if let Ok(mut st) = get_candidate_state().write() {
+                let vals = write_candidate_state(|st| {
                     st.candidate_font_size = (px as f32).clamp(14.0, 72.0);
-                    vals = Some((st.font_size.round() as u32, st.candidate_font_size.round() as u32, st.desk_opacity, st.max_composition_chars));
-                }
+                    (st.font_size.round() as u32, st.candidate_font_size.round() as u32, st.desk_opacity, st.max_composition_chars)
+                })
+                .ok();
                 if let Some((fs, cfs, op, mc)) = vals {
                     save_ui_appearance_to_configs(fs, cfs, op, mc);
                     if !cur_thread_cw.0.is_null() {
@@ -4410,11 +4416,11 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 }
             } else if (3708..=3780).contains(&cmd_id) {
                 let mc_new = cmd_id - 3700;
-                let mut vals = None;
-                if let Ok(mut st) = get_candidate_state().write() {
+                let vals = write_candidate_state(|st| {
                     st.max_composition_chars = mc_new.clamp(8, 80);
-                    vals = Some((st.font_size.round() as u32, st.candidate_font_size.round() as u32, st.desk_opacity, st.max_composition_chars));
-                }
+                    (st.font_size.round() as u32, st.candidate_font_size.round() as u32, st.desk_opacity, st.max_composition_chars)
+                })
+                .ok();
                 if let Some((fs, cfs, op, mc)) = vals {
                     save_ui_appearance_to_configs(fs, cfs, op, mc);
                     if !cur_thread_cw.0.is_null() {
@@ -4452,16 +4458,15 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     return LRESULT(0);
                 } else if wparam.0 == TIMER_HIDE_TOAST {
                     let _ = KillTimer(hwnd, TIMER_HIDE_TOAST);
-                    let should_hide = if let Ok(mut st) = get_candidate_state().write() {
+                    let should_hide = write_candidate_state(|st| {
                         if st.composition_text.is_empty() && st.candidates.is_empty() {
                             st.array30_coach_hint.clear();
                             true
                         } else {
                             false
                         }
-                    } else {
-                        true
-                    };
+                    })
+                    .unwrap_or(true);
                     if should_hide {
                         let _ = ShowWindow(hwnd, SW_HIDE);
                     }
@@ -4479,7 +4484,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
             WM_SETCURSOR => {
                 let mut pt = POINT::default();
                 if GetCursorPos(&mut pt).is_ok() && ScreenToClient(hwnd, &mut pt).as_bool() {
-                    let is_clickable = if let Ok(s) = get_candidate_state().read() {
+                    let is_clickable = read_candidate_state(|s| {
                         let on_gear = pt.x >= s.gear_rect.left && pt.x <= s.gear_rect.right &&
                                       pt.y >= s.gear_rect.top && pt.y <= s.gear_rect.bottom;
                         let on_tune_toggle = pt.x >= s.ui_tune_toggle_rect.left && pt.x <= s.ui_tune_toggle_rect.right &&
@@ -4496,7 +4501,8 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                                             pt.x >= s.quick_edit_rect.left && pt.x <= s.quick_edit_rect.right &&
                                             pt.y >= s.quick_edit_rect.top && pt.y <= s.quick_edit_rect.bottom;
                         on_gear || on_tune_toggle || on_mode || on_tune_btn || on_shift_down_btn || on_quick_edit
-                    } else { false };
+                    })
+                    .unwrap_or(false);
                     if is_clickable {
                         let _ = SetCursor(LoadCursorW(None, IDC_HAND).unwrap_or_default());
                         return LRESULT(1);
@@ -4528,7 +4534,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
             WM_LBUTTONDOWN => {
                 let mouse_x = (lparam.0 & 0xFFFF) as i16 as i32;
                 let mouse_y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
-                let (is_gear, is_tune_toggle, is_mode, is_quick_edit, quick_edit_kind, hit_tune_act, hit_shift_down_mode) = if let Ok(s) = get_candidate_state().read() {
+                let (is_gear, is_tune_toggle, is_mode, is_quick_edit, quick_edit_kind, hit_tune_act, hit_shift_down_mode) = read_candidate_state(|s| {
                     let g = mouse_x >= s.gear_rect.left && mouse_x <= s.gear_rect.right &&
                             mouse_y >= s.gear_rect.top && mouse_y <= s.gear_rect.bottom;
                     let tt = mouse_x >= s.ui_tune_toggle_rect.left && mouse_x <= s.ui_tune_toggle_rect.right &&
@@ -4562,7 +4568,8 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                         None
                     };
                     (g, tt, m, qe, qe_kind, act, sd_mode)
-                } else { (false, false, false, false, String::new(), None, None) };
+                })
+                .unwrap_or_else(|_| (false, false, false, false, String::new(), None, None));
 
                 if is_quick_edit {
                     if is_current_process_elevated() {
@@ -4600,7 +4607,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     } else {
                         None
                     };
-                    if let Ok(mut st) = get_candidate_state().write() {
+                    let _ = write_candidate_state(|st| {
                         st.shift_down_mode = clicked_mode;
                         if let Some((new_cands, new_coach)) = switched_payload {
                             st.candidates = new_cands;
@@ -4608,7 +4615,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                             st.page_offset = 0;
                             st.array30_coach_hint = new_coach;
                         }
-                    }
+                    });
                     relayout_and_repaint_window(hwnd);
                     return LRESULT(0);
                 }
@@ -4617,9 +4624,9 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     return LRESULT(0);
                 }
                 if is_tune_toggle {
-                    if let Ok(mut st) = get_candidate_state().write() {
+                    let _ = write_candidate_state(|st| {
                         st.show_ui_tuner_bar = !st.show_ui_tuner_bar;
-                    }
+                    });
                     relayout_and_repaint_window(hwnd);
                     return LRESULT(0);
                 }
@@ -4634,7 +4641,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     return LRESULT(0);
                 }
 
-                let mode = get_candidate_state().read().map(|s| s.input_display_mode.clone()).unwrap_or_default();
+                let mode = read_candidate_state(|s| s.input_display_mode.clone()).unwrap_or_default();
                 if mode == "floating_fixed" || mode == "floating_follow" {
                     // 鐵律：嚴禁調用 SendMessageW(WM_NCLBUTTONDOWN, HTCAPTION)！
                     // 原因：WM_NCLBUTTONDOWN 會強制奪取視窗焦點 (NCACTIVATE) 並進入 Win32 模態拖曳迴圈，
@@ -4678,10 +4685,10 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                             SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
                         );
 
-                        if let Ok(mut state) = get_candidate_state().write() {
+                        let _ = write_candidate_state(|state| {
                             state.fixed_x = new_x;
                             state.fixed_y = new_y;
-                        }
+                        });
                     }
                     return LRESULT(0);
                 }
@@ -4690,8 +4697,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
             WM_LBUTTONUP => {
                 if IS_DRAGGING.swap(false, Ordering::SeqCst) {
                     let _ = ReleaseCapture();
-                    let (cur_x, cur_y) = get_candidate_state().read()
-                        .map(|s| (s.fixed_x, s.fixed_y))
+                    let (cur_x, cur_y) = read_candidate_state(|s| (s.fixed_x, s.fixed_y))
                         .unwrap_or((0, 0));
                     save_desk_position(cur_x, cur_y);
                     return LRESULT(0);
@@ -4700,8 +4706,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
             }
             WM_CAPTURECHANGED => {
                 if IS_DRAGGING.swap(false, Ordering::SeqCst) {
-                    let (cur_x, cur_y) = get_candidate_state().read()
-                        .map(|s| (s.fixed_x, s.fixed_y))
+                    let (cur_x, cur_y) = read_candidate_state(|s| (s.fixed_x, s.fixed_y))
                         .unwrap_or((0, 0));
                     save_desk_position(cur_x, cur_y);
                 }
@@ -4734,14 +4739,14 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                 LRESULT(0)
             }
             WM_EXITSIZEMOVE => {
-                let mode = get_candidate_state().read().map(|s| s.input_display_mode.clone()).unwrap_or_default();
+                let mode = read_candidate_state(|s| s.input_display_mode.clone()).unwrap_or_default();
                 if mode == "floating_fixed" {
                     let mut rect = RECT::default();
                     if GetWindowRect(hwnd, &mut rect).is_ok() {
-                        if let Ok(mut state) = get_candidate_state().write() {
+                        let _ = write_candidate_state(|state| {
                             state.fixed_x = rect.left;
                             state.fixed_y = rect.top;
-                        }
+                        });
                         save_desk_position(rect.left, rect.top);
                     }
                     return LRESULT(0);
@@ -4750,9 +4755,9 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
             }
             WM_DPICHANGED => {
                 let dpi = (wparam.0 & 0xFFFF) as f32;
-                if let Ok(mut state) = get_candidate_state().write() {
+                let _ = write_candidate_state(|state| {
                     state.dpi_scale = (dpi / 96.0).max(0.5);
-                }
+                });
                 if lparam.0 != 0 {
                     let suggested = &*(lparam.0 as *const RECT);
                     let _ = SetWindowPos(
@@ -4859,5 +4864,37 @@ mod tests {
         no_tuner.show_ui_tuner_bar = false;
         let (_, _, _, h_no_tuner) = CandidateWindow::compute_desk_geometry(&no_tuner, 350, 550);
         assert!(h > h_no_tuner);
+    }
+
+    #[test]
+    fn test_tls_candidate_state_isolation_reentrancy_and_reset() {
+        reset_candidate_state();
+        write_candidate_state(|st| {
+            st.keyboard_mode = "cangjie".to_string();
+            st.composition_text = "日月".to_string();
+            // 驗證可重入保護：已持有可變借用期間再次 try_borrow 必須安全返回 Err 而非恐慌
+            assert!(read_candidate_state(|s| s.keyboard_mode.clone()).is_err());
+            assert!(write_candidate_state(|_| ()).is_err());
+        })
+        .unwrap();
+
+        assert_eq!(
+            read_candidate_state(|s| (s.keyboard_mode.clone(), s.composition_text.clone())).unwrap(),
+            ("cangjie".to_string(), "日月".to_string())
+        );
+
+        // 驗證跨執行緒 TLS 完全隔離
+        let other = std::thread::spawn(|| {
+            read_candidate_state(|s| (s.keyboard_mode.clone(), s.composition_text.clone())).unwrap()
+        })
+        .join()
+        .unwrap();
+        assert_eq!(other, ("hsu".to_string(), String::new()));
+
+        reset_candidate_state();
+        assert_eq!(
+            read_candidate_state(|s| (s.keyboard_mode.clone(), s.composition_text.clone())).unwrap(),
+            ("hsu".to_string(), String::new())
+        );
     }
 }

@@ -245,11 +245,21 @@ pub struct RuhiEngine {
     pub shift_down_state: ShiftDownRuntimeState,
     /// 最近一次歐文空白鍵自動勘誤之單步回退快照（供 Backspace 單鍵還原原詞）
     pub last_western_space_rollback: Option<WesternSpaceRollbackSnapshot>,
+    /// 反斜線轉義前導待命旗標（內嵌於引擎實例，避免指標旁表跨實例與 ABA 污染）
+    pub backslash_escape_pending: EscapePendingFlag,
 }
 
-static BACKSLASH_ESCAPE_ENGINES: std::sync::OnceLock<
-    std::sync::Mutex<std::collections::HashSet<usize>>,
-> = std::sync::OnceLock::new();
+/// 反斜線轉義前導待命旗標（`\` 後等待 `` ` `` / `\` / `~`；具獨立 `Clone` 語意）
+#[derive(Debug, Default)]
+pub struct EscapePendingFlag(std::sync::atomic::AtomicBool);
+
+impl Clone for EscapePendingFlag {
+    fn clone(&self) -> Self {
+        Self(std::sync::atomic::AtomicBool::new(
+            self.0.load(std::sync::atomic::Ordering::Relaxed),
+        ))
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct WesternSpaceRollbackSnapshot {
@@ -358,9 +368,8 @@ impl Default for RuhiEngine {
             tab_key_mode: "associative".to_string(),
             shift_down_state: ShiftDownRuntimeState::default(),
             last_western_space_rollback: None,
+            backslash_escape_pending: EscapePendingFlag::default(),
         };
-        // 避免測試或重建實例重用相同記憶體位址時殘留靜態反斜線轉義狀態
-        engine.set_backslash_escape_pending(false);
         engine
     }
 }
@@ -755,27 +764,18 @@ impl RuhiEngine {
         }
     }
 
-    /// 反斜線轉義前導待命狀態（不變動 `RuhiEngine` 結構體佈局）
+    /// 反斜線轉義前導待命狀態（內嵌於 `RuhiEngine` 原子旗標）
     pub fn is_backslash_escape_pending(&self) -> bool {
-        BACKSLASH_ESCAPE_ENGINES
-            .get()
-            .and_then(|m| m.lock().ok())
-            .map(|s| s.contains(&(self as *const Self as usize)))
-            .unwrap_or(false)
+        self.backslash_escape_pending
+            .0
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// 設定反斜線轉義前導待命狀態（`\`` ➔ `` ` ``、`\\` ➔ `\`、`\~` ➔ `~`）
     pub fn set_backslash_escape_pending(&self, active: bool) {
-        let set = BACKSLASH_ESCAPE_ENGINES
-            .get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()));
-        if let Ok(mut guard) = set.lock() {
-            let key = self as *const Self as usize;
-            if active {
-                guard.insert(key);
-            } else {
-                guard.remove(&key);
-            }
-        }
+        self.backslash_escape_pending
+            .0
+            .store(active, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn is_mixed_typing_enabled_for_mode(&self, mode: &str) -> bool {
@@ -17685,6 +17685,29 @@ mod tests {
             text.starts_with("＼"),
             "注音模式下孤立 \\ 後接一般鍵應先結算全形 ＼，實際：{text}"
         );
+    }
+
+    #[test]
+    fn test_escape_pending_flag_clone_independence_and_reset() {
+        let mut engine = RuhiEngine::default();
+        assert!(!engine.is_backslash_escape_pending());
+
+        engine.set_backslash_escape_pending(true);
+        assert!(engine.is_backslash_escape_pending());
+
+        let cloned = engine.clone();
+        assert!(cloned.is_backslash_escape_pending());
+
+        // 複製體與原實例的原子旗標必須彼此獨立
+        cloned.set_backslash_escape_pending(false);
+        assert!(engine.is_backslash_escape_pending());
+        assert!(!cloned.is_backslash_escape_pending());
+
+        engine.reset_buffer();
+        assert!(!engine.is_backslash_escape_pending());
+        cloned.set_backslash_escape_pending(true);
+        assert!(!engine.is_backslash_escape_pending());
+        assert!(cloned.is_backslash_escape_pending());
     }
 
     #[test]

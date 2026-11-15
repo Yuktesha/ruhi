@@ -604,7 +604,7 @@ impl LexiconManager {
         Some((form, surname, given))
     }
 
-    fn sync_user_onomastic_entry(&self, entry: &LexiconEntry) {
+    fn resolve_user_onomastic_pair(&self, entry: &LexiconEntry) -> Option<(String, String)> {
         if matches!(
             entry.note.as_str(),
             "auto_given_name"
@@ -613,17 +613,47 @@ impl LexiconManager {
                 | "auto_compound_surname"
                 | "ephemeral_given_name"
         ) {
-            return;
+            return None;
         }
-        if entry.note.starts_with("person_") {
-            if let Some((_, payload)) = entry.note.split_once(':') {
+        if let Some(person_tag) = entry
+            .note
+            .split(';')
+            .map(str::trim)
+            .find(|p| p.starts_with("person_"))
+        {
+            if let Some((_, payload)) = person_tag.split_once(':') {
                 if let Some((surname, given)) = payload.split_once('+') {
-                    crate::router::onomastics::register_user_onomastic_name(surname, given);
-                    return;
+                    let surname_t = surname.trim();
+                    let given_t = given.trim();
+                    if !surname_t.is_empty() && !given_t.is_empty() {
+                        let trimmed = entry.word.trim();
+                        // P2 防護：即使帶有 person_* 標記，單姓雙字高頻常用詞（非慣用測試人名）不得誤註冊
+                        if trimmed.chars().count() == 2
+                            && surname_t.chars().count() == 1
+                            && !matches!(trimmed, "張三" | "李四" | "王五")
+                        {
+                            if let Some(indices) = self.word_index.get(trimmed) {
+                                let is_high_freq_core = indices.iter().any(|&idx| {
+                                    self.entries
+                                        .get(idx)
+                                        .map_or(false, |e| e.category != "user" && e.weight >= 300)
+                                });
+                                if is_high_freq_core {
+                                    return None;
+                                }
+                            }
+                        }
+                        return Some((surname_t.to_string(), given_t.to_string()));
+                    }
                 }
             }
         }
-        if let Some((_, surname, given)) = self.classify_user_person_name(&entry.word) {
+        self.classify_user_person_name(&entry.word)
+            .map(|(_, surname, given)| (surname, given))
+    }
+
+    fn sync_user_onomastic_entry(&self, entry: &LexiconEntry) {
+        if let Some((surname, given)) = self.resolve_user_onomastic_pair(entry) {
             crate::router::onomastics::register_user_onomastic_name(&surname, &given);
         }
     }
@@ -3698,6 +3728,56 @@ mod tests {
         assert!(cands.contains(&"那".to_string()));
         assert!(cands.contains(&"納".to_string()));
         assert!(cands.contains(&"哪".to_string()), "「那」必須能跨聲調選到「哪」(口那)");
+    }
+
+    #[test]
+    fn test_sync_user_onomastic_entry_p2_guard_and_semicolon_tags() {
+        let mut mgr = LexiconManager::new();
+        mgr.add_entry(LexiconEntry::new("高興", "ㄍㄠ ㄒㄧㄥˋ", 450, "general", ""));
+        mgr.add_entry(LexiconEntry::new("張三", "ㄓㄤ ㄙㄢ", 500, "general", ""));
+        mgr.sort_indices();
+
+        // 1. 分號複合標記（TSF-Selection;person_s1_g2:曹+大十）必須正確辨識並通過
+        let e_caodashi = LexiconEntry::new(
+            "曹大十",
+            "ㄘㄠˊ ㄉㄚˋ ㄕˊ",
+            1200,
+            "user",
+            "TSF-Selection;person_s1_g2:曹+大十",
+        );
+        assert_eq!(
+            mgr.resolve_user_onomastic_pair(&e_caodashi),
+            Some(("曹".to_string(), "大十".to_string())),
+            "分號串接之 TSF-Selection;person_s1_g2 必須可解析人名"
+        );
+
+        // 2. 即使帶有 person_* 標記，核心詞庫高頻單姓雙字常用詞（weight >= 300）必須被攔截
+        let e_gaoxing = LexiconEntry::new(
+            "高興",
+            "ㄍㄠ ㄒㄧㄥˋ",
+            1200,
+            "user",
+            "TSF-Selection;person_s1_g1:高+興",
+        );
+        assert_eq!(
+            mgr.resolve_user_onomastic_pair(&e_gaoxing),
+            None,
+            "核心高頻雙字詞「高興」即使附帶 person_* 標記仍須遭 P2 防護攔截"
+        );
+
+        // 3. 白名單慣用人名「張三」即使於核心詞庫高頻存在仍必須放行
+        let e_zhangsan = LexiconEntry::new(
+            "張三",
+            "ㄓㄤ ㄙㄢ",
+            1200,
+            "user",
+            "person_s1_g1:張+三",
+        );
+        assert_eq!(
+            mgr.resolve_user_onomastic_pair(&e_zhangsan),
+            Some(("張".to_string(), "三".to_string())),
+            "白名單人名「張三」不得遭攔截"
+        );
     }
 
     #[test]

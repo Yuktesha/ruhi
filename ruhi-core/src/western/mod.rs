@@ -57,6 +57,15 @@ pub struct WesternEngine {
     pub scorer: WesternConfidenceScorer,
 }
 
+impl Drop for WesternEngine {
+    fn drop(&mut self) {
+        let key = self.session_key();
+        if let Ok(mut map) = western_session_store().lock() {
+            map.remove(&key);
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct WesternLangState {
     enabled_languages: Vec<String>,
@@ -2445,6 +2454,26 @@ mod tests {
             }
         }
         assert_eq!(committed, "this is a sample book", "歐文引擎必須精準完成分詞與標點連綴");
+    }
+
+    #[test]
+    fn test_western_engine_drop_cleans_session_store() {
+        let mut eng = Box::new(WesternEngine::new());
+        eng.record_committed_text("alpha beta gamma");
+        let key = eng.session_key();
+        {
+            let store = western_session_store().lock().unwrap();
+            assert!(
+                store.contains_key(&key),
+                "紀錄已送出文本後 session_store 應包含此引擎鍵值"
+            );
+        }
+        drop(eng);
+        let store = western_session_store().lock().unwrap();
+        assert!(
+            !store.contains_key(&key),
+            "WesternEngine Drop 後必須清除 western_session_store 對應鍵值"
+        );
     }
 
     #[test]
