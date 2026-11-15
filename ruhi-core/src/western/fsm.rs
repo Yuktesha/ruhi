@@ -48,11 +48,29 @@ impl WesternToken {
             return WesternTokenKind::Number;
         }
 
-        let chars: Vec<char> = text.chars().collect();
-        let has_underscore = chars.contains(&'_');
-        let has_hyphen = chars.contains(&'-');
-        let has_upper = chars.iter().any(|c| c.is_ascii_uppercase());
-        let has_lower = chars.iter().any(|c| c.is_ascii_lowercase());
+        let base_chars: Vec<char> = text
+            .chars()
+            .filter(|c| !matches!(c, '\u{0300}'..='\u{036F}'))
+            .collect();
+        if base_chars.is_empty() {
+            return WesternTokenKind::Punctuation;
+        }
+        let has_underscore = base_chars.contains(&'_');
+        let has_hyphen = base_chars.contains(&'-');
+        let is_lat_upper = |c: char| {
+            c.is_ascii_uppercase()
+                || (c.is_uppercase() && matches!(c, '\u{00C0}'..='\u{024F}' | '\u{1E00}'..='\u{1EFF}'))
+        };
+        let is_lat_lower = |c: char| {
+            c.is_ascii_lowercase()
+                || (c.is_lowercase() && matches!(c, '\u{00C0}'..='\u{024F}' | '\u{1E00}'..='\u{1EFF}'))
+        };
+        let is_lat_alnum = |c: char| {
+            c.is_ascii_alphanumeric()
+                || (c.is_alphabetic() && matches!(c, '\u{00C0}'..='\u{024F}' | '\u{1E00}'..='\u{1EFF}'))
+        };
+        let has_upper = base_chars.iter().any(|&c| is_lat_upper(c));
+        let has_lower = base_chars.iter().any(|&c| is_lat_lower(c));
 
         // 代碼標識符判定（底線、連字號、或駝峰大小寫交錯）
         if has_underscore {
@@ -62,22 +80,26 @@ impl WesternToken {
             return WesternTokenKind::Identifier(TokenCasing::SnakeCase);
         }
 
-        if has_hyphen && chars.iter().all(|c| c.is_ascii_alphanumeric() || *c == '-') {
+        if has_hyphen && base_chars.iter().all(|&c| is_lat_alnum(c) || c == '-') {
             return WesternTokenKind::Identifier(TokenCasing::KebabCase);
         }
 
         // 駝峰命名檢驗 (camelCase / PascalCase)
         if has_upper && has_lower {
-            let first_is_upper = chars[0].is_ascii_uppercase();
+            let first_is_upper = is_lat_upper(base_chars[0]);
             // 檢查內部是否有 lower -> upper 或 upper -> lower 的轉換
-            let has_internal_camel = chars.windows(2).any(|w| w[0].is_ascii_lowercase() && w[1].is_ascii_uppercase());
+            let has_internal_camel = base_chars
+                .windows(2)
+                .any(|w| is_lat_lower(w[0]) && is_lat_upper(w[1]));
             if has_internal_camel {
                 if first_is_upper {
                     return WesternTokenKind::Identifier(TokenCasing::PascalCase);
                 } else {
                     return WesternTokenKind::Identifier(TokenCasing::CamelCase);
                 }
-            } else if first_is_upper && chars[1..].iter().all(|c| c.is_ascii_lowercase() || *c == '\'') {
+            } else if first_is_upper
+                && base_chars[1..].iter().all(|&c| is_lat_lower(c) || c == '\'')
+            {
                 return WesternTokenKind::Word(TokenCasing::TitleCase);
             } else {
                 return WesternTokenKind::Word(TokenCasing::Mixed);
@@ -162,9 +184,14 @@ impl WesternFSM {
             return FsmAction::CommitToken(chunk);
         }
 
-        // 4. 英數字元與代碼連接符 (底線、連字號、撇號)
+        // 4. 英數字元、泛歐／梵語變音字母與代碼連接符 (底線、連字號、撇號)
         // 撇號: 僅在有前綴字母時作為單字內撇號 (如 don't, it's)，開頭單獨鍵入則不吸附
-        let is_valid_char = ch.is_ascii_alphanumeric()
+        let is_latin_or_mark = ch.is_ascii_alphabetic()
+            || (ch.is_alphabetic()
+                && matches!(ch, '\u{00C0}'..='\u{024F}' | '\u{1E00}'..='\u{1EFF}'))
+            || (matches!(ch, '\u{0300}'..='\u{036F}') && !self.current_token.is_empty());
+        let is_valid_char = ch.is_ascii_digit()
+            || is_latin_or_mark
             || ch == '_'
             || (ch == '-' && !self.current_token.is_empty())
             || (ch == '\'' && !self.current_token.is_empty());

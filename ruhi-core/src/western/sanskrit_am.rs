@@ -4363,7 +4363,6 @@ pub fn lookup_am_sanskrit_phrases(token: &str) -> Vec<String> {
             keys.push(target);
         }
     }
-    let mut out = Vec::new();
     for k in &keys {
         if let Ok(idx) = AM_PHRASE_EXPANSIONS.binary_search_by_key(&k.as_str(), |&(key, _)| key) {
             for &ph in AM_PHRASE_EXPANSIONS[idx].1 {

@@ -57,6 +57,60 @@ pub struct WesternEngine {
     pub scorer: WesternConfidenceScorer,
 }
 
+#[derive(Debug, Clone)]
+struct WesternLangState {
+    enabled_languages: Vec<String>,
+    data_dir: Option<std::path::PathBuf>,
+    baseline_lexicon: Option<Arc<WesternLexicon>>,
+    user_inserted_words: Vec<(String, u32, f32)>,
+}
+
+impl Default for WesternLangState {
+    fn default() -> Self {
+        Self {
+            enabled_languages: vec!["en".to_string()],
+            data_dir: None,
+            baseline_lexicon: None,
+            user_inserted_words: Vec::new(),
+        }
+    }
+}
+
+type LangStoreEntry = (std::sync::Weak<WesternLexicon>, WesternLangState);
+type TsvDirEntry = (std::sync::Weak<WesternLexicon>, std::path::PathBuf);
+
+fn western_lang_store() -> &'static Mutex<HashMap<usize, LangStoreEntry>> {
+    static LANG_STORE: OnceLock<Mutex<HashMap<usize, LangStoreEntry>>> = OnceLock::new();
+    LANG_STORE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn western_tsv_dir_store() -> &'static Mutex<HashMap<usize, TsvDirEntry>> {
+    static DIR_STORE: OnceLock<Mutex<HashMap<usize, TsvDirEntry>>> = OnceLock::new();
+    DIR_STORE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn normalize_western_languages(langs: &[String]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for raw in langs {
+        let norm = match raw.trim().to_lowercase().as_str() {
+            "" => continue,
+            "english" => "en".to_string(),
+            "french" | "français" | "francais" => "fr".to_string(),
+            "german" | "deutsch" => "de".to_string(),
+            "spanish" | "español" | "espanol" => "es".to_string(),
+            "sanskrit" | "ananda_marga" | "am_sanskrit" => "sa_am".to_string(),
+            other => other.to_string(),
+        };
+        if !out.contains(&norm) {
+            out.push(norm);
+        }
+    }
+    if out.is_empty() {
+        out.push("en".to_string());
+    }
+    out
+}
+
 impl Default for WesternEngine {
     fn default() -> Self {
         Self::new()
@@ -223,9 +277,134 @@ impl WesternEngine {
         }
     }
 
+    /// 設定當前引擎實例啟用之歐語與外掛語言包清單（支援 `"en"`, `"fr"`, `"de"`, `"es"`, `"sa_am"`）。
+    /// 預設僅啟用 `["en"]`（`"sa_am"` 預設為關閉 OFF）。
+    pub fn set_enabled_languages(&mut self, langs: &[String]) {
+        let target_langs = normalize_western_languages(langs);
+        let want_sa = target_langs.iter().any(|l| l == "sa_am");
+        let old_ptr = Arc::as_ptr(&self.lexicon) as usize;
+
+        let mut prev_state = if let Ok(mut store) = western_lang_store().lock() {
+            store.retain(|_, (weak, _)| weak.strong_count() > 0);
+            store
+                .get(&old_ptr)
+                .filter(|(weak, _)| weak.strong_count() > 0)
+                .map(|(_, st)| st.clone())
+        } else {
+            None
+        }
+        .unwrap_or_default();
+
+        if prev_state.data_dir.is_none() {
+            if let Ok(mut dirs) = western_tsv_dir_store().lock() {
+                dirs.retain(|_, (weak, _)| weak.strong_count() > 0);
+                if let Some((weak, dir)) = dirs.get(&old_ptr) {
+                    if weak.strong_count() > 0 {
+                        prev_state.data_dir = Some(dir.clone());
+                    }
+                }
+            }
+        }
+
+        let had_sa = prev_state.enabled_languages.iter().any(|l| l == "sa_am");
+
+        if Arc::ptr_eq(&self.lexicon, &WesternLexicon::shared_default())
+            || Arc::strong_count(&self.lexicon) > 1
+        {
+            if prev_state.baseline_lexicon.is_none() && !had_sa {
+                prev_state.baseline_lexicon = Some(self.lexicon.clone());
+            }
+            let _ = Arc::make_mut(&mut self.lexicon);
+        } else if prev_state.baseline_lexicon.is_none() && !had_sa {
+            prev_state.baseline_lexicon = Some(self.lexicon.clone());
+        }
+
+        if want_sa && !had_sa {
+            if prev_state.baseline_lexicon.is_none() {
+                prev_state.baseline_lexicon = Some(self.lexicon.clone());
+            }
+            if let Some(ref dir) = prev_state.data_dir {
+                let pack_path = dir.join("packs").join("pack_western_sanskrit.tsv");
+                if pack_path.exists() {
+                    let _ = Arc::make_mut(&mut self.lexicon).load_tsv(&pack_path);
+                }
+            }
+        } else if !want_sa && had_sa {
+            if let Some(ref base_arc) = prev_state.baseline_lexicon {
+                let mut restored = (**base_arc).clone();
+                for (w, freq, weight) in &prev_state.user_inserted_words {
+                    restored.insert_word(w, *freq, *weight);
+                }
+                self.lexicon = Arc::new(restored);
+            }
+        }
+
+        prev_state.enabled_languages = target_langs;
+        let new_ptr = Arc::as_ptr(&self.lexicon) as usize;
+        if old_ptr != new_ptr {
+            if let Ok(mut sess) = western_session_store().lock() {
+                if let Some(mem) = sess.remove(&old_ptr) {
+                    sess.insert(new_ptr, mem);
+                }
+            }
+        }
+        if let Ok(mut store) = western_lang_store().lock() {
+            if old_ptr != new_ptr {
+                store.remove(&old_ptr);
+            }
+            store.insert(new_ptr, (Arc::downgrade(&self.lexicon), prev_state));
+        }
+    }
+
+    /// 取得當前引擎實例啟用之歐語與外掛語言包清單（預設為 `["en"]`）。
+    pub fn enabled_languages(&self) -> Vec<String> {
+        let ptr = Arc::as_ptr(&self.lexicon) as usize;
+        if let Ok(store) = western_lang_store().lock() {
+            if let Some((weak, st)) = store.get(&ptr) {
+                if weak.strong_count() > 0 {
+                    return st.enabled_languages.clone();
+                }
+            }
+        }
+        vec!["en".to_string()]
+    }
+
+    /// 檢查特定語言或領域包是否於當前引擎實例啟用（`sa_am` 預設為 false）。
+    pub fn is_language_enabled(&self, lang: &str) -> bool {
+        let target = lang.trim().to_lowercase();
+        let ptr = Arc::as_ptr(&self.lexicon) as usize;
+        if let Ok(store) = western_lang_store().lock() {
+            if let Some((weak, st)) = store.get(&ptr) {
+                if weak.strong_count() > 0 {
+                    return st.enabled_languages.iter().any(|l| l == &target);
+                }
+            }
+        }
+        target == "en"
+    }
+
     /// 寫入單字至當前引擎詞庫（寫入時自動 Copy-on-Write，不影響共用唯讀字典單例）
     pub fn insert_word(&mut self, word: &str, freq: u32, weight: f32) {
+        let old_ptr = Arc::as_ptr(&self.lexicon) as usize;
         Arc::make_mut(&mut self.lexicon).insert_word(word, freq, weight);
+        let new_ptr = Arc::as_ptr(&self.lexicon) as usize;
+        if let Ok(mut store) = western_lang_store().lock() {
+            if let Some((_, mut st)) = if old_ptr != new_ptr {
+                store.remove(&old_ptr)
+            } else {
+                store.get(&new_ptr).cloned()
+            } {
+                st.user_inserted_words.push((word.to_string(), freq, weight));
+                store.insert(new_ptr, (Arc::downgrade(&self.lexicon), st));
+            }
+        }
+        if old_ptr != new_ptr {
+            if let Ok(mut sess) = western_session_store().lock() {
+                if let Some(mem) = sess.remove(&old_ptr) {
+                    sess.insert(new_ptr, mem);
+                }
+            }
+        }
     }
 
     /// 從 TSV 檔案載入完整歐文詞庫（優先共享系統級唯讀 TSV 快取單例）
@@ -234,12 +413,36 @@ impl WesternEngine {
         if !p.exists() {
             return Ok(0);
         }
-        if Arc::ptr_eq(&self.lexicon, &WesternLexicon::shared_default()) {
+        let old_ptr = Arc::as_ptr(&self.lexicon) as usize;
+        let prev_langs = western_lang_store()
+            .lock()
+            .ok()
+            .and_then(|s| s.get(&old_ptr).filter(|(w, _)| w.strong_count() > 0).map(|(_, st)| st.enabled_languages.clone()));
+
+        let count = if Arc::ptr_eq(&self.lexicon, &WesternLexicon::shared_default()) {
             let (shared, count) = WesternLexicon::shared_from_tsv_with_count(p)?;
             self.lexicon = shared;
-            return Ok(count);
+            count
+        } else {
+            Arc::make_mut(&mut self.lexicon).load_tsv(p)?
+        };
+
+        if let Some(parent_dir) = p.parent() {
+            let new_ptr = Arc::as_ptr(&self.lexicon) as usize;
+            if let Ok(mut dirs) = western_tsv_dir_store().lock() {
+                dirs.retain(|_, (weak, _)| weak.strong_count() > 0);
+                dirs.insert(new_ptr, (Arc::downgrade(&self.lexicon), parent_dir.to_path_buf()));
+            }
+            if let Some(langs) = prev_langs {
+                if old_ptr != new_ptr {
+                    if let Ok(mut store) = western_lang_store().lock() {
+                        store.remove(&old_ptr);
+                    }
+                }
+                self.set_enabled_languages(&langs);
+            }
         }
-        Arc::make_mut(&mut self.lexicon).load_tsv(p)
+        Ok(count)
     }
 
     /// 處理按鍵輸入
@@ -692,7 +895,7 @@ impl WesternEngine {
 
     /// 查詢中文模式下簡易英語語義橋接候選詞
     pub fn lookup_chinese_semantic_bridge(raw_ascii: &str) -> Vec<String> {
-        let lower = raw_ascii.trim().to_ascii_lowercase();
+        let lower = raw_ascii.trim().to_lowercase();
         if lower.len() < 2 {
             return Vec::new();
         }
@@ -1057,7 +1260,7 @@ impl WesternEngine {
             .copied()
             .map(Self::strip_char_diacritic)
             .collect::<String>()
-            .to_ascii_lowercase();
+            .to_lowercase();
         for &(key, variants) in Self::LOANWORD_DIACRITICS {
             if key == normalized_ascii {
                 for &v in variants {
@@ -1070,19 +1273,25 @@ impl WesternEngine {
             }
         }
 
-        // 2b. 阿南達瑪迦梵語羅馬拼音（Ananda Marga Roman Saṁskṛta）與 IAST 整詞轉寫查詢
+        // 2b. 阿南達瑪迦梵語羅馬拼音（Ananda Marga Roman Saṁskṛta）與 IAST 整詞轉寫查詢（僅於明確啟用 `sa_am` 語言包時生效）
         //     例如 ananda -> ánanda / Ánanda / ānanda, krsna / krishna -> krśńa / Krśńa / kṛṣṇa,
         //     samskrta / sanskrit -> saḿskrta, jinana / jnana -> jiṋána, dharana -> dhárańá
-        for am_cand in sanskrit_am::lookup_am_sanskrit_word(trimmed) {
-            if !results.contains(&am_cand) {
-                results.push(am_cand);
+        if self.is_language_enabled("sa_am") {
+            for am_cand in sanskrit_am::lookup_am_sanskrit_word(trimmed) {
+                if !results.contains(&am_cand) {
+                    results.push(am_cand);
+                }
             }
         }
 
-        // 2c. 泛歐與梵文多語系常用溝通語意橋接（如 tks / TKS / thanks + ↓ 列出 Thanks, Thank you, Merci, Danke, Gracias, Grazie, Obrigado, Dhanyavád）
+        // 2c. 泛歐與（啟用 `sa_am` 時含梵文）多語系常用溝通語意橋接（如 tks / TKS / thanks + ↓）
+        let include_sa_am = self.is_language_enabled("sa_am");
         for &(key, greetings) in Self::MULTILINGUAL_EU_GREETINGS {
             if key == normalized_ascii {
                 for &g in greetings {
+                    if !include_sa_am && g == "Dhanyava\u{0301}d" {
+                        continue;
+                    }
                     let s = g.to_string();
                     if !results.contains(&s) {
                         results.push(s);
@@ -1192,7 +1401,7 @@ impl WesternEngine {
             return Vec::new();
         }
 
-        let t_lower = trimmed.to_ascii_lowercase();
+        let t_lower = trimmed.to_lowercase();
         let mut results: Vec<String> = Vec::new();
 
         let push_unique = |results: &mut Vec<String>, cand: &str| {
@@ -1212,10 +1421,14 @@ impl WesternEngine {
             }
         }
 
-        // 1b. 泛歐與梵文多語系常用溝通語意橋接
+        // 1b. 泛歐與（啟用 `sa_am` 時含梵文）多語系常用溝通語意橋接
+        let include_sa_am = self.is_language_enabled("sa_am");
         for &(key, greetings) in Self::MULTILINGUAL_EU_GREETINGS {
             if t_lower == key {
                 for &g in greetings {
+                    if !include_sa_am && g == "Dhanyava\u{0301}d" {
+                        continue;
+                    }
                     let s = g.to_string();
                     if !results.contains(&s) {
                         results.push(s);
@@ -1255,15 +1468,17 @@ impl WesternEngine {
             }
         }
 
-        // 4b. 阿南達瑪迦梵語經典名相與片語展開 (如 ananda -> Ánanda Vacanámrtam, Ánanda Sútram; baba -> Bábá náma kevalam)
-        for ph in sanskrit_am::lookup_am_sanskrit_phrases(trimmed) {
-            if !results.contains(&ph) {
-                results.push(ph);
+        // 4b. 阿南達瑪迦梵語經典名相與片語展開（僅於明確啟用 `sa_am` 語言包時生效）
+        if self.is_language_enabled("sa_am") {
+            for ph in sanskrit_am::lookup_am_sanskrit_phrases(trimmed) {
+                if !results.contains(&ph) {
+                    results.push(ph);
+                }
             }
-        }
-        for am_w in sanskrit_am::lookup_am_sanskrit_word(trimmed) {
-            if !results.contains(&am_w) {
-                results.push(am_w);
+            for am_w in sanskrit_am::lookup_am_sanskrit_word(trimmed) {
+                if !results.contains(&am_w) {
+                    results.push(am_w);
+                }
             }
         }
 
@@ -1494,8 +1709,9 @@ impl WesternEngine {
                 }
             } else {
                 let c_low = surface.to_lowercase();
-                let base_w = self.lexicon.get_weight(&c_low).unwrap_or(52.0);
-                upsert_pref(c_low, surface.clone(), base_w + *bonus);
+                let base_w = self.lexicon.get_weight(&c_low).unwrap_or(58.0).max(66.0);
+                let total = base_w + (*bonus * 2.0) + compute_context_bonus(&c_low);
+                upsert_pref(c_low, surface.clone(), total);
             }
         }
 
@@ -1710,7 +1926,7 @@ impl WesternEngine {
 
     /// 判斷原始 ASCII 按鍵序列是否具備高信心之歐文跨軌救援價值（例如在許氏或倉頡誤打 tks、pls、btw、recieve 等）
     pub fn has_high_confidence_rescue(&self, raw_ascii: &str) -> bool {
-        let t_lower = raw_ascii.trim().to_ascii_lowercase();
+        let t_lower = raw_ascii.trim().to_lowercase();
         if t_lower.len() < 2 {
             return false;
         }
@@ -1732,14 +1948,16 @@ impl WesternEngine {
         if Self::LOANWORD_DIACRITICS.iter().any(|&(k, _)| k == t_lower) {
             return true;
         }
-        if sanskrit_am::AM_ABBREV_AND_HEADCODES.binary_search_by_key(&t_lower.as_str(), |&(k, _)| k).is_ok() {
-            return true;
-        }
-        if sanskrit_am::AM_PHRASE_EXPANSIONS.binary_search_by_key(&t_lower.as_str(), |&(k, _)| k).is_ok() {
-            return true;
-        }
-        if sanskrit_am::AM_SANSKRIT_LEXICON.binary_search_by_key(&t_lower.as_str(), |&(k, _)| k).is_ok() {
-            return true;
+        if self.is_language_enabled("sa_am") {
+            if sanskrit_am::AM_ABBREV_AND_HEADCODES.binary_search_by_key(&t_lower.as_str(), |&(k, _)| k).is_ok() {
+                return true;
+            }
+            if sanskrit_am::AM_PHRASE_EXPANSIONS.binary_search_by_key(&t_lower.as_str(), |&(k, _)| k).is_ok() {
+                return true;
+            }
+            if sanskrit_am::AM_SANSKRIT_LEXICON.binary_search_by_key(&t_lower.as_str(), |&(k, _)| k).is_ok() {
+                return true;
+            }
         }
         self.lexicon.contains(&t_lower)
     }
@@ -1955,7 +2173,7 @@ impl WesternEngine {
             }
         }
 
-        let t_lower = token.to_ascii_lowercase();
+        let t_lower = token.to_lowercase();
         if Self::is_common_abbrev(&t_lower) {
             return None;
         }
@@ -1966,7 +2184,7 @@ impl WesternEngine {
 
         // Tier 1b：高確定性封閉多詞語法／變音消歧構式（僅於相同水平子句內觸發）
         if let Some((prev_orig, space_between, prev_span_chars)) = prev_info {
-            let prev_lower = prev_orig.to_ascii_lowercase();
+            let prev_lower = prev_orig.to_lowercase();
             let span_2 = prev_span_chars + tok_char_len;
             let orig_span = format!("{}{}{}", prev_orig, space_between, token);
 
@@ -2300,7 +2518,8 @@ mod tests {
 
     #[test]
     fn test_ananda_marga_roman_sanskrit_support() {
-        let eng = WesternEngine::new();
+        let mut eng = WesternEngine::new();
+        eng.set_enabled_languages(&["en".to_string(), "sa_am".to_string()]);
 
         // 1. 輸入 ananda 按 ↓ 必得 ánanda 與 Ánanda 及 IAST ānanda
         let ananda_cands = eng.lookup_down_arrow_candidates("ananda", None);
@@ -3073,5 +3292,177 @@ mod tests {
             let eng_full = WesternEngine::new_with_shared_lexicon(full_lex);
             verify_engine(&eng_full, "full_tsv");
         }
+    }
+
+    #[test]
+    fn test_sanskrit_pack_default_off_isolation_and_toggle() {
+        // 1. 預設僅啟用 ["en"]，sa_am 預設關閉
+        let mut eng = WesternEngine::new();
+        assert_eq!(eng.enabled_languages(), vec!["en".to_string()]);
+        assert!(!eng.is_language_enabled("sa_am"));
+
+        // 2. 預設關閉下，bnk / ananda / krsna 不應滲入阿南達瑪迦詞彙，TKS 不應含 Dhanyavád
+        let down_bnk_off = eng.lookup_down_arrow_candidates("bnk", None);
+        assert!(
+            !down_bnk_off.iter().any(|s| s == "Ba\u{0301}ba\u{0301} Na\u{0301}ma Kevalam"),
+            "預設關閉 sa_am 時 bnk 不應觸發阿南達瑪迦縮寫展開: {:?}",
+            down_bnk_off
+        );
+        let down_ananda_off = eng.lookup_down_arrow_candidates("ananda", None);
+        assert!(
+            !down_ananda_off.iter().any(|s| s == "a\u{0301}nanda" || s == "ānanda"),
+            "預設關閉 sa_am 時 ananda 不應觸發梵文專用轉寫: {:?}",
+            down_ananda_off
+        );
+        let down_tks_off = eng.lookup_down_arrow_candidates("TKS", None);
+        assert!(down_tks_off.contains(&"Thanks".to_string()));
+        assert!(
+            !down_tks_off.iter().any(|s| s == "Dhanyava\u{0301}d"),
+            "預設關閉 sa_am 時 TKS 不應包含 Dhanyavád: {:?}",
+            down_tks_off
+        );
+        assert!(!eng.has_high_confidence_rescue("bnk"));
+        assert!(!eng.has_high_confidence_rescue("parama"));
+
+        // 3. 載入主英文詞庫與動態切換 sa_am 開關（ON 載入 pack_western_sanskrit.tsv，OFF 即刻移除）
+        let tsv_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../data/lexicon_english.tsv");
+        if std::path::Path::new(tsv_path).exists() {
+            eng.load_tsv(tsv_path).expect("應可載入乾淨英文主詞庫");
+            assert!(
+                !eng.lexicon.contains("parama"),
+                "主英文詞庫去傾後不應包含 parama"
+            );
+
+            eng.set_enabled_languages(&["en".to_string(), "sa_am".to_string()]);
+            assert!(eng.is_language_enabled("sa_am"));
+            assert!(eng.lexicon.contains("parama"), "啟用 sa_am 後應載入 pack_western_sanskrit.tsv");
+            let down_tks_on = eng.lookup_down_arrow_candidates("TKS", None);
+            assert!(down_tks_on.contains(&"Dhanyava\u{0301}d".to_string()));
+            assert!(eng.has_high_confidence_rescue("bnk"));
+
+            // 切回僅英文：應立即卸載梵文資料包
+            eng.set_enabled_languages(&["en".to_string()]);
+            assert!(!eng.is_language_enabled("sa_am"));
+            assert!(!eng.lexicon.contains("parama"));
+            let down_tks_off_again = eng.lookup_down_arrow_candidates("TKS", None);
+            assert!(!down_tks_off_again.iter().any(|s| s == "Dhanyava\u{0301}d"));
+        }
+    }
+
+    #[test]
+    fn test_english_lexicon_l2_vs_corpus_parama_deskew() {
+        let tsv_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../data/lexicon_english.tsv");
+        if !std::path::Path::new(tsv_path).exists() {
+            return;
+        }
+        let mut eng = WesternEngine::new();
+        eng.load_tsv(tsv_path).expect("應可載入 lexicon_english.tsv");
+
+        // parama / dharma 不應再傾壓一般英文語境
+        assert!(!eng.lexicon.contains("parama"));
+        assert!(!eng.lexicon.contains("krsna"));
+
+        // 日常 L2 高頻詞應穩居 CEFR 權重優勢且可自常見拼誤正確救援
+        let hello_w = eng.lexicon.get_weight("hello").unwrap_or(0.0);
+        let psychic_w = eng.lexicon.get_weight("psychic").unwrap_or(0.0);
+        let cosmic_w = eng.lexicon.get_weight("cosmic").unwrap_or(0.0);
+        assert!(
+            hello_w > psychic_w && hello_w > cosmic_w,
+            "日常高頻詞 hello ({}) 必須高於 psychic ({}) 與 cosmic ({})",
+            hello_w,
+            psychic_w,
+            cosmic_w
+        );
+
+        let pairs = [
+            ("coffe", "coffee"),
+            ("reciept", "receipt"),
+            ("resturant", "restaurant"),
+            ("scedule", "schedule"),
+            ("libary", "library"),
+            ("coleague", "colleague"),
+            ("helo", "hello"),
+        ];
+        for (typo, expected) in pairs {
+            let cands = eng.lookup_up_arrow_candidates(typo);
+            assert!(
+                cands.iter().take(3).any(|c| c.eq_ignore_ascii_case(expected)),
+                "L2 拼寫救援 '{}' 應在前 3 名內給出 '{}', 實際為 {:?}",
+                typo,
+                expected,
+                cands
+            );
+        }
+    }
+
+    #[test]
+    fn test_phonetic_cache_generation_invalidation() {
+        let mut eng = WesternEngine::new();
+        // 先暖機建立音韻快取（此時不包含虛構詞彙 xqzblap / xqzblop）
+        let before = eng.lookup_up_arrow_candidates("xqzblp");
+        assert!(!before.iter().any(|w| w == "xqzblap" || w == "xqzblop"));
+
+        // 動態插入詞彙應透過 generation 遞增立即使音韻快取失效重建
+        eng.insert_word("xqzblap", 100, 50.0);
+        eng.insert_word("xqzblop", 100, 50.0);
+        let after_insert = eng.lookup_up_arrow_candidates("xqzblp");
+        assert!(
+            after_insert.iter().any(|w| w == "xqzblap"),
+            "動態插入後音韻快取必須立即命中新詞 xqzblap: {:?}",
+            after_insert
+        );
+
+        // 同詞典長度覆寫權重（lexicon.len() 不變）亦須觸發 generation 刷新快取排序
+        let prev_len = eng.lexicon.len();
+        eng.insert_word("xqzblop", 900, 99.0);
+        assert_eq!(eng.lexicon.len(), prev_len, "覆寫既有詞不應改變詞典總詞數");
+        let after_overwrite = eng.lookup_up_arrow_candidates("xqzblp");
+        let pos_op = after_overwrite.iter().position(|w| w == "xqzblop");
+        let pos_ap = after_overwrite.iter().position(|w| w == "xqzblap");
+        assert!(
+            matches!((pos_op, pos_ap), (Some(op), Some(ap)) if op < ap),
+            "同長度覆寫權重後，高權重 xqzblop 應立即領先 xqzblap: {:?}",
+            after_overwrite
+        );
+    }
+
+    #[test]
+    fn test_eu_and_sanskrit_diacritics_fsm_and_scoring() {
+        let eng = WesternEngine::new();
+        let scorer = scoring::WesternConfidenceScorer::new();
+        // 1. 泛歐變音符號與組合音調標記不可被切斷為符號
+        for token in ["café", "naïve", "résumé", "Straße", "España", "über", "François", "a\u{0301}nanda", "jin\u{032d}a\u{0301}na", "Ba\u{0301}ba\u{0301}"] {
+            assert!(
+                matches!(fsm::WesternToken::classify(token), fsm::WesternTokenKind::Word(_)),
+                "變音字詞 '{}' 必須識別為完整 WesternTokenKind::Word",
+                token
+            );
+            let s = scorer.score_token(token, &eng.lexicon);
+            assert!(
+                s >= 0.75,
+                "變音字詞 '{}' 評分應為正常泛歐詞水準 (>= 0.75), 實際為 {}",
+                token,
+                s
+            );
+        }
+
+        // 2. WesternFSM 連續按鍵輸入帶組合音標與 Latin-Extended 字元不得提早中斷 Token
+        let mut machine = fsm::WesternFSM::new();
+        for ch in "café".chars() {
+            let committed = machine.process_char(ch);
+            assert_eq!(committed, fsm::FsmAction::AppendPreedit, "輸入 'café' 途中應持續累積 preedit");
+        }
+        let committed_end = machine.process_char(' ');
+        assert_eq!(committed_end, fsm::FsmAction::CommitToken("café ".to_string()));
+
+        let mut skt_machine = fsm::WesternFSM::new();
+        for ch in "jin\u{032d}a\u{0301}na".chars() {
+            let committed = skt_machine.process_char(ch);
+            assert_eq!(committed, fsm::FsmAction::AppendPreedit, "輸入 'jiṋána' 組合變音字元時應持續累積 preedit");
+        }
+        assert_eq!(
+            skt_machine.process_char(' '),
+            fsm::FsmAction::CommitToken("jin\u{032d}a\u{0301}na ".to_string())
+        );
     }
 }

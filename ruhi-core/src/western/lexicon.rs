@@ -1,12 +1,46 @@
 /// RuhI (如喜) Input Method Framework - Rust Core
 /// src/western/lexicon.rs - 正規歐文字典與頻率表 (Western Lexicon)
 
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::SystemTime;
+
+static NEXT_LEXICON_GEN: AtomicU64 = AtomicU64::new(1);
+
+fn lexicon_ptr_generations() -> &'static Mutex<HashMap<usize, u64>> {
+    static PTR_GENS: OnceLock<Mutex<HashMap<usize, u64>>> = OnceLock::new();
+    PTR_GENS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+thread_local! {
+    static SUPPRESS_LEXICON_GEN_BUMP: Cell<bool> = const { Cell::new(false) };
+}
+
+fn bump_lexicon_ptr_generation(lex: &WesternLexicon) {
+    let ptr = lex as *const WesternLexicon as usize;
+    let gen_id = NEXT_LEXICON_GEN.fetch_add(1, Ordering::Relaxed);
+    if let Ok(mut guard) = lexicon_ptr_generations().lock() {
+        if !guard.contains_key(&ptr) && guard.len() >= 1024 {
+            if let Some(&old_k) = guard.keys().next() {
+                guard.remove(&old_k);
+            }
+        }
+        guard.insert(ptr, gen_id);
+    }
+}
+
+pub(crate) fn lexicon_generation_for_ptr(ptr: usize) -> u64 {
+    lexicon_ptr_generations()
+        .lock()
+        .ok()
+        .and_then(|g| g.get(&ptr).copied())
+        .unwrap_or(0)
+}
 
 /// 內建高頻歐文核心詞（確保即便離線或無外掛檔案時，常用詞亦 100% 具備正向語意信心）
 pub const EMBEDDED_CORE_ENGLISH_WORDS: &[(&str, f32)] = &[
@@ -202,7 +236,10 @@ impl WesternLexicon {
 
     /// 插入詞條並維護前綴索引（僅於新增不重複詞條時累加前綴計數）
     pub fn insert_word(&mut self, word: &str, freq: u32, weight: f32) {
-        let w_lower = word.to_ascii_lowercase();
+        if !SUPPRESS_LEXICON_GEN_BUMP.with(|c| c.get()) {
+            bump_lexicon_ptr_generation(self);
+        }
+        let w_lower = word.to_lowercase();
         if w_lower.is_empty() {
             return;
         }
@@ -221,25 +258,25 @@ impl WesternLexicon {
 
     /// 檢查單字是否存在於字典中
     pub fn contains(&self, word: &str) -> bool {
-        let w_lower = word.to_ascii_lowercase();
+        let w_lower = word.to_lowercase();
         self.words.contains_key(&w_lower)
     }
 
     /// 取得單字之權重（0.0 ~ 100.0）
     pub fn get_weight(&self, word: &str) -> Option<f32> {
-        let w_lower = word.to_ascii_lowercase();
+        let w_lower = word.to_lowercase();
         self.words.get(&w_lower).map(|&(_, w)| w)
     }
 
     /// 檢查特定前綴是否能組成合法歐文單字
     pub fn has_prefix(&self, prefix: &str) -> bool {
-        let pfx_lower = prefix.to_ascii_lowercase();
+        let pfx_lower = prefix.to_lowercase();
         self.prefixes.contains_key(&pfx_lower)
     }
 
     /// 取得前綴命中單字總數
     pub fn prefix_count(&self, prefix: &str) -> usize {
-        let pfx_lower = prefix.to_ascii_lowercase();
+        let pfx_lower = prefix.to_lowercase();
         self.prefixes.get(&pfx_lower).copied().unwrap_or(0)
     }
 
@@ -267,7 +304,7 @@ impl WesternLexicon {
     where
         F: FnMut(&str, f32) -> f32,
     {
-        let pfx_lower = prefix.to_ascii_lowercase();
+        let pfx_lower = prefix.to_lowercase();
         let pfx_len = pfx_lower.chars().count();
         if pfx_lower.is_empty() || limit == 0 {
             return Vec::new();
@@ -360,7 +397,7 @@ impl WesternLexicon {
 
     /// 子音骨架與拼字容錯檢索（供 ↑ 上箭頭智慧校正使用）
     pub fn lookup_skeleton_and_fuzzy(&self, token: &str, limit: usize) -> Vec<String> {
-        let t_lower = token.to_ascii_lowercase();
+        let t_lower = token.to_lowercase();
         let t_chars: Vec<char> = t_lower.chars().collect();
         let t_len = t_chars.len();
         if t_len < 2 || limit == 0 {
@@ -371,8 +408,20 @@ impl WesternLexicon {
         let last_ch = t_chars[t_len - 1];
         let mut scored: Vec<(String, f32)> = Vec::new();
 
-        for (w, &(_freq, weight)) in &self.words {
-            if weight < 55.0 || w == &t_lower {
+        for (w, &(freq, weight)) in &self.words {
+            if w == &t_lower {
+                continue;
+            }
+            // 依詞長與詞頻分級設定安全門檻，防止低頻短雜訊氾濫，同時保留中長拼字與 L2 詞彙救援
+            let w_char_len = w.chars().count();
+            let pass_gate = match w_char_len {
+                0..=1 => false,
+                2..=3 => weight >= 58.0 && freq >= 150,
+                4 => weight >= 46.0 && freq >= 35,
+                5..=6 => (weight >= 34.0 && freq >= 10) || weight >= 44.0,
+                _ => (weight >= 24.0 && freq >= 4) || weight >= 38.0,
+            };
+            if !pass_gate {
                 continue;
             }
             let w_chars: Vec<char> = w.chars().collect();
@@ -426,8 +475,15 @@ impl WesternLexicon {
         let reader = BufReader::new(file);
         let mut count = 0;
 
+        SUPPRESS_LEXICON_GEN_BUMP.with(|c| c.set(true));
         for line_res in reader.lines() {
-            let line = line_res?;
+            let line = match line_res {
+                Ok(l) => l,
+                Err(e) => {
+                    SUPPRESS_LEXICON_GEN_BUMP.with(|c| c.set(false));
+                    return Err(e);
+                }
+            };
             let trimmed = line.trim();
             if trimmed.is_empty() || trimmed.starts_with('#') {
                 continue;
@@ -449,6 +505,8 @@ impl WesternLexicon {
                 count += 1;
             }
         }
+        SUPPRESS_LEXICON_GEN_BUMP.with(|c| c.set(false));
+        bump_lexicon_ptr_generation(self);
         Ok(count)
     }
 }
