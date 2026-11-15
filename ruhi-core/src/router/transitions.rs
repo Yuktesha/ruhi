@@ -1275,16 +1275,10 @@ impl TransitionEngine {
             name: "dual_aspect_zai_verb_base".to_string(),
         });
 
-        // 程度讓步副詞「再」+ 可分級單字形容詞（再好、再大、再高、再多、再快、再難、再遠、再久、再強、再貴、再忙、再累、再怎麼）
+        // 程度讓步副詞「在」前抑制：保留於確定性語境；已於 Wave 2b 消融確認無條件「再 ➔ 單字形容詞」+28.0 會在「在小宇宙」等句型反傷，予以移除
         let zai4_degree_adjs = vec![
             "好", "大", "小", "高", "低", "多", "少", "快", "慢", "難", "遠", "近", "久", "強", "貴", "忙", "累", "苦", "痛", "怎麼",
         ];
-        self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::Exact("再".to_string()),
-            curr_pattern: WordPattern::OneOf(zai4_degree_adjs.iter().map(|s| s.to_string()).collect()),
-            bonus: 28.0,
-            name: "zai4_degree_concession_adj".to_string(),
-        });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("在".to_string()),
             curr_pattern: WordPattern::OneOf(zai4_degree_adjs.into_iter().map(|s| s.to_string()).collect()),
@@ -2806,13 +2800,7 @@ impl TransitionEngine {
             name: "zhenshi_cuican".to_string(),
         });
 
-        // 反身代詞構式: 自己 + 動作實詞 / 助動詞 + 自己 (自己去、自己開、自己做、自己維護、想自己、不用自己)
-        self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::Exact("自己".to_string()),
-            curr_pattern: WordPattern::ContentWord,
-            bonus: 22.0,
-            name: "ziji_action".to_string(),
-        });
+        // 反身代詞構式: 助動詞 + 自己 (想自己、不用自己；無條件「自己 + 實詞」+22.0 經消融確認為零正向且反傷 6 句，予以移除)
         let pre_ziji = vec!["不用", "想", "會", "能", "要", "去", "讓", "由", "請", "都不用", "也不用"];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(pre_ziji.into_iter().map(|s| s.to_string()).collect()),
@@ -5875,7 +5863,7 @@ impl TransitionEngine {
                                 )
                             });
                             let right_is_middle_de_particle = i + 1 < raw_slots.len().saturating_sub(1)
-                                && right.iter().all(|w| matches!(w.as_str(), "得" | "地" | "的" | "之" | "不"));
+                                && right.iter().all(|w| matches!(w.as_str(), "得" | "地" | "的" | "之" | "不" | "到"));
                             if !left.is_empty()
                                 && !right.is_empty()
                                 && !left_is_pure_coordinator_or_particle
@@ -6727,18 +6715,7 @@ impl TransitionEngine {
             bonus += self.apply_rule_score("guard_he_huo_polyphone", -35.0);
         }
 
-        // 3. 疊字後接修飾標記 (AA+的, AA+地, AABB+的, AABB+地)
-        if curr_word == "的" || curr_word == "地" {
-            let mut pit = prev_word.chars();
-            let is_reduplicated = match (pit.next(), pit.next(), pit.next(), pit.next(), pit.next()) {
-                (Some(a), Some(b), None, _, _) => a == b,
-                (Some(a), Some(b), Some(c), Some(d), None) => a == b && c == d,
-                _ => false,
-            };
-            if is_reduplicated {
-                bonus += self.apply_rule_score("morph_reduplicated_de", 18.0);
-            }
-        }
+        // 3. 疊字後接修飾標記已交由具語意區分度之構式處理；等權對「的/地」加分會干擾詞界，予以移除
 
         // 4. 修飾語接中心名詞「話」與防「的+化」
         if matches!(curr_word, "話" | "話語") && (prev_word == "的" || prev_word.ends_with("的") || prev_word == "普通") {
