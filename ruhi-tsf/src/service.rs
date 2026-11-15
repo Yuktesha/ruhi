@@ -562,6 +562,92 @@ static INSTANCE_LAST_WESTERN_AUTOCORRECT: std::sync::OnceLock<
     Mutex<std::collections::HashMap<usize, WesternSpaceRollback>>,
 > = std::sync::OnceLock::new();
 
+static WESTERN_LEADING_SIGILS: std::sync::OnceLock<
+    Mutex<std::collections::HashMap<usize, char>>,
+> = std::sync::OnceLock::new();
+
+static WESTERN_AUTOCORRECT_UNDO_PINS: std::sync::OnceLock<
+    Mutex<std::collections::HashMap<usize, Vec<(usize, usize, usize)>>>,
+> = std::sync::OnceLock::new();
+
+fn record_western_leading_sigil(inst_key: usize, sigil: char) {
+    let map_mutex = WESTERN_LEADING_SIGILS
+        .get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+    if let Ok(mut map) = map_mutex.lock() {
+        map.insert(inst_key, sigil);
+    }
+}
+
+fn take_western_leading_sigil(inst_key: usize) -> Option<char> {
+    let map_mutex = WESTERN_LEADING_SIGILS.get()?;
+    map_mutex.lock().ok()?.remove(&inst_key)
+}
+
+fn clear_western_leading_sigil(inst_key: usize) {
+    if let Some(map_mutex) = WESTERN_LEADING_SIGILS.get() {
+        if let Ok(mut map) = map_mutex.lock() {
+            map.remove(&inst_key);
+        }
+    }
+}
+
+fn record_western_undo_pin(inst_key: usize, depth: usize, pin_start: usize, pin_end: usize) {
+    let map_mutex = WESTERN_AUTOCORRECT_UNDO_PINS
+        .get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+    if let Ok(mut map) = map_mutex.lock() {
+        let list = map.entry(inst_key).or_default();
+        list.retain(|(d, _, _)| *d < depth);
+        list.push((depth, pin_start, pin_end));
+    }
+}
+
+fn take_western_undo_pin_for_depth(inst_key: usize, popped_depth: usize) -> Option<(usize, usize)> {
+    let map_mutex = WESTERN_AUTOCORRECT_UNDO_PINS.get()?;
+    let mut map = map_mutex.lock().ok()?;
+    let list = map.get_mut(&inst_key)?;
+    if let Some(pos) = list.iter().rposition(|(d, _, _)| *d == popped_depth) {
+        let (_, s, e) = list.remove(pos);
+        Some((s, e))
+    } else {
+        None
+    }
+}
+
+fn shift_western_undo_pins_after_cap_pop(inst_key: usize) {
+    if let Some(map_mutex) = WESTERN_AUTOCORRECT_UNDO_PINS.get() {
+        if let Ok(mut map) = map_mutex.lock() {
+            if let Some(list) = map.get_mut(&inst_key) {
+                list.retain_mut(|(d, _, _)| {
+                    if *d <= 1 {
+                        false
+                    } else {
+                        *d -= 1;
+                        true
+                    }
+                });
+            }
+        }
+    }
+}
+
+fn prune_western_undo_pins_above(inst_key: usize, new_depth: usize) {
+    if let Some(map_mutex) = WESTERN_AUTOCORRECT_UNDO_PINS.get() {
+        if let Ok(mut map) = map_mutex.lock() {
+            if let Some(list) = map.get_mut(&inst_key) {
+                list.retain(|(d, _, _)| *d < new_depth);
+            }
+        }
+    }
+}
+
+fn clear_western_undo_pins(inst_key: usize) {
+    if let Some(map_mutex) = WESTERN_AUTOCORRECT_UNDO_PINS.get() {
+        if let Ok(mut map) = map_mutex.lock() {
+            map.remove(&inst_key);
+        }
+    }
+}
+
 fn cleanup_instance_side_tables(inst_key: usize, comp_key: usize) {
     {
         let mut guard = CURRENT_DLL_INSTANCES.lock().unwrap_or_else(|e| e.into_inner());
@@ -591,6 +677,8 @@ fn cleanup_instance_side_tables(inst_key: usize, comp_key: usize) {
         let mut guard = map_mutex.lock().unwrap_or_else(|e| e.into_inner());
         guard.remove(&inst_key);
     }
+    clear_western_leading_sigil(inst_key);
+    clear_western_undo_pins(inst_key);
     remove_composition_epoch(comp_key);
 }
 
@@ -598,6 +686,7 @@ fn apply_config_to_engine(eng: &mut RuhiEngine, cfg: &RuhiConfig) {
     eng.keyboard_mode = cfg.keyboard_mode.clone();
     eng.last_keyboard_mode = cfg.last_keyboard_mode.clone();
     eng.set_enabled_keyboard_modes(cfg.enabled_keyboard_modes.clone());
+    eng.set_western_languages(&cfg.western_languages);
     eng.backtick_inline_mode = cfg.backtick_inline_mode.clone();
     eng.tilde_toggle_mode = cfg.tilde_toggle_mode.clone();
     eng.shift_down_mode = cfg.shift_down_mode.clone();
@@ -777,6 +866,8 @@ pub struct RuhiConfig {
     pub halfwidth_punct_mode: String,
     #[serde(default = "default_tab_key_mode")]
     pub tab_key_mode: String,
+    #[serde(default = "default_western_languages")]
+    pub western_languages: Vec<String>,
 }
 
 impl Default for RuhiConfig {
@@ -823,10 +914,12 @@ impl Default for RuhiConfig {
             shift_space_toggle_fullwidth: default_shift_space_toggle_fullwidth(),
             halfwidth_punct_mode: default_halfwidth_punct_mode(),
             tab_key_mode: default_tab_key_mode(),
+            western_languages: default_western_languages(),
         }
     }
 }
 
+fn default_western_languages() -> Vec<String> { vec!["en".to_string()] }
 fn default_tab_key_mode() -> String { "associative".to_string() }
 fn default_shift_space_toggle_fullwidth() -> bool { true }
 fn default_halfwidth_punct_mode() -> String { "fullwidth".to_string() }
@@ -1444,6 +1537,117 @@ fn map_vk_to_char(vk: u32, is_shift: bool) -> Option<char> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum EnglishVkTranslation {
+    Text(String),
+    DeadKey,
+    None,
+}
+
+fn is_rmenu_down() -> bool {
+    unsafe {
+        ((GetKeyState(VK_RMENU.0 as i32) as u16 & 0x8000) != 0)
+            || ((GetAsyncKeyState(VK_RMENU.0 as i32) as u16 & 0x8000) != 0)
+    }
+}
+
+fn current_klid_string() -> Option<String> {
+    let mut klid = [0u16; 9];
+    if unsafe { windows::Win32::UI::Input::KeyboardAndMouse::GetKeyboardLayoutNameW(&mut klid) }.is_ok() {
+        let len = klid.iter().position(|&c| c == 0).unwrap_or(klid.len());
+        Some(String::from_utf16_lossy(&klid[..len]).to_ascii_uppercase())
+    } else {
+        None
+    }
+}
+
+fn translate_vk_in_english_layout_with_hkl(
+    vk: u32,
+    is_shift: bool,
+    is_altgr: bool,
+    is_caps_effective: bool,
+    is_numlock_on: bool,
+    hkl: windows::Win32::UI::Input::KeyboardAndMouse::HKL,
+    klid_opt: Option<&str>,
+    mutate_dead_key_state: bool,
+) -> EnglishVkTranslation {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        MAPVK_VK_TO_VSC, MapVirtualKeyExW, ToUnicodeEx, VK_LCONTROL, VK_NUMLOCK,
+    };
+
+    let is_plain_us = matches!(klid_opt, Some("00000409" | "00000404"));
+    if is_plain_us && !is_altgr && vk != 0xE2 && vk != 0xDF {
+        if (0x41..=0x5A).contains(&vk) {
+            let ch = vk as u8 as char;
+            let mapped = if is_shift ^ is_caps_effective {
+                ch.to_ascii_uppercase()
+            } else {
+                ch.to_ascii_lowercase()
+            };
+            return EnglishVkTranslation::Text(mapped.to_string());
+        }
+        return match map_vk_to_char(vk, is_shift) {
+            Some(ch) if !ch.is_control() => EnglishVkTranslation::Text(ch.to_string()),
+            _ => EnglishVkTranslation::None,
+        };
+    }
+
+    let mut key_state = [0u8; 256];
+    if is_shift {
+        key_state[VK_SHIFT.0 as usize] = 0x80;
+    }
+    if is_caps_effective {
+        key_state[VK_CAPITAL.0 as usize] = 0x01;
+    }
+    if is_numlock_on {
+        key_state[VK_NUMLOCK.0 as usize] = 0x01;
+    }
+    if is_altgr {
+        key_state[VK_CONTROL.0 as usize] = 0x80;
+        key_state[VK_LCONTROL.0 as usize] = 0x80;
+        key_state[VK_MENU.0 as usize] = 0x80;
+        key_state[VK_RMENU.0 as usize] = 0x80;
+    }
+
+    let scan_code = unsafe { MapVirtualKeyExW(vk, MAPVK_VK_TO_VSC, hkl) };
+    let mut out = [0u16; 8];
+    // wflags bit 2 (0x04)：OnTestKeyDown 非破壞性探測，保留作業系統核心 Dead Key 狀態至 OnKeyDown 再行消費
+    let wflags: u32 = if mutate_dead_key_state { 0 } else { 0x04 };
+    let rc = unsafe { ToUnicodeEx(vk, scan_code, &key_state, &mut out, wflags, hkl) };
+    if rc < 0 {
+        return EnglishVkTranslation::DeadKey;
+    }
+    if rc > 0 {
+        let count = (rc as usize).min(out.len());
+        let text: String = String::from_utf16_lossy(&out[..count])
+            .chars()
+            .filter(|c| !c.is_control())
+            .collect();
+        if !text.is_empty() {
+            return EnglishVkTranslation::Text(text);
+        }
+        return EnglishVkTranslation::None;
+    }
+
+    if !is_altgr && vk != 0xE2 && vk != 0xDF {
+        if (0x41..=0x5A).contains(&vk) {
+            let ch = vk as u8 as char;
+            let mapped = if is_shift ^ is_caps_effective {
+                ch.to_ascii_uppercase()
+            } else {
+                ch.to_ascii_lowercase()
+            };
+            return EnglishVkTranslation::Text(mapped.to_string());
+        }
+        if let Some(ch) = map_vk_to_char(vk, is_shift) {
+            if !ch.is_control() {
+                return EnglishVkTranslation::Text(ch.to_string());
+            }
+        }
+    }
+    EnglishVkTranslation::None
+}
+
 fn map_asdf_to_idx(vk: u32) -> Option<usize> {
     match vk {
         0x41 => Some(0), // 'A'
@@ -1606,6 +1810,9 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
                 let ui_lang = resolve_effective_ui_lang(&cfg.ui_lang);
                 let items = crate::candidate_window::get_mode_menu_items_i18n(ui_lang);
                 let null_bmp = windows::Win32::Graphics::Gdi::HBITMAP::default();
+                let cur_mode_id = ruhi::engine::find_mode_descriptor(&cur_kb)
+                    .map(|d| d.id)
+                    .unwrap_or(normalized_cur.as_str());
                 unsafe {
                     for &(id, mode_code, label) in items {
                         if !normalized_enabled.is_empty()
@@ -1614,19 +1821,13 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
                         {
                             continue;
                         }
-                        let is_active = cur_kb == mode_code
-                            || (mode_code == "japanese" && (cur_kb == "jp" || cur_kb == "romaji" || cur_kb == "kana"))
-                            || (mode_code == "korean" && (cur_kb == "ko" || cur_kb == "hangul" || cur_kb == "romaja"))
-                            || (mode_code == "array30" && cur_kb == "ar30")
-                            || (mode_code == "four_corner" && (cur_kb == "4corner" || cur_kb == "fc"))
-                            || (mode_code == "longkan" && cur_kb == "lk")
-                            || (mode_code == "standard" && cur_kb == "daikien")
-                            || (mode_code == "et26" && cur_kb == "eten26");
+                        let is_active = cur_kb == mode_code || cur_mode_id == mode_code;
                         let lbl = if is_active { format!("✓ {}", label) } else { format!("   {}", label) };
                         let wide: Vec<u16> = lbl.encode_utf16().collect();
                         let _ = menu.AddMenuItem(id, 0, null_bmp, null_bmp, &wide, std::ptr::null_mut());
                     }
-                    let is_en_active = matches!(cur_kb.as_str(), "english" | "en" | "latin" | "western" | "euro" | "sanskrit");
+                    let is_en_active = cur_mode_id == "english"
+                        || matches!(cur_kb.as_str(), "english" | "en" | "latin" | "western" | "euro" | "sanskrit");
                     let show_english_item = normalized_enabled.is_empty()
                         || normalized_enabled.len() >= 2
                         || normalized_enabled.iter().any(|m| m == "english")
@@ -1712,19 +1913,7 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
                 }
                 return Ok(());
             }
-            let chosen = match wid {
-                2001 => Some("hsu"),
-                2002 => Some("standard"),
-                2003 => Some("et26"),
-                2004 => Some("cangjie"),
-                2005 => Some("japanese"),
-                2006 => Some("english"),
-                2007 => Some("array30"),
-                2009 => Some("korean"),
-                2010 => Some("four_corner"),
-                2013 => Some("longkan"),
-                _ => None,
-            };
+            let chosen = crate::candidate_window::mode_code_from_menu_cmd_id(wid);
             if let Some(m) = chosen {
                 crate::candidate_window::save_keyboard_mode(m);
                 if is_caps {
@@ -2090,14 +2279,6 @@ impl RuhiTextService {
     }
 }
 
-impl Drop for RuhiTextService {
-    fn drop(&mut self) {
-        let inst_key = Arc::as_ptr(&self.client_id) as usize;
-        let comp_key = Arc::as_ptr(&self.composition) as usize;
-        cleanup_instance_side_tables(inst_key, comp_key);
-    }
-}
-
 impl ITfTextInputProcessor_Impl for RuhiTextService_Impl {
     fn Activate(&self, ptim: Option<&ITfThreadMgr>, tid: u32) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -2115,8 +2296,7 @@ impl ITfTextInputProcessor_Impl for RuhiTextService_Impl {
             if let Ok(mut cfg) = self.config.lock() {
                 sync_active_tsf_profile_locale(&mut cfg);
                 if let Ok(mut eng) = self.engine.lock() {
-                    eng.keyboard_mode = cfg.keyboard_mode.clone();
-                    eng.last_keyboard_mode = cfg.last_keyboard_mode.clone();
+                    apply_config_to_engine(&mut eng, &cfg);
                 }
             }
             {
@@ -2266,6 +2446,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             } else {
                 // 當前視窗失去焦點時，立即隱藏輸入座，絕不在背景凍結殘留！
                 bump_composition_focus_epoch(&self.composition, None);
+                clear_western_leading_sigil(self.western_instance_key());
                 self.hide_candidate_window();
                 set_last_caret_pos(CARET_UNPROBED, CARET_UNPROBED);
             }
@@ -2285,8 +2466,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let is_alt = unsafe { ((GetKeyState(VK_MENU.0 as i32) as u16 & 0x8000) != 0) || ((GetAsyncKeyState(VK_MENU.0 as i32) as u16 & 0x8000) != 0) };
             let is_shift = unsafe { ((GetKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0) || ((GetAsyncKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0) };
             let is_win = is_win_modifier_down();
+            let is_altgr = !is_win && is_ctrl && is_alt && is_rmenu_down();
 
-            if is_alt || is_win {
+            if (is_alt && !is_altgr) || is_win {
                 return Ok(BOOL::from(false));
             }
 
@@ -2299,7 +2481,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 false
             };
 
-            if !self.evaluate_test_key_down_with_mods(vk, is_ctrl, is_alt, is_shift, is_win, false, is_synthetic_caps) {
+            if !self.evaluate_test_key_down_full(vk, is_ctrl, is_alt, is_shift, is_win, is_altgr, false, is_synthetic_caps) {
                 return Ok(BOOL::from(false));
             }
 
@@ -2312,6 +2494,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 let is_pwd = self.is_focused_or_tsf_password(pic);
                 store_tested_pwd_token_at(ctx_ptr, vk, std::time::Instant::now(), is_pwd);
                 if is_pwd {
+                    clear_western_leading_sigil(self.western_instance_key());
                     return Ok(BOOL::from(false));
                 }
             }
@@ -2340,9 +2523,10 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let is_alt = unsafe { ((GetKeyState(VK_MENU.0 as i32) as u16 & 0x8000) != 0) || ((GetAsyncKeyState(VK_MENU.0 as i32) as u16 & 0x8000) != 0) };
             let is_shift = unsafe { ((GetKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0) || ((GetAsyncKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0) };
             let is_win = is_win_modifier_down();
+            let is_altgr = !is_win && is_ctrl && is_alt && is_rmenu_down();
             let is_caps_on = unsafe { (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0 };
 
-            if is_alt || is_win {
+            if (is_alt && !is_altgr) || is_win {
                 return Ok(BOOL::from(false));
             }
 
@@ -2358,6 +2542,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 is_en_inline_or_special,
                 tilde_triggers_mode,
             ) = self.snapshot_key_routing_flags();
+            if is_alt && !(is_altgr && is_english_mode) {
+                return Ok(BOOL::from(false));
+            }
             let (is_fullwidth, allow_shift_space, punct_mode) = self
                 .config
                 .lock()
@@ -2372,10 +2559,10 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
             // 空白狀態快速放行閘門（先於密碼欄位 COM 探測與一切模式邏輯，全體 10 種鍵盤模式行為一致）
             if !has_buffer {
-                if is_ctrl && vk != VK_CAPITAL.0 as u32 {
+                if is_ctrl && !is_altgr && vk != VK_CAPITAL.0 as u32 {
                     return Ok(BOOL::from(false));
                 }
-                if !is_ctrl {
+                if !is_ctrl || is_altgr {
                     if vk == VK_SPACE.0 as u32 {
                         if !is_shift && !is_fullwidth {
                             return Ok(BOOL::from(false));
@@ -2494,7 +2681,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             let quick_mode = self.effective_quick_key_mode();
 
             // 1. 處理 Ctrl 組合鍵與編輯器操作 (Ctrl+A, Ctrl+C, Ctrl+Insert, Ctrl+V, Ctrl+X, Ctrl+Z, Ctrl+Y/R, Ctrl+Home/End/Delete 等；必須優先於歐文與各輸入模式！)
-            if is_ctrl {
+            if is_ctrl && !is_altgr {
                 // 1.0 優先檢查 Ctrl 符號組合鍵 (如 Ctrl+. 輸出刪節號 ……、Ctrl+, 輸出全形逗號等；惟歐文與空白四角模式下絕不攔截 IDE/編輯器快捷鍵)
                 if let Some(combo) = resolve_ctrl_symbol_combo(
                     vk,
@@ -2702,8 +2889,8 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             if is_english_mode
                 && !*self.candidate_selecting.lock().unwrap()
                 && !is_en_inline_or_special
-                && !is_ctrl
-                && !is_alt
+                && (!is_ctrl || is_altgr)
+                && (!is_alt || is_altgr)
                 && !is_win
             {
                 let is_bs_pending = self
@@ -2711,86 +2898,169 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     .lock()
                     .map(|e| e.is_backslash_escape_pending())
                     .unwrap_or(false);
-                if vk == VK_OEM_3.0 as u32
-                    && !is_bs_pending
-                    && ((!has_buffer && !is_shift) || (tilde_triggers_mode && is_shift))
-                {
-                    // 無組字狀態單按 `` ` `` 統一交由下方引擎進入「🔖 自訂詞庫」；
-                    // 或當 `~` 設定為輔助輸入法對切／返回時，按 `~` (Shift + `) 交由下方引擎處理
-                } else {
-                    if (0x41..=0x5A).contains(&vk) {
-                        self.engine.lock().unwrap().set_backslash_escape_pending(false);
-                        let base = vk as u8 as char;
-                        let ch = if is_shift { base.to_ascii_uppercase() } else { base.to_ascii_lowercase() };
-
-                        self.delete_selection_if_any();
-                        self.consolidate_engine_to_pending();
-                        self.insert_pending_char(ch, None);
-                        self.sync_input_display(ctx)?;
-                        return Ok(BOOL::from(true));
-                    }
-
-                    if vk == VK_SPACE.0 as u32 && has_buffer {
-                        self.engine.lock().unwrap().set_backslash_escape_pending(false);
-                        self.delete_selection_if_any();
-                        self.consolidate_engine_to_pending();
-                        if !is_shift
-                            && !is_ctrl
-                            && !is_alt
-                            && !is_fullwidth
-                            && self.try_western_space_autocorrect_and_insert(' ')
-                        {
-                            // Tier 1 高確定性自動勘誤與空白已原子化套用
-                        } else {
-                            self.insert_pending_char(if is_fullwidth { '\u{3000}' } else { ' ' }, None);
-                        }
-                        self.sync_input_display(ctx)?;
-                        return Ok(BOOL::from(true));
-                    }
-
-                    if (0x30..=0x39).contains(&vk)
-                        || (0x60..=0x6F).contains(&vk)
-                        || vk == VK_OEM_3.0 as u32
-                        || is_punctuation_vk(vk, is_shift)
-                    {
-                        let is_unshifted_backslash = vk == 0xDC && !is_shift;
-                        if !has_buffer && !is_unshifted_backslash && !is_bs_pending {
-                            return Ok(BOOL::from(false));
-                        }
-                        if let Some(ch) = map_vk_to_char(vk, is_shift) {
-                            self.delete_selection_if_any();
-                            self.consolidate_engine_to_pending();
-                            if is_bs_pending {
-                                self.engine.lock().unwrap().set_backslash_escape_pending(false);
-                                if matches!(ch, '`' | '\\' | '~') {
-                                    let cur = *self.sentence_cursor.lock().unwrap();
-                                    let prev_is_bs = cur > 0
-                                        && self
-                                            .pending_compose
-                                            .lock()
-                                            .map(|p| matches!(p.chars().nth(cur - 1), Some('\\' | '＼')))
-                                            .unwrap_or(false);
-                                    if prev_is_bs {
-                                        self.remove_pending_char_at(cur - 1);
-                                        *self.sentence_cursor.lock().unwrap() = cur - 1;
-                                    }
-                                    self.insert_pending_char(ch, None);
-                                } else if is_unshifted_backslash {
-                                    self.insert_pending_char(if is_fullwidth { '＼' } else { ch }, None);
-                                    self.engine.lock().unwrap().set_backslash_escape_pending(true);
-                                } else {
-                                    self.insert_pending_char(ch, None);
-                                }
-                            } else if is_unshifted_backslash {
-                                self.insert_pending_char(if is_fullwidth { '＼' } else { '\\' }, None);
-                                self.engine.lock().unwrap().set_backslash_escape_pending(true);
-                            } else {
+                if vk == VK_SPACE.0 as u32 && has_buffer {
+                    self.engine.lock().unwrap().set_backslash_escape_pending(false);
+                    self.delete_selection_if_any();
+                    self.consolidate_engine_to_pending();
+                    let resolved =
+                        self.translate_vk_in_english_mode(vk, is_shift, is_altgr, is_caps_on, true);
+                    match resolved {
+                        EnglishVkTranslation::Text(s) if s != " " => {
+                            for ch in s.chars() {
                                 self.insert_pending_char(ch, None);
                             }
-                            self.sync_input_display(ctx)?;
-                            return Ok(BOOL::from(true));
                         }
-                        return Ok(BOOL::from(false));
+                        _ => {
+                            if !is_shift
+                                && !is_ctrl
+                                && !is_alt
+                                && !is_fullwidth
+                                && self.try_western_space_autocorrect_and_insert(' ')
+                            {
+                                // Tier 1 高確定性自動勘誤與空白已原子化套用
+                            } else {
+                                self.insert_pending_char(
+                                    if is_fullwidth { '\u{3000}' } else { ' ' },
+                                    None,
+                                );
+                            }
+                        }
+                    }
+                    self.sync_input_display(ctx)?;
+                    return Ok(BOOL::from(true));
+                }
+
+                let is_non_char_nav_vk = matches!(
+                    vk,
+                    x if x == VK_RETURN.0 as u32
+                        || x == VK_BACK.0 as u32
+                        || x == VK_ESCAPE.0 as u32
+                        || x == VK_DELETE.0 as u32
+                        || x == VK_TAB.0 as u32
+                        || x == VK_INSERT.0 as u32
+                        || x == VK_LEFT.0 as u32
+                        || x == VK_RIGHT.0 as u32
+                        || x == VK_UP.0 as u32
+                        || x == VK_DOWN.0 as u32
+                        || x == VK_HOME.0 as u32
+                        || x == VK_END.0 as u32
+                        || x == VK_PRIOR.0 as u32
+                        || x == VK_NEXT.0 as u32
+                        || x == VK_SPACE.0 as u32
+                );
+                if !is_non_char_nav_vk {
+                    let peek = self.translate_vk_in_english_mode(
+                        vk,
+                        is_shift,
+                        is_altgr,
+                        is_caps_on,
+                        false,
+                    );
+                    let triggers_aux_mode = !is_bs_pending
+                        && matches!(
+                            &peek,
+                            EnglishVkTranslation::Text(s)
+                                if (!has_buffer && s == "`") || (tilde_triggers_mode && s == "~")
+                        );
+                    if triggers_aux_mode {
+                        // 無組字狀態單按 `` ` `` 統一交由下方引擎進入「🔖 自訂詞庫」；
+                        // 或當 `~` 設定為輔助輸入法對切／返回時，按 `~` 交由下方引擎處理
+                        clear_western_leading_sigil(self.western_instance_key());
+                    } else {
+                        let trans = self.translate_vk_in_english_mode(
+                            vk,
+                            is_shift,
+                            is_altgr,
+                            is_caps_on,
+                            true,
+                        );
+                        match trans {
+                            EnglishVkTranslation::DeadKey => {
+                                self.engine.lock().unwrap().set_backslash_escape_pending(false);
+                                if has_buffer {
+                                    return Ok(BOOL::from(true));
+                                }
+                                clear_western_leading_sigil(self.western_instance_key());
+                                return Ok(BOOL::from(false));
+                            }
+                            EnglishVkTranslation::Text(s) => {
+                                let is_single_bs = s == "\\";
+                                if !has_buffer
+                                    && !is_bs_pending
+                                    && !is_single_bs
+                                    && !s.chars().any(Self::is_western_leading_word_char)
+                                {
+                                    if s.chars().all(
+                                        ruhi::engine::RuhiEngine::is_western_token_boundary_blocker,
+                                    ) {
+                                        if let Some(ch) = s.chars().last() {
+                                            record_western_leading_sigil(
+                                                self.western_instance_key(),
+                                                ch,
+                                            );
+                                        }
+                                    } else {
+                                        clear_western_leading_sigil(self.western_instance_key());
+                                    }
+                                    return Ok(BOOL::from(false));
+                                }
+                                self.delete_selection_if_any();
+                                self.consolidate_engine_to_pending();
+                                if is_bs_pending {
+                                    self.engine.lock().unwrap().set_backslash_escape_pending(false);
+                                    if matches!(s.as_str(), "`" | "\\" | "~") {
+                                        let cur = *self.sentence_cursor.lock().unwrap();
+                                        let prev_is_bs = cur > 0
+                                            && self
+                                                .pending_compose
+                                                .lock()
+                                                .map(|p| {
+                                                    matches!(
+                                                        p.chars().nth(cur - 1),
+                                                        Some('\\' | '＼')
+                                                    )
+                                                })
+                                                .unwrap_or(false);
+                                        if prev_is_bs {
+                                            self.remove_pending_char_at(cur - 1);
+                                            *self.sentence_cursor.lock().unwrap() = cur - 1;
+                                        }
+                                        for ch in s.chars() {
+                                            self.insert_pending_char(ch, None);
+                                        }
+                                    } else if is_single_bs {
+                                        self.insert_pending_char(
+                                            if is_fullwidth { '＼' } else { '\\' },
+                                            None,
+                                        );
+                                        self.engine
+                                            .lock()
+                                            .unwrap()
+                                            .set_backslash_escape_pending(true);
+                                    } else {
+                                        for ch in s.chars() {
+                                            self.insert_pending_char(ch, None);
+                                        }
+                                    }
+                                } else if is_single_bs {
+                                    self.insert_pending_char(
+                                        if is_fullwidth { '＼' } else { '\\' },
+                                        None,
+                                    );
+                                    self.engine.lock().unwrap().set_backslash_escape_pending(true);
+                                } else {
+                                    self.engine.lock().unwrap().set_backslash_escape_pending(false);
+                                    for ch in s.chars() {
+                                        self.insert_pending_char(ch, None);
+                                    }
+                                }
+                                self.sync_input_display(ctx)?;
+                                return Ok(BOOL::from(true));
+                            }
+                            EnglishVkTranslation::None => {
+                                return Ok(BOOL::from(false));
+                            }
+                        }
                     }
                 }
             }
@@ -3424,8 +3694,14 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     self.hide_candidate_window();
                 }
 
-                // Guard A：歐文模式行首／純空白縮排保護，按 Tab 直接插入縮排字元而非劫持跳出候選窗
-                if is_english_mode && !is_shift {
+                let is_latin_mode = self
+                    .engine
+                    .lock()
+                    .map(|e| e.is_latin_mode)
+                    .unwrap_or(false);
+
+                // Guard A：歐文模式／臨時拉丁切換下行首／純空白縮排保護，按 Tab 直接插入縮排字元而非劫持跳出候選窗
+                if (is_english_mode || is_latin_mode) && !is_shift {
                     let (full_text, cur) = self.get_full_display_and_cursor();
                     let cur = cur.min(full_text.chars().count());
                     let before_cur: String = full_text.chars().take(cur).collect();
@@ -3690,7 +3966,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                     .lock()
                     .map(|c| c.tab_key_mode.clone())
                     .unwrap_or_else(|_| "associative".to_string());
-                let should_trigger_associative = if is_english_mode {
+                let should_trigger_associative = if is_english_mode || is_latin_mode {
                     !is_shift
                 } else if tab_mode == "boundary_cut" {
                     is_shift
@@ -3768,9 +4044,9 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                                             | 'a'..='z'
                                             | '\u{00C0}'..='\u{024F}'
                                             | '\u{1E00}'..='\u{1EFF}'
-                                    )
+                                    ) || ruhi::engine::RuhiEngine::is_western_non_ascii_letter_or_mark(c)
                                 });
-                            let mut assoc_cands = if is_english_mode || prev_is_latin {
+                            let mut assoc_cands = if is_english_mode || is_latin_mode || prev_is_latin {
                                 Vec::new()
                             } else {
                                 let engine = self.engine.lock().unwrap();
@@ -4663,7 +4939,27 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
             }
 
             // 8. 許氏注音、倉頡、行列 30 與標點符號輸入處理
-            let char_opt = if !is_ctrl && !is_alt && !is_win {
+            let char_opt = if is_english_mode
+                && (!is_ctrl || is_altgr)
+                && (!is_alt || is_altgr)
+                && !is_win
+            {
+                let tr = self.translate_vk_in_english_mode(
+                    vk,
+                    is_shift,
+                    is_altgr,
+                    is_caps_on,
+                    !is_en_inline_or_special,
+                );
+                match tr {
+                    EnglishVkTranslation::Text(s)
+                        if !is_en_inline_or_special || matches!(s.as_str(), "`" | "~") =>
+                    {
+                        s.chars().next()
+                    }
+                    _ => map_vk_to_char(vk, is_shift),
+                }
+            } else if !is_ctrl && !is_alt && !is_win {
                 map_vk_to_char(vk, is_shift)
             } else {
                 None
@@ -5139,6 +5435,101 @@ impl RuhiTextService_Impl {
         }
     }
 
+    fn is_western_leading_word_char(c: char) -> bool {
+        c.is_ascii_alphabetic()
+            || ruhi::engine::RuhiEngine::is_western_non_ascii_letter_or_mark(c)
+    }
+
+    fn translate_vk_in_english_mode(
+        &self,
+        vk: u32,
+        is_shift: bool,
+        is_altgr: bool,
+        is_caps_on: bool,
+        mutate_dead_key_state: bool,
+    ) -> EnglishVkTranslation {
+        let capslock_none = self
+            .config
+            .lock()
+            .map(|c| c.capslock_switch == "none")
+            .unwrap_or(false);
+        let is_caps_effective = capslock_none && is_caps_on;
+        let is_numlock_on = unsafe { (GetKeyState(VK_NUMLOCK.0 as i32) as u16 & 0x0001) != 0 };
+        let hkl = unsafe { GetKeyboardLayout(0) };
+        let klid = current_klid_string();
+        translate_vk_in_english_layout_with_hkl(
+            vk,
+            is_shift,
+            is_altgr,
+            is_caps_effective,
+            is_numlock_on,
+            hkl,
+            klid.as_deref(),
+            mutate_dead_key_state,
+        )
+    }
+
+    pub(crate) fn classify_english_key_translation(
+        &self,
+        has_buffer: bool,
+        tilde_triggers_mode: bool,
+        is_bs_pending: bool,
+        is_password_field: bool,
+        update_sigil: bool,
+        trans: &EnglishVkTranslation,
+    ) -> bool {
+        let inst_key = self.western_instance_key();
+        match trans {
+            EnglishVkTranslation::DeadKey => {
+                if !has_buffer && update_sigil {
+                    clear_western_leading_sigil(inst_key);
+                }
+                has_buffer
+            }
+            EnglishVkTranslation::None => {
+                if !has_buffer && update_sigil {
+                    clear_western_leading_sigil(inst_key);
+                }
+                false
+            }
+            EnglishVkTranslation::Text(s) => {
+                if s == "`" || (tilde_triggers_mode && s == "~") {
+                    if !has_buffer && update_sigil {
+                        clear_western_leading_sigil(inst_key);
+                    }
+                    return true;
+                }
+                if s == "\\" {
+                    if !has_buffer && update_sigil {
+                        clear_western_leading_sigil(inst_key);
+                    }
+                    return true;
+                }
+                if has_buffer || (is_bs_pending && !s.is_empty()) {
+                    return true;
+                }
+                if s.chars().any(Self::is_western_leading_word_char) {
+                    // 保留先前直通記錄之前導邊界字元（如 /teh 的 '/'），待空白鍵勘誤消費
+                    return true;
+                }
+                if update_sigil {
+                    if !is_password_field
+                        && !s.is_empty()
+                        && s.chars()
+                            .all(ruhi::engine::RuhiEngine::is_western_token_boundary_blocker)
+                    {
+                        if let Some(ch) = s.chars().last() {
+                            record_western_leading_sigil(inst_key, ch);
+                        }
+                    } else {
+                        clear_western_leading_sigil(inst_key);
+                    }
+                }
+                false
+            }
+        }
+    }
+
     pub(crate) fn evaluate_test_key_down_with_mods(
         &self,
         vk: u32,
@@ -5149,7 +5540,33 @@ impl RuhiTextService_Impl {
         is_password_field: bool,
         is_synthetic_caps: bool,
     ) -> bool {
-        if is_passthrough_non_typing_vk(vk) || is_alt || is_win {
+        self.evaluate_test_key_down_full(
+            vk,
+            is_ctrl,
+            is_alt,
+            is_shift,
+            is_win,
+            false,
+            is_password_field,
+            is_synthetic_caps,
+        )
+    }
+
+    pub(crate) fn evaluate_test_key_down_full(
+        &self,
+        vk: u32,
+        is_ctrl: bool,
+        is_alt: bool,
+        is_shift: bool,
+        is_win: bool,
+        is_altgr: bool,
+        is_password_field: bool,
+        is_synthetic_caps: bool,
+    ) -> bool {
+        if is_passthrough_non_typing_vk(vk) || is_win {
+            return false;
+        }
+        if is_alt && !is_altgr {
             return false;
         }
 
@@ -5163,11 +5580,21 @@ impl RuhiTextService_Impl {
             tilde_triggers_mode,
         ) = self.snapshot_key_routing_flags();
 
+        if is_alt && !(is_altgr && is_english_mode) {
+            return false;
+        }
+
+        if !is_english_mode {
+            clear_western_leading_sigil(self.western_instance_key());
+        }
+
         if !has_buffer && is_password_field {
+            clear_western_leading_sigil(self.western_instance_key());
             return false;
         }
 
         if vk == VK_CAPITAL.0 as u32 {
+            clear_western_leading_sigil(self.western_instance_key());
             if is_synthetic_caps {
                 return false;
             }
@@ -5201,12 +5628,14 @@ impl RuhiTextService_Impl {
 
         if vk == VK_SPACE.0 as u32 && is_shift && !is_ctrl {
             if allow_shift_space {
+                clear_western_leading_sigil(self.western_instance_key());
                 return true;
             }
         }
 
-        if is_ctrl {
+        if is_ctrl && !is_altgr {
             if !has_buffer {
+                clear_western_leading_sigil(self.western_instance_key());
                 return false;
             }
             if let Some(combo) =
@@ -5256,6 +5685,7 @@ impl RuhiTextService_Impl {
 
         if !has_buffer {
             if vk == VK_SPACE.0 as u32 {
+                clear_western_leading_sigil(self.western_instance_key());
                 return is_fullwidth && !is_shift;
             }
             if matches!(
@@ -5276,22 +5706,19 @@ impl RuhiTextService_Impl {
                     || x == VK_PRIOR.0 as u32
                     || x == VK_NEXT.0 as u32
             ) {
+                clear_western_leading_sigil(self.western_instance_key());
                 return false;
             }
         }
 
         if is_english_mode {
-            if vk == VK_OEM_3.0 as u32
-                && (is_en_inline_or_special || (!has_buffer && !is_shift) || (tilde_triggers_mode && is_shift))
-            {
+            if is_en_inline_or_special && vk == VK_OEM_3.0 as u32 {
+                clear_western_leading_sigil(self.western_instance_key());
                 return true;
             }
             if !is_en_inline_or_special {
-                if (0x41..=0x5A).contains(&vk) || (vk == 0xDC && !is_shift) {
-                    return true;
-                }
-                if has_buffer {
-                    if vk == VK_RETURN.0 as u32
+                if has_buffer
+                    && (vk == VK_RETURN.0 as u32
                         || vk == VK_SPACE.0 as u32
                         || vk == VK_BACK.0 as u32
                         || vk == VK_ESCAPE.0 as u32
@@ -5305,16 +5732,32 @@ impl RuhiTextService_Impl {
                         || vk == VK_HOME.0 as u32
                         || vk == VK_END.0 as u32
                         || vk == VK_PRIOR.0 as u32
-                        || vk == VK_NEXT.0 as u32
-                        || (0x30..=0x39).contains(&vk)
-                        || (0x60..=0x6F).contains(&vk)
-                        || vk == VK_OEM_3.0 as u32
-                        || is_punctuation_vk(vk, is_shift)
-                    {
-                        return true;
-                    }
+                        || vk == VK_NEXT.0 as u32)
+                {
+                    return true;
                 }
-                return false;
+                let is_bs_pending = self
+                    .engine
+                    .lock()
+                    .map(|e| e.is_backslash_escape_pending())
+                    .unwrap_or(false);
+                let is_caps_on =
+                    unsafe { (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0 };
+                let trans = self.translate_vk_in_english_mode(
+                    vk,
+                    is_shift,
+                    is_altgr,
+                    is_caps_on,
+                    false,
+                );
+                return self.classify_english_key_translation(
+                    has_buffer,
+                    tilde_triggers_mode,
+                    is_bs_pending,
+                    is_password_field,
+                    true,
+                    &trans,
+                );
             }
         }
 
@@ -5533,19 +5976,36 @@ impl RuhiTextService_Impl {
 
     fn push_undo(&self) {
         self.set_last_western_autocorrect(None);
+        let inst_key = self.western_instance_key();
         let snap = self.take_snapshot();
         let mut undo = self.undo_stack.lock().unwrap();
+        prune_western_undo_pins_above(inst_key, undo.len() + 1);
         undo.push(snap);
         if undo.len() > 100 {
             undo.remove(0);
+            shift_western_undo_pins_after_cap_pop(inst_key);
         }
         self.redo_stack.lock().unwrap().clear();
     }
 
     fn undo(&self) -> bool {
+        let inst_key = self.western_instance_key();
+        let matched_rb = self.take_last_western_autocorrect_if_matching();
         self.set_last_western_autocorrect(None);
-        let snap_opt = self.undo_stack.lock().unwrap().pop();
-        if let Some(snap) = snap_opt {
+        let (snap_opt, popped_depth) = {
+            let mut undo = self.undo_stack.lock().unwrap();
+            let popped = undo.pop();
+            let depth = undo.len() + 1;
+            (popped, depth)
+        };
+        if let Some(mut snap) = snap_opt {
+            let pin_opt = take_western_undo_pin_for_depth(inst_key, popped_depth)
+                .or_else(|| matched_rb.map(|rb| rb.pin_range));
+            if let Some((p_start, p_end)) = pin_opt {
+                for idx in p_start..p_end {
+                    snap.pinned.insert(idx);
+                }
+            }
             let current = self.take_snapshot();
             self.redo_stack.lock().unwrap().push(current);
 
@@ -5903,6 +6363,9 @@ impl RuhiTextService_Impl {
             eng.set_shift_down_longkan_popup(false);
             eng.set_backslash_escape_pending(false);
         }
+        let inst_key = self.western_instance_key();
+        clear_western_leading_sigil(inst_key);
+        clear_western_undo_pins(inst_key);
         self.set_last_western_autocorrect(None);
     }
 
@@ -5953,6 +6416,8 @@ impl RuhiTextService_Impl {
 
     /// 歐文模式下按空白鍵執行高確定性 Tier 1 自動勘誤並原子化寫入復原快照（單次 Ctrl+Z 或 Backspace 即可一鍵還原）
     fn try_western_space_autocorrect_and_insert(&self, space_ch: char) -> bool {
+        let inst_key = self.western_instance_key();
+        let leading_sigil = take_western_leading_sigil(inst_key);
         if space_ch != ' ' {
             return false;
         }
@@ -5965,17 +6430,35 @@ impl RuhiTextService_Impl {
 
         let before_cur = &chars[..cur];
         let mut tok_start = before_cur.len();
-        while tok_start > 0 && before_cur[tok_start - 1].is_ascii_alphabetic() {
+        while tok_start > 0
+            && (before_cur[tok_start - 1].is_ascii_alphabetic()
+                || ruhi::engine::RuhiEngine::is_western_non_ascii_letter_or_mark(
+                    before_cur[tok_start - 1],
+                ))
+        {
             tok_start -= 1;
         }
         if tok_start >= cur {
             return false;
         }
-        if tok_start > 0 && before_cur[tok_start - 1].is_alphanumeric() {
+        if tok_start > 0
+            && (before_cur[tok_start - 1].is_alphanumeric()
+                || ruhi::engine::RuhiEngine::is_western_token_boundary_blocker(
+                    before_cur[tok_start - 1],
+                ))
+        {
             return false;
         }
 
-        let prefix_before_token: String = before_cur[..tok_start].iter().collect();
+        let mut prefix_before_token: String = before_cur[..tok_start].iter().collect();
+        if tok_start == 0 {
+            if let Some(sigil) = leading_sigil {
+                if ruhi::engine::RuhiEngine::is_western_token_boundary_blocker(sigil) {
+                    return false;
+                }
+                prefix_before_token.push(sigil);
+            }
+        }
         let token: String = before_cur[tok_start..].iter().collect();
         let ac_opt = {
             let eng = self.engine.lock().unwrap();
@@ -5994,10 +6477,13 @@ impl RuhiTextService_Impl {
         // 原子化推入單一 Undo 快照，讓一次 Ctrl+Z 直接還原為勘誤前狀態
         {
             let mut undo = self.undo_stack.lock().unwrap();
+            prune_western_undo_pins_above(inst_key, undo.len() + 1);
             undo.push(pre_snap.clone());
             if undo.len() > 100 {
                 undo.remove(0);
+                shift_western_undo_pins_after_cap_pop(inst_key);
             }
+            record_western_undo_pin(inst_key, undo.len(), rep_start, cur);
             self.redo_stack.lock().unwrap().clear();
         }
 
@@ -6990,6 +7476,7 @@ impl RuhiTextService_Impl {
                 || c == '\''
                 || ('\u{0300}'..='\u{036F}').contains(&c)
                 || ruhi::western::WesternEngine::strip_char_diacritic(c).is_ascii_alphabetic()
+                || ruhi::engine::RuhiEngine::is_western_non_ascii_letter_or_mark(c)
         };
 
         let target_idx = if cur < chars.len() {
@@ -7572,6 +8059,7 @@ impl RuhiTextService_Impl {
                 || c == '\''
                 || ('\u{0300}'..='\u{036F}').contains(&c)
                 || ruhi::western::WesternEngine::strip_char_diacritic(c).is_ascii_alphabetic()
+                || ruhi::engine::RuhiEngine::is_western_non_ascii_letter_or_mark(c)
         };
 
         let target_idx = if cur < chars.len() {
@@ -7804,10 +8292,11 @@ impl RuhiTextService_Impl {
                 None
             };
             let kb_mode = engine.keyboard_mode.clone();
-            let is_western_mode = matches!(
-                kb_mode.to_lowercase().as_str(),
-                "english" | "en" | "latin" | "western" | "euro" | "sanskrit"
-            );
+            let is_western_mode = engine.is_latin_mode
+                || matches!(
+                    kb_mode.to_lowercase().as_str(),
+                    "english" | "en" | "latin" | "western" | "euro" | "sanskrit"
+                );
             let high_conf_en = is_western_mode || engine.western.has_high_confidence_rescue(&word);
             let mut cands = Vec::new();
             if word.chars().count() >= 3 && !high_conf_en {
@@ -9009,6 +9498,7 @@ impl ITfThreadMgrEventSink_Impl for RuhiTextService_Impl {
                 notify_langbar_mode_update();
             } else {
                 bump_composition_focus_epoch(&self.composition, None);
+                clear_western_leading_sigil(self.western_instance_key());
                 self.hide_candidate_window();
             }
             Ok(())
@@ -9491,6 +9981,309 @@ mod tests {
         );
     }
 
+    fn make_p1_t4_test_svc(mode: &str) -> ComObject<RuhiTextService> {
+        let mut engine = RuhiEngine::new_without_core_lexicon(".");
+        engine.set_keyboard_mode(mode);
+        ComObject::new(RuhiTextService {
+            thread_mgr: Arc::new(Mutex::new(None)),
+            client_id: Arc::new(Mutex::new(0)),
+            engine: Arc::new(Mutex::new(engine)),
+            composition: Arc::new(Mutex::new(None)),
+            thread_mgr_sink_cookie: Arc::new(Mutex::new(0)),
+            langbar_item: Arc::new(Mutex::new(None)),
+            candidate_window: Arc::new(Mutex::new(None)),
+            pending_compose: Arc::new(Mutex::new(String::new())),
+            sentence_cursor: Arc::new(Mutex::new(0)),
+            candidate_selecting: Arc::new(Mutex::new(false)),
+            active_candidates: Arc::new(Mutex::new(Vec::new())),
+            selected_candidate_idx: Arc::new(Mutex::new(0)),
+            target_char_idx: Arc::new(Mutex::new(0)),
+            target_range: Arc::new(Mutex::new((0, 0))),
+            config: Arc::new(Mutex::new(RuhiConfig::default())),
+            sel_anchor: Arc::new(Mutex::new(None)),
+            insert_mode: Arc::new(Mutex::new(true)),
+            q_press_count: Arc::new(Mutex::new(0)),
+            q_last_char_idx: Arc::new(Mutex::new(None)),
+            pending_syllables: Arc::new(Mutex::new(Vec::new())),
+            pending_segments: Arc::new(Mutex::new(Vec::new())),
+            last_raw_ascii: Arc::new(Mutex::new(None)),
+            manual_cuts: Arc::new(Mutex::new(std::collections::HashSet::new())),
+            pending_pinned: Arc::new(Mutex::new(std::collections::HashSet::new())),
+            deleted_words: Arc::new(Mutex::new(std::collections::HashSet::new())),
+            undo_stack: Arc::new(Mutex::new(Vec::new())),
+            redo_stack: Arc::new(Mutex::new(Vec::new())),
+        })
+    }
+
+    #[test]
+    fn test_p1_t4_undo_pins_autocorrect_and_prevents_space_retrigger() {
+        let svc = make_p1_t4_test_svc("english");
+        for ch in "teh".chars() {
+            svc.insert_pending_char(ch, None);
+        }
+        assert_eq!(*svc.pending_compose.lock().unwrap(), "teh");
+        assert!(
+            svc.try_western_space_autocorrect_and_insert(' '),
+            "首次 teh + Space 應觸發 Tier 1 自動勘誤"
+        );
+        assert_eq!(*svc.pending_compose.lock().unwrap(), "the ");
+
+        assert!(svc.undo(), "Ctrl+Z undo 應還原至 teh");
+        assert_eq!(*svc.pending_compose.lock().unwrap(), "teh");
+        assert!(
+            !svc.try_western_space_autocorrect_and_insert(' '),
+            "undo 還原後該詞區間須已固定 (pinned)，再按 Space 不得重新觸發自動勘誤"
+        );
+
+        // 深層 undo 堆疊（在勘誤後繼續推送快照，多步 undo 回該層仍應保留固定保護）
+        svc.clear_all_pending();
+        for ch in "teh".chars() {
+            svc.insert_pending_char(ch, None);
+        }
+        assert!(svc.try_western_space_autocorrect_and_insert(' '));
+        svc.insert_pending_char('a', None);
+        svc.insert_pending_char('b', None);
+        assert!(svc.undo());
+        assert!(svc.undo());
+        assert!(svc.undo());
+        assert_eq!(*svc.pending_compose.lock().unwrap(), "teh");
+        assert!(
+            !svc.try_western_space_autocorrect_and_insert(' '),
+            "跨多層快照 undo 回到勘誤前狀態時，仍須防止再次自動勘誤"
+        );
+    }
+
+    #[test]
+    fn test_p1_t4_leading_sigil_passthrough_blocks_space_autocorrect() {
+        let svc = make_p1_t4_test_svc("english");
+        for sigil in ['/', '.', '_'] {
+            svc.clear_all_pending();
+            assert!(
+                !svc.classify_english_key_translation(
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    &EnglishVkTranslation::Text(sigil.to_string()),
+                ),
+                "空白狀態輸入邊界前綴 '{sigil}' 應直接放行至宿主視窗"
+            );
+            for ch in "teh".chars() {
+                svc.insert_pending_char(ch, None);
+            }
+            assert!(
+                !svc.try_western_space_autocorrect_and_insert(' '),
+                "前導直通 '{sigil}' + teh 後按 Space 不得誤修正為 '{sigil}the '"
+            );
+        }
+
+        // 下一詞（已消費前導直通字元後）應恢復正常自動勘誤
+        svc.clear_all_pending();
+        for ch in "teh".chars() {
+            svc.insert_pending_char(ch, None);
+        }
+        assert!(
+            svc.try_western_space_autocorrect_and_insert(' '),
+            "未緊鄰前導邊界字元之獨立 teh + Space 應恢復正常勘誤"
+        );
+        assert_eq!(*svc.pending_compose.lock().unwrap(), "the ");
+
+        // 密碼欄位不得記錄前導字元
+        svc.clear_all_pending();
+        assert!(!svc.classify_english_key_translation(
+            false,
+            false,
+            false,
+            true,
+            true,
+            &EnglishVkTranslation::Text("/".to_string()),
+        ));
+        assert_eq!(take_western_leading_sigil(svc.western_instance_key()), None);
+    }
+
+    #[test]
+    fn test_p1_t4_english_layout_translation_altgr_deadkey_and_western_languages() {
+        let svc = make_p1_t4_test_svc("english");
+        let hkl = unsafe { windows::Win32::UI::Input::KeyboardAndMouse::GetKeyboardLayout(0) };
+
+        assert_eq!(
+            translate_vk_in_english_layout_with_hkl(
+                0x41,
+                false,
+                false,
+                false,
+                false,
+                hkl,
+                Some("00000409"),
+                false,
+            ),
+            EnglishVkTranslation::Text("a".to_string())
+        );
+        assert_eq!(
+            translate_vk_in_english_layout_with_hkl(
+                0x41,
+                false,
+                false,
+                true,
+                false,
+                hkl,
+                Some("00000409"),
+                false,
+            ),
+            EnglishVkTranslation::Text("A".to_string()),
+            "capslock_switch=none 下有效 CapsLock 應套用大小寫反轉"
+        );
+        assert_eq!(
+            translate_vk_in_english_layout_with_hkl(
+                0x41,
+                true,
+                false,
+                true,
+                false,
+                hkl,
+                Some("00000409"),
+                false,
+            ),
+            EnglishVkTranslation::Text("a".to_string())
+        );
+        assert_eq!(
+            translate_vk_in_english_layout_with_hkl(
+                0xC0,
+                false,
+                false,
+                false,
+                false,
+                hkl,
+                Some("00000409"),
+                false,
+            ),
+            EnglishVkTranslation::Text("`".to_string())
+        );
+        // 呼叫實際 Win32 ToUnicodeEx 路徑（不經 US fast-path）驗證安全與非破壞性探測
+        assert!(matches!(
+            translate_vk_in_english_layout_with_hkl(0x41, false, false, false, false, hkl, None, false),
+            EnglishVkTranslation::Text(_)
+        ));
+
+        // Dead key 與歐陸鍵盤字母分類驗證
+        assert!(!svc.classify_english_key_translation(
+            false,
+            false,
+            false,
+            false,
+            true,
+            &EnglishVkTranslation::DeadKey,
+        ));
+        assert!(svc.classify_english_key_translation(
+            true,
+            false,
+            false,
+            false,
+            true,
+            &EnglishVkTranslation::DeadKey,
+        ));
+        assert!(svc.classify_english_key_translation(
+            false,
+            false,
+            false,
+            false,
+            true,
+            &EnglishVkTranslation::Text("ö".to_string()),
+        ));
+        assert!(svc.classify_english_key_translation(
+            false,
+            false,
+            false,
+            false,
+            true,
+            &EnglishVkTranslation::Text("ù".to_string()),
+        ));
+        assert!(svc.classify_english_key_translation(
+            false,
+            false,
+            false,
+            false,
+            true,
+            &EnglishVkTranslation::Text("é".to_string()),
+        ));
+        assert!(!svc.classify_english_key_translation(
+            false,
+            false,
+            false,
+            false,
+            true,
+            &EnglishVkTranslation::Text("<".to_string()),
+        ));
+        assert!(svc.classify_english_key_translation(
+            true,
+            false,
+            false,
+            false,
+            true,
+            &EnglishVkTranslation::Text("<".to_string()),
+        ));
+        assert!(!svc.classify_english_key_translation(
+            false,
+            false,
+            false,
+            false,
+            true,
+            &EnglishVkTranslation::Text("~".to_string()),
+        ));
+        assert!(svc.classify_english_key_translation(
+            false,
+            true,
+            false,
+            false,
+            true,
+            &EnglishVkTranslation::Text("~".to_string()),
+        ));
+
+        // 非歐文模式下即使 is_altgr=true 也應完全放行
+        {
+            svc.engine.lock().unwrap().set_keyboard_mode("hsu");
+        }
+        assert!(!svc.evaluate_test_key_down_full(0x41, true, true, false, false, true, false, false));
+
+        // RuhiConfig::western_languages 預設與同步至 RuhiEngine 驗證
+        let mut cfg = RuhiConfig::default();
+        assert_eq!(cfg.western_languages, vec!["en".to_string()]);
+        cfg.western_languages = vec!["en".to_string(), "sa_am".to_string()];
+        {
+            let mut eng = svc.engine.lock().unwrap();
+            apply_config_to_engine(&mut eng, &cfg);
+            assert!(eng.western.is_language_enabled("en"));
+            assert!(eng.western.is_language_enabled("sa_am"));
+        }
+    }
+
+    #[test]
+    fn test_p1_t4_is_latin_mode_and_unicode_diacritic_up_arrow_boundaries() {
+        let svc = make_p1_t4_test_svc("hsu");
+        {
+            let mut eng = svc.engine.lock().unwrap();
+            eng.is_latin_mode = true;
+        }
+        for ch in "thank y".chars() {
+            svc.insert_pending_char(ch, None);
+        }
+        let (_ti, tr, cands) = svc.detect_up_arrow_target_and_cands("thank y", 7);
+        assert_eq!(tr, (6, 7));
+        assert!(
+            cands.first().map(|s| s.as_str()) == Some("you"),
+            "暫時切換拉丁模式 (is_latin_mode) 下 ↑ 應觸發歐文搭配詞補全: {:?}",
+            cands
+        );
+
+        let (_t_idx, range, _) = svc.detect_up_arrow_target_and_cands("café nāma", 4);
+        assert_eq!(
+            range,
+            (0, 4),
+            "Unicode 附標字母邊界應完整辨識 café（不於附標處斷開）"
+        );
+    }
+
     #[test]
     fn test_shortcut_passthrough_and_input_desk_combos_all_modes_261115() {
         // 1. COM ABI 不變量：嚴格維持 RuhiTextService 既有 27 個欄位佈局
@@ -9532,18 +10325,7 @@ mod tests {
             redo_stack: Arc::new(Mutex::new(Vec::new())),
         });
 
-        let all_modes = [
-            "english",
-            "hsu",
-            "standard",
-            "et26",
-            "cangjie",
-            "array30",
-            "four_corner",
-            "longkan",
-            "japanese",
-            "korean",
-        ];
+        let all_modes: Vec<&'static str> = ruhi::engine::ALL_MODES.iter().map(|d| d.id).collect();
 
         // 2. 無組字狀態 (!has_buffer) 下，全體 10 種輸入模式皆必須無條件放行所有通用應用程式快捷鍵
         let ctrl_letters: [u32; 18] = [

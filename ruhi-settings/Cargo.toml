@@ -15,6 +15,7 @@ name = "ruhi_settings"
 path = "src/lib.rs"
 
 [dependencies]
+ruhi-core = { path = "../ruhi-core" }
 atg_lib = { path = "atg_lib" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

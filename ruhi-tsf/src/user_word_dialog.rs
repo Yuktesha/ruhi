@@ -237,7 +237,14 @@ pub fn add_user_word_entry(
 
     let norm_bpm = ruhi::lexicon::LexiconEntry::normalize_bpm(bpmf);
     let hc = ruhi::lexicon::LexiconEntry::extract_bpm_headcode(&norm_bpm);
-    let entry_line = format!("{}\t{}\t{}\tuser\tTSF-Selection\t{}\n", word, norm_bpm, weight, hc);
+    let lex_probe = ruhi::lexicon::LexiconManager::new();
+    let note_tag = match lex_probe.classify_user_person_name(word) {
+        Some((form, surname, given)) => {
+            ruhi::lexicon::LexiconManager::format_person_note_tag(form, &surname, &given)
+        }
+        None => "TSF-Selection".to_string(),
+    };
+    let entry_line = format!("{}\t{}\t{}\tuser\t{}\t{}\n", word, norm_bpm, weight, note_tag, hc);
     if let Err(e) = file.write_all(entry_line.as_bytes()) {
         logger::log(&format!("Failed to write entry to user_dict: {:?}", e));
         return false;
@@ -457,4 +464,106 @@ fn chrono_like_today() -> String {
 fn chrono_like_now() -> String {
     let (y, m, d, hh, mm, ss) = get_taipei_time_components();
     format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", y, m, d, hh, mm, ss)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::{HashMap, HashSet};
+    use std::path::PathBuf;
+
+    fn make_temp_paths(dir: &std::path::Path) -> RuhiPaths {
+        let p = |name: &str| dir.join(name);
+        RuhiPaths {
+            data_dir: dir.to_path_buf(),
+            sandbox_dir: dir.to_path_buf(),
+            core_lexicon: p("lexicon_core.tsv"),
+            mcbopomofo: p("lexicon_mcbopomofo.tsv"),
+            moe: p("lexicon_moe.tsv"),
+            domain: p("lexicon_domain.tsv"),
+            user_dict: p("user_dict.tsv"),
+            transitions: p("transitions_user.tsv"),
+            symbols: p("symbols.tsv"),
+            config: p("config.json"),
+            english: p("lexicon_english.tsv"),
+            array30: p("array30.tsv"),
+            four_corner: p("four_corner.tsv"),
+            longkan: p("longkan.tsv"),
+            deleted_dict: p("deleted_dict.tsv"),
+            rules_json: p("user_semantic_rules.json"),
+            templates: p("templates.tsv"),
+        }
+    }
+
+    #[test]
+    fn test_add_user_word_person_note_tag_roundtrip_and_onomastics() {
+        let unique = format!(
+            "ruhi_uwd_person_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        );
+        let tmp_dir: PathBuf = std::env::temp_dir().join(unique);
+        let _ = std::fs::create_dir_all(&tmp_dir);
+        let paths = make_temp_paths(&tmp_dir);
+
+        assert!(add_user_word_entry(
+            &paths,
+            "曹大十",
+            "ㄘㄠˊ ㄉㄚˋ ㄕˊ",
+            160,
+            Some("找"),
+        ));
+        assert!(add_user_word_entry(
+            &paths,
+            "微服務",
+            "ㄨㄟˊ ㄈㄨˊ ㄨˋ",
+            150,
+            None,
+        ));
+
+        let content = std::fs::read_to_string(&paths.user_dict).expect("讀取 user_dict.tsv 失敗");
+        assert!(
+            content.contains("曹大十\tㄘㄠˊ ㄉㄚˋ ㄕˊ\t160\tuser\tperson_s1_g2:曹+大十\t"),
+            "人名「曹大十」應寫入結構化 person_s1_g2:曹+大十 標記，實際內容：\n{}",
+            content
+        );
+        assert!(
+            content.contains("微服務\tㄨㄟˊ ㄈㄨˊ ㄨˋ\t150\tuser\tTSF-Selection\t"),
+            "非人名一般詞應保留 TSF-Selection 標記，實際內容：\n{}",
+            content
+        );
+
+        let mut mgr = ruhi::lexicon::LexiconManager::new();
+        let loaded = mgr
+            .load_tsv(&paths.user_dict, "user")
+            .expect("載入 user_dict.tsv 失敗");
+        assert!(loaded >= 2);
+        let entry = mgr
+            .entries
+            .iter()
+            .find(|e| e.word == "曹大十")
+            .expect("應載入曹大十詞條");
+        assert_eq!(entry.note, "person_s1_g2:曹+大十");
+
+        let bonus = ruhi::router::onomastics::score_onomastic_bonus_with_ctx(
+            &["曹"],
+            None,
+            None,
+            "先生",
+            "ㄒㄧㄢ ㄕㄥ",
+            3,
+            &HashMap::new(),
+            &HashSet::new(),
+        );
+        assert!(
+            bonus > 0.0,
+            "載入 person_s1_g2:曹+大十 後應觸發使用者姓氏＋尊稱推論加分（曹先生），實際 bonus={}",
+            bonus
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
 }

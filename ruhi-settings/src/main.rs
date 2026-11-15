@@ -11,6 +11,7 @@
 //!    - 相容 `--web`（啟動 `127.0.0.1:8765` 伺服 `scripts/web/index.html`）、`--cli`、`--verify`、`--auto-align`、`--tailcat` 與 `--test` 自動化測試參數。
 
 use atg_lib::prelude::*;
+use ruhi::engine::{find_mode_descriptor, mode_picker_options, ALL_MODES};
 use ruhi_settings::config_sync::{
     ensure_keyboard_modes_consistent, load_settings, mount_single_keyboard_mode_only,
     resolve_data_dir, resolve_effective_ui_lang, resolve_ruhi_root, save_settings,
@@ -1290,18 +1291,10 @@ impl RuhiStudioApp {
     fn mode_code_display_name(code: &str) -> &'static str {
         match code {
             "user_abbrev" | "abbrev" | "user_dict" => "🔖 自訂詞庫（頭碼／自訂縮略碼）",
-            "hsu" => "許氏雙拼注音 (許)",
-            "standard" => "標準大千注音 (注)",
-            "et26" => "倚天 26 鍵注音 (倚)",
-            "longkan" | "lk" => "龍龕形音 4 碼 (龍)",
-            "array30" => "行列 30 (行)",
-            "cangjie" => "倉頡 (倉)",
-            "four_corner" => "四角號碼 4×5 (四)",
-            "japanese" => "日文羅馬字 (日)",
-            "korean" => "韓文羅馬拼音 (韓)",
-            "english" | "en" => "英數／歐文直通 (英)",
             "punct" | "symbol" | "tilde" | "fullwidth" | "none" => "〰 直出全形波浪號「～」",
-            _ => "自訂模式",
+            other => find_mode_descriptor(other)
+                .map(|desc| desc.display_name)
+                .unwrap_or("自訂模式"),
         }
     }
 
@@ -1361,23 +1354,12 @@ impl RuhiStudioApp {
                         )
                         .width(210.0 * scale)
                         .show_ui(ui, |ui| {
-                            for (code, label) in [
-                                ("hsu", "許氏雙拼注音 (許)"),
-                                ("longkan", "🐉 龍龕形音 4 碼 (龍)［外國人友善］"),
-                                ("four_corner", "智慧型四角號碼 4×5 (四)"),
-                                ("array30", "行列 30 輸入法 (行)"),
-                                ("cangjie", "倉頡輸入法 (倉)"),
-                                ("standard", "標準大千注音 (注)"),
-                                ("et26", "倚天 26 鍵注音 (倚)"),
-                                ("japanese", "日文羅馬字 (日)"),
-                                ("korean", "韓文羅馬拼音 (韓)"),
-                                ("english", "英數／歐文直通 (英)"),
-                            ] {
+                            for desc in ALL_MODES {
                                 if ui
                                     .selectable_value(
                                         &mut self.settings.keyboard.layout,
-                                        code.to_string(),
-                                        label,
+                                        desc.id.to_string(),
+                                        desc.display_name,
                                     )
                                     .changed()
                                 {
@@ -1387,32 +1369,26 @@ impl RuhiStudioApp {
                         });
 
                     ui.add_space(6.0 * scale);
-                    for (code, pill_lbl) in [
-                        ("hsu", "許 雙拼"),
-                        ("longkan", "🐉 龍 龍龕形音"),
-                        ("four_corner", "四 四角4×5"),
-                        ("array30", "行 行列30"),
-                        ("cangjie", "倉 倉頡"),
-                        ("standard", "注 大千"),
-                        ("et26", "倚 倚天26"),
-                        ("japanese", "日 日文"),
-                        ("korean", "韓 韓文"),
-                        ("english", "英 歐文"),
-                    ] {
-                        let is_cur = self.settings.keyboard.layout == code;
+                    let cur_mode_id = find_mode_descriptor(&self.settings.keyboard.layout)
+                        .map(|d| d.id.to_string())
+                        .unwrap_or_else(|| self.settings.keyboard.layout.clone());
+                    for desc in ALL_MODES {
+                        let is_cur = cur_mode_id == desc.id;
                         if ui
                             .selectable_label(
                                 is_cur,
-                                egui::RichText::new(pill_lbl).size(11.8 * scale).strong(),
+                                egui::RichText::new(desc.display_name)
+                                    .size(11.8 * scale)
+                                    .strong(),
                             )
                             .on_hover_text(format!(
                                 "一鍵切換當前輸入法為：{}",
-                                Self::mode_code_display_name(code)
+                                desc.display_name
                             ))
                             .clicked()
                             && !is_cur
                         {
-                            self.settings.keyboard.layout = code.to_string();
+                            self.settings.keyboard.layout = desc.id.to_string();
                             quick_mode_changed = true;
                         }
                     }
@@ -1947,20 +1923,25 @@ impl RuhiStudioApp {
                     "none".to_string()
                 };
 
-                let options = [
-                    ("none", "關閉（推薦使用互動查碼工作台）"),
-                    ("longkan", "🐉 龍龕形音 (4碼)"),
-                    ("four_corner", "🔢 智慧型四角號碼 (4×5 小鍵盤)"),
-                    ("array30", "📐 行列 30 (筆形座標)"),
-                    ("cangjie", "🔤 倉頡輸入法 (哲理字根)"),
-                    ("hsu", "🎵 許氏雙拼注音"),
-                    ("standard", "🎹 標準大千注音"),
-                    ("et26", "⌨️ 倚天 26 鍵注音"),
-                ];
-
                 let mut changed = false;
-                for (id, label) in options {
-                    if ui.radio_value(&mut cur_target, id.to_string(), label).changed() {
+                if ui
+                    .radio_value(
+                        &mut cur_target,
+                        "none".to_string(),
+                        "關閉（推薦使用互動查碼工作台）",
+                    )
+                    .changed()
+                {
+                    changed = true;
+                }
+                for desc in ALL_MODES
+                    .iter()
+                    .filter(|d| !matches!(d.id, "japanese" | "korean" | "english"))
+                {
+                    if ui
+                        .radio_value(&mut cur_target, desc.id.to_string(), desc.display_name)
+                        .changed()
+                    {
                         changed = true;
                     }
                 }
@@ -2298,20 +2279,10 @@ impl RuhiStudioApp {
             ui.label(egui::RichText::new("勾選納入循環切換之輸入法（勾選後將加入上方排序清單，任意模式皆可自由卸載或單獨掛載）：").strong());
             ui.add_space(4.0);
 
-            let mode_options = [
-                ("hsu", "許氏雙拼注音 (許) ［漢語 C ▸ 音韻系］"),
-                ("longkan", "🐉 龍龕形音 4 碼輸入法 (龍) ［漢語 C ▸ 形音雙拼＋象形＋部件×數字・外國人友善］"),
-                ("standard", "標準大千注音 (注) ［漢語 C ▸ 音韻系］"),
-                ("et26", "倚天 26 鍵注音 (倚) ［漢語 C ▸ 音韻系］"),
-                ("array30", "行列 30 輸入法 (行) ［漢語 C ▸ 字形系］"),
-                ("cangjie", "倉頡輸入法 (倉) ［漢語 C ▸ 字形系］"),
-                ("four_corner", "智慧型四角號碼 4×5 小鍵盤 (四) ［漢語 C ▸ 數位系］"),
-                ("japanese", "日文羅馬字輸入 (日) ［日韓 JK ▸ 日本語族］"),
-                ("korean", "韓文羅馬拼音輸入 (韓) ［日韓 JK ▸ 韓語族］"),
-                ("english", "英數／歐文直通模式 (英) ［泛歐印歐語系 ▸ 拉丁直通］"),
-            ];
             let enabled_len = self.settings.keyboard.enabled_keyboard_modes.len();
-            for (m_code, m_label) in mode_options {
+            for desc in ALL_MODES {
+                let m_code = desc.id;
+                let m_label = desc.display_name;
                 let mut enabled = self
                     .settings
                     .keyboard
@@ -2392,18 +2363,11 @@ impl RuhiStudioApp {
             );
             ui.add_space(8.0);
 
-            let aux_options = [
-                ("user_abbrev", "🔖 自訂詞庫：頭碼／自訂縮略碼輸入（預設推薦）"),
-                ("longkan", "🐉 龍龕形音 4 碼輸入法 (龍)"),
-                ("hsu", "許氏雙拼注音 (許)"),
-                ("array30", "行列 30 輸入法 (行)"),
-                ("cangjie", "倉頡輸入法 (倉)"),
-                ("four_corner", "智慧型四角號碼 4×5 (四)"),
-                ("japanese", "日文羅馬字輸入 (日)"),
-                ("korean", "韓文羅馬拼音輸入 (韓)"),
-                ("standard", "標準大千注音 (注)"),
-                ("et26", "倚天 26 鍵注音 (倚)"),
-            ];
+            let mut aux_options: Vec<(String, String)> = vec![(
+                "user_abbrev".to_string(),
+                "🔖 自訂詞庫：頭碼／自訂縮略碼輸入（預設推薦）".to_string(),
+            )];
+            aux_options.extend(mode_picker_options(Some("english")));
             let mut aux_changed = false;
 
             ui.horizontal_wrapped(|ui| {
@@ -2418,12 +2382,12 @@ impl RuhiStudioApp {
                     ))
                     .width(240.0)
                     .show_ui(ui, |ui| {
-                        for (code, label) in aux_options {
+                        for (code, label) in &aux_options {
                             if ui
                                 .selectable_value(
                                     &mut self.settings.keyboard.backtick_inline_mode,
-                                    code.to_string(),
-                                    label,
+                                    code.clone(),
+                                    label.as_str(),
                                 )
                                 .changed()
                             {
@@ -2461,12 +2425,12 @@ impl RuhiStudioApp {
                         {
                             aux_changed = true;
                         }
-                        for (code, label) in aux_options {
+                        for (code, label) in &aux_options {
                             if ui
                                 .selectable_value(
                                     &mut self.settings.keyboard.tilde_toggle_mode,
-                                    code.to_string(),
-                                    label,
+                                    code.clone(),
+                                    label.as_str(),
                                 )
                                 .changed()
                             {
@@ -2494,15 +2458,11 @@ impl RuhiStudioApp {
                     ))
                     .width(240.0)
                     .show_ui(ui, |ui| {
-                        for (code, label) in aux_options
-                            .iter()
-                            .copied()
-                            .filter(|(code, _)| *code != "user_abbrev")
-                        {
+                        for (code, label) in mode_picker_options(Some("english")) {
                             if ui
                                 .selectable_value(
                                     &mut self.settings.keyboard.shift_down_mode,
-                                    code.to_string(),
+                                    code,
                                     label,
                                 )
                                 .changed()
@@ -3638,23 +3598,12 @@ impl eframe::App for RuhiStudioApp {
                             )
                             .width(mode_w)
                             .show_ui(ui, |ui| {
-                                for (code, label) in [
-                                    ("hsu", "🎵 許氏雙拼注音 (許)"),
-                                    ("longkan", "🐉 龍龕形音 4 碼 (龍)［外國人友善］"),
-                                    ("four_corner", "🔢 智慧型四角號碼 4×5 (四)"),
-                                    ("array30", "📐 行列 30 輸入法 (行)"),
-                                    ("cangjie", "🔤 倉頡輸入法 (倉)"),
-                                    ("standard", "🎹 標準大千注音 (注)"),
-                                    ("et26", "⌨ 倚天 26 鍵注音 (倚)"),
-                                    ("japanese", "🇯🇵 日文羅馬字 (日)"),
-                                    ("korean", "🇰🇷 韓文羅馬拼音 (韓)"),
-                                    ("english", "🔤 英數／歐文直通 (英)"),
-                                ] {
+                                for desc in ALL_MODES {
                                     if ui
                                         .selectable_value(
                                             &mut self.settings.keyboard.layout,
-                                            code.to_string(),
-                                            label,
+                                            desc.id.to_string(),
+                                            desc.display_name,
                                         )
                                         .changed()
                                     {

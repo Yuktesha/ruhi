@@ -1609,7 +1609,7 @@ impl WesternEngine {
                     .enumerate()
                     .find(|(_, (p, c))| p == prev_last && c.to_lowercase() == word_lower)
                 {
-                    bonus += 70.0 - (idx as f32 * 0.4).min(20.0);
+                    bonus += 35.0 - (idx as f32 * 0.4).min(15.0);
                 }
             }
 

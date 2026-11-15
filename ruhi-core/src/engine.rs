@@ -2890,7 +2890,7 @@ impl RuhiEngine {
         Self::normalize_keyboard_mode(&self.keyboard_mode) == "english"
     }
 
-    fn is_western_token_boundary_blocker(ch: char) -> bool {
+    pub fn is_western_token_boundary_blocker(ch: char) -> bool {
         ch.is_ascii_alphanumeric()
             || matches!(
                 ch,
@@ -2899,7 +2899,7 @@ impl RuhiEngine {
             || matches!(ch, '_' | '.' | '/' | '\\' | ':' | '@' | '#' | '$' | '-' | '\'')
     }
 
-    fn is_western_non_ascii_letter_or_mark(ch: char) -> bool {
+    pub fn is_western_non_ascii_letter_or_mark(ch: char) -> bool {
         matches!(ch, '\u{0300}'..='\u{036F}')
             || (ch.is_alphabetic() && matches!(ch, '\u{00C0}'..='\u{024F}' | '\u{1E00}'..='\u{1EFF}'))
     }

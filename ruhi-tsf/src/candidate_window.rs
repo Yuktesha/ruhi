@@ -222,6 +222,23 @@ pub fn current_effective_ui_lang() -> &'static str {
     crate::service::resolve_effective_ui_lang(&cfg_lang)
 }
 
+/// ModeRegistry 單一真相來源：將 TSF 語言列與系統匣選單命令 ID 對應為標準鍵盤模式代碼。
+pub fn mode_code_from_menu_cmd_id(cmd: u32) -> Option<&'static str> {
+    match cmd {
+        2001 => Some("hsu"),
+        2002 => Some("standard"),
+        2003 => Some("et26"),
+        2004 => Some("cangjie"),
+        2005 => Some("japanese"),
+        2006 => Some("english"),
+        2007 => Some("array30"),
+        2009 => Some("korean"),
+        2010 => Some("four_corner"),
+        2013 => Some("longkan"),
+        _ => None,
+    }
+}
+
 pub fn quick_edit_button_label(kind: &str, ui_lang: &str) -> Option<&'static str> {
     match kind {
         "templates" => {
@@ -2555,17 +2572,11 @@ unsafe fn draw_shift_down_quick_switcher_bar(
     border_brush: HBRUSH,
 ) -> Vec<(RECT, String)> {
     let mut buttons = Vec::new();
-    let pills = [
-        ("longkan", "龍"),
-        ("hsu", "許"),
-        ("array30", "行"),
-        ("cangjie", "倉"),
-        ("four_corner", "四"),
-        ("standard", "注"),
-        ("et26", "倚"),
-        ("japanese", "日"),
-        ("korean", "韓"),
-    ];
+    let pills: Vec<(&'static str, &'static str)> = ruhi::engine::ALL_MODES
+        .iter()
+        .filter(|m| m.id != "english")
+        .map(|m| (m.id, m.short_badge))
+        .collect();
     let norm_active = ruhi::engine::RuhiEngine::normalize_keyboard_mode(active_mode);
     let btn_w = (22.0 * dpi_scale).round() as i32;
     let gap = (3.0 * dpi_scale).round().max(2.0) as i32;
@@ -3507,21 +3518,9 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
         // 右側：純文字大號「半   許 / 日 / 倉 / 行 / 注 / 倚 / 拼」或「半   歐」
         SetTextColor(mem_dc, ink_secondary);
-        let kb_indicator = match state.keyboard_mode.to_lowercase().as_str() {
-            "english" | "en" | "latin" | "western" | "euro" | "sanskrit" => "歐",
-            "hsu" => "許",
-            "japanese" | "jp" | "romaji" | "kana" => "日",
-            "korean" | "ko" | "hangul" | "romaja" => "韓",
-            "standard" | "daikien" | "dachen" | "bopomofo" => "注",
-            "cangjie" => "倉",
-            "array30" | "ar30" => "行",
-            "four_corner" | "4corner" | "fc" => "四",
-            "longkan" | "lk" => "龍",
-            "et26" | "eten26" => "倚",
-            "et41" => "41",
-            "pinyin" => "拼",
-            _ => "中",
-        };
+        let kb_indicator = ruhi::engine::find_mode_descriptor(&state.keyboard_mode)
+            .map(|m| m.short_badge)
+            .unwrap_or("中");
         let (i18n_badge, _) = get_mode_badge_and_name_i18n(&state.keyboard_mode, state.is_caps_on, eff_ui_lang);
         let hw_prefix = if state.is_fullwidth {
             match eff_ui_lang {
@@ -4084,6 +4083,9 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 .filter(|m| !m.is_empty())
                 .collect();
             let normalized_cur = ruhi::engine::RuhiEngine::normalize_keyboard_mode(&cur_kb);
+            let cur_mode_id = ruhi::engine::find_mode_descriptor(&cur_kb)
+                .map(|d| d.id)
+                .unwrap_or(normalized_cur.as_str());
             for &(id, mode_code, label) in items {
                 if !normalized_enabled.is_empty()
                     && !normalized_enabled.iter().any(|m| m == mode_code)
@@ -4091,14 +4093,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 {
                     continue;
                 }
-                let is_active = cur_kb == mode_code
-                    || (mode_code == "standard" && cur_kb == "daikien")
-                    || (mode_code == "et26" && cur_kb == "eten26")
-                    || (mode_code == "array30" && cur_kb == "ar30")
-                    || (mode_code == "four_corner" && (cur_kb == "4corner" || cur_kb == "fc"))
-                    || (mode_code == "longkan" && cur_kb == "lk")
-                    || (mode_code == "japanese" && (cur_kb == "jp" || cur_kb == "romaji" || cur_kb == "kana"))
-                    || (mode_code == "korean" && (cur_kb == "ko" || cur_kb == "hangul" || cur_kb == "romaja"));
+                let is_active = cur_kb == mode_code || cur_mode_id == mode_code;
                 let wide: Vec<u16> = label.encode_utf16().chain(Some(0)).collect();
                 let flags = if is_active { MF_STRING | MF_CHECKED } else { MF_STRING };
                 let _ = AppendMenuW(hmenu, flags, id as usize, PCWSTR(wide.as_ptr()));
@@ -4363,20 +4358,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
             } else if cmd_id == 2014 {
                 save_capslock_switch_mode("none");
             }
-            let chosen_mode = match cmd_id {
-                2001 => Some("hsu"),
-                2002 => Some("standard"),
-                2003 => Some("et26"),
-                2004 => Some("cangjie"),
-                2005 => Some("japanese"),
-                2006 => Some("english"),
-                2007 => Some("array30"),
-                2009 => Some("korean"),
-                2010 => Some("four_corner"),
-                2013 => Some("longkan"),
-                _ => None,
-            };
-            if let Some(m) = chosen_mode {
+            if let Some(m) = mode_code_from_menu_cmd_id(cmd_id as u32) {
                 save_keyboard_mode(m);
                 if hw_caps {
                     crate::service::trigger_synthetic_caps_toggle();
