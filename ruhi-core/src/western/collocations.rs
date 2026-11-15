@@ -6,7 +6,9 @@ use super::WesternEngine;
 
 #[inline]
 fn is_latin_word_char(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || matches!(ch, '\u{00C0}'..='\u{024F}' | '\u{1E00}'..='\u{1EFF}')
+    ch.is_ascii_alphanumeric()
+        || (ch.is_alphabetic() && matches!(ch, '\u{00C0}'..='\u{024F}' | '\u{1E00}'..='\u{1EFF}'))
+        || matches!(ch, '\u{0300}'..='\u{036F}')
 }
 
 #[inline]
@@ -1498,7 +1500,7 @@ pub fn score_candidate_in_clause_context(
             match wh {
                 WhKind::Where => {
                     if w == "going" {
-                        score += 58.0;
+                        score += 34.0;
                     } else if matches!(
                         w,
                         "getting"
@@ -1526,7 +1528,7 @@ pub fn score_candidate_in_clause_context(
                             | "studying"
                             | "sleeping"
                     ) {
-                        score += 50.0;
+                        score += 31.0;
                     } else if is_verbal_ing(w) {
                         score += 30.0;
                     } else if matches!(
@@ -1534,7 +1536,7 @@ pub fn score_candidate_in_clause_context(
                         "from" | "now" | "located" | "based" | "guys" | "folks" | "at" | "here"
                             | "there"
                     ) {
-                        score += 36.0;
+                        score += 24.0;
                     } else if matches!(w, "good" | "glad" | "ready" | "free" | "available") {
                         score += 8.0;
                     } else if is_bare_non_adj_verb(w) {
@@ -1548,7 +1550,7 @@ pub fn score_candidate_in_clause_context(
                 }
                 WhKind::What => {
                     if w == "doing" {
-                        score += 58.0;
+                        score += 34.0;
                     } else if matches!(
                         w,
                         "going"
@@ -1568,7 +1570,7 @@ pub fn score_candidate_in_clause_context(
                             | "getting"
                             | "having"
                     ) {
-                        score += 48.0;
+                        score += 30.0;
                     } else if is_verbal_ing(w) {
                         score += 32.0;
                     } else if is_bare_non_adj_verb(w) {
@@ -1591,7 +1593,7 @@ pub fn score_candidate_in_clause_context(
                             | "ready"
                             | "back"
                     ) {
-                        score += 48.0;
+                        score += 30.0;
                     } else if is_verbal_ing(w) {
                         score += 28.0;
                     } else if is_bare_non_adj_verb(w) {
@@ -1611,11 +1613,11 @@ pub fn score_candidate_in_clause_context(
                             | "waiting"
                             | "holding"
                     ) {
-                        score += 48.0;
+                        score += 30.0;
                     } else if is_verbal_ing(w) {
                         score += 32.0;
                     } else if matches!(w, "today" | "guys" | "still" | "so" | "here") {
-                        score += 36.0;
+                        score += 24.0;
                     } else if is_bare_non_adj_verb(w) {
                         score -= 32.0;
                     }
@@ -1627,9 +1629,9 @@ pub fn score_candidate_in_clause_context(
                 && prev_words[prev_words.len() - 2] == "are"
                 && prev_words[prev_words.len() - 1] == "you";
             if w == "going" {
-                score += 48.0;
+                score += 30.0;
             } else if after_are_you && w == "guys" {
-                score += 36.0;
+                score += 24.0;
             } else if matches!(
                 w,
                 "working"
@@ -1658,7 +1660,7 @@ pub fn score_candidate_in_clause_context(
                     | "staying"
                     | "living"
             ) {
-                score += 42.0;
+                score += 27.0;
             } else if is_verbal_ing(w) {
                 score += 28.0;
             } else if matches!(
@@ -1680,7 +1682,7 @@ pub fn score_candidate_in_clause_context(
                     | "interested"
                     | "excited"
             ) {
-                score += 38.0;
+                score += 25.0;
             } else if matches!(w, "done" | "finished" | "based" | "located" | "invited" | "updated" | "fixed")
             {
                 score += 26.0;
@@ -1692,7 +1694,7 @@ pub fn score_candidate_in_clause_context(
         }
         ClauseFrame::InfinitivalTo => {
             if is_common_base_verb(w) {
-                score += 42.0;
+                score += 27.0;
             } else if is_irregular_past_or_participle(w)
                 || is_finite_aux_token(w)
                 || matches!(w, "i" | "you" | "we" | "they" | "he" | "she" | "it")
@@ -1706,7 +1708,7 @@ pub fn score_candidate_in_clause_context(
         }
         ClauseFrame::PrepositionalTo => {
             if is_verbal_ing(w) {
-                score += 38.0;
+                score += 25.0;
             } else if matches!(w, "the" | "your" | "our" | "my" | "this" | "a" | "an") {
                 score += 24.0;
             } else if is_finite_aux_token(w) {
@@ -1715,7 +1717,7 @@ pub fn score_candidate_in_clause_context(
         }
         ClauseFrame::ModalOrDoSupport => {
             if is_common_base_verb(w) {
-                score += 42.0;
+                score += 27.0;
             } else if is_irregular_past_or_participle(w) {
                 score -= 35.0;
             } else if is_verbal_ing(w) || is_regular_ed(w) {
@@ -1727,14 +1729,14 @@ pub fn score_candidate_in_clause_context(
         }
         ClauseFrame::PerfectHave { locative_wh } => {
             if w == "been" {
-                score += 52.0;
+                score += 32.0;
             } else if locative_wh && matches!(w, "gone" | "gotten" | "stayed" | "lived" | "worked")
             {
-                score += 64.0;
+                score += 35.0;
             } else if is_irregular_past_participle(w) {
-                score += 46.0;
+                score += 29.0;
             } else if is_regular_ed(w) {
-                score += 38.0;
+                score += 25.0;
             } else if is_verbal_ing(w) {
                 score -= 28.0;
             } else if matches!(
@@ -1760,13 +1762,13 @@ pub fn score_candidate_in_clause_context(
                         | "supporting"
                 )
             {
-                score += 52.0;
+                score += 32.0;
             } else if kind == GerundPrepKind::InsteadOf
                 && matches!(w, "using" | "doing" | "going" | "having" | "making")
             {
-                score += 50.0;
+                score += 31.0;
             } else if is_verbal_ing(w) {
-                score += 40.0;
+                score += 26.0;
             } else if matches!(w, "your" | "the" | "my" | "our" | "this" | "some") {
                 score += 24.0;
             } else if is_finite_aux_token(w) || is_bare_non_adj_verb(w) {
@@ -1797,7 +1799,7 @@ pub fn score_candidate_in_clause_context(
         }
         ClauseFrame::Intensifier { can_take_much } => {
             if can_take_much && w == "much" {
-                score += 52.0;
+                score += 32.0;
             } else if matches!(
                 w,
                 "good" | "great" | "well" | "important" | "useful" | "helpful" | "happy" | "glad"
@@ -1822,7 +1824,7 @@ pub fn score_candidate_in_clause_context(
                         || w.ends_with("re")
                         || matches!(w, "être" | "etre" | "avoir"))
                 {
-                    score += 46.0;
+                    score += 29.0;
                 }
             }
             EuroLangFrame::FrenchPerfect => {
@@ -1831,24 +1833,24 @@ pub fn score_candidate_in_clause_context(
                     "fait" | "vu" | "pris" | "dit" | "eu" | "été" | "ete" | "pu" | "voulu" | "reçu"
                         | "recu" | "envoyé" | "trouvé" | "fini" | "compris"
                 ) {
-                    score += 46.0;
+                    score += 29.0;
                 }
             }
             EuroLangFrame::GermanModalOrFuture => {
                 if w == "gerne" {
-                    score += 42.0;
+                    score += 27.0;
                 } else if w.len() >= 4 && w.ends_with("en") {
-                    score += 46.0;
+                    score += 29.0;
                 }
             }
             EuroLangFrame::SpanishProgressive => {
                 if w.ends_with("ando") || w.ends_with("iendo") || w == "yendo" {
-                    score += 48.0;
+                    score += 30.0;
                 }
             }
             EuroLangFrame::SpanishModalOrFuture => {
                 if w.len() >= 2 && (w.ends_with("ar") || w.ends_with("er") || w.ends_with("ir")) {
-                    score += 46.0;
+                    score += 29.0;
                 }
             }
         },
@@ -2731,8 +2733,8 @@ pub fn lookup_acronym_candidates_with_context(
             }
 
             let base_bonus = match ctx.strength {
-                ConnectorStrength::Strong | ConnectorStrength::Parenthetical => 95.0,
-                ConnectorStrength::WeakCopula => 55.0,
+                ConnectorStrength::Strong | ConnectorStrength::Parenthetical => 35.0,
+                ConnectorStrength::WeakCopula => 24.0,
             };
 
             let slot_word = expansion[m];
@@ -2799,13 +2801,13 @@ pub fn lookup_acronym_candidates_with_context(
             if plural_match {
                 let acro_plural = format!("{}s", acro_upper);
                 if acro_plural.to_lowercase().starts_with(&t_lower) {
-                    push_entry(acro_plural, 96.0, false);
+                    push_entry(acro_plural, 35.0, false);
                 }
                 if acro_upper.to_lowercase().starts_with(&t_lower) {
-                    push_entry(acro_upper, 94.0, false);
+                    push_entry(acro_upper, 34.0, false);
                 }
             } else if exact_match && acro_upper.to_lowercase().starts_with(&t_lower) {
-                push_entry(acro_upper, 96.0, false);
+                push_entry(acro_upper, 35.0, false);
             }
         }
 
@@ -2852,7 +2854,7 @@ pub fn lookup_acronym_candidates_with_context(
         {
             let synth_acro: String = cap_initials.into_iter().collect();
             if synth_acro.to_lowercase().starts_with(&t_lower) {
-                push_entry(synth_acro, 90.0, false);
+                push_entry(synth_acro, 32.0, false);
             }
         }
     }
@@ -2880,7 +2882,7 @@ pub fn score_candidate_with_acronym_frame(
         return 0.0;
     }
 
-    let mut bonus = 24.0;
+    let mut bonus = 22.0;
     if ctx.is_non_final_modifier_slot {
         if candidate_lower.ends_with("al")
             || candidate_lower.ends_with("ic")

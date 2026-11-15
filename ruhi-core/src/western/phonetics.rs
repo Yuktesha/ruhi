@@ -193,11 +193,16 @@ fn is_phon_vowel(c: char) -> bool {
 fn normalize_ascii_letters(word: &str) -> Option<String> {
     let mut out = String::with_capacity(word.len());
     for ch in word.trim().chars() {
-        let stripped = WesternEngine::strip_char_diacritic(ch).to_ascii_lowercase();
-        if stripped.is_ascii_lowercase() {
-            out.push(stripped);
-        } else {
-            return None;
+        if matches!(ch, '\u{0300}'..='\u{036F}') {
+            continue;
+        }
+        let raw_s = WesternEngine::strip_char_diacritic(ch);
+        for stripped in raw_s.to_lowercase() {
+            if stripped.is_ascii_lowercase() {
+                out.push(stripped);
+            } else {
+                return None;
+            }
         }
     }
     if out.is_empty() {
@@ -605,7 +610,7 @@ impl WesternPhoneticIndex {
             if forms.is_empty() {
                 continue;
             }
-            let w_low = w.to_ascii_lowercase();
+            let w_low = w.to_lowercase();
             let eff_weight = weight.max(modern_l2_floor_weight(&w_low));
             let idx = entries.len() as u32;
 
@@ -655,7 +660,34 @@ impl WesternPhoneticIndex {
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
             if list.len() > 64 {
-                list.truncate(64);
+                // 為現代日常／CEFR 高頻詞保留 48 個配額席位，避免偏頗領域長尾詞擠出前 64 桶位
+                let mut common_slots: Vec<u32> = Vec::with_capacity(48);
+                let mut other_slots: Vec<u32> = Vec::with_capacity(64);
+                for &idx in list.iter() {
+                    let e = &entries[idx as usize];
+                    let is_common_daily =
+                        modern_l2_floor_weight(&e.word) > 0.0 || e.eff_weight >= 58.0;
+                    if is_common_daily && common_slots.len() < 48 {
+                        common_slots.push(idx);
+                    } else {
+                        other_slots.push(idx);
+                    }
+                }
+                let mut retained: Vec<u32> = Vec::with_capacity(64);
+                retained.extend(common_slots);
+                for idx in other_slots {
+                    if retained.len() >= 64 {
+                        break;
+                    }
+                    retained.push(idx);
+                }
+                retained.sort_by(|&a, &b| {
+                    entries[b as usize]
+                        .eff_weight
+                        .partial_cmp(&entries[a as usize].eff_weight)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                *list = retained;
             }
         }
 
@@ -670,9 +702,11 @@ impl WesternPhoneticIndex {
 type IndexCacheEntry = (Weak<WesternLexicon>, Arc<WesternPhoneticIndex>);
 
 fn get_or_build_index(lexicon: &Arc<WesternLexicon>) -> Arc<WesternPhoneticIndex> {
-    static CACHE: OnceLock<Mutex<HashMap<(usize, usize), IndexCacheEntry>>> = OnceLock::new();
+    static CACHE: OnceLock<Mutex<HashMap<(usize, usize, u64), IndexCacheEntry>>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    let key = (Arc::as_ptr(lexicon) as usize, lexicon.len());
+    let ptr = Arc::as_ptr(lexicon) as usize;
+    let gen_id = super::lexicon::lexicon_generation_for_ptr(ptr);
+    let key = (ptr, lexicon.len(), gen_id);
 
     if let Ok(guard) = cache.lock() {
         if let Some((weak, idx)) = guard.get(&key) {
@@ -684,9 +718,9 @@ fn get_or_build_index(lexicon: &Arc<WesternLexicon>) -> Arc<WesternPhoneticIndex
 
     let built = Arc::new(WesternPhoneticIndex::build(lexicon));
     if let Ok(mut guard) = cache.lock() {
-        if guard.len() >= 8 {
-            guard.retain(|_, (weak, _)| weak.strong_count() > 0);
-        }
+        guard.retain(|&(k_ptr, _, k_gen), (weak, _)| {
+            weak.strong_count() > 0 && !(k_ptr == ptr && k_gen != gen_id)
+        });
         guard.insert(key, (Arc::downgrade(lexicon), built.clone()));
     }
     built

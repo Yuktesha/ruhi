@@ -75,7 +75,7 @@ impl MorphologyEngine {
 
     /// 分析單字之形態學變化，若為字典內已知詞根的合法屈折形，回傳對應變體與詞根
     pub fn analyze(&self, word: &str, lexicon: &WesternLexicon) -> (MorphologicalVariant, Option<f32>) {
-        let w_lower = word.to_ascii_lowercase();
+        let w_lower = word.to_lowercase();
 
         // 1. 完全命中字典
         if let Some(weight) = lexicon.get_weight(&w_lower) {

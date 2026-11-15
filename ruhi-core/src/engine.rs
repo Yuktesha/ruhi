@@ -8,6 +8,105 @@ use crate::templates::TemplatesManager;
 use crate::symbols::SymbolsManager;
 use serde::{Deserialize, Serialize};
 
+/// 鍵盤輸入模式單一權威描述子（Mode Registry Entry）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeDescriptor {
+    pub id: &'static str,
+    pub display_name: &'static str,
+    pub short_badge: &'static str,
+    pub aliases: &'static [&'static str],
+}
+
+/// 全域十種鍵盤輸入模式單一真實來源（順序維持 Shift+↓ 選單數字鍵既有契約：長尾附 `english`）
+pub const ALL_MODES: &[ModeDescriptor] = &[
+    ModeDescriptor {
+        id: "longkan",
+        display_name: "龍龕形音",
+        short_badge: "龍",
+        aliases: &["longkan", "lk"],
+    },
+    ModeDescriptor {
+        id: "hsu",
+        display_name: "許氏雙拼",
+        short_badge: "許",
+        aliases: &["hsu"],
+    },
+    ModeDescriptor {
+        id: "array30",
+        display_name: "行列30",
+        short_badge: "行",
+        aliases: &["array30", "ar30"],
+    },
+    ModeDescriptor {
+        id: "cangjie",
+        display_name: "倉頡拆碼",
+        short_badge: "倉",
+        aliases: &["cangjie"],
+    },
+    ModeDescriptor {
+        id: "four_corner",
+        display_name: "四角號碼",
+        short_badge: "四",
+        aliases: &["four_corner", "4corner", "fc"],
+    },
+    ModeDescriptor {
+        id: "standard",
+        display_name: "標準大千",
+        short_badge: "注",
+        aliases: &["standard", "daikien", "dachen", "bopomofo"],
+    },
+    ModeDescriptor {
+        id: "et26",
+        display_name: "倚天26鍵",
+        short_badge: "倚",
+        aliases: &["et26", "eten26"],
+    },
+    ModeDescriptor {
+        id: "japanese",
+        display_name: "日文漢字",
+        short_badge: "日",
+        aliases: &["japanese", "jp", "romaji", "kana"],
+    },
+    ModeDescriptor {
+        id: "korean",
+        display_name: "韓文漢字",
+        short_badge: "韓",
+        aliases: &["korean", "ko", "hangul", "romaja"],
+    },
+    ModeDescriptor {
+        id: "english",
+        display_name: "歐文羅馬",
+        short_badge: "歐",
+        aliases: &["english", "en", "latin", "western", "euro", "sanskrit"],
+    },
+];
+
+/// 依輸入模式識別碼或別名查找唯一權威描述子
+pub fn find_mode_descriptor(mode: &str) -> Option<&'static ModeDescriptor> {
+    let low = mode.trim().to_ascii_lowercase();
+    ALL_MODES
+        .iter()
+        .find(|d| d.id == low || d.aliases.iter().any(|&a| a == low))
+}
+
+/// 產生排除特定模式後之 `(mode_id, display_label)` 選擇清單
+pub fn mode_picker_options(exclude_mode: Option<&str>) -> Vec<(String, String)> {
+    let excluded = exclude_mode
+        .and_then(find_mode_descriptor)
+        .map(|d| d.id)
+        .unwrap_or("");
+    ALL_MODES
+        .iter()
+        .filter(|d| d.id != excluded)
+        .map(|d| {
+            (
+                d.id.to_string(),
+                format!("{}({})", d.display_name, d.short_badge),
+            )
+        })
+        .collect()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EngineMode {
     Normal,
@@ -490,8 +589,6 @@ impl RuhiEngine {
         self.set_active_shift_down_mode_override(None);
         self.set_backslash_escape_pending(false);
         self.last_western_space_rollback = None;
-        self.lexicon.last_check_instant = None;
-        self.transitions.last_check_instant = None;
     }
 
     pub fn is_shift_down_longkan_popup(&self) -> bool {
@@ -555,86 +652,75 @@ impl RuhiEngine {
         }
     }
 
+    /// 取得指定模式或別名之權威描述子
+    pub fn find_mode_descriptor(mode: &str) -> Option<&'static ModeDescriptor> {
+        find_mode_descriptor(mode)
+    }
+
+    /// 產生排除指定模式後之 `(mode_id, display_label)` 選擇清單
+    pub fn mode_picker_options(exclude_mode: Option<&str>) -> Vec<(String, String)> {
+        mode_picker_options(exclude_mode)
+    }
+
+    /// 設定泛歐／羅馬軌啟用之子語言套件（預設僅 `["en"]`；包含 `"sa_am"` 時方啟用阿南達瑪迦梵語與印度羅馬音擴充）
+    pub fn set_western_languages(&mut self, langs: &[String]) {
+        self.western.set_enabled_languages(langs);
+    }
+
+    /// 查詢目前歐文子引擎已啟用之子語言代碼清單
+    pub fn western_languages(&self) -> Vec<String> {
+        self.western.enabled_languages()
+    }
+
     /// 取得指定輸入法代碼之正式顯示名稱
     pub fn mode_display_name(mode: &str) -> &'static str {
-        match Self::normalize_keyboard_mode(mode).as_str() {
-            "longkan" => "龍龕形音",
-            "hsu" => "許氏雙拼",
-            "array30" => "行列30",
-            "cangjie" => "倉頡拆碼",
-            "four_corner" => "四角號碼",
-            "standard" => "標準大千",
-            "et26" => "倚天26鍵",
-            "japanese" => "日文漢字",
-            "korean" => "韓文漢字",
-            "english" => "歐文羅馬",
-            _ => "龍龕形音",
-        }
+        Self::find_mode_descriptor(mode)
+            .map(|d| d.display_name)
+            .unwrap_or("龍龕形音")
     }
 
     /// 取得指定輸入法代碼之單字徽章標記
     pub fn mode_short_badge(mode: &str) -> &'static str {
-        match Self::normalize_keyboard_mode(mode).as_str() {
-            "longkan" => "龍",
-            "hsu" => "許",
-            "array30" => "行",
-            "cangjie" => "倉",
-            "four_corner" => "四",
-            "standard" => "注",
-            "et26" => "倚",
-            "japanese" => "日",
-            "korean" => "韓",
-            "english" => "歐",
-            _ => "龍",
-        }
+        Self::find_mode_descriptor(mode)
+            .map(|d| d.short_badge)
+            .unwrap_or("龍")
     }
 
     /// 當 `keyboard_mode == shift_down_mode`（例如已在龍龕形音模式又按 `Shift + ↓`）時，
     /// 提供排除自身模式後之互動式跨輸入法候選查詢選單項目 `(mode_code, display_label)`
     pub fn get_shift_down_mode_picker_options(&self) -> Vec<(String, String)> {
         let cur = Self::normalize_keyboard_mode(&self.keyboard_mode);
-        let all_modes = [
-            ("longkan", "龍龕形音(龍)"),
-            ("hsu", "許氏雙拼(許)"),
-            ("array30", "行列30(行)"),
-            ("cangjie", "倉頡拆碼(倉)"),
-            ("four_corner", "四角號碼(四)"),
-            ("standard", "標準大千(注)"),
-            ("et26", "倚天26鍵(倚)"),
-            ("japanese", "日文漢字(日)"),
-            ("korean", "韓文漢字(韓)"),
-        ];
-        all_modes
-            .iter()
-            .filter(|&&(m, _)| m != cur)
-            .map(|&(m, label)| (m.to_string(), label.to_string()))
-            .collect()
+        Self::mode_picker_options(Some(&cur))
     }
 
     /// 解析 `Shift + ↓` 模式選單候選字串對應之輸入法識別碼
     pub fn parse_shift_down_picker_candidate(cand: &str) -> Option<String> {
         let trimmed = cand.trim();
-        if trimmed.contains("龍龕") || trimmed.ends_with("(龍)") || trimmed == "龍" || trimmed == "longkan" {
-            Some("longkan".to_string())
-        } else if trimmed.contains("許氏") || trimmed.ends_with("(許)") || trimmed == "許" || trimmed == "hsu" {
-            Some("hsu".to_string())
-        } else if trimmed.contains("行列") || trimmed.ends_with("(行)") || trimmed == "行" || trimmed == "array30" {
-            Some("array30".to_string())
-        } else if trimmed.contains("倉頡") || trimmed.ends_with("(倉)") || trimmed == "倉" || trimmed == "cangjie" {
-            Some("cangjie".to_string())
-        } else if trimmed.contains("四角") || trimmed.ends_with("(四)") || trimmed == "四" || trimmed == "four_corner" {
-            Some("four_corner".to_string())
-        } else if trimmed.contains("大千") || trimmed.ends_with("(注)") || trimmed == "注" || trimmed == "standard" {
-            Some("standard".to_string())
-        } else if trimmed.contains("倚天") || trimmed.ends_with("(倚)") || trimmed == "倚" || trimmed == "et26" {
-            Some("et26".to_string())
-        } else if trimmed.contains("日文") || trimmed.ends_with("(日)") || trimmed == "日" || trimmed == "japanese" {
-            Some("japanese".to_string())
-        } else if trimmed.contains("韓文") || trimmed.ends_with("(韓)") || trimmed == "韓" || trimmed == "korean" {
-            Some("korean".to_string())
-        } else {
-            None
+        if let Some(desc) = Self::find_mode_descriptor(trimmed) {
+            return Some(desc.id.to_string());
         }
+        for d in ALL_MODES {
+            let short_suffix = format!("({})", d.short_badge);
+            let lead_two: String = d.display_name.chars().take(2).collect();
+            let trail_two: String = d
+                .display_name
+                .chars()
+                .rev()
+                .take(2)
+                .collect::<Vec<char>>()
+                .into_iter()
+                .rev()
+                .collect();
+            if trimmed.contains(d.display_name)
+                || trimmed.ends_with(&short_suffix)
+                || trimmed == d.short_badge
+                || (!lead_two.is_empty() && trimmed.contains(&lead_two) && d.id != "standard")
+                || (d.id == "standard" && !trail_two.is_empty() && trimmed.contains(&trail_two))
+            {
+                return Some(d.id.to_string());
+            }
+        }
+        None
     }
 
     /// 在 `Shift + ↓` 候選視窗中按 `Tab` 循環切換跨查輸入模式（自動跳過與當前 `keyboard_mode` 相同之模式）
@@ -2790,22 +2876,69 @@ impl RuhiEngine {
     }
 
     pub fn normalize_keyboard_mode(mode: &str) -> String {
-        match mode.trim().to_ascii_lowercase().as_str() {
-            "user_abbrev" | "abbrev" | "user_dict" => "user_abbrev".to_string(),
-            "daikien" | "dachen" | "bopomofo" => "standard".to_string(),
-            "eten26" => "et26".to_string(),
-            "jp" | "romaji" | "kana" => "japanese".to_string(),
-            "ko" | "hangul" | "romaja" => "korean".to_string(),
-            "ar30" => "array30".to_string(),
-            "4corner" | "fc" | "fourcorner" => "four_corner".to_string(),
-            "lk" => "longkan".to_string(),
-            "en" | "latin" | "western" | "euro" | "sanskrit" => "english".to_string(),
-            other => other.to_string(),
+        let low = mode.trim().to_ascii_lowercase();
+        if matches!(low.as_str(), "user_abbrev" | "abbrev" | "user_dict") {
+            return "user_abbrev".to_string();
         }
+        if let Some(desc) = Self::find_mode_descriptor(&low) {
+            return desc.id.to_string();
+        }
+        low
     }
 
     pub fn is_english_keyboard_mode(&self) -> bool {
         Self::normalize_keyboard_mode(&self.keyboard_mode) == "english"
+    }
+
+    fn is_western_token_boundary_blocker(ch: char) -> bool {
+        ch.is_ascii_alphanumeric()
+            || matches!(
+                ch,
+                '\u{00C0}'..='\u{024F}' | '\u{1E00}'..='\u{1EFF}' | '\u{0300}'..='\u{036F}'
+            )
+            || matches!(ch, '_' | '.' | '/' | '\\' | ':' | '@' | '#' | '$' | '-' | '\'')
+    }
+
+    fn is_western_non_ascii_letter_or_mark(ch: char) -> bool {
+        matches!(ch, '\u{0300}'..='\u{036F}')
+            || (ch.is_alphabetic() && matches!(ch, '\u{00C0}'..='\u{024F}' | '\u{1E00}'..='\u{1EFF}'))
+    }
+
+    fn extract_active_western_token_at_cursor(&self) -> String {
+        let cur = self.cursor_pos.min(self.sentence_chars.len());
+        if cur == 0 {
+            return String::new();
+        }
+        let before_cur: String = self.sentence_chars[..cur].join("");
+        let mut rev_chars: Vec<char> = Vec::new();
+        for ch in before_cur.chars().rev() {
+            if ch.is_ascii_alphanumeric()
+                || Self::is_western_non_ascii_letter_or_mark(ch)
+                || matches!(ch, '_' | '-' | '\'')
+            {
+                rev_chars.push(ch);
+            } else {
+                break;
+            }
+        }
+        rev_chars.into_iter().rev().collect()
+    }
+
+    fn shift_user_pinned_for_splice(&mut self, range_start: usize, range_end: usize, inserted_len: usize) {
+        if self.user_pinned.is_empty() {
+            return;
+        }
+        let delta = inserted_len as isize - (range_end.saturating_sub(range_start)) as isize;
+        let mut shifted = std::collections::HashMap::with_capacity(self.user_pinned.len());
+        for (&k, v) in &self.user_pinned {
+            if k < range_start {
+                shifted.insert(k, v.clone());
+            } else if k >= range_end {
+                let nk = (k as isize + delta).max(0) as usize;
+                shifted.insert(nk, v.clone());
+            }
+        }
+        self.user_pinned = shifted;
     }
 
     pub fn set_keyboard_mode(&mut self, mode: &str) {
@@ -2947,18 +3080,9 @@ impl RuhiEngine {
 
     /// 取得當前輸入法方案之單字徽章標記（供候選視窗與狀態列顯示）
     pub fn get_keyboard_mode_badge(&self) -> &'static str {
-        match self.keyboard_mode.as_str() {
-            "standard" | "daikien" => "注",
-            "et26" | "eten26" => "倚",
-            "cangjie" => "倉",
-            "array30" | "ar30" => "行",
-            "four_corner" | "4corner" | "fc" => "四",
-            "longkan" | "lk" => "龍",
-            "japanese" | "jp" | "romaji" => "日",
-            "korean" | "ko" | "hangul" | "romaja" => "韓",
-            "english" | "en" | "latin" | "western" | "euro" | "sanskrit" => "歐",
-            _ => "許",
-        }
+        Self::find_mode_descriptor(&self.keyboard_mode)
+            .map(|d| d.short_badge)
+            .unwrap_or("許")
     }
 
     /// 取得目前實際生效之跨輸入法反查目標識別碼（整合 `reverse_coach_target` 與舊版 `enable_array30_coach`）
@@ -5428,7 +5552,10 @@ impl RuhiEngine {
             return self.build_response("reset", "");
         }
         if key_str == "BackSpace" || key_str == "backspace" || key_str == "\x08" {
-            if self.inline_longkan_active || matches!(self.mode, EngineMode::QuickNum | EngineMode::TemplateSelect | EngineMode::LexiconSwitch) {
+            if self.inline_longkan_active
+                || self.is_english_keyboard_mode()
+                || matches!(self.mode, EngineMode::QuickNum | EngineMode::TemplateSelect | EngineMode::LexiconSwitch)
+            {
                 return self.process_key('\x08');
             }
             return self.pop_component();
@@ -6476,20 +6603,29 @@ impl RuhiEngine {
                 if matches!(key, '`' | '\\' | '~') {
                     self.last_western_space_rollback = None;
                     self.mode = EngineMode::Normal;
-                    if self.sentence_chars.last().map(|s| s == "\\" || s == "＼").unwrap_or(false) {
-                        self.sentence_chars.pop();
-                        if self.raw_ascii_buffer.ends_with('\\') {
-                            self.raw_ascii_buffer.pop();
-                        }
+                    let mut ins = self.cursor_pos.min(self.sentence_chars.len());
+                    if ins > 0
+                        && self
+                            .sentence_chars
+                            .get(ins - 1)
+                            .map(|s| s == "\\" || s == "＼")
+                            .unwrap_or(false)
+                    {
+                        let del_idx = ins - 1;
+                        self.sentence_chars.remove(del_idx);
+                        self.shift_user_pinned_for_splice(del_idx, del_idx + 1, 0);
+                        ins = del_idx;
                     }
-                    self.raw_ascii_buffer.push(key);
-                    self.sentence_chars.push(key.to_string());
+                    self.sentence_chars.insert(ins, key.to_string());
+                    self.shift_user_pinned_for_splice(ins, ins, 1);
                     self.composed_sentence = self.sentence_chars.join("");
-                    self.cursor_pos = self.sentence_chars.len();
+                    self.raw_ascii_buffer = self.composed_sentence.clone();
+                    self.cursor_pos = ins + 1;
                     if self.is_english_keyboard_mode() {
+                        let active_tok = self.extract_active_western_token_at_cursor();
                         self.current_candidates = self
                             .western
-                            .lookup_down_arrow_candidates(&self.raw_ascii_buffer, Some(key));
+                            .lookup_down_arrow_candidates(&active_tok, Some(key));
                     }
                     self.candidate_cycle_idx = 0;
                     return self.build_response("update_preedit", "");
@@ -6657,13 +6793,27 @@ impl RuhiEngine {
             }
             if key == '\x08' {
                 if let Some(snap) = self.last_western_space_rollback.take() {
+                    let delta =
+                        (snap.corrected_len as isize) - (snap.sentence_chars.len() as isize);
+                    let expected_cur = (snap.cursor_pos as isize + delta).max(0) as usize;
                     if self.sentence_chars.len() == snap.corrected_len
-                        && self.cursor_pos == snap.corrected_len
+                        && (self.cursor_pos == snap.corrected_len
+                            || self.cursor_pos == expected_cur)
                     {
+                        let restore_cur = snap.cursor_pos;
+                        let restored_span = snap.pin_range.1.saturating_sub(snap.pin_range.0);
+                        let inserted_after =
+                            snap.corrected_len.saturating_sub(snap.sentence_chars.len())
+                                + restored_span;
+                        self.shift_user_pinned_for_splice(
+                            snap.pin_range.0,
+                            snap.pin_range.0 + inserted_after,
+                            restored_span,
+                        );
                         self.sentence_chars = snap.sentence_chars;
                         self.composed_sentence = self.sentence_chars.join("");
                         self.raw_ascii_buffer = snap.raw_ascii_buffer;
-                        self.cursor_pos = snap.cursor_pos;
+                        self.cursor_pos = restore_cur;
                         for idx in snap.pin_range.0..snap.pin_range.1 {
                             if let Some(ch_s) = self.sentence_chars.get(idx) {
                                 self.user_pinned.insert(idx, ch_s.clone());
@@ -6675,7 +6825,30 @@ impl RuhiEngine {
                     }
                 }
                 self.last_western_space_rollback = None;
-                return self.pop_component();
+                if self.sentence_chars.is_empty() {
+                    return self.pop_component();
+                }
+                let cur = self.cursor_pos.min(self.sentence_chars.len());
+                if cur == 0 {
+                    return self.build_response("none", "");
+                }
+                let del_idx = cur - 1;
+                self.sentence_chars.remove(del_idx);
+                self.shift_user_pinned_for_splice(del_idx, del_idx + 1, 0);
+                self.composed_sentence = self.sentence_chars.join("");
+                self.raw_ascii_buffer = self.composed_sentence.clone();
+                self.cursor_pos = del_idx;
+                self.candidate_cycle_idx = 0;
+                if self.sentence_chars.is_empty() {
+                    self.reset_buffer();
+                } else {
+                    let active_tok = self.extract_active_western_token_at_cursor();
+                    let last_ch = active_tok.chars().last();
+                    self.current_candidates = self
+                        .western
+                        .lookup_down_arrow_candidates(&active_tok, last_ch);
+                }
+                return self.build_response("backspace", "");
             }
             if key == '\x1b' {
                 self.reset_buffer();
@@ -6694,7 +6867,10 @@ impl RuhiEngine {
                             tok_start -= 1;
                         }
                         if tok_start < before_chars.len()
-                            && (tok_start == 0 || !before_chars[tok_start - 1].is_alphanumeric())
+                            && (tok_start == 0
+                                || !Self::is_western_token_boundary_blocker(
+                                    before_chars[tok_start - 1],
+                                ))
                         {
                             let prefix_before_token: String =
                                 before_chars[..tok_start].iter().collect();
@@ -6703,7 +6879,12 @@ impl RuhiEngine {
                                 .western
                                 .evaluate_space_autocorrect(&prefix_before_token, &token)
                             {
-                                let rep_start = cur.saturating_sub(ac.replace_chars);
+                                let mut rep_start = cur;
+                                let mut counted = 0usize;
+                                while rep_start > 0 && counted < ac.replace_chars {
+                                    rep_start -= 1;
+                                    counted += self.sentence_chars[rep_start].chars().count();
+                                }
                                 let span_pinned = (rep_start..cur)
                                     .any(|idx| self.user_pinned.contains_key(&idx));
                                 if !span_pinned {
@@ -6711,18 +6892,19 @@ impl RuhiEngine {
                                         ac.replacement.chars().map(|c| c.to_string()).collect();
                                     let rep_len = rep_chars.len();
                                     let corrected_len =
-                                        self.sentence_chars.len() - ac.replace_chars + rep_len + 1;
+                                        self.sentence_chars.len() - (cur - rep_start) + rep_len + 1;
                                     let new_cur = rep_start + rep_len + 1;
                                     let snap = WesternSpaceRollbackSnapshot {
                                         sentence_chars: self.sentence_chars.clone(),
                                         raw_ascii_buffer: self.raw_ascii_buffer.clone(),
                                         cursor_pos: cur,
                                         corrected_len,
-                                        pin_range: (tok_start, cur),
+                                        pin_range: (rep_start, cur),
                                     };
                                     self.sentence_chars.splice(rep_start..cur, rep_chars);
                                     self.sentence_chars
                                         .insert(rep_start + rep_len, sp_str.to_string());
+                                    self.shift_user_pinned_for_splice(rep_start, cur, rep_len + 1);
                                     self.composed_sentence = self.sentence_chars.join("");
                                     self.raw_ascii_buffer = self.composed_sentence.clone();
                                     self.cursor_pos = new_cur;
@@ -6735,6 +6917,7 @@ impl RuhiEngine {
                     self.last_western_space_rollback = None;
                     let cur = self.cursor_pos.min(self.sentence_chars.len());
                     self.sentence_chars.insert(cur, sp_str.to_string());
+                    self.shift_user_pinned_for_splice(cur, cur, 1);
                     self.composed_sentence = self.sentence_chars.join("");
                     self.raw_ascii_buffer = self.composed_sentence.clone();
                     self.cursor_pos = cur + 1;
@@ -6743,26 +6926,29 @@ impl RuhiEngine {
                 self.last_western_space_rollback = None;
                 return self.build_response("commit_space", sp_str);
             }
-            if key.is_ascii_graphic() {
+            if key.is_ascii_graphic() || Self::is_western_non_ascii_letter_or_mark(key) {
                 self.last_western_space_rollback = None;
                 self.mode = EngineMode::Normal;
                 self.is_latin_mode = true;
                 self.fsm.reset();
-                self.raw_ascii_buffer.push(key);
-                let ch_out = if self.fullwidth_mode {
+                let ch_out = if self.fullwidth_mode && key.is_ascii_graphic() {
                     Self::to_fullwidth_ascii(key)
                 } else {
                     key
                 };
-                self.sentence_chars.push(ch_out.to_string());
-                self.composed_sentence.push(ch_out);
-                self.cursor_pos = self.sentence_chars.len();
+                let cur = self.cursor_pos.min(self.sentence_chars.len());
+                self.sentence_chars.insert(cur, ch_out.to_string());
+                self.shift_user_pinned_for_splice(cur, cur, 1);
+                self.composed_sentence = self.sentence_chars.join("");
+                self.raw_ascii_buffer = self.composed_sentence.clone();
+                self.cursor_pos = cur + 1;
                 if key == '\\' {
                     self.set_backslash_escape_pending(true);
                 }
+                let active_tok = self.extract_active_western_token_at_cursor();
                 self.current_candidates = self
                     .western
-                    .lookup_down_arrow_candidates(&self.raw_ascii_buffer, Some(key));
+                    .lookup_down_arrow_candidates(&active_tok, Some(key));
                 self.candidate_cycle_idx = 0;
                 return self.build_response("update_preedit", "");
             }
@@ -17643,5 +17829,108 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_mode_registry_single_source_and_english_picker_order() {
+        assert_eq!(ALL_MODES.len(), 10);
+        for d in ALL_MODES {
+            assert_eq!(RuhiEngine::normalize_keyboard_mode(d.id), d.id);
+            assert_eq!(RuhiEngine::mode_display_name(d.id), d.display_name);
+            assert_eq!(RuhiEngine::mode_short_badge(d.id), d.short_badge);
+            for &alias in d.aliases {
+                assert_eq!(RuhiEngine::normalize_keyboard_mode(alias), d.id);
+            }
+        }
+        assert_eq!(RuhiEngine::normalize_keyboard_mode("abbrev"), "user_abbrev");
+        assert_eq!(
+            RuhiEngine::parse_shift_down_picker_candidate("歐文羅馬(歐)"),
+            Some("english".to_string())
+        );
+
+        let mut engine = RuhiEngine::new_without_core_lexicon(".");
+        engine.set_keyboard_mode("longkan");
+        let opts = engine.get_shift_down_mode_picker_options();
+        assert_eq!(opts.len(), 9);
+        assert_eq!(opts[0].0, "hsu");
+        assert_eq!(opts[1].0, "array30");
+        assert_eq!(opts[8].0, "english");
+        assert_eq!(opts[8].1, "歐文羅馬(歐)");
+    }
+
+    #[test]
+    fn test_western_languages_isolation_on_ruhi_engine() {
+        let mut engine = RuhiEngine::new_without_core_lexicon(".");
+        assert_eq!(engine.western_languages(), vec!["en".to_string()]);
+        let data_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../data/lexicon_english.tsv");
+        if std::path::Path::new(data_dir).exists() {
+            engine.western.load_tsv(data_dir).expect("應可載入英文詞庫");
+            assert!(!engine.western.lexicon.contains("parama"));
+            engine.set_western_languages(&["en".to_string(), "sa_am".to_string()]);
+            assert_eq!(
+                engine.western_languages(),
+                vec!["en".to_string(), "sa_am".to_string()]
+            );
+            assert!(engine.western.lexicon.contains("parama"));
+            engine.set_western_languages(&["en".to_string()]);
+            assert!(!engine.western.lexicon.contains("parama"));
+        }
+    }
+
+    #[test]
+    fn test_reset_buffer_preserves_last_check_instant() {
+        let mut engine = RuhiEngine::new_without_core_lexicon(".");
+        let now = std::time::Instant::now();
+        engine.lexicon.last_check_instant = Some(now);
+        engine.transitions.last_check_instant = Some(now);
+        engine.composed_sentence = "abc".to_string();
+        engine.reset_buffer();
+        assert!(engine.lexicon.last_check_instant.is_some());
+        assert!(engine.transitions.last_check_instant.is_some());
+    }
+
+    #[test]
+    fn test_english_mode_mixed_cjk_space_autocorrect_rollback_and_cursor_edits() {
+        let mut engine = RuhiEngine::new_without_core_lexicon(".");
+        engine.set_keyboard_mode("english");
+
+        // 1. 混合漢字＋ASCII 邊界勘誤與單鍵 BackSpace 還原
+        engine.sentence_chars = vec![
+            "我".to_string(),
+            "打".to_string(),
+            "錯".to_string(),
+            "t".to_string(),
+            "e".to_string(),
+            "h".to_string(),
+        ];
+        engine.composed_sentence = engine.sentence_chars.join("");
+        engine.raw_ascii_buffer = engine.composed_sentence.clone();
+        engine.cursor_pos = engine.sentence_chars.len();
+
+        let sp = engine.process_key(' ');
+        assert_eq!(sp.composed, "我打錯the ");
+        let rb = engine.process_key_str("BackSpace");
+        assert_eq!(rb.composed, "我打錯teh");
+        assert_eq!(rb.cursor_pos, 6);
+
+        // 2. 句中游標插入與刪除不可總是從尾端新增或 pops
+        engine.cursor_pos = 3; // 我打錯|teh
+        let ins_mid = engine.process_key('!');
+        assert_eq!(ins_mid.composed, "我打錯!teh");
+        assert_eq!(ins_mid.cursor_pos, 4);
+        let del_mid = engine.process_key_str("BackSpace");
+        assert_eq!(del_mid.composed, "我打錯teh");
+        assert_eq!(del_mid.cursor_pos, 3);
+
+        // 3. 多詞空白句後鍵入 "cafe"，lookup_down_arrow_candidates 只應接收主動游標詞元 "cafe"
+        engine.reset_buffer();
+        for ch in "hello cafe".chars() {
+            let _ = engine.process_key(ch);
+        }
+        assert!(
+            engine.current_candidates.iter().any(|c| c == "café"),
+            "多詞空白後鍵入 cafe 之 ↓ 候選應為 café（不應連帶 hello cafe 整句傳入）: {:?}",
+            engine.current_candidates
+        );
     }
 }

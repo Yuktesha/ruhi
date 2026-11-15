@@ -38,12 +38,20 @@ impl WesternConfidenceScorer {
         }
 
         let t_clean = token.trim();
-        let t_lower = t_clean.to_ascii_lowercase();
+        let t_lower = t_clean.to_lowercase();
 
-        // 0. 單一英文字母除 'a' 與 'i' (大小寫) 之外，英文中絕不存在其他獨立單字！
-        // 許氏鍵盤之 e, b, d, f, j 等單鍵在漢字中皆為高頻首字或聲調，絕不可被評為獨立歐文！
-        if t_clean.len() == 1 && t_clean.chars().all(|c| c.is_ascii_alphabetic()) {
-            if t_lower != "a" && t_lower != "i" {
+        // 0. 單一基礎拉丁字母除 'a'、'i' 及法文介系詞 'à' 之外，英文中絕不存在其他獨立單字
+        // 許氏鍵盤之 e, b, d, f, j 等單鍵在漢字中皆為高頻首字或聲調，絕不可被評為獨立歐文
+        let base_chars: Vec<char> = t_clean
+            .chars()
+            .filter(|c| !matches!(c, '\u{0300}'..='\u{036F}'))
+            .collect();
+        if base_chars.len() == 1
+            && (base_chars[0].is_ascii_alphabetic()
+                || (base_chars[0].is_alphabetic()
+                    && matches!(base_chars[0], '\u{00C0}'..='\u{024F}' | '\u{1E00}'..='\u{1EFF}')))
+        {
+            if t_lower != "a" && t_lower != "i" && t_lower != "à" {
                 return 0.02;
             }
         }
@@ -93,7 +101,7 @@ impl WesternConfidenceScorer {
                 let mut valid_count = 0;
                 for sw in &subwords {
                     let (sw_var, _) = self.morphology.analyze(sw, lexicon);
-                    if sw_var != MorphologicalVariant::Unknown || Self::COMMON_ABBREVS.contains(&sw.to_ascii_lowercase().as_str()) {
+                    if sw_var != MorphologicalVariant::Unknown || Self::COMMON_ABBREVS.contains(&sw.to_lowercase().as_str()) {
                         valid_count += 1;
                     }
                 }
@@ -118,19 +126,48 @@ impl WesternConfidenceScorer {
             return base + pfx_bonus; // 0.55 ~ 0.84
         }
 
-        // 6. 英文音位學音律檢驗 (Phonotactics & Vowel ratio)
-        // 許氏注音鍵位字串（如 xdf, celd, vld, uf, ej）高度缺乏自然英文母音結構或非合法字根
-        let vowels_count = t_lower.chars().filter(|c| matches!(c, 'a' | 'e' | 'i' | 'o' | 'u' | 'y')).count();
-        let chars_count = t_lower.chars().filter(|c| c.is_ascii_alphabetic()).count();
+        // 6. 泛歐／英文音位學音律檢驗 (Phonotactics & Vowel ratio)
+        // 先去除組合變音符並正規化歐語母音／子音，使 café、über、naïve、Ánanda、kṛṣṇa 不受 ASCII 限制誤殺
+        let mut norm_letters = String::with_capacity(t_lower.len());
+        let mut has_non_ascii_latin = false;
+        for ch in t_lower.chars() {
+            if matches!(ch, '\u{0300}'..='\u{036F}') {
+                has_non_ascii_latin = true;
+                continue;
+            }
+            if matches!(ch, '\u{00C0}'..='\u{024F}' | '\u{1E00}'..='\u{1EFF}') && ch.is_alphabetic() {
+                has_non_ascii_latin = true;
+            }
+            for base_c in super::WesternEngine::strip_char_diacritic(ch).to_lowercase() {
+                if base_c.is_ascii_alphabetic() {
+                    norm_letters.push(base_c);
+                }
+            }
+        }
+        let vowels_count = norm_letters
+            .chars()
+            .filter(|c| matches!(c, 'a' | 'e' | 'i' | 'o' | 'u' | 'y'))
+            .count();
+        let chars_count = norm_letters.chars().count();
 
         // 異常連續相同子音堆疊 (如 jjj, vvv, qqq, xxx)
-        if t_lower.contains("jj") || t_lower.contains("vv") || t_lower.contains("qq") || t_lower.contains("xx") || t_lower.contains("ww") {
+        if norm_letters.contains("jj")
+            || norm_letters.contains("vv")
+            || norm_letters.contains("qq")
+            || norm_letters.contains("xx")
+            || norm_letters.contains("ww")
+        {
             return 0.01;
         }
 
         // 超過 2 個字元且完全無母音（又不是縮寫）-> 判定為非歐文或注音碎片
         if chars_count >= 3 && vowels_count == 0 {
             return 0.02;
+        }
+
+        // 已明確含有歐文變音或梵語組合音標，且通過基本音律門檻時，給予高確定性歐文信心度
+        if has_non_ascii_latin && chars_count >= 2 && vowels_count >= 1 {
+            return 0.80;
         }
 
         // 若連在字典中做為任何單字之前綴都無可能，判定為非歐文雜訊 / 漢字拼弦
@@ -153,7 +190,7 @@ impl WesternConfidenceScorer {
                 let mut parts = Vec::new();
                 let mut current = String::new();
                 for c in text.chars() {
-                    if c.is_ascii_uppercase() && !current.is_empty() {
+                    if c.is_uppercase() && !current.is_empty() {
                         parts.push(current.clone());
                         current.clear();
                     }
@@ -178,9 +215,9 @@ impl WesternConfidenceScorer {
         token: &str,
         next_token: &str,
     ) -> Vec<(String, f64, &'static str)> {
-        let p = prev_token.trim().to_ascii_lowercase();
-        let t = token.trim().to_ascii_lowercase();
-        let n = next_token.trim().to_ascii_lowercase();
+        let p = prev_token.trim().to_lowercase();
+        let t = token.trim().to_lowercase();
+        let n = next_token.trim().to_lowercase();
         let mut results: Vec<(String, f64, &'static str)> = Vec::new();
 
         match t.as_str() {
