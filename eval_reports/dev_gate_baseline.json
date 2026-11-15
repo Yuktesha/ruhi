@@ -1,64 +1,64 @@
 {
-  "commit": "49b9176",
+  "commit": "0e48a67",
   "dataset": "dev",
   "total_sentences": 3640,
   "total_chars": 44855,
-  "total_char_errors": 2340,
-  "cer": 0.05216809720209564,
-  "cer_percent": "5.22%",
-  "exact_match_sentences": 2293,
-  "sentence_accuracy": 0.6299450549450549,
-  "sentence_accuracy_percent": "62.99%",
+  "total_char_errors": 2068,
+  "cer": 0.04610411325381786,
+  "cer_percent": "4.61%",
+  "exact_match_sentences": 2423,
+  "sentence_accuracy": 0.6656593406593406,
+  "sentence_accuracy_percent": "66.57%",
   "per_category": {
     "civic_public": {
       "sentences": 728,
       "chars": 10132,
-      "char_errors": 344,
-      "cer": 0.033951835767864195,
-      "cer_percent": "3.40%",
-      "exact_match": 510,
-      "sentence_accuracy": 0.7005494505494505,
-      "sentence_accuracy_percent": "70.05%"
+      "char_errors": 277,
+      "cer": 0.027339123568890643,
+      "cer_percent": "2.73%",
+      "exact_match": 543,
+      "sentence_accuracy": 0.7458791208791209,
+      "sentence_accuracy_percent": "74.59%"
     },
     "daily_dialogue": {
       "sentences": 728,
       "chars": 9098,
-      "char_errors": 387,
-      "cer": 0.042536821279402066,
-      "cer_percent": "4.25%",
-      "exact_match": 486,
-      "sentence_accuracy": 0.6675824175824175,
-      "sentence_accuracy_percent": "66.76%"
+      "char_errors": 342,
+      "cer": 0.03759067927016927,
+      "cer_percent": "3.76%",
+      "exact_match": 508,
+      "sentence_accuracy": 0.6978021978021978,
+      "sentence_accuracy_percent": "69.78%"
     },
     "literary_narrative": {
       "sentences": 728,
       "chars": 8139,
-      "char_errors": 477,
-      "cer": 0.0586067084408404,
-      "cer_percent": "5.86%",
-      "exact_match": 444,
-      "sentence_accuracy": 0.6098901098901099,
-      "sentence_accuracy_percent": "60.99%"
+      "char_errors": 400,
+      "cer": 0.0491460867428431,
+      "cer_percent": "4.91%",
+      "exact_match": 481,
+      "sentence_accuracy": 0.6607142857142857,
+      "sentence_accuracy_percent": "66.07%"
     },
     "moe_idiom_context": {
       "sentences": 728,
       "chars": 9846,
-      "char_errors": 377,
-      "cer": 0.03828966077594963,
-      "cer_percent": "3.83%",
-      "exact_match": 497,
-      "sentence_accuracy": 0.6826923076923077,
-      "sentence_accuracy_percent": "68.27%"
+      "char_errors": 331,
+      "cer": 0.033617712776762135,
+      "cer_percent": "3.36%",
+      "exact_match": 522,
+      "sentence_accuracy": 0.717032967032967,
+      "sentence_accuracy_percent": "71.70%"
     },
     "tech_doc": {
       "sentences": 728,
       "chars": 7640,
-      "char_errors": 755,
-      "cer": 0.09882198952879581,
-      "cer_percent": "9.88%",
-      "exact_match": 356,
-      "sentence_accuracy": 0.489010989010989,
-      "sentence_accuracy_percent": "48.90%"
+      "char_errors": 718,
+      "cer": 0.09397905759162303,
+      "cer_percent": "9.40%",
+      "exact_match": 369,
+      "sentence_accuracy": 0.5068681318681318,
+      "sentence_accuracy_percent": "50.69%"
     }
   }
 }

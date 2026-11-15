@@ -6,19 +6,19 @@
 
 ---
 
-## 一、系統現況快照（最後更新：2026-11-15）
+## 一、系統現況快照（最後更新：2026-11-16）
 
 | 項目 | 目前狀態／實測數值 |
 |---|---|
-| Git 分支與基底 | `main`（領先 `origin/main` 4 個 commit，最新 commit 為 `256519c`）；工作樹含本輪已驗證並熱重載部署之未提交修訂，含新增檔案 `ruhi-core/src/router/onomastics.rs`、`ruhi-core/src/western/collocations.rs`、`ruhi-core/src/western/phonetics.rs`、`docs/EXTENSION_ARCHITECTURE_SPEC.md`、`docs/RUHI_HANDOVER_CURRENT.md`、`ruhi_lexicon/data/kangxi_strokes_bmp.bin`、`scripts/build_kangxi_strokes.py`（並於工作區層 `C:\ATGprjs\.agents\` 配置跨對話衝突閃避掛鉤） |
-| `dev` 開發集品質閘門（`ruhi_eval --set dev --gate`） | **`PASS`**（`gate_passed: true`）；CER **`5.22%`**；總字元錯誤 **`2,340 / 44,855`**（較基線 `triage-1107-unit5` 之 `2,514` 減少 `174` 字錯）；整句完全命中 **`2,293 / 3,640`**（**`62.99%`**） |
-| `ruhi-core` Release 單元測試（`--lib`） | **`210 passed; 0 failed; 7 ignored`**（以 `-- --test-threads=1` 排除高平行資源競爭後全數通過；7 項 `#[ignore]` 皆為 `docs/KNOWN_HARD_CASES.md` 既有已知困難例句） |
-| `ruhi-tsf` 單元測試（`--lib`） | **`9 passed; 0 failed; 0 ignored`**（含 `RuhiTextService` 27 欄位 `#[repr(C)]` COM ABI 不變量與 10 模式路由測試） |
-| `ruhi-settings` 單元測試 | **`6 passed; 0 failed; 0 ignored`**（含單一鍵盤模式獨立掛載、移除許氏注音與末一模式鎖定驗證） |
-| 規則靜態檢查（`scripts/lint_scoring_rules.py`） | **0 項違規**（檢核 **`2,258`** 新增行，所有評分規則嚴格遵守 `\|score\| <= 35.0` 與字元字面量隔離規範） |
-| 雙份核心詞庫同步 | `data/lexicon_core.tsv` 與 `ruhi_lexicon/data/lexicon_core.tsv` 位元組完全一致（**`8,374,264`** bytes，SHA256 `52944A654848D57AEFF8435F925092916707B88C27C7B94B1146B3917776F56F`） |
-| 24／48 音節無標點長句解碼延遲 | Release 單元基準 `test_task4_and_task5_integration_benchmarks_261114`：24 音節 **`14.127 ms`**、48 音節 **`27.365 ms`**（低於 `25.0 ms`／`55.0 ms` 門檻） |
-| 熱重載部署狀態 | 已建置 `ruhi-settings` 與 `ruhi-tsf` Release 產物並透過 `hot_reload.ps1` 部署至 `scripts/ruhi_tsf_20261115_150406.dll`，完成 `HKCU InprocServer32` 熱切換與 `ctfmon` 重啟生效 |
+| Git 分支與基底 | `main`（技術核心整合至 `0e48a67`，含本交接與基準線更新提交後領先 `origin/main` 共 `16` 個 commit，未推送遠端）；第二階段分波提交涵蓋 `e0362a8`（Stage 0）、`53bde24`（Wave 1A）、`21e9754`（Wave 1B）、`4fc297d`（Wave 1C）、`dc3dc2b`（Wave 2a）、`9e9733e`（Wave 2b）與 `0e48a67`（Wave 3b `[Cold-Restart Required]`），工作樹維持潔淨 |
+| `dev` 開發集品質閘門（`ruhi_eval --set dev --gate`） | **`PASS`**（`gate_passed: true`）；CER **`4.61%`**（較 Stage 0 基線 `5.22%` 降低 `0.6064` 個百分點）；總字元錯誤 **`2,068 / 44,855`**（淨減 **`272`** 字錯）；整句完全命中 **`2,423 / 3,640`**（**`66.57%`**，淨增 **`+130`** 句）；五大文體全面改善（`civic_public` `2.73%` / `daily_dialogue` `3.76%` / `literary_narrative` `4.91%` / `moe_idiom_context` `3.36%` / `tech_doc` `9.40%`）；基準線 [`eval_reports/dev_gate_baseline.json`](file:///c:/ATGprjs/ruhi/eval_reports/dev_gate_baseline.json) 已刷新至 `0e48a67` |
+| `ruhi-core` Release 單元測試 | `--lib`：**`223 passed; 0 failed; 7 ignored`**（7 項 `#[ignore]` 為 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 既有困難例句）；整合測試 `--test person_names_and_y_cases`：**`4 passed; 0 failed; 0 ignored`**（雙鍵盤模式 `standard` + `hsu`） |
+| `ruhi-tsf` Release 單元測試（`--lib`） | **`22 passed; 0 failed; 0 ignored`**（含 Layer B `RuhiTextService` 27 欄位＋`Drop`、`LAYER_B_ABI_EPOCH = 2`、`VecDeque` Undo 100 步環狀上限、`TLS_CANDIDATE_STATE` 隔離與 `ToUnicodeEx`/AltGr/導字元防護測試） |
+| `ruhi-settings` Release 單元測試 | **`7 passed; 0 failed; 0 ignored`**（含單一／多重鍵盤模式掛載、`western_languages` 多語種與 `sa_am` 選項同步驗證） |
+| 規則靜態檢查（`scripts/lint_scoring_rules.py --full`） | **0 項違規**（全量掃描 **`63,205`** 行，覆蓋 `router/`、`western/` 與設定資料表） |
+| 核心與執行期詞庫同步 | `ruhi_lexicon/data/lexicon_core.tsv` 與 `data/`、`scripts/data/`、`dist/data/`、`dist/RuhI_v0.7.0_Windows_x64/data/` 位元組完全一致（**`8,147,355`** bytes，SHA256 `2AD1C1BC1E09BD83A942E8E8AA7A63A0C1F4E18AD851E98E2B452BACD052D47C`）；其餘核心資料檔與 `packs/pack_western_sanskrit.tsv` 亦全數 SHA-256 同步 |
+| 24／48 音節無標點長句解碼延遲 | Release 基準 `test_task4_and_task5_integration_benchmarks_261114`：24 音節 **`7.081 ms`**（視窗 `7.072 ms`）、35 音節 **`9.822 ms`**、48 音節 **`13.903 ms`**（遠低於 `25.0 ms`／`55.0 ms` 門檻） |
+| Release 建置與熱重載／冷重啟狀態 | 已完成 [`ruhi_tsf.dll`](file:///c:/ATGprjs/ruhi/ruhi-tsf/target/release/ruhi_tsf.dll)（`10,892,800` bytes）與 [`ruhi-settings.exe`](file:///c:/ATGprjs/ruhi/ruhi-settings/target/release/ruhi-settings.exe)（`18,108,416` bytes）Release 建置並同步至 `scripts/` 與 `dist/`；因 Wave 3b (`0e48a67`) 啟用 Layer B 結構體與 `Drop` 收斂（`LAYER_B_ABI_EPOCH = 2`），請由使用者執行 `hot_reload.ps1` 後**重啟既有應用程式（或執行一次 Windows 登出／重開機）**以完成全進程安全換版 |
 
 ---
 
@@ -83,18 +83,30 @@
     - **軟體工程反斜線字面轉義序列（`\`` ➔ `` ` ``、`\\` ➔ `\`、`\~` ➔ `~`）跨全 10 模式**：不更動 `RuhiEngine` 欄位亦嚴格維持 `RuhiTextService` 27 欄位 COM ABI（以 `OnceLock<Mutex<HashSet<usize>>>` 旁表與 TSF `backslash_escape_pending` 協調），於全數 10 種鍵盤模式下輸入 `\`` 直接輸出半形 `` ` `` 而不觸發「`🔖 自訂詞庫`」、輸入 `\~` 直接輸出半形 `~` 而不觸發 `tilde_toggle_mode`、輸入 `\\` 直接輸出單一 `\`；一般 Windows 路徑如 `\path` 維持原樣不誤改；新增雙側單元測試 [`test_single_mode_mounting_and_decoupling_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 與 [`test_backslash_escape_sequences_all_10_modes_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs)。
     - **六項日常打字同音消歧與正反對比防護**：雙份核心詞庫補入 `掛載／卸載`（保持位元組同步），於 [`lattice.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/lattice.rs) 與 [`manager.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/lexicon/manager.rs) 解除 `"諺文"` `moe_unattested2` 跨句剪枝屏蔽，並於 [`transitions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/transitions.rs) 與 [`constructions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs) 實作 `(aa)`–`(ae)` 等構式：正確辨析「`把剛剛想到的寫進來` vs `開心地寫`」、「`選擇只掛載一種鍵盤模式` vs `主宰一切`」、「`韓語諺文` vs `檢驗文件`」、「`我這時候又想到一件事情` vs `向右轉`」、「`我啦` vs `瘌痢頭`」與「`再麻煩您了` vs `正在麻煩您`」，並通過 [`test_six_homophone_disambiguations_and_contrastives_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs)。
     - **原生 Antigravity 跨對話修改碰撞閃避機制**：於工作區根目錄配置 [`hooks.json`](file:///c:/ATGprjs/.agents/hooks.json)、[`workspace_collision_guard.py`](file:///c:/ATGprjs/.agents/hooks/workspace_collision_guard.py)（使用 Windows 原生 `msvcrt.locking` 鎖檔與獨立檔案鎖租約，按 `subproject_root` 隔離並對唯讀命令、Artifact 與父對話派工子代理豁免）及 4 項單元測試 [`test_workspace_collision_guard.py`](file:///c:/ATGprjs/.agents/hooks/test_workspace_collision_guard.py)。
+13. **第二階段全系統健檢與 Wave 1–3b 架構進化（`e0362a8`–`0e48a67`，2026-11-16 完成）**：
+    - **漢語同音消歧、詞網解鎖與自訂人名投射（Wave 1A `53bde24` ＋ Wave 2b `9e9733e`）**：
+      * 修正 [`geo_hierarchy.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/geo_hierarchy.rs) 無行政／街道錨點即施予強分數之誤傷並將 `transitions_user.tsv` `718` 筆超限權重收斂至 `±35` 以內；清除 `862` 筆 `>= 4` 字詞庫短語與 `188` 筆負向遷移行。
+      * 於 [`morpheme_ontology.json`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/morpheme_ontology.json) 啟用 `is_rare_impostor_fast` 阻斷低頻生僻字穿透 `ContentWord`、擴充 `MorphemeMask256` 位元 `75..=91` 收斂「在／再」、「是／事／適／試／視／式」、「為／位」與單句有生性、於 [`lattice.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/lattice.rs) 安全解鎖現代 `< 90` 雙字詞並建立 `OnceLock` 聯想前綴旁表（[`manager.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/lexicon/manager.rs)），還原 12 個多音字單字與 `一律`／`一部` 詞條，同步於 [`constructions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs) 拆解 `260` 槽位 `OnceLock<WordDispatchTable>` 與細粒度消融子開關，推動 `dev` CER 由 `5.22%` 降至 **`4.61%`**（`2,340 -> 2,068`）。
+      * **使用者自訂人名分類與尊稱／親屬稱謂投射**：實作 `PersonNameForm`（單／雙姓 × 單／雙名）、`classify_user_person_name`、`format_person_note_tag`、`upsert_entry` 與 `UserOnomasticRegistry`，支援將「曹大十」等自訂人名自動標記並投影後續行文中的「曹先生／小姐／老師」、「大十」與「大十哥／兄／弟／姊／姐／妹」，並於 Wave 3b 補齊分號複合標記與單姓雙字高頻常用詞（`>= 300`）P2 攔截防護。
+      * **實境八句新增消歧測試全數通過（標準大千與許氏雙模式）**：含「在風力強勁的海邊…鋸出一句…」、「按需指派所有的按鍵…方案獎勵」、「我個人還滿常書寫…滿長的句子」、「…五弄裡的巷弄…舞弄肢體」、「…常委養了一隻長尾貓」、「…滿樹桐花…一手同花順好牌…同時同意…」、「我用一支…鋼筆在紙上寫下…小花貓…」及「雖然其實是極小眾」（對比「市集」），詳見 [`person_names_and_y_cases.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/tests/person_names_and_y_cases.rs)。
+    - **泛歐語多語種可選架構、`sa_am` 梵語獨立詞包與統一模式註冊表（Wave 1B `21e9754` ＋ Wave 2a `dc3dc2b`）**：
+      * 將阿南達瑪迦羅馬拼音梵語詞條分離為獨立詞包 [`packs/pack_western_sanskrit.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/packs/pack_western_sanskrit.tsv)（`10,481` 筆），使核心 [`lexicon_english.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/lexicon_english.tsv) 回歸清潔日常英語（`35,058` 筆），並建立可勾選之 `western_languages`（支援 `en`、`fr`、`de`、`es` 與 `sa_am`）。**出貨程式／範例組態預設維持 `["en"]`（`sa_am` 關閉），本機 6 份執行期組態檔維持 `["en", "sa_am"]` 開啟**。
+      * 修復 [`sanskrit_am.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/sanskrit_am.rs#L4366) 變數遮蔽、`collocations.rs` `<= 35.0` 收斂與 Unicode 小寫、音素索引世代失效、`reset_buffer` I/O 節流與 CEFR 去偏斜／`48/64` 桶位保護；建立單一靜態 [`ModeRegistry`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs)（`ALL_MODES`）統一全體鍵盤模式顯示與挑選。
+    - **TSF COM 安全邊界、多螢幕支援、`rud()` 介面與 Layer B 冷重啟收斂（Wave 1C `4fc297d` ＋ Wave 2a `dc3dc2b` ＋ Wave 3b `0e48a67`）**：
+      * 修復負座標多螢幕哨兵 `CARET_UNPROBED = i32::MIN`、原地 Mutex 熱升級、`thread_local!` `DllForwardGuard`、`50 ms` 單鍵密碼欄消費權杖與延後按鍵日誌、Win32 `ToUnicodeEx`/`AltGr` 歐文鍵盤對映、前導 `/`/`.`/`_` 防護、`undo()` 區間釘選、`GDI` 執行緒快取與 `ruhi-settings` `rud()` 自適應排版。
+      * Wave 3a（`ruhi_eval --set dev --calibrate`）於 Stage A/B 實測未能低於 `2,068` 錯字（`delta = 0`），依淨增益原則保留既有 `feature_weights.tsv` 並恢復全鏡像一致。
+      * Wave 3b（`0e48a67` `[Cold-Restart Required]`）將 `BACKSLASH_ESCAPE_ENGINES` 靜態旁表內嵌為 `EscapePendingFlag(AtomicBool)`、補全 `impl Drop for WesternEngine` 與 `impl Drop for RuhiTextService`、升級 `undo_stack`/`redo_stack` 為 `VecDeque<EditorSnapshot>`、將 `CANDIDATE_STATE` 安全遷移為 `TLS_CANDIDATE_STATE`（同 STA 執行緒 `RefCell` 搭配 `CandidateWindow::drop` 重置），並於 [`compute_layer_a_abi_hash()`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L719) 納入 `LAYER_B_ABI_EPOCH = 2` 與 `needs_drop` 指紋，配合同步更新之 `hot_reload.ps1` 執行期守門。
 
 ---
 
 ## 三、後續優先待辦事項（Prioritized Backlog）
 
-### 1. 【第一優先】Git 工作樹盤點、基準線更新與階段性提交
-- 待專案負責人實際打字驗收本輪熱重載版本無誤後：
-  1. 檢視目前 `git status` 與 `git diff`（注意排除 `.last_bg_telemetry_spawn`、`active_dll_path.txt` 等執行期暫存檔）。
-  2. 依開發集無退化紀錄（`2,514 ➔ 2,340`，`5.60% ➔ 5.22%`），經負責人同意後執行 `cargo run --release --manifest-path C:\ATGprjs\ruhi\ruhi-core\Cargo.toml --bin ruhi_eval -- --init-gate-baseline --baseline C:\ATGprjs\ruhi\eval_reports\dev_gate_baseline.json --commit <label>` 更新閘門基準，並分單元整理提交。
+### 1. 【近期驗收】執行 Layer B 冷重啟換版並進行實境打字體驗確認
+- 因 Wave 3b (`0e48a67`) 屬於跨 DLL 結構體與 `Drop` 語意升級（`LAYER_B_ABI_EPOCH = 2`），建議先執行一次 `cd C:\ATGprjs\ruhi; .\scripts\hot_reload.ps1` 後重啟現有應用程式（或進行一次 Windows 登出／重開機），使所有程序載入最新版 `ruhi_tsf.dll`；亦可開啟 `ruhi-settings.exe` 確認歐文多語種勾選匣（本機預設含 `en`＋`sa_am`）及 `rud()` 介面呈現。
 
-### 2. 【第二優先】持續推進實境同音詞探索與困難例句收斂
-- 從日常打字回饋與 `eval_reports` 持續彙整同音誤選案例，遵循九大拓撲構式分類（見 `AGENTS.md`）進行因式分解修補，逐步消化 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 與 `dev` 殘留錯字。
+### 2. 【中期可選里程碑】持續消化困難例句與探索 P2-2／P2-4 架構演進
+- 依九大拓撲構式原則逐步消化 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 其餘 `7` 項 `#[ignore]` 與開發集殘留錯誤（目前 `dev` CER **`4.61%`**、基準線已於 `eval_reports/dev_gate_baseline.json` 鎖定於 `0e48a67`）。
+- 若需進一步擴充語篇層與第三方社群語言包，可接續規劃 **P2-2**（句後 `O(1)` 對話主題／代詞性別暫存）與 **P2-4**（依 [`docs/EXTENSION_ARCHITECTURE_SPEC.md`](file:///c:/ATGprjs/ruhi/docs/EXTENSION_ARCHITECTURE_SPEC.md) 實作 `manifest.toml` 四層宣告式擴充載入器與 `WesternLexicon` FST 索引）。
 
 ---
 
