@@ -246,6 +246,28 @@ impl TemplatesManager {
 
     pub fn maybe_reload(&mut self) {
         let Some(ref path) = self.file_path.clone() else { return };
+        let now = std::time::Instant::now();
+        let key = self as *const Self as usize;
+        let lock = TEMPLATES_RELOAD_LAST_CHECK
+            .get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+        {
+            let mut guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some((last_path, last_inst)) = guard.get(&key) {
+                if last_path == path
+                    && now.duration_since(*last_inst)
+                        < std::time::Duration::from_millis(TEMPLATES_RELOAD_THROTTLE_MS)
+                {
+                    return;
+                }
+            }
+            if guard.len() >= 256 {
+                guard.retain(|_, (_, t)| now.duration_since(*t) < std::time::Duration::from_secs(60));
+                if guard.len() >= 256 {
+                    guard.clear();
+                }
+            }
+            guard.insert(key, (path.clone(), now));
+        }
         if let Ok(meta) = std::fs::metadata(&path) {
             if let Ok(mtime) = meta.modified() {
                 if self.last_mtime != Some(mtime) {
@@ -422,9 +444,72 @@ impl TemplatesManager {
     }
 }
 
+static TEMPLATES_RELOAD_LAST_CHECK: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<usize, (std::path::PathBuf, std::time::Instant)>>,
+> = std::sync::OnceLock::new();
+
+const TEMPLATES_RELOAD_THROTTLE_MS: u64 = 2000;
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_templates_maybe_reload_2000ms_throttle() {
+        let temp_file = std::env::temp_dir().join(format!(
+            "test_templates_throttle_{}_{}.tsv",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::write(&temp_file, "TRIGGER\tEXPANSION\tDESCRIPTION\nsig\tOLD\t舊簽名\n").unwrap();
+
+        let mut tm = TemplatesManager::new();
+        tm.load_tsv(&temp_file).unwrap();
+        tm.maybe_reload();
+        assert_eq!(tm.match_trigger("sig").map(|i| i.expansion.clone()).as_deref(), Some("OLD"));
+
+        // Overwrite with strictly newer mtime.
+        let future_mtime = tm
+            .last_mtime
+            .unwrap_or_else(std::time::SystemTime::now)
+            + std::time::Duration::from_secs(5);
+        {
+            let mut f = std::fs::OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(&temp_file)
+                .unwrap();
+            use std::io::Write;
+            f.write_all("TRIGGER\tEXPANSION\tDESCRIPTION\nsig\tNEW\t新簽名\n".as_bytes())
+                .unwrap();
+            f.sync_all().unwrap();
+            let _ = f.set_modified(future_mtime);
+        }
+
+        // Within 2000ms throttle: skips metadata probe and keeps OLD.
+        tm.maybe_reload();
+        assert_eq!(tm.match_trigger("sig").map(|i| i.expansion.clone()).as_deref(), Some("OLD"));
+
+        // Backdate past 2000ms: next maybe_reload probes metadata and reloads NEW.
+        let key = (&tm as *const TemplatesManager) as usize;
+        if let Some(lock) = TEMPLATES_RELOAD_LAST_CHECK.get() {
+            let mut g = lock.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some((_, inst)) = g.get_mut(&key) {
+                if let Some(earlier) = inst.checked_sub(std::time::Duration::from_millis(2100)) {
+                    *inst = earlier;
+                } else {
+                    g.remove(&key);
+                }
+            }
+        }
+        tm.maybe_reload();
+        assert_eq!(tm.match_trigger("sig").map(|i| i.expansion.clone()).as_deref(), Some("NEW"));
+
+        let _ = std::fs::remove_file(&temp_file);
+    }
 
     #[test]
     fn test_lookup_candidates_date_time_and_shared_expansion_261114() {

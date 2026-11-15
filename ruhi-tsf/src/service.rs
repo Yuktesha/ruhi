@@ -99,7 +99,9 @@ use ruhi::router::LatticeDAG;
 use crate::edit_session::{EditSessionAction, RuhiEditSession};
 use crate::logger;
 
-static LAST_CARET_POS: Mutex<(i32, i32)> = Mutex::new((0, 0));
+pub const CARET_UNPROBED: i32 = i32::MIN;
+
+static LAST_CARET_POS: Mutex<(i32, i32)> = Mutex::new((CARET_UNPROBED, CARET_UNPROBED));
 
 pub fn set_last_caret_pos(x: i32, y: i32) {
     if let Ok(mut lock) = LAST_CARET_POS.lock() {
@@ -108,7 +110,10 @@ pub fn set_last_caret_pos(x: i32, y: i32) {
 }
 
 pub fn get_last_caret_pos() -> (i32, i32) {
-    LAST_CARET_POS.lock().map(|p| *p).unwrap_or((0, 0))
+    LAST_CARET_POS
+        .lock()
+        .map(|p| *p)
+        .unwrap_or((CARET_UNPROBED, CARET_UNPROBED))
 }
 
 /// 偵測當前聚焦之 Win32 視窗是否為密碼輸入控制項 (`ES_PASSWORD` 或 `EM_GETPASSWORDCHAR != 0`)
@@ -411,10 +416,139 @@ pub(crate) fn upgrade_an_before_ascii_key_in_buffers(
 }
 
 static LAST_CONFIG_CHECK: Mutex<Option<(std::time::Instant, std::time::SystemTime, RuhiConfig)>> = Mutex::new(None);
-static LAST_FC_MTIME: Mutex<Option<std::time::SystemTime>> = Mutex::new(None);
-static LAST_TPL_MTIME: Mutex<Option<std::time::SystemTime>> = Mutex::new(None);
+static INSTANCE_FC_MTIMES: Mutex<Option<std::collections::HashMap<usize, std::time::SystemTime>>> = Mutex::new(None);
+static INSTANCE_TPL_MTIMES: Mutex<Option<std::collections::HashMap<usize, std::time::SystemTime>>> = Mutex::new(None);
 static CURRENT_DLL_INSTANCES: Mutex<Option<std::collections::HashSet<usize>>> = Mutex::new(None);
 static INSTANCE_LEX_MTIMES: Mutex<Option<std::collections::HashMap<usize, std::time::SystemTime>>> = Mutex::new(None);
+
+#[derive(Clone, Copy, Debug)]
+struct CompositionEpoch {
+    edit_gen: u64,
+    focus_gen: u64,
+    last_doc_ptr: usize,
+}
+
+impl Default for CompositionEpoch {
+    fn default() -> Self {
+        Self {
+            edit_gen: 1,
+            focus_gen: 1,
+            last_doc_ptr: 0,
+        }
+    }
+}
+
+static INSTANCE_COMPOSITION_EPOCHS: std::sync::OnceLock<
+    Mutex<std::collections::HashMap<usize, CompositionEpoch>>,
+> = std::sync::OnceLock::new();
+
+pub(crate) fn current_composition_epoch(
+    holder: &Arc<Mutex<Option<ITfComposition>>>,
+) -> (u64, u64) {
+    let comp_key = Arc::as_ptr(holder) as usize;
+    let map_mutex = INSTANCE_COMPOSITION_EPOCHS
+        .get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+    let mut guard = map_mutex.lock().unwrap_or_else(|e| e.into_inner());
+    let ep = guard.entry(comp_key).or_default();
+    (ep.edit_gen, ep.focus_gen)
+}
+
+fn bump_composition_edit_epoch(holder: &Arc<Mutex<Option<ITfComposition>>>) {
+    let comp_key = Arc::as_ptr(holder) as usize;
+    let map_mutex = INSTANCE_COMPOSITION_EPOCHS
+        .get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+    let mut guard = map_mutex.lock().unwrap_or_else(|e| e.into_inner());
+    let ep = guard.entry(comp_key).or_default();
+    ep.edit_gen = ep.edit_gen.wrapping_add(1).max(1);
+}
+
+fn bump_composition_focus_epoch(
+    holder: &Arc<Mutex<Option<ITfComposition>>>,
+    new_doc_ptr: Option<usize>,
+) {
+    let comp_key = Arc::as_ptr(holder) as usize;
+    let map_mutex = INSTANCE_COMPOSITION_EPOCHS
+        .get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+    let mut guard = map_mutex.lock().unwrap_or_else(|e| e.into_inner());
+    let ep = guard.entry(comp_key).or_default();
+    match new_doc_ptr {
+        Some(ptr) if ptr != 0 => {
+            if ep.last_doc_ptr != 0 && ep.last_doc_ptr != ptr {
+                ep.focus_gen = ep.focus_gen.wrapping_add(1).max(1);
+                ep.edit_gen = ep.edit_gen.wrapping_add(1).max(1);
+            }
+            ep.last_doc_ptr = ptr;
+        }
+        _ => {
+            ep.focus_gen = ep.focus_gen.wrapping_add(1).max(1);
+            ep.edit_gen = ep.edit_gen.wrapping_add(1).max(1);
+            ep.last_doc_ptr = 0;
+        }
+    }
+}
+
+fn remove_composition_epoch(comp_key: usize) {
+    if let Some(map_mutex) = INSTANCE_COMPOSITION_EPOCHS.get() {
+        let mut guard = map_mutex.lock().unwrap_or_else(|e| e.into_inner());
+        guard.remove(&comp_key);
+    }
+}
+
+pub(crate) fn is_composition_epoch_valid(
+    holder_ptr: usize,
+    expected_edit_gen: u64,
+    expected_focus_gen: u64,
+    is_commit: bool,
+) -> bool {
+    if expected_edit_gen == 0 && expected_focus_gen == 0 {
+        return true;
+    }
+    let Some(map_mutex) = INSTANCE_COMPOSITION_EPOCHS.get() else {
+        return false;
+    };
+    let guard = map_mutex.lock().unwrap_or_else(|e| e.into_inner());
+    let Some(ep) = guard.get(&holder_ptr) else {
+        return false;
+    };
+    if is_commit {
+        ep.focus_gen == expected_focus_gen
+    } else {
+        ep.edit_gen == expected_edit_gen && ep.focus_gen == expected_focus_gen
+    }
+}
+
+thread_local! {
+    static TESTED_PWD_TOKEN: std::cell::RefCell<Option<(usize, u32, std::time::Instant, bool)>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+fn store_tested_pwd_token_at(
+    ctx_ptr: usize,
+    vk: u32,
+    ts: std::time::Instant,
+    is_pwd: bool,
+) {
+    TESTED_PWD_TOKEN.with(|cell| {
+        *cell.borrow_mut() = Some((ctx_ptr, vk, ts, is_pwd));
+    });
+}
+
+fn clear_tested_pwd_token() {
+    TESTED_PWD_TOKEN.with(|cell| {
+        *cell.borrow_mut() = None;
+    });
+}
+
+fn take_valid_tested_pwd_token(ctx_ptr: usize, vk: u32) -> Option<bool> {
+    TESTED_PWD_TOKEN.with(|cell| {
+        let token = cell.borrow_mut().take()?;
+        if token.0 == ctx_ptr && token.1 == vk && token.2.elapsed().as_millis() < 50 {
+            Some(token.3)
+        } else {
+            None
+        }
+    })
+}
 
 #[derive(Clone)]
 struct WesternSpaceRollback {
@@ -428,10 +562,135 @@ static INSTANCE_LAST_WESTERN_AUTOCORRECT: std::sync::OnceLock<
     Mutex<std::collections::HashMap<usize, WesternSpaceRollback>>,
 > = std::sync::OnceLock::new();
 
-pub fn invalidate_config_cache() {
-    if let Ok(mut lock) = LAST_CONFIG_CHECK.try_lock() {
-        *lock = None;
+fn cleanup_instance_side_tables(inst_key: usize, comp_key: usize) {
+    {
+        let mut guard = CURRENT_DLL_INSTANCES.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(set) = guard.as_mut() {
+            set.remove(&inst_key);
+        }
     }
+    {
+        let mut guard = INSTANCE_LEX_MTIMES.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(map) = guard.as_mut() {
+            map.remove(&inst_key);
+        }
+    }
+    {
+        let mut guard = INSTANCE_FC_MTIMES.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(map) = guard.as_mut() {
+            map.remove(&inst_key);
+        }
+    }
+    {
+        let mut guard = INSTANCE_TPL_MTIMES.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(map) = guard.as_mut() {
+            map.remove(&inst_key);
+        }
+    }
+    if let Some(map_mutex) = INSTANCE_LAST_WESTERN_AUTOCORRECT.get() {
+        let mut guard = map_mutex.lock().unwrap_or_else(|e| e.into_inner());
+        guard.remove(&inst_key);
+    }
+    remove_composition_epoch(comp_key);
+}
+
+fn apply_config_to_engine(eng: &mut RuhiEngine, cfg: &RuhiConfig) {
+    eng.keyboard_mode = cfg.keyboard_mode.clone();
+    eng.last_keyboard_mode = cfg.last_keyboard_mode.clone();
+    eng.set_enabled_keyboard_modes(cfg.enabled_keyboard_modes.clone());
+    eng.backtick_inline_mode = cfg.backtick_inline_mode.clone();
+    eng.tilde_toggle_mode = cfg.tilde_toggle_mode.clone();
+    eng.shift_down_mode = cfg.shift_down_mode.clone();
+    eng.enable_mixed_english = cfg.enable_mixed_english;
+    eng.mixed_english_mode = cfg.mixed_english_mode.clone();
+    eng.mixed_english_min_len = cfg.mixed_english_min_len;
+    eng.set_mixed_typing_modes(cfg.mixed_typing_modes.clone());
+    eng.enable_array30_coach = cfg.enable_array30_coach;
+    eng.reverse_coach_target = cfg.reverse_coach_target.clone();
+    eng.four_corner.keymap_profile = cfg.four_corner_keymap.clone();
+    eng.fullwidth_mode = cfg.fullwidth_mode;
+    eng.shift_space_toggle_fullwidth = cfg.shift_space_toggle_fullwidth;
+    eng.halfwidth_punct_mode = cfg.halfwidth_punct_mode.clone();
+    eng.tab_key_mode = cfg.tab_key_mode.clone();
+    eng.candidate_quick_key = cfg.candidate_quick_key.clone();
+}
+
+#[inline]
+const fn fnv1a_mix_u64(mut hash: u64, val: u64) -> u64 {
+    let bytes = val.to_le_bytes();
+    let mut i = 0;
+    while i < 8 {
+        hash ^= bytes[i] as u64;
+        hash = hash.wrapping_mul(0x1000_0000_01b3);
+        i += 1;
+    }
+    hash
+}
+
+pub(crate) fn compute_layer_a_abi_hash() -> u64 {
+    use std::mem::{align_of, offset_of, size_of};
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let dims: [usize; 50] = [
+        size_of::<usize>(),
+        size_of::<RuhiTextService>(),
+        align_of::<RuhiTextService>(),
+        offset_of!(RuhiTextService, thread_mgr),
+        offset_of!(RuhiTextService, client_id),
+        offset_of!(RuhiTextService, engine),
+        offset_of!(RuhiTextService, composition),
+        offset_of!(RuhiTextService, thread_mgr_sink_cookie),
+        offset_of!(RuhiTextService, langbar_item),
+        offset_of!(RuhiTextService, candidate_window),
+        offset_of!(RuhiTextService, pending_compose),
+        offset_of!(RuhiTextService, sentence_cursor),
+        offset_of!(RuhiTextService, candidate_selecting),
+        offset_of!(RuhiTextService, active_candidates),
+        offset_of!(RuhiTextService, selected_candidate_idx),
+        offset_of!(RuhiTextService, target_char_idx),
+        offset_of!(RuhiTextService, target_range),
+        offset_of!(RuhiTextService, config),
+        offset_of!(RuhiTextService, sel_anchor),
+        offset_of!(RuhiTextService, insert_mode),
+        offset_of!(RuhiTextService, q_press_count),
+        offset_of!(RuhiTextService, q_last_char_idx),
+        offset_of!(RuhiTextService, pending_syllables),
+        offset_of!(RuhiTextService, pending_segments),
+        offset_of!(RuhiTextService, last_raw_ascii),
+        offset_of!(RuhiTextService, manual_cuts),
+        offset_of!(RuhiTextService, pending_pinned),
+        offset_of!(RuhiTextService, deleted_words),
+        offset_of!(RuhiTextService, undo_stack),
+        offset_of!(RuhiTextService, redo_stack),
+        size_of::<RuhiConfig>(),
+        align_of::<RuhiConfig>(),
+        size_of::<EditorSnapshot>(),
+        align_of::<EditorSnapshot>(),
+        size_of::<crate::candidate_window::CandidateWindow>(),
+        align_of::<crate::candidate_window::CandidateWindow>(),
+        size_of::<crate::candidate_window::CandidateState>(),
+        align_of::<crate::candidate_window::CandidateState>(),
+        size_of::<RuhiEngine>(),
+        align_of::<RuhiEngine>(),
+        size_of::<ruhi::engine::ShiftDownRuntimeState>(),
+        align_of::<ruhi::engine::ShiftDownRuntimeState>(),
+        size_of::<LexiconManager>(),
+        align_of::<LexiconManager>(),
+        size_of::<ruhi::western::WesternEngine>(),
+        align_of::<ruhi::western::WesternEngine>(),
+        size_of::<ruhi::symbols::SymbolsManager>(),
+        align_of::<ruhi::symbols::SymbolsManager>(),
+        size_of::<ruhi::templates::TemplatesManager>(),
+        align_of::<ruhi::templates::TemplatesManager>(),
+    ];
+    for d in dims {
+        h = fnv1a_mix_u64(h, d as u64);
+    }
+    h
+}
+
+pub fn invalidate_config_cache() {
+    let mut lock = LAST_CONFIG_CHECK.lock().unwrap_or_else(|e| e.into_inner());
+    *lock = None;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -1415,24 +1674,17 @@ impl ITfLangBarItemButton_Impl for RuhiLangBarItemButton_Impl {
 
                     let has_multiple_modes = normalized_enabled.is_empty() || normalized_enabled.len() >= 2;
                     if !is_direct_en_caps && !is_none_caps && has_multiple_modes {
-                        let (cur_badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(&cfg.keyboard_mode, false, ui_lang);
-                        let last_code = if cfg.last_keyboard_mode.eq_ignore_ascii_case(&cfg.keyboard_mode) {
-                            if is_en_active {
-                                normalized_enabled
-                                    .iter()
-                                    .find(|m| m.as_str() != "english")
-                                    .map(|s| s.as_str())
-                                    .unwrap_or("hsu")
-                            } else {
-                                "english"
-                            }
-                        } else {
-                            cfg.last_keyboard_mode.as_str()
-                        };
-                        let (last_badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(last_code, false, ui_lang);
-                        let mru_lbl = format!("   {} ({} ⇄ {})\tCapsLock", mru_prefix, cur_badge, last_badge);
-                        let mru_wide: Vec<u16> = mru_lbl.encode_utf16().collect();
-                        let _ = menu.AddMenuItem(2008, 0, null_bmp, null_bmp, &mru_wide, std::ptr::null_mut());
+                        if let Some(last_code) = crate::candidate_window::resolve_mru_toggle_target(
+                            &cfg.keyboard_mode,
+                            &cfg.last_keyboard_mode,
+                            &normalized_enabled,
+                        ) {
+                            let (cur_badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(&cfg.keyboard_mode, false, ui_lang);
+                            let (last_badge, _) = crate::candidate_window::get_mode_badge_and_name_i18n(&last_code, false, ui_lang);
+                            let mru_lbl = format!("   {} ({} ⇄ {})\tCapsLock", mru_prefix, cur_badge, last_badge);
+                            let mru_wide: Vec<u16> = mru_lbl.encode_utf16().collect();
+                            let _ = menu.AddMenuItem(2008, 0, null_bmp, null_bmp, &mru_wide, std::ptr::null_mut());
+                        }
                     }
 
                     let tune_wide: Vec<u16> = format!("   {}", tune_lbl).encode_utf16().collect();
@@ -1618,24 +1870,7 @@ impl RuhiTextService {
         let config = load_ruhi_config(&paths);
         let del_words = crate::user_word_dialog::load_deleted_words(&paths);
         let mut engine = RuhiEngine::new_without_core_lexicon(&paths.data_dir.to_string_lossy());
-        engine.keyboard_mode = config.keyboard_mode.clone();
-        engine.last_keyboard_mode = config.last_keyboard_mode.clone();
-        engine.set_enabled_keyboard_modes(config.enabled_keyboard_modes.clone());
-        engine.backtick_inline_mode = config.backtick_inline_mode.clone();
-        engine.tilde_toggle_mode = config.tilde_toggle_mode.clone();
-        engine.shift_down_mode = config.shift_down_mode.clone();
-        engine.enable_mixed_english = config.enable_mixed_english;
-        engine.mixed_english_mode = config.mixed_english_mode.clone();
-        engine.mixed_english_min_len = config.mixed_english_min_len;
-        engine.set_mixed_typing_modes(config.mixed_typing_modes.clone());
-        engine.enable_array30_coach = config.enable_array30_coach;
-        engine.reverse_coach_target = config.reverse_coach_target.clone();
-        engine.four_corner.keymap_profile = config.four_corner_keymap.clone();
-        engine.fullwidth_mode = config.fullwidth_mode;
-        engine.shift_space_toggle_fullwidth = config.shift_space_toggle_fullwidth;
-        engine.halfwidth_punct_mode = config.halfwidth_punct_mode.clone();
-        engine.tab_key_mode = config.tab_key_mode.clone();
-        engine.candidate_quick_key = config.candidate_quick_key.clone();
+        apply_config_to_engine(&mut engine, &config);
         let (lex_mtime, shared_lex) = get_shared_lexicon_with_mtime(&paths);
         engine.lexicon = (*shared_lex).clone();
 
@@ -1645,22 +1880,15 @@ impl RuhiTextService {
             }
         }
         engine.longkan.table.configure_data_dir(&paths.data_dir);
-        if let Ok(fc_meta) = std::fs::metadata(&paths.four_corner) {
-            if let Ok(fc_mtime) = fc_meta.modified() {
-                if let Ok(mut fc_lock) = LAST_FC_MTIME.lock() {
-                    *fc_lock = Some(fc_mtime);
-                }
-            }
-        }
+        let initial_fc_mtime = std::fs::metadata(&paths.four_corner)
+            .ok()
+            .and_then(|m| m.modified().ok());
+        let mut initial_tpl_mtime = None;
         if paths.templates.exists() {
             let _ = engine.templates.load_tsv(&paths.templates);
-            if let Ok(meta) = std::fs::metadata(&paths.templates) {
-                if let Ok(mtime) = meta.modified() {
-                    if let Ok(mut tpl_lock) = LAST_TPL_MTIME.lock() {
-                        *tpl_lock = Some(mtime);
-                    }
-                }
-            }
+            initial_tpl_mtime = std::fs::metadata(&paths.templates)
+                .ok()
+                .and_then(|m| m.modified().ok());
         }
 
         logger::log(&format!("RuhiTextService::new() initialized with data_dir={:?}, punct_mode={}, quick_key={}",
@@ -1689,6 +1917,20 @@ impl RuhiTextService {
             mguard
                 .get_or_insert_with(std::collections::HashMap::new)
                 .insert(inst_key, lex_mtime);
+        }
+        if let Some(fc_mtime) = initial_fc_mtime {
+            if let Ok(mut guard) = INSTANCE_FC_MTIMES.lock() {
+                guard
+                    .get_or_insert_with(std::collections::HashMap::new)
+                    .insert(inst_key, fc_mtime);
+            }
+        }
+        if let Some(tpl_mtime) = initial_tpl_mtime {
+            if let Ok(mut guard) = INSTANCE_TPL_MTIMES.lock() {
+                guard
+                    .get_or_insert_with(std::collections::HashMap::new)
+                    .insert(inst_key, tpl_mtime);
+            }
         }
 
         Self {
@@ -1722,20 +1964,16 @@ impl RuhiTextService {
         }
     }
 
-    #[allow(invalid_reference_casting)]
     fn ensure_instance_upgraded(&self) {
         let inst_key = Arc::as_ptr(&self.client_id) as usize;
         let already_upgraded = {
-            if let Ok(mut guard) = CURRENT_DLL_INSTANCES.lock() {
-                let set = guard.get_or_insert_with(std::collections::HashSet::new);
-                if set.contains(&inst_key) {
-                    true
-                } else {
-                    set.insert(inst_key);
-                    false
-                }
-            } else {
+            let mut guard = CURRENT_DLL_INSTANCES.lock().unwrap_or_else(|e| e.into_inner());
+            let set = guard.get_or_insert_with(std::collections::HashSet::new);
+            if set.contains(&inst_key) {
                 true
+            } else {
+                set.insert(inst_key);
+                false
             }
         };
         if already_upgraded {
@@ -1752,77 +1990,83 @@ impl RuhiTextService {
         sync_active_tsf_profile_locale(&mut config);
         let del_words = crate::user_word_dialog::load_deleted_words(&paths);
         let mut engine = RuhiEngine::new_without_core_lexicon(&paths.data_dir.to_string_lossy());
-        engine.keyboard_mode = config.keyboard_mode.clone();
-        engine.last_keyboard_mode = config.last_keyboard_mode.clone();
-        engine.set_enabled_keyboard_modes(config.enabled_keyboard_modes.clone());
-        engine.backtick_inline_mode = config.backtick_inline_mode.clone();
-        engine.tilde_toggle_mode = config.tilde_toggle_mode.clone();
-        engine.shift_down_mode = config.shift_down_mode.clone();
-        engine.enable_mixed_english = config.enable_mixed_english;
-        engine.mixed_english_mode = config.mixed_english_mode.clone();
-        engine.mixed_english_min_len = config.mixed_english_min_len;
-        engine.set_mixed_typing_modes(config.mixed_typing_modes.clone());
-        engine.enable_array30_coach = config.enable_array30_coach;
-        engine.reverse_coach_target = config.reverse_coach_target.clone();
-        engine.four_corner.keymap_profile = config.four_corner_keymap.clone();
-        engine.fullwidth_mode = config.fullwidth_mode;
-        engine.shift_space_toggle_fullwidth = config.shift_space_toggle_fullwidth;
-        engine.halfwidth_punct_mode = config.halfwidth_punct_mode.clone();
-        engine.tab_key_mode = config.tab_key_mode.clone();
+        apply_config_to_engine(&mut engine, &config);
         let (lex_mtime, shared_lex) = get_shared_lexicon_with_mtime(&paths);
         engine.lexicon = (*shared_lex).clone();
-        if let Ok(mut guard) = INSTANCE_LEX_MTIMES.lock() {
+        {
+            let mut guard = INSTANCE_LEX_MTIMES.lock().unwrap_or_else(|e| e.into_inner());
             guard
                 .get_or_insert_with(std::collections::HashMap::new)
                 .insert(inst_key, lex_mtime);
         }
 
-        if paths.transitions.exists() {
+        if paths.transitions.exists() && paths.transitions != paths.data_dir.join("transitions_user.tsv") {
             if let Some(p_str) = paths.transitions.to_str() {
                 let _ = engine.transitions.load_tsv(p_str);
             }
         }
+        if let Ok(fc_meta) = std::fs::metadata(&paths.four_corner) {
+            if let Ok(fc_mtime) = fc_meta.modified() {
+                let mut guard = INSTANCE_FC_MTIMES.lock().unwrap_or_else(|e| e.into_inner());
+                guard
+                    .get_or_insert_with(std::collections::HashMap::new)
+                    .insert(inst_key, fc_mtime);
+            }
+        }
         if paths.templates.exists() {
             let _ = engine.templates.load_tsv(&paths.templates);
+            if let Ok(tpl_meta) = std::fs::metadata(&paths.templates) {
+                if let Ok(tpl_mtime) = tpl_meta.modified() {
+                    let mut guard = INSTANCE_TPL_MTIMES.lock().unwrap_or_else(|e| e.into_inner());
+                    guard
+                        .get_or_insert_with(std::collections::HashMap::new)
+                        .insert(inst_key, tpl_mtime);
+                }
+            }
         }
         engine.longkan.table.configure_data_dir(&paths.data_dir);
 
-        let cw = match crate::candidate_window::CandidateWindow::new() {
-            Ok(mut w) => {
-                w.apply_config(&config);
-                Some(w)
+        *self.engine.lock().unwrap_or_else(|e| e.into_inner()) = engine;
+        {
+            let mut cw_guard = self.candidate_window.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(existing_cw) = cw_guard.as_mut() {
+                existing_cw.apply_config(&config);
+            } else {
+                *cw_guard = match crate::candidate_window::CandidateWindow::new() {
+                    Ok(mut w) => {
+                        w.apply_config(&config);
+                        Some(w)
+                    }
+                    Err(_) => None,
+                };
             }
-            Err(_) => None,
-        };
-
-        unsafe {
-            let self_mut = std::hint::black_box(self as *const Self as usize) as *mut Self;
-            std::ptr::write_volatile(&raw mut (*self_mut).engine, Arc::new(Mutex::new(engine)));
-            std::ptr::write_volatile(&raw mut (*self_mut).candidate_window, Arc::new(Mutex::new(cw)));
-            std::ptr::write_volatile(&raw mut (*self_mut).pending_compose, Arc::new(Mutex::new(String::new())));
-            std::ptr::write_volatile(&raw mut (*self_mut).sentence_cursor, Arc::new(Mutex::new(0usize)));
-            std::ptr::write_volatile(&raw mut (*self_mut).candidate_selecting, Arc::new(Mutex::new(false)));
-            std::ptr::write_volatile(&raw mut (*self_mut).active_candidates, Arc::new(Mutex::new(Vec::<String>::new())));
-            std::ptr::write_volatile(&raw mut (*self_mut).selected_candidate_idx, Arc::new(Mutex::new(0usize)));
-            std::ptr::write_volatile(&raw mut (*self_mut).target_char_idx, Arc::new(Mutex::new(0usize)));
-            std::ptr::write_volatile(&raw mut (*self_mut).target_range, Arc::new(Mutex::new((0usize, 0usize))));
-            std::ptr::write_volatile(&raw mut (*self_mut).config, Arc::new(Mutex::new(config)));
-            std::ptr::write_volatile(&raw mut (*self_mut).sel_anchor, Arc::new(Mutex::new(None::<usize>)));
-            std::ptr::write_volatile(&raw mut (*self_mut).insert_mode, Arc::new(Mutex::new(true)));
-            std::ptr::write_volatile(&raw mut (*self_mut).q_press_count, Arc::new(Mutex::new(0usize)));
-            std::ptr::write_volatile(&raw mut (*self_mut).q_last_char_idx, Arc::new(Mutex::new(None::<usize>)));
-            std::ptr::write_volatile(&raw mut (*self_mut).pending_syllables, Arc::new(Mutex::new(Vec::<Option<String>>::new())));
-            std::ptr::write_volatile(&raw mut (*self_mut).pending_segments, Arc::new(Mutex::new(Vec::<(usize, usize, String, String)>::new())));
-            std::ptr::write_volatile(&raw mut (*self_mut).last_raw_ascii, Arc::new(Mutex::new(None::<(usize, usize, String)>)));
-            std::ptr::write_volatile(&raw mut (*self_mut).manual_cuts, Arc::new(Mutex::new(std::collections::HashSet::<usize>::new())));
-            std::ptr::write_volatile(&raw mut (*self_mut).deleted_words, Arc::new(Mutex::new(del_words)));
-            std::ptr::write_volatile(&raw mut (*self_mut).undo_stack, Arc::new(Mutex::new(Vec::<EditorSnapshot>::new())));
-            std::ptr::write_volatile(&raw mut (*self_mut).redo_stack, Arc::new(Mutex::new(Vec::<EditorSnapshot>::new())));
         }
+        self.pending_compose.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        *self.sentence_cursor.lock().unwrap_or_else(|e| e.into_inner()) = 0;
+        *self.candidate_selecting.lock().unwrap_or_else(|e| e.into_inner()) = false;
+        self.active_candidates.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        *self.selected_candidate_idx.lock().unwrap_or_else(|e| e.into_inner()) = 0;
+        *self.target_char_idx.lock().unwrap_or_else(|e| e.into_inner()) = 0;
+        *self.target_range.lock().unwrap_or_else(|e| e.into_inner()) = (0, 0);
+        *self.config.lock().unwrap_or_else(|e| e.into_inner()) = config;
+        *self.sel_anchor.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        *self.insert_mode.lock().unwrap_or_else(|e| e.into_inner()) = true;
+        *self.q_press_count.lock().unwrap_or_else(|e| e.into_inner()) = 0;
+        *self.q_last_char_idx.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        self.pending_syllables.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        self.pending_segments.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        *self.last_raw_ascii.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        self.manual_cuts.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        self.pending_pinned.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        *self.deleted_words.lock().unwrap_or_else(|e| e.into_inner()) = del_words;
+        self.undo_stack.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        self.redo_stack.lock().unwrap_or_else(|e| e.into_inner()).clear();
 
-        if let Ok(tm_guard) = self.thread_mgr.lock() {
-            if let Some(ref tm) = *tm_guard {
-                if let Ok(langbar_mgr) = tm.cast::<ITfLangBarItemMgr>() {
+        let tm_opt = self.thread_mgr.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        if let Some(tm) = tm_opt {
+            if let Ok(langbar_mgr) = tm.cast::<ITfLangBarItemMgr>() {
+                let mut item_guard = self.langbar_item.lock().unwrap_or_else(|e| e.into_inner());
+                if item_guard.is_none() {
                     unsafe {
                         if let Ok(existing) = langbar_mgr.GetItem(&GUID_LBI_INPUTMODE) {
                             let _ = langbar_mgr.RemoveItem(&existing);
@@ -1833,17 +2077,24 @@ impl RuhiTextService {
                         unsafe {
                             if langbar_mgr.AddItem(&item).is_ok() {
                                 let _ = item.Show(BOOL::from(true));
-                                let self_mut = std::hint::black_box(self as *const Self as usize) as *mut Self;
-                                std::ptr::write_volatile(&raw mut (*self_mut).langbar_item, Arc::new(Mutex::new(Some(item))));
+                                *item_guard = Some(item);
                             }
                         }
                     }
-                    notify_langbar_mode_update();
                 }
+                notify_langbar_mode_update();
             }
         }
 
         logger::log("Hot-upgraded legacy RuhiTextService instance in-place successfully!");
+    }
+}
+
+impl Drop for RuhiTextService {
+    fn drop(&mut self) {
+        let inst_key = Arc::as_ptr(&self.client_id) as usize;
+        let comp_key = Arc::as_ptr(&self.composition) as usize;
+        cleanup_instance_side_tables(inst_key, comp_key);
     }
 }
 
@@ -1925,16 +2176,13 @@ impl ITfTextInputProcessor_Impl for RuhiTextService_Impl {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             logger::log("Deactivate called.");
             let inst_key = Arc::as_ptr(&self.client_id) as usize;
-            if let Ok(mut guard) = INSTANCE_LEX_MTIMES.try_lock() {
-                if let Some(map) = guard.as_mut() {
-                    map.remove(&inst_key);
-                }
-            }
+            let comp_key = Arc::as_ptr(&self.composition) as usize;
+            cleanup_instance_side_tables(inst_key, comp_key);
             self.hide_candidate_window();
             if let Ok(mut cw_guard) = self.candidate_window.try_lock() {
                 *cw_guard = None;
             }
-            set_last_caret_pos(0, 0);
+            set_last_caret_pos(CARET_UNPROBED, CARET_UNPROBED);
             if let Ok(tm_lock) = self.thread_mgr.try_lock() {
                 if let Some(tm) = tm_lock.as_ref() {
                     let tid = self.client_id.try_lock().map(|g| *g).unwrap_or(0);
@@ -2005,31 +2253,21 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 let mut new_cfg = load_ruhi_config(&paths);
                 sync_active_tsf_profile_locale(&mut new_cfg);
                 if let Ok(mut eng) = self.engine.lock() {
-                    eng.keyboard_mode = new_cfg.keyboard_mode.clone();
-                    eng.last_keyboard_mode = new_cfg.last_keyboard_mode.clone();
-                    eng.set_enabled_keyboard_modes(new_cfg.enabled_keyboard_modes.clone());
-                    eng.backtick_inline_mode = new_cfg.backtick_inline_mode.clone();
-                    eng.tilde_toggle_mode = new_cfg.tilde_toggle_mode.clone();
-                    eng.enable_array30_coach = new_cfg.enable_array30_coach;
-                    eng.four_corner.keymap_profile = new_cfg.four_corner_keymap.clone();
-                    eng.fullwidth_mode = new_cfg.fullwidth_mode;
-                    eng.shift_space_toggle_fullwidth = new_cfg.shift_space_toggle_fullwidth;
-                    eng.halfwidth_punct_mode = new_cfg.halfwidth_punct_mode.clone();
-                    eng.tab_key_mode = new_cfg.tab_key_mode.clone();
-                    eng.candidate_quick_key = new_cfg.candidate_quick_key.clone();
+                    apply_config_to_engine(&mut eng, &new_cfg);
                 }
                 if let Ok(mut cw_guard) = self.candidate_window.lock() {
                     if let Some(cw) = cw_guard.as_mut() {
                         cw.apply_config(&new_cfg);
                     }
                 }
-                *self.config.lock().unwrap() = new_cfg.clone();
+                *self.config.lock().unwrap_or_else(|e| e.into_inner()) = new_cfg.clone();
                 crate::candidate_window::maybe_spawn_background_telemetry_upload(&paths, &new_cfg);
                 notify_langbar_mode_update();
             } else {
                 // 當前視窗失去焦點時，立即隱藏輸入座，絕不在背景凍結殘留！
+                bump_composition_focus_epoch(&self.composition, None);
                 self.hide_candidate_window();
-                set_last_caret_pos(0, 0);
+                set_last_caret_pos(CARET_UNPROBED, CARET_UNPROBED);
             }
             Ok(())
         })).unwrap_or_else(|_| Err(E_FAIL.into()))
@@ -2037,6 +2275,7 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
     fn OnTestKeyDown(&self, pic: Option<&ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            clear_tested_pwd_token();
             let vk = wparam.0 as u32;
             if is_passthrough_non_typing_vk(vk) {
                 return Ok(BOOL::from(false));
@@ -2066,8 +2305,15 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
             let (has_buffer, ..) = self.snapshot_key_routing_flags();
             // Win32 與 TSF InputScope 密碼控制項隱私保護：若當前聚焦於密碼欄位且無未決組字，自動放行直通英數，絕不攔截組字或寫入修訂記錄
-            if !has_buffer && self.is_focused_or_tsf_password(pic) {
-                return Ok(BOOL::from(false));
+            if !has_buffer {
+                let ctx_ptr = pic
+                    .map(|c| windows_core::Interface::as_raw(c) as usize)
+                    .unwrap_or(0);
+                let is_pwd = self.is_focused_or_tsf_password(pic);
+                store_tested_pwd_token_at(ctx_ptr, vk, std::time::Instant::now(), is_pwd);
+                if is_pwd {
+                    return Ok(BOOL::from(false));
+                }
             }
 
             Ok(BOOL::from(true))
@@ -2102,7 +2348,6 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
 
             self.ensure_instance_upgraded();
             self.check_reload_config();
-            logger::log(&format!("OnKeyDown: vk={:#x}, ctrl={}, shift={}", vk, is_ctrl, is_shift));
 
             let (
                 has_buffer,
@@ -2160,10 +2405,17 @@ impl ITfKeyEventSink_Impl for RuhiTextService_Impl {
                 }
             }
 
-            // Win32 與 TSF InputScope 密碼控制項隱私保護：若當前聚焦於密碼欄位且無未決組字，自動放行直通英數，絕不攔截組字或寫入修訂記錄
-            if !has_buffer && self.is_focused_or_tsf_password(Some(ctx)) {
-                return Ok(BOOL::from(false));
+            // Win32 與 TSF InputScope 密碼控制項隱私保護：沿用 50ms 內單鍵 OnTestKeyDown 探測結果或補測，且絕不於密碼框寫入按鍵日誌
+            if !has_buffer {
+                let ctx_ptr = windows_core::Interface::as_raw(ctx) as usize;
+                let is_pwd = take_valid_tested_pwd_token(ctx_ptr, vk)
+                    .unwrap_or_else(|| self.is_focused_or_tsf_password(Some(ctx)));
+                if is_pwd {
+                    return Ok(BOOL::from(false));
+                }
             }
+
+            logger::log(&format!("OnKeyDown: vk={:#x}, ctrl={}, shift={}", vk, is_ctrl, is_shift));
 
             // Shift + Space：半形 (`半`) 與全形 (`全`) 模式切換
             if vk == VK_SPACE.0 as u32 && is_shift && !is_ctrl && allow_shift_space {
@@ -5959,16 +6211,44 @@ impl RuhiTextService_Impl {
     /// 視為同一個連續漢字音節區間進行聯合 Viterbi 求解（同時嚴格保留 `pending_pinned` 與 `engine.user_pinned` 手動選字鎖定），
     /// 解決句中補字（如於「基隆｜河一路13號」插入「市」➔「基隆市和一路13號」，而非孤立解碼為「是」）的問題。
     fn re_evaluate_joint_pending_and_engine(&self) {
-        let p_str = self.pending_compose.lock().unwrap().clone();
+        let p_str = self
+            .pending_compose
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
         let mut p_chars: Vec<char> = p_str.chars().collect();
-        let p_syls = self.pending_syllables.lock().unwrap().clone();
+        let p_syls = self
+            .pending_syllables
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
         let p_len = p_chars.len();
         if p_len == 0 || p_syls.len() != p_len {
             return;
         }
-        let cur = (*self.sentence_cursor.lock().unwrap()).min(p_len);
+        let cur = (*self
+            .sentence_cursor
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()))
+        .min(p_len);
+        // 嚴守鎖順序：先在鎖定 engine 前快照所有介面狀態集合，杜絕 engine 與輔助 Mutex 互鎖反轉死結
+        let pending_segs_snapshot = self
+            .pending_segments
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let cuts_snapshot = self
+            .manual_cuts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let pinned_snapshot = self
+            .pending_pinned
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
 
-        let mut engine = self.engine.lock().unwrap();
+        let mut engine = self.engine.lock().unwrap_or_else(|e| e.into_inner());
         let is_non_bpm_mode = matches!(
             engine.keyboard_mode.as_str(),
             "japanese"
@@ -6033,7 +6313,7 @@ impl RuhiTextService_Impl {
             cur,
             eng_len,
             block_end,
-            &self.pending_segments.lock().unwrap(),
+            &pending_segs_snapshot,
             JOINT_REEVAL_MAX_LEFT,
             JOINT_REEVAL_MAX_RIGHT,
         );
@@ -6075,7 +6355,6 @@ impl RuhiTextService_Impl {
             }
         }
 
-        let cuts_snapshot = self.manual_cuts.lock().unwrap().clone();
         let mut joint_cuts = std::collections::HashSet::new();
         for &c in &cuts_snapshot {
             if c > win_start && c <= cur {
@@ -6092,7 +6371,6 @@ impl RuhiTextService_Impl {
             }
         }
 
-        let pinned_snapshot = self.pending_pinned.lock().unwrap().clone();
         let mut joint_pinned: std::collections::HashMap<usize, char> = std::collections::HashMap::new();
         for i in win_start..cur {
             if pinned_snapshot.contains(&i) {
@@ -6188,7 +6466,7 @@ impl RuhiTextService_Impl {
         for i in cur..win_end {
             p_chars[i] = solved_chars[left_len + eng_len + (i - cur)];
         }
-        *self.pending_compose.lock().unwrap() = p_chars.iter().collect();
+        let updated_pending: String = p_chars.iter().collect();
 
         if eng_len > 0 {
             engine.sentence_chars = solved_chars[left_len..(left_len + eng_len)]
@@ -6222,7 +6500,15 @@ impl RuhiTextService_Impl {
         }
         drop(engine);
 
-        let mut segs = self.pending_segments.lock().unwrap();
+        *self
+            .pending_compose
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = updated_pending;
+
+        let mut segs = self
+            .pending_segments
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         segs.retain(|s| s.1 <= win_start || s.0 >= win_end);
         for n in &nodes {
             if eng_len == 0 {
@@ -7701,7 +7987,7 @@ impl RuhiTextService_Impl {
         *self.candidate_selecting.lock().unwrap_or_else(|e| e.into_inner()) = false;
 
         self.hide_candidate_window();
-        set_last_caret_pos(0, 0);
+        set_last_caret_pos(CARET_UNPROBED, CARET_UNPROBED);
 
         if !full.is_empty() {
             let c = full.chars().count();
@@ -7732,7 +8018,7 @@ impl RuhiTextService_Impl {
         *self.candidate_selecting.lock().unwrap_or_else(|e| e.into_inner()) = false;
 
         self.hide_candidate_window();
-        set_last_caret_pos(0, 0);
+        set_last_caret_pos(CARET_UNPROBED, CARET_UNPROBED);
 
         if !full.is_empty() {
             full.push('\n');
@@ -8088,9 +8374,10 @@ impl RuhiTextService_Impl {
         self.ensure_instance_upgraded();
         let now = std::time::Instant::now();
         let paths = RuhiPaths::resolve();
+        let inst_key = Arc::as_ptr(&self.client_id) as usize;
 
         let should_check = {
-            let lock = LAST_CONFIG_CHECK.lock().unwrap();
+            let lock = LAST_CONFIG_CHECK.lock().unwrap_or_else(|e| e.into_inner());
             match *lock {
                 Some((last_instant, _, _)) => now.duration_since(last_instant).as_millis() > 300,
                 None => true,
@@ -8101,12 +8388,13 @@ impl RuhiTextService_Impl {
             if let Ok(fc_meta) = std::fs::metadata(&paths.four_corner) {
                 if let Ok(fc_mtime) = fc_meta.modified() {
                     let needs_fc_reload = {
-                        let mut fc_lock = LAST_FC_MTIME.lock().unwrap();
-                        let reload = match *fc_lock {
-                            Some(prev) => fc_mtime > prev,
+                        let mut fc_lock = INSTANCE_FC_MTIMES.lock().unwrap_or_else(|e| e.into_inner());
+                        let map = fc_lock.get_or_insert_with(std::collections::HashMap::new);
+                        let reload = match map.get(&inst_key).copied() {
+                            Some(prev) => fc_mtime != prev,
                             None => true,
                         };
-                        *fc_lock = Some(fc_mtime);
+                        map.insert(inst_key, fc_mtime);
                         reload
                     };
                     if needs_fc_reload {
@@ -8127,12 +8415,13 @@ impl RuhiTextService_Impl {
             if let Ok(tpl_meta) = std::fs::metadata(&paths.templates) {
                 if let Ok(tpl_mtime) = tpl_meta.modified() {
                     let needs_tpl_reload = {
-                        let mut tpl_lock = LAST_TPL_MTIME.lock().unwrap();
-                        let reload = match *tpl_lock {
-                            Some(prev) => tpl_mtime > prev,
+                        let mut tpl_lock = INSTANCE_TPL_MTIMES.lock().unwrap_or_else(|e| e.into_inner());
+                        let map = tpl_lock.get_or_insert_with(std::collections::HashMap::new);
+                        let reload = match map.get(&inst_key).copied() {
+                            Some(prev) => tpl_mtime != prev,
                             None => true,
                         };
-                        *tpl_lock = Some(tpl_mtime);
+                        map.insert(inst_key, tpl_mtime);
                         reload
                     };
                     if needs_tpl_reload {
@@ -8152,7 +8441,8 @@ impl RuhiTextService_Impl {
             }
             if let Ok(metadata) = std::fs::metadata(&paths.config) {
                 if let Ok(mtime) = metadata.modified() {
-                    let needs_disk_reload = if let Ok(mut lock) = LAST_CONFIG_CHECK.lock() {
+                    let needs_disk_reload = {
+                        let mut lock = LAST_CONFIG_CHECK.lock().unwrap_or_else(|e| e.into_inner());
                         let reload = match *lock {
                             Some((_, prev_mtime, _)) => mtime != prev_mtime,
                             None => true,
@@ -8163,8 +8453,6 @@ impl RuhiTextService_Impl {
                             }
                         }
                         reload
-                    } else {
-                        false
                     };
                     if needs_disk_reload {
                         let new_cfg = load_ruhi_config(&paths);
@@ -8174,54 +8462,36 @@ impl RuhiTextService_Impl {
                             new_cfg.keyboard_mode,
                             new_cfg.font_size
                         ));
-                        if let Ok(mut lock) = LAST_CONFIG_CHECK.lock() {
-                            *lock = Some((now, mtime, new_cfg));
-                        }
+                        let mut lock = LAST_CONFIG_CHECK.lock().unwrap_or_else(|e| e.into_inner());
+                        *lock = Some((now, mtime, new_cfg));
                     }
                 }
             }
         }
 
-        if let Ok(lock) = LAST_CONFIG_CHECK.lock() {
-            if let Some((_, _, ref cached_cfg)) = *lock {
-                let needs_instance_sync = self
-                    .config
-                    .lock()
-                    .map(|c| &*c != cached_cfg)
-                    .unwrap_or(false);
-                if needs_instance_sync {
-                    let new_cfg = cached_cfg.clone();
-                    drop(lock);
-                    if let Ok(mut eng) = self.engine.lock() {
-                        eng.keyboard_mode = new_cfg.keyboard_mode.clone();
-                        eng.last_keyboard_mode = new_cfg.last_keyboard_mode.clone();
-                        eng.backtick_inline_mode = new_cfg.backtick_inline_mode.clone();
-                        eng.tilde_toggle_mode = new_cfg.tilde_toggle_mode.clone();
-                        eng.shift_down_mode = new_cfg.shift_down_mode.clone();
-                        eng.set_enabled_keyboard_modes(new_cfg.enabled_keyboard_modes.clone());
-                        eng.enable_mixed_english = new_cfg.enable_mixed_english;
-                        eng.mixed_english_mode = new_cfg.mixed_english_mode.clone();
-                        eng.mixed_english_min_len = new_cfg.mixed_english_min_len;
-                        eng.set_mixed_typing_modes(new_cfg.mixed_typing_modes.clone());
-                        eng.enable_array30_coach = new_cfg.enable_array30_coach;
-                        eng.reverse_coach_target = new_cfg.reverse_coach_target.clone();
-                        eng.four_corner.keymap_profile = new_cfg.four_corner_keymap.clone();
-                        eng.fullwidth_mode = new_cfg.fullwidth_mode;
-                        eng.shift_space_toggle_fullwidth = new_cfg.shift_space_toggle_fullwidth;
-                        eng.halfwidth_punct_mode = new_cfg.halfwidth_punct_mode.clone();
-                        eng.tab_key_mode = new_cfg.tab_key_mode.clone();
-                        eng.candidate_quick_key = new_cfg.candidate_quick_key.clone();
-                    }
-                    if let Ok(mut cw_guard) = self.candidate_window.lock() {
-                        if let Some(cw) = cw_guard.as_mut() {
-                            cw.apply_config(&new_cfg);
-                        }
-                    }
-                    if let Ok(mut cfg_guard) = self.config.lock() {
-                        *cfg_guard = new_cfg;
-                    }
-                    notify_langbar_mode_update();
+        let cached_cfg_opt = {
+            let lock = LAST_CONFIG_CHECK.lock().unwrap_or_else(|e| e.into_inner());
+            lock.as_ref().map(|(_, _, cfg)| cfg.clone())
+        };
+        if let Some(new_cfg) = cached_cfg_opt {
+            let needs_instance_sync = self
+                .config
+                .lock()
+                .map(|c| *c != new_cfg)
+                .unwrap_or(false);
+            if needs_instance_sync {
+                if let Ok(mut eng) = self.engine.lock() {
+                    apply_config_to_engine(&mut eng, &new_cfg);
                 }
+                if let Ok(mut cw_guard) = self.candidate_window.lock() {
+                    if let Some(cw) = cw_guard.as_mut() {
+                        cw.apply_config(&new_cfg);
+                    }
+                }
+                if let Ok(mut cfg_guard) = self.config.lock() {
+                    *cfg_guard = new_cfg;
+                }
+                notify_langbar_mode_update();
             }
         }
     }
@@ -8523,8 +8793,8 @@ impl RuhiTextService_Impl {
                         cw.show_candidates_only(&display_cands, sel_idx, cx, cy);
                     } else if let Some(sel_pair) = sel_range {
                         let (cx, cy) = Self::get_caret_screen_pos();
-                        let is_caps_on = false;
-                        let target_range = *self.target_range.lock().unwrap();
+                        let is_caps_on = unsafe { (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0 };
+                        let target_range = *self.target_range.lock().unwrap_or_else(|e| e.into_inner());
                         cw.show_desk(
                             &full_text,
                             cur_pos,
@@ -8549,25 +8819,25 @@ impl RuhiTextService_Impl {
             }
         } else {
             // 如喜輸入座模式 (floating_follow 或 floating_fixed)
-            // 每次探測前先清零快取，確保坐標絕對反映當前按鍵時點的最新文字位置
-            set_last_caret_pos(0, 0);
+            // 每次探測前先重設為 CARET_UNPROBED，確保坐標絕對反映當前按鍵時點的最新文字位置（並允許負座標副螢幕）
+            set_last_caret_pos(CARET_UNPROBED, CARET_UNPROBED);
 
             // 1. 優先調用 TSF probe_caret 探測宿主文件中的當前游標 Selection 位置（感知換行與空白行）
             let _ = self.probe_caret(ctx);
             let (mut cx, mut cy) = get_last_caret_pos();
 
             // 2. 若 TSF 未回傳有效座標，備援嘗試 Win32 GetGUIThreadInfo
-            if cx <= 0 || cy <= 0 {
+            if cx == CARET_UNPROBED || cy == CARET_UNPROBED {
                 let (win_cx, win_cy) = Self::get_caret_screen_pos();
-                if win_cx > 0 && win_cy > 0 {
+                if win_cx != CARET_UNPROBED && win_cy != CARET_UNPROBED {
                     cx = win_cx;
                     cy = win_cy;
                 }
             }
 
-            let is_caps_on = false;
+            let is_caps_on = unsafe { (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0 };
 
-            let target_range = *self.target_range.lock().unwrap();
+            let target_range = *self.target_range.lock().unwrap_or_else(|e| e.into_inner());
             let sel_range_pair = sel_range.unwrap_or((0, 0));
 
             if let Ok(mut cw_guard) = self.candidate_window.lock() {
@@ -8584,7 +8854,8 @@ impl RuhiTextService_Impl {
     }
 
     fn submit_single_tsf_composition(&self, ctx: &ITfContext, text: &str, cursor_pos: usize, selection: Option<(usize, usize)>, is_commit: bool) -> Result<()> {
-        let client_id = *self.client_id.lock().unwrap();
+        let client_id = *self.client_id.lock().unwrap_or_else(|e| e.into_inner());
+        let (expected_edit_gen, expected_focus_gen) = current_composition_epoch(&self.composition);
         let sink: ITfCompositionSink = self.to_object().cast()?;
         let edit_session: ITfEditSession = RuhiEditSession::new(
             ctx.clone(),
@@ -8593,6 +8864,8 @@ impl RuhiTextService_Impl {
                 cursor_pos,
                 selection,
                 is_commit,
+                expected_edit_gen,
+                expected_focus_gen,
             },
             self.composition.clone(),
             sink,
@@ -8622,10 +8895,10 @@ impl RuhiTextService_Impl {
     }
 
     fn end_tsf_composition(&self, ctx: &ITfContext) -> Result<()> {
+        bump_composition_edit_epoch(&self.composition);
         self.hide_candidate_window();
-        set_last_caret_pos(0, 0);
-        set_last_caret_pos(0, 0);
-        let client_id = *self.client_id.lock().unwrap();
+        set_last_caret_pos(CARET_UNPROBED, CARET_UNPROBED);
+        let client_id = *self.client_id.lock().unwrap_or_else(|e| e.into_inner());
         let sink: ITfCompositionSink = self.to_object().cast()?;
         let edit_session: ITfEditSession = RuhiEditSession::new(
             ctx.clone(),
@@ -8672,8 +8945,8 @@ impl RuhiTextService_Impl {
                         fg_hwnd
                     };
                     if !target.0.is_null() {
-                        unsafe { let _ = windows::Win32::Graphics::Gdi::ClientToScreen(target, &mut pt); }
-                        if pt.x > 0 && pt.y > 0 {
+                        let mapped = unsafe { windows::Win32::Graphics::Gdi::ClientToScreen(target, &mut pt).as_bool() };
+                        if mapped && pt.x != CARET_UNPROBED && pt.y != CARET_UNPROBED {
                             logger::log(&format!("get_caret_screen_pos from GetGUIThreadInfo(tid={}): ({}, {})", tid, pt.x, pt.y));
                             return (pt.x, pt.y);
                         }
@@ -8684,7 +8957,7 @@ impl RuhiTextService_Impl {
 
         // 2. 備援嘗試 TSF ActiveView 探測之坐標（適用於 Chromium、UWP 等自繪不調用 CreateCaret 之環境）
         let (cx, cy) = get_last_caret_pos();
-        if cx > 0 && cy > 0 {
+        if cx != CARET_UNPROBED && cy != CARET_UNPROBED {
             logger::log(&format!("get_caret_screen_pos from TSF ActiveView: ({}, {})", cx, cy));
             return (cx, cy);
         }
@@ -8729,11 +9002,14 @@ impl ITfThreadMgrEventSink_Impl for RuhiTextService_Impl {
     fn OnSetFocus(&self, pdimfocus: Option<&ITfDocumentMgr>, _pdimprevfocus: Option<&ITfDocumentMgr>) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             self.ensure_instance_upgraded();
-            if pdimfocus.is_none() {
-                self.hide_candidate_window();
-            } else {
+            if let Some(dim) = pdimfocus {
+                let doc_ptr = windows_core::Interface::as_raw(dim) as usize;
+                bump_composition_focus_epoch(&self.composition, Some(doc_ptr));
                 self.check_reload_config();
                 notify_langbar_mode_update();
+            } else {
+                bump_composition_focus_epoch(&self.composition, None);
+                self.hide_candidate_window();
             }
             Ok(())
         })).unwrap_or_else(|_| Err(E_FAIL.into()))
@@ -8749,6 +9025,7 @@ impl ITfThreadMgrEventSink_Impl for RuhiTextService_Impl {
 impl ITfCompositionSink_Impl for RuhiTextService_Impl {
     fn OnCompositionTerminated(&self, _ecwrite: u32, _pcomposition: Option<&ITfComposition>) -> Result<()> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            bump_composition_edit_epoch(&self.composition);
             if let Ok(mut comp) = self.composition.try_lock() {
                 *comp = None;
             }
@@ -8774,7 +9051,7 @@ impl ITfCompositionSink_Impl for RuhiTextService_Impl {
                 *tr = (0, 0);
             }
             self.hide_candidate_window();
-            set_last_caret_pos(0, 0);
+            set_last_caret_pos(CARET_UNPROBED, CARET_UNPROBED);
             Ok(())
         })).unwrap_or_else(|_| Err(E_FAIL.into()))
     }
@@ -9632,5 +9909,62 @@ mod tests {
             !svc.evaluate_test_key_down_with_mods(0x14, false, false, false, false, false, false),
             "僅單獨掛載一種鍵盤模式時 CapsLock 應直接放行，不強迫切換至歐文或許氏"
         );
+    }
+
+    #[test]
+    fn test_layer_a_abi_layout_hash_nonzero_and_deterministic() {
+        let h1 = compute_layer_a_abi_hash();
+        let h2 = crate::ruhi_tsf_abi_layout_hash();
+        assert_ne!(h1, 0);
+        assert_eq!(h1, h2);
+        assert_eq!(std::mem::size_of::<RuhiTextService>(), 27 * std::mem::size_of::<usize>());
+    }
+
+    #[test]
+    fn test_caret_unprobed_sentinel_and_negative_multimonitor_pos() {
+        set_last_caret_pos(CARET_UNPROBED, CARET_UNPROBED);
+        assert_eq!(get_last_caret_pos(), (CARET_UNPROBED, CARET_UNPROBED));
+        set_last_caret_pos(-1280, -340);
+        assert_eq!(get_last_caret_pos(), (-1280, -340));
+        set_last_caret_pos(CARET_UNPROBED, CARET_UNPROBED);
+    }
+
+    #[test]
+    fn test_single_key_password_token_consume_and_expiry() {
+        clear_tested_pwd_token();
+        store_tested_pwd_token_at(0xCAFE_u32 as usize, 0x41, std::time::Instant::now(), true);
+        assert_eq!(take_valid_tested_pwd_token(0xBEEF_u32 as usize, 0x41), None);
+        assert_eq!(take_valid_tested_pwd_token(0xCAFE_u32 as usize, 0x41), None);
+
+        store_tested_pwd_token_at(0xCAFE_u32 as usize, 0x41, std::time::Instant::now(), true);
+        assert_eq!(take_valid_tested_pwd_token(0xCAFE_u32 as usize, 0x41), Some(true));
+        assert_eq!(take_valid_tested_pwd_token(0xCAFE_u32 as usize, 0x41), None);
+
+        let expired = std::time::Instant::now() - std::time::Duration::from_millis(80);
+        store_tested_pwd_token_at(0xCAFE_u32 as usize, 0x42, expired, false);
+        assert_eq!(take_valid_tested_pwd_token(0xCAFE_u32 as usize, 0x42), None);
+    }
+
+    #[test]
+    fn test_composition_epoch_async_preedit_and_focus_guard() {
+        let holder = Arc::new(Mutex::new(None));
+        let ptr = Arc::as_ptr(&holder) as usize;
+        let (e1, f1) = current_composition_epoch(&holder);
+        assert!(is_composition_epoch_valid(ptr, e1, f1, false));
+        assert!(is_composition_epoch_valid(ptr, e1, f1, true));
+
+        bump_composition_edit_epoch(&holder);
+        assert!(!is_composition_epoch_valid(ptr, e1, f1, false));
+        assert!(is_composition_epoch_valid(ptr, e1, f1, true));
+
+        let (e2, f2) = current_composition_epoch(&holder);
+        assert!(is_composition_epoch_valid(ptr, e2, f2, false));
+
+        bump_composition_focus_epoch(&holder, None);
+        assert!(!is_composition_epoch_valid(ptr, e2, f2, false));
+        assert!(!is_composition_epoch_valid(ptr, e2, f2, true));
+
+        remove_composition_epoch(ptr);
+        assert!(!is_composition_epoch_valid(ptr, e2, f2, true));
     }
 }

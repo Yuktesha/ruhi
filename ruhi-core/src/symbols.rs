@@ -147,19 +147,42 @@ impl SymbolsManager {
         Ok(count)
     }
 
-    /// 熱置換檢查：若 TSV 設定檔在外部被修改，自動即時重載
+    /// 熱置換檢查：若 TSV 設定檔在外部被修改，自動即時重載（含 2000ms 節流，避免按鍵熱路徑頻繁存取磁碟）
     pub fn maybe_reload(&mut self) {
-        if let Some(ref path) = self.file_path {
-            if let Ok(meta) = std::fs::metadata(path) {
-                if let Ok(mtime) = meta.modified() {
-                    let need_reload = match self.last_modified {
-                        Some(last) => mtime > last,
-                        None => true,
-                    };
-                    if need_reload {
-                        let p = path.clone();
-                        let _ = self.load_tsv(p);
-                    }
+        let Some(ref path) = self.file_path else {
+            return;
+        };
+        let now = std::time::Instant::now();
+        let key = self as *const Self as usize;
+        let lock = SYMBOLS_RELOAD_LAST_CHECK
+            .get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+        {
+            let mut guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some((last_path, last_inst)) = guard.get(&key) {
+                if last_path == path
+                    && now.duration_since(*last_inst)
+                        < std::time::Duration::from_millis(SYMBOLS_RELOAD_THROTTLE_MS)
+                {
+                    return;
+                }
+            }
+            if guard.len() >= 256 {
+                guard.retain(|_, (_, t)| now.duration_since(*t) < std::time::Duration::from_secs(60));
+                if guard.len() >= 256 {
+                    guard.clear();
+                }
+            }
+            guard.insert(key, (path.clone(), now));
+        }
+        if let Ok(meta) = std::fs::metadata(path) {
+            if let Ok(mtime) = meta.modified() {
+                let need_reload = match self.last_modified {
+                    Some(last) => mtime > last,
+                    None => true,
+                };
+                if need_reload {
+                    let p = path.clone();
+                    let _ = self.load_tsv(p);
                 }
             }
         }
@@ -181,5 +204,80 @@ impl SymbolsManager {
     /// 是否包含指定按鍵或按鍵組合
     pub fn contains_key(&mut self, key: &str) -> bool {
         self.get(key).is_some()
+    }
+}
+
+static SYMBOLS_RELOAD_LAST_CHECK: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<usize, (std::path::PathBuf, std::time::Instant)>>,
+> = std::sync::OnceLock::new();
+
+const SYMBOLS_RELOAD_THROTTLE_MS: u64 = 2000;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_symbols_maybe_reload_2000ms_throttle() {
+        let temp_file = std::env::temp_dir().join(format!(
+            "test_symbols_throttle_{}_{}.tsv",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::write(&temp_file, "a\t甲\n").unwrap();
+
+        let mut sm = SymbolsManager::new();
+        sm.load_tsv(&temp_file).unwrap();
+        assert_eq!(sm.get("a").as_deref(), Some("甲"));
+
+        // Write updated mapping with strictly newer mtime.
+        let future_mtime = sm
+            .last_modified
+            .unwrap_or_else(std::time::SystemTime::now)
+            + std::time::Duration::from_secs(5);
+        {
+            let mut f = std::fs::OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(&temp_file)
+                .unwrap();
+            use std::io::Write;
+            f.write_all("a\t乙\n".as_bytes()).unwrap();
+            f.sync_all().unwrap();
+            let _ = f.set_modified(future_mtime);
+        }
+
+        // Within 2000ms throttle window: must skip metadata probe and retain old mapping.
+        assert_eq!(sm.get("a").as_deref(), Some("甲"));
+
+        // Backdate by 1900ms (< 2000ms): still throttled.
+        let key = (&sm as *const SymbolsManager) as usize;
+        if let Some(lock) = SYMBOLS_RELOAD_LAST_CHECK.get() {
+            let mut g = lock.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some((_, inst)) = g.get_mut(&key) {
+                if let Some(earlier) = inst.checked_sub(std::time::Duration::from_millis(1900)) {
+                    *inst = earlier;
+                }
+            }
+        }
+        assert_eq!(sm.get("a").as_deref(), Some("甲"));
+
+        // Backdate past 2000ms: next get() probes metadata and reloads updated TSV.
+        if let Some(lock) = SYMBOLS_RELOAD_LAST_CHECK.get() {
+            let mut g = lock.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some((_, inst)) = g.get_mut(&key) {
+                if let Some(earlier) = inst.checked_sub(std::time::Duration::from_millis(2100)) {
+                    *inst = earlier;
+                } else {
+                    g.remove(&key);
+                }
+            }
+        }
+        assert_eq!(sm.get("a").as_deref(), Some("乙"));
+
+        let _ = std::fs::remove_file(&temp_file);
     }
 }
