@@ -5,7 +5,63 @@
 //! 支援零詞庫漢語姓名識別、同句前文指代、跨句 session 記憶與企業商號筆畫推論。
 
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{OnceLock, RwLock};
 use crate::router::lattice::LatticeNode;
+
+/// Layer-A 使用者自建詞庫動態人名註冊表（透過 OnceLock + RwLock 維持 RuhiEngine / LexiconManager ABI 凍結）
+#[derive(Debug, Default, Clone)]
+pub struct UserOnomasticRegistry {
+    pub full_names: HashSet<String>,
+    pub surnames: HashSet<String>,
+    pub given_names: HashSet<String>,
+    pub pairs: Vec<(String, String)>,
+}
+
+impl UserOnomasticRegistry {
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.surnames.is_empty() && self.given_names.is_empty() && self.full_names.is_empty()
+    }
+}
+
+static USER_ONOMASTIC_REGISTRY: OnceLock<RwLock<UserOnomasticRegistry>> = OnceLock::new();
+static USER_ONOMASTIC_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+#[inline]
+fn user_registry_lock() -> &'static RwLock<UserOnomasticRegistry> {
+    USER_ONOMASTIC_REGISTRY.get_or_init(|| RwLock::new(UserOnomasticRegistry::default()))
+}
+
+pub fn register_user_onomastic_name(surname: &str, given: &str) {
+    let s = surname.trim();
+    let g = given.trim();
+    if s.is_empty() || g.is_empty() {
+        return;
+    }
+    if let Ok(mut reg) = user_registry_lock().write() {
+        reg.full_names.insert(format!("{}{}", s, g));
+        reg.surnames.insert(s.to_string());
+        reg.given_names.insert(g.to_string());
+        let pair = (s.to_string(), g.to_string());
+        if !reg.pairs.contains(&pair) {
+            reg.pairs.push(pair);
+        }
+        USER_ONOMASTIC_ACTIVE.store(true, Ordering::Release);
+    }
+}
+
+pub fn clear_user_onomastic_registry() {
+    USER_ONOMASTIC_ACTIVE.store(false, Ordering::Release);
+    if let Some(lock) = USER_ONOMASTIC_REGISTRY.get() {
+        if let Ok(mut reg) = lock.write() {
+            reg.full_names.clear();
+            reg.surnames.clear();
+            reg.given_names.clear();
+            reg.pairs.clear();
+        }
+    }
+}
 
 /// BMP 漢字康熙字典筆畫二進位查表 (U+4E00..=U+9FFF, 共 20,992 bytes)
 const KANGXI_STROKES_BMP: &[u8; 20992] = include_bytes!("../../../ruhi_lexicon/data/kangxi_strokes_bmp.bin");
@@ -832,6 +888,155 @@ pub fn score_onomastic_bonus_with_ctx(
         }
     };
 
+    // ── 0b. Layer-A 使用者自建人名註冊表投影（姓氏＋尊稱／單稱名字／名字＋親屬同輩，嚴防誤傷慣用「大事」）──
+    if USER_ONOMASTIC_ACTIVE.load(Ordering::Acquire) {
+        if let Some(reg_lock) = USER_ONOMASTIC_REGISTRY.get() {
+            if let Ok(reg) = reg_lock.read() {
+                if !reg.is_empty() {
+                const HONORIFICS_RIGHT: &[&str] = &[
+                    "先生", "小姐", "女士", "老師", "教授", "醫師", "律師", "經理", "主任", "委員",
+                    "同學", "院長", "校長", "部長", "局長", "處長", "總裁", "教練", "學長", "學姊",
+                    "助教", "店長",
+                ];
+                const KINSHIP_PEER_RIGHT: &[&str] = &[
+                    "哥", "兄", "弟", "姊", "姐", "妹", "老師", "學長", "學姊", "助教", "同學",
+                    "醫師", "先生", "小姐",
+                ];
+                const GIVEN_LEFT_INTROS: &[&str] = &[
+                    "找", "問", "叫", "喊", "請", "跟", "和", "對", "向", "給", "替", "幫", "由",
+                    "讓", "陪", "約", "見", "通知", "聯絡", "告訴", "感謝", "謝謝", "我是", "我叫",
+                    "恭喜", "詢問", "拜託", "邀請", "傳給",
+                ];
+                const GIVEN_RIGHT_VERBS: &[&str] = &[
+                    "說", "問", "答", "講", "告訴", "回", "來", "去", "走", "跑", "笑", "看", "想",
+                    "覺得", "認為", "表示", "指出", "寫", "做", "弄", "打", "吃", "喝", "住", "在",
+                    "是", "有", "沒", "會", "能", "要", "幫", "跟", "給", "送", "買", "拿", "找",
+                    "請", "都", "也", "又", "還", "就", "啊", "呢", "嗎", "吧", "喔",
+                ];
+
+                let curr_start_idx = end_idx.saturating_sub(curr_char_len);
+                let dag_has_reg_given_here = dag.get(&curr_start_idx).is_some_and(|ns| {
+                    ns.iter().any(|m| reg.given_names.contains(m.word.as_str()))
+                });
+                let non_name_event_left = matches!(
+                    prev_word,
+                    "國家" | "人生" | "頭等" | "這件" | "一件" | "哪件" | "幾件" | "件" | "種"
+                        | "樁" | "天下" | "終身" | "婚姻" | "政治" | "國際" | "世界" | "家庭"
+                        | "家裡" | "公家" | "正經" | "重要" | "重大" | "緊要" | "什麼" | "沒什"
+                        | "多大" | "大事" | "出" | "生" | "成" | "幹" | "做" | "辦" | "聊"
+                        | "談" | "提"
+                ) || prev_word.ends_with('件')
+                    || prev_word.ends_with("什麼")
+                    || (prev2_word == "國" && prev_word == "家")
+                    || (prev2_word == "人" && prev_word == "生")
+                    || (prev2_word == "頭" && prev_word == "等")
+                    || (matches!(prev_word, "是" | "的" | "了" | "個")
+                        && (matches!(
+                            prev2_word,
+                            "國家" | "人生" | "頭等" | "這件" | "一件" | "重大" | "重要"
+                                | "什麼" | "件"
+                        ) || prev2_word.ends_with('件')));
+                let non_name_event_right = dag.get(&end_idx).is_some_and(|ns| {
+                    ns.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "紀" | "記" | "年表" | "臨頭" | "化小" | "已去" | "不妙" | "不好"
+                                | "底定"
+                        )
+                    })
+                });
+                let is_event_dashi_ctx = non_name_event_left || non_name_event_right;
+
+                let mut reg_bonus: f64 = 0.0;
+
+                // (2b) 無生命／慣用「大事」等常見詞嚴格守護
+                if is_event_dashi_ctx && dag_has_reg_given_here {
+                    if reg.given_names.contains(curr_word) {
+                        reg_bonus -= 35.0;
+                    } else if curr_word == "大事" {
+                        reg_bonus += 34.0;
+                    }
+                }
+
+                // (1) 姓氏＋尊稱（如 曹先生/小姐/老師/醫師/主任/教授/女士/同學）
+                if reg.surnames.contains(curr_word) {
+                    let right_has_honorific = dag.get(&end_idx).is_some_and(|ns| {
+                        ns.iter().any(|m| {
+                            HONORIFICS_RIGHT.contains(&m.word.as_str())
+                                || HONORIFICS_RIGHT.iter().any(|&t| {
+                                    m.word.chars().count() == 1
+                                        && t.starts_with(m.word.as_str())
+                                        && dag.get(&m.end_idx).is_some_and(|ns2| {
+                                            ns2.iter().any(|m2| t.ends_with(m2.word.as_str()))
+                                        })
+                                })
+                        })
+                    });
+                    if right_has_honorific {
+                        reg_bonus += 26.0;
+                    }
+                }
+                if reg.surnames.contains(prev_word) && HONORIFICS_RIGHT.contains(&curr_word) {
+                    reg_bonus += 26.0;
+                }
+
+                // (3) 名字＋親屬／同輩稱謂（如 大十哥/兄/弟/姊/姐/妹/老師/學長/學姊）
+                if reg.given_names.contains(curr_word) && !is_event_dashi_ctx {
+                    let right_has_kinship = dag.get(&end_idx).is_some_and(|ns| {
+                        ns.iter().any(|m| KINSHIP_PEER_RIGHT.contains(&m.word.as_str()))
+                    });
+                    if right_has_kinship {
+                        reg_bonus += 28.0;
+                    }
+                }
+                if reg.given_names.contains(prev_word) && KINSHIP_PEER_RIGHT.contains(&curr_word) {
+                    if curr_word == "姐" && _curr_bopomofo == "ㄐㄧㄝˇ" {
+                        reg_bonus += 32.0;
+                    } else if curr_word == "姊" && _curr_bopomofo == "ㄐㄧㄝˇ" {
+                        reg_bonus += 18.0;
+                    } else {
+                        reg_bonus += 30.0;
+                    }
+                }
+
+                // (2a) 單稱名字（對話／動詞賓語／主語／獨詞：找大十、問大十、大十說、大十）
+                if reg.given_names.contains(curr_word) && !is_event_dashi_ctx {
+                    let has_person_left = GIVEN_LEFT_INTROS
+                        .iter()
+                        .any(|&w| prev_word == w || prev_word.ends_with(w));
+                    let has_person_right = dag.get(&end_idx).is_some_and(|ns| {
+                        ns.iter().any(|m| GIVEN_RIGHT_VERBS.contains(&m.word.as_str()))
+                    });
+                    let is_standalone = curr_start_idx == 0 && end_idx == get_n_syllables();
+                    let is_clause_head = (curr_start_idx == 0
+                        || matches!(prev_word, "，" | "、" | "：" | "「" | ","))
+                        && (has_person_right || end_idx == get_n_syllables());
+                    if has_person_left || has_person_right || is_standalone || is_clause_head {
+                        reg_bonus += 24.0;
+                    }
+                }
+                if GIVEN_LEFT_INTROS.contains(&curr_word)
+                    && dag.get(&end_idx).is_some_and(|ns| {
+                        ns.iter().any(|m| reg.given_names.contains(m.word.as_str()))
+                    })
+                {
+                    reg_bonus += 14.0;
+                }
+                if reg.given_names.contains(prev_word) && GIVEN_RIGHT_VERBS.contains(&curr_word) {
+                    reg_bonus += 16.0;
+                }
+
+                // 完整姓名強化（註冊過之全名本身，如「曹大十」）
+                if reg.full_names.contains(curr_word) {
+                    reg_bonus += 24.0;
+                }
+
+                bonus += reg_bonus.clamp(-35.0, 35.0);
+                }
+            }
+        }
+    }
+
     // Step S: 位於 S 節點 (curr_word 為 1 字姓，預看右側 G1 與 G2)
     if let Some(s_ch) = {
         let mut it = curr_word.chars();
@@ -1042,7 +1247,20 @@ pub fn score_onomastic_bonus_with_ctx(
         }
     }
 
-    bonus.clamp(-28.0, 28.0)
+    bonus.clamp(-35.0, 35.0)
+}
+
+/// 判斷給定詞條是否為常見尊稱或職稱（防止誤將「王先生」「林小姐」等『姓氏＋尊稱』登錄為個人名字）
+pub fn is_honorific_or_title_suffix(w: &str) -> bool {
+    matches!(
+        w,
+        "先生" | "小姐" | "女士" | "太太" | "夫人" | "博士" | "老師" | "教授" | "主任"
+            | "市長" | "經理" | "醫師" | "律師" | "院長" | "校長" | "部長" | "局長" | "處長"
+            | "總裁" | "教練" | "助教" | "店長" | "同學" | "學長" | "學姊" | "學姐" | "學弟"
+            | "學妹"
+    ) || w.ends_with("經理")
+        || w.ends_with("事長")
+        || w.ends_with("醫師")
 }
 
 #[cfg(test)]

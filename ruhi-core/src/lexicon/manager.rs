@@ -5,6 +5,36 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
+
+/// 使用者自建台灣中文人名結構分類
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PersonNameForm {
+    PersonS1G2,
+    PersonS2G2,
+    PersonS2G1,
+    PersonS1G1,
+    PersonS1G3,
+}
+
+const COMPOUND_SURNAMES: &[&str] = &[
+    "歐陽", "司馬", "上官", "諸葛", "司徒", "司空", "獨孤", "慕容", "皇甫", "尉遲",
+    "公孫", "長孫", "宇文", "軒轅", "令狐", "鍾離", "端木", "東方", "西門", "南宮",
+    "百里", "東郭", "南門", "呼延", "羊舌", "微生", "范姜", "張簡",
+];
+
+const SINGLE_SURNAMES: &str = "陳林黃張李王吳劉蔡楊許鄭謝郭洪曾邱廖賴周徐蘇葉莊呂江何蕭羅高簡朱鍾施游詹沈彭胡余盧潘顏梁趙柯翁魏方孫戴范宋鄧杜侯曹薛傅丁溫紀蔣歐藍唐馬董石卓程姚康馮古姜湯汪白田涂鄒巫尤龔嚴韓袁金童陸夏柳邵錢莫秦賈韋萬龐樊伍倪祝葛苗熊崔譚黎龍顧孟雷賀殷畢常于齊尹成屈項席駱凌霍虞管房單包裴榮富薄蒲蒙喬聞牛燕浦柴閻艾容易戈耿文寇關查荊權蓋辜饒利闕花官曲宮甯商阮戚柏章雲費岑魯鄔鮑史廉滕郝安樂時皮卞湛祁毛禹狄米貝明臧計伏談茅舒閔麻強路婁危梅盛支經裘繆干賁杭諸左吉鈕嵇邢滑荀羊於惠甄麴封芮羿儲靳汲邴糜松井段烏弓牧隗山宓蓬郗班仰秋仲伊仇欒暴钭厲戎祖武符景束幸司韶郜薊印宿懷邰從鄂索咸籍藺屠陰鬱胥蒼雙莘黨翟貢勞逄扶堵冉宰酈雍卻璩桑桂濮壽通扈冀郟尚農別晏瞿充慕茹習宦魚慎庾終暨居衡步滿弘匡國廣祿東殳沃蔚越夔隆師鞏厙聶晁勾敖融冷訾辛那空毋沙乜養鞠須豐巢蒯後紅竺逯益桓晉楚閆法汝鄢塗欽歸海岳帥緱亢況琴牟佘佴伯賞墨哈譙笪年愛陽佟池季向谷卜焦巴甘刁車申穆解應宗宣郁全邊姬昝";
+
+static LEXICON_MUTATION_EPOCH: AtomicU64 = AtomicU64::new(1);
+type AssocPrefixSidecarKey = (usize, usize, u64);
+static ASSOC_PREFIX_SIDECAR: OnceLock<Mutex<Vec<(AssocPrefixSidecarKey, Arc<Vec<(String, usize)>>)>>> =
+    OnceLock::new();
+
+#[inline]
+fn bump_lexicon_mutation_epoch() {
+    LEXICON_MUTATION_EPOCH.fetch_add(1, Ordering::Relaxed);
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LexiconEntry {
@@ -458,6 +488,189 @@ impl LexiconManager {
         Self::default()
     }
 
+    pub fn format_person_note_tag(form: PersonNameForm, surname: &str, given: &str) -> String {
+        let prefix = match form {
+            PersonNameForm::PersonS1G2 => "person_s1_g2",
+            PersonNameForm::PersonS2G2 => "person_s2_g2",
+            PersonNameForm::PersonS2G1 => "person_s2_g1",
+            PersonNameForm::PersonS1G1 => "person_s1_g1",
+            PersonNameForm::PersonS1G3 => "person_s1_g3",
+        };
+        format!("{}:{}+{}", prefix, surname, given)
+    }
+
+    pub fn classify_user_person_name(&self, word: &str) -> Option<(PersonNameForm, String, String)> {
+        let trimmed = word.trim();
+        let chars: Vec<char> = trimmed.chars().collect();
+        if chars.len() < 2 || chars.len() > 4 {
+            return None;
+        }
+        if !chars
+            .iter()
+            .all(|&c| ('\u{4E00}'..='\u{9FFF}').contains(&c) || ('\u{3400}'..='\u{4DBF}').contains(&c))
+        {
+            return None;
+        }
+
+        const ORG_SUFFIXES: &[&str] = &[
+            "股份有限公司", "有限公司", "責任公司", "股份公司", "公司", "企業社", "企業", "實業",
+            "科技", "數位", "資訊", "生技", "電子", "電機", "光電", "半導體", "精密", "工業",
+            "建設", "營造", "開發", "物流", "航運", "貿易", "金控", "控股", "創投", "文創",
+            "工作室", "事務所", "基金會", "研究院", "實驗室", "學校", "大學", "學院", "中學",
+            "小學", "醫院", "銀行", "百貨", "超商", "市集", "協會", "學會", "工會", "中心",
+            "集團", "飯店", "酒店", "旅館", "民宿", "商店", "餐廳", "書店", "門市",
+        ];
+        if ORG_SUFFIXES.iter().any(|&s| trimmed.ends_with(s)) {
+            return None;
+        }
+
+        let (form, surname, given, is_compound_surname) = match chars.len() {
+            4 => {
+                let p2: String = chars[0..2].iter().collect();
+                if COMPOUND_SURNAMES.contains(&p2.as_str()) {
+                    (PersonNameForm::PersonS2G2, p2, chars[2..4].iter().collect(), true)
+                } else if SINGLE_SURNAMES.contains(chars[0]) {
+                    (PersonNameForm::PersonS1G3, chars[0].to_string(), chars[1..4].iter().collect(), false)
+                } else {
+                    return None;
+                }
+            }
+            3 => {
+                let p2: String = chars[0..2].iter().collect();
+                if COMPOUND_SURNAMES.contains(&p2.as_str()) {
+                    (PersonNameForm::PersonS2G1, p2, chars[2].to_string(), true)
+                } else if SINGLE_SURNAMES.contains(chars[0]) {
+                    (PersonNameForm::PersonS1G2, chars[0].to_string(), chars[1..3].iter().collect(), false)
+                } else {
+                    return None;
+                }
+            }
+            2 => {
+                if SINGLE_SURNAMES.contains(chars[0]) {
+                    (PersonNameForm::PersonS1G1, chars[0].to_string(), chars[1].to_string(), false)
+                } else {
+                    return None;
+                }
+            }
+            _ => return None,
+        };
+
+        if given
+            .chars()
+            .any(crate::router::onomastics::is_non_given_name_char)
+            || crate::router::onomastics::is_honorific_or_title_suffix(&given)
+        {
+            return None;
+        }
+
+        let last_ch = chars[chars.len() - 1];
+        let is_non_person_tail = matches!(
+            last_ch,
+            '框' | '鍵' | '欄' | '列' | '檔' | '頁' | '表' | '圖' | '庫' | '區' | '鈕' | '窗'
+                | '器' | '機' | '線' | '網' | '站' | '室' | '所' | '院' | '會' | '社' | '廠'
+                | '店' | '局' | '處' | '部' | '科' | '組' | '隊' | '團' | '學' | '論' | '法'
+                | '率' | '度' | '性' | '化' | '感' | '力' | '權' | '費' | '單' | '書' | '卡'
+                | '券' | '票' | '證' | '號' | '碼' | '體' | '類' | '型' | '式' | '態' | '版'
+                | '本' | '品' | '質' | '量' | '值' | '數' | '點' | '層' | '級' | '段' | '期'
+                | '頭' | '尾' | '物' | '事' | '集' | '場' | '園' | '橋' | '樓' | '房' | '門'
+                | '路' | '街' | '巷' | '弄' | '市' | '縣' | '鎮' | '鄉' | '村' | '町' | '島'
+                | '港' | '灣' | '河' | '湖' | '菜' | '瓜' | '果' | '豆' | '米' | '飯' | '麵'
+                | '湯' | '肉' | '魚' | '蝦' | '蟹' | '牛' | '羊' | '豬' | '雞' | '鴨' | '鵝'
+                | '鳥' | '貓' | '狗' | '鼠' | '兔' | '虎' | '狼' | '熊' | '鹿' | '象' | '馬'
+                | '蟲' | '蛇' | '樹' | '草' | '葉' | '枝' | '根' | '薯' | '茶' | '酒' | '水'
+                | '酥' | '糖' | '餅' | '包' | '碗' | '盤' | '杯' | '筷' | '刀' | '筆' | '紙'
+                | '箱' | '盒' | '袋' | '帽' | '鞋' | '衣' | '褲' | '襪' | '衫' | '腦' | '壓'
+                | '病' | '藥' | '說' | '願' | '塊' | '圍' | '司' | '興' | '年' | '慣' | '鸛'
+                | '斯' | '人' | '子'
+        );
+        if is_non_person_tail {
+            return None;
+        }
+
+        if let Some(indices) = self.word_index.get(trimmed) {
+            let is_core_common_word = indices.iter().any(|&idx| {
+                self.entries
+                    .get(idx)
+                    .map_or(false, |e| e.category != "user" && e.weight >= 120)
+            });
+            if is_core_common_word
+                && !is_compound_surname
+                && !matches!(trimmed, "張三" | "李四" | "王五")
+            {
+                return None;
+            }
+        }
+
+        Some((form, surname, given))
+    }
+
+    fn sync_user_onomastic_entry(&self, entry: &LexiconEntry) {
+        if matches!(
+            entry.note.as_str(),
+            "auto_given_name"
+                | "auto_company_stem"
+                | "auto_company_brand"
+                | "auto_compound_surname"
+                | "ephemeral_given_name"
+        ) {
+            return;
+        }
+        if entry.note.starts_with("person_") {
+            if let Some((_, payload)) = entry.note.split_once(':') {
+                if let Some((surname, given)) = payload.split_once('+') {
+                    crate::router::onomastics::register_user_onomastic_name(surname, given);
+                    return;
+                }
+            }
+        }
+        if let Some((_, surname, given)) = self.classify_user_person_name(&entry.word) {
+            crate::router::onomastics::register_user_onomastic_name(&surname, &given);
+        }
+    }
+
+    fn sorted_word_prefix_sidecar(&self) -> Arc<Vec<(String, usize)>> {
+        let ptr = self.entries.as_ptr() as usize;
+        let len = self.entries.len();
+        let epoch = LEXICON_MUTATION_EPOCH.load(Ordering::Relaxed);
+        let key: AssocPrefixSidecarKey = (ptr, len, epoch);
+        let cache_mutex = ASSOC_PREFIX_SIDECAR.get_or_init(|| Mutex::new(Vec::new()));
+        if let Ok(guard) = cache_mutex.lock() {
+            if let Some((_, arc)) = guard.iter().rev().find(|(k, _)| *k == key) {
+                return Arc::clone(arc);
+            }
+        }
+        let mut sorted: Vec<(String, usize)> = self
+            .entries
+            .iter()
+            .enumerate()
+            .map(|(i, e)| (e.word.clone(), i))
+            .collect();
+        sorted.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        let arc = Arc::new(sorted);
+        if let Ok(mut guard) = cache_mutex.lock() {
+            if let Some(pos) = guard.iter().position(|(k, _)| *k == key) {
+                guard[pos].1 = Arc::clone(&arc);
+            } else {
+                if guard.len() >= 8 {
+                    guard.remove(0);
+                }
+                guard.push((key, Arc::clone(&arc)));
+            }
+        }
+        arc
+    }
+
+    #[inline]
+    fn prefix_slice_in_sidecar<'a>(sorted: &'a [(String, usize)], prefix: &str) -> &'a [(String, usize)] {
+        let start = sorted.partition_point(|(w, _)| w.as_str() < prefix);
+        let tail = &sorted[start..];
+        let mut end = 0usize;
+        while end < tail.len() && tail[end].0.starts_with(prefix) {
+            end += 1;
+        }
+        &tail[..end]
+    }
+
     /// 註冊使用者詞條之首碼與多組自訂縮略語索引（適用於 1 字、2 字、3 字及 4+ 字自建詞）
     pub fn register_user_entry_indices(&mut self, idx: usize) {
         if idx >= self.entries.len() {
@@ -560,6 +773,7 @@ impl LexiconManager {
         let is_user_dict = p.file_name().and_then(|n| n.to_str()).map(|s| s == "user_dict.tsv").unwrap_or(false);
         if is_user_dict {
             LexiconEntry::backfill_user_dict_headcodes(p);
+            crate::router::onomastics::clear_user_onomastic_registry();
         }
 
         let file = File::open(p)?;
@@ -588,7 +802,13 @@ impl LexiconManager {
                 let cat = if raw_cat.is_empty() {
                     if default_cat == "user" {
                         "user"
-                    } else if word.chars().count() == 2 && weight < 90 && word != "諺文" {
+                    } else if word.chars().count() == 2
+                        && weight < 90
+                        && !crate::router::morpheme_ontology::MorphemeOntology::global().has_class(
+                            word,
+                            crate::router::morpheme_ontology::MorphemeClass::ModernLowWeightCompound2,
+                        )
+                    {
                         "moe_unattested2"
                     } else {
                         default_cat
@@ -605,12 +825,6 @@ impl LexiconManager {
                     entry.custom_abbrevs = abbrevs;
                     entry.is_user_word = true;
                     self.upsert_entry(entry);
-                    let (sub_entries, _) = Self::decompose_entity_subentries(word, &norm_bpm, weight);
-                    for mut sub in sub_entries {
-                        sub.category = "user".to_string();
-                        sub.is_user_word = true;
-                        self.upsert_entry(sub);
-                    }
                 } else {
                     self.add_entry(entry);
                 }
@@ -640,13 +854,54 @@ impl LexiconManager {
         }
 
         self.sort_indices();
+        bump_lexicon_mutation_epoch();
         Ok(count)
     }
 
     /// 新增或提升既有詞條權重（防止同一詞條與讀音重複堆疊，同時確保使用者詞條與拆分子詞權重生效）
-    pub fn upsert_entry(&mut self, mut entry: LexiconEntry) {
+    pub fn upsert_entry(&mut self, entry: LexiconEntry) {
+        let should_decompose = entry.category == "user"
+            && !matches!(
+                entry.note.as_str(),
+                "auto_given_name"
+                    | "auto_company_stem"
+                    | "auto_company_brand"
+                    | "auto_compound_surname"
+                    | "ephemeral_given_name"
+            );
+        let src_word = if should_decompose {
+            entry.word.clone()
+        } else {
+            String::new()
+        };
+        let src_weight = entry.weight;
+        let src_norm_bpm = if should_decompose {
+            LexiconEntry::normalize_bpm(&entry.bopomofo)
+        } else {
+            String::new()
+        };
+
+        self.upsert_single_entry(entry);
+
+        if should_decompose {
+            let (sub_entries, _) =
+                Self::decompose_entity_subentries(&src_word, &src_norm_bpm, src_weight);
+            for mut sub in sub_entries {
+                if sub.word != src_word {
+                    sub.category = "user".to_string();
+                    sub.is_user_word = true;
+                    self.upsert_single_entry(sub);
+                }
+            }
+        }
+    }
+
+    fn upsert_single_entry(&mut self, mut entry: LexiconEntry) {
         if Self::is_archaic_polyphone(&entry.word, &entry.bopomofo) {
             return;
+        }
+        if entry.category == "user" {
+            self.sync_user_onomastic_entry(&entry);
         }
         let norm_bpm = LexiconEntry::normalize_bpm(&entry.bopomofo);
         if entry.note == "auto_given_name" || entry.note == "ephemeral_given_name" {
@@ -667,6 +922,7 @@ impl LexiconManager {
                 if e_bpm == &entry.bopomofo || LexiconEntry::normalize_bpm(e_bpm) == norm_bpm {
                     if entry.weight > self.entries[idx].weight {
                         self.entries[idx].weight = entry.weight;
+                        bump_lexicon_mutation_epoch();
                     }
                     if entry.category == "user" {
                         self.entries[idx].category = "user".to_string();
@@ -677,6 +933,7 @@ impl LexiconManager {
                             }
                         }
                         self.register_user_entry_indices(idx);
+                        bump_lexicon_mutation_epoch();
                     }
                     return;
                 }
@@ -803,7 +1060,13 @@ impl LexiconManager {
                                     let cat = if raw_cat.is_empty() {
                                         if default_cat == "user" {
                                             "user"
-                                        } else if word.chars().count() == 2 && weight < 90 && word != "諺文" {
+                                        } else if word.chars().count() == 2
+                                            && weight < 90
+                                            && !crate::router::morpheme_ontology::MorphemeOntology::global().has_class(
+                                                word,
+                                                crate::router::morpheme_ontology::MorphemeClass::ModernLowWeightCompound2,
+                                            )
+                                        {
                                             "moe_unattested2"
                                         } else {
                                             default_cat
@@ -851,6 +1114,7 @@ impl LexiconManager {
             if is_user_dict {
                 self.user_abbrev_index.clear();
                 self.user_word_indices.clear();
+                crate::router::onomastics::clear_user_onomastic_registry();
                 for e in &mut self.entries {
                     if e.category == "user" {
                         e.is_user_word = false;
@@ -862,6 +1126,9 @@ impl LexiconManager {
             for mut entry in file_entries {
                 if Self::is_archaic_polyphone(&entry.word, &entry.bopomofo) {
                     continue;
+                }
+                if entry.category == "user" {
+                    self.sync_user_onomastic_entry(&entry);
                 }
                 let norm_bpm = LexiconEntry::normalize_bpm(&entry.bopomofo);
                 if entry.note == "auto_given_name" || entry.note == "ephemeral_given_name" {
@@ -912,6 +1179,7 @@ impl LexiconManager {
         if added_or_updated > 0 {
             self.sort_indices();
         }
+        bump_lexicon_mutation_epoch();
         added_or_updated
     }
 
@@ -1194,6 +1462,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                 }
             }
             if entry.category == "user" {
+                self.sync_user_onomastic_entry(&entry);
                 self.entries[existing_idx].category = "user".to_string();
                 self.entries[existing_idx].is_user_word = true;
                 for a in entry.custom_abbrevs {
@@ -1203,6 +1472,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                 }
                 self.register_user_entry_indices(existing_idx);
             }
+            bump_lexicon_mutation_epoch();
             return;
         }
 
@@ -1216,7 +1486,10 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         // 供 LatticeDAG 於連續長句（n >= 3）進行跨詞界劫掠免疫防護，同時 100% 保留單詞輸入（n == 2）與 ↑/↓ 選字列可達性
         if ((incoming_is_moe && entry.weight <= 180) || entry.weight < 90)
             && char_count == 2
-            && !matches!(entry.word.as_str(), "參雜" | "耆德" | "衚衕" | "諺文")
+            && !crate::router::morpheme_ontology::MorphemeOntology::global().has_class(
+                &entry.word,
+                crate::router::morpheme_ontology::MorphemeClass::ModernLowWeightCompound2,
+            )
         {
             entry.category = "moe_unattested2".to_string();
         }
@@ -1259,10 +1532,15 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
             }
         }
 
+        let is_user_entry = entry.category == "user";
+        if is_user_entry {
+            self.sync_user_onomastic_entry(&entry);
+        }
         self.entries.push(entry);
-        if self.entries[idx].category == "user" {
+        if is_user_entry {
             self.register_user_entry_indices(idx);
         }
+        bump_lexicon_mutation_epoch();
     }
 
     pub fn sort_indices(&mut self) {
@@ -1713,13 +1991,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         }
 
         // 2. 四字複姓與雙姓／冠夫姓中文人名拆分（如「歐陽娜娜」-> 姓「歐陽」+ 名「娜娜」；「陳吳玟蓉」-> 姓「陳吳」+ 名「玟蓉」）
-        const COMPOUND_SURNAMES: &[&str] = &[
-            "歐陽", "司馬", "上官", "諸葛", "司徒", "司空", "獨孤", "慕容", "皇甫", "尉遲",
-            "公孫", "長孫", "宇文", "軒轅", "令狐", "鍾離", "端木", "東方", "西門", "南宮",
-            "百里", "東郭", "南門", "呼延", "羊舌", "微生", "范姜", "張簡",
-        ];
-        // 台灣常見與百家姓 350+ 單姓
-        const SINGLE_SURNAMES: &str = "陳林黃張李王吳劉蔡楊許鄭謝郭洪曾邱廖賴周徐蘇葉莊呂江何蕭羅高簡朱鍾施游詹沈彭胡余盧潘顏梁趙柯翁魏方孫戴范宋鄧杜侯曹薛傅丁溫紀蔣歐藍唐馬董石卓程姚康馮古姜湯汪白田涂鄒巫尤龔嚴韓袁金童陸夏柳邵錢莫秦賈韋萬龐樊伍倪祝葛苗熊崔譚黎龍顧孟雷賀殷畢常于齊尹成屈項席駱凌霍虞管房單包裴榮富薄蒲蒙喬聞牛燕浦柴閻艾容易戈耿文寇關查荊權蓋辜饒利闕花官曲宮甯商阮戚柏章雲費岑魯鄔鮑史廉滕郝安樂時皮卞湛祁毛禹狄米貝明臧計伏談茅舒閔麻強路婁危梅盛支經裘繆干賁杭諸左吉鈕嵇邢滑荀羊於惠甄麴封芮羿儲靳汲邴糜松井段烏弓牧隗山宓蓬郗班仰秋仲伊仇欒暴钭厲戎祖武符景束幸司韶郜薊印宿懷邰從鄂索咸籍藺屠陰鬱胥蒼雙莘黨翟貢勞逄扶堵冉宰酈雍卻璩桑桂濮壽通扈冀郟尚農別晏瞿充慕茹習宦魚慎庾終暨居衡步滿弘匡國廣祿東殳沃蔚越夔隆師鞏厙聶晁勾敖融冷訾辛那空毋沙乜養鞠須豐巢蒯後紅竺逯益桓晉楚閆法汝鄢塗欽歸海岳帥緱亢況琴牟佘佴伯賞墨哈譙笪年愛陽佟池季向谷卜焦巴甘刁車申穆解應宗宣郁全邊姬昝";
+        // 共用模組頂層之 COMPOUND_SURNAMES 與 SINGLE_SURNAMES 常數
 
         if chars.len() == 4 {
             let prefix2: String = chars[0..2].iter().collect();
@@ -2987,17 +3259,22 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         };
 
         let mut p2_hit_count = 0usize;
+        let prefix_sidecar = self.sorted_word_prefix_sidecar();
 
-        for entry in &self.entries {
-            if let Some(ref pre3) = p3 {
-                if entry.word.starts_with(pre3.as_str()) && entry.word.len() > pre3.len() {
-                    let suf = &entry.word[pre3.len()..];
+        if let Some(ref pre3) = p3 {
+            for (w, idx) in Self::prefix_slice_in_sidecar(&prefix_sidecar, pre3.as_str()) {
+                if w.len() > pre3.len() {
+                    let entry = &self.entries[*idx];
+                    let suf = &w[pre3.len()..];
                     upsert(suf.to_string(), 30000.0 + entry.weight as f64);
                 }
             }
-            if let Some(ref pre2) = p2 {
-                if entry.word.starts_with(pre2.as_str()) && entry.word.len() > pre2.len() {
-                    let suf = &entry.word[pre2.len()..];
+        }
+        if let Some(ref pre2) = p2 {
+            for (w, idx) in Self::prefix_slice_in_sidecar(&prefix_sidecar, pre2.as_str()) {
+                if w.len() > pre2.len() {
+                    let entry = &self.entries[*idx];
+                    let suf = &w[pre2.len()..];
                     let suf_len = suf.chars().count();
                     let len_bonus = if suf_len == 2 {
                         150.0
@@ -3225,9 +3502,10 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         }
 
         if p2_hit_count < 6 {
-            for entry in &self.entries {
-                if entry.word.starts_with(p1.as_str()) && entry.word.len() > p1.len() {
-                    let suf = &entry.word[p1.len()..];
+            for (w, idx) in Self::prefix_slice_in_sidecar(&prefix_sidecar, p1.as_str()) {
+                if w.len() > p1.len() {
+                    let entry = &self.entries[*idx];
+                    let suf = &w[p1.len()..];
                     let suf_len = suf.chars().count();
                     if suf_len <= 3 {
                         let len_bonus = if suf_len == 1 {
@@ -3297,6 +3575,7 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
                     Ok(loaded) => {
                         let count = loaded.entries.len();
                         *self = loaded;
+                        bump_lexicon_mutation_epoch();
                         return Ok(count);
                     }
                     Err(_) => {} // .bin 損壞，退回 .tsv

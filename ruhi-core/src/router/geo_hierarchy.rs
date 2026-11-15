@@ -678,26 +678,33 @@ impl CjkGeoHierarchy {
                         | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '0'
                 )
             });
-        let prev_is_road_or_section = last_word.ends_with('路')
-            || last_word.ends_with('街')
-            || last_word.ends_with("大道")
-            || last_word.ends_with('段')
-            || last_word.ends_with('里')
-            || last_word.ends_with('村')
-            || last_word.ends_with('鄰')
-            || last_word.ends_with('巷')
-            || last_word.ends_with('弄')
-            || last_word.ends_with('號')
-            || last_word.ends_with('樓')
-            || last_word.ends_with('町')
-            || last_word.ends_with("丁目")
-            || last_word.ends_with('洞')
-            || prev2_word.ends_with('路')
-            || prev2_word.ends_with('街')
-            || prev2_word.ends_with('段')
-            || prev2_word.ends_with('里')
-            || prev2_word.ends_with('巷')
-            || prev2_word.ends_with('號');
+        let is_spatial_closer = matches!(
+            last_word,
+            "裡" | "內" | "中" | "口" | "旁" | "邊" | "外" | "上" | "下" | "前" | "後"
+                | "對面" | "裡面" | "外面" | "附近"
+        );
+        let prev_is_road_or_section = !is_spatial_closer
+            && (last_word.ends_with('路')
+                || last_word.ends_with('街')
+                || last_word.ends_with("大道")
+                || last_word.ends_with('段')
+                || last_word.ends_with('里')
+                || last_word.ends_with('村')
+                || last_word.ends_with('鄰')
+                || last_word.ends_with('巷')
+                || last_word.ends_with('弄')
+                || last_word.ends_with('號')
+                || last_word.ends_with('樓')
+                || last_word.ends_with('町')
+                || last_word.ends_with("丁目")
+                || last_word.ends_with('洞')
+                || prev2_word.ends_with('路')
+                || prev2_word.ends_with('街')
+                || prev2_word.ends_with('段')
+                || prev2_word.ends_with('里')
+                || prev2_word.ends_with('巷')
+                || prev2_word.ends_with('弄')
+                || prev2_word.ends_with('號'));
         let is_ascii_num = !last_word.is_empty() && last_word.chars().all(|c| c.is_ascii_alphanumeric());
         let allow_building_unit = is_ascii_num || !active_anchors.is_empty() || prev_is_road_or_section;
 
@@ -745,7 +752,7 @@ impl CjkGeoHierarchy {
             return 0.0;
         }
 
-        let mut bonus = 0.0;
+        let mut bonus: f64 = 0.0;
         let cleaned_history = &ctx.cleaned_history_buf[..ctx.hlen];
 
         // ---------------------------------------------------------------------
@@ -763,7 +770,7 @@ impl CjkGeoHierarchy {
                                     && matches!(rem_l1, "市" | "縣")
                                     && self.dag_can_spell_prefix_then_any_child(dag, end_idx, "", l1_str))
                             {
-                                bonus += 68.0;
+                                bonus += 32.0;
                                 matched_a = true;
                                 break;
                             }
@@ -781,7 +788,7 @@ impl CjkGeoHierarchy {
                                 && matches!(rem_l1, "市" | "縣")
                                 && self.dag_can_spell_prefix_then_any_child(dag, end_idx, "", l1_str))
                         {
-                            bonus += 70.0;
+                            bonus += 34.0;
                             break;
                         }
                     }
@@ -806,7 +813,7 @@ impl CjkGeoHierarchy {
                                                 && matches!(rem_l1, "市" | "縣")
                                                 && self.dag_can_spell_prefix_then_any_child(dag, end_idx, "", l1_str))
                                         {
-                                            bonus += 70.0;
+                                            bonus += 34.0;
                                             break 'a2_outer;
                                         }
                                     }
@@ -824,7 +831,7 @@ impl CjkGeoHierarchy {
                 || Self::dag_can_spell(dag, end_idx, "二路")
                 || Self::dag_can_spell(dag, end_idx, "三路"))
         {
-            bonus -= 88.0;
+            bonus -= 35.0;
         }
 
         let active_anchors = &ctx.active_anchors;
@@ -875,7 +882,7 @@ impl CjkGeoHierarchy {
                     dag,
                     child_str,
                 ) {
-                    bonus += if is_complete { 82.0 } else { 78.0 };
+                    bonus += if is_complete { 34.0 } else { 32.0 };
                     matched_child_entity = Some(child_str);
                     if is_complete {
                         completed_child_entity = Some(child_str);
@@ -930,7 +937,7 @@ impl CjkGeoHierarchy {
                         dag,
                         l3_str,
                     ) {
-                        bonus += if is_complete { 82.0 } else { 78.0 };
+                        bonus += if is_complete { 34.0 } else { 32.0 };
                         matched_child_entity = Some(l3_str);
                         if is_complete {
                             completed_child_entity = Some(l3_str);
@@ -983,9 +990,9 @@ impl CjkGeoHierarchy {
                 || last_word.ends_with("演出");
             if prev_is_geo_or_place {
                 if curr_clean == "與" {
-                    bonus += 68.0;
+                    bonus += 32.0;
                 } else {
-                    bonus -= 68.0;
+                    bonus -= 32.0;
                 }
             }
         }
@@ -1015,13 +1022,13 @@ impl CjkGeoHierarchy {
                 | "臨路"
                 | "河一"
         ) {
-            bonus -= 92.0;
+            bonus -= 35.0;
         }
         if curr_clean == "中斷" && last_word == "城" {
-            bonus -= 90.0;
+            bonus -= 35.0;
         }
         if curr_clean == "時段" && last_word == "鶯歌" {
-            bonus -= 95.0;
+            bonus -= 35.0;
         }
         if curr_clean == "新版"
             && dag
@@ -1029,7 +1036,7 @@ impl CjkGeoHierarchy {
                 .map(|ns| ns.iter().any(|n| n.word == "段"))
                 .unwrap_or(false)
         {
-            bonus -= 95.0;
+            bonus -= 35.0;
         }
         }
 
@@ -1054,35 +1061,40 @@ impl CjkGeoHierarchy {
                 | "商圈"
                 | "外灘"
         ) {
-            bonus += 68.0;
+            bonus += 32.0;
         }
         if matches!(curr_clean, "街" | "接" | "皆" | "階")
-            && (matches!(last_word, "美食" | "精品" | "商店街" | "年貨" | "地下" | "步行" | "老" | "官也" | "也" | "自治")
+            && (matches!(last_word, "美食" | "精品" | "商店" | "年貨" | "地下" | "步行" | "老" | "官也" | "也" | "自治")
+                || last_word.ends_with("店街")
                 || dag
                     .get(&end_idx)
                     .map(|ns| ns.iter().any(|n| matches!(n.word.as_str(), "區" | "頭" | "道" | "坊" | "角" | "景" | "拍" | "口" | "尾")))
                     .unwrap_or(false))
         {
             if curr_clean == "街" {
-                bonus += 72.0;
+                bonus += 34.0;
             } else {
-                bonus -= 68.0;
+                bonus -= 32.0;
             }
         }
         if matches!(curr_clean, "灘" | "攤" | "癱")
             && matches!(last_word, "外" | "沙" | "海" | "淺" | "泥" | "河")
         {
             if curr_clean == "灘" {
-                bonus += 72.0;
+                bonus += 34.0;
             } else {
-                bonus -= 68.0;
+                bonus -= 32.0;
             }
         }
 
         // ---------------------------------------------------------------------
         // D. Address / Cadastral / Household Structural Slot & Homophone Guard
         // ---------------------------------------------------------------------
-        if ctx.is_numeral_end {
+        let has_upstream_geo_anchor = !active_anchors.is_empty()
+            || !stem_l1_anchors.is_empty()
+            || matched_child_entity.is_some()
+            || ctx.prev_is_road_or_section;
+        if ctx.is_numeral_end && has_upstream_geo_anchor {
             let allow_building_unit = ctx.allow_building_unit;
             if matches!(
                 curr_clean,
@@ -1101,14 +1113,31 @@ impl CjkGeoHierarchy {
                     | "建號"
                     | "號樓"
             ) || (allow_building_unit && matches!(curr_clean, "期" | "座" | "室")) {
-                bonus += 84.0;
+                bonus += 35.0;
             } else if matches!(
                 curr_clean,
                 "林" | "臨" | "淋" | "琳" | "麟" | "斷" | "鍛" | "露" | "錄" | "接" | "皆" | "向" | "項" | "好" | "耗" | "流" | "留"
             ) || (allow_building_unit && matches!(curr_clean, "做" | "作" | "其" | "棋"))
                 || curr_clean.starts_with('臨')
             {
-                bonus -= 88.0;
+                bonus -= 35.0;
+            }
+        }
+
+        if ctx.last_word == "某"
+            && (ctx.prev2_word.ends_with('路')
+                || ctx.prev2_word.ends_with('街')
+                || ctx.prev2_word.ends_with('段')
+                || ctx.prev2_word.ends_with('巷')
+                || ctx.prev2_word.ends_with('弄')
+                || ctx.prev2_word.ends_with('市')
+                || ctx.prev2_word.ends_with('區')
+                || ctx.prev2_word.ends_with('里'))
+        {
+            if matches!(curr_clean, "巷" | "弄" | "段" | "號" | "鄰") {
+                bonus += 28.0;
+            } else if matches!(curr_clean, "項" | "向") {
+                bonus -= 20.0;
             }
         }
 
@@ -1136,7 +1165,7 @@ impl CjkGeoHierarchy {
                     | "二街"
                     | "三街"
             ) {
-                bonus += 64.0;
+                bonus += 32.0;
             }
         }
 
@@ -1167,7 +1196,7 @@ impl CjkGeoHierarchy {
                 | "重測"
                 | "町家"
         ) {
-            bonus += 62.0;
+            bonus += 30.0;
         }
 
         // Homophone guard inside active geo hierarchy:
@@ -1179,18 +1208,18 @@ impl CjkGeoHierarchy {
                 && last_word[..last_word.len() - 1].ends_with(['樓', '層', '座']))
         {
             if curr_clean == "室" {
-                bonus += 84.0;
+                bonus += 35.0;
             } else if matches!(curr_clean, "是" | "事" | "市" | "式" | "試" | "視") {
-                bonus -= 76.0;
+                bonus -= 34.0;
             }
         }
         if matches!(curr_clean, "字" | "自")
             && (last_word == "田代" || prev2_word == "大字" || last_word.ends_with('村'))
         {
             if curr_clean == "字" {
-                bonus += 76.0;
+                bonus += 34.0;
             } else {
-                bonus -= 72.0;
+                bonus -= 32.0;
             }
         }
         if matched_child_entity.is_some() {
@@ -1198,11 +1227,11 @@ impl CjkGeoHierarchy {
                 curr_clean,
                 "裡" | "理" | "斷" | "鍛" | "動" | "凍" | "露" | "接" | "挺" | "屈"
             ) {
-                bonus -= 68.0;
+                bonus -= 32.0;
             }
         }
 
-        bonus
+        bonus.clamp(-35.0, 35.0)
     }
 
     /// Parse an Arabic, fullwidth, or Chinese numeral string into `u32`.
@@ -2077,14 +2106,14 @@ impl CjkGeoHierarchy {
                                     .trim_end_matches('村');
                                 let mut score = 0i32;
                                 if cm.postal_code == resolved_code {
-                                    score += 100;
+                                    score += 35;
                                 }
                                 if !v_stem.is_empty() && v_stem == r_stem {
-                                    score += 60;
+                                    score += 25;
                                 } else if v_stem.chars().next().is_some()
                                     && v_stem.chars().next() == r_stem.chars().next()
                                 {
-                                    score += 25;
+                                    score += 10;
                                 }
                                 scored_villages.push((score, ord_idx, cm.entity.clone()));
                             }
@@ -2101,9 +2130,9 @@ impl CjkGeoHierarchy {
         if let Some(ref ev) = existing_village {
             matched_villages.push(ev.clone());
         }
-        let has_high_conf = scored_villages.iter().any(|(s, _, _)| *s >= 60);
+        let has_high_conf = scored_villages.iter().any(|(s, _, _)| *s >= 25);
         for (s, _, v_name) in &scored_villages {
-            if has_high_conf && *s < 60 {
+            if has_high_conf && *s < 25 {
                 continue;
             }
             if !matched_villages.contains(v_name) {
@@ -2871,6 +2900,16 @@ mod tests {
         let dag = HashMap::new();
         let score = geo.score_geo_hierarchy_bonus(&["今天", "天氣", "真好"], "百福", "", 4, &dag);
         assert_eq!(score, 0.0, "Geo hierarchy must remain 100% dormant when no anchor is active");
+        assert_eq!(
+            geo.score_geo_hierarchy_bonus(&["很喜歡", "五"], "弄", "", 3, &dag),
+            0.0,
+            "is_numeral_end must remain dormant without upstream geo/road anchor"
+        );
+        assert_eq!(
+            geo.score_geo_hierarchy_bonus(&["一"], "臨", "", 2, &dag),
+            0.0,
+            "is_numeral_end penalty must remain dormant without upstream geo/road anchor"
+        );
     }
 
     #[test]
@@ -2881,7 +2920,7 @@ mod tests {
         let score_qidu =
             geo.score_geo_hierarchy_bonus(&["基隆市"], "七堵", "", 2, &dag_qidu);
         assert!(
-            score_qidu >= 70.0,
+            score_qidu >= 30.0,
             "Expected strong wakeup for '七堵' under '基隆市', got {}",
             score_qidu
         );
@@ -2890,7 +2929,7 @@ mod tests {
         let score_baifu =
             geo.score_geo_hierarchy_bonus(&["基隆市", "七堵區"], "百福", "", 3, &dag_baifu);
         assert!(
-            score_baifu >= 70.0,
+            score_baifu >= 30.0,
             "Expected strong wakeup for '百福' + '里' under '基隆市七堵區', got {}",
             score_baifu
         );
@@ -2899,7 +2938,7 @@ mod tests {
         let score_maling =
             geo.score_geo_hierarchy_bonus(&["基隆市", "七堵區"], "瑪", "", 3, &dag_maling);
         assert!(
-            score_maling >= 70.0,
+            score_maling >= 30.0,
             "Expected strong wakeup for cadastral section '瑪陵坑段' under '基隆市七堵區', got {}",
             score_maling
         );
@@ -3005,7 +3044,7 @@ mod tests {
         let dag_jp = dummy_dag_from_tokens(3, &["之", "內"]);
         let score_jp =
             geo.score_geo_hierarchy_bonus(&["東京都", "千代田區"], "丸", "", 3, &dag_jp);
-        assert!(score_jp >= 70.0, "Expected wakeup for 丸之內 under 東京都千代田區");
+        assert!(score_jp >= 30.0, "Expected wakeup for 丸之內 under 東京都千代田區");
         let postal_jp = geo
             .resolve_postal_code_for_sentence("東京都千代田區丸之內")
             .expect("Should resolve JP postal code");
@@ -3014,7 +3053,7 @@ mod tests {
         let dag_kr = dummy_dag_from_tokens(3, &["鷗", "亭", "洞"]);
         let score_kr =
             geo.score_geo_hierarchy_bonus(&["首爾特別市", "江南區"], "狎", "", 3, &dag_kr);
-        assert!(score_kr >= 70.0, "Expected wakeup for 狎鷗亭洞 under 首爾特別市江南區");
+        assert!(score_kr >= 30.0, "Expected wakeup for 狎鷗亭洞 under 首爾特別市江南區");
         let postal_kr = geo
             .resolve_postal_code_for_sentence("首爾特別市江南區狎鷗亭洞")
             .expect("Should resolve KR postal code");
@@ -3068,7 +3107,7 @@ mod tests {
         let dag_heer = dummy_dag_from_tokens(2, &["二", "路"]);
         let score_he = geo.score_geo_hierarchy_bonus(&["基隆市"], "和", "", 2, &dag_heer);
         assert!(
-            score_he >= 70.0,
+            score_he >= 30.0,
             "Expected wakeup for '和' of '和二路' under '基隆市' even when '中正區' is omitted, got {}",
             score_he
         );

@@ -177,6 +177,8 @@ pub enum MorphemeClass {
     BujiIdiomPrefix = 63,
     BujiObjectHead = 64,
     SentenceFinalParticle = 65,
+    RareImpostorChar = 66,
+    ModernLowWeightCompound2 = 67,
 }
 
 impl MorphemeClass {
@@ -253,6 +255,8 @@ impl MorphemeClass {
             Self::BujiIdiomPrefix => "BujiIdiomPrefix",
             Self::BujiObjectHead => "BujiObjectHead",
             Self::SentenceFinalParticle => "SentenceFinalParticle",
+            Self::RareImpostorChar => "RareImpostorChar",
+            Self::ModernLowWeightCompound2 => "ModernLowWeightCompound2",
         }
     }
 
@@ -324,6 +328,8 @@ impl MorphemeClass {
             "BujiIdiomPrefix" => Some(Self::BujiIdiomPrefix),
             "BujiObjectHead" => Some(Self::BujiObjectHead),
             "SentenceFinalParticle" => Some(Self::SentenceFinalParticle),
+            "RareImpostorChar" => Some(Self::RareImpostorChar),
+            "ModernLowWeightCompound2" => Some(Self::ModernLowWeightCompound2),
             _ => None,
         }
     }
@@ -385,12 +391,45 @@ pub struct MorphemeOntology {
     pub class_members: HashMap<String, Vec<String>>,
     pub fiber_bundles: Vec<FiberBundleSpec>,
     pub excluded_pairs: HashSet<(String, String)>,
+    bmp_mask_idx: Vec<u16>,
+    bmp_masks: Vec<MorphemeMask256>,
+    rare_impostor_bmp: Vec<u64>,
+    rare_impostor_has_extra: bool,
+    multi_buckets: Vec<u16>,
+    multi_entries: Vec<(u64, Box<str>, MorphemeMask256)>,
 }
 
 static GLOBAL_ONTOLOGY: OnceLock<MorphemeOntology> = OnceLock::new();
 
 impl MorphemeOntology {
+    #[inline(always)]
+    fn single_bmp_cp(bytes: &[u8]) -> Option<usize> {
+        match bytes.len() {
+            1 => Some(bytes[0] as usize),
+            2 if bytes[0] >= 0xC0 => {
+                Some((((bytes[0] & 0x1F) as usize) << 6) | ((bytes[1] & 0x3F) as usize))
+            }
+            3 if (bytes[0] & 0xF0) == 0xE0 => Some(
+                (((bytes[0] & 0x0F) as usize) << 12)
+                    | (((bytes[1] & 0x3F) as usize) << 6)
+                    | ((bytes[2] & 0x3F) as usize),
+            ),
+            _ => None,
+        }
+    }
+
+    #[inline(always)]
+    fn fast_hash_bytes(bytes: &[u8]) -> u64 {
+        let mut h: u64 = 0xcbf29ce484222325;
+        for &b in bytes {
+            h ^= b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+        h ^ (h >> 33)
+    }
+
     /// 取得全域單例語素本體庫（零 I/O 延遲，自動載入編譯期內嵌或外部 `morpheme_ontology.json`）
+    #[inline]
     pub fn global() -> &'static MorphemeOntology {
         GLOBAL_ONTOLOGY.get_or_init(Self::load_builtin)
     }
@@ -436,17 +475,124 @@ impl MorphemeOntology {
             }
         }
 
+        let mut bmp_mask_idx = vec![0u16; 65536];
+        let mut bmp_masks = vec![MorphemeMask256::EMPTY];
+        let mut rare_impostor_bmp = vec![0u64; 1024];
+        let mut rare_impostor_has_extra = false;
+        let rare_bit = MorphemeClass::RareImpostorChar.bit();
+        let mut multi_entries: Vec<(u64, Box<str>, MorphemeMask256)> = Vec::new();
+
+        for (word, &mask) in &word_masks {
+            let bytes = word.as_bytes();
+            let is_rare = mask.intersects(rare_bit);
+            if let Some(cp) = Self::single_bmp_cp(bytes) {
+                if is_rare {
+                    rare_impostor_bmp[cp >> 6] |= 1u64 << (cp & 63);
+                }
+                if bmp_masks.len() < (u16::MAX as usize) {
+                    let slot = bmp_masks.len() as u16;
+                    bmp_masks.push(mask);
+                    bmp_mask_idx[cp] = slot;
+                } else {
+                    bmp_mask_idx[cp] = u16::MAX;
+                    multi_entries.push((
+                        Self::fast_hash_bytes(bytes),
+                        word.clone().into_boxed_str(),
+                        mask,
+                    ));
+                    if is_rare {
+                        rare_impostor_has_extra = true;
+                    }
+                }
+            } else if !bytes.is_empty() {
+                if is_rare {
+                    rare_impostor_has_extra = true;
+                }
+                multi_entries.push((
+                    Self::fast_hash_bytes(bytes),
+                    word.clone().into_boxed_str(),
+                    mask,
+                ));
+            }
+        }
+
+        let mut multi_buckets = Vec::new();
+        if !multi_entries.is_empty() && multi_entries.len() < (u16::MAX as usize) {
+            let cap = (multi_entries.len() * 4).max(256).next_power_of_two();
+            multi_buckets = vec![0u16; cap];
+            let cap_mask = cap - 1;
+            for (idx, (h, _, _)) in multi_entries.iter().enumerate() {
+                let mut slot = (*h as usize) & cap_mask;
+                while multi_buckets[slot] != 0 {
+                    slot = (slot + 1) & cap_mask;
+                }
+                multi_buckets[slot] = (idx + 1) as u16;
+            }
+        }
+
         Ok(Self {
             word_masks,
             class_members,
             fiber_bundles: schema.fiber_bundles,
             excluded_pairs,
+            bmp_mask_idx,
+            bmp_masks,
+            rare_impostor_bmp,
+            rare_impostor_has_extra,
+            multi_buckets,
+            multi_entries,
         })
     }
 
     #[inline]
+    fn mask_of_multi(&self, bytes: &[u8]) -> MorphemeMask256 {
+        if bytes.is_empty() {
+            return MorphemeMask256::EMPTY;
+        }
+        if self.multi_buckets.is_empty() {
+            return std::str::from_utf8(bytes)
+                .ok()
+                .and_then(|s| self.word_masks.get(s).copied())
+                .unwrap_or(MorphemeMask256::EMPTY);
+        }
+        let h = Self::fast_hash_bytes(bytes);
+        let mask = self.multi_buckets.len() - 1;
+        let mut slot = (h as usize) & mask;
+        loop {
+            let b = self.multi_buckets[slot];
+            if b == 0 {
+                return MorphemeMask256::EMPTY;
+            }
+            let &(eh, ref ew, emask) = &self.multi_entries[(b - 1) as usize];
+            if eh == h && ew.as_bytes() == bytes {
+                return emask;
+            }
+            slot = (slot + 1) & mask;
+        }
+    }
+
+    #[inline]
     pub fn mask_of(&self, word: &str) -> MorphemeMask256 {
-        self.word_masks.get(word).copied().unwrap_or(MorphemeMask256::EMPTY)
+        let bytes = word.as_bytes();
+        if let Some(cp) = Self::single_bmp_cp(bytes) {
+            let idx = self.bmp_mask_idx[cp];
+            if idx != u16::MAX {
+                return self.bmp_masks[idx as usize];
+            }
+        }
+        self.mask_of_multi(bytes)
+    }
+
+    #[inline]
+    pub fn is_rare_impostor_fast(&self, word: &str) -> bool {
+        let bytes = word.as_bytes();
+        if let Some(cp) = Self::single_bmp_cp(bytes) {
+            return ((self.rare_impostor_bmp[cp >> 6] >> (cp & 63)) & 1) != 0;
+        }
+        self.rare_impostor_has_extra
+            && self
+                .mask_of_multi(bytes)
+                .intersects(MorphemeClass::RareImpostorChar.bit())
     }
 
     #[inline]
@@ -608,5 +754,24 @@ mod tests {
         assert!(ont.has_class("預期", MorphemeClass::BujiObjectHead));
         assert!(ont.has_class("嗎", MorphemeClass::SentenceFinalParticle));
         assert!(ont.has_class("吧", MorphemeClass::SentenceFinalParticle));
+        assert!(ont.has_class("洅", MorphemeClass::RareImpostorChar));
+        assert!(ont.has_class("瘌", MorphemeClass::RareImpostorChar));
+        assert!(ont.has_class("諺文", MorphemeClass::ModernLowWeightCompound2));
+        assert!(ont.has_class("法性", MorphemeClass::ModernLowWeightCompound2));
+        for (word, &expected_mask) in &ont.word_masks {
+            assert_eq!(ont.mask_of(word).0, expected_mask.0, "mask parity mismatch for {}", word);
+            assert_eq!(
+                ont.is_rare_impostor_fast(word),
+                expected_mask.intersects(MorphemeClass::RareImpostorChar.bit()),
+                "rare impostor fast parity mismatch for {}",
+                word
+            );
+        }
+        assert!(ont.is_rare_impostor_fast("𣇫"));
+        assert!(ont.is_rare_impostor_fast("不憤"));
+        assert!(!ont.is_rare_impostor_fast(""));
+        assert!(!ont.is_rare_impostor_fast("測試詞"));
+        assert!(!ont.is_rare_impostor_fast("AI"));
+        assert!(!ont.is_rare_impostor_fast("的"));
     }
 }

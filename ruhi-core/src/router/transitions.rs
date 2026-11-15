@@ -51,13 +51,22 @@ pub enum WordPattern {
     Any,
 }
 
+#[inline]
 fn is_rare_impostor(word: &str) -> bool {
-    matches!(
-        word,
-        "婑" | "倭" | "䂺" | "婐" | "捰" | "𣇫" | "蟆" | "俛" | "犋" | "不憤"
-            | "嶳" | "㡳" | "埅" | "埊" | "㑘" | "価" | "吔"
-    )
+    super::morpheme_ontology::MorphemeOntology::global().is_rare_impostor_fast(word)
 }
+
+pub(crate) const VALID_DE2_STEMS: &[&str] = &[
+    "看", "聽", "讀", "寫", "說", "講", "走", "跑", "跳", "飛", "做", "弄", "搞", "打",
+    "吃", "喝", "睡", "穿", "買", "賣", "學", "教", "唱", "畫", "洗", "擦", "修", "改",
+    "算", "記", "認", "猜", "想", "找", "拿", "搬", "追", "逃", "忍", "受", "忘", "合",
+    "配", "顧", "分", "談", "比", "長", "變", "顯", "過", "活", "玩", "笑", "哭", "鬧",
+    "忙", "累", "氣", "急", "嚇", "樂", "美", "帥", "快", "慢", "高", "低", "好", "壞",
+    "難", "男", "女", "台", "神", "文青", "收羅", "整理", "表現", "準備", "處理", "解釋",
+    "說明", "形容", "描述", "控制", "掌握", "發揮", "維持", "保持", "保護", "照顧", "打扮",
+    "收拾", "打掃", "安排", "設計", "規劃", "計算", "分析", "研究", "觀察", "配合", "發展",
+    "完成", "達成", "實現",
+];
 
 impl WordPattern {
     pub fn is_numeric_token(word: &str) -> bool {
@@ -556,7 +565,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(sentence_particles.iter().map(|s| s.to_string()).collect()),
             curr_pattern: WordPattern::ContentWord,
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_particle_before_content".to_string(),
         });
 
@@ -572,7 +581,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Any,
             curr_pattern: WordPattern::Exact("婑".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_isolated_wo3_impostor".to_string(),
         });
 
@@ -580,7 +589,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Any,
             curr_pattern: WordPattern::Exact("倭".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_isolated_wo1_impostor".to_string(),
         });
 
@@ -745,7 +754,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(file_exts.into_iter().map(|s| s.to_string()).collect()),
             curr_pattern: WordPattern::Exact("黨".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_file_ext_party_impostor".to_string(),
         });
 
@@ -976,7 +985,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("地".to_string()),
             curr_pattern: WordPattern::OneOf(de_forbidden_nominals.into_iter().map(|s| s.to_string()).collect()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_de_nominal_shatter".to_string(),
         });
 
@@ -1012,16 +1021,7 @@ impl TransitionEngine {
         });
 
         // 結構助詞「得」: 單音節動詞/形容詞或特定雙音節謂詞 + 得（補語標記）
-        let valid_de2_stems = vec![
-            "看", "聽", "讀", "寫", "說", "講", "走", "跑", "跳", "飛", "做", "弄", "搞", "打",
-            "吃", "喝", "睡", "穿", "買", "賣", "學", "教", "唱", "畫", "洗", "擦", "修", "改",
-            "算", "記", "認", "猜", "想", "找", "拿", "搬", "追", "逃", "忍", "受", "忘", "合",
-            "配", "顧", "分", "談", "比", "長", "變", "顯", "過", "活", "玩", "笑", "哭", "鬧",
-            "忙", "累", "氣", "急", "嚇", "樂", "美", "帥", "快", "慢", "高", "低", "好", "壞",
-            "難", "男", "女", "台", "神", "文青", "收羅", "整理", "表現", "準備", "處理", "解釋",
-            "說明", "形容", "描述", "控制", "掌握", "發揮", "維持", "保持", "保護", "照顧", "打扮",
-            "收拾", "打掃", "安排", "設計", "規劃", "計算", "分析", "研究", "觀察", "配合", "發展",
-        ].into_iter().map(|s| s.to_string()).collect();
+        let valid_de2_stems: Vec<String> = VALID_DE2_STEMS.iter().map(|s| s.to_string()).collect();
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(valid_de2_stems),
             curr_pattern: WordPattern::Exact("得".to_string()),
@@ -1125,7 +1125,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("蔗".to_string()),
             curr_pattern: WordPattern::OneOf(classifiers.iter().chain(numerals_with_xie.iter()).map(|s| s.to_string()).collect()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_zhe_numeral_classifier".to_string(),
         });
 
@@ -1146,7 +1146,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("令".to_string()),
             curr_pattern: WordPattern::OneOf(ling3_forbidden.into_iter().map(|s| s.to_string()).collect()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_ling_action".to_string(),
         });
 
@@ -1164,7 +1164,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("以".to_string()),
             curr_pattern: WordPattern::OneOf(yi3_preposition_forbidden.into_iter().map(|s| s.to_string()).collect()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_yi3_prep_verb".to_string(),
         });
 
@@ -1182,7 +1182,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(verb_le_actions_anti.into_iter().map(|s| s.to_string()).collect()),
             curr_pattern: WordPattern::Exact("一朝".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_verb_le_yi_chao".to_string(),
         });
 
@@ -1190,7 +1190,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("以".to_string()),
             curr_pattern: WordPattern::Exact("極".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_yi_ji2_shatter".to_string(),
         });
 
@@ -1199,7 +1199,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("冊".to_string()),
             curr_pattern: WordPattern::OneOf(ce_forbidden_verbs.into_iter().map(|s| s.to_string()).collect()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_ce_action_verb".to_string(),
         });
 
@@ -1207,7 +1207,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("性".to_string()),
             curr_pattern: WordPattern::Exact("呀".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_xing_ya".to_string(),
         });
 
@@ -1215,7 +1215,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("呀".to_string()),
             curr_pattern: WordPattern::Exact("縮".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_ya_suo".to_string(),
         });
 
@@ -1308,7 +1308,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("嗎".to_string()),
             curr_pattern: WordPattern::OneOf(vec!["上".to_string(), "尚".to_string()]),
-            bonus: -50.0,
+            bonus: -35.0,
             name: "anti_ma_shang".to_string(),
         });
 
@@ -1316,7 +1316,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("如".to_string()),
             curr_pattern: WordPattern::Exact("和".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_ru_he_shatter".to_string(),
         });
 
@@ -1341,7 +1341,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("人".to_string()),
             curr_pattern: WordPattern::Exact("惠".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_ren_hui_shatter".to_string(),
         });
 
@@ -1640,7 +1640,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vec!["時".to_string(), "實".to_string(), "什".to_string()]),
             curr_pattern: WordPattern::Exact("後".to_string()),
-            bonus: -60.0,
+            bonus: -35.0,
             name: "anti_shi_hou4".to_string(),
         });
 
@@ -1648,7 +1648,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("真".to_string()),
             curr_pattern: WordPattern::Exact("事".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_zhen_shi_shatter".to_string(),
         });
 
@@ -1656,13 +1656,13 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("很".to_string()),
             curr_pattern: WordPattern::Exact("多時".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_hen_duoshi_shatter".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("多時".to_string()),
             curr_pattern: WordPattern::Exact("後".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_duoshi_hou_shatter".to_string(),
         });
 
@@ -1670,7 +1670,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("大".to_string()),
             curr_pattern: WordPattern::Exact("太".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_da_tai_shatter".to_string(),
         });
 
@@ -1678,7 +1678,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("和".to_string()),
             curr_pattern: WordPattern::OneOf(vec!["在".to_string(), "在在".to_string()]),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_he_zai_shatter".to_string(),
         });
 
@@ -1686,7 +1686,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Any,
             curr_pattern: WordPattern::Exact("祆道".to_string()),
-            bonus: -50.0,
+            bonus: -35.0,
             name: "anti_archaic_xiandao".to_string(),
         });
 
@@ -1694,7 +1694,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("如".to_string()),
             curr_pattern: WordPattern::Exact("何在".to_string()),
-            bonus: -50.0,
+            bonus: -35.0,
             name: "anti_ru_hezai_shatter".to_string(),
         });
 
@@ -1705,7 +1705,7 @@ impl TransitionEngine {
                 "發展".to_string(), "如何".to_string(), "嚴重".to_string(), "擴大".to_string(),
                 "演變".to_string(), "走向".to_string(), "變化".to_string(), "失控".to_string(),
             ]),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_shitai_development".to_string(),
         });
 
@@ -1713,7 +1713,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("再".to_string()),
             curr_pattern: WordPattern::Exact("座".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_zai_zuo_seat".to_string(),
         });
 
@@ -1721,13 +1721,13 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("過".to_string()),
             curr_pattern: WordPattern::Exact("承讓".to_string()),
-            bonus: -50.0,
+            bonus: -35.0,
             name: "anti_guo_chengrang_shatter".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("承讓".to_string()),
             curr_pattern: WordPattern::Exact("我".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_chengrang_wo".to_string(),
         });
 
@@ -1759,7 +1759,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("感謝".to_string()),
             curr_pattern: WordPattern::OneOf(vec!["謝".to_string(), "瀉".to_string(), "卸".to_string(), "屑".to_string(), "蟹".to_string()]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_ganxie_xie_redundancy".to_string(),
         });
 
@@ -1781,7 +1781,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("過".to_string()),
             curr_pattern: WordPattern::Exact("城中".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_guo_chengzhong_shatter".to_string(),
         });
 
@@ -1789,7 +1789,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("我執".to_string()),
             curr_pattern: WordPattern::Exact("接".to_string()),
-            bonus: -50.0,
+            bonus: -35.0,
             name: "anti_wozhi_jie_shatter".to_string(),
         });
 
@@ -1800,7 +1800,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("案".to_string()),
             curr_pattern: WordPattern::OneOf(verbal_measures.iter().map(|s| s.to_string()).collect()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_an_noun_verbal_measure".to_string(),
         });
 
@@ -1811,7 +1811,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("採".to_string()),
             curr_pattern: WordPattern::OneOf(cai_targets.iter().map(|s| s.to_string()).collect()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_cai_pick_pit".to_string(),
         });
 
@@ -1819,7 +1819,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("內".to_string()),
             curr_pattern: WordPattern::Exact("溶蝕".to_string()),
-            bonus: -50.0,
+            bonus: -35.0,
             name: "anti_nei_rongshi_shatter".to_string(),
         });
 
@@ -1827,7 +1827,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("輸入".to_string()),
             curr_pattern: WordPattern::Exact("作".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_shuru_zuo_typo".to_string(),
         });
 
@@ -1835,7 +1835,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("一棟".to_string()),
             curr_pattern: WordPattern::Exact("輸入座".to_string()),
-            bonus: -50.0,
+            bonus: -35.0,
             name: "anti_yidong_shuruzuo".to_string(),
         });
 
@@ -1843,7 +1843,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("輸入座".to_string()),
             curr_pattern: WordPattern::Exact("文".to_string()),
-            bonus: -50.0,
+            bonus: -35.0,
             name: "anti_shuruzuo_wen_shatter".to_string(),
         });
 
@@ -1851,7 +1851,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("文".to_string()),
             curr_pattern: WordPattern::OneOf(vec!["自救會".to_string(), "自救".to_string()]),
-            bonus: -50.0,
+            bonus: -35.0,
             name: "anti_wen_zijiu_shatter".to_string(),
         });
 
@@ -2049,7 +2049,7 @@ impl TransitionEngine {
                 "開發出".to_string(), "想出".to_string(), "設計出".to_string(), "研發出".to_string(), "做出".to_string(),
             ]),
             curr_pattern: WordPattern::Exact("其".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_verb_result_isolated_qi".to_string(),
         });
 
@@ -2061,7 +2061,7 @@ impl TransitionEngine {
             curr_pattern: WordPattern::OneOf(vec![
                 "他".to_string(), "你".to_string(), "我".to_string(), "她".to_string(), "它".to_string(), "牠".to_string(), "誰".to_string(),
             ]),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_phase_pronoun".to_string(),
         });
 
@@ -2100,7 +2100,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vec!["話".to_string(), "圖".to_string()]),
             curr_pattern: WordPattern::OneOf(stroke_measures.into_iter().map(|s| s.to_string()).collect()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_noun_stroke_measure".to_string(),
         });
 
@@ -2128,7 +2128,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("兔".to_string()),
             curr_pattern: WordPattern::OneOf(mouthful_measures.into_iter().map(|s| s.to_string()).collect()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_rabbit_mouthful".to_string(),
         });
 
@@ -2177,7 +2177,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("我不".to_string()),
             curr_pattern: WordPattern::Exact("金".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_wobu_jin".to_string(),
         });
 
@@ -2189,7 +2189,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("不禁".to_string()),
             curr_pattern: WordPattern::OneOf(appearance_abb_adjs),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_bujin_appearance_adj".to_string(),
         });
 
@@ -2200,7 +2200,7 @@ impl TransitionEngine {
                 "我不".to_string(), "你".to_string(), "他不".to_string(), "她不".to_string(),
             ]),
             curr_pattern: WordPattern::Exact("金光閃閃".to_string()),
-            bonus: 36.0,
+            bonus: 35.0,
             name: "negation_jinguang_shanshan".to_string(),
         });
         // 人稱代詞/介詞代詞 ➔ 否定狀態詞「不好 / 不對 / 不錯 / 不行」（如：對他不好的人，防「部好」同音劫掠）
@@ -2272,7 +2272,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("舊".to_string()),
             curr_pattern: WordPattern::OneOf(vec!["天亮".to_string(), "天黑".to_string(), "天".to_string()]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_jiu4_adjective_event".to_string(),
         });
 
@@ -2506,7 +2506,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Any,
             curr_pattern: WordPattern::Exact("穢亂".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_archaic_huiluan".to_string(),
         });
 
@@ -2567,7 +2567,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("不太".to_string()),
             curr_pattern: WordPattern::OneOf(vec!["虛".to_string(), "藥".to_string(), "虛藥".to_string()]),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_bu_tai_xu_yao".to_string(),
         });
 
@@ -2575,7 +2575,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Any,
             curr_pattern: WordPattern::Exact("彫瑑".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_archaic_diaozhuan".to_string(),
         });
 
@@ -2654,7 +2654,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("好睏".to_string()),
             curr_pattern: WordPattern::Exact("難".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_haokun_nan_shatter".to_string(),
         });
 
@@ -2670,7 +2670,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("越".to_string()),
             curr_pattern: WordPattern::Exact("視".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_yue_shi_noun".to_string(),
         });
 
@@ -2730,7 +2730,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Any,
             curr_pattern: WordPattern::OneOf(vec!["衎衎".to_string(), "坎坎".to_string()]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_kankan_archaic".to_string(),
         });
 
@@ -2738,7 +2738,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("榴槤".to_string()),
             curr_pattern: WordPattern::Exact("忘返".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_liulian_wangfan".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -2794,7 +2794,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("好困難".to_string()),
             curr_pattern: WordPattern::OneOf(vec!["倒".to_string(), "導".to_string(), "島".to_string(), "蹈".to_string()]),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_haokunnan_dao".to_string(),
         });
 
@@ -3211,7 +3211,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("完".to_string()),
             curr_pattern: WordPattern::Exact("盛得".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_wan_shengde".to_string(),
         });
 
@@ -3228,7 +3228,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(metaphor_left_context.clone()),
             curr_pattern: WordPattern::OneOf(vec!["象".to_string(), "相".to_string()]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_xiang_resemblance_confusion".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -3242,7 +3242,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("真".to_string()),
             curr_pattern: WordPattern::Exact("象".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_zhen_elephant".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -3272,7 +3272,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("像".to_string()),
             curr_pattern: WordPattern::OneOf(vec!["大白".to_string(), "顯露".to_string(), "畢露".to_string(), "徵".to_string()]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_xiang_fact_tail".to_string(),
         });
 
@@ -3285,7 +3285,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(fact_left_context.clone()),
             curr_pattern: WordPattern::OneOf(vec!["像".to_string(), "象".to_string()]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_fact_feature_confusion".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -3323,7 +3323,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vec!["液".to_string(), "固".to_string(), "晶".to_string()]),
             curr_pattern: WordPattern::OneOf(vec!["象".to_string(), "像".to_string()]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_science_phase_confusion".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -3368,7 +3368,7 @@ impl TransitionEngine {
                 "現".to_string(), "天".to_string(), "跡".to_string(), "抽".to_string(), "印".to_string(),
             ]),
             curr_pattern: WordPattern::OneOf(vec!["相".to_string(), "像".to_string()]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_macro_abstract_confusion".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -3412,7 +3412,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("氣象".to_string()),
             curr_pattern: WordPattern::OneOf(science_override_targets.clone()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_qixiang_science_override".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -3768,7 +3768,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("試藥".to_string()),
             curr_pattern: WordPattern::OneOf(shiyao_valid_followers.into_iter().map(|s| s.to_string()).collect()),
-            bonus: -38.0,
+            bonus: -35.0,
             name: "anti_shiyao_drug_trial_before_clause".to_string(),
         });
 
@@ -3799,7 +3799,7 @@ impl TransitionEngine {
                 "不".to_string(), "會不".to_string(), "不會".to_string(), "但".to_string(), "這".to_string(), "那".to_string(),
             ]),
             curr_pattern: WordPattern::Exact("匯兌".to_string()),
-            bonus: -38.0,
+            bonus: -35.0,
             name: "anti_huidui_forex_impostor".to_string(),
         });
 
@@ -4077,7 +4077,7 @@ impl TransitionEngine {
                 "快".to_string(), "剛".to_string(), "終於".to_string(),
             ]),
             curr_pattern: WordPattern::Exact("攻了".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_wan_gongle_impostor".to_string(),
         });
         let dou1_completion_predicates = vec![
@@ -4153,7 +4153,7 @@ impl TransitionEngine {
                 "不含".to_string(), "包含".to_string(), "不吃".to_string(),
             ]),
             curr_pattern: WordPattern::OneOf(vec!["但".to_string(), "旦".to_string()]),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_dietary_exclusion_dan4".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4186,7 +4186,7 @@ impl TransitionEngine {
                 "打".to_string(), "練".to_string(), "練習".to_string(), "改用".to_string(), "切換".to_string(),
             ]),
             curr_pattern: WordPattern::Exact("大意".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_learn_dayi_careless".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4273,13 +4273,13 @@ impl TransitionEngine {
                 "偏向".to_string(), "傾向".to_string(), "偏好".to_string(), "屬於".to_string(),
             ]),
             curr_pattern: WordPattern::Exact("紋".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_tendency_verb_wen".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("紋".to_string()),
             curr_pattern: WordPattern::Exact("自行".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_wen_zixing".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4424,7 +4424,7 @@ impl TransitionEngine {
             curr_pattern: WordPattern::OneOf(vec![
                 "步道".to_string(), "佈道".to_string(), "布道".to_string(), "不道".to_string(),
             ]),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_potential_verb_budao_impostor".to_string(),
         });
 
@@ -4482,7 +4482,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vec!["個".to_string(), "一個".to_string()]),
             curr_pattern: WordPattern::Exact("好叫".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_ge_haojiao_impostor".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4490,19 +4490,19 @@ impl TransitionEngine {
                 "跑出來".to_string(), "出來".to_string(), "出來秀".to_string(), "來".to_string(),
             ]),
             curr_pattern: WordPattern::Exact("繡衣".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_xiuyi_impostor_after_chulai".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("繡衣".to_string()),
             curr_pattern: WordPattern::Exact("下".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_xiuyi_xia_impostor".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("一".to_string()),
             curr_pattern: WordPattern::Exact("下石".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_yi_xiashi_impostor".to_string(),
         });
         // 對衝抑制陣列（Suppression Array）：抵銷展開後與真實詞彙（分布、何不、是個、各部、各項、各式）同音對衝之二元組合
@@ -4593,7 +4593,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(mount_vehicles),
             curr_pattern: WordPattern::OneOf(vec!["耆德".to_string(), "其".to_string(), "奇".to_string(), "棋".to_string()]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_archaic_qide_after_mount_vehicle".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4604,7 +4604,7 @@ impl TransitionEngine {
                 "好".to_string(), "快".to_string(), "穩".to_string(), "順".to_string(),
                 "飽".to_string(), "不錯".to_string(),
             ]),
-            bonus: -42.0,
+            bonus: -35.0,
             name: "anti_archaic_qide_before_degree_complement".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4622,7 +4622,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("得".to_string()),
             curr_pattern: WordPattern::OneOf(qide_elder_nouns),
-            bonus: -38.0,
+            bonus: -35.0,
             name: "anti_complement_de_before_elder_noun".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4642,7 +4642,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("對簿".to_string()),
             curr_pattern: WordPattern::Exact("對".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_duibu_dui_impostor".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4665,7 +4665,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("根本".to_string()),
             curr_pattern: WordPattern::Exact("指示".to_string()),
-            bonus: -38.0,
+            bonus: -35.0,
             name: "anti_genben_zhishi_directive".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4715,7 +4715,7 @@ impl TransitionEngine {
             curr_pattern: WordPattern::OneOf(vec![
                 "懂".to_string(), "完".to_string(), "通".to_string(), "下".to_string(), "出".to_string(),
             ]),
-            bonus: -38.0,
+            bonus: -35.0,
             name: "anti_dubu_before_potential_complement".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4732,7 +4732,7 @@ impl TransitionEngine {
             curr_pattern: WordPattern::OneOf(vec![
                 "懂".to_string(), "完".to_string(), "好".to_string(), "快".to_string(), "飽".to_string(), "很".to_string(),
             ]),
-            bonus: -38.0,
+            bonus: -35.0,
             name: "anti_dude_before_complement".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4746,7 +4746,7 @@ impl TransitionEngine {
             curr_pattern: WordPattern::OneOf(vec![
                 "上".to_string(), "得".to_string(), "了".to_string(), "到".to_string(),
             ]),
-            bonus: -38.0,
+            bonus: -35.0,
             name: "anti_gubu_before_potential_complement".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4754,7 +4754,7 @@ impl TransitionEngine {
             curr_pattern: WordPattern::OneOf(vec![
                 "飽".to_string(), "肚子痛".to_string(), "流淚".to_string(), "飆淚".to_string(), "翻".to_string(),
             ]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_xiaodao_before_satiation_complement".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4831,7 +4831,7 @@ impl TransitionEngine {
                 "被".to_string(), "讓人".to_string(), "被人".to_string(),
             ]),
             curr_pattern: WordPattern::Exact("孝道".to_string()),
-            bonus: -42.0,
+            bonus: -35.0,
             name: "anti_passive_bei_xiaodao_noun".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -4869,7 +4869,7 @@ impl TransitionEngine {
                 "項目".to_string(), "選項".to_string(), "餐點".to_string(), "飲食".to_string(),
                 "料理".to_string(), "便當".to_string(), "餐廳".to_string(),
             ]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_quansu_before_dietary_noun".to_string(),
         });
 
@@ -4957,13 +4957,13 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("個".to_string()),
             curr_pattern: WordPattern::Exact("種".to_string()),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_shatter_ge_zhong_fake_compound".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("間".to_string()),
             curr_pattern: WordPattern::Exact("粒".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_shatter_jian_li_fake_compound".to_string(),
         });
 
@@ -5040,7 +5040,7 @@ impl TransitionEngine {
                 "超".to_string(), "挺".to_string(), "蠻".to_string(), "最".to_string(), "更".to_string(),
             ]),
             curr_pattern: WordPattern::OneOf(vec!["事態".to_string(), "世態".to_string()]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_degree_adv_before_abstract_noun_shitai".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -5051,7 +5051,7 @@ impl TransitionEngine {
                 "大".to_string(), "小".to_string(), "多".to_string(), "少".to_string(),
                 "美".to_string(), "貴".to_string(),
             ]),
-            bonus: -40.0,
+            bonus: -35.0,
             name: "anti_shitai_before_gradable_adj".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -5338,7 +5338,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("完".to_string()),
             curr_pattern: WordPattern::Exact("比".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_wan_bi_shatter_impostor".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -5373,7 +5373,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("不".to_string()),
             curr_pattern: WordPattern::Exact("段".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_bu_duan_classifier_shatter".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -5419,7 +5419,7 @@ impl TransitionEngine {
                 "設定".to_string(), "面板".to_string(), "文".to_string(), "間".to_string(),
             ]),
             curr_pattern: WordPattern::Exact("中野".to_string()),
-            bonus: -45.0,
+            bonus: -35.0,
             name: "anti_nakano_place_name_after_document_or_container".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -6105,13 +6105,19 @@ impl TransitionEngine {
             "vo_separable_lookback"
         } else if rule_name == "construction_trigram_slot" || rule_name.starts_with("trigram_") {
             "construction_trigram_slot"
-        } else if rule_name == "construction_topological_core" {
+        } else if rule_name == "construction_topological_core"
+            || rule_name.starts_with("cjk_sub_topo_")
+        {
             "construction_topological_core"
         } else if rule_name == "geo_hierarchy" {
             "geo_hierarchy"
-        } else if rule_name == "construction_ctx31_bifurcation" {
+        } else if rule_name == "construction_ctx31_bifurcation"
+            || rule_name.starts_with("cjk_sub_ctx31_")
+        {
             "construction_ctx31_bifurcation"
-        } else if rule_name == "construction_boundary_guard" {
+        } else if rule_name == "construction_boundary_guard"
+            || rule_name.starts_with("cjk_sub_guard_")
+        {
             "construction_boundary_guard"
         } else if rule_name == "construction_hierarchical_matrix" {
             "construction_hierarchical_matrix"
@@ -6332,14 +6338,14 @@ impl TransitionEngine {
     ) -> f64 {
         // ── 破音字古音與孤例隔離層 (Archaic & Isolated Polyphonic Isolation Layer) ──
         if is_archaic {
-            return self.apply_rule_score("guard_archaic_polyphonic", -45.0);
+            return self.apply_rule_score("guard_archaic_polyphonic", -35.0);
         }
 
         let mut bonus = 0.0;
 
         // 抑制口吃音重疊：「感謝」後接同音「ㄒㄧㄝˋ」單字（嚴防破壞「敢+謝謝」構式）
         if prev_word == "感謝" && curr_bopomofo.starts_with("ㄒㄧㄝ") && curr_word.chars().count() == 1 {
-            bonus += self.apply_rule_score("guard_ganxie_stutter", -50.0);
+            bonus += self.apply_rule_score("guard_ganxie_stutter", -35.0);
         }
 
         // Layer 2: 精確二元搭配 O(1) 雜湊查表（使用者自訂 transitions + 內建結構化收斂 builtin_transitions）

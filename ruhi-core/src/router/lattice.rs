@@ -112,7 +112,10 @@ impl<'a> LatticeDAG<'a> {
                         if n >= 3
                             && length == 2
                             && (entry.weight < 90 || entry.category == "moe_unattested2")
-                            && entry.word != "諺文"
+                            && !super::morpheme_ontology::MorphemeOntology::global().has_class(
+                                &entry.word,
+                                super::morpheme_ontology::MorphemeClass::ModernLowWeightCompound2,
+                            )
                         {
                             continue;
                         }
