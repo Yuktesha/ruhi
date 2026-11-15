@@ -9,7 +9,7 @@ pub mod candidate_window;
 pub mod display_attribute;
 pub mod user_word_dialog;
 use std::ffi::c_void;
-use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
+use std::sync::atomic::{AtomicIsize, Ordering};
 use windows_core::*;
 use windows::Win32::Foundation::*;
 use windows::Win32::System::Com::*;
@@ -21,7 +21,9 @@ use crate::class_factory::RuhiClassFactory;
 const DLL_PROCESS_ATTACH: u32 = 1;
 
 static DLL_HINSTANCE: AtomicIsize = AtomicIsize::new(0);
-static IN_DLL_FORWARD: AtomicBool = AtomicBool::new(false);
+thread_local! {
+    static IN_DLL_FORWARD: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 
 type DllGetClassObjectFn = unsafe extern "system" fn(
     rclsid: *const GUID,
@@ -54,10 +56,23 @@ pub unsafe extern "system" fn DllGetClassObject(
 
     // 若熱更新腳本已部署更新版本的 ruhi_tsf_<timestamp>.dll，自動轉發 DllGetClassObject 至最新 DLL，
     // 使既有常駐程序無須重啟、亦無須 FreeLibrary 卸載舊 DLL 即可無縫切換至最新輸入法核心。
-    if !IN_DLL_FORWARD.swap(true, Ordering::SeqCst) {
-        let forwarded_hr = try_forward_to_newer_dll(rclsid, riid, ppv);
-        IN_DLL_FORWARD.store(false, Ordering::SeqCst);
-        if let Some(hr) = forwarded_hr {
+    struct DllForwardGuard;
+    impl Drop for DllForwardGuard {
+        fn drop(&mut self) {
+            IN_DLL_FORWARD.with(|flag| flag.set(false));
+        }
+    }
+    let already_forwarding = IN_DLL_FORWARD.with(|flag| {
+        if flag.get() {
+            true
+        } else {
+            flag.set(true);
+            false
+        }
+    });
+    if !already_forwarding {
+        let _guard = DllForwardGuard;
+        if let Some(hr) = try_forward_to_newer_dll(rclsid, riid, ppv) {
             return hr;
         }
     }
@@ -129,4 +144,10 @@ pub unsafe extern "system" fn DllUnregisterServer() -> HRESULT {
         Ok(_) => S_OK,
         Err(e) => e.code(),
     }
+}
+
+/// 匯出 Layer-A 核心型別與 TSF COM 物件跨版本 ABI 佈局雜湊碼，供熱重載橋接器驗證二進位相容性。
+#[no_mangle]
+pub extern "C" fn ruhi_tsf_abi_layout_hash() -> u64 {
+    crate::service::compute_layer_a_abi_hash()
 }

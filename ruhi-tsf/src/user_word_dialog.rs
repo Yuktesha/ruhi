@@ -397,9 +397,9 @@ pub fn suppress_or_delete_entry(
             let _ = file.write_all(del_line.as_bytes());
         }
 
-        // 在 transitions_user.tsv 中施加負向抑制懲罰 (-50.0)
+        // 在 transitions_user.tsv 中施加負向抑制懲罰 (-35.0，依品質門檻與權重上限規範)
         let today = chrono_like_today();
-        let penalty_line = format!("*\t{}\t-50.0\tanti_hijack_shield\t{}\n", word, today);
+        let penalty_line = format!("*\t{}\t-35.0\tanti_hijack_shield\t{}\n", word, today);
         let trans_target = if !paths.transitions.starts_with(&paths.sandbox_dir) {
             let _ = std::fs::create_dir_all(&paths.sandbox_dir);
             let user_trans = paths.sandbox_dir.join("transitions_user.tsv");

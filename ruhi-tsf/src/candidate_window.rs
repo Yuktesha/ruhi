@@ -20,7 +20,199 @@ const TIMER_TRAY_SYNC: usize = 2001;
 const TIMER_HIDE_TOAST: usize = 2002;
 
 static LAST_TRAY_STATE: Mutex<(String, bool)> = Mutex::new((String::new(), false));
+static LAST_TRAY_CONFIG_MTIME: Mutex<Option<std::time::SystemTime>> = Mutex::new(None);
 static CURRENT_TRAY_HICON: Mutex<isize> = Mutex::new(0);
+
+struct CachedGdiResources {
+    measure_dc: HDC,
+    fonts: std::collections::HashMap<(i32, bool), HFONT>,
+    brushes: std::collections::HashMap<u32, HBRUSH>,
+}
+
+impl CachedGdiResources {
+    fn new() -> Self {
+        Self {
+            measure_dc: HDC::default(),
+            fonts: std::collections::HashMap::new(),
+            brushes: std::collections::HashMap::new(),
+        }
+    }
+
+    unsafe fn get_measure_dc(&mut self) -> HDC {
+        if self.measure_dc.0.is_null() {
+            self.measure_dc = CreateCompatibleDC(HDC::default());
+        }
+        self.measure_dc
+    }
+
+    unsafe fn get_font(&mut self, font_h: i32, bold: bool) -> HFONT {
+        let key = (font_h, bold);
+        if let Some(&f) = self.fonts.get(&key) {
+            return f;
+        }
+        if self.fonts.len() >= 32 {
+            for (_, old_f) in self.fonts.drain() {
+                let _ = DeleteObject(old_f);
+            }
+        }
+        let font_name: Vec<u16> = "Microsoft JhengHei UI".encode_utf16().chain(Some(0)).collect();
+        let weight = if bold { FW_BOLD.0 as i32 } else { FW_NORMAL.0 as i32 };
+        let f = CreateFontW(
+            font_h,
+            0,
+            0,
+            0,
+            weight,
+            0,
+            0,
+            0,
+            DEFAULT_CHARSET.0 as u32,
+            OUT_DEFAULT_PRECIS.0 as u32,
+            CLIP_DEFAULT_PRECIS.0 as u32,
+            CLEARTYPE_QUALITY.0 as u32,
+            DEFAULT_PITCH.0 as u32,
+            PCWSTR(font_name.as_ptr()),
+        );
+        if !f.0.is_null() {
+            self.fonts.insert(key, f);
+        }
+        f
+    }
+
+    unsafe fn get_brush(&mut self, color: COLORREF) -> HBRUSH {
+        if let Some(&b) = self.brushes.get(&color.0) {
+            return b;
+        }
+        if self.brushes.len() >= 32 {
+            for (_, old_b) in self.brushes.drain() {
+                let _ = DeleteObject(old_b);
+            }
+        }
+        let b = CreateSolidBrush(color);
+        if !b.0.is_null() {
+            self.brushes.insert(color.0, b);
+        }
+        b
+    }
+}
+
+impl Drop for CachedGdiResources {
+    fn drop(&mut self) {
+        unsafe {
+            for (_, f) in self.fonts.drain() {
+                let _ = DeleteObject(f);
+            }
+            for (_, b) in self.brushes.drain() {
+                let _ = DeleteObject(b);
+            }
+            if !self.measure_dc.0.is_null() {
+                let _ = DeleteDC(self.measure_dc);
+                self.measure_dc = HDC::default();
+            }
+        }
+    }
+}
+
+type ClusterLayoutResult = (Vec<(usize, usize, usize, bool, i32)>, usize, i32, i32);
+type CandMeasureResult = (Vec<(usize, String, i32)>, i32);
+
+struct CachedLayoutMeasurements {
+    cluster_px: std::collections::HashMap<(String, i32), i32>,
+    cjk_unit_px: std::collections::HashMap<i32, i32>,
+    last_comp_layout: Option<((String, i32, usize, Option<i32>), ClusterLayoutResult)>,
+    last_cand_measure: Option<((Vec<String>, usize, usize, i32, i32, String, bool, bool), CandMeasureResult)>,
+}
+
+impl CachedLayoutMeasurements {
+    fn new() -> Self {
+        Self {
+            cluster_px: std::collections::HashMap::new(),
+            cjk_unit_px: std::collections::HashMap::new(),
+            last_comp_layout: None,
+            last_cand_measure: None,
+        }
+    }
+}
+
+thread_local! {
+    static TLS_GDI_CACHE: std::cell::RefCell<CachedGdiResources> =
+        std::cell::RefCell::new(CachedGdiResources::new());
+    static TLS_LAYOUT_CACHE: std::cell::RefCell<CachedLayoutMeasurements> =
+        std::cell::RefCell::new(CachedLayoutMeasurements::new());
+}
+
+unsafe fn cached_gdi_font(font_h: i32, bold: bool) -> HFONT {
+    TLS_GDI_CACHE.with(|cell| cell.borrow_mut().get_font(font_h, bold))
+}
+
+unsafe fn cached_gdi_brush(color: COLORREF) -> HBRUSH {
+    TLS_GDI_CACHE.with(|cell| cell.borrow_mut().get_brush(color))
+}
+
+unsafe fn cached_measure_text_px_with_font(text: &str, font_h: i32, bold: bool) -> Option<i32> {
+    TLS_GDI_CACHE.with(|cell| {
+        let mut cache = cell.borrow_mut();
+        let dc = cache.get_measure_dc();
+        if dc.0.is_null() {
+            return None;
+        }
+        let font = cache.get_font(font_h, bold);
+        let old_f = SelectObject(dc, font);
+        let wide: Vec<u16> = text.encode_utf16().collect();
+        let mut sz = SIZE::default();
+        let _ = GetTextExtentPoint32W(dc, &wide, &mut sz);
+        SelectObject(dc, old_f);
+        Some(sz.cx)
+    })
+}
+
+pub fn resolve_mru_toggle_target(
+    cur_mode: &str,
+    last_mode: &str,
+    normalized_enabled: &[String],
+) -> Option<String> {
+    let norm_cur = ruhi::engine::RuhiEngine::normalize_keyboard_mode(cur_mode);
+    let norm_last = ruhi::engine::RuhiEngine::normalize_keyboard_mode(last_mode);
+    let mut pool: Vec<String> = if normalized_enabled.is_empty() {
+        vec![
+            "hsu".to_string(),
+            "japanese".to_string(),
+            "korean".to_string(),
+            "cangjie".to_string(),
+            "array30".to_string(),
+            "four_corner".to_string(),
+            "longkan".to_string(),
+            "standard".to_string(),
+            "et26".to_string(),
+            "english".to_string(),
+        ]
+    } else {
+        let mut p = Vec::new();
+        for m in normalized_enabled {
+            let nm = ruhi::engine::RuhiEngine::normalize_keyboard_mode(m);
+            if !nm.is_empty() && !p.iter().any(|x| x == &nm) {
+                p.push(nm);
+            }
+        }
+        if p.len() >= 2 && !p.iter().any(|x| x == "english") {
+            p.push("english".to_string());
+        }
+        p
+    };
+    if !norm_cur.is_empty() && !pool.iter().any(|x| x == &norm_cur) {
+        pool.push(norm_cur.clone());
+    }
+    if !norm_last.is_empty()
+        && norm_last != norm_cur
+        && pool.iter().any(|x| x == &norm_last)
+    {
+        return Some(norm_last);
+    }
+    if norm_cur != "english" && pool.iter().any(|x| x == "english") {
+        return Some("english".to_string());
+    }
+    pool.into_iter().find(|m| m != &norm_cur)
+}
 
 pub fn current_effective_ui_lang() -> &'static str {
     let cfg_lang = get_candidate_state()
@@ -361,34 +553,56 @@ pub unsafe fn update_tray_icon_for_hwnd(hwnd: HWND, force: bool) {
         }
     }
 
+    let is_caps = (GetKeyState(VK_CAPITAL.0 as i32) as u16 & 0x0001) != 0;
     let paths = crate::service::RuhiPaths::resolve();
-    let cfg_mode = if paths.config.exists() {
+    let cur_mtime = std::fs::metadata(&paths.config)
+        .ok()
+        .and_then(|m| m.modified().ok());
+    let need_disk_read = force || {
+        let mut mguard = LAST_TRAY_CONFIG_MTIME.lock().unwrap_or_else(|e| e.into_inner());
+        match (*mguard, cur_mtime) {
+            (Some(prev), Some(cur)) if prev == cur => false,
+            (None, None) => false,
+            _ => {
+                *mguard = cur_mtime;
+                true
+            }
+        }
+    };
+
+    let cfg_mode = if need_disk_read && paths.config.exists() {
         std::fs::read_to_string(&paths.config)
             .ok()
             .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
             .and_then(|v| v.get("keyboard_mode").and_then(|m| m.as_str()).map(|s| s.to_string()))
     } else {
         None
-    }.unwrap_or_else(|| {
-        get_candidate_state().read().map(|s| s.keyboard_mode.clone()).unwrap_or_else(|_| "hsu".to_string())
+    }
+    .unwrap_or_else(|| {
+        get_candidate_state()
+            .read()
+            .map(|s| s.keyboard_mode.clone())
+            .unwrap_or_else(|_| "hsu".to_string())
     });
+
+    let state_changed = {
+        let last = LAST_TRAY_STATE.lock().unwrap_or_else(|e| e.into_inner());
+        last.0 != cfg_mode || last.1 != is_caps
+    };
+    if !force && !state_changed {
+        return;
+    }
 
     if let Ok(mut st) = get_candidate_state().write() {
         st.keyboard_mode = cfg_mode.clone();
+        st.is_caps_on = is_caps;
     }
     if !hwnd.0.is_null() && IsWindowVisible(hwnd).as_bool() {
-        let _ = InvalidateRect(hwnd, None, true);
+        let _ = InvalidateRect(hwnd, None, false);
     }
 
-    let is_caps = false;
-    if !force {
-        if let Ok(last) = LAST_TRAY_STATE.lock() {
-            if last.0 == cfg_mode && last.1 == is_caps {
-                return;
-            }
-        }
-    }
-    if let Ok(mut last) = LAST_TRAY_STATE.lock() {
+    {
+        let mut last = LAST_TRAY_STATE.lock().unwrap_or_else(|e| e.into_inner());
         *last = (cfg_mode.clone(), is_caps);
     }
 
@@ -564,8 +778,8 @@ fn get_candidate_state() -> &'static RwLock<CandidateState> {
             desk_opacity: 95,
             fixed_x: 350,
             fixed_y: 550,
-            last_caret_x: 350,
-            last_caret_y: 550,
+            last_caret_x: crate::service::CARET_UNPROBED,
+            last_caret_y: crate::service::CARET_UNPROBED,
             keyboard_mode: "hsu".to_string(),
             enabled_keyboard_modes: vec!["hsu".to_string(), "japanese".to_string()],
             gear_rect: RECT::default(),
@@ -799,32 +1013,13 @@ impl CandidateWindow {
         if text.is_empty() {
             return 0;
         }
+        let font_h = -(font_px.round() as i32);
         unsafe {
-            let mem_dc = CreateCompatibleDC(HDC::default());
-            if mem_dc.0.is_null() {
-                return (text.chars().count() as f32 * font_px * 0.85).round() as i32;
+            if let Some(cx) = cached_measure_text_px_with_font(text, font_h, false) {
+                return cx;
             }
-            let font_name: Vec<u16> = "Microsoft JhengHei UI".encode_utf16().chain(Some(0)).collect();
-            let font_h = -(font_px.round() as i32);
-            let font = CreateFontW(
-                font_h, 0, 0, 0,
-                FW_NORMAL.0 as i32, 0, 0, 0,
-                DEFAULT_CHARSET.0 as u32,
-                OUT_DEFAULT_PRECIS.0 as u32,
-                CLIP_DEFAULT_PRECIS.0 as u32,
-                CLEARTYPE_QUALITY.0 as u32,
-                DEFAULT_PITCH.0 as u32,
-                PCWSTR(font_name.as_ptr()),
-            );
-            let old_f = SelectObject(mem_dc, font);
-            let wide: Vec<u16> = text.encode_utf16().collect();
-            let mut sz = SIZE::default();
-            let _ = GetTextExtentPoint32W(mem_dc, &wide, &mut sz);
-            SelectObject(mem_dc, old_f);
-            let _ = DeleteObject(font);
-            let _ = DeleteDC(mem_dc);
-            sz.cx
         }
+        (text.chars().count() as f32 * font_px * 0.85).round() as i32
     }
 
     /// 以單一漢字（漢字寬度單位）為基準，將組字文字流拆分為字素叢集並計算各叢集之「所在行號、行首布林值、像素寬度」，
@@ -844,131 +1039,189 @@ impl CandidateWindow {
         max_avail_px: Option<i32>,
     ) -> (Vec<(usize, usize, usize, bool, i32)>, usize, i32, i32) {
         let is_combining = |c: char| -> bool { ('\u{0300}'..='\u{036F}').contains(&c) };
-        unsafe {
-            let mem_dc = CreateCompatibleDC(HDC::default());
-            let font_name: Vec<u16> = "Microsoft JhengHei UI".encode_utf16().chain(Some(0)).collect();
-            let font_h = -(font_px.round() as i32);
-            let font = CreateFontW(
-                font_h, 0, 0, 0,
-                FW_NORMAL.0 as i32, 0, 0, 0,
-                DEFAULT_CHARSET.0 as u32,
-                OUT_DEFAULT_PRECIS.0 as u32,
-                CLIP_DEFAULT_PRECIS.0 as u32,
-                CLEARTYPE_QUALITY.0 as u32,
-                DEFAULT_PITCH.0 as u32,
-                PCWSTR(font_name.as_ptr()),
-            );
-            let old_f = if !mem_dc.0.is_null() {
-                SelectObject(mem_dc, font)
-            } else {
-                HGDIOBJ::default()
-            };
+        let font_h = -(font_px.round() as i32);
+        let comp_key_str: String = comp_chars.iter().collect();
+        let layout_key = (comp_key_str, font_h, max_cjk_chars, max_avail_px);
 
-            let cjk_px = if !mem_dc.0.is_null() {
-                let sample: Vec<u16> = "漢".encode_utf16().collect();
-                let mut sz = SIZE::default();
-                let _ = GetTextExtentPoint32W(mem_dc, &sample, &mut sz);
-                sz.cx.max(font_px.round() as i32)
-            } else {
-                (font_px * 1.05).round() as i32
-            };
-            let mut max_line_px = (max_cjk_chars.clamp(8, 80) as i32 * cjk_px).max(cjk_px * 6);
-            if let Some(cap) = max_avail_px {
-                max_line_px = max_line_px.min(cap.max(cjk_px * 6));
-            }
-
-            let mut clusters = Vec::new();
-            let mut cur_line = 0usize;
-            let mut cur_line_px = 0i32;
-            let mut max_used_px = 0i32;
-
-            let mut i = 0usize;
-            let mut wrapped_by_width = false;
-            while i < comp_chars.len() {
-                if comp_chars[i] == '\n' {
-                    let is_line_start = cur_line_px == 0;
-                    clusters.push((i, i + 1, cur_line, is_line_start, 0));
-                    cur_line += 1;
-                    cur_line_px = 0;
-                    i += 1;
-                    continue;
-                }
-                let mut cluster_end = i + 1;
-                while cluster_end < comp_chars.len() && is_combining(comp_chars[cluster_end]) {
-                    cluster_end += 1;
-                }
-                let cluster_str: String = comp_chars[i..cluster_end].iter().collect();
-                let cx = if !mem_dc.0.is_null() {
-                    let wide: Vec<u16> = cluster_str.encode_utf16().collect();
-                    let mut sz = SIZE::default();
-                    let _ = GetTextExtentPoint32W(mem_dc, &wide, &mut sz);
-                    sz.cx
-                } else {
-                    (font_px * 0.6).round() as i32
-                };
-
-                let is_line_start = if cur_line_px > 0 && cur_line_px + cx > max_line_px {
-                    cur_line += 1;
-                    cur_line_px = 0;
-                    wrapped_by_width = true;
-                    true
-                } else {
-                    cur_line_px == 0
-                };
-                cur_line_px += cx;
-                if cur_line_px > max_used_px {
-                    max_used_px = cur_line_px;
-                }
-                clusters.push((i, cluster_end, cur_line, is_line_start, cx));
-                i = cluster_end;
-            }
-
-            if !mem_dc.0.is_null() {
-                SelectObject(mem_dc, old_f);
-                let _ = DeleteObject(font);
-                let _ = DeleteDC(mem_dc);
-            }
-
-            let num_lines = if clusters.is_empty() { 1 } else { cur_line + 1 };
-            let min_6_cjk_px = cjk_px * 6;
-            let effective_used_px = if wrapped_by_width {
-                max_line_px
-            } else {
-                max_used_px.max(min_6_cjk_px)
-            };
-            (clusters, num_lines, effective_used_px, max_line_px)
+        if let Some(hit) = TLS_LAYOUT_CACHE.with(|cell| {
+            let cache = cell.borrow();
+            cache
+                .last_comp_layout
+                .as_ref()
+                .and_then(|(k, res)| if k == &layout_key { Some(res.clone()) } else { None })
+        }) {
+            return hit;
         }
+
+        let res = TLS_LAYOUT_CACHE.with(|lcell| {
+            let mut lcache = lcell.borrow_mut();
+            TLS_GDI_CACHE.with(|gcell| unsafe {
+                let mut gcache = gcell.borrow_mut();
+                let mem_dc = gcache.get_measure_dc();
+                let font = if !mem_dc.0.is_null() {
+                    gcache.get_font(font_h, false)
+                } else {
+                    HFONT::default()
+                };
+                let old_f = if !mem_dc.0.is_null() {
+                    SelectObject(mem_dc, font)
+                } else {
+                    HGDIOBJ::default()
+                };
+
+                let cjk_px = if let Some(&cached) = lcache.cjk_unit_px.get(&font_h) {
+                    cached
+                } else {
+                    let measured = if !mem_dc.0.is_null() {
+                        let sample: Vec<u16> = "漢".encode_utf16().collect();
+                        let mut sz = SIZE::default();
+                        let _ = GetTextExtentPoint32W(mem_dc, &sample, &mut sz);
+                        sz.cx.max(font_px.round() as i32)
+                    } else {
+                        (font_px * 1.05).round() as i32
+                    };
+                    if lcache.cjk_unit_px.len() >= 32 {
+                        lcache.cjk_unit_px.clear();
+                    }
+                    lcache.cjk_unit_px.insert(font_h, measured);
+                    measured
+                };
+
+                let mut max_line_px = (max_cjk_chars.clamp(8, 80) as i32 * cjk_px).max(cjk_px * 6);
+                if let Some(cap) = max_avail_px {
+                    max_line_px = max_line_px.min(cap.max(cjk_px * 6));
+                }
+
+                let mut clusters = Vec::new();
+                let mut cur_line = 0usize;
+                let mut cur_line_px = 0i32;
+                let mut max_used_px = 0i32;
+
+                let mut i = 0usize;
+                let mut wrapped_by_width = false;
+                while i < comp_chars.len() {
+                    if comp_chars[i] == '\n' {
+                        let is_line_start = cur_line_px == 0;
+                        clusters.push((i, i + 1, cur_line, is_line_start, 0));
+                        cur_line += 1;
+                        cur_line_px = 0;
+                        i += 1;
+                        continue;
+                    }
+                    let mut cluster_end = i + 1;
+                    while cluster_end < comp_chars.len() && is_combining(comp_chars[cluster_end]) {
+                        cluster_end += 1;
+                    }
+                    let cluster_str: String = comp_chars[i..cluster_end].iter().collect();
+                    let cx = if !mem_dc.0.is_null() {
+                        let cache_key = (cluster_str, font_h);
+                        if let Some(&cached_cx) = lcache.cluster_px.get(&cache_key) {
+                            cached_cx
+                        } else {
+                            let wide: Vec<u16> = cache_key.0.encode_utf16().collect();
+                            let mut sz = SIZE::default();
+                            let _ = GetTextExtentPoint32W(mem_dc, &wide, &mut sz);
+                            if lcache.cluster_px.len() >= 1024 {
+                                lcache.cluster_px.clear();
+                            }
+                            lcache.cluster_px.insert(cache_key, sz.cx);
+                            sz.cx
+                        }
+                    } else {
+                        (font_px * 0.6).round() as i32
+                    };
+
+                    let is_line_start = if cur_line_px > 0 && cur_line_px + cx > max_line_px {
+                        cur_line += 1;
+                        cur_line_px = 0;
+                        wrapped_by_width = true;
+                        true
+                    } else {
+                        cur_line_px == 0
+                    };
+                    cur_line_px += cx;
+                    if cur_line_px > max_used_px {
+                        max_used_px = cur_line_px;
+                    }
+                    clusters.push((i, cluster_end, cur_line, is_line_start, cx));
+                    i = cluster_end;
+                }
+
+                if !mem_dc.0.is_null() {
+                    SelectObject(mem_dc, old_f);
+                }
+
+                let num_lines = if clusters.is_empty() { 1 } else { cur_line + 1 };
+                let min_6_cjk_px = cjk_px * 6;
+                let effective_used_px = if wrapped_by_width {
+                    max_line_px
+                } else {
+                    max_used_px.max(min_6_cjk_px)
+                };
+                (clusters, num_lines, effective_used_px, max_line_px)
+            })
+        });
+
+        TLS_LAYOUT_CACHE.with(|cell| {
+            cell.borrow_mut().last_comp_layout = Some((layout_key, res.clone()));
+        });
+        res
     }
 
     /// 測量當前分頁所有候選項目（如 `"a.候選詞"`）之各自像素寬度與單行總需求寬度
     pub fn measure_page_candidates_px(state: &CandidateState, cand_font_px: f32, page_sz: usize) -> (Vec<(usize, String, i32)>, i32) {
         let cur_page = state.selected_index / page_sz.max(1);
         let start_idx = cur_page * page_sz;
+        let font_h = -(cand_font_px.round() as i32);
+        let dpi_q = (state.dpi_scale * 100.0).round() as i32;
+        let page_cands: Vec<String> = state
+            .candidates
+            .iter()
+            .skip(start_idx)
+            .take(page_sz)
+            .cloned()
+            .collect();
+        let ten_digit = state.use_ten_digit_labels();
+        let cand_key = (
+            page_cands,
+            start_idx,
+            page_sz,
+            font_h,
+            dpi_q,
+            state.quick_key_mode.clone(),
+            ten_digit,
+            state.force_asdf_labels,
+        );
+
+        if let Some(hit) = TLS_LAYOUT_CACHE.with(|cell| {
+            let cache = cell.borrow();
+            cache
+                .last_cand_measure
+                .as_ref()
+                .and_then(|(k, res)| if k == &cand_key { Some(res.clone()) } else { None })
+        }) {
+            return hit;
+        }
+
         let gap_px = (16.0 * state.dpi_scale).round() as i32;
-        let mut items = Vec::new();
+        let mut items = Vec::with_capacity(cand_key.0.len());
         let mut single_row_total_px = (28.0 * state.dpi_scale).round() as i32;
 
-        unsafe {
-            let mem_dc = CreateCompatibleDC(HDC::default());
-            let font_name: Vec<u16> = "Microsoft JhengHei UI".encode_utf16().chain(Some(0)).collect();
-            let font_h = -(cand_font_px.round() as i32);
-            let font = CreateFontW(
-                font_h, 0, 0, 0,
-                FW_NORMAL.0 as i32, 0, 0, 0,
-                DEFAULT_CHARSET.0 as u32,
-                OUT_DEFAULT_PRECIS.0 as u32,
-                CLIP_DEFAULT_PRECIS.0 as u32,
-                CLEARTYPE_QUALITY.0 as u32,
-                DEFAULT_PITCH.0 as u32,
-                PCWSTR(font_name.as_ptr()),
-            );
+        TLS_GDI_CACHE.with(|cell| unsafe {
+            let mut cache = cell.borrow_mut();
+            let mem_dc = cache.get_measure_dc();
+            let font = if !mem_dc.0.is_null() {
+                cache.get_font(font_h, false)
+            } else {
+                HFONT::default()
+            };
             let old_f = if !mem_dc.0.is_null() {
                 SelectObject(mem_dc, font)
             } else {
                 HGDIOBJ::default()
             };
 
-            for (page_offset, cand) in state.candidates.iter().skip(start_idx).take(page_sz).enumerate() {
+            for (page_offset, cand) in cand_key.0.iter().enumerate() {
                 let actual_idx = start_idx + page_offset;
                 let key_label = state.format_key_label(page_offset);
                 let item_str = format!("{}.{}", key_label, cand);
@@ -986,11 +1239,14 @@ impl CandidateWindow {
 
             if !mem_dc.0.is_null() {
                 SelectObject(mem_dc, old_f);
-                let _ = DeleteObject(font);
-                let _ = DeleteDC(mem_dc);
             }
-        }
-        (items, single_row_total_px)
+        });
+
+        let result = (items, single_row_total_px);
+        TLS_LAYOUT_CACHE.with(|cell| {
+            cell.borrow_mut().last_cand_measure = Some((cand_key, result.clone()));
+        });
+        result
     }
 
     /// 當輸入座寬度確定後，計算候選欄需要幾行才可 100% 完整顯示所有候選詞（不截斷、不溢出邊界）
@@ -1013,6 +1269,23 @@ impl CandidateWindow {
         rows
     }
 
+    fn resolve_valid_caret_or_cursor(state: &CandidateState, caret_x: i32, caret_y: i32) -> (i32, i32) {
+        if caret_x != crate::service::CARET_UNPROBED && caret_y != crate::service::CARET_UNPROBED {
+            return (caret_x, caret_y);
+        }
+        if state.last_caret_x != crate::service::CARET_UNPROBED
+            && state.last_caret_y != crate::service::CARET_UNPROBED
+        {
+            return (state.last_caret_x, state.last_caret_y);
+        }
+        let mut pt = POINT::default();
+        if unsafe { GetCursorPos(&mut pt) }.is_ok() {
+            (pt.x, pt.y + 20)
+        } else {
+            (200, 300)
+        }
+    }
+
     pub fn compute_desk_geometry(state: &CandidateState, caret_x: i32, caret_y: i32) -> (i32, i32, i32, i32) {
         let dpi_scale = state.dpi_scale;
         let show_cand_bar = (state.is_cand_selecting || state.is_array30_live_preview) && !state.candidates.is_empty();
@@ -1020,8 +1293,9 @@ impl CandidateWindow {
         let font_h = (state.font_size * 0.9 * dpi_scale).clamp(14.0 * dpi_scale, 90.0 * dpi_scale);
         let cand_font_h = (state.candidate_font_size * 0.9 * dpi_scale).clamp(13.0 * dpi_scale, 68.0 * dpi_scale);
 
-        let ref_x = if state.input_display_mode == "floating_fixed" { state.fixed_x } else { caret_x };
-        let ref_y = if state.input_display_mode == "floating_fixed" { state.fixed_y } else { caret_y };
+        let (resolved_cx, resolved_cy) = Self::resolve_valid_caret_or_cursor(state, caret_x, caret_y);
+        let ref_x = if state.input_display_mode == "floating_fixed" { state.fixed_x } else { resolved_cx };
+        let ref_y = if state.input_display_mode == "floating_fixed" { state.fixed_y } else { resolved_cy };
         let (screen_l, screen_t, screen_r, screen_b) = Self::get_monitor_work_area(ref_x, ref_y);
         let screen_avail_w = ((screen_r - screen_l) - 24).max(460) as f32;
 
@@ -1106,7 +1380,7 @@ impl CandidateWindow {
         };
         let row3_h = (26.0 * dpi_scale) as i32; // 底部狀態列高度
         let height = row1_h + row2_h + row_coach_h + row_tuner_h + row3_h + (16.0 * dpi_scale) as i32;
-        let single_line_height = single_row1_h + row2_h + row_coach_h + row3_h + (16.0 * dpi_scale) as i32;
+        let single_line_height = single_row1_h + row2_h + row_coach_h + row_tuner_h + row3_h + (16.0 * dpi_scale) as i32;
         let extra_grow_h = (height - single_line_height).max(0);
 
         let min_x = screen_l + 8;
@@ -1125,11 +1399,11 @@ impl CandidateWindow {
             let fy = raw_fy.clamp(min_y, max_y);
             (fx, fy)
         } else {
-            let fx = caret_x.clamp(min_x, max_x);
-            let fy = if caret_y + height > screen_b - 20 {
-                (caret_y - height - 32).clamp(min_y, max_y)
+            let fx = resolved_cx.clamp(min_x, max_x);
+            let fy = if resolved_cy + height > screen_b - 20 {
+                (resolved_cy - height - 32).clamp(min_y, max_y)
             } else {
-                caret_y.clamp(min_y, max_y)
+                resolved_cy.clamp(min_y, max_y)
             };
             (fx, fy)
         };
@@ -1166,7 +1440,7 @@ impl CandidateWindow {
                 state.selection_range = selection_range;
                 state.is_caps_on = is_caps_on;
                 state.is_candidates_only = false;
-                if caret_x > 0 && caret_y > 0 {
+                if caret_x != crate::service::CARET_UNPROBED && caret_y != crate::service::CARET_UNPROBED {
                     state.last_caret_x = caret_x;
                     state.last_caret_y = caret_y;
                 }
@@ -1185,7 +1459,7 @@ impl CandidateWindow {
                 final_x, final_y, width, height,
                 SWP_NOACTIVATE | SWP_SHOWWINDOW,
             );
-            let _ = InvalidateRect(self.hwnd, None, true);
+            let _ = InvalidateRect(self.hwnd, None, false);
             let _ = UpdateWindow(self.hwnd);
         }
     }
@@ -1364,31 +1638,36 @@ impl CandidateWindow {
         dpi_scale: f32,
         opacity: u32,
     ) {
-        let (screen_l, screen_t, screen_r, screen_b) = Self::get_monitor_work_area(x, y);
-        let min_x = screen_l + 8;
-        let max_x = (screen_r - width - 8).max(min_x);
-        let min_y = screen_t + 8;
-        let max_y = (screen_b - height - 8).max(min_y);
-
-        let final_x = x.clamp(min_x, max_x);
-        let caret_down_y = y + (24.0 * dpi_scale) as i32;
-        let final_y = if caret_down_y + height > screen_b - 12 {
-            (y - height - 8).clamp(min_y, max_y)
-        } else {
-            caret_down_y.clamp(min_y, max_y)
-        };
-
-        if let Ok(mut state) = get_candidate_state().write() {
+        let (resolved_x, resolved_y) = if let Ok(mut state) = get_candidate_state().write() {
             state.candidates = candidates.to_vec();
             state.selected_index = selected;
             state.page_offset = page_start;
             state.is_candidates_only = true;
             state.composition_text.clear();
-            if x > 0 && y > 0 {
+            if x != crate::service::CARET_UNPROBED && y != crate::service::CARET_UNPROBED {
                 state.last_caret_x = x;
                 state.last_caret_y = y;
             }
-        }
+            Self::resolve_valid_caret_or_cursor(&state, x, y)
+        } else if x != crate::service::CARET_UNPROBED && y != crate::service::CARET_UNPROBED {
+            (x, y)
+        } else {
+            (200, 300)
+        };
+
+        let (screen_l, screen_t, screen_r, screen_b) = Self::get_monitor_work_area(resolved_x, resolved_y);
+        let min_x = screen_l + 8;
+        let max_x = (screen_r - width - 8).max(min_x);
+        let min_y = screen_t + 8;
+        let max_y = (screen_b - height - 8).max(min_y);
+
+        let final_x = resolved_x.clamp(min_x, max_x);
+        let caret_down_y = resolved_y + (24.0 * dpi_scale) as i32;
+        let final_y = if caret_down_y + height > screen_b - 12 {
+            (resolved_y - height - 8).clamp(min_y, max_y)
+        } else {
+            caret_down_y.clamp(min_y, max_y)
+        };
 
         unsafe {
             apply_window_opacity(self.hwnd, opacity);
@@ -1398,7 +1677,7 @@ impl CandidateWindow {
                 final_x, final_y, width, height,
                 SWP_NOACTIVATE | SWP_SHOWWINDOW,
             );
-            let _ = InvalidateRect(self.hwnd, None, true);
+            let _ = InvalidateRect(self.hwnd, None, false);
             let _ = UpdateWindow(self.hwnd);
         }
     }
@@ -1414,7 +1693,7 @@ impl CandidateWindow {
             if !is_cands_only {
                 relayout_and_repaint_window(self.hwnd);
             } else {
-                let _ = InvalidateRect(self.hwnd, None, true);
+                let _ = InvalidateRect(self.hwnd, None, false);
             }
         }
     }
@@ -1431,7 +1710,7 @@ impl CandidateWindow {
             if !is_cands_only {
                 relayout_and_repaint_window(self.hwnd);
             } else {
-                let _ = InvalidateRect(self.hwnd, None, true);
+                let _ = InvalidateRect(self.hwnd, None, false);
             }
         }
     }
@@ -1579,7 +1858,7 @@ pub unsafe fn relayout_and_repaint_window(hwnd: HWND) {
             SWP_NOACTIVATE,
         );
     }
-    let _ = InvalidateRect(hwnd, None, true);
+    let _ = InvalidateRect(hwnd, None, false);
     let _ = UpdateWindow(hwnd);
 }
 
@@ -2274,7 +2553,6 @@ unsafe fn draw_shift_down_quick_switcher_bar(
     accent_blue: COLORREF,
     ink_secondary: COLORREF,
     border_brush: HBRUSH,
-    font_name: &[u16],
 ) -> Vec<(RECT, String)> {
     let mut buttons = Vec::new();
     let pills = [
@@ -2296,22 +2574,7 @@ unsafe fn draw_shift_down_quick_switcher_bar(
     let start_x = (bar_rect.right - total_pills_w - (6.0 * dpi_scale) as i32).max(bar_rect.left + lbl_w);
 
     let pill_font_h = -(12.5 * dpi_scale).round() as i32;
-    let pill_font = CreateFontW(
-        pill_font_h,
-        0,
-        0,
-        0,
-        FW_BOLD.0 as i32,
-        0,
-        0,
-        0,
-        DEFAULT_CHARSET.0 as u32,
-        OUT_DEFAULT_PRECIS.0 as u32,
-        CLIP_DEFAULT_PRECIS.0 as u32,
-        CLEARTYPE_QUALITY.0 as u32,
-        DEFAULT_PITCH.0 as u32,
-        PCWSTR(font_name.as_ptr()),
-    );
+    let pill_font = cached_gdi_font(pill_font_h, true);
     let old_f = SelectObject(mem_dc, pill_font);
 
     // 繪製前導提示「⇄跨查」
@@ -2328,8 +2591,8 @@ unsafe fn draw_shift_down_quick_switcher_bar(
         DrawTextW(mem_dc, &mut lbl_wide, &mut lr, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
     }
 
-    let bg_norm_brush = CreateSolidBrush(bg_comp);
-    let bg_act_brush = CreateSolidBrush(accent_blue);
+    let bg_norm_brush = cached_gdi_brush(bg_comp);
+    let bg_act_brush = cached_gdi_brush(accent_blue);
     let bar_h = (bar_rect.bottom - bar_rect.top).max(18);
     let btn_h = (20.0 * dpi_scale).round().min((bar_h - 2) as f32).max(16.0) as i32;
     let top_y = bar_rect.top + (bar_h - btn_h) / 2;
@@ -2360,10 +2623,7 @@ unsafe fn draw_shift_down_quick_switcher_bar(
         cur_x += btn_w + gap;
     }
 
-    let _ = DeleteObject(bg_norm_brush);
-    let _ = DeleteObject(bg_act_brush);
     SelectObject(mem_dc, old_f);
-    let _ = DeleteObject(pill_font);
     buttons
 }
 
@@ -2374,7 +2634,6 @@ unsafe fn draw_quick_edit_pill(
     dpi_scale: f32,
     border_color: COLORREF,
     text_color: COLORREF,
-    font_name: &[u16],
 ) -> (RECT, RECT) {
     let btn_text_px = CandidateWindow::measure_gdi_text_px(btn_label, 12.0 * dpi_scale);
     let btn_w = btn_text_px + (16.0 * dpi_scale) as i32;
@@ -2389,28 +2648,17 @@ unsafe fn draw_quick_edit_pill(
         bottom: btn_top + btn_h,
     };
 
-    let btn_brush = CreateSolidBrush(border_color);
+    let btn_brush = cached_gdi_brush(border_color);
     FrameRect(mem_dc, &btn_rect, btn_brush);
-    let _ = DeleteObject(btn_brush);
 
     let btn_font_h = -(12.0 * dpi_scale).round() as i32;
-    let btn_font = CreateFontW(
-        btn_font_h, 0, 0, 0,
-        FW_NORMAL.0 as i32, 0, 0, 0,
-        DEFAULT_CHARSET.0 as u32,
-        OUT_DEFAULT_PRECIS.0 as u32,
-        CLIP_DEFAULT_PRECIS.0 as u32,
-        CLEARTYPE_QUALITY.0 as u32,
-        DEFAULT_PITCH.0 as u32,
-        PCWSTR(font_name.as_ptr()),
-    );
+    let btn_font = cached_gdi_font(btn_font_h, false);
     let old_f = SelectObject(mem_dc, btn_font);
     SetTextColor(mem_dc, text_color);
     let mut wide_label: Vec<u16> = btn_label.encode_utf16().chain(Some(0)).collect();
     let mut draw_btn_rect = btn_rect;
     DrawTextW(mem_dc, &mut wide_label, &mut draw_btn_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     SelectObject(mem_dc, old_f);
-    let _ = DeleteObject(btn_font);
 
     let text_rect = RECT {
         left: row_rect.left,
@@ -2479,15 +2727,13 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
     };
 
     // 1. 填滿整體底色 (bg_main) 與外圍細緻邊框
-    let main_brush = CreateSolidBrush(bg_main);
+    let main_brush = cached_gdi_brush(bg_main);
     FillRect(mem_dc, &rect, main_brush);
-    let _ = DeleteObject(main_brush);
 
-    let border_brush = CreateSolidBrush(border_color);
+    let border_brush = cached_gdi_brush(border_color);
     FrameRect(mem_dc, &rect, border_brush);
 
     SetBkMode(mem_dc, TRANSPARENT);
-    let font_name: Vec<u16> = "Microsoft JhengHei UI".encode_utf16().chain(Some(0)).collect();
     let mut recorded_shift_down_buttons: Vec<(RECT, String)> = Vec::new();
     let mut recorded_quick_edit_rect: RECT = RECT::default();
 
@@ -2503,31 +2749,13 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
         let item_font_h = (state.candidate_font_size * 0.9 * state.dpi_scale).clamp(13.0 * state.dpi_scale, 68.0 * state.dpi_scale);
         let font_height = -(item_font_h).round() as i32;
-        let font = CreateFontW(
-            font_height, 0, 0, 0,
-            FW_NORMAL.0 as i32, 0, 0, 0,
-            DEFAULT_CHARSET.0 as u32,
-            OUT_DEFAULT_PRECIS.0 as u32,
-            CLIP_DEFAULT_PRECIS.0 as u32,
-            CLEARTYPE_QUALITY.0 as u32,
-            DEFAULT_PITCH.0 as u32,
-            PCWSTR(font_name.as_ptr()),
-        );
+        let font = cached_gdi_font(font_height, false);
         let old_font = SelectObject(mem_dc, font);
 
         if state.candidates.is_empty() && has_coach {
             // 純行列 30 即時反查教練浮動小卡
             let coach_font_h = -(15.0 * state.dpi_scale).round() as i32;
-            let coach_font = CreateFontW(
-                coach_font_h, 0, 0, 0,
-                FW_NORMAL.0 as i32, 0, 0, 0,
-                DEFAULT_CHARSET.0 as u32,
-                OUT_DEFAULT_PRECIS.0 as u32,
-                CLIP_DEFAULT_PRECIS.0 as u32,
-                CLEARTYPE_QUALITY.0 as u32,
-                DEFAULT_PITCH.0 as u32,
-                PCWSTR(font_name.as_ptr()),
-            );
+            let coach_font = cached_gdi_font(coach_font_h, false);
             let old_cf = SelectObject(mem_dc, coach_font);
             SetTextColor(mem_dc, accent_commit);
             let mut coach_wide: Vec<u16> = state.array30_coach_hint.encode_utf16().chain(Some(0)).collect();
@@ -2545,14 +2773,12 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                     state.dpi_scale,
                     border_color,
                     accent_commit,
-                    &font_name,
                 );
                 recorded_quick_edit_rect = btn_rect;
                 coach_rect = avail_rect;
             }
             DrawTextW(mem_dc, &mut coach_wide, &mut coach_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SelectObject(mem_dc, old_cf);
-            let _ = DeleteObject(coach_font);
         } else if state.orientation == "vertical" {
             // ── 直向微軟新注音候選清單 ──
             let pad_x = (10.0 * state.dpi_scale) as i32;
@@ -2573,9 +2799,8 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                         right: width - 4,
                         bottom: item_bottom - 1,
                     };
-                    let sel_brush = CreateSolidBrush(accent_blue);
+                    let sel_brush = cached_gdi_brush(accent_blue);
                     FillRect(mem_dc, &sel_rect, sel_brush);
-                    let _ = DeleteObject(sel_brush);
                 }
 
                 let idx = i - page_start;
@@ -2609,9 +2834,8 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             if total_pages > 1 {
                 let footer_y = height - coach_h - (20.0 * state.dpi_scale) as i32;
                 let sep_rect = RECT { left: 8, top: footer_y - 2, right: width - 8, bottom: footer_y - 1 };
-                let sep_brush = CreateSolidBrush(border_color);
+                let sep_brush = cached_gdi_brush(border_color);
                 FillRect(mem_dc, &sep_rect, sep_brush);
-                let _ = DeleteObject(sep_brush);
 
                 SetTextColor(mem_dc, ink_muted);
                 let page_str = format!("{}/{} ▾", cur_page + 1, total_pages);
@@ -2645,9 +2869,8 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                         right: cur_x + item_w,
                         bottom: pad_y + item_h,
                     };
-                    let sel_brush = CreateSolidBrush(accent_blue);
+                    let sel_brush = cached_gdi_brush(accent_blue);
                     FillRect(mem_dc, &sel_rect, sel_brush);
-                    let _ = DeleteObject(sel_brush);
                 }
 
                 let key_label = state.format_key_label(idx);
@@ -2713,7 +2936,6 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                     accent_blue,
                     ink_secondary,
                     border_brush,
-                    &font_name,
                 );
             }
         }
@@ -2736,28 +2958,17 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 accent_blue,
                 ink_secondary,
                 border_brush,
-                &font_name,
             );
         }
 
         if !state.candidates.is_empty() && has_coach {
             let coach_top = height - coach_h;
             let sep_rect = RECT { left: 8, top: coach_top, right: width - 8, bottom: coach_top + 1 };
-            let sep_brush = CreateSolidBrush(border_color);
+            let sep_brush = cached_gdi_brush(border_color);
             FillRect(mem_dc, &sep_rect, sep_brush);
-            let _ = DeleteObject(sep_brush);
 
             let coach_font_h = -(14.5 * state.dpi_scale).round() as i32;
-            let coach_font = CreateFontW(
-                coach_font_h, 0, 0, 0,
-                FW_NORMAL.0 as i32, 0, 0, 0,
-                DEFAULT_CHARSET.0 as u32,
-                OUT_DEFAULT_PRECIS.0 as u32,
-                CLIP_DEFAULT_PRECIS.0 as u32,
-                CLEARTYPE_QUALITY.0 as u32,
-                DEFAULT_PITCH.0 as u32,
-                PCWSTR(font_name.as_ptr()),
-            );
+            let coach_font = cached_gdi_font(coach_font_h, false);
             let old_cf = SelectObject(mem_dc, coach_font);
             SetTextColor(mem_dc, accent_commit);
             let mut coach_wide: Vec<u16> = state.array30_coach_hint.encode_utf16().chain(Some(0)).collect();
@@ -2775,18 +2986,15 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                     state.dpi_scale,
                     border_color,
                     accent_commit,
-                    &font_name,
                 );
                 recorded_quick_edit_rect = btn_rect;
                 coach_rect = avail_rect;
             }
             DrawTextW(mem_dc, &mut coach_wide, &mut coach_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SelectObject(mem_dc, old_cf);
-            let _ = DeleteObject(coach_font);
         }
 
         SelectObject(mem_dc, old_font);
-        let _ = DeleteObject(font);
     } else {
         // 【如喜輸入座 (RuhI Input Desk) — 支援多行自動換行、獨立候選字級與內嵌即時調校列】
         let pad_x = (8.0 * state.dpi_scale) as i32;
@@ -2808,28 +3016,18 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         };
 
         // 1. 組字卡片 (Composition Zone) — 底色 bg_comp，超過單行最大字數時自動換行擴展
-        let comp_brush = CreateSolidBrush(bg_comp);
+        let comp_brush = cached_gdi_brush(bg_comp);
         FillRect(mem_dc, &comp_rect, comp_brush);
-        let _ = DeleteObject(comp_brush);
         FrameRect(mem_dc, &comp_rect, border_brush);
 
         // 組字字體：字級宏大、典雅翠玉綠 (accent_commit #34D399)
         let comp_font_h = -(font_h).round() as i32;
-        let comp_font = CreateFontW(
-            comp_font_h, 0, 0, 0,
-            FW_NORMAL.0 as i32, 0, 0, 0,
-            DEFAULT_CHARSET.0 as u32,
-            OUT_DEFAULT_PRECIS.0 as u32,
-            CLIP_DEFAULT_PRECIS.0 as u32,
-            CLEARTYPE_QUALITY.0 as u32,
-            DEFAULT_PITCH.0 as u32,
-            PCWSTR(font_name.as_ptr()),
-        );
+        let comp_font = cached_gdi_font(comp_font_h, false);
         let old_f = SelectObject(mem_dc, comp_font);
 
         let cur = state.cursor_pos.min(comp_chars.len());
-        let sel_bg_brush = CreateSolidBrush(accent_blue);
-        let cursor_brush = CreateSolidBrush(accent_commit);
+        let sel_bg_brush = cached_gdi_brush(accent_blue);
+        let cursor_brush = cached_gdi_brush(accent_commit);
 
         let base_left_x = comp_rect.left + (12.0 * state.dpi_scale) as i32;
         let base_top_y = comp_rect.top + (6.0 * state.dpi_scale) as i32;
@@ -2918,10 +3116,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             FillRect(mem_dc, &caret_r, cursor_brush);
         }
 
-        let _ = DeleteObject(sel_bg_brush);
-        let _ = DeleteObject(cursor_brush);
         SelectObject(mem_dc, old_f);
-        let _ = DeleteObject(comp_font);
 
         cur_y = comp_rect.bottom + (4.0 * state.dpi_scale) as i32;
 
@@ -2948,22 +3143,12 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 bottom: cur_y + cand_card_h,
             };
 
-            let cand_brush = CreateSolidBrush(bg_cand);
+            let cand_brush = cached_gdi_brush(bg_cand);
             FillRect(mem_dc, &cand_rect, cand_brush);
-            let _ = DeleteObject(cand_brush);
             FrameRect(mem_dc, &cand_rect, border_brush);
 
             let cand_font_h = -(cand_font_px).round() as i32;
-            let cand_font = CreateFontW(
-                cand_font_h, 0, 0, 0,
-                FW_NORMAL.0 as i32, 0, 0, 0,
-                DEFAULT_CHARSET.0 as u32,
-                OUT_DEFAULT_PRECIS.0 as u32,
-                CLIP_DEFAULT_PRECIS.0 as u32,
-                CLEARTYPE_QUALITY.0 as u32,
-                DEFAULT_PITCH.0 as u32,
-                PCWSTR(font_name.as_ptr()),
-            );
+            let cand_font = cached_gdi_font(cand_font_h, false);
             let old_f2 = SelectObject(mem_dc, cand_font);
 
             let left_start_x = cand_rect.left + (12.0 * state.dpi_scale) as i32;
@@ -2986,9 +3171,8 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                     bottom: row_bottom,
                 };
                 if is_sel {
-                    let sel_b = CreateSolidBrush(accent_blue);
+                    let sel_b = cached_gdi_brush(accent_blue);
                     FillRect(mem_dc, &item_bg, sel_b);
-                    let _ = DeleteObject(sel_b);
                     SetTextColor(mem_dc, COLORREF(0x00FFFFFF));
                 } else {
                     SetTextColor(mem_dc, ink_primary);
@@ -3002,7 +3186,6 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             }
 
             SelectObject(mem_dc, old_f2);
-            let _ = DeleteObject(cand_font);
 
             if state.is_shift_down_popup {
                 let bar_rect = RECT {
@@ -3021,7 +3204,6 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                     accent_blue,
                     ink_secondary,
                     border_brush,
-                    &font_name,
                 );
             }
 
@@ -3038,22 +3220,12 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 bottom: cur_y + coach_card_h,
             };
 
-            let coach_bg = CreateSolidBrush(bg_cand);
+            let coach_bg = cached_gdi_brush(bg_cand);
             FillRect(mem_dc, &coach_rect, coach_bg);
-            let _ = DeleteObject(coach_bg);
             FrameRect(mem_dc, &coach_rect, border_brush);
 
             let coach_font_h = -(14.5 * state.dpi_scale).round() as i32;
-            let coach_font = CreateFontW(
-                coach_font_h, 0, 0, 0,
-                FW_NORMAL.0 as i32, 0, 0, 0,
-                DEFAULT_CHARSET.0 as u32,
-                OUT_DEFAULT_PRECIS.0 as u32,
-                CLIP_DEFAULT_PRECIS.0 as u32,
-                CLEARTYPE_QUALITY.0 as u32,
-                DEFAULT_PITCH.0 as u32,
-                PCWSTR(font_name.as_ptr()),
-            );
+            let coach_font = cached_gdi_font(coach_font_h, false);
             let old_fc = SelectObject(mem_dc, coach_font);
             SetTextColor(mem_dc, accent_commit);
             let mut coach_wide: Vec<u16> = state.array30_coach_hint.encode_utf16().chain(Some(0)).collect();
@@ -3071,14 +3243,12 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                     state.dpi_scale,
                     border_color,
                     accent_commit,
-                    &font_name,
                 );
                 recorded_quick_edit_rect = btn_rect;
                 coach_text_rect.right = avail_rect.right;
             }
             DrawTextW(mem_dc, &mut coach_wide, &mut coach_text_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SelectObject(mem_dc, old_fc);
-            let _ = DeleteObject(coach_font);
 
             cur_y = coach_rect.bottom + (4.0 * state.dpi_scale) as i32;
         }
@@ -3093,22 +3263,12 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 right: width - pad_x,
                 bottom: cur_y + tuner_h,
             };
-            let tuner_bg = CreateSolidBrush(bg_cand);
+            let tuner_bg = cached_gdi_brush(bg_cand);
             FillRect(mem_dc, &tuner_rect, tuner_bg);
-            let _ = DeleteObject(tuner_bg);
             FrameRect(mem_dc, &tuner_rect, border_brush);
 
             let tune_font_h = -(13.0 * state.dpi_scale).round() as i32;
-            let tune_font = CreateFontW(
-                tune_font_h, 0, 0, 0,
-                FW_NORMAL.0 as i32, 0, 0, 0,
-                DEFAULT_CHARSET.0 as u32,
-                OUT_DEFAULT_PRECIS.0 as u32,
-                CLIP_DEFAULT_PRECIS.0 as u32,
-                CLEARTYPE_QUALITY.0 as u32,
-                DEFAULT_PITCH.0 as u32,
-                PCWSTR(font_name.as_ptr()),
-            );
+            let tune_font = cached_gdi_font(tune_font_h, false);
             let old_ft = SelectObject(mem_dc, tune_font);
 
             let groups: [(String, UiTuneAction, UiTuneAction); 5] = [
@@ -3173,7 +3333,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
             let mut tx = tuner_rect.left + (8.0 * state.dpi_scale) as i32;
             let btn_w = (19.0 * state.dpi_scale) as i32;
             let btn_pad_y = (3.0 * state.dpi_scale) as i32;
-            let btn_bg_brush = CreateSolidBrush(bg_comp);
+            let btn_bg_brush = cached_gdi_brush(bg_comp);
 
             for (label, act_down, act_up) in groups.iter() {
                 SetTextColor(mem_dc, ink_secondary);
@@ -3224,9 +3384,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 tx = r_plus.right + (10.0 * state.dpi_scale) as i32;
             }
 
-            let _ = DeleteObject(btn_bg_brush);
             SelectObject(mem_dc, old_ft);
-            let _ = DeleteObject(tune_font);
 
             cur_y = tuner_rect.bottom + (4.0 * state.dpi_scale) as i32;
         }
@@ -3241,16 +3399,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         };
 
         let status_font_h = -(14.5 * state.dpi_scale).round() as i32;
-        let status_font = CreateFontW(
-            status_font_h, 0, 0, 0,
-            FW_NORMAL.0 as i32, 0, 0, 0,
-            DEFAULT_CHARSET.0 as u32,
-            OUT_DEFAULT_PRECIS.0 as u32,
-            CLIP_DEFAULT_PRECIS.0 as u32,
-            CLEARTYPE_QUALITY.0 as u32,
-            DEFAULT_PITCH.0 as u32,
-            PCWSTR(font_name.as_ptr()),
-        );
+        let status_font = cached_gdi_font(status_font_h, false);
         let old_f3 = SelectObject(mem_dc, status_font);
 
         // 左側：淡墨色狀態提示（支援多行與多頁翻頁狀態提示）
@@ -3417,15 +3566,12 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         DrawTextW(mem_dc, &mut mode_text, &mut mode_rect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
 
         SelectObject(mem_dc, old_f3);
-        let _ = DeleteObject(status_font);
     }
 
     if let Ok(mut st) = get_candidate_state().write() {
         st.shift_down_mode_buttons = recorded_shift_down_buttons;
         st.quick_edit_rect = recorded_quick_edit_rect;
     }
-
-    let _ = DeleteObject(border_brush);
 
     // 複製到視窗 DC
     let _ = BitBlt(hdc, 0, 0, width, height, mem_dc, 0, 0, SRCCOPY);
@@ -3551,6 +3697,7 @@ pub fn save_shift_down_mode(mode: &str) {
     }
 
     crate::service::invalidate_config_cache();
+    broadcast_tray_update();
 }
 
 pub fn save_capslock_switch_mode(capslock_switch: &str) {
@@ -3799,7 +3946,7 @@ fn show_mode_toast_on_current_thread(mode_code: &str, pt_opt: Option<POINT>) {
                             h,
                             SWP_NOACTIVATE | SWP_SHOWWINDOW,
                         );
-                        let _ = InvalidateRect(found, None, true);
+                        let _ = InvalidateRect(found, None, false);
                         let _ = SetTimer(found, TIMER_HIDE_TOAST, 1200, None);
                     } else {
                         relayout_and_repaint_window(found);
@@ -3979,55 +4126,56 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 let _ = AppendMenuW(hmenu, en_flags, 2006, PCWSTR(en_wide.as_ptr()));
             }
 
-            let (cur_badge, _) = get_mode_badge_and_name(&latest_cfg.keyboard_mode, false);
-            let last_code = if latest_cfg.last_keyboard_mode.eq_ignore_ascii_case(&latest_cfg.keyboard_mode) {
-                if is_en_active {
-                    normalized_enabled
-                        .iter()
-                        .find(|m| m.as_str() != "english")
-                        .map(|s| s.as_str())
-                        .unwrap_or("hsu")
-                } else {
-                    "english"
-                }
-            } else {
-                latest_cfg.last_keyboard_mode.as_str()
-            };
-            let (last_badge, _) = get_mode_badge_and_name(last_code, false);
+            let (cur_badge, _) = get_mode_badge_and_name_i18n(&latest_cfg.keyboard_mode, false, menu_ui_lang);
+            let last_code_opt = resolve_mru_toggle_target(
+                &latest_cfg.keyboard_mode,
+                &latest_cfg.last_keyboard_mode,
+                &normalized_enabled,
+            );
 
             let has_multiple_modes = normalized_enabled.is_empty() || normalized_enabled.len() >= 2;
             if !is_direct_en_caps && !is_none_caps && has_multiple_modes {
-                let mru_label = match menu_ui_lang {
-                    "en-US" => format!("Quick Toggle Last Two Modes ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
-                    "ja-JP" => format!("直近 2 モードの高速切替 ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
-                    "ko-KR" => format!("최근 두 입력 모드 빠른 전환 ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
-                    _ => format!("最後兩種輸入模式快速切換 ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
-                };
-                let mru_wide: Vec<u16> = mru_label.encode_utf16().chain(Some(0)).collect();
-                let _ = AppendMenuW(hmenu, MF_STRING, 2008, PCWSTR(mru_wide.as_ptr()));
+                if let Some(ref last_code) = last_code_opt {
+                    let (last_badge, _) = get_mode_badge_and_name_i18n(last_code, false, menu_ui_lang);
+                    let mru_label = match menu_ui_lang {
+                        "en-US" => format!("Quick Toggle Last Two Modes ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
+                        "ja-JP" => format!("直近 2 モードの高速切替 ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
+                        "ko-KR" => format!("최근 두 입력 모드 빠른 전환 ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
+                        _ => format!("最後兩種輸入模式快速切換 ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
+                    };
+                    let mru_wide: Vec<u16> = mru_label.encode_utf16().chain(Some(0)).collect();
+                    let _ = AppendMenuW(hmenu, MF_STRING, 2008, PCWSTR(mru_wide.as_ptr()));
+                }
             }
 
             // CapsLock 按鍵功能快速設定子選單 (2011 / 2012 / 2014)
             if let Ok(caps_cfg_menu) = CreatePopupMenu() {
+                let mru_pair_suffix = last_code_opt
+                    .as_deref()
+                    .map(|lc| {
+                        let (lb, _) = get_mode_badge_and_name_i18n(lc, false, menu_ui_lang);
+                        format!(" ({} ⇄ {})", cur_badge, lb)
+                    })
+                    .unwrap_or_default();
                 let (opt_direct_str, opt_mru_str, opt_none_str) = match menu_ui_lang {
                     "en-US" => (
                         "Pan-European / Roman (EU)\tCapsLock direct to EU mode".to_string(),
-                        format!("Quick Toggle Last Two Modes ({} ⇄ {})\tCapsLock toggle", cur_badge, last_badge),
+                        format!("Quick Toggle Last Two Modes{}\tCapsLock toggle", mru_pair_suffix),
                         "Passthrough OS CapsLock\tNo mode switch (ideal for single-mode)".to_string(),
                     ),
                     "ja-JP" => (
                         "汎欧州／ローマ字モード (欧)\tCapsLock 単押しで直行".to_string(),
-                        format!("直近 2 モードの高速切替 ({} ⇄ {})\tCapsLock 単押しで切替", cur_badge, last_badge),
+                        format!("直近 2 モードの高速切替{}\tCapsLock 単押しで切替", mru_pair_suffix),
                         "システム標準 CapsLock のみ\tモード切替無効（単一モード推奨）".to_string(),
                     ),
                     "ko-KR" => (
                         "범유럽 / 로마자 모드 (EU)\tCapsLock 단독으로 직행".to_string(),
-                        format!("최근 두 입력 모드 빠른 전환 ({} ⇄ {})\tCapsLock 단독 전환", cur_badge, last_badge),
+                        format!("최근 두 입력 모드 빠른 전환{}\tCapsLock 단독 전환", mru_pair_suffix),
                         "시스템 기본 CapsLock 유지\t전환 안 함 (단일 모드 권장)".to_string(),
                     ),
                     _ => (
                         "泛歐／羅馬字模式 (歐)\t單按 CapsLock 直通泛歐模式".to_string(),
-                        format!("最後兩種輸入模式快速切換 ({} ⇄ {})\t單按 CapsLock 對切", cur_badge, last_badge),
+                        format!("最後兩種輸入模式快速切換{}\t單按 CapsLock 對切", mru_pair_suffix),
                         "不接管／還原系統原生大寫鎖定 CapsLock（單一模式推薦）".to_string(),
                     ),
                 };
@@ -4206,7 +4354,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                     crate::service::trigger_synthetic_caps_toggle();
                 }
                 if !cur_thread_cw.0.is_null() {
-                    let _ = InvalidateRect(cur_thread_cw, None, true);
+                    let _ = InvalidateRect(cur_thread_cw, None, false);
                 }
             } else if cmd_id == 2011 {
                 save_capslock_switch_mode("english_direct");
@@ -4235,7 +4383,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 }
                 broadcast_tray_update();
                 if !cur_thread_cw.0.is_null() {
-                    let _ = InvalidateRect(cur_thread_cw, None, true);
+                    let _ = InvalidateRect(cur_thread_cw, None, false);
                 }
             } else if cmd_id == 3001 {
                 toggle_ui_tuner_bar_global();
@@ -4621,8 +4769,21 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
             WM_DPICHANGED => {
                 let dpi = (wparam.0 & 0xFFFF) as f32;
                 if let Ok(mut state) = get_candidate_state().write() {
-                    state.dpi_scale = dpi / 96.0;
+                    state.dpi_scale = (dpi / 96.0).max(0.5);
                 }
+                if lparam.0 != 0 {
+                    let suggested = &*(lparam.0 as *const RECT);
+                    let _ = SetWindowPos(
+                        hwnd,
+                        HWND_TOPMOST,
+                        suggested.left,
+                        suggested.top,
+                        suggested.right - suggested.left,
+                        suggested.bottom - suggested.top,
+                        SWP_NOACTIVATE | SWP_NOZORDER,
+                    );
+                }
+                relayout_and_repaint_window(hwnd);
                 LRESULT(0)
             }
             _ => DefWindowProcW(hwnd, msg, wparam, lparam),
@@ -4630,4 +4791,91 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
     });
 
     result.unwrap_or_else(|_| DefWindowProcW(hwnd, msg, wparam, lparam))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolve_mru_toggle_target_no_phantom_hsu_fallback() {
+        let single_cj = vec!["cangjie".to_string()];
+        assert_eq!(resolve_mru_toggle_target("cangjie", "hsu", &single_cj), None);
+
+        let jp_ko = vec!["japanese".to_string(), "korean".to_string()];
+        assert_eq!(
+            resolve_mru_toggle_target("japanese", "hsu", &jp_ko),
+            Some("english".to_string())
+        );
+        assert_eq!(
+            resolve_mru_toggle_target("english", "hsu", &jp_ko),
+            Some("japanese".to_string())
+        );
+        assert_eq!(
+            resolve_mru_toggle_target("korean", "japanese", &jp_ko),
+            Some("japanese".to_string())
+        );
+    }
+
+    #[test]
+    fn test_compute_desk_geometry_negative_caret_and_tuner_height() {
+        let state = CandidateState {
+            candidates: Vec::new(),
+            selected_index: 0,
+            page_offset: 0,
+            page_size: 9,
+            quick_key_mode: "asdf".to_string(),
+            is_dark_theme: false,
+            dpi_scale: 1.0,
+            input_display_mode: "floating_follow".to_string(),
+            is_candidates_only: false,
+            orientation: "horizontal".to_string(),
+            composition_text: "測試".to_string(),
+            cursor_pos: 0,
+            pending_syllable: String::new(),
+            is_cand_selecting: false,
+            target_char_idx: 0,
+            target_range: (0, 0),
+            selection_range: (0, 0),
+            is_caps_on: false,
+            font_size: 32.0,
+            candidate_font_size: 24.0,
+            desk_opacity: 95,
+            fixed_x: 350,
+            fixed_y: 550,
+            last_caret_x: crate::service::CARET_UNPROBED,
+            last_caret_y: crate::service::CARET_UNPROBED,
+            keyboard_mode: "hsu".to_string(),
+            enabled_keyboard_modes: vec!["hsu".to_string()],
+            gear_rect: RECT::default(),
+            mode_rect: RECT::default(),
+            ui_tune_toggle_rect: RECT::default(),
+            show_ui_tuner_bar: true,
+            ui_tune_buttons: Vec::new(),
+            max_composition_chars: 30,
+            enable_array30_coach: false,
+            array30_coach_hint: String::new(),
+            is_array30_live_preview: false,
+            force_num_labels: false,
+            force_asdf_labels: false,
+            is_shift_down_popup: false,
+            shift_down_mode: "longkan".to_string(),
+            shift_down_mode_buttons: Vec::new(),
+            ui_lang: "auto".to_string(),
+            is_fullwidth: false,
+            quick_edit_kind: String::new(),
+            quick_edit_rect: RECT::default(),
+        };
+
+        assert_eq!(CandidateWindow::resolve_valid_caret_or_cursor(&state, -1280, -340), (-1280, -340));
+        assert_eq!(CandidateWindow::resolve_valid_caret_or_cursor(&state, 0, 0), (0, 0));
+
+        let (_fx, _fy, w, h) = CandidateWindow::compute_desk_geometry(&state, -1280, -340);
+        assert!(w > 0 && h > 0);
+
+        let mut no_tuner = state.clone();
+        no_tuner.show_ui_tuner_bar = false;
+        let (_, _, _, h_no_tuner) = CandidateWindow::compute_desk_geometry(&no_tuner, 350, 550);
+        assert!(h > h_no_tuner);
+    }
 }

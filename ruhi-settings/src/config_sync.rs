@@ -140,6 +140,31 @@ pub struct KeyboardSettings {
     pub halfwidth_punct_mode: String,
     #[serde(default = "default_tab_key_mode")]
     pub tab_key_mode: String,
+    #[serde(default = "default_western_languages")]
+    pub western_languages: Vec<String>,
+}
+
+pub const SUPPORTED_WESTERN_LANGUAGES: [&str; 5] = ["en", "fr", "de", "es", "sa_am"];
+
+pub fn default_western_languages() -> Vec<String> {
+    vec!["en".to_string()]
+}
+
+pub fn normalize_western_languages(langs: &[String]) -> Vec<String> {
+    let mut normalized = Vec::new();
+    for item in langs {
+        let low = item.trim().to_ascii_lowercase();
+        if SUPPORTED_WESTERN_LANGUAGES.contains(&low.as_str())
+            && !normalized.iter().any(|existing: &String| existing == &low)
+        {
+            normalized.push(low);
+        }
+    }
+    if normalized.is_empty() {
+        default_western_languages()
+    } else {
+        normalized
+    }
 }
 
 fn default_shift_space_toggle_fullwidth() -> bool {
@@ -217,6 +242,7 @@ impl Default for KeyboardSettings {
             shift_space_toggle_fullwidth: true,
             halfwidth_punct_mode: "fullwidth".to_string(),
             tab_key_mode: "associative".to_string(),
+            western_languages: default_western_languages(),
         }
     }
 }
@@ -682,6 +708,14 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
                 settings.keyboard.tab_key_mode = trimmed.to_string();
             }
         }
+        if let Some(arr) = kb.get("western_languages").and_then(Value::as_array) {
+            let parsed: Vec<String> = arr
+                .iter()
+                .filter_map(Value::as_str)
+                .map(|s| s.to_string())
+                .collect();
+            settings.keyboard.western_languages = normalize_western_languages(&parsed);
+        }
     }
 
     if let Some(gr) = val.get("grammar").and_then(Value::as_object) {
@@ -851,6 +885,14 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
             settings.keyboard.enable_mixed_english = v;
         }
     }
+    if let Some(arr) = map.get("western_languages").and_then(Value::as_array) {
+        let parsed: Vec<String> = arr
+            .iter()
+            .filter_map(Value::as_str)
+            .map(|s| s.to_string())
+            .collect();
+        settings.keyboard.western_languages = normalize_western_languages(&parsed);
+    }
     if let Some(v) = map.get("four_corner_keymap").and_then(Value::as_str) {
         settings.keyboard.four_corner_keymap = v.to_string();
     }
@@ -894,6 +936,8 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
 
 /// 確保目前預設鍵盤模式一定包含在 `enabled_keyboard_modes` 清單中
 pub fn ensure_keyboard_modes_consistent(settings: &mut RuhiSettings) {
+    settings.keyboard.western_languages =
+        normalize_western_languages(&settings.keyboard.western_languages);
     if settings.keyboard.enabled_keyboard_modes.is_empty() {
         settings
             .keyboard
@@ -1115,6 +1159,10 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             "mixed_typing_modes".to_string(),
             json!(settings.keyboard.mixed_typing_modes),
         );
+        map.insert(
+            "western_languages".to_string(),
+            json!(settings.keyboard.western_languages),
+        );
         map.remove("ollama_model");
         map.insert(
             "telemetry_consent".to_string(),
@@ -1234,5 +1282,78 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_western_languages_default_backward_compat_and_roundtrip() {
+        // 1. Default must be ["en"] and NEVER include "sa_am" by default.
+        let def = RuhiSettings::default();
+        assert_eq!(def.keyboard.western_languages, vec!["en".to_string()]);
+        assert!(!def.keyboard.western_languages.iter().any(|x| x == "sa_am"));
+
+        // 2. Legacy settings JSON missing `western_languages` falls back cleanly to ["en"].
+        let tmp_dir = std::env::temp_dir().join(format!(
+            "ruhi_cfg_western_test_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        let _ = fs::create_dir_all(&tmp_dir);
+        fs::write(
+            tmp_dir.join("settings_config.json"),
+            r#"{"keyboard":{"layout":"hsu","enabled_keyboard_modes":["hsu"]}}"#,
+        )
+        .unwrap();
+        fs::write(
+            tmp_dir.join("config.json"),
+            r#"{"keyboard_mode":"hsu","enabled_keyboard_modes":["hsu"]}"#,
+        )
+        .unwrap();
+
+        let loaded_legacy = load_settings(&tmp_dir);
+        assert_eq!(loaded_legacy.keyboard.western_languages, vec!["en".to_string()]);
+
+        // 3. Multi-select normalization + round-trip via settings_config.json and config.json.
+        let mut updated = loaded_legacy;
+        updated.keyboard.western_languages = vec![
+            "EN".to_string(),
+            "fr".to_string(),
+            "sa_am".to_string(),
+            "en".to_string(),
+            "invalid_code".to_string(),
+        ];
+        save_settings(&tmp_dir, &mut updated).unwrap();
+        assert_eq!(
+            updated.keyboard.western_languages,
+            vec!["en".to_string(), "fr".to_string(), "sa_am".to_string()]
+        );
+
+        let reloaded = load_settings(&tmp_dir);
+        assert_eq!(
+            reloaded.keyboard.western_languages,
+            vec!["en".to_string(), "fr".to_string(), "sa_am".to_string()]
+        );
+
+        // 4. Verify installer example templates default to ["en"] without "sa_am".
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let cfg_ex: Value = serde_json::from_str(
+            &fs::read_to_string(root.join("installer/config.example.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(cfg_ex.get("western_languages"), Some(&json!(["en"])));
+        let set_ex: Value = serde_json::from_str(
+            &fs::read_to_string(root.join("installer/settings_config.example.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            set_ex
+                .get("keyboard")
+                .and_then(|k| k.get("western_languages")),
+            Some(&json!(["en"]))
+        );
+
+        let _ = fs::remove_dir_all(&tmp_dir);
     }
 }

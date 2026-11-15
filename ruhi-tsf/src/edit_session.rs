@@ -9,6 +9,8 @@ pub enum EditSessionAction {
         cursor_pos: usize,
         selection: Option<(usize, usize)>,
         is_commit: bool,
+        expected_edit_gen: u64,
+        expected_focus_gen: u64,
     },
     ProbeCaret,
     ProbeInputScope {
@@ -129,7 +131,23 @@ impl RuhiEditSession {
 
     fn do_edit_session_inner(&self, ec: u32) -> Result<()> {
         match &self.action {
-            EditSessionAction::UpdateComposition { text, cursor_pos, selection, is_commit } => {
+            EditSessionAction::UpdateComposition {
+                text,
+                cursor_pos,
+                selection,
+                is_commit,
+                expected_edit_gen,
+                expected_focus_gen,
+            } => {
+                let holder_ptr = Arc::as_ptr(&self.composition_holder) as usize;
+                if !crate::service::is_composition_epoch_valid(
+                    holder_ptr,
+                    *expected_edit_gen,
+                    *expected_focus_gen,
+                    *is_commit,
+                ) {
+                    return Ok(());
+                }
                 let nl_kind = crate::service::context_host_newline_kind(&self.context);
                 let normalized_text: String;
                 let effective_text: &str = if *is_commit && (text.contains('\n') || text.contains('\r')) {
@@ -191,7 +209,7 @@ impl RuhiEditSession {
                     // 行內組字模式 (inline_underline)
                     // 1. Ensure active composition exists (釋放鎖後再執行後續操作，避免回調死鎖)
                     let active_comp = {
-                        let mut comp_lock = self.composition_holder.lock().unwrap();
+                        let mut comp_lock = self.composition_holder.lock().unwrap_or_else(|e| e.into_inner());
                         if comp_lock.is_none() {
                             let mut selections = [TF_SELECTION::default(); 1];
                             let mut fetched = 0u32;
@@ -376,7 +394,7 @@ impl RuhiEditSession {
             }
             EditSessionAction::ProbeCaret => {
                 // 純只讀探測光標坐標，零副作用，絕不在宿主環境創建空白 Composition
-                let comp_opt = self.composition_holder.lock().unwrap().clone();
+                let comp_opt = self.composition_holder.lock().unwrap_or_else(|e| e.into_inner()).clone();
                 let probed_range = if let Some(comp) = comp_opt.as_ref() {
                     unsafe { comp.GetRange().ok() }
                 } else {
@@ -500,7 +518,7 @@ impl RuhiEditSession {
             }
             EditSessionAction::EndComposition => {
                 let comp_to_end = {
-                    let mut comp_lock = self.composition_holder.lock().unwrap();
+                    let mut comp_lock = self.composition_holder.lock().unwrap_or_else(|e| e.into_inner());
                     comp_lock.take()
                 };
                 if let Some(comp) = comp_to_end {

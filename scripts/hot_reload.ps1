@@ -272,6 +272,9 @@ public class RuhiLiveBridge {
     public static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
 
     [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool VirtualFreeEx(IntPtr hProcess, IntPtr lpAddress, UIntPtr dwSize, uint dwFreeType);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, uint nSize, out IntPtr lpNumberOfBytesWritten);
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -294,6 +297,28 @@ public class RuhiLiveBridge {
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr LoadLibraryW(string lpLibFileName);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool FreeLibrary(IntPtr hModule);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate ulong RuhiAbiLayoutHashDelegate();
+
+    public static ulong GetAbiLayoutHash(string dllPath) {
+        if (string.IsNullOrEmpty(dllPath)) return 0;
+        IntPtr hMod = LoadLibraryW(dllPath);
+        if (hMod == IntPtr.Zero) return 0;
+        try {
+            IntPtr pFn = GetProcAddress(hMod, "ruhi_tsf_abi_layout_hash");
+            if (pFn == IntPtr.Zero) return 0;
+            var fn = (RuhiAbiLayoutHashDelegate)Marshal.GetDelegateForFunctionPointer(pFn, typeof(RuhiAbiLayoutHashDelegate));
+            return fn();
+        } catch {
+            return 0;
+        } finally {
+            FreeLibrary(hMod);
+        }
+    }
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr FindWindowExW(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
@@ -339,21 +364,31 @@ public class RuhiLiveBridge {
     public static bool BridgeOldModuleInProcess(int pid, IntPtr oldBase, int oldExportOffset, string newDllPath, int newExportOffset) {
         IntPtr hProc = OpenProcess(0x0002 | 0x0008 | 0x0010 | 0x0020 | 0x0400, false, pid);
         if (hProc == IntPtr.Zero) return false;
+        IntPtr remoteMem = IntPtr.Zero;
+        bool safeToFreeRemote = false;
         try {
             IntPtr hKernel32 = GetModuleHandleW("kernel32.dll");
             IntPtr pLoadLib = GetProcAddress(hKernel32, "LoadLibraryW");
             byte[] pathBytes = System.Text.Encoding.Unicode.GetBytes(newDllPath + "\0");
-            IntPtr remoteMem = VirtualAllocEx(hProc, IntPtr.Zero, (uint)pathBytes.Length, 0x1000 | 0x2000, 0x04);
+            remoteMem = VirtualAllocEx(hProc, IntPtr.Zero, (uint)pathBytes.Length, 0x1000 | 0x2000, 0x04);
             if (remoteMem == IntPtr.Zero) return false;
+            safeToFreeRemote = true;
             IntPtr written;
             if (!WriteProcessMemory(hProc, remoteMem, pathBytes, (uint)pathBytes.Length, out written)) return false;
             uint tid;
             IntPtr hThread = CreateRemoteThread(hProc, IntPtr.Zero, 0, pLoadLib, remoteMem, 0, out tid);
             if (hThread == IntPtr.Zero) return false;
-            WaitForSingleObject(hThread, 3000);
+            uint waitRes = WaitForSingleObject(hThread, 3000);
             CloseHandle(hThread);
+            if (waitRes != 0) {
+                safeToFreeRemote = false;
+                return false;
+            }
             return true;
         } finally {
+            if (safeToFreeRemote && remoteMem != IntPtr.Zero) {
+                VirtualFreeEx(hProc, remoteMem, UIntPtr.Zero, 0x8000);
+            }
             CloseHandle(hProc);
         }
     }
@@ -583,29 +618,50 @@ public class RuhiLiveBridge {
         [RuhiLiveBridge]::PurgeLegacyTrayIcons()
 
         if (Test-Path $versionedDll) {
+            $newAbiHash = [RuhiLiveBridge]::GetAbiLayoutHash($versionedDll)
             $hLocalNew = [RuhiLiveBridge]::LoadLibraryW($versionedDll)
             $pLocalGetClass = [RuhiLiveBridge]::GetProcAddress($hLocalNew, "DllGetClassObject")
             $newExportRva = [int]($pLocalGetClass.ToInt64() - $hLocalNew.ToInt64())
+            if ($hLocalNew -ne [IntPtr]::Zero) {
+                [RuhiLiveBridge]::FreeLibrary($hLocalNew) | Out-Null
+            }
 
-            $curSession = (Get-Process -Id $PID).SessionId
-            $versionedLeaf = Split-Path -Leaf $versionedDll
-            Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $curSession -and $_.Id -ne $PID } | ForEach-Object {
-                $proc = $_
-                try {
-                    $oldMods = @($proc.Modules | Where-Object { $_.ModuleName -like "ruhi_tsf*.dll" -and $_.ModuleName -ne $versionedLeaf })
-                    if ($oldMods.Count -gt 0) {
-                        [RuhiLiveBridge]::BridgeOldModuleInProcess($proc.Id, $oldMods[0].BaseAddress, 0, $versionedDll, $newExportRva) | Out-Null
-                        $proc.Refresh()
-                        $newMod = $proc.Modules | Where-Object { $_.ModuleName -eq $versionedLeaf } | Select-Object -First 1
-                        if ($newMod) {
-                            $newAddr = [IntPtr]($newMod.BaseAddress.ToInt64() + $newExportRva)
+            if ($newAbiHash -eq 0) {
+                Write-Host "  [警告] 新建置 DLL 缺少 ruhi_tsf_abi_layout_hash 驗證匯出，略過跨程序虛擬函式表熱修補；新開啟應用程式將自動載入新版。" -ForegroundColor Yellow
+            } else {
+                $curSession = (Get-Process -Id $PID).SessionId
+                $versionedLeaf = Split-Path -Leaf $versionedDll
+                Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $curSession -and $_.Id -ne $PID } | ForEach-Object {
+                    $proc = $_
+                    try {
+                        $oldMods = @($proc.Modules | Where-Object { $_.ModuleName -like "ruhi_tsf*.dll" -and $_.ModuleName -ne $versionedLeaf })
+                        if ($oldMods.Count -gt 0) {
+                            $compatibleMods = @()
                             foreach ($om in $oldMods) {
-                                [RuhiLiveBridge]::PatchModuleDllGetClassObject($proc.Id, $om.BaseAddress, $newAddr) | Out-Null
-                                [RuhiLiveBridge]::PatchModuleVtables($proc.Id, $om.BaseAddress, $newMod.BaseAddress) | Out-Null
+                                $oldHash = [RuhiLiveBridge]::GetAbiLayoutHash($om.FileName)
+                                if ($oldHash -eq $newAbiHash) {
+                                    $compatibleMods += $om
+                                } else {
+                                    Write-Host ("  [警告] 程序 {0} (PID={1}) 所載入之舊版 {2} ABI 雜湊不相符 (old={3}, new={4})，為確保記憶體安全已略過熱修補，請重新啟動該應用程式。" -f $proc.ProcessName, $proc.Id, $om.ModuleName, $oldHash, $newAbiHash) -ForegroundColor Yellow
+                                }
+                            }
+                            if ($compatibleMods.Count -gt 0) {
+                                $bridged = [RuhiLiveBridge]::BridgeOldModuleInProcess($proc.Id, $compatibleMods[0].BaseAddress, 0, $versionedDll, $newExportRva)
+                                if ($bridged) {
+                                    $proc.Refresh()
+                                    $newMod = $proc.Modules | Where-Object { $_.ModuleName -eq $versionedLeaf } | Select-Object -First 1
+                                    if ($newMod) {
+                                        $newAddr = [IntPtr]($newMod.BaseAddress.ToInt64() + $newExportRva)
+                                        foreach ($om in $compatibleMods) {
+                                            [RuhiLiveBridge]::PatchModuleDllGetClassObject($proc.Id, $om.BaseAddress, $newAddr) | Out-Null
+                                            [RuhiLiveBridge]::PatchModuleVtables($proc.Id, $om.BaseAddress, $newMod.BaseAddress) | Out-Null
+                                        }
+                                    }
+                                }
                             }
                         }
-                    }
-                } catch {}
+                    } catch {}
+                }
             }
         }
 

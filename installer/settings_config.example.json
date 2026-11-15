@@ -35,7 +35,10 @@
     "punctuation_commit_mode": "C",
     "q_cycle_max": 3,
     "enable_array30_coach": false,
-    "last_keyboard_mode": "english"
+    "last_keyboard_mode": "english",
+    "western_languages": [
+      "en"
+    ]
   },
   "grammar": {
     "enable_all_eight_phases": true,

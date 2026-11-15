@@ -461,6 +461,21 @@ impl RuhiStudioApp {
         Self::new_with_mode(initial_category, None, false)
     }
 
+    pub fn to_shell_i18n_lang(ui_lang: &str) -> &'static str {
+        let low = ui_lang.trim().to_ascii_lowercase();
+        if low == "auto" {
+            "auto"
+        } else if low == "en-us" || low == "en_us" {
+            "en_US"
+        } else if low == "ja-jp" || low == "ja_jp" {
+            "ja_JP"
+        } else if low == "ko-kr" || low == "ko_kr" {
+            "ko_KR"
+        } else {
+            "zh_TW"
+        }
+    }
+
     pub fn effective_ui_lang(&self) -> &'static str {
         let cfg_lang = self.settings.appearance.ui_lang.trim();
         if !cfg_lang.is_empty() && !cfg_lang.eq_ignore_ascii_case("auto") {
@@ -491,6 +506,21 @@ impl RuhiStudioApp {
         let win_title = "RuhI（如喜）輸入法 — 現代化偏好設定中心";
 
         let mut shell = UniversalAppShell::new(app_id, win_title, Some(&root_dir));
+
+        let init_lang = if !settings.appearance.ui_lang.trim().is_empty()
+            && !settings.appearance.ui_lang.trim().eq_ignore_ascii_case("auto")
+        {
+            Self::to_shell_i18n_lang(&settings.appearance.ui_lang)
+        } else if let Some(ref cli_lang) = cli_lang_override {
+            if !cli_lang.trim().is_empty() {
+                Self::to_shell_i18n_lang(cli_lang)
+            } else {
+                "auto"
+            }
+        } else {
+            "auto"
+        };
+        shell.set_language(init_lang);
 
         let theme_pref = ThemePreference::from_code(&settings.appearance.theme);
         shell.set_theme_preference(theme_pref);
@@ -996,6 +1026,9 @@ impl RuhiStudioApp {
                 }
             }
             if lang_changed {
+                self.cli_lang_override = None;
+                let eff = self.effective_ui_lang();
+                self.shell.set_language(Self::to_shell_i18n_lang(eff));
                 self.auto_save_settings_quiet();
             }
             ui.add_space(6.0);
@@ -2353,7 +2386,7 @@ impl RuhiStudioApp {
             ui.add_space(4.0);
             ui.label(
                 egui::RichText::new(
-                    "• 單按「`」（反引號）：顯示「🔖自訂詞庫」，可直接輸入注音頭碼或自訂縮略碼（忘記縮略碼可按 Tab 展開候選清單），完成後自動返回原輸入法。\n• 連按兩下「`」x2：顯示「📋自訂範本」，可直接輸入頭碼或範本縮略碼（忘記縮略碼可按 Tab 展開候選清單，支援 templates.tsv 動態日期與簽名）。\n• 單按「~」（Shift + ` 波浪號）：從當前輸入法切換至下方設定之「持續切換輔助輸入法」，直到再次按下「~」即刻回到原輸入法。\n• 連按兩下「~」x2：立即開啟「🔢 數字快打模式」（輸入數字即時轉中文大小寫與財務大寫金額，支援 20261112 或 2026/11/12 即時轉日期格式）。\n💡 配合 Caps Lock 原有對切功能，設定得當時可在「一種主要輸入法」與「另外兩種輔助輸入法」間瞬時切換！",
+                    "• 單按「`」（反引號）：依下方設定啟動「自訂詞庫」（注音頭碼／縮略碼，忘記縮略碼可按 Tab 展開清單）或指定的臨時單字輸入法，上屏後自動返回原輸入法。\n• 連按兩下「`」x2：顯示「📋自訂範本」，可直接輸入頭碼或範本縮略碼（忘記縮略碼可按 Tab 展開候選清單，支援 templates.tsv 動態日期與簽名）。\n• 單按「~」（Shift + ` 波浪號）：依下方設定直接輸出全形「～」，或切換至指定「持續切換輔助輸入法」，再次按下「~」即刻回到原輸入法。\n• 連按兩下「~」x2：立即開啟「🔢 數字快打模式」（輸入數字即時轉中文大小寫與財務大寫金額，支援 20261112 或 2026/11/12 即時轉日期格式）。\n• 反斜線轉義直出：隨時輸入「\\`」、「\\~」或「\\\\」即可強制直接輸出原符號（含反引號／波浪號／反斜線），不觸發輔助切換與範本。\n💡 配合 Caps Lock 原有對切功能，設定得當時可在「一種主要輸入法」與「另外兩種輔助輸入法」間瞬時切換！",
                 )
                 .color(palette.fg_muted.to_egui()),
             );
@@ -2442,7 +2475,7 @@ impl RuhiStudioApp {
                         }
                     });
                 ui.label(
-                    egui::RichText::new("（預設直接輸出中文全形「～」；若選輔助輸入法則按 `~` 雙向對切，且隨時可用 `Ctrl + ` ` 或 `Ctrl + ~` 直出全形「～」）")
+                    egui::RichText::new("（預設直接輸出中文全形「～」；若選輔助輸入法則按 `~` 雙向對切，且隨時可用反斜線轉義 `\\``、`\\~` 或 `\\\\` 直出原符號／全形「～」）")
                         .color(palette.fg_muted.to_egui()),
                 );
             });
@@ -2461,7 +2494,11 @@ impl RuhiStudioApp {
                     ))
                     .width(240.0)
                     .show_ui(ui, |ui| {
-                        for (code, label) in aux_options {
+                        for (code, label) in aux_options
+                            .iter()
+                            .copied()
+                            .filter(|(code, _)| *code != "user_abbrev")
+                        {
                             if ui
                                 .selectable_value(
                                     &mut self.settings.keyboard.shift_down_mode,
@@ -2850,6 +2887,94 @@ impl RuhiStudioApp {
             }
         });
 
+        ui.add_space(10.0);
+
+        ui.group(|ui| {
+            ui.set_min_width(ui.available_width());
+            ui.heading("泛歐多國語文與學術羅馬拼音掛載（Western Languages & IAST）");
+            ui.add_space(4.0);
+            ui.label(
+                egui::RichText::new(
+                    "依實際需要複選歐文詞庫與學術轉寫語種（設定即時寫入 western_languages；預設僅啟用 English (en)，梵語羅馬拼音 sa_am 預設關閉以免影響一般英數選詞）。",
+                )
+                .size(12.2 * scale)
+                .color(palette.fg_muted.to_egui()),
+            );
+            ui.add_space(6.0);
+
+            let western_options: [(&str, &str, &str); 5] = [
+                (
+                    "en",
+                    "English (en)［預設啟用］",
+                    "標準英文核心詞彙、專有名詞與軟體技術縮寫；作為歐文直通與混打之預設基底語系。",
+                ),
+                (
+                    "fr",
+                    "Français (fr) — 法語",
+                    "啟用法語常用詞彙、重音與變音符號（é/è/ê/à/ç/œ）聯想補完與勘誤支援。",
+                ),
+                (
+                    "de",
+                    "Deutsch (de) — 德語",
+                    "啟用德語詞彙與變音字母（ä/ö/ü/ß）聯想補完與複合詞識別支援。",
+                ),
+                (
+                    "es",
+                    "Español (es) — 西班牙語",
+                    "啟用西班牙語詞彙與 ñ／重音母音（á/é/í/ó/ú/ü）輸入聯想支援。",
+                ),
+                (
+                    "sa_am",
+                    "Ánanda Márga Saṁskṛta 梵語羅馬拼音 (sa_am)［預設關閉］",
+                    "提供 IAST 國際梵語轉寫標音詞庫（ā/ī/ū/ṛ/ṁ/ṅ/ñ/ṭ/ḍ/ṇ/ś/ṣ）與學術專詞支援。",
+                ),
+            ];
+
+            for (idx, (lang_code, title, desc)) in western_options.iter().enumerate() {
+                let mut is_checked = self
+                    .settings
+                    .keyboard
+                    .western_languages
+                    .iter()
+                    .any(|w| w.eq_ignore_ascii_case(lang_code));
+                if two_tier_checkbox(ui, &mut is_checked, title, desc, &palette) {
+                    if is_checked {
+                        if !self
+                            .settings
+                            .keyboard
+                            .western_languages
+                            .iter()
+                            .any(|w| w.eq_ignore_ascii_case(lang_code))
+                        {
+                            self.settings
+                                .keyboard
+                                .western_languages
+                                .push((*lang_code).to_string());
+                        }
+                    } else {
+                        self.settings
+                            .keyboard
+                            .western_languages
+                            .retain(|w| !w.eq_ignore_ascii_case(lang_code));
+                        if self.settings.keyboard.western_languages.is_empty() {
+                            self.settings.keyboard.western_languages.push("en".to_string());
+                            self.shell
+                                .toasts
+                                .info("至少保留 English (en) 作為歐文基礎語系");
+                        }
+                    }
+                    self.settings.keyboard.western_languages =
+                        ruhi_settings::config_sync::normalize_western_languages(
+                            &self.settings.keyboard.western_languages,
+                        );
+                    changed = true;
+                }
+                if idx + 1 < western_options.len() {
+                    ui.add_space(4.0);
+                }
+            }
+        });
+
         if changed {
             self.auto_save_settings_quiet();
         }
@@ -3042,14 +3167,16 @@ impl RuhiStudioApp {
             }
 
             ui.add_space(6.0);
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label("雲端試算表 Webhook 網址：");
+                let field_w = (420.0 * self.shell.ui_scale)
+                    .min((ui.available_width() - 24.0 * self.shell.ui_scale).max(160.0));
                 if ui
                     .add(
                         egui::TextEdit::singleline(
                             &mut self.settings.ai_and_privacy.cloud_sheet_webhook_url,
                         )
-                        .desired_width(420.0 * self.shell.ui_scale),
+                        .desired_width(field_w),
                     )
                     .changed()
                 {
@@ -3176,14 +3303,16 @@ impl RuhiStudioApp {
             }
 
             ui.add_space(6.0);
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label("官方 Tailcat 清單網址：");
+                let field_w = (420.0 * self.shell.ui_scale)
+                    .min((ui.available_width() - 24.0 * self.shell.ui_scale).max(160.0));
                 if ui
                     .add(
                         egui::TextEdit::singleline(
                             &mut self.settings.ai_and_privacy.tailcat_feed_url,
                         )
-                        .desired_width(420.0 * self.shell.ui_scale),
+                        .desired_width(field_w),
                     )
                     .changed()
                 {
@@ -3312,8 +3441,13 @@ impl eframe::App for RuhiStudioApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.shell.begin_frame(ctx);
 
-        // 定期檢查單一實體喚醒訊號 (studio_wakeup.json) 與外部組態變更 (config.json)
-        if self.last_wakeup_check.elapsed() >= std::time::Duration::from_millis(200)
+        // 定期檢查單一實體喚醒訊號 (settings_wakeup.json / studio_wakeup.json) 與外部組態變更 (config.json)
+        // 視窗最小化或未聚焦時拉長輪詢間隔並降低重繪頻率，消除閒置 250ms 連續喚醒耗電。
+        let (is_minimized, is_focused) = ctx.input(|i| {
+            (i.viewport().minimized.unwrap_or(false), i.focused)
+        });
+        let poll_interval_ms = if is_minimized || !is_focused { 1500 } else { 750 };
+        if self.last_wakeup_check.elapsed() >= std::time::Duration::from_millis(poll_interval_ms)
         {
             self.last_wakeup_check = std::time::Instant::now();
             let wakeup_candidates = [
@@ -3376,6 +3510,8 @@ impl eframe::App for RuhiStudioApp {
                     }
                 }
                 self.settings = load_settings(&self.root_dir);
+                let eff = self.effective_ui_lang();
+                self.shell.set_language(Self::to_shell_i18n_lang(eff));
                 ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
                 ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                 ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
@@ -3402,11 +3538,13 @@ impl eframe::App for RuhiStudioApp {
                     if self.last_config_mtime != Some(mtime) {
                         self.last_config_mtime = Some(mtime);
                         self.settings = load_settings(&self.root_dir);
+                        let eff = self.effective_ui_lang();
+                        self.shell.set_language(Self::to_shell_i18n_lang(eff));
                     }
                 }
             }
         }
-        ctx.request_repaint_after(std::time::Duration::from_millis(250));
+        ctx.request_repaint_after(std::time::Duration::from_millis(poll_interval_ms));
 
         // 同步主題變更至 settings.appearance.theme
         let shell_theme_code = self.shell.theme_pref.as_code().to_string();
@@ -3459,100 +3597,38 @@ impl eframe::App for RuhiStudioApp {
 
         // 頂部品牌標頭列
         egui::TopBottomPanel::top("ruhi_studio_top_bar")
-            .exact_height(58.0 * self.shell.ui_scale)
+            .resizable(false)
             .show(ctx, |ui| {
-                ui.horizontal_centered(|ui| {
-                    ui.add_space(8.0);
+                ui.add_space(4.0 * self.shell.ui_scale);
+                ui.horizontal_wrapped(|ui| {
+                    ui.add_space(6.0 * self.shell.ui_scale);
+                    // 詞塊 1：標題與副標題（整體不拆散，視窗收窄時下方控制列依 rud() 自動換行）
                     ui.vertical(|ui| {
-                        ui.add_space(6.0);
                         ui.label(
                             egui::RichText::new(app_title)
                                 .size(17.0 * self.shell.ui_scale)
                                 .strong(),
                         );
                         ui.label(
-                            egui::RichText::new(
-                                app_sub,
-                            )
-                            .size(11.5 * self.shell.ui_scale)
-                            .color(self.shell.palette.fg_muted.to_egui()),
+                            egui::RichText::new(app_sub)
+                                .size(11.5 * self.shell.ui_scale)
+                                .color(self.shell.palette.fg_muted.to_egui()),
                         );
                     });
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add_space(10.0);
-                        let _pct = (self.shell.ui_scale * 100.0).round() as i32;
-                        if ui
-                            .button(zoom_btn_fmt)
-                            .on_hover_text("支援 Ctrl + 滑鼠滾輪 或 Ctrl + +/-/0 即時無段縮放")
-                            .clicked()
-                        {
-                            self.shell.set_ui_scale(1.0);
-                        }
-                        if ui.button(theme_btn_lbl).clicked() {
-                            let next = self
-                                .shell
-                                .theme_pref
-                                .toggle_dark_light(self.shell.palette.is_dark);
-                            self.shell.set_theme_preference(next);
-                            self.settings.appearance.theme = next.as_code().to_string();
-                        }
+                    ui.add_space(10.0 * self.shell.ui_scale);
 
-                        // 頂部標頭列直接語言切換下拉選單（採用各語系母語自稱，防止意外落入陌生語言環境時迷失）
-                        let mut top_lang_changed = false;
-                        let cur_lang_btn_text = match self.settings.appearance.ui_lang.as_str() {
-                            "zh-TW" => "🌐 繁體中文",
-                            "en-US" => "🌐 English",
-                            "ja-JP" => "🌐 日本語",
-                            "ko-KR" => "🌐 한국어",
-                            _ => match cur_ui_lang {
-                                "en-US" => "🌐 Auto (English)",
-                                "ja-JP" => "🌐 Auto (日本語)",
-                                "ko-KR" => "🌐 Auto (한국어)",
-                                _ => "🌐 Auto (繁體中文)",
-                            },
-                        };
-                        egui::ComboBox::from_id_salt("ruhi_top_bar_quick_lang_switcher")
-                            .selected_text(
-                                egui::RichText::new(cur_lang_btn_text)
-                                    .size(13.0 * self.shell.ui_scale)
-                                    .strong(),
-                            )
-                            .width(142.0 * self.shell.ui_scale)
-                            .show_ui(ui, |ui| {
-                                for (code, autonym) in [
-                                    ("auto", "🌐 Auto (自動跟隨 / OS)"),
-                                    ("zh-TW", "🇹🇼 繁體中文 (台灣)"),
-                                    ("en-US", "🇺🇸 English"),
-                                    ("ja-JP", "🇯🇵 日本語"),
-                                    ("ko-KR", "🇰🇷 한국어"),
-                                ] {
-                                    if ui
-                                        .selectable_value(
-                                            &mut self.settings.appearance.ui_lang,
-                                            code.to_string(),
-                                            autonym,
-                                        )
-                                        .changed()
-                                    {
-                                        top_lang_changed = true;
-                                    }
-                                }
-                            })
-                            .response
-                            .on_hover_text(
-                                "一鍵切換顯示語言 / Switch UI Language / 表示言語切替 / 표시 언어 전환",
-                            );
-                        if top_lang_changed {
-                            self.cli_lang_override = None;
-                            self.auto_save_settings_quiet();
-                        }
+                    // 句子：控制元件詞塊流（各 ComboBox 與按鈕單字不折行，不足寬時整顆換行）
+                    ui.scope(|ui| {
+                        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+                        let avail_w = ui.available_width();
 
-                        // 頂部標頭列直接輸入法快速切換下拉選單（無論在哪個設定分頁皆可一鍵切換至龍龕形音或任意輸入法）
+                        // 頂部標頭列直接輸入法快速切換下拉選單
                         let mut top_mode_changed = false;
                         let cur_mode_btn_text = format!(
                             "🎯 {}",
                             Self::mode_code_display_name(&self.settings.keyboard.layout)
                         );
+                        let mode_w = (196.0 * self.shell.ui_scale).min((avail_w - 16.0).max(120.0));
                         egui::ComboBox::from_id_salt("ruhi_top_bar_quick_mode_switcher")
                             .selected_text(
                                 egui::RichText::new(cur_mode_btn_text)
@@ -3560,7 +3636,7 @@ impl eframe::App for RuhiStudioApp {
                                     .strong()
                                     .color(self.shell.palette.accent.to_egui()),
                             )
-                            .width(196.0 * self.shell.ui_scale)
+                            .width(mode_w)
                             .show_ui(ui, |ui| {
                                 for (code, label) in [
                                     ("hsu", "🎵 許氏雙拼注音 (許)"),
@@ -3594,8 +3670,77 @@ impl eframe::App for RuhiStudioApp {
                             self.auto_save_settings_quiet();
                         }
 
+                        // 頂部標頭列直接語言切換下拉選單
+                        let mut top_lang_changed = false;
+                        let cur_lang_btn_text = match self.settings.appearance.ui_lang.as_str() {
+                            "zh-TW" => "🌐 繁體中文",
+                            "en-US" => "🌐 English",
+                            "ja-JP" => "🌐 日本語",
+                            "ko-KR" => "🌐 한국어",
+                            _ => match cur_ui_lang {
+                                "en-US" => "🌐 Auto (English)",
+                                "ja-JP" => "🌐 Auto (日本語)",
+                                "ko-KR" => "🌐 Auto (한국어)",
+                                _ => "🌐 Auto (繁體中文)",
+                            },
+                        };
+                        let lang_w = (142.0 * self.shell.ui_scale).min((avail_w - 16.0).max(110.0));
+                        egui::ComboBox::from_id_salt("ruhi_top_bar_quick_lang_switcher")
+                            .selected_text(
+                                egui::RichText::new(cur_lang_btn_text)
+                                    .size(13.0 * self.shell.ui_scale)
+                                    .strong(),
+                            )
+                            .width(lang_w)
+                            .show_ui(ui, |ui| {
+                                for (code, autonym) in [
+                                    ("auto", "🌐 Auto (自動跟隨 / OS)"),
+                                    ("zh-TW", "🇹🇼 繁體中文 (台灣)"),
+                                    ("en-US", "🇺🇸 English"),
+                                    ("ja-JP", "🇯🇵 日本語"),
+                                    ("ko-KR", "🇰🇷 한국어"),
+                                ] {
+                                    if ui
+                                        .selectable_value(
+                                            &mut self.settings.appearance.ui_lang,
+                                            code.to_string(),
+                                            autonym,
+                                        )
+                                        .changed()
+                                    {
+                                        top_lang_changed = true;
+                                    }
+                                }
+                            })
+                            .response
+                            .on_hover_text(
+                                "一鍵切換顯示語言 / Switch UI Language / 表示言語切替 / 표시 언어 전환",
+                            );
+                        if top_lang_changed {
+                            self.cli_lang_override = None;
+                            let eff = self.effective_ui_lang();
+                            self.shell.set_language(Self::to_shell_i18n_lang(eff));
+                            self.auto_save_settings_quiet();
+                        }
+
+                        if ui.button(theme_btn_lbl).clicked() {
+                            let next = self
+                                .shell
+                                .theme_pref
+                                .toggle_dark_light(self.shell.palette.is_dark);
+                            self.shell.set_theme_preference(next);
+                            self.settings.appearance.theme = next.as_code().to_string();
+                        }
+                        if ui
+                            .button(zoom_btn_fmt)
+                            .on_hover_text("支援 Ctrl + 滑鼠滾輪 或 Ctrl + +/-/0 即時無段縮放")
+                            .clicked()
+                        {
+                            self.shell.set_ui_scale(1.0);
+                        }
                     });
                 });
+                ui.add_space(4.0 * self.shell.ui_scale);
             });
 
         // 底部操作按鈕列
