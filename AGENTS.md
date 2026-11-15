@@ -9,7 +9,7 @@
 1. **嚴禁「單字權重打地鼠（Unigram Weight Whack-a-Mole）」**：
    - 嚴禁為修復特定詞句中的某個選字，而手動調高或調低字典中的單字無上下文先驗權重（如隨意更動 `理/裡`、`視/是`、`月/越`、`久/九`、`牆/強`、`燈/登`、`亮/量`、`向/相/象` 等單字權重）。
 2. **嚴禁將透明句法短語或可因式分解之複合詞預拼塞入詞庫／槽位（No Pre-Concatenated Syntactic Phrases or Unfactorized Compounds）**：
-   - 詞庫（如 [`ruhi_lexicon/data/lexicon_core.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/lexicon_core.tsv) 及個人詞庫 [`user_dict.tsv`](file:///c:/ATGprjs/ruhi/user_dict.tsv)）僅收納不可再由語法規則拆解之詞彙單元，**嚴禁**寫入含結構助詞「的／得／地」之偏正或述補短語（如 `翠綠的山林步道`、`古老的鐵道`）。已全面收斂為標準三欄單一核心詞庫 `lexicon_core.tsv`。
+   - 詞庫（如 [`ruhi_lexicon/data/lexicon_core.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/lexicon_core.tsv) 及個人詞庫 [`user_dict.tsv`](file:///c:/ATGprjs/ruhi/user_dict.tsv)）僅收納不可再由語法規則拆解之詞彙單元，**嚴禁**寫入含結構助詞「的／得／地」之偏正或述補短語（如 `翠綠的山林步道`、`古老的鐵道`）。已全面收斂為標準三欄單一核心詞庫 `lexicon_core.tsv`；**雙份核心詞庫位元組同步鐵律**：[`data/lexicon_core.tsv`](file:///c:/ATGprjs/ruhi/data/lexicon_core.tsv) 與 [`ruhi_lexicon/data/lexicon_core.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/lexicon_core.tsv) 每次修訂後，必須以位元組比對驗證兩者完全一致。
    - [`ruhi_lexicon/data/patterns_user.jsonl`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/patterns_user.jsonl) 與 [`ruhi-core/src/router/constructions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs) 槽位內凡具共享詞根、否定前綴、體標記或補語後綴之組合（如 `圈選/點選/勾選`、`不選/不買`、`忘光/吃光`、`交到/送到`、`流向/奔向/望向`、`路燈/街燈/車燈/夜燈/檯燈`、`燭火/星火/燈火`、`擋不住/攔不住`），**嚴禁**預先拼接塞在同一槽位，**必須全面因式分解為正交語素槽位（Orthogonal Morpheme Slots）**。
 3. **嚴禁暴力硬灌超高分特例與極端權重懲罰**：
    - 嚴禁在詞庫灌入 `2000+` 之極端單詞權重，或在轉移表塞入無上下文之全域負分。
@@ -58,9 +58,22 @@
 
 ## 4. 交付前強制驗證守門清單（Mandatory Verification Gate）
 
-每次修改詞庫、轉移規則或構式陣列後，必須執行並通過以下測試方可交付：
-1. **多維構式同音碰撞零容忍掃描**：
-   - `cargo test --manifest-path c:\ATGprjs\ruhi\ruhi-core\Cargo.toml test_array_collision_audit_and_auto_handover_delivery_261019`
-   - 確保 `unsuppressed_active_collisions_count == 0`（所有跨槽位同音詞皆明確標註 `bifurcation_pairs` 或 `exclude_pairs`）。
-2. **核心引擎構式與黃金測試集驗證**：
-   - 在 [`ruhi-core/src/engine.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 補齊包含衍生正交組合之單元測試，並確認 `cargo test` 100% 通過。
+每次修改詞庫、轉移規則、構式陣列或 TSF 模組後，必須執行並通過以下檢核方可交付：
+1. **規則靜態檢查與雙份詞庫同步驗證**：
+   - `python C:\ATGprjs\ruhi\scripts\lint_scoring_rules.py`：須為 **0 項違規**（單條規則 `|score| <= 35.0`；嚴禁於含 `prev_word`、`prev_clean`、`prev2_word`、`prev3_word`、`rw`、`next_word`、`nw` 之行寫入三字以上中文字面量，且避免將 DAG 節點變數命名為 `rw`/`nw`/`next_word`）。
+   - 若修改 `lexicon_core.tsv`，必須驗證 `data/lexicon_core.tsv` 與 `ruhi_lexicon/data/lexicon_core.tsv` **位元組完全一致**。
+2. **多維構式同音碰撞零容忍與雙套件單元測試**：
+   - `cargo test --release --manifest-path c:\ATGprjs\ruhi\ruhi-core\Cargo.toml --lib`（涵蓋 `test_array_collision_audit_and_auto_handover_delivery_261019` 確保 `unsuppressed_active_collisions_count == 0`，並涵蓋 48 音節無標點長句解碼 `< 55.0 ms` 斷言；維持 `service.rs` `28 + 20 = 48` 音節聯合重估視窗與 `viterbi.rs` `MAX_LOOKBACK = 24`）。
+   - 凡修復任何選詞／字詞優先序問題，必須於 [`ruhi-core/src/engine.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 補齊標準大千與許氏雙鍵盤模式單元測試。
+   - 若涉及 TSF 輸入座／候選座調整，同步執行 `cargo test --manifest-path c:\ATGprjs\ruhi\ruhi-tsf\Cargo.toml`。
+3. **開發集品質閘門（Dev Quality Gate）**：
+   - `cargo run --release --manifest-path c:\ATGprjs\ruhi\ruhi-core\Cargo.toml --bin ruhi_eval -- --set dev --gate`：須判定 **`PASS`** 且總字元錯誤數不退化。**嚴禁讀取、檢索或修改 `ruhi_lexicon/eval/test.tsv` 與 `typing_tw.tsv`**。
+4. **免登出熱重載部署（Hot Reload）**：
+   - 執行 `scripts/hot_reload.ps1` 前，必先通過 Windows PowerShell 5.1 原生語法檢核：`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& { Get-Command -Syntax C:\ATGprjs\ruhi\scripts\hot_reload.ps1 }"`。
+
+---
+
+## 5. 跨世代代理調度與常駐交接入口
+
+- 模型選派一律遵循 [`C:\ATGprjs\AGENTS.md`](file:///c:/ATGprjs/AGENTS.md) 之**能力層級分派與動態查詢規範**（單一獨立子代理使用抽象能力層級參數；多代理協作板先以 `swarm(action: "models", all: true)` 動態查詢當代高速／高性價比模型系列，嚴禁寫死特定世代模型代號或將模型版號鎖死於交接檔名）。
+- 專案最新狀態快照、基準數據、已驗證進度與後續待辦事項，統一維護於常駐交接文件 [`docs/RUHI_HANDOVER_CURRENT.md`](file:///c:/ATGprjs/ruhi/docs/RUHI_HANDOVER_CURRENT.md)。

@@ -222,6 +222,7 @@ pub fn add_user_word_entry(
         }
     }
 
+    let is_new = !user_dict_file.exists();
     let mut file = match OpenOptions::new().create(true).append(true).open(&user_dict_file) {
         Ok(f) => f,
         Err(e) => {
@@ -229,8 +230,14 @@ pub fn add_user_word_entry(
             return false;
         }
     };
+    if is_new {
+        let header = "# RuhI 使用者自建詞庫 (User Custom Lexicon)\n# 格式規範: WORD\tBOPOMOFO\tWEIGHT\tCATEGORY\tNOTE\tHEADCODE\tABBREVIATIONS\n# 說明: 第 6 欄 HEADCODE 自動補上注音頭碼；第 7 欄起可自由輸入多個自訂縮略語（支援以 Tab 或連續空格隔開）\n";
+        let _ = file.write_all(header.as_bytes());
+    }
 
-    let entry_line = format!("{}\t{}\t{}\tuser\tTSF-Selection\n", word, bpmf, weight);
+    let norm_bpm = ruhi::lexicon::LexiconEntry::normalize_bpm(bpmf);
+    let hc = ruhi::lexicon::LexiconEntry::extract_bpm_headcode(&norm_bpm);
+    let entry_line = format!("{}\t{}\t{}\tuser\tTSF-Selection\t{}\n", word, norm_bpm, weight, hc);
     if let Err(e) = file.write_all(entry_line.as_bytes()) {
         logger::log(&format!("Failed to write entry to user_dict: {:?}", e));
         return false;
@@ -238,9 +245,11 @@ pub fn add_user_word_entry(
 
     for sub in &sub_entries {
         if !existing_user_words.contains(&sub.word) && sub.word != word {
+            let norm_sub_bpm = ruhi::lexicon::LexiconEntry::normalize_bpm(&sub.bopomofo);
+            let sub_hc = ruhi::lexicon::LexiconEntry::extract_bpm_headcode(&norm_sub_bpm);
             let sub_line = format!(
-                "{}\t{}\t{}\tuser\t{}\n",
-                sub.word, sub.bopomofo, sub.weight, sub.note
+                "{}\t{}\t{}\tuser\t{}\t{}\n",
+                sub.word, norm_sub_bpm, sub.weight, sub.note, sub_hc
             );
             let _ = file.write_all(sub_line.as_bytes());
             existing_user_words.insert(sub.word.clone());

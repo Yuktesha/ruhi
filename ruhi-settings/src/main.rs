@@ -12,8 +12,9 @@
 
 use atg_lib::prelude::*;
 use ruhi_settings::config_sync::{
-    ensure_keyboard_modes_consistent, load_settings, resolve_data_dir, resolve_ruhi_root,
-    save_settings, resolve_effective_ui_lang, RuhiSettings,
+    ensure_keyboard_modes_consistent, load_settings, mount_single_keyboard_mode_only,
+    resolve_data_dir, resolve_effective_ui_lang, resolve_ruhi_root, save_settings,
+    unmount_keyboard_mode, RuhiSettings,
 };
 use ruhi_settings::telemetry_sync::{TelemetrySyncClient, HeuristicPiiFilter};
 use serde_json::{json, Value};
@@ -1255,6 +1256,7 @@ impl RuhiStudioApp {
     /// 將輸入模式代碼轉為友善顯示名稱
     fn mode_code_display_name(code: &str) -> &'static str {
         match code {
+            "user_abbrev" | "abbrev" | "user_dict" => "🔖 自訂詞庫（頭碼／自訂縮略碼）",
             "hsu" => "許氏雙拼注音 (許)",
             "standard" => "標準大千注音 (注)",
             "et26" => "倚天 26 鍵注音 (倚)",
@@ -1336,6 +1338,7 @@ impl RuhiStudioApp {
                                 ("et26", "倚天 26 鍵注音 (倚)"),
                                 ("japanese", "日文羅馬字 (日)"),
                                 ("korean", "韓文羅馬拼音 (韓)"),
+                                ("english", "英數／歐文直通 (英)"),
                             ] {
                                 if ui
                                     .selectable_value(
@@ -1361,6 +1364,7 @@ impl RuhiStudioApp {
                         ("et26", "倚 倚天26"),
                         ("japanese", "日 日文"),
                         ("korean", "韓 韓文"),
+                        ("english", "英 歐文"),
                     ] {
                         let is_cur = self.settings.keyboard.layout == code;
                         if ui
@@ -1489,20 +1493,26 @@ impl RuhiStudioApp {
                                 changed = true;
                             }
                             ui.add_space(14.0 * scale);
+                            let enabled_count = self.settings.keyboard.enabled_keyboard_modes.len();
                             let mut in_cycle = self
                                 .settings
                                 .keyboard
                                 .enabled_keyboard_modes
                                 .iter()
                                 .any(|m| m == code);
+                            let can_toggle = !in_cycle || enabled_count > 1;
                             if ui
-                                .checkbox(
-                                    &mut in_cycle,
-                                    egui::RichText::new(
-                                        "☑ 納入快速切換迴圈 (Ctrl/Shift+CapsLock)",
-                                    )
-                                    .size(12.5 * scale),
+                                .add_enabled(
+                                    can_toggle,
+                                    egui::Checkbox::new(
+                                        &mut in_cycle,
+                                        egui::RichText::new(
+                                            "☑ 掛載並納入快速切換迴圈 (Ctrl/Shift+CapsLock)",
+                                        )
+                                        .size(12.5 * scale),
+                                    ),
                                 )
+                                .on_disabled_hover_text("至少須保留 1 種已掛載之鍵盤模式；若欲改用其他模式，請先勾選或點擊「僅單獨掛載此模式」。")
                                 .changed()
                             {
                                 if in_cycle {
@@ -1518,13 +1528,34 @@ impl RuhiStudioApp {
                                             .enabled_keyboard_modes
                                             .push(code.to_string());
                                     }
+                                    ensure_keyboard_modes_consistent(&mut self.settings);
                                 } else {
-                                    self.settings
-                                        .keyboard
-                                        .enabled_keyboard_modes
-                                        .retain(|m| m != code);
+                                    let _ = unmount_keyboard_mode(&mut self.settings, code);
                                 }
-                                ensure_keyboard_modes_consistent(&mut self.settings);
+                                changed = true;
+                            }
+                            ui.add_space(10.0 * scale);
+                            let is_sole_mode = enabled_count == 1
+                                && self
+                                    .settings
+                                    .keyboard
+                                    .enabled_keyboard_modes
+                                    .first()
+                                    .map(|m| m == code)
+                                    .unwrap_or(false);
+                            if ui
+                                .add_enabled(
+                                    !is_sole_mode,
+                                    egui::Button::new(if is_sole_mode {
+                                        "🎯 目前為唯一單獨掛載模式"
+                                    } else {
+                                        "🎯 僅單獨掛載此模式"
+                                    }),
+                                )
+                                .on_hover_text("卸載其他所有模式（含許氏注音），僅保留此單一鍵盤模式運作")
+                                .clicked()
+                            {
+                                mount_single_keyboard_mode_only(&mut self.settings, code);
                                 changed = true;
                             }
                         });
@@ -2065,43 +2096,19 @@ impl RuhiStudioApp {
             .default_open(true)
             .show(ui, |ui| {
                 ui.add_space(4.0);
-                egui::Frame::NONE
-                    .fill(palette.bg_surface.to_egui())
-                    .stroke(egui::Stroke::new(1.0_f32, palette.accent.to_egui()))
-                    .corner_radius(egui::CornerRadius::same(6))
-                    .inner_margin(egui::Margin::symmetric(
-                        (10.0 * scale).round() as i8,
-                        (8.0 * scale).round() as i8,
-                    ))
-                    .show(ui, |ui| {
-                        ui.set_min_width(ui.available_width());
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label(
-                                egui::RichText::new("✅ 已實作掛載")
-                                    .size(11.5 * scale)
-                                    .strong()
-                                    .color(palette.accent.to_egui()),
-                            );
-                            ui.label(
-                                egui::RichText::new(
-                                    "［Pan-European ▸ Latin］英數／歐文直通與歐亞智慧混打串流 (Latin Direct & Eurasian Mixed Stream · 英)",
-                                )
-                                .size(13.5 * scale)
-                                .strong(),
-                            );
-                            if ui.button("🔤 前往歐亞智慧混打設定 ▸").clicked() {
-                                self.current_category = StudioCategory::MixedEnglish;
-                            }
-                        });
-                        ui.add_space(3.0);
-                        ui.label(
-                            egui::RichText::new(
-                                "已內建 Caps Lock 單鍵英數直通對切，並針對大千注音、倉頡、四角號碼、行列 30 等正交低重碼模式提供免切換歐亞智慧混打。",
-                            )
-                            .size(12.0 * scale)
-                            .color(palette.fg_muted.to_egui()),
-                        );
-                    });
+                self.render_spectrum_method_node(
+                    ui,
+                    Some("english"),
+                    "英數／歐文直通與歐亞智慧混打串流 (Latin Direct & Eurasian Mixed Stream · 英)",
+                    "Pan-European ▸ Latin ▸ 歐文直通與歐亞混打",
+                    "支援 Tab 鍵智慧聯想、模糊／拼音近似自動勘誤與詞彙補完，可與其他亞洲模式對切，亦可「僅單獨掛載此模式」作為純歐文智慧輸入法使用。",
+                );
+                ui.add_space(4.0);
+                ui.horizontal_wrapped(|ui| {
+                    if ui.button("🔤 前往歐亞智慧混打與 Tab 聯想設定 ▸").clicked() {
+                        self.current_category = StudioCategory::MixedEnglish;
+                    }
+                });
 
                 ui.add_space(6.0);
                 self.render_spectrum_method_node(
@@ -2216,8 +2223,16 @@ impl RuhiStudioApp {
                                 move_top_action = Some(idx);
                             }
                             if ui
-                                .add_enabled(len > 1 && !is_cur_layout, egui::Button::new("✖ 移出"))
-                                .on_hover_text("從循環清單中移出（當前使用中的輸入法需先切換為其他模式方可移出）")
+                                .add_enabled(len > 1, egui::Button::new("🎯 僅留此模式"))
+                                .on_hover_text("卸載其餘所有模式，僅單獨掛載此輸入法")
+                                .clicked()
+                            {
+                                mount_single_keyboard_mode_only(&mut self.settings, &m_code);
+                                cycle_changed = true;
+                            }
+                            if ui
+                                .add_enabled(len > 1, egui::Button::new("✖ 移出"))
+                                .on_hover_text("從已掛載清單中移出（若目前正使用此模式，將自動遞補下一個已掛載模式；至少須保留 1 種模式）")
                                 .clicked()
                             {
                                 remove_action = Some(idx);
@@ -2233,14 +2248,21 @@ impl RuhiStudioApp {
                         self.settings.keyboard.enabled_keyboard_modes.insert(0, item);
                         cycle_changed = true;
                     } else if let Some(idx) = remove_action {
-                        self.settings.keyboard.enabled_keyboard_modes.remove(idx);
-                        ensure_keyboard_modes_consistent(&mut self.settings);
+                        if let Some(removed_code) = self
+                            .settings
+                            .keyboard
+                            .enabled_keyboard_modes
+                            .get(idx)
+                            .cloned()
+                        {
+                            let _ = unmount_keyboard_mode(&mut self.settings, &removed_code);
+                        }
                         cycle_changed = true;
                     }
                 });
 
             ui.add_space(8.0);
-            ui.label(egui::RichText::new("勾選納入循環切換之輸入法（勾選後將加入上方排序清單）：").strong());
+            ui.label(egui::RichText::new("勾選納入循環切換之輸入法（勾選後將加入上方排序清單，任意模式皆可自由卸載或單獨掛載）：").strong());
             ui.add_space(4.0);
 
             let mode_options = [
@@ -2255,6 +2277,7 @@ impl RuhiStudioApp {
                 ("korean", "韓文羅馬拼音輸入 (韓) ［日韓 JK ▸ 韓語族］"),
                 ("english", "英數／歐文直通模式 (英) ［泛歐印歐語系 ▸ 拉丁直通］"),
             ];
+            let enabled_len = self.settings.keyboard.enabled_keyboard_modes.len();
             for (m_code, m_label) in mode_options {
                 let mut enabled = self
                     .settings
@@ -2262,8 +2285,13 @@ impl RuhiStudioApp {
                     .enabled_keyboard_modes
                     .iter()
                     .any(|m| m == m_code);
+                let is_sole_mode = enabled && enabled_len == 1;
                 ui.horizontal_wrapped(|ui| {
-                    if ui.checkbox(&mut enabled, m_label).changed() {
+                    if ui
+                        .add_enabled(!enabled || enabled_len > 1, egui::Checkbox::new(&mut enabled, m_label))
+                        .on_disabled_hover_text("至少須保留 1 種已掛載模式；若欲切換為其他模式，請先勾選目標模式或點擊右側「僅單獨掛載」。")
+                        .changed()
+                    {
                         if enabled {
                             if !self
                                 .settings
@@ -2277,13 +2305,10 @@ impl RuhiStudioApp {
                                     .enabled_keyboard_modes
                                     .push(m_code.to_string());
                             }
+                            ensure_keyboard_modes_consistent(&mut self.settings);
                         } else {
-                            self.settings
-                                .keyboard
-                                .enabled_keyboard_modes
-                                .retain(|m| m != m_code);
+                            let _ = unmount_keyboard_mode(&mut self.settings, m_code);
                         }
-                        ensure_keyboard_modes_consistent(&mut self.settings);
                         cycle_changed = true;
                     }
                     ui.add_space(8.0);
@@ -2296,6 +2321,21 @@ impl RuhiStudioApp {
                         .changed()
                     {
                         ensure_keyboard_modes_consistent(&mut self.settings);
+                        cycle_changed = true;
+                    }
+                    ui.add_space(6.0);
+                    if ui
+                        .add_enabled(
+                            !is_sole_mode,
+                            egui::Button::new(if is_sole_mode {
+                                "🎯 僅此模式"
+                            } else {
+                                "🎯 僅單獨掛載"
+                            }),
+                        )
+                        .clicked()
+                    {
+                        mount_single_keyboard_mode_only(&mut self.settings, m_code);
                         cycle_changed = true;
                     }
                 });
@@ -2313,13 +2353,14 @@ impl RuhiStudioApp {
             ui.add_space(4.0);
             ui.label(
                 egui::RichText::new(
-                    "• 單按「`」（反引號）：從當前輸入法臨時借用下方設定之「單一字／詞輔助輸入法」，輸入單一字或單一詞彙送出後，即刻自動返回當前輸入法。\n• 連按兩下「`」x2：立即開啟「📋 使用者自訂文字範本」（templates.tsv 與常用日期簽名）。\n• 單按「~」（Shift + ` 波浪號）：從當前輸入法切換至下方設定之「持續切換輔助輸入法」，直到再次按下「~」即刻回到原輸入法。\n• 連按兩下「~」x2：立即開啟「🔢 數字快打模式」（輸入數字即時轉中文大小寫與財務大寫金額，支援 20261112 或 2026/11/12 即時轉日期格式）。\n💡 配合 Caps Lock 原有對切功能，設定得當時可在「一種主要輸入法」與「另外兩種輔助輸入法」間瞬時切換！",
+                    "• 單按「`」（反引號）：顯示「🔖自訂詞庫」，可直接輸入注音頭碼或自訂縮略碼（忘記縮略碼可按 Tab 展開候選清單），完成後自動返回原輸入法。\n• 連按兩下「`」x2：顯示「📋自訂範本」，可直接輸入頭碼或範本縮略碼（忘記縮略碼可按 Tab 展開候選清單，支援 templates.tsv 動態日期與簽名）。\n• 單按「~」（Shift + ` 波浪號）：從當前輸入法切換至下方設定之「持續切換輔助輸入法」，直到再次按下「~」即刻回到原輸入法。\n• 連按兩下「~」x2：立即開啟「🔢 數字快打模式」（輸入數字即時轉中文大小寫與財務大寫金額，支援 20261112 或 2026/11/12 即時轉日期格式）。\n💡 配合 Caps Lock 原有對切功能，設定得當時可在「一種主要輸入法」與「另外兩種輔助輸入法」間瞬時切換！",
                 )
                 .color(palette.fg_muted.to_egui()),
             );
             ui.add_space(8.0);
 
             let aux_options = [
+                ("user_abbrev", "🔖 自訂詞庫：頭碼／自訂縮略碼輸入（預設推薦）"),
                 ("longkan", "🐉 龍龕形音 4 碼輸入法 (龍)"),
                 ("hsu", "許氏雙拼注音 (許)"),
                 ("array30", "行列 30 輸入法 (行)"),
@@ -2358,7 +2399,7 @@ impl RuhiStudioApp {
                         }
                     });
                 ui.label(
-                    egui::RichText::new("（輸入單字或按 `-` 打詞送出後即刻返回原輸入法；若與當前輸入法相同則自動退避互切）")
+                    egui::RichText::new("（預設單按 ` 進行自訂詞庫縮略與頭碼輸入，連按 `` 開啟文字範本；完成後即刻返回原輸入法）")
                         .color(palette.fg_muted.to_egui()),
                 );
             });
@@ -2524,6 +2565,16 @@ impl RuhiStudioApp {
                     &mut self.settings.keyboard.capslock_switch,
                     "capital_lock".to_string(),
                     "大寫鎖定相容模式（單按 Caps Lock 切換最後兩種輸入模式，英數模式下支援大寫鎖定）",
+                )
+                .changed()
+            {
+                key_changed = true;
+            }
+            if ui
+                .radio_value(
+                    &mut self.settings.keyboard.capslock_switch,
+                    "none".to_string(),
+                    "不接管（還原系統原生大寫鎖定 Caps Lock／不切換輸入法，推薦單獨掛載一種鍵盤模式時使用）",
                 )
                 .changed()
             {
@@ -3521,6 +3572,7 @@ impl eframe::App for RuhiStudioApp {
                                     ("et26", "⌨ 倚天 26 鍵注音 (倚)"),
                                     ("japanese", "🇯🇵 日文羅馬字 (日)"),
                                     ("korean", "🇰🇷 韓文羅馬拼音 (韓)"),
+                                    ("english", "🔤 英數／歐文直通 (英)"),
                                 ] {
                                     if ui
                                         .selectable_value(

@@ -50,21 +50,97 @@ impl ITfEditSession_Impl for RuhiEditSession_Impl {
 }
 
 impl RuhiEditSession {
+    /// 將 UTF-16 文字寫入目標 `ITfRange`，並確保游標折疊定位於送出段落之正結尾：
+    /// 1. 預先設定 `(TF_GRAVITY_BACKWARD, TF_GRAVITY_FORWARD)`，使空選取區 `[P, P]` 末端錨點隨插入文字自然前推；
+    /// 2. 針對支援 `ITfRangeACP` 之宿主（Windows 11 Notepad `RichEditD2DPT`、RichEdit、Win32 `Edit`），
+    ///    驗證折疊後 ACP 是否精確等於 `start_acp + text_wide.len()`，防止多行 `InsertEOP` 將游標留在段落開頭；
+    /// 3. 若單行控制項截斷換行或字數上限導致 `SetSelection` 回傳錯誤，自動以 `ShiftEnd` 夾限至合法文件尾端重試。
+    unsafe fn commit_into_range_and_collapse_to_end(
+        ec: u32,
+        context: &ITfContext,
+        range: &ITfRange,
+        text_wide: &[u16],
+        nl_kind: crate::service::HostNewlineKind,
+    ) {
+        let range_acp_opt = range.cast::<ITfRangeACP>().ok();
+        let orig_start_acp = range_acp_opt.as_ref().and_then(|r_acp| {
+            let mut acp = 0i32;
+            let mut cch = 0i32;
+            if r_acp.GetExtent(&mut acp, &mut cch).is_ok() {
+                Some(acp)
+            } else {
+                None
+            }
+        });
+
+        let _ = range.SetGravity(ec, TF_GRAVITY_BACKWARD, TF_GRAVITY_FORWARD);
+        let _ = range.SetText(ec, 0, text_wide);
+        let _ = range.Collapse(ec, TF_ANCHOR_END);
+
+        if !text_wide.is_empty() {
+            if let (Some(start_acp), Some(r_acp)) = (orig_start_acp, range_acp_opt.as_ref()) {
+                let expected_end = start_acp.saturating_add(text_wide.len() as i32);
+                let mut cur_acp = 0i32;
+                let mut cur_cch = 0i32;
+                if r_acp.GetExtent(&mut cur_acp, &mut cur_cch).is_ok() {
+                    let exact_acp_host = matches!(
+                        nl_kind,
+                        crate::service::HostNewlineKind::RichEditCr
+                            | crate::service::HostNewlineKind::Win32EditCrlf
+                    );
+                    if (exact_acp_host && (cur_acp != expected_end || cur_cch != 0))
+                        || cur_acp <= start_acp
+                    {
+                        let _ = r_acp.SetExtent(expected_end, 0);
+                    }
+                }
+            }
+        }
+
+        let mut commit_sel = [TF_SELECTION {
+            range: std::mem::ManuallyDrop::new(range.Clone().ok()),
+            style: TF_SELECTIONSTYLE {
+                ase: TF_AE_NONE,
+                fInterimChar: windows::Win32::Foundation::BOOL(0),
+            },
+        }];
+        let sel_res = context.SetSelection(ec, &commit_sel);
+        std::mem::ManuallyDrop::drop(&mut commit_sel[0].range);
+
+        if sel_res.is_err() && !text_wide.is_empty() {
+            if let (Some(start_acp), Some(r_acp)) = (orig_start_acp, range_acp_opt.as_ref()) {
+                if r_acp.SetExtent(start_acp, 0).is_ok() {
+                    let mut shifted = 0i32;
+                    let _ = range.ShiftEnd(ec, text_wide.len() as i32, &mut shifted, std::ptr::null());
+                    let _ = range.Collapse(ec, TF_ANCHOR_END);
+                    let mut fallback_sel = [TF_SELECTION {
+                        range: std::mem::ManuallyDrop::new(range.Clone().ok()),
+                        style: TF_SELECTIONSTYLE {
+                            ase: TF_AE_NONE,
+                            fInterimChar: windows::Win32::Foundation::BOOL(0),
+                        },
+                    }];
+                    let _ = context.SetSelection(ec, &fallback_sel);
+                    std::mem::ManuallyDrop::drop(&mut fallback_sel[0].range);
+                }
+            }
+        }
+    }
+
     fn do_edit_session_inner(&self, ec: u32) -> Result<()> {
         match &self.action {
             EditSessionAction::UpdateComposition { text, cursor_pos, selection, is_commit } => {
+                let nl_kind = crate::service::context_host_newline_kind(&self.context);
                 let normalized_text: String;
-                let effective_text: &str = if *is_commit && text.contains('\n') {
-                    let mut s = String::with_capacity(text.len() + 4);
-                    let mut prev_r = false;
-                    for ch in text.chars() {
-                        if ch == '\n' && !prev_r {
-                            s.push('\r');
-                        }
-                        s.push(ch);
-                        prev_r = ch == '\r';
-                    }
-                    normalized_text = s;
+                let effective_text: &str = if *is_commit && (text.contains('\n') || text.contains('\r')) {
+                    normalized_text = crate::service::normalize_commit_newlines_for_kind(text, nl_kind);
+                    &normalized_text
+                } else if !*is_commit
+                    && nl_kind == crate::service::HostNewlineKind::RichEditCr
+                    && text.contains('\n')
+                    && !text.contains('\r')
+                {
+                    normalized_text = text.replace('\n', "\r");
                     &normalized_text
                 } else {
                     text.as_str()
@@ -80,42 +156,34 @@ impl RuhiEditSession {
                     if let Some(comp) = comp_to_end {
                         unsafe {
                             if let Ok(range) = comp.GetRange() {
-                                let _ = range.SetText(ec, 0, &text_wide);
-                                // 【記事本與 RichEdit 相容修復】：結算上屏後必須將 Range 折疊至末尾並設置游標
-                                // 否則 Notepad 會保留選取狀態，導致使用者鍵入下一字時將剛打好的字直接覆蓋刪除！
-                                let _ = range.Collapse(ec, TF_ANCHOR_END);
-                                let mut selections = [TF_SELECTION {
-                                    range: std::mem::ManuallyDrop::new(range.Clone().ok()),
-                                    style: TF_SELECTIONSTYLE {
-                                        ase: TF_AE_NONE,
-                                        fInterimChar: windows::Win32::Foundation::BOOL(0),
-                                    },
-                                }];
-                                let _ = self.context.SetSelection(ec, &selections);
-                                std::mem::ManuallyDrop::drop(&mut selections[0].range);
+                                Self::commit_into_range_and_collapse_to_end(
+                                    ec,
+                                    &self.context,
+                                    &range,
+                                    &text_wide,
+                                    nl_kind,
+                                );
                             }
                             let _ = comp.EndComposition(ec);
                         }
                     } else {
                         // 直接上屏提交至游標位置（免除創建臨時 Composition，兼容 Modern Notepad 與 AppContainer）
-                        let mut selections = [TF_SELECTION::default(); 1];
-                        let mut fetched = 0u32;
-                        unsafe {
-                            if self.context.GetSelection(ec, TF_DEFAULT_SELECTION, &mut selections, &mut fetched).is_ok() && fetched > 0 {
-                                if let Some(range) = &*selections[0].range {
-                                    let _ = range.SetText(ec, 0, &text_wide);
-                                    let _ = range.Collapse(ec, TF_ANCHOR_END);
-                                    let mut commit_sel = [TF_SELECTION {
-                                        range: std::mem::ManuallyDrop::new(range.Clone().ok()),
-                                        style: TF_SELECTIONSTYLE {
-                                            ase: TF_AE_NONE,
-                                            fInterimChar: windows::Win32::Foundation::BOOL(0),
-                                        },
-                                    }];
-                                    let _ = self.context.SetSelection(ec, &commit_sel);
-                                    std::mem::ManuallyDrop::drop(&mut commit_sel[0].range);
+                        if !text_wide.is_empty() {
+                            let mut selections = [TF_SELECTION::default(); 1];
+                            let mut fetched = 0u32;
+                            unsafe {
+                                if self.context.GetSelection(ec, TF_DEFAULT_SELECTION, &mut selections, &mut fetched).is_ok() && fetched > 0 {
+                                    if let Some(range) = &*selections[0].range {
+                                        Self::commit_into_range_and_collapse_to_end(
+                                            ec,
+                                            &self.context,
+                                            range,
+                                            &text_wide,
+                                            nl_kind,
+                                        );
+                                    }
+                                    std::mem::ManuallyDrop::drop(&mut selections[0].range);
                                 }
-                                std::mem::ManuallyDrop::drop(&mut selections[0].range);
                             }
                         }
                     }

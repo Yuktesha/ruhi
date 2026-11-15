@@ -30,6 +30,34 @@ pub fn current_effective_ui_lang() -> &'static str {
     crate::service::resolve_effective_ui_lang(&cfg_lang)
 }
 
+pub fn quick_edit_button_label(kind: &str, ui_lang: &str) -> Option<&'static str> {
+    match kind {
+        "templates" => {
+            if ui_lang.starts_with("en") {
+                Some("✏️ Edit Templates")
+            } else if ui_lang.starts_with("ja") {
+                Some("✏️ テンプレート編集")
+            } else if ui_lang.starts_with("ko") {
+                Some("✏️ 템플릿 편집")
+            } else {
+                Some("✏️ 編輯範本")
+            }
+        }
+        "user_dict" => {
+            if ui_lang.starts_with("en") {
+                Some("✏️ Edit Lexicon")
+            } else if ui_lang.starts_with("ja") {
+                Some("✏️ ユーザー辞書編集")
+            } else if ui_lang.starts_with("ko") {
+                Some("✏️ 사용자 사전 편집")
+            } else {
+                Some("✏️ 編輯詞庫")
+            }
+        }
+        _ => None,
+    }
+}
+
 pub fn get_mode_badge_and_name_i18n(kb_mode: &str, is_caps: bool, ui_lang: &str) -> (&'static str, &'static str) {
     match ui_lang {
         "en-US" => {
@@ -441,11 +469,55 @@ pub struct CandidateState {
     pub enable_array30_coach: bool,
     pub array30_coach_hint: String,
     pub is_array30_live_preview: bool,
+    pub force_num_labels: bool,
+    pub force_asdf_labels: bool,
     pub is_shift_down_popup: bool,
     pub shift_down_mode: String,
     pub shift_down_mode_buttons: Vec<(RECT, String)>,
     pub ui_lang: String,
     pub is_fullwidth: bool,
+    pub quick_edit_kind: String,
+    pub quick_edit_rect: RECT,
+}
+
+impl CandidateState {
+    pub fn use_ten_digit_labels(&self) -> bool {
+        if self.force_asdf_labels {
+            return false;
+        }
+        let is_fc_mode = matches!(
+            self.keyboard_mode.to_lowercase().as_str(),
+            "four_corner" | "4corner" | "fc"
+        );
+        is_fc_mode || (self.force_num_labels && !self.is_cand_selecting)
+    }
+
+    pub fn effective_page_size(&self) -> usize {
+        if self.use_ten_digit_labels() {
+            10
+        } else {
+            9
+        }
+    }
+
+    pub fn format_key_label(&self, page_offset: usize) -> String {
+        let asdf_keys = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
+        if self.use_ten_digit_labels() {
+            if page_offset == 9 {
+                "0".to_string()
+            } else {
+                (page_offset + 1).to_string()
+            }
+        } else if self.force_asdf_labels || self.quick_key_mode == "asdf" {
+            if page_offset < asdf_keys.len() {
+                asdf_keys[page_offset].to_string()
+            } else {
+                " ".to_string()
+            }
+        } else {
+            (page_offset + 1).to_string()
+        }
+    }
 }
 
 static IS_DRAGGING: AtomicBool = AtomicBool::new(false);
@@ -505,11 +577,15 @@ fn get_candidate_state() -> &'static RwLock<CandidateState> {
             enable_array30_coach: false,
             array30_coach_hint: String::new(),
             is_array30_live_preview: false,
+            force_num_labels: false,
+            force_asdf_labels: false,
             is_shift_down_popup: false,
             shift_down_mode: "longkan".to_string(),
             shift_down_mode_buttons: Vec::new(),
             ui_lang: "auto".to_string(),
             is_fullwidth: false,
+            quick_edit_kind: String::new(),
+            quick_edit_rect: RECT::default(),
         })
     })
 }
@@ -681,9 +757,21 @@ impl CandidateWindow {
     }
 
     pub fn set_coach_hint(&mut self, hint: &str, is_array30_live_preview: bool) {
+        self.set_coach_hint_with_label_mode(hint, is_array30_live_preview, false, false);
+    }
+
+    pub fn set_coach_hint_with_label_mode(
+        &mut self,
+        hint: &str,
+        is_array30_live_preview: bool,
+        force_num_labels: bool,
+        force_asdf_labels: bool,
+    ) {
         if let Ok(mut state) = get_candidate_state().write() {
             state.array30_coach_hint = hint.to_string();
             state.is_array30_live_preview = is_array30_live_preview;
+            state.force_num_labels = force_num_labels;
+            state.force_asdf_labels = force_asdf_labels;
         }
     }
 
@@ -696,6 +784,12 @@ impl CandidateWindow {
             if !is_active {
                 state.shift_down_mode_buttons.clear();
             }
+        }
+    }
+
+    pub fn set_quick_edit_kind(&mut self, kind: &str) {
+        if let Ok(mut state) = get_candidate_state().write() {
+            state.quick_edit_kind = kind.to_string();
         }
     }
 
@@ -737,6 +831,18 @@ impl CandidateWindow {
     /// 以及「總行數、單行最大實際像素寬度、單行漢字上限像素寬度」。
     /// 解決歐文半形字元在固定字元數換算下造成輸入座右側兩倍空白膨脹與提早折行之問題。
     pub fn layout_composition_clusters(comp_chars: &[char], font_px: f32, max_cjk_chars: usize) -> (Vec<(usize, usize, usize, bool, i32)>, usize, i32, i32) {
+        Self::layout_composition_clusters_bounded(comp_chars, font_px, max_cjk_chars, None)
+    }
+
+    /// 以單一漢字（漢字寬度單位）為基準，將組字文字流拆分為字素叢集並計算各叢集之「所在行號、行首布林值、像素寬度」，
+    /// 以及「總行數、單行最大實際像素寬度、單行漢字上限像素寬度」。
+    /// 可傳入 `max_avail_px` 限制單行像素上限，防止超長句時待組注音碼超出可視視窗邊界。
+    pub fn layout_composition_clusters_bounded(
+        comp_chars: &[char],
+        font_px: f32,
+        max_cjk_chars: usize,
+        max_avail_px: Option<i32>,
+    ) -> (Vec<(usize, usize, usize, bool, i32)>, usize, i32, i32) {
         let is_combining = |c: char| -> bool { ('\u{0300}'..='\u{036F}').contains(&c) };
         unsafe {
             let mem_dc = CreateCompatibleDC(HDC::default());
@@ -766,7 +872,10 @@ impl CandidateWindow {
             } else {
                 (font_px * 1.05).round() as i32
             };
-            let max_line_px = (max_cjk_chars.clamp(8, 80) as i32 * cjk_px).max(cjk_px * 6);
+            let mut max_line_px = (max_cjk_chars.clamp(8, 80) as i32 * cjk_px).max(cjk_px * 6);
+            if let Some(cap) = max_avail_px {
+                max_line_px = max_line_px.min(cap.max(cjk_px * 6));
+            }
 
             let mut clusters = Vec::new();
             let mut cur_line = 0usize;
@@ -833,9 +942,6 @@ impl CandidateWindow {
 
     /// 測量當前分頁所有候選項目（如 `"a.候選詞"`）之各自像素寬度與單行總需求寬度
     pub fn measure_page_candidates_px(state: &CandidateState, cand_font_px: f32, page_sz: usize) -> (Vec<(usize, String, i32)>, i32) {
-        let is_fc_mode = matches!(state.keyboard_mode.to_lowercase().as_str(), "four_corner" | "4corner" | "fc");
-        let use_ar30_num_keys = is_fc_mode || (state.is_array30_live_preview && !state.is_cand_selecting);
-        let asdf_keys = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
         let cur_page = state.selected_index / page_sz.max(1);
         let start_idx = cur_page * page_sz;
         let gap_px = (16.0 * state.dpi_scale).round() as i32;
@@ -864,13 +970,7 @@ impl CandidateWindow {
 
             for (page_offset, cand) in state.candidates.iter().skip(start_idx).take(page_sz).enumerate() {
                 let actual_idx = start_idx + page_offset;
-                let key_label = if use_ar30_num_keys {
-                    if page_offset == 9 { "0".to_string() } else { (page_offset + 1).to_string() }
-                } else if state.quick_key_mode == "asdf" {
-                    if page_offset < asdf_keys.len() { asdf_keys[page_offset].to_string() } else { " ".to_string() }
-                } else {
-                    (page_offset + 1).to_string()
-                };
+                let key_label = state.format_key_label(page_offset);
                 let item_str = format!("{}.{}", key_label, cand);
                 let cx = if !mem_dc.0.is_null() {
                     let wide: Vec<u16> = item_str.encode_utf16().collect();
@@ -916,8 +1016,7 @@ impl CandidateWindow {
     pub fn compute_desk_geometry(state: &CandidateState, caret_x: i32, caret_y: i32) -> (i32, i32, i32, i32) {
         let dpi_scale = state.dpi_scale;
         let show_cand_bar = (state.is_cand_selecting || state.is_array30_live_preview) && !state.candidates.is_empty();
-        let is_fc_mode = matches!(state.keyboard_mode.to_lowercase().as_str(), "four_corner" | "4corner" | "fc");
-        let page_sz = if is_fc_mode || (state.is_array30_live_preview && !state.is_cand_selecting) { 10 } else { 9 };
+        let page_sz = state.effective_page_size();
         let font_h = (state.font_size * 0.9 * dpi_scale).clamp(14.0 * dpi_scale, 90.0 * dpi_scale);
         let cand_font_h = (state.candidate_font_size * 0.9 * dpi_scale).clamp(13.0 * dpi_scale, 68.0 * dpi_scale);
 
@@ -928,8 +1027,9 @@ impl CandidateWindow {
 
         let max_line_chars = state.max_composition_chars.clamp(8, 80);
         let comp_chars: Vec<char> = state.composition_text.chars().collect();
+        let comp_avail_px = (screen_avail_w - 64.0 * dpi_scale).max(200.0) as i32;
         let (_clusters, num_lines, max_used_px, max_line_px) =
-            Self::layout_composition_clusters(&comp_chars, font_h, max_line_chars);
+            Self::layout_composition_clusters_bounded(&comp_chars, font_h, max_line_chars, Some(comp_avail_px));
 
         let comp_w = (44.0 * dpi_scale) + (max_used_px as f32);
         let (cand_items, cand_single_row_px) = if show_cand_bar {
@@ -944,7 +1044,13 @@ impl CandidateWindow {
             0.0
         };
         let coach_w = if !state.array30_coach_hint.is_empty() {
-            (Self::measure_gdi_text_px(&state.array30_coach_hint, 14.5 * dpi_scale) as f32) + (40.0 * dpi_scale)
+            let base_w = (Self::measure_gdi_text_px(&state.array30_coach_hint, 14.5 * dpi_scale) as f32) + (40.0 * dpi_scale);
+            if let Some(btn_lbl) = quick_edit_button_label(&state.quick_edit_kind, &state.ui_lang) {
+                let btn_w = (Self::measure_gdi_text_px(btn_lbl, 12.0 * dpi_scale) as f32) + (24.0 * dpi_scale);
+                base_w + btn_w + (16.0 * dpi_scale)
+            } else {
+                base_w
+            }
         } else {
             0.0
         };
@@ -1080,6 +1186,7 @@ impl CandidateWindow {
                 SWP_NOACTIVATE | SWP_SHOWWINDOW,
             );
             let _ = InvalidateRect(self.hwnd, None, true);
+            let _ = UpdateWindow(self.hwnd);
         }
     }
 
@@ -1099,20 +1206,20 @@ impl CandidateWindow {
 
     /// 微軟新注音游標跟隨模式：僅在選字或開啟行列教練提示時彈出輕巧候選浮窗
     pub fn show_candidates_only(&mut self, candidates: &[String], selected: usize, x: i32, y: i32) {
-        let (dpi_scale, cand_font_size, orientation, coach_hint, is_ar30_preview, is_cand_sel, opacity, is_fc_mode, is_shift_down_popup) = if let Ok(s) = get_candidate_state().read() {
+        let (dpi_scale, cand_font_size, orientation, coach_hint, page_sz, opacity, is_shift_down_popup, quick_edit_kind, ui_lang) = if let Ok(s) = get_candidate_state().read() {
             (
                 s.dpi_scale,
                 s.candidate_font_size,
                 s.orientation.clone(),
                 s.array30_coach_hint.clone(),
-                s.is_array30_live_preview,
-                s.is_cand_selecting,
+                s.effective_page_size(),
                 s.desk_opacity,
-                matches!(s.keyboard_mode.to_lowercase().as_str(), "four_corner" | "4corner" | "fc"),
                 s.is_shift_down_popup,
+                s.quick_edit_kind.clone(),
+                s.ui_lang.clone(),
             )
         } else {
-            (1.0, 24.0, "horizontal".to_string(), String::new(), false, false, 95, false, false)
+            (1.0, 24.0, "horizontal".to_string(), String::new(), 9, 95, false, String::new(), "auto".to_string())
         };
 
         if candidates.is_empty() && coach_hint.is_empty() {
@@ -1121,7 +1228,13 @@ impl CandidateWindow {
         }
 
         let coach_w = if !coach_hint.is_empty() {
-            (coach_hint.chars().count() as f32 * 13.5 * dpi_scale) + (36.0 * dpi_scale)
+            let base_w = (coach_hint.chars().count() as f32 * 13.5 * dpi_scale) + (36.0 * dpi_scale);
+            if let Some(btn_lbl) = quick_edit_button_label(&quick_edit_kind, &ui_lang) {
+                let btn_w = (Self::measure_gdi_text_px(btn_lbl, 12.0 * dpi_scale) as f32) + (24.0 * dpi_scale);
+                base_w + btn_w + (16.0 * dpi_scale)
+            } else {
+                base_w
+            }
         } else {
             0.0
         };
@@ -1132,7 +1245,6 @@ impl CandidateWindow {
         };
         let quick_bar_extra_w = if is_shift_down_popup { 296.0 * dpi_scale } else { 0.0 };
 
-        let page_sz = if is_fc_mode || (is_ar30_preview && !is_cand_sel) { 10 } else { 9 };
         let cur_page = selected / page_sz;
         let page_start = cur_page * page_sz;
         let page_end = (page_start + page_sz).min(candidates.len());
@@ -1202,8 +1314,12 @@ impl CandidateWindow {
             state.selection_range = (0, 0);
             state.array30_coach_hint.clear();
             state.is_array30_live_preview = false;
+            state.force_num_labels = false;
+            state.force_asdf_labels = false;
             state.is_shift_down_popup = false;
             state.shift_down_mode_buttons.clear();
+            state.quick_edit_kind.clear();
+            state.quick_edit_rect = RECT::default();
             state.is_candidates_only = true;
         }
         unsafe {
@@ -1226,6 +1342,8 @@ impl CandidateWindow {
             state.is_caps_on = is_caps;
             state.array30_coach_hint = toast;
             state.is_array30_live_preview = false;
+            state.force_num_labels = false;
+            state.force_asdf_labels = false;
             state.is_cand_selecting = false;
         }
         self.show_candidates_only(&[], 0, x, y);
@@ -1281,6 +1399,7 @@ impl CandidateWindow {
                 SWP_NOACTIVATE | SWP_SHOWWINDOW,
             );
             let _ = InvalidateRect(self.hwnd, None, true);
+            let _ = UpdateWindow(self.hwnd);
         }
     }
 
@@ -1461,6 +1580,7 @@ pub unsafe fn relayout_and_repaint_window(hwnd: HWND) {
         );
     }
     let _ = InvalidateRect(hwnd, None, true);
+    let _ = UpdateWindow(hwnd);
 }
 
 pub unsafe fn apply_ui_tune_action(hwnd: HWND, action: UiTuneAction) {
@@ -1753,10 +1873,11 @@ fn launch_or_focus_studio(category: &str, pass_tuner_arg: bool) {
 
 /// 使用 Win32 `CreateProcessW` 並強制指定 `bInheritHandles = FALSE (0)` 啟動獨立子程序，
 /// 徹底阻絕宿主應用程式（例如 `Notepad.exe`）之 `TabState` / `WindowState` 檔案鎖與執行緒控制代碼洩漏至子程序。
-fn spawn_process_no_inherit(
+fn spawn_process_no_inherit_with_flags(
     exe: &std::path::Path,
     args: &[&str],
     work_dir: &std::path::Path,
+    creation_flags: u32,
 ) -> std::result::Result<u32, String> {
     use std::os::windows::ffi::OsStrExt;
 
@@ -1835,9 +1956,6 @@ fn spawn_process_no_inherit(
     si.cb = std::mem::size_of::<StartupInfoW>() as u32;
     let mut pi: ProcessInformation = unsafe { std::mem::zeroed() };
 
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-    const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
-
     let ok = unsafe {
         CreateProcessW(
             app_w.as_ptr(),
@@ -1845,7 +1963,7 @@ fn spawn_process_no_inherit(
             std::ptr::null(),
             std::ptr::null(),
             0, // bInheritHandles = FALSE: 嚴禁繼承任何宿主程序控制代碼
-            CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP,
+            creation_flags,
             std::ptr::null(),
             if work_dir.is_dir() {
                 dir_w.as_ptr()
@@ -1871,6 +1989,27 @@ fn spawn_process_no_inherit(
         }
     }
     Ok(pi.dw_process_id)
+}
+
+pub fn spawn_process_no_inherit(
+    exe: &std::path::Path,
+    args: &[&str],
+    work_dir: &std::path::Path,
+) -> std::result::Result<u32, String> {
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+    spawn_process_no_inherit_with_flags(exe, args, work_dir, CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP)
+}
+
+pub fn launch_quick_edit_file(target_path: &std::path::Path) -> std::result::Result<u32, String> {
+    if is_current_process_elevated() {
+        return Err("Quick-edit blocked: current process is elevated".to_string());
+    }
+    let notepad_exe = std::path::Path::new(r"C:\Windows\System32\notepad.exe");
+    let target_str = target_path.to_string_lossy();
+    let parent_dir = target_path.parent().unwrap_or_else(|| std::path::Path::new("C:\\"));
+    // 傳 0，絕不傳 CREATE_NO_WINDOW，確保 Notepad 視窗正常顯示於桌面
+    spawn_process_no_inherit_with_flags(notepad_exe, &[&target_str], parent_dir, 0)
 }
 
 pub fn launch_settings() {
@@ -2228,6 +2367,60 @@ unsafe fn draw_shift_down_quick_switcher_bar(
     buttons
 }
 
+unsafe fn draw_quick_edit_pill(
+    mem_dc: HDC,
+    row_rect: &RECT,
+    btn_label: &str,
+    dpi_scale: f32,
+    border_color: COLORREF,
+    text_color: COLORREF,
+    font_name: &[u16],
+) -> (RECT, RECT) {
+    let btn_text_px = CandidateWindow::measure_gdi_text_px(btn_label, 12.0 * dpi_scale);
+    let btn_w = btn_text_px + (16.0 * dpi_scale) as i32;
+    let btn_h = (22.0 * dpi_scale).round().clamp(18.0, 26.0) as i32;
+    let btn_top = row_rect.top + ((row_rect.bottom - row_rect.top - btn_h) / 2).max(1);
+    let btn_right = row_rect.right - (4.0 * dpi_scale) as i32;
+    let btn_left = btn_right - btn_w;
+    let btn_rect = RECT {
+        left: btn_left,
+        top: btn_top,
+        right: btn_right,
+        bottom: btn_top + btn_h,
+    };
+
+    let btn_brush = CreateSolidBrush(border_color);
+    FrameRect(mem_dc, &btn_rect, btn_brush);
+    let _ = DeleteObject(btn_brush);
+
+    let btn_font_h = -(12.0 * dpi_scale).round() as i32;
+    let btn_font = CreateFontW(
+        btn_font_h, 0, 0, 0,
+        FW_NORMAL.0 as i32, 0, 0, 0,
+        DEFAULT_CHARSET.0 as u32,
+        OUT_DEFAULT_PRECIS.0 as u32,
+        CLIP_DEFAULT_PRECIS.0 as u32,
+        CLEARTYPE_QUALITY.0 as u32,
+        DEFAULT_PITCH.0 as u32,
+        PCWSTR(font_name.as_ptr()),
+    );
+    let old_f = SelectObject(mem_dc, btn_font);
+    SetTextColor(mem_dc, text_color);
+    let mut wide_label: Vec<u16> = btn_label.encode_utf16().chain(Some(0)).collect();
+    let mut draw_btn_rect = btn_rect;
+    DrawTextW(mem_dc, &mut wide_label, &mut draw_btn_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    SelectObject(mem_dc, old_f);
+    let _ = DeleteObject(btn_font);
+
+    let text_rect = RECT {
+        left: row_rect.left,
+        top: row_rect.top,
+        right: btn_left - (6.0 * dpi_scale) as i32,
+        bottom: row_rect.bottom,
+    };
+    (btn_rect, text_rect)
+}
+
 unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
     let state = if let Ok(s) = get_candidate_state().read() {
         s.clone()
@@ -2296,19 +2489,17 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
     SetBkMode(mem_dc, TRANSPARENT);
     let font_name: Vec<u16> = "Microsoft JhengHei UI".encode_utf16().chain(Some(0)).collect();
     let mut recorded_shift_down_buttons: Vec<(RECT, String)> = Vec::new();
+    let mut recorded_quick_edit_rect: RECT = RECT::default();
 
     // 判斷渲染模式：凡微軟新注音模式或 show_candidates_only，一律以極致微軟新注音輕巧候選卡片呈現
     if state.is_candidates_only || state.input_display_mode == "inline_underline" {
         let has_coach = !state.array30_coach_hint.is_empty();
         let coach_h = if has_coach { (28.0 * state.dpi_scale) as i32 } else { 0 };
-        let is_fc_mode = matches!(state.keyboard_mode.to_lowercase().as_str(), "four_corner" | "4corner" | "fc");
-        let use_ar30_num_keys = is_fc_mode || (state.is_array30_live_preview && !state.is_cand_selecting);
-        let page_sz = if use_ar30_num_keys { 10 } else { 9 };
+        let page_sz = state.effective_page_size();
         let cur_page = state.selected_index / page_sz;
         let page_start = cur_page * page_sz;
         let page_end = (page_start + page_sz).min(state.candidates.len());
         let total_pages = (state.candidates.len() + page_sz - 1) / page_sz.max(1);
-        let asdf_keys = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
 
         let item_font_h = (state.candidate_font_size * 0.9 * state.dpi_scale).clamp(13.0 * state.dpi_scale, 68.0 * state.dpi_scale);
         let font_height = -(item_font_h).round() as i32;
@@ -2346,6 +2537,19 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 right: width - (10.0 * state.dpi_scale) as i32,
                 bottom: height - 2,
             };
+            if let Some(btn_label) = quick_edit_button_label(&state.quick_edit_kind, &state.ui_lang) {
+                let (btn_rect, avail_rect) = draw_quick_edit_pill(
+                    mem_dc,
+                    &coach_rect,
+                    btn_label,
+                    state.dpi_scale,
+                    border_color,
+                    accent_commit,
+                    &font_name,
+                );
+                recorded_quick_edit_rect = btn_rect;
+                coach_rect = avail_rect;
+            }
             DrawTextW(mem_dc, &mut coach_wide, &mut coach_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SelectObject(mem_dc, old_cf);
             let _ = DeleteObject(coach_font);
@@ -2375,13 +2579,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 }
 
                 let idx = i - page_start;
-                let key_label = if use_ar30_num_keys {
-                    if idx == 9 { "0".to_string() } else { (idx + 1).to_string() }
-                } else if state.quick_key_mode == "asdf" {
-                    if idx < asdf_keys.len() { asdf_keys[idx].to_string() } else { " ".to_string() }
-                } else {
-                    (idx + 1).to_string()
-                };
+                let key_label = state.format_key_label(idx);
 
                 // 序號
                 SetTextColor(mem_dc, if is_selected { COLORREF(0x00FFFFFF) } else { accent_num });
@@ -2452,13 +2650,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                     let _ = DeleteObject(sel_brush);
                 }
 
-                let key_label = if use_ar30_num_keys {
-                    if idx == 9 { "0".to_string() } else { (idx + 1).to_string() }
-                } else if state.quick_key_mode == "asdf" {
-                    if idx < asdf_keys.len() { asdf_keys[idx].to_string() } else { " ".to_string() }
-                } else {
-                    (idx + 1).to_string()
-                };
+                let key_label = state.format_key_label(idx);
 
                 // 序號
                 SetTextColor(mem_dc, if is_selected { COLORREF(0x00FFFFFF) } else { accent_num });
@@ -2575,6 +2767,19 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 right: width - (10.0 * state.dpi_scale) as i32,
                 bottom: height - 2,
             };
+            if let Some(btn_label) = quick_edit_button_label(&state.quick_edit_kind, &state.ui_lang) {
+                let (btn_rect, avail_rect) = draw_quick_edit_pill(
+                    mem_dc,
+                    &coach_rect,
+                    btn_label,
+                    state.dpi_scale,
+                    border_color,
+                    accent_commit,
+                    &font_name,
+                );
+                recorded_quick_edit_rect = btn_rect;
+                coach_rect = avail_rect;
+            }
             DrawTextW(mem_dc, &mut coach_wide, &mut coach_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SelectObject(mem_dc, old_cf);
             let _ = DeleteObject(coach_font);
@@ -2590,9 +2795,10 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         let font_h = (state.font_size * 0.9 * state.dpi_scale).clamp(14.0 * state.dpi_scale, 90.0 * state.dpi_scale);
         let max_line_chars = state.max_composition_chars.clamp(8, 80);
         let comp_chars: Vec<char> = state.composition_text.chars().collect();
+        let comp_avail_px = (width - pad_x * 2 - (24.0 * state.dpi_scale) as i32).max(100);
         let (comp_clusters, num_lines, _max_used_px, _max_line_px) =
-            CandidateWindow::layout_composition_clusters(&comp_chars, font_h, max_line_chars);
-            let line_step_h = (font_h + 10.0 * state.dpi_scale).round() as i32;
+            CandidateWindow::layout_composition_clusters_bounded(&comp_chars, font_h, max_line_chars, Some(comp_avail_px));
+        let line_step_h = (font_h + 10.0 * state.dpi_scale).round() as i32;
         let comp_card_h = (num_lines as i32 * line_step_h) + (12.0 * state.dpi_scale) as i32;
         let comp_rect = RECT {
             left: pad_x,
@@ -2721,9 +2927,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
         // 2. 候選欄 (Candidate Panel) — 底色 bg_cand，候選字體大小獨立受 candidate_font_size 控制
         let show_cand_panel = (state.is_cand_selecting || state.is_array30_live_preview) && !state.candidates.is_empty();
-        let is_fc_mode = matches!(state.keyboard_mode.to_lowercase().as_str(), "four_corner" | "4corner" | "fc");
-        let use_ar30_num_keys = is_fc_mode || (state.is_array30_live_preview && !state.is_cand_selecting);
-        let page_sz = if use_ar30_num_keys { 10 } else { 9 };
+        let page_sz = state.effective_page_size();
 
         if show_cand_panel {
             let cand_font_px = (state.candidate_font_size * 0.9 * state.dpi_scale).clamp(13.0 * state.dpi_scale, 68.0 * state.dpi_scale);
@@ -2859,6 +3063,19 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
                 right: coach_rect.right - (8.0 * state.dpi_scale) as i32,
                 bottom: coach_rect.bottom,
             };
+            if let Some(btn_label) = quick_edit_button_label(&state.quick_edit_kind, &state.ui_lang) {
+                let (btn_rect, avail_rect) = draw_quick_edit_pill(
+                    mem_dc,
+                    &coach_rect,
+                    btn_label,
+                    state.dpi_scale,
+                    border_color,
+                    accent_commit,
+                    &font_name,
+                );
+                recorded_quick_edit_rect = btn_rect;
+                coach_text_rect.right = avail_rect.right;
+            }
             DrawTextW(mem_dc, &mut coach_wide, &mut coach_text_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SelectObject(mem_dc, old_fc);
             let _ = DeleteObject(coach_font);
@@ -3205,6 +3422,7 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
 
     if let Ok(mut st) = get_candidate_state().write() {
         st.shift_down_mode_buttons = recorded_shift_down_buttons;
+        st.quick_edit_rect = recorded_quick_edit_rect;
     }
 
     let _ = DeleteObject(border_brush);
@@ -3434,19 +3652,31 @@ pub fn save_fullwidth_mode(fullwidth: bool) {
 pub fn cycle_next_keyboard_mode_global(pt_opt: Option<POINT>) {
     let paths = crate::service::RuhiPaths::resolve();
     let cfg = crate::service::load_ruhi_config(&paths);
-    let mut cycle_list: Vec<String> = if cfg.enabled_keyboard_modes.is_empty() {
-        vec!["hsu".to_string(), "japanese".to_string()]
+    let mut cycle_list: Vec<String> = Vec::new();
+    if cfg.enabled_keyboard_modes.is_empty() {
+        cycle_list.push("hsu".to_string());
+        cycle_list.push("japanese".to_string());
     } else {
-        cfg.enabled_keyboard_modes
-            .iter()
-            .map(|m| ruhi::engine::RuhiEngine::normalize_keyboard_mode(m))
-            .filter(|m| !m.is_empty())
-            .collect()
-    };
-    if !cycle_list.iter().any(|m| m == "english") {
+        for m in &cfg.enabled_keyboard_modes {
+            let norm = ruhi::engine::RuhiEngine::normalize_keyboard_mode(m);
+            if !norm.is_empty() && !cycle_list.iter().any(|x| x == &norm) {
+                cycle_list.push(norm);
+            }
+        }
+    }
+    if cycle_list.is_empty() {
+        cycle_list.push("hsu".to_string());
+        cycle_list.push("japanese".to_string());
+    }
+    if cycle_list.len() >= 2 && !cycle_list.iter().any(|m| m == "english") {
         cycle_list.push("english".to_string());
     }
     let cur_norm = ruhi::engine::RuhiEngine::normalize_keyboard_mode(&cfg.keyboard_mode);
+    if cycle_list.len() <= 1 {
+        let sole = cycle_list.first().cloned().unwrap_or(cur_norm);
+        show_mode_toast_on_current_thread(&sole, pt_opt);
+        return;
+    }
     let next_mode = if let Some(pos) = cycle_list.iter().position(|m| m == &cur_norm) {
         cycle_list[(pos + 1) % cycle_list.len()].clone()
     } else {
@@ -3456,32 +3686,51 @@ pub fn cycle_next_keyboard_mode_global(pt_opt: Option<POINT>) {
     show_mode_toast_on_current_thread(&next_mode, pt_opt);
 }
 
-/// 快速在最近使用的最後兩種輸入模式間對切（或依設定直通英數）
+/// 快速在最近使用的最後兩種輸入模式間對切（或依設定直通英數）；若僅單獨掛載一種模式則嚴格維持該單一模式
 pub fn toggle_last_two_keyboard_modes_global(pt_opt: Option<POINT>) {
     let paths = crate::service::RuhiPaths::resolve();
     let cfg = crate::service::load_ruhi_config(&paths);
+    let mut allowed: Vec<String> = Vec::new();
+    if cfg.enabled_keyboard_modes.is_empty() {
+        allowed.push("hsu".to_string());
+        allowed.push("japanese".to_string());
+    } else {
+        for m in &cfg.enabled_keyboard_modes {
+            let norm = ruhi::engine::RuhiEngine::normalize_keyboard_mode(m);
+            if !norm.is_empty() && !allowed.iter().any(|x| x == &norm) {
+                allowed.push(norm);
+            }
+        }
+    }
+    if allowed.len() >= 2 && !allowed.iter().any(|m| m == "english") {
+        allowed.push("english".to_string());
+    }
     let cur_norm = ruhi::engine::RuhiEngine::normalize_keyboard_mode(&cfg.keyboard_mode);
     let last_norm = ruhi::engine::RuhiEngine::normalize_keyboard_mode(&cfg.last_keyboard_mode);
-    let target = if cfg.capslock_switch == "english_direct" {
+    let target = if allowed.len() <= 1 {
+        allowed.first().cloned().unwrap_or(cur_norm.clone())
+    } else if cfg.capslock_switch == "english_direct" {
         if cur_norm == "english" {
-            if !last_norm.is_empty() && last_norm != "english" {
+            if !last_norm.is_empty() && last_norm != "english" && allowed.iter().any(|m| m == &last_norm) {
                 last_norm
             } else {
-                cfg.enabled_keyboard_modes
-                    .first()
-                    .map(|m| ruhi::engine::RuhiEngine::normalize_keyboard_mode(m))
-                    .unwrap_or_else(|| "hsu".to_string())
+                allowed
+                    .iter()
+                    .find(|m| m.as_str() != "english")
+                    .cloned()
+                    .unwrap_or_else(|| "english".to_string())
             }
         } else {
             "english".to_string()
         }
-    } else if !last_norm.is_empty() && last_norm != cur_norm {
+    } else if !last_norm.is_empty() && last_norm != cur_norm && allowed.iter().any(|m| m == &last_norm) {
         last_norm
     } else if cur_norm == "english" {
-        cfg.enabled_keyboard_modes
-            .first()
-            .map(|m| ruhi::engine::RuhiEngine::normalize_keyboard_mode(m))
-            .unwrap_or_else(|| "hsu".to_string())
+        allowed
+            .iter()
+            .find(|m| m.as_str() != "english")
+            .cloned()
+            .unwrap_or_else(|| "english".to_string())
     } else {
         "english".to_string()
     };
@@ -3524,6 +3773,8 @@ fn show_mode_toast_on_current_thread(mode_code: &str, pt_opt: Option<POINT>) {
                             state.is_caps_on = false;
                             state.array30_coach_hint = toast.clone();
                             state.is_array30_live_preview = false;
+                            state.force_num_labels = false;
+                            state.force_asdf_labels = false;
                             state.is_cand_selecting = false;
                             state.is_candidates_only = true;
                             state.candidates.clear();
@@ -3680,16 +3931,19 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
         if !hmenu.0.is_null() {
             let menu_ui_lang = crate::service::resolve_effective_ui_lang(&latest_cfg.ui_lang);
             let items = get_mode_menu_items_i18n(menu_ui_lang);
-            let _unused_items: &[(usize, &str, &str)] = &[
-                (2001, "hsu", "許氏雙拼注音 (許)\tCtrl/Shift + CapsLock"),
-                (2005, "japanese", "日文羅馬字輸入 (日)\tCtrl/Shift + CapsLock"),
-                (2009, "korean", "韓文羅馬拼音輸入 (韓)\tCtrl/Shift + CapsLock"),
-                (2004, "cangjie", "倉頡輸入法 (倉)\tCtrl/Shift + CapsLock"),
-                (2007, "array30", "行列 30 輸入法 (行)\tCtrl/Shift + CapsLock"),
-                (2002, "standard", "標準大千注音 (注)\tCtrl/Shift + CapsLock"),
-                (2003, "et26", "倚天 26 鍵注音 (倚)\tCtrl/Shift + CapsLock"),
-            ];
+            let normalized_enabled: Vec<String> = enabled_modes
+                .iter()
+                .map(|m| ruhi::engine::RuhiEngine::normalize_keyboard_mode(m))
+                .filter(|m| !m.is_empty())
+                .collect();
+            let normalized_cur = ruhi::engine::RuhiEngine::normalize_keyboard_mode(&cur_kb);
             for &(id, mode_code, label) in items {
+                if !normalized_enabled.is_empty()
+                    && !normalized_enabled.iter().any(|m| m == mode_code)
+                    && normalized_cur != mode_code
+                {
+                    continue;
+                }
                 let is_active = cur_kb == mode_code
                     || (mode_code == "standard" && cur_kb == "daikien")
                     || (mode_code == "et26" && cur_kb == "eten26")
@@ -3702,29 +3956,37 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 let flags = if is_active { MF_STRING | MF_CHECKED } else { MF_STRING };
                 let _ = AppendMenuW(hmenu, flags, id as usize, PCWSTR(wide.as_ptr()));
             }
-            let _ = AppendMenuW(hmenu, MF_SEPARATOR, 0, PCWSTR::null());
 
             let is_en_active = matches!(cur_kb.as_str(), "english" | "en" | "latin" | "western" | "euro" | "sanskrit");
+            let show_english_item = normalized_enabled.is_empty()
+                || normalized_enabled.len() >= 2
+                || normalized_enabled.iter().any(|m| m == "english")
+                || is_en_active;
+            if show_english_item {
+                let _ = AppendMenuW(hmenu, MF_SEPARATOR, 0, PCWSTR::null());
+            }
             let is_direct_en_caps = latest_cfg.capslock_switch == "english_direct";
-            let en_label = match menu_ui_lang {
-                "en-US" => if is_direct_en_caps { "Pan-European / Roman (EU)\tCapsLock" } else { "Pan-European / Roman (EU)\tCtrl/Shift + CapsLock" },
-                "ja-JP" => if is_direct_en_caps { "汎欧州／ローマ字モード (欧)\tCapsLock" } else { "汎欧州／ローマ字モード (欧)\tCtrl/Shift + CapsLock" },
-                "ko-KR" => if is_direct_en_caps { "범유럽 / 로마자 모드 (EU)\tCapsLock" } else { "범유럽 / 로마자 모드 (EU)\tCtrl/Shift + CapsLock" },
-                _ => if is_direct_en_caps { "泛歐／羅馬字模式 (歐)\tCapsLock" } else { "泛歐／羅馬字模式 (歐)\tCtrl/Shift + CapsLock" },
-            };
-            let _unused_en_label = if is_direct_en_caps {
-                "泛歐／羅馬字模式 (歐)\tCapsLock"
-            } else {
-                "泛歐／羅馬字模式 (歐)\tCtrl/Shift + CapsLock"
-            };
-            let en_wide: Vec<u16> = en_label.encode_utf16().chain(Some(0)).collect();
-            let en_flags = if is_en_active { MF_STRING | MF_CHECKED } else { MF_STRING };
-            let _ = AppendMenuW(hmenu, en_flags, 2006, PCWSTR(en_wide.as_ptr()));
+            let is_none_caps = latest_cfg.capslock_switch == "none";
+            if show_english_item {
+                let en_label = match menu_ui_lang {
+                    "en-US" => if is_direct_en_caps { "Pan-European / Roman (EU)\tCapsLock" } else { "Pan-European / Roman (EU)\tCtrl/Shift + CapsLock" },
+                    "ja-JP" => if is_direct_en_caps { "汎欧州／ローマ字モード (欧)\tCapsLock" } else { "汎欧州／ローマ字モード (欧)\tCtrl/Shift + CapsLock" },
+                    "ko-KR" => if is_direct_en_caps { "범유럽 / 로마자 모드 (EU)\tCapsLock" } else { "범유럽 / 로마자 모드 (EU)\tCtrl/Shift + CapsLock" },
+                    _ => if is_direct_en_caps { "泛歐／羅馬字模式 (歐)\tCapsLock" } else { "泛歐／羅馬字模式 (歐)\tCtrl/Shift + CapsLock" },
+                };
+                let en_wide: Vec<u16> = en_label.encode_utf16().chain(Some(0)).collect();
+                let en_flags = if is_en_active { MF_STRING | MF_CHECKED } else { MF_STRING };
+                let _ = AppendMenuW(hmenu, en_flags, 2006, PCWSTR(en_wide.as_ptr()));
+            }
 
             let (cur_badge, _) = get_mode_badge_and_name(&latest_cfg.keyboard_mode, false);
             let last_code = if latest_cfg.last_keyboard_mode.eq_ignore_ascii_case(&latest_cfg.keyboard_mode) {
                 if is_en_active {
-                    enabled_modes.first().map(|s| s.as_str()).unwrap_or("hsu")
+                    normalized_enabled
+                        .iter()
+                        .find(|m| m.as_str() != "english")
+                        .map(|s| s.as_str())
+                        .unwrap_or("hsu")
                 } else {
                     "english"
                 }
@@ -3733,7 +3995,8 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
             };
             let (last_badge, _) = get_mode_badge_and_name(last_code, false);
 
-            if !is_direct_en_caps {
+            let has_multiple_modes = normalized_enabled.is_empty() || normalized_enabled.len() >= 2;
+            if !is_direct_en_caps && !is_none_caps && has_multiple_modes {
                 let mru_label = match menu_ui_lang {
                     "en-US" => format!("Quick Toggle Last Two Modes ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
                     "ja-JP" => format!("直近 2 モードの高速切替 ({} ⇄ {})\tCapsLock", cur_badge, last_badge),
@@ -3744,30 +4007,33 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 let _ = AppendMenuW(hmenu, MF_STRING, 2008, PCWSTR(mru_wide.as_ptr()));
             }
 
-            // CapsLock 按鍵功能快速設定子選單 (2011 / 2012)
+            // CapsLock 按鍵功能快速設定子選單 (2011 / 2012 / 2014)
             if let Ok(caps_cfg_menu) = CreatePopupMenu() {
-                let (opt_direct_str, opt_mru_str) = match menu_ui_lang {
+                let (opt_direct_str, opt_mru_str, opt_none_str) = match menu_ui_lang {
                     "en-US" => (
                         "Pan-European / Roman (EU)\tCapsLock direct to EU mode".to_string(),
                         format!("Quick Toggle Last Two Modes ({} ⇄ {})\tCapsLock toggle", cur_badge, last_badge),
+                        "Passthrough OS CapsLock\tNo mode switch (ideal for single-mode)".to_string(),
                     ),
                     "ja-JP" => (
                         "汎欧州／ローマ字モード (欧)\tCapsLock 単押しで直行".to_string(),
                         format!("直近 2 モードの高速切替 ({} ⇄ {})\tCapsLock 単押しで切替", cur_badge, last_badge),
+                        "システム標準 CapsLock のみ\tモード切替無効（単一モード推奨）".to_string(),
                     ),
                     "ko-KR" => (
                         "범유럽 / 로마자 모드 (EU)\tCapsLock 단독으로 직행".to_string(),
                         format!("최근 두 입력 모드 빠른 전환 ({} ⇄ {})\tCapsLock 단독 전환", cur_badge, last_badge),
+                        "시스템 기본 CapsLock 유지\t전환 안 함 (단일 모드 권장)".to_string(),
                     ),
                     _ => (
                         "泛歐／羅馬字模式 (歐)\t單按 CapsLock 直通泛歐模式".to_string(),
                         format!("最後兩種輸入模式快速切換 ({} ⇄ {})\t單按 CapsLock 對切", cur_badge, last_badge),
+                        "不接管／還原系統原生大寫鎖定 CapsLock（單一模式推薦）".to_string(),
                     ),
                 };
                 let opt_direct: Vec<u16> = opt_direct_str.encode_utf16().chain(Some(0)).collect();
                 let opt_mru: Vec<u16> = opt_mru_str.encode_utf16().chain(Some(0)).collect();
-                let _unused_opt_direct: Vec<u16> = "泛歐／羅馬字模式 (歐)\t單按 CapsLock 直通泛歐模式".encode_utf16().chain(Some(0)).collect();
-                let _unused_opt_mru: Vec<u16> = format!("最後兩種輸入模式快速切換 ({} ⇄ {})\t單按 CapsLock 對切", cur_badge, last_badge).encode_utf16().chain(Some(0)).collect();
+                let opt_none: Vec<u16> = opt_none_str.encode_utf16().chain(Some(0)).collect();
                 let _ = AppendMenuW(
                     caps_cfg_menu,
                     if is_direct_en_caps { MF_STRING | MF_CHECKED } else { MF_STRING },
@@ -3776,20 +4042,45 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 );
                 let _ = AppendMenuW(
                     caps_cfg_menu,
-                    if !is_direct_en_caps { MF_STRING | MF_CHECKED } else { MF_STRING },
+                    if !is_direct_en_caps && !is_none_caps { MF_STRING | MF_CHECKED } else { MF_STRING },
                     2012,
                     PCWSTR(opt_mru.as_ptr()),
                 );
+                let _ = AppendMenuW(
+                    caps_cfg_menu,
+                    if is_none_caps { MF_STRING | MF_CHECKED } else { MF_STRING },
+                    2014,
+                    PCWSTR(opt_none.as_ptr()),
+                );
                 let sub_title = match menu_ui_lang {
-                    "en-US" => if is_direct_en_caps { "CapsLock Behavior: Pan-European (EU)..." } else { "CapsLock Behavior: Quick Toggle Last Two Modes..." },
-                    "ja-JP" => if is_direct_en_caps { "CapsLock 設定：汎欧州／ローマ字モード (欧)..." } else { "CapsLock 設定：直近 2 モードの高速切替..." },
-                    "ko-KR" => if is_direct_en_caps { "CapsLock 설정: 범유럽 / 로마자 모드 (EU)..." } else { "CapsLock 설정: 최근 두 입력 모드 빠른 전환..." },
-                    _ => if is_direct_en_caps { "CapsLock 按鍵設定：泛歐／羅馬字模式 (歐)..." } else { "CapsLock 按鍵設定：最後兩種輸入模式快速切換..." },
-                };
-                let _unused_sub_title = if is_direct_en_caps {
-                    "CapsLock 按鍵設定：泛歐／羅馬字模式 (歐)..."
-                } else {
-                    "CapsLock 按鍵設定：最後兩種輸入模式快速切換..."
+                    "en-US" => if is_none_caps {
+                        "CapsLock Behavior: OS Native CapsLock..."
+                    } else if is_direct_en_caps {
+                        "CapsLock Behavior: Pan-European (EU)..."
+                    } else {
+                        "CapsLock Behavior: Quick Toggle Last Two Modes..."
+                    },
+                    "ja-JP" => if is_none_caps {
+                        "CapsLock 設定：システム標準大文字ロック..."
+                    } else if is_direct_en_caps {
+                        "CapsLock 設定：汎欧州／ローマ字モード (欧)..."
+                    } else {
+                        "CapsLock 設定：直近 2 モードの高速切替..."
+                    },
+                    "ko-KR" => if is_none_caps {
+                        "CapsLock 설정: 시스템 기본 CapsLock..."
+                    } else if is_direct_en_caps {
+                        "CapsLock 설정: 범유럽 / 로마자 모드 (EU)..."
+                    } else {
+                        "CapsLock 설정: 최근 두 입력 모드 빠른 전환..."
+                    },
+                    _ => if is_none_caps {
+                        "CapsLock 按鍵設定：不接管（原生大小寫鎖定）..."
+                    } else if is_direct_en_caps {
+                        "CapsLock 按鍵設定：泛歐／羅馬字模式 (歐)..."
+                    } else {
+                        "CapsLock 按鍵設定：最後兩種輸入模式快速切換..."
+                    },
                 };
                 let sub_wide: Vec<u16> = sub_title.encode_utf16().chain(Some(0)).collect();
                 let _ = AppendMenuW(hmenu, MF_POPUP, caps_cfg_menu.0 as usize, PCWSTR(sub_wide.as_ptr()));
@@ -3865,7 +4156,7 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
 
             // 4. 輸入座單行最大字數子選單 (3700 + chars)
             if let Ok(mc_menu) = CreatePopupMenu() {
-                for &ch_cnt in &[12usize, 16, 20, 25, 30, 35, 40, 50, 60, 80] {
+                for &ch_cnt in &[12usize, 16, 20, 25, 30, 35, 40, 48, 50, 60, 80] {
                     let lbl_str = match menu_ui_lang {
                         "en-US" => format!("{} CJK units per line (auto-wrap)", ch_cnt),
                         "ja-JP" => format!("1行 {} 字 (自動折り返し)", ch_cnt),
@@ -3921,6 +4212,8 @@ pub unsafe fn show_taskbar_ri_menu(pt_opt: Option<POINT>) {
                 save_capslock_switch_mode("english_direct");
             } else if cmd_id == 2012 {
                 save_capslock_switch_mode("chinese_english");
+            } else if cmd_id == 2014 {
+                save_capslock_switch_mode("none");
             }
             let chosen_mode = match cmd_id {
                 2001 => Some("hsu"),
@@ -4069,7 +4362,10 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                         let on_shift_down_btn = s.is_shift_down_popup && s.shift_down_mode_buttons.iter().any(|(r, _)| {
                             pt.x >= r.left && pt.x <= r.right && pt.y >= r.top && pt.y <= r.bottom
                         });
-                        on_gear || on_tune_toggle || on_mode || on_tune_btn || on_shift_down_btn
+                        let on_quick_edit = !s.quick_edit_kind.is_empty() &&
+                                            pt.x >= s.quick_edit_rect.left && pt.x <= s.quick_edit_rect.right &&
+                                            pt.y >= s.quick_edit_rect.top && pt.y <= s.quick_edit_rect.bottom;
+                        on_gear || on_tune_toggle || on_mode || on_tune_btn || on_shift_down_btn || on_quick_edit
                     } else { false };
                     if is_clickable {
                         let _ = SetCursor(LoadCursorW(None, IDC_HAND).unwrap_or_default());
@@ -4102,13 +4398,17 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
             WM_LBUTTONDOWN => {
                 let mouse_x = (lparam.0 & 0xFFFF) as i16 as i32;
                 let mouse_y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
-                let (is_gear, is_tune_toggle, is_mode, hit_tune_act, hit_shift_down_mode) = if let Ok(s) = get_candidate_state().read() {
+                let (is_gear, is_tune_toggle, is_mode, is_quick_edit, quick_edit_kind, hit_tune_act, hit_shift_down_mode) = if let Ok(s) = get_candidate_state().read() {
                     let g = mouse_x >= s.gear_rect.left && mouse_x <= s.gear_rect.right &&
                             mouse_y >= s.gear_rect.top && mouse_y <= s.gear_rect.bottom;
                     let tt = mouse_x >= s.ui_tune_toggle_rect.left && mouse_x <= s.ui_tune_toggle_rect.right &&
                              mouse_y >= s.ui_tune_toggle_rect.top && mouse_y <= s.ui_tune_toggle_rect.bottom;
                     let m = mouse_x >= s.mode_rect.left && mouse_x <= s.mode_rect.right &&
                             mouse_y >= s.mode_rect.top && mouse_y <= s.mode_rect.bottom;
+                    let qe = !s.quick_edit_kind.is_empty() &&
+                             mouse_x >= s.quick_edit_rect.left && mouse_x <= s.quick_edit_rect.right &&
+                             mouse_y >= s.quick_edit_rect.top && mouse_y <= s.quick_edit_rect.bottom;
+                    let qe_kind = s.quick_edit_kind.clone();
                     let act = if s.show_ui_tuner_bar {
                         s.ui_tune_buttons.iter().find_map(|(r, a)| {
                             if mouse_x >= r.left && mouse_x <= r.right && mouse_y >= r.top && mouse_y <= r.bottom {
@@ -4131,8 +4431,33 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
                     } else {
                         None
                     };
-                    (g, tt, m, act, sd_mode)
-                } else { (false, false, false, None, None) };
+                    (g, tt, m, qe, qe_kind, act, sd_mode)
+                } else { (false, false, false, false, String::new(), None, None) };
+
+                if is_quick_edit {
+                    if is_current_process_elevated() {
+                        crate::logger::log("CandidateWindow: quick_edit blocked in elevated process");
+                        return LRESULT(0);
+                    }
+                    let paths = crate::service::RuhiPaths::resolve();
+                    let target_path = match quick_edit_kind.as_str() {
+                        "templates" => Some(paths.templates),
+                        "user_dict" => Some(paths.user_dict),
+                        _ => None,
+                    };
+                    if let Some(target) = target_path {
+                        if !target.exists() {
+                            if let Some(parent) = target.parent() {
+                                let _ = std::fs::create_dir_all(parent);
+                            }
+                            let _ = std::fs::OpenOptions::new().write(true).create_new(true).open(&target);
+                        }
+                        if let Err(e) = launch_quick_edit_file(&target) {
+                            crate::logger::log(&format!("CandidateWindow: launch_quick_edit_file failed: {}", e));
+                        }
+                    }
+                    return LRESULT(0);
+                }
 
                 if let Some(clicked_mode) = hit_shift_down_mode {
                     save_shift_down_mode(&clicked_mode);

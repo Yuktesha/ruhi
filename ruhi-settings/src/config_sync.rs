@@ -126,7 +126,7 @@ pub struct KeyboardSettings {
     pub four_corner_keymap: String,
     #[serde(default = "default_last_keyboard_mode")]
     pub last_keyboard_mode: String,
-    #[serde(default = "default_aux_ime_mode")]
+    #[serde(default = "default_backtick_mode")]
     pub backtick_inline_mode: String,
     #[serde(default = "default_tilde_toggle_mode")]
     pub tilde_toggle_mode: String,
@@ -164,6 +164,10 @@ fn default_four_corner_keymap() -> String {
 
 fn default_last_keyboard_mode() -> String {
     "english".to_string()
+}
+
+fn default_backtick_mode() -> String {
+    "user_abbrev".to_string()
 }
 
 fn default_aux_ime_mode() -> String {
@@ -206,7 +210,7 @@ impl Default for KeyboardSettings {
             reverse_coach_target: "none".to_string(),
             four_corner_keymap: "blind_closed_loop".to_string(),
             last_keyboard_mode: "english".to_string(),
-            backtick_inline_mode: "longkan".to_string(),
+            backtick_inline_mode: "user_abbrev".to_string(),
             tilde_toggle_mode: "punct".to_string(),
             shift_down_mode: "longkan".to_string(),
             fullwidth_mode: false,
@@ -907,6 +911,44 @@ pub fn ensure_keyboard_modes_consistent(settings: &mut RuhiSettings) {
     }
 }
 
+/// 卸載指定鍵盤模式；若卸載目標正是當前作用中模式 (`layout`)，自動遞補下一個已掛載模式為作用中，
+/// 使許氏注音等任意模式皆可自由卸載且絕不回彈。當僅剩最後一種已掛載模式時回傳 `false` 並阻止卸載。
+pub fn unmount_keyboard_mode(settings: &mut RuhiSettings, code: &str) -> bool {
+    let modes = &mut settings.keyboard.enabled_keyboard_modes;
+    if modes.len() <= 1 && modes.iter().any(|m| m == code) {
+        return false;
+    }
+    modes.retain(|m| m != code);
+    if modes.is_empty() {
+        modes.push(code.to_string());
+        return false;
+    }
+    if settings.keyboard.layout == code || !modes.contains(&settings.keyboard.layout) {
+        settings.keyboard.layout = modes[0].clone();
+    }
+    if modes.len() == 1 {
+        settings.keyboard.last_keyboard_mode = settings.keyboard.layout.clone();
+    } else if !modes.contains(&settings.keyboard.last_keyboard_mode)
+        && settings.keyboard.last_keyboard_mode != "english"
+    {
+        settings.keyboard.last_keyboard_mode = "english".to_string();
+    }
+    ensure_keyboard_modes_consistent(settings);
+    true
+}
+
+/// 僅單獨掛載指定單一鍵盤模式（移除其餘全部已掛載模式，不強制綁定許氏或歐文）
+pub fn mount_single_keyboard_mode_only(settings: &mut RuhiSettings, code: &str) {
+    let target = code.trim();
+    if target.is_empty() {
+        return;
+    }
+    settings.keyboard.enabled_keyboard_modes = vec![target.to_string()];
+    settings.keyboard.layout = target.to_string();
+    settings.keyboard.last_keyboard_mode = target.to_string();
+    ensure_keyboard_modes_consistent(settings);
+}
+
 /// 儲存 `settings_config.json` 並同步所有 `config.json` 路徑（供 `ruhi-tsf` 即時讀取）
 pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), String> {
     ensure_keyboard_modes_consistent(settings);
@@ -989,7 +1031,9 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             "keyboard_mode".to_string(),
             json!(settings.keyboard.layout),
         );
-        if !map.contains_key("last_keyboard_mode") {
+        if !map.contains_key("last_keyboard_mode")
+            || settings.keyboard.enabled_keyboard_modes.len() == 1
+        {
             map.insert(
                 "last_keyboard_mode".to_string(),
                 json!(settings.keyboard.last_keyboard_mode),
@@ -1129,6 +1173,32 @@ mod tests {
         assert_eq!(s.keyboard.enabled_keyboard_modes[0], "cangjie");
         assert_eq!(s.appearance.font_size, 32);
         assert_eq!(s.keyboard.punctuation_commit_mode, "A");
+    }
+
+    #[test]
+    fn test_single_mode_mounting_and_unmount_hsu() {
+        let mut s = RuhiSettings::default();
+        s.keyboard.layout = "hsu".to_string();
+        s.keyboard.enabled_keyboard_modes = vec!["hsu".to_string(), "cangjie".to_string()];
+        // 卸載原本作用中的 "hsu" 必須自動將 "cangjie" 遞補為 layout，且不得因一致化檢核反彈回補 "hsu"
+        assert!(unmount_keyboard_mode(&mut s, "hsu"));
+        assert_eq!(s.keyboard.enabled_keyboard_modes, vec!["cangjie".to_string()]);
+        assert_eq!(s.keyboard.layout, "cangjie");
+        assert_eq!(s.keyboard.last_keyboard_mode, "cangjie");
+
+        // 只剩最後 1 個已掛載模式時禁止再卸載
+        assert!(!unmount_keyboard_mode(&mut s, "cangjie"));
+        assert_eq!(s.keyboard.enabled_keyboard_modes, vec!["cangjie".to_string()]);
+
+        // 一鍵僅單獨掛載特定模式（如 韓語諺文 / 倉頡 / 純歐文）
+        mount_single_keyboard_mode_only(&mut s, "korean");
+        assert_eq!(s.keyboard.enabled_keyboard_modes, vec!["korean".to_string()]);
+        assert_eq!(s.keyboard.layout, "korean");
+        assert_eq!(s.keyboard.last_keyboard_mode, "korean");
+
+        mount_single_keyboard_mode_only(&mut s, "english");
+        assert_eq!(s.keyboard.enabled_keyboard_modes, vec!["english".to_string()]);
+        assert_eq!(s.keyboard.layout, "english");
     }
 
     /// 驗證公開投遞端點解析、Tailcat 動態端點配置，並確保已封存之舊網址絕不殘留

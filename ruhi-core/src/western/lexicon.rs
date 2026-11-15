@@ -4,7 +4,9 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::SystemTime;
 
 /// 內建高頻歐文核心詞（確保即便離線或無外掛檔案時，常用詞亦 100% 具備正向語意信心）
 pub const EMBEDDED_CORE_ENGLISH_WORDS: &[(&str, f32)] = &[
@@ -87,6 +89,40 @@ pub const EMBEDDED_CORE_ENGLISH_WORDS: &[(&str, f32)] = &[
     ("jalapeno", 80.0), ("pinata", 80.0), ("senor", 80.0), ("senorita", 80.0), ("uber", 85.0),
     ("expose", 84.0), ("matinee", 80.0), ("puree", 80.0), ("saute", 80.0), ("coupe", 80.0),
     ("decor", 82.0), ("garcon", 80.0), ("souffle", 80.0),
+    // 核心進行式 (-ing)、過去分詞 (-ed / 不規則) 與高頻會話述語補全詞彙
+    ("going", 76.0), ("doing", 76.0), ("getting", 74.0), ("looking", 74.0),
+    ("making", 72.0), ("coming", 72.0), ("staying", 68.0), ("waiting", 70.0), ("thinking", 72.0),
+    ("talking", 70.0), ("trying", 72.0), ("planning", 68.0), ("seeing", 70.0), ("hearing", 68.0),
+    ("helping", 70.0), ("sharing", 68.0), ("using", 72.0), ("having", 72.0), ("taking", 70.0),
+    ("reading", 70.0), ("writing", 72.0), ("running", 70.0), ("starting", 68.0), ("finishing", 66.0),
+    ("heading", 66.0), ("living", 68.0), ("moving", 68.0), ("traveling", 64.0), ("walking", 66.0),
+    ("driving", 66.0), ("flying", 64.0), ("sitting", 66.0), ("standing", 66.0), ("feeling", 68.0),
+    ("holding", 66.0), ("asking", 68.0), ("saying", 70.0), ("watching", 66.0), ("eating", 66.0),
+    ("learning", 70.0), ("building", 70.0), ("testing", 70.0), ("checking", 70.0), ("sending", 68.0),
+    ("meeting", 70.0), ("wondering", 64.0), ("hoping", 66.0),
+    ("gone", 72.0), ("done", 76.0), ("seen", 74.0), ("taken", 72.0), ("given", 72.0),
+    ("made", 76.0), ("known", 72.0), ("found", 74.0), ("got", 76.0), ("gotten", 66.0),
+    ("sent", 72.0), ("told", 72.0), ("written", 70.0), ("bought", 66.0), ("brought", 68.0),
+    ("finished", 68.0), ("updated", 70.0), ("checked", 70.0), ("fixed", 68.0),
+    ("tried", 70.0),
+    ("guys", 66.0), ("glad", 68.0), ("ready", 74.0), ("sure", 76.0), ("happy", 74.0),
+    ("able", 74.0), ("free", 74.0), ("okay", 72.0), ("fine", 72.0), ("busy", 68.0),
+    ("tired", 66.0), ("excited", 66.0), ("interested", 68.0), ("located", 66.0), ("based", 72.0),
+    // 高頻日常／學術／跨歐語基礎原形詞彙（確保泛歐語音韻近似與前綴補全於內建或離線詞庫均具備穩定權重）
+    ("photo", 78.0), ("photograph", 74.0), ("photography", 72.0), ("photographer", 70.0),
+    ("phone", 82.0), ("schedule", 78.0), ("restaurant", 78.0), ("receipt", 72.0),
+    ("castle", 70.0), ("knight", 68.0), ("island", 74.0), ("foreign", 76.0),
+    ("grammar", 76.0), ("rhythm", 72.0), ("pronunciation", 74.0), ("accommodation", 72.0),
+    ("chemistry", 74.0), ("chemist", 70.0), ("architect", 74.0), ("colleague", 76.0),
+    ("college", 78.0), ("university", 80.0), ("hospital", 78.0), ("doctor", 80.0),
+    ("medicine", 76.0), ("science", 82.0), ("physical", 76.0), ("physics", 74.0),
+    ("psychology", 76.0), ("psychological", 72.0), ("philosophy", 76.0), ("philosophical", 72.0),
+    ("phenomenon", 72.0), ("character", 78.0), ("general", 80.0), ("genius", 72.0),
+    ("parallel", 72.0), ("enough", 82.0), ("laugh", 76.0), ("listen", 80.0),
+    ("honest", 76.0), ("honor", 74.0), ("hour", 82.0), ("wrong", 84.0), ("knowledge", 84.0),
+    ("artificial", 78.0), ("intelligence", 78.0), ("europe", 76.0),
+    ("bonjour", 78.0), ("merci", 78.0), ("beaucoup", 76.0), ("gracias", 78.0),
+    ("entschuldigung", 74.0),
 ];
 
 #[derive(Debug, Clone)]
@@ -120,18 +156,64 @@ impl WesternLexicon {
         }
     }
 
-    /// 插入詞條並維護前綴索引
+    /// 取得全域共用之內建歐文字典單例（O(1) Arc 共享，零重複建表與記憶體複製）
+    pub fn shared_default() -> Arc<Self> {
+        static SHARED_DEFAULT: OnceLock<Arc<WesternLexicon>> = OnceLock::new();
+        SHARED_DEFAULT
+            .get_or_init(|| Arc::new(Self::default()))
+            .clone()
+    }
+
+    /// 取得特定 TSV 路徑（依標準化路徑與修改時間快取）之全域共用歐文字典與詞條計數
+    pub fn shared_from_tsv_with_count<P: AsRef<Path>>(
+        path: P,
+    ) -> Result<(Arc<Self>, usize), std::io::Error> {
+        let p = path.as_ref();
+        if !p.exists() {
+            return Ok((Self::shared_default(), 0));
+        }
+        let canon = std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+        let mtime = std::fs::metadata(&canon).and_then(|m| m.modified()).ok();
+
+        type TsvCacheEntry = (Option<SystemTime>, usize, Arc<WesternLexicon>);
+        static SHARED_TSV_CACHE: OnceLock<Mutex<HashMap<PathBuf, TsvCacheEntry>>> = OnceLock::new();
+        let cache = SHARED_TSV_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        if let Ok(guard) = cache.lock() {
+            if let Some((cached_mtime, cached_count, arc_lex)) = guard.get(&canon) {
+                if *cached_mtime == mtime {
+                    return Ok((arc_lex.clone(), *cached_count));
+                }
+            }
+        }
+
+        let mut fresh = Self::default();
+        let count = fresh.load_tsv(&canon)?;
+        let arc_fresh = Arc::new(fresh);
+        if let Ok(mut guard) = cache.lock() {
+            guard.insert(canon, (mtime, count, arc_fresh.clone()));
+        }
+        Ok((arc_fresh, count))
+    }
+
+    /// 取得特定 TSV 路徑（依標準化路徑與修改時間快取）之全域共用歐文字典
+    pub fn shared_from_tsv<P: AsRef<Path>>(path: P) -> Result<Arc<Self>, std::io::Error> {
+        Ok(Self::shared_from_tsv_with_count(path)?.0)
+    }
+
+    /// 插入詞條並維護前綴索引（僅於新增不重複詞條時累加前綴計數）
     pub fn insert_word(&mut self, word: &str, freq: u32, weight: f32) {
         let w_lower = word.to_ascii_lowercase();
         if w_lower.is_empty() {
             return;
         }
 
-        // 維護前綴
-        let chars: Vec<char> = w_lower.chars().collect();
-        for i in 1..=chars.len() {
-            let pfx: String = chars[..i].iter().collect();
-            *self.prefixes.entry(pfx).or_insert(0) += 1;
+        let is_new = !self.words.contains_key(&w_lower);
+        if is_new {
+            let chars: Vec<char> = w_lower.chars().collect();
+            for i in 1..=chars.len() {
+                let pfx: String = chars[..i].iter().collect();
+                *self.prefixes.entry(pfx).or_insert(0) += 1;
+            }
         }
 
         self.words.insert(w_lower, (freq, weight));
@@ -170,9 +252,23 @@ impl WesternLexicon {
         self.words.is_empty()
     }
 
+    /// 唯讀疊代全詞庫詞條與詞頻／權重（零結構體欄位變動，供音韻索引模組建表使用）
+    pub fn iter_words(&self) -> impl Iterator<Item = (&str, u32, f32)> {
+        self.words.iter().map(|(w, &(freq, weight))| (w.as_str(), freq, weight))
+    }
+
     /// 前綴補全查詢：找出以 `prefix` 開頭的高權重單字（依權重與詞頻降序排列）
     pub fn lookup_prefix(&self, prefix: &str, limit: usize) -> Vec<String> {
+        self.lookup_prefix_scored(prefix, limit, |_, _| 0.0)
+    }
+
+    /// 語境加權前綴補全查詢：全量掃描合法前綴詞彙並套用外掛句法／語境加分 (`bonus_fn`) 重新排序
+    pub fn lookup_prefix_scored<F>(&self, prefix: &str, limit: usize, mut bonus_fn: F) -> Vec<String>
+    where
+        F: FnMut(&str, f32) -> f32,
+    {
         let pfx_lower = prefix.to_ascii_lowercase();
+        let pfx_len = pfx_lower.chars().count();
         if pfx_lower.is_empty() || limit == 0 {
             return Vec::new();
         }
@@ -180,8 +276,19 @@ impl WesternLexicon {
             .words
             .iter()
             .filter_map(|(w, &(freq, weight))| {
-                if w.len() > pfx_lower.len() && w.starts_with(&pfx_lower) && weight >= 45.0 {
-                    Some((w, freq, weight))
+                if w.len() > pfx_lower.len() && w.starts_with(&pfx_lower) {
+                    let bonus = bonus_fn(w.as_str(), weight);
+                    let total = weight + bonus;
+                    let eligible = match pfx_len {
+                        1 => (weight >= 15.0 || bonus >= 12.0) && total >= 12.0,
+                        2 => weight >= 5.0 || bonus > 0.0,
+                        _ => true,
+                    };
+                    if eligible {
+                        Some((w, freq, total))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
@@ -193,6 +300,7 @@ impl WesternLexicon {
                 .unwrap_or(std::cmp::Ordering::Equal)
                 .then_with(|| b.1.cmp(&a.1))
                 .then_with(|| a.0.len().cmp(&b.0.len()))
+                .then_with(|| a.0.cmp(b.0))
         });
 
         matched.into_iter().take(limit).map(|(w, _, _)| w.clone()).collect()

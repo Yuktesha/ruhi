@@ -419,7 +419,7 @@ public class RuhiLiveBridge {
             if (name == ".text") { textLo = rva; textHi = rva + vsize; }
             else if (name == ".rdata") { rdataRva = rva; rdataSize = vsize; }
         }
-        if (textLo <= 0 || rdataRva <= 0 || rdataSize <= 17 * 8 || rdataSize > 0x400000) return 0;
+        if (textLo <= 0 || rdataRva <= 0 || rdataSize <= 17 * 8 || rdataSize > 0x1000000) return 0;
         byte[] rdata = new byte[rdataSize];
         if (!ReadProcessMemory(hProc, (IntPtr)(modBase.ToInt64() + rdataRva), rdata, (uint)rdataSize, out read)) return 0;
         ulong baseAddr = (ulong)modBase.ToInt64();
@@ -465,7 +465,7 @@ public class RuhiLiveBridge {
             if (name == ".text") { textLo = rva; textHi = rva + vsize; }
             else if (name == ".rdata") { rdataRva = rva; rdataSize = vsize; }
         }
-        if (textLo <= 0 || rdataRva <= 0 || rdataSize <= 37 * 8 || rdataSize > 0x400000) return 0;
+        if (textLo <= 0 || rdataRva <= 0 || rdataSize <= 37 * 8 || rdataSize > 0x1000000) return 0;
         byte[] rdata = new byte[rdataSize];
         if (!ReadProcessMemory(hProc, (IntPtr)(modBase.ToInt64() + rdataRva), rdata, (uint)rdataSize, out read)) return 0;
         ulong baseAddr = (ulong)modBase.ToInt64();
