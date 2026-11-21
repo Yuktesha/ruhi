@@ -10,16 +10,18 @@
 
 | 項目 | 目前狀態／實測數值 |
 |---|---|
-| Git 分支與基底 | `main`（Phase 0 收斂提交：`9c7a577` 語言核心／TSF／詞庫＋`d673cb4` Android Companion Preview；領先 `origin/main`），工作樹維持潔淨 |
-| `dev` 開發集品質閘門（`ruhi_eval --set dev --gate`） | **`PASS`**（`gate_passed: true`）；CER **`4.43%`**（較 `0e48a67` 基線 `4.61%` 再降 `0.18` 個百分點）；總字元錯誤 **`1,985 / 44,855`**（淨減 **`83`** 字錯）；整句完全命中 **`2,467 / 3,640`**（**`67.77%`**，淨增 **`+44`** 句）；五大文體全面改善（`civic_public` `2.59%` / `daily_dialogue` `3.65%` / `literary_narrative` `4.48%` / `moe_idiom_context` `3.24%` / `tech_doc` `9.25%`）；基準線 [`eval_reports/dev_gate_baseline.json`](file:///c:/ATGprjs/ruhi/eval_reports/dev_gate_baseline.json) 已鎖定於 `9c7a577` |
-| `ruhi-core` Release 單元測試 | `--lib`：**`247 passed; 0 failed; 7 ignored`**（7 項 `#[ignore]` 為 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 既有困難例句）；整合測試 `--test person_names_and_y_cases`：**`4 passed; 0 failed; 0 ignored`**（雙鍵盤模式 `standard` + `hsu`） |
+| Git 分支與基底 | `main`（Phase 1D 收斂提交：`4f58d39` 台灣正體統計 N-gram 底盤整合與 `v6` 均衡高精度權重，前序基礎為 `9c7a577`、`d673cb4`、`ea7a1d3`、`bb25909`） |
+| `dev` 開發集品質閘門（`ruhi_eval --set dev --gate`） | **`PASS`**（`gate_passed: true`）；CER **`3.89%`**（較 `9c7a577` 基線 `4.43%` 淨降 **`0.54`** 個百分點，McNemar $\chi^2 = 57.3068, p = 3.76 \times 10^{-14}$）；總字元錯誤 **`1,745 / 44,855`**（淨減 **`-240`** 字錯）；整句完全命中 **`2,591 / 3,640`**（**`71.18%`**，淨增 **`+124`** 句、`fix=194, brk=70`）；五大文體全面改善（`civic_public` `2.54%` / `daily_dialogue` `3.17%` / `literary_narrative` `4.07%` / `moe_idiom_context` `2.73%` / `tech_doc` `7.85%`）；停用 `ngram_lm` 時精準回退 **`4.43%`**（`1,985` 字錯）；基準線 [`eval_reports/dev_gate_baseline.json`](file:///c:/ATGprjs/ruhi/eval_reports/dev_gate_baseline.json) 已鎖定於 `4f58d39` |
+| 盲測驗證集（`test.tsv` / `typing_tw.tsv` 一次性 A/B 對照，`4f58d39`） | **`test.tsv`**（1,560 句／19,058 字）：CER **`4.68%`**（`891` 字錯、完全匹配 **`66.22%`** = 1,033 句、平均 `8.176 ms`／P50 `6.458 ms`），較停用 `ngram_lm` 基準（`5.45%`、`1,039` 字錯、`61.22%`）淨減 **`-148`** 字錯（相對降幅 **`14.2%`**）；**`typing_tw.tsv`**（4,256 句／48,911 字）：CER **`9.58%`**（`4,685` 字錯、完全匹配 **`43.49%`** = 1,851 句、平均 `9.537 ms`／P50 `6.502 ms`），較停用 `ngram_lm` 基準（`11.29%`、`5,524` 字錯、`37.03%`）淨減 **`-839`** 字錯（相對降幅 **`15.2%`**） |
+| 統計 N-gram 二進位模型（`ngram_zh_tw.bin`） | 商用安全授權 9 組台灣繁體語料（`ODC-BY / CC-BY-4.0 / MIT / Apache-2.0`，合計 `70,765,616` 字，已以 SHA-256 排除 `dev` 重疊 33 句；授權清單見 [`THIRD_PARTY_LICENSES.md`](file:///c:/ATGprjs/ruhi/THIRD_PARTY_LICENSES.md)）；`RLNG0001` 記憶體映射格式 **`26.88 MB`**（`28,182,664` bytes，SHA-256 `90F1F06815C7D24F2AA625276DE81AC32AB3F6CD516A08F2F92BEFADCBBFB471`，詞表 `141,897`、`WB=1,808,458`、`CB=750,000`、`CT=1,600,000`，依 `.gitignore` 略過版控並由 `package_release.py` 打包）；Colab 訓練工作階段：`0` 個執行中 |
+| `ruhi-core` Release 單元測試 | `--lib`：**`252 passed; 0 failed; 8 ignored`**（`#[ignore]` 為 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 紀錄之困難與薄邊際權衡案例）；整合測試 `--test person_names_and_y_cases`：**`4 passed; 0 failed; 1 ignored`**（含 `standard` + `hsu` 雙鍵盤模式） |
 | `ruhi-tsf` Release 單元測試（`--lib`） | **`27 passed; 0 failed; 0 ignored`**（維持 Layer B `RuhiTextService` COM ABI 不變量與 `LAYER_B_ABI_EPOCH = 2`） |
-| `ruhi-settings` Release 單元測試 | **`8 passed; 0 failed; 0 ignored`** |
-| 規則靜態檢查（`scripts/lint_scoring_rules.py --full`） | **0 項違規**（全量掃描 **`70,124`** 行，覆蓋 `router/`、`western/` 與設定資料表） |
-| 核心語素本體與詞庫同步 | [`morpheme_ontology.json`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/morpheme_ontology.json) 擴充至 **107 類／1,894 不重複語素**；`ruhi_lexicon/data/lexicon_core.tsv` 與 `data/`、`scripts/data/`、`dist/data/` 位元組完全一致（**`8,148,164`** bytes，SHA256 `8C6173B8F34F4190867F7AE0A64870863A3AC31AE21F21A1B19C5797C300EAAA`） |
-| 路線二（Windows 1.0 收斂）狀態 | **Phase 0 完成**；已確立 `constructions.rs` 開放類雙字實詞個案規則凍結界線（後續不再為開放類實詞手寫個案規則，專注封閉功能詞與高維拓撲構式，實詞搭配由 Phase 1 台灣正體統計 N-gram 與 Phase 3 個人快取承接）；`ruhi-android` 定位為 `v1.0 Companion Preview` |
-| 24／48 音節無標點長句解碼延遲 | Release 基準 `test_task4_and_task5_integration_benchmarks_261114`：24 音節 **`7.081 ms`**（視窗 `7.072 ms`）、35 音節 **`9.822 ms`**、48 音節 **`13.903 ms`**（遠低於 `25.0 ms`／`55.0 ms` 門檻） |
-| Release 建置與熱重載／冷重啟狀態 | 已完成 [`ruhi_tsf.dll`](file:///c:/ATGprjs/ruhi/ruhi-tsf/target/release/ruhi_tsf.dll)（`10,892,800` bytes）與 [`ruhi-settings.exe`](file:///c:/ATGprjs/ruhi/ruhi-settings/target/release/ruhi-settings.exe)（`18,108,416` bytes）Release 建置並同步至 `scripts/` 與 `dist/`；因 Wave 3b (`0e48a67`) 啟用 Layer B 結構體與 `Drop` 收斂（`LAYER_B_ABI_EPOCH = 2`），請由使用者執行 `hot_reload.ps1` 後**重啟既有應用程式（或執行一次 Windows 登出／重開機）**以完成全進程安全換版 |
+| `ruhi-settings` Release／Debug 單元測試 | **`8 passed; 0 failed; 0 ignored`** |
+| 規則靜態檢查（`scripts/lint_scoring_rules.py --full`） | **0 項違規**（全量掃描 **`70,134`** 行，覆蓋 `router/`、`western/` 與設定資料表） |
+| 核心語素本體與詞庫同步 | [`morpheme_ontology.json`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/morpheme_ontology.json) **107 類／1,894 不重複語素**；`ruhi_lexicon/data/lexicon_core.tsv`、`data/`、`scripts/data/`、`dist/data/` 四份位元組完全一致（**`8,148,383`** bytes，SHA-256 `02891CE9FC350B65F621894F75BD5A29D2B50F2EF993929EEDACD21CE6C26047`）；`constructions.rs` 維持凍結於 **`19,250`** 行 |
+| 路線二（Windows 1.0 收斂）狀態 | **Phase 1 完成（`4f58d39`）**：統計 N-gram 底盤已完成訓練、防護整合與盲測驗證（零過擬合）；`constructions.rs` 嚴守開放類實詞規則凍結政策；`ruhi-android` 定位為 `v1.0 Companion Preview`；接續推進 Phase 2（詞庫／變調／邊界清理）、Phase 3（Windows 1.0 打包與一鍵安裝實機驗證）與 Phase 4/5 發布 |
+| `dev` 評估延遲與負載穩定性 | `dev.tsv` 平均解碼耗時 **`9.816 ms`**（P50 **`8.106 ms`**、P95 `21.647 ms`）；`test.tsv` 平均 **`8.176 ms`**（P50 **`6.458 ms`**）；`typing_tw.tsv` 平均 **`9.537 ms`**（P50 **`6.502 ms`**）；`test_task4_and_task5_integration_benchmarks_261114` 通過 |
+| Release 建置與熱重載／冷重啟狀態 | `quality_gate.ps1` 已同步驗證通過 `ruhi-tsf` Release 建置（另搭配 `ngram_zh_tw.bin` 與最新 `feature_weights.tsv`／`lexicon_core.tsv` 鏡像至 `scripts/data/` 與 `dist/data/`）；進行實機輸入驗收前，請由使用者執行 `hot_reload.ps1` 後確認最新資料與 DLL 就緒 |
 
 ---
 
@@ -97,16 +99,21 @@
       * 修復負座標多螢幕哨兵 `CARET_UNPROBED = i32::MIN`、原地 Mutex 熱升級、`thread_local!` `DllForwardGuard`、`50 ms` 單鍵密碼欄消費權杖與延後按鍵日誌、Win32 `ToUnicodeEx`/`AltGr` 歐文鍵盤對映、前導 `/`/`.`/`_` 防護、`undo()` 區間釘選、`GDI` 執行緒快取與 `ruhi-settings` `rud()` 自適應排版。
       * Wave 3a（`ruhi_eval --set dev --calibrate`）於 Stage A/B 實測未能低於 `2,068` 錯字（`delta = 0`），依淨增益原則保留既有 `feature_weights.tsv` 並恢復全鏡像一致。
       * Wave 3b（`0e48a67` `[Cold-Restart Required]`）將 `BACKSLASH_ESCAPE_ENGINES` 靜態旁表內嵌為 `EscapePendingFlag(AtomicBool)`、補全 `impl Drop for WesternEngine` 與 `impl Drop for RuhiTextService`、升級 `undo_stack`/`redo_stack` 為 `VecDeque<EditorSnapshot>`、將 `CANDIDATE_STATE` 安全遷移為 `TLS_CANDIDATE_STATE`（同 STA 執行緒 `RefCell` 搭配 `CandidateWindow::drop` 重置），並於 [`compute_layer_a_abi_hash()`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L719) 納入 `LAYER_B_ABI_EPOCH = 2` 與 `needs_drop` 指紋，配合同步更新之 `hot_reload.ps1` 執行期守門。
+14. **Phase 1（Phase 1A–1D）台灣正體商用安全統計 N-gram 底盤建置與維特比整合（`ea7a1d3`、`bb25909`、`4f58d39`，2026-11-21 完成）**：
+    - **記憶體映射二進位引擎與授權合規語料訓練**：實作 [`mmap_io.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/mmap_io.rs)、[`ngram_lm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/ngram_lm.rs)（`RLNG0001` 編譯與 16 位元量化讀取）、[`ruhi_ngbin.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/bin/ruhi_ngbin.rs)（與 `--probe` 十組對比診斷）及 [`train_ngram_lm.py`](file:///c:/ATGprjs/ruhi/scripts/train_ngram_lm.py)（移植 `production_s5` 斷詞並排除 `is_narrow_transparent_derived` 雙字代詞粘連問題）；於 Google Colab 完成 9 組商用安全台灣繁體語料（`70,765,616` 字）訓練並編譯為 `26.88 MB` `ngram_zh_tw.bin`（授權規範記於 [`THIRD_PARTY_LICENSES.md`](file:///c:/ATGprjs/ruhi/THIRD_PARTY_LICENSES.md)，同步於 [`package_release.py`](file:///c:/ATGprjs/ruhi/scripts/package_release.py) 與 `.gitignore`）。
+    - **維特比三層邊界防護與均衡高精度校準（`v6`）**：於 [`transitions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/transitions.rs)、[`engine.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 與 [`viterbi.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/viterbi.rs) 整合 `ngram_word_bi`／`ngram_char_bi`／`ngram_char_tri`，實作短詞與非中文前詞防護（Guard 1）、文言模式隔離（Guard 2）、人名邊界中性基線（Guard 3）及 `RUHI_DISABLE_RULES=ngram_lm` 優雅降級；經 [`ruhi_eval.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/bin/ruhi_eval.rs) `--calibrate --ngram-only` 鎖定既有 24 項規則權重並定案為 `(CT=0.2100, WB=0.3000, CB=0.1000)`，補齊 5 筆缺漏標準詞條並將 9 組薄邊際測試紀錄於 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 第四節；盲測 `test.tsv`（`5.45% -> 4.68%`）與外部 `typing_tw.tsv`（`11.29% -> 9.58%`）皆達成逾 14%–15% 相對 CER 降幅，確認無過擬合。
 
 ---
 
 ## 三、後續優先待辦事項（Prioritized Backlog）
 
-### 1. 【近期驗收】執行 Layer B 冷重啟換版並進行實境打字體驗確認
-- 因 Wave 3b (`0e48a67`) 屬於跨 DLL 結構體與 `Drop` 語意升級（`LAYER_B_ABI_EPOCH = 2`），建議先執行一次 `cd C:\ATGprjs\ruhi; .\scripts\hot_reload.ps1` 後重啟現有應用程式（或進行一次 Windows 登出／重開機），使所有程序載入最新版 `ruhi_tsf.dll`；亦可開啟 `ruhi-settings.exe` 確認歐文多語種勾選匣（本機預設含 `en`＋`sa_am`）及 `rud()` 介面呈現。
+### 1. 【近期驗收】路線二 Windows 1.0 後續階段（Phase 2–5）
+- **Phase 2（詞庫／變調與維護清潔）**：檢視盲測統計彙總暴露之高頻通用誤差型態（如 `它／他`、`臺／台`）於非構式通用規則／詞庫層面之純化空間（嚴守 `constructions.rs` 凍結政策）。
+- **Phase 3（Windows 1.0 打包與一鍵安裝實機驗證）**：檢查並實測 [`scripts/package_release.py`](file:///c:/ATGprjs/ruhi/scripts/package_release.py)、[`scripts/hot_reload.ps1`](file:///c:/ATGprjs/ruhi/scripts/hot_reload.ps1) 與 [`一鍵安裝.ps1`](file:///c:/ATGprjs/ruhi/一鍵安裝.ps1) 納入 `ngram_zh_tw.bin` 後之完整打包、熱重載與實機輸入體驗。
+- **Phase 4–5（Release RC 文件與交付清單）**：彙整版本說明與開放原始碼授權清冊，交付 `v1.0 RC`。
 
 ### 2. 【中期可選里程碑】持續消化困難例句與探索 P2-2／P2-4 架構演進
-- 依九大拓撲構式原則逐步消化 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 其餘 `7` 項 `#[ignore]` 與開發集殘留錯誤（目前 `dev` CER **`4.61%`**、基準線已於 `eval_reports/dev_gate_baseline.json` 鎖定於 `0e48a67`）。
+- 依九大拓撲構式原則逐步消化 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 紀錄之 `#[ignore]` 案例與開發集殘留錯誤（目前 `dev` CER **`3.89%`**、基準線已於 [`eval_reports/dev_gate_baseline.json`](file:///c:/ATGprjs/ruhi/eval_reports/dev_gate_baseline.json) 鎖定於 `4f58d39`）。
 - 若需進一步擴充語篇層與第三方社群語言包，可接續規劃 **P2-2**（句後 `O(1)` 對話主題／代詞性別暫存）與 **P2-4**（依 [`docs/EXTENSION_ARCHITECTURE_SPEC.md`](file:///c:/ATGprjs/ruhi/docs/EXTENSION_ARCHITECTURE_SPEC.md) 實作 `manifest.toml` 四層宣告式擴充載入器與 `WesternLexicon` FST 索引）。
 
 ---
