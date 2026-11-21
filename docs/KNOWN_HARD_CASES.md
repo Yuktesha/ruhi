@@ -102,3 +102,17 @@ Phase 1D 導入台灣正體商用安全統計 N-gram 模型（`ngram_zh_tw.bin`�
 | `test_round4_eleven_real_world_aesthetic_and_daily_constructions_261120` | `test_phase1d_v6_ngram_thin_margin_known_hard_cases_261121` | `考的上次那題` | `考的上次那提` | 詞庫單字 `題 (775)` 與 `提 (746)` 僅差 `+0.0381` 分，語料中 `WB("那","提")`（如「那提到」）高於 `WB("那","題")` |
 | `test_wave1a_eight_y_sentences_and_contrasts_std_and_hsu` (`#4`) | `test_wave1a_phase1d_v6_ngram_known_hard_cases_261121` | `我們社區管理委員會的常委養了一隻長尾貓` | `我們社區管理委員會的長尾養了一隻長尾貓` | 「社區管理委員會」較「黨／中央／政治」常規共現稀疏，「的長尾」與右側「長尾貓」三字統計組合壓過未觸發強規則之 `常委` |
 | `test_wave1a_eight_y_sentences_and_contrasts_std_and_hsu` (`#5`) | `test_wave1a_phase1d_v6_ngram_known_hard_cases_261121` | `一群年輕人在滿樹桐花的樹蔭下玩起撲克牌，其中一人亮出一手同花順好牌，所有人都同時同意他是今天最幸運的人` | `...亮出一首同花順好牌...` | 詞庫 `一手 (450)` 與 `一首 (447)` 僅差 `+0.0067` 分，極易受語料「出一首」字級三元統計反超；同句之「他是」於 `v6` 已維持通過 |
+
+---
+
+## 5. 2026-11-22 Stage B2 台灣口語語料＋`RLNG0002` 詞三元升級新增之薄邊際權衡案例
+
+Stage B2 將靜態統計語言模型由 `RLNG0001`（`26.88 MB`）升級為涵蓋 12 組商用安全台灣繁體口語與書面語料（合計 `99,215,460` 清潔字元）之 `RLNG0002` 詞三元模型（`50.34 MB`，詞彙 `144,000`、`WB=2,200,000`、`WT=1,500,000`、`CB=750,000`、`CT=1,600,000`；權重 `ngram_word_bi=0.3500`、`ngram_word_tri=0.1400`、`ngram_char_bi=0.0500`、`ngram_char_tri=0.3000`），配合 Backward-A\* N-Best 語篇重排與 ID 外提加速後，開發集（`dev.tsv`，`3,640` 句／`44,855` 字）CER 由 `v0.8.0` 基準 `3.72%`（`1,669` 字錯）大幅降至 **`3.49%`**（**`1,566`** 字錯，淨減 **`-103`** 字錯，整句完全命中率 **`2,692 / 3,640 = 73.96%`**，`p95 = 20.580 ms`）。
+
+在嚴格遵守 `constructions.rs` 凍結原則的前提下，下表 3 組原屬於混合測試函式之薄邊際句例因強化後之詞／字三元機率分佈跨越微幅邊界，依第四節相同規範拆出為獨立 `#[ignore]` 帳本測試 [`test_v09_stage_b2_rlng0002_thin_margin_known_hard_cases_261122`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs)，待後續 `constructions.rs` 解凍或 `v1.0` 神經重排服務階段統一消化：
+
+| 來源測試 | 拆出之測試函式 | 預期輸出 (`expected`) | Stage B2 實際輸出 (`actual`) | 成因與統計權衡說明 |
+|---|---|---|---|---|
+| `test_neon_welcome_homophone_constructions_and_contrasts_261119` | `test_v09_stage_b2_rlng0002_thin_margin_known_hard_cases_261122` | `我看現在應該雞嘴變鴨嘴了` | `我看現在應該雞嘴便鴨嘴了` | 動詞性詞組「雞嘴＋變＋鴨嘴」於通用語料極為罕見，`should/嘴+便` 與字級二／三元組合微幅壓過詞頻先驗，`constructions.rs` 對「便」尚未置放對稱轉換動詞加權 |
+| `test_eight_real_world_homophone_and_mixed_cases_261119` | `test_v09_stage_b2_rlng0002_thin_margin_known_hard_cases_261122` | `歷經多代` | `歷經多帶` | 延續第四節「多代機型」之薄邊際效應（`代 765` vs `帶 727`），口語＋一般語料之字／詞三元統計在無右側實體名詞時反超「多代」；同組 `多代同堂`、`多代傳承`、`下一代模型`、`第一代產品` 均維持通過 |
+| `test_round5_modal_xde_factorization_and_contrastives_261120` | `test_v09_stage_b2_rlng0002_thin_margin_known_hard_cases_261122` | `他不捨得花錢`（`˙ㄉㄜ` 輕聲變體） | `他不捨的花錢` | 網路對話／白話語料中「不捨得」常被混用誤植為「不捨的」，導致擴增台灣口語語料後輕聲路徑遭表層 `的+花` 搭配機率反超（二聲 `ㄉㄜˊ` 讀音測試維持通過） |

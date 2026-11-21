@@ -10,25 +10,30 @@ use std::time::Instant;
 
 struct SequenceScores {
     word_bi: f64,
+    word_tri: f64,
     char_bi: f64,
     char_tri: f64,
 }
 
 impl SequenceScores {
     fn combined(&self) -> f64 {
-        self.word_bi + self.char_bi + self.char_tri
+        self.word_bi + self.word_tri + self.char_bi + self.char_tri
     }
 }
 
-/// 計算切分詞序在詞彙二元與字元二／三元模型下之對數機率總和（base-10）。
+/// 計算切分詞序在詞彙二／三元與字元二／三元模型下之對數機率總和（base-10）。
 fn score_word_sequence(lm: &NgramLanguageModel, words: &[&str]) -> SequenceScores {
     let mut word_bi = 0.0;
+    let mut word_tri = 0.0;
     let mut char_bi = 0.0;
     let mut char_tri = 0.0;
     let mut prev2: Option<&str> = None;
     let mut prev1 = "";
     for &w in words {
         word_bi += lm.score_word_bigram(prev1, w);
+        if lm.has_word_trigrams() {
+            word_tri += lm.score_word_trigram(prev2, prev1, w);
+        }
         let (cb, ct) = lm.score_char_boundary(prev2, prev1, w);
         char_bi += cb;
         char_tri += ct;
@@ -37,6 +42,7 @@ fn score_word_sequence(lm: &NgramLanguageModel, words: &[&str]) -> SequenceScore
     }
     SequenceScores {
         word_bi,
+        word_tri,
         char_bi,
         char_tri,
     }
@@ -69,10 +75,12 @@ fn run_probe(bin_path: &Path) -> ! {
         open_ms
     );
     println!(
-        "  詞彙={} | 字元={} | 詞二元={} | 字二元={} | 字三元={}",
+        "  格式=RLNG000{} | 詞彙={} | 字元={} | 詞二元={} | 詞三元={} | 字二元={} | 字三元={}",
+        lm.format_version,
         lm.vocab_count,
         lm.char_vocab_count,
         lm.word_bi_count,
+        lm.word_tri_count,
         lm.char_bi_count,
         lm.char_tri_count
     );
@@ -99,6 +107,7 @@ fn run_probe(bin_path: &Path) -> ! {
         let delta_comb = sg.combined() - sb.combined();
         let delta_char = (sg.char_bi + sg.char_tri) - (sb.char_bi + sb.char_tri);
         let delta_wb = sg.word_bi - sb.word_bi;
+        let delta_wt = sg.word_tri - sb.word_tri;
         if delta_comb > 0.0 {
             pass_combined += 1;
         }
@@ -114,19 +123,22 @@ fn run_probe(bin_path: &Path) -> ! {
             bad.join("+")
         );
         println!(
-            "         good: wb={:7.3} cb={:7.3} ct={:7.3} sum={:8.3}",
+            "         good: wb={:7.3} wt={:7.3} cb={:7.3} ct={:7.3} sum={:8.3}",
             sg.word_bi,
+            sg.word_tri,
             sg.char_bi,
             sg.char_tri,
             sg.combined()
         );
         println!(
-            "         bad : wb={:7.3} cb={:7.3} ct={:7.3} sum={:8.3} | d_wb={:+.3} d_char={:+.3} d_sum={:+.3}",
+            "         bad : wb={:7.3} wt={:7.3} cb={:7.3} ct={:7.3} sum={:8.3} | d_wb={:+.3} d_wt={:+.3} d_char={:+.3} d_sum={:+.3}",
             sb.word_bi,
+            sb.word_tri,
             sb.char_bi,
             sb.char_tri,
             sb.combined(),
             delta_wb,
+            delta_wt,
             delta_char,
             delta_comb
         );
@@ -190,10 +202,11 @@ fn main() {
         elapsed_ms
     );
     println!(
-        "  詞彙={} | 字元={} | 詞二元={} | 字二元={} | 字三元={} | 略過缺詞={} | 重複覆寫={}",
+        "  詞彙={} | 字元={} | 詞二元={} | 詞三元={} | 字二元={} | 字三元={} | 略過缺詞={} | 重複覆寫={}",
         stats.vocab_count,
         stats.char_vocab_count,
         stats.word_bi_count,
+        stats.word_tri_count,
         stats.char_bi_count,
         stats.char_tri_count,
         stats.skipped_missing_vocab,

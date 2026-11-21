@@ -25,7 +25,8 @@ family_aspect_temporal	0.9231
 family_conjunction_discourse	0.9274
 family_morph_phonetic_guard	0.9853
 family_core_syntax	0.9440
-ngram_word_bi	0.3000
-ngram_char_bi	0.1000
-ngram_char_tri	0.2100
+ngram_word_bi	0.3500
+ngram_word_tri	0.1400
+ngram_char_bi	0.0500
+ngram_char_tri	0.3000
 construction_hierarchical_matrix	0.9437

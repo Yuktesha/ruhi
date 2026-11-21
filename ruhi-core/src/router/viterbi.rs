@@ -6,8 +6,10 @@ use super::lattice::LatticeNode;
 use super::morpheme_ontology::{MorphemeClass, MorphemeMask256, MorphemeOntology};
 
 const NGRAM_WORD_BI_FLOOR: f64 = -5.5;
+const NGRAM_WORD_TRI_FLOOR: f64 = -8.5;
 const NGRAM_CHAR_PER_CHAR_FLOOR: f64 = -5.0;
 const NGRAM_ONO_WB_NEUTRAL: f64 = -3.5;
+const NGRAM_ONO_WT_NEUTRAL: f64 = -3.6;
 const NGRAM_ONO_CHAR_NEUTRAL_PER_CHAR: f64 = -2.5;
 
 #[inline]
@@ -741,6 +743,7 @@ impl ViterbiRouter {
                     w_coord_he,
                     w_class,
                     w_ng_wb,
+                    w_ng_wt,
                     w_ng_cb,
                     w_ng_ct,
                 ) = if let Some(ref eng) = transitions {
@@ -762,11 +765,12 @@ impl ViterbiRouter {
                         eng.feature_weights.get("coord_he_huo_prior").copied().unwrap_or(0.0),
                         eng.feature_weights.get("classical_register").copied().unwrap_or(1.0),
                         eng.feature_weights.get("ngram_word_bi").copied().unwrap_or(0.0),
+                        eng.feature_weights.get("ngram_word_tri").copied().unwrap_or(0.0),
                         eng.feature_weights.get("ngram_char_bi").copied().unwrap_or(0.0),
                         eng.feature_weights.get("ngram_char_tri").copied().unwrap_or(0.0),
                     )
                 } else {
-                    (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0)
+                    (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0)
                 };
                 let initial_has_cjk = initial_word
                     .chars()
@@ -866,11 +870,54 @@ impl ViterbiRouter {
                 }
 
                 let mut prev_archaic = [false; 32];
+                let mut prev2_words: [Option<&str>; 32] = [None; 32];
                 for prev_idx in 0..p_count.min(32) {
                     let st = &trellis_past[i][prev_idx];
                     if !st.node.word.is_empty() {
                         prev_archaic[prev_idx] =
                             super::archaic_table::is_archaic_polyphonic(&st.node.word, &st.node.bopomofo);
+                        if i > 0 && lookback_lens[prev_idx] >= 2 {
+                            prev2_words[prev_idx] = Some(lookback_bufs[prev_idx][MAX_LOOKBACK - 2]);
+                        }
+                    }
+                }
+
+                let need_word_ng = ngram_lm_ref.as_ref().is_some_and(|lm| {
+                    w_ng_wb.abs() > 1e-12 || (w_ng_wt.abs() > 1e-12 && lm.has_word_trigrams())
+                });
+                let lm_bos_id = if need_word_ng {
+                    ngram_lm_ref.as_ref().and_then(|lm| lm.bos_word_id())
+                } else {
+                    None
+                };
+                let lm_need_wt = need_word_ng
+                    && w_ng_wt.abs() > 1e-12
+                    && ngram_lm_ref.as_ref().is_some_and(|lm| lm.has_word_trigrams());
+                // 預先為前導狀態建立 `(prev1_id_for_bi, prev_is_empty, prev2_wb_idx)` 快取，
+                // 避免在 `(node, prev_idx)` 內層迴圈重複二分搜尋 14 萬詞彙表與雙元組表。
+                let mut prev_lm_info: [(Option<u32>, bool, Option<usize>); 32] =
+                    [(None, true, None); 32];
+                if need_word_ng {
+                    if let Some(ref lm) = ngram_lm_ref {
+                        for prev_idx in 0..p_count.min(32) {
+                            let st = &trellis_past[i][prev_idx];
+                            let prev_is_empty = st.node.word.is_empty();
+                            let prev1_id = if prev_is_empty {
+                                lm_bos_id
+                            } else {
+                                lm.lookup_word_id(&st.node.word)
+                            };
+                            let prev2_wb = if !lm_need_wt || prev_is_empty {
+                                None
+                            } else {
+                                let p2_id = match prev2_words[prev_idx] {
+                                    Some(s) if !s.is_empty() => lm.lookup_word_id(s),
+                                    _ => lm_bos_id,
+                                };
+                                lm.word_bigram_idx_for_pair(p2_id, prev1_id)
+                            };
+                            prev_lm_info[prev_idx] = (prev1_id, prev_is_empty, prev2_wb);
+                        }
                     }
                 }
 
@@ -913,6 +960,17 @@ impl ViterbiRouter {
                     let self_score = freq_score + length_bonus + classical_node;
 
                     let node_guards = compute_node_edge_guards(node, nodes, dag, &backward);
+                    let (curr_lm_id, curr_lm_uni) = if need_word_ng {
+                        if let Some(ref lm) = ngram_lm_ref {
+                            let cid = lm.lookup_word_id(&node.word);
+                            let cuni = lm.word_unigram_logp_by_id(cid);
+                            (cid, cuni)
+                        } else {
+                            (None, 0.0)
+                        }
+                    } else {
+                        (None, 0.0)
+                    };
 
                     let is_coord_conj = matches!(node.word.as_str(), "與" | "和" | "或");
                     let mut best_incoming_score = -f64::INFINITY;
@@ -925,12 +983,8 @@ impl ViterbiRouter {
                     };
 
                     for (prev_idx, prev_state) in trellis_past[i].iter().enumerate() {
-                        let prev2_word = if !prev_state.node.word.is_empty()
-                            && i > 0
-                            && prev_idx < 32
-                            && lookback_lens[prev_idx] >= 2
-                        {
-                            Some(lookback_bufs[prev_idx][MAX_LOOKBACK - 2])
+                        let prev2_word = if prev_idx < 32 {
+                            prev2_words[prev_idx]
                         } else {
                             None
                         };
@@ -979,11 +1033,36 @@ impl ViterbiRouter {
                         let ngram_trans = if let Some(ref lm) = ngram_lm_ref {
                             if !ono_edge_active {
                                 let mut ng = 0.0;
-                                if w_ng_wb.abs() > 1e-12 {
-                                    let wb = lm
-                                        .score_word_bigram(&prev_state.node.word, &node.word)
-                                        .max(NGRAM_WORD_BI_FLOOR);
-                                    ng += w_ng_wb * wb;
+                                if need_word_ng {
+                                    let (prev1_id, prev_is_empty, prev2_wb_idx) = if prev_idx < 32 {
+                                        prev_lm_info[prev_idx]
+                                    } else {
+                                        let p_empty = prev_state.node.word.is_empty();
+                                        let p1 = if p_empty {
+                                            lm_bos_id
+                                        } else {
+                                            lm.lookup_word_id(&prev_state.node.word)
+                                        };
+                                        let p2_wb = if !lm_need_wt || p_empty {
+                                            None
+                                        } else {
+                                            lm.word_bigram_idx_for_pair(lm_bos_id, p1)
+                                        };
+                                        (p1, p_empty, p2_wb)
+                                    };
+                                    let (raw_wb, raw_wt) = lm.score_word_bigram_and_trigram_by_ids(
+                                        prev2_wb_idx,
+                                        prev1_id,
+                                        prev_is_empty,
+                                        curr_lm_id,
+                                        curr_lm_uni,
+                                    );
+                                    if w_ng_wb.abs() > 1e-12 {
+                                        ng += w_ng_wb * raw_wb.max(NGRAM_WORD_BI_FLOOR);
+                                    }
+                                    if lm_need_wt {
+                                        ng += w_ng_wt * raw_wt.max(NGRAM_WORD_TRI_FLOOR);
+                                    }
                                 }
                                 if w_ng_cb.abs() > 1e-12 || w_ng_ct.abs() > 1e-12 {
                                     let (raw_cb, raw_ct) = lm.score_char_boundary(
@@ -998,7 +1077,12 @@ impl ViterbiRouter {
                             } else {
                                 let c_neutral =
                                     NGRAM_ONO_CHAR_NEUTRAL_PER_CHAR * (word_len_u as f64);
-                                w_ng_wb * NGRAM_ONO_WB_NEUTRAL + (w_ng_cb + w_ng_ct) * c_neutral
+                                let wt_neutral = if lm.has_word_trigrams() {
+                                    w_ng_wt * NGRAM_ONO_WT_NEUTRAL
+                                } else {
+                                    0.0
+                                };
+                                w_ng_wb * NGRAM_ONO_WB_NEUTRAL + wt_neutral + (w_ng_cb + w_ng_ct) * c_neutral
                             }
                         } else {
                             0.0
@@ -1457,18 +1541,34 @@ impl ViterbiRouter {
                     dag,
                     &transitions.session_given_names,
                 );
-                let (wb, cb, ct) = if !ono_active {
+                let (wb, wt_opt, cb, ct) = if !ono_active {
                     let wb = lm
                         .score_word_bigram(prev_w, &node.word)
                         .max(NGRAM_WORD_BI_FLOOR);
+                    let wt_opt = if lm.has_word_trigrams() {
+                        Some(
+                            lm.score_word_trigram(prev2_w, prev_w, &node.word)
+                                .max(NGRAM_WORD_TRI_FLOOR),
+                        )
+                    } else {
+                        None
+                    };
                     let (raw_cb, raw_ct) = lm.score_char_boundary(prev2_w, prev_w, &node.word);
                     let (cb, ct) = clip_ngram_char_pair(raw_cb, raw_ct, word_len_u);
-                    (wb, cb, ct)
+                    (wb, wt_opt, cb, ct)
                 } else {
                     let c_neutral = NGRAM_ONO_CHAR_NEUTRAL_PER_CHAR * (word_len_u as f64);
-                    (NGRAM_ONO_WB_NEUTRAL, c_neutral, c_neutral)
+                    let wt_opt = if lm.has_word_trigrams() {
+                        Some(NGRAM_ONO_WT_NEUTRAL)
+                    } else {
+                        None
+                    };
+                    (NGRAM_ONO_WB_NEUTRAL, wt_opt, c_neutral, c_neutral)
                 };
                 *features.entry("ngram_word_bi".to_string()).or_insert(0.0) += wb;
+                if let Some(wt) = wt_opt {
+                    *features.entry("ngram_word_tri".to_string()).or_insert(0.0) += wt;
+                }
                 *features.entry("ngram_char_bi".to_string()).or_insert(0.0) += cb;
                 *features.entry("ngram_char_tri".to_string()).or_insert(0.0) += ct;
             }
@@ -1893,5 +1993,80 @@ mod tests {
         assert!(seen.contains("是她們意思"));
         assert!(seen.contains("是它們意思"));
         assert!(seen.contains("是牠們意思"));
+    }
+
+    #[test]
+    fn test_rlng0002_word_trigram_viterbi_dot_product_equivalence_261122() {
+        let mut tsv_path = std::env::temp_dir();
+        tsv_path.push(format!("ruhi_rlng2_viterbi_dp_{}.tsv", std::process::id()));
+        let mut bin_path = std::env::temp_dir();
+        bin_path.push(format!("ruhi_rlng2_viterbi_dp_{}.bin", std::process::id()));
+
+        let tsv_data = concat!(
+            "WU\t<s>\t-9.0\t-0.1\n",
+            "WU\t<unk>\t-8.5\t0.0\n",
+            "WU\t台灣\t-2.1\t-0.2\n",
+            "WU\t語音\t-2.4\t-0.2\n",
+            "WU\t辨識\t-2.3\t-0.2\n",
+            "WB\t<s>\t台灣\t-1.4\t-0.2\n",
+            "WB\t台灣\t語音\t-1.6\t-0.15\n",
+            "WB\t語音\t辨識\t-1.3\t0.0\n",
+            "WT\t<s>\t台灣\t語音\t-1.1\n",
+            "WT\t台灣\t語音\t辨識\t-0.9\n",
+            "CU\t<s>\t-9.0\t-0.1\n",
+            "CU\t<unk>\t-8.5\t0.0\n",
+            "CU\t台\t-2.0\t-0.2\n",
+            "CU\t灣\t-2.3\t-0.2\n",
+            "CU\t語\t-2.1\t-0.2\n",
+            "CU\t音\t-2.2\t-0.2\n",
+            "CU\t辨\t-2.4\t-0.2\n",
+            "CU\t識\t-2.5\t-0.2\n",
+            "CB\t<s>\t台\t-1.3\t-0.15\n",
+            "CT\t<s>\t台\t灣\t-0.35\n",
+        );
+        std::fs::write(&tsv_path, tsv_data).unwrap();
+        crate::router::ngram_lm::compile_arpa_tsv_to_bin(&tsv_path, &bin_path).unwrap();
+
+        let router = ViterbiRouter::default();
+        let mut eng = crate::router::transitions::TransitionEngine::new();
+        eng.disabled_rules.remove("ngram_lm");
+        eng.load_ngram_lm_bin(&bin_path).unwrap();
+        eng.feature_weights.insert("ngram_word_bi".to_string(), 0.25);
+        eng.feature_weights.insert("ngram_word_tri".to_string(), 0.22);
+        eng.feature_weights.insert("ngram_char_bi".to_string(), 0.08);
+        eng.feature_weights.insert("ngram_char_tri".to_string(), 0.20);
+
+        let mut dag: HashMap<usize, Vec<LatticeNode>> = HashMap::new();
+        dag.insert(0, vec![LatticeNode::new(0, 2, "台灣", 800, "ㄊㄞˊ ㄨㄢ")]);
+        dag.insert(2, vec![LatticeNode::new(2, 4, "語音", 700, "ㄩˇ ㄧㄣ")]);
+        dag.insert(4, vec![LatticeNode::new(4, 6, "辨識", 650, "ㄅㄧㄢˋ ㄕˋ")]);
+
+        let (path, best_score) = router.solve_best_path(6, &dag, Some(&mut eng));
+        let joined: String = path.iter().map(|n| n.word.as_str()).collect();
+        assert_eq!(joined, "台灣語音辨識");
+
+        let (feats, _) = router.extract_path_features_and_triggers(&path, &dag, &mut eng);
+        assert!(feats.get("ngram_word_tri").copied().unwrap_or(0.0) < 0.0);
+
+        let dot: f64 = feats
+            .iter()
+            .map(|(k, v)| {
+                let def = if k.starts_with("ngram_") || k == "coord_he_huo_prior" {
+                    0.0
+                } else {
+                    1.0
+                };
+                v * eng.feature_weights.get(k).copied().unwrap_or(def)
+            })
+            .sum();
+        assert!(
+            (best_score - dot).abs() < 1e-9,
+            "RLNG0002 best_score ({}) != dot product ({})",
+            best_score,
+            dot
+        );
+
+        let _ = std::fs::remove_file(&tsv_path);
+        let _ = std::fs::remove_file(&bin_path);
     }
 }

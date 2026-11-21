@@ -118,11 +118,14 @@
 
 ## 8. 台灣正體統計 N-gram 語言模型訓練語料與字表 (`ngram_zh_tw.bin`)
 
-`ruhi_lexicon/data/ngram_zh_tw.bin`（`RLNG0001` 格式，由 `scripts/train_ngram_lm.py` 與 `ruhi_ngbin` 建置）僅採用可商用且無 ShareAlike／NonCommercial／中國大陸意識形態審查之授權安全語料與純度字表：
+`ruhi_lexicon/data/ngram_zh_tw.bin`（`RLNG0001`／`RLNG0002` 格式，由 `scripts/train_ngram_lm.py` 與 `ruhi_ngbin` 建置）僅採用可商用且無 ShareAlike／NonCommercial／中國大陸意識形態審查之授權安全語料與純度字表：
 
 | 來源資料集 / 字表 | 授權條款 | 專案用途 |
 | :--- | :--- | :--- |
 | `HuggingFaceFW/fineweb-2` (`cmn_Hani` `.tw` 網域子集) | ODC-BY-1.0 | 台灣繁體網路文章統計語料 |
+| `OpenFormosa/common_voice_25_zh-TW` (`validated_sentences.tsv`) | CC0-1.0 | 台灣繁體口語朗讀驗證語料 |
+| `lianghsun/coco-caption-zh_tw-val` | CC-BY-4.0 | 台灣繁體圖像敘事描述語料 |
+| `agentlans/traditional-chinese` (經 `twfilter-tables` 純度過濾之上限子集) | ODC-BY | 繁體中文一般領域統計語料 |
 | `openfun/ivod-fine-tune` | CC-BY-4.0 | 立法院公開口語逐字稿語料 |
 | `openfun/tw-ly-interpellation` | CC-BY-4.0 | 立法院書面質詢文書語料 |
 | `openfun/tw-ly-bill` | CC-BY-4.0 | 立法院議案與條文說明語料 |

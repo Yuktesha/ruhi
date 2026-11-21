@@ -3627,6 +3627,7 @@ fn feature_bounds(k: &str) -> (f64, f64) {
     match k {
         "coord_he_huo_prior" => (0.0, 0.20),
         "ngram_word_bi" => (0.0, 0.35),
+        "ngram_word_tri" => (0.0, 0.35),
         "ngram_char_bi" => (0.0, 0.10),
         "ngram_char_tri" => (0.0, 0.30),
         "multi_char_len" | "cohesion_len3" | "cohesion_len4" => (0.98, 1.05),
@@ -3875,6 +3876,7 @@ pub fn run_perceptron_calibration(
         "family_morph_phonetic_guard",
         "family_core_syntax",
         "ngram_word_bi",
+        "ngram_word_tri",
         "ngram_char_bi",
         "ngram_char_tri",
     ];
@@ -4017,7 +4019,8 @@ pub fn run_perceptron_calibration(
     let mut best_exact = init_exact_count;
     let mut stage0_steps = Vec::new();
 
-    if base_engine.transitions.ngram_lm.is_some() {
+    if let Some(ref lm_arc) = base_engine.transitions.ngram_lm {
+        let has_wt = lm_arc.has_word_trigrams();
         println!("[Calibration] 進入 Stage 0: 統計 N-gram 特徵多尺度網格暖啟動...");
         stage0_sweep_feature(
             "0a",
@@ -4045,6 +4048,21 @@ pub fn run_perceptron_calibration(
             &mut best_exact,
             &mut stage0_steps,
         );
+        if has_wt {
+            stage0_sweep_feature(
+                "0b-wt",
+                "ngram_word_tri",
+                &[0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35],
+                base_engine,
+                compiled,
+                &dags,
+                &init_exact_flags,
+                &mut best_weights,
+                &mut best_errors,
+                &mut best_exact,
+                &mut stage0_steps,
+            );
+        }
         stage0_sweep_feature(
             "0c",
             "ngram_char_bi",
@@ -4082,8 +4100,13 @@ pub fn run_perceptron_calibration(
         } else {
             &[("0e", &[-0.25, -0.1, -0.05, 0.05, 0.1, 0.25])]
         };
+        let refine_keys: &[&str] = if has_wt {
+            &["ngram_char_tri", "ngram_word_bi", "ngram_word_tri", "ngram_char_bi"]
+        } else {
+            &["ngram_char_tri", "ngram_word_bi", "ngram_char_bi"]
+        };
         for &(pass_tag, offsets) in refine_passes {
-            for &k in &["ngram_char_tri", "ngram_word_bi", "ngram_char_bi"] {
+            for &k in refine_keys {
                 let cur = best_weights.get(k).copied().unwrap_or(0.0);
                 let grid: Vec<f64> = offsets.iter().map(|&d| cur + d).collect();
                 stage0_sweep_feature(
@@ -5126,6 +5149,14 @@ fn main() {
     }
 
     let mut engine = RuhiEngine::new_with_data_dir(&data_dir.to_string_lossy());
+    if let Some(pos) = args.iter().position(|a| a == "--ngram-bin") {
+        if let Some(p) = args.get(pos + 1) {
+            engine
+                .transitions
+                .load_ngram_lm_bin(p)
+                .unwrap_or_else(|e| panic!("無法載入 --ngram-bin {}: {}", p, e));
+        }
+    }
 
     if args.iter().any(|a| a == "--build-corpus") {
         let res = build_and_seal_evaluation_corpus(&root, &engine);
@@ -5170,6 +5201,9 @@ fn main() {
             }
             "--commit" if i + 1 < args.len() => {
                 commit_override = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--ngram-bin" if i + 1 < args.len() => {
                 i += 2;
             }
             "--gate" => {

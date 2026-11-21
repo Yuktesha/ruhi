@@ -419,10 +419,13 @@ class LexiconSegmenter:
 class NgramAccumulator:
     """使用整數鍵封裝統計詞彙與字元 N-gram 頻率。"""
 
-    def __init__(self, segmenter: LexiconSegmenter):
+    def __init__(self, segmenter: LexiconSegmenter, emit_word_trigrams: bool = False):
         self.segmenter = segmenter
+        self.emit_word_trigrams = emit_word_trigrams
         self.word_uni: Counter[int] = Counter()
         self.word_bi: Counter[int] = Counter()
+        self.word_tri: Counter[int] = Counter()
+        self._tri_circuit_pruned = False
 
         self.char_to_id: dict[str, int] = {}
         self.id_to_char: list[str] = ["<s>"]  # index 0 = BOS_CHAR
@@ -440,20 +443,26 @@ class NgramAccumulator:
 
     def ingest_clauses(self, clauses: list[str]) -> None:
         seg_fn = self.segmenter.segment_to_ids
+        emit_wt = self.emit_word_trigrams
         w_uni = self.word_uni
         w_bi = self.word_bi
+        w_tri = self.word_tri
         c_uni = self.char_uni
         c_bi = self.char_bi
         c_tri = self.char_tri
 
         for clause in clauses:
-            # 1. 詞彙級 1-gram 與 2-gram
+            # 1. 詞彙級 1-gram、2-gram 與選配 3-gram
             wids = seg_fn(clause)
             w_uni[0] += 1  # <s>
+            p2_wid = 0
             prev_wid = 0
-            for wid in wids:
+            for step_idx, wid in enumerate(wids):
                 w_uni[wid] += 1
                 w_bi[(prev_wid << 20) | wid] += 1
+                if emit_wt and step_idx >= 1 and prev_wid not in (0, 1) and wid != 1:
+                    w_tri[(p2_wid << 40) | (prev_wid << 20) | wid] += 1
+                p2_wid = prev_wid
                 prev_wid = wid
 
             # 2. 字元級 1-gram / 2-gram / 3-gram
@@ -467,6 +476,15 @@ class NgramAccumulator:
                 c_tri[(p2 << 32) | (p1 << 16) | cid] += 1
                 p2 = p1
                 p1 = cid
+
+        if emit_wt and len(w_tri) > 15_000_000:
+            # 記憶體保護斷路器：當詞三元獨特鍵超過 1,500 萬時清除低頻一次項
+            kept = Counter({k: v for k, v in w_tri.items() if v >= 2})
+            w_tri.clear()
+            w_tri.update(kept)
+            del kept
+            self._tri_circuit_pruned = True
+            gc.collect()
 
 
 # ── 語料萃取工具 ──────────────────────────────────────────────────────────────
@@ -881,6 +899,185 @@ class CorpusIngestor:
                     pass
         print(f"[source] {key}: status={st['status']} clean_chars={st['clean_chars']:,}", flush=True)
 
+    def run_common_voice_tw(self, cap: int = 5_000_000) -> None:
+        st = self._init_source(
+            "common_voice_25_zh_tw",
+            "OpenFormosa/common_voice_25_zh-TW",
+            "CC0-1.0",
+            cap,
+        )
+        local_path = None
+        try:
+            import csv
+            from huggingface_hub import HfApi, hf_hub_download
+
+            api = HfApi()
+            repo_files = api.list_repo_files("OpenFormosa/common_voice_25_zh-TW", repo_type="dataset")
+            candidates = [f for f in repo_files if f == "source/validated_sentences.tsv"]
+            if not candidates:
+                candidates = sorted(f for f in repo_files if f.endswith(".tsv") and "validated" in f.lower())
+            if not candidates:
+                candidates = sorted(f for f in repo_files if f.endswith(".tsv"))
+
+            for fname in candidates:
+                if st["clean_chars"] >= cap or self.total_clean_chars >= self.target_chars:
+                    break
+                try:
+                    local_path = hf_hub_download(
+                        repo_id="OpenFormosa/common_voice_25_zh-TW",
+                        filename=fname,
+                        repo_type="dataset",
+                    )
+                    with open(local_path, "r", encoding="utf-8", errors="replace", newline="") as f:
+                        reader = csv.DictReader(f, delimiter="\t")
+                        fields = reader.fieldnames or []
+                        if "sentence" in fields:
+                            for row in reader:
+                                st["docs_scanned"] += 1
+                                s = row.get("sentence") or ""
+                                if s:
+                                    self._feed_text("common_voice_25_zh_tw", s, cap)
+                                if st["clean_chars"] >= cap or self.total_clean_chars >= self.target_chars:
+                                    break
+                        else:
+                            f.seek(0)
+                            for line in f:
+                                st["docs_scanned"] += 1
+                                for col in line.rstrip("\r\n").split("\t"):
+                                    if len(col) >= 2:
+                                        self._feed_text("common_voice_25_zh_tw", col, cap)
+                                if st["clean_chars"] >= cap or self.total_clean_chars >= self.target_chars:
+                                    break
+                finally:
+                    if local_path and os.path.exists(local_path):
+                        try:
+                            os.remove(local_path)
+                        except OSError:
+                            pass
+                        local_path = None
+            st["status"] = "ok"
+        except Exception as exc:
+            st["status"] = "error"
+            st["error"] = str(exc)
+        print(
+            f"[source] common_voice_25_zh_tw: status={st['status']} clean_chars={st['clean_chars']:,}",
+            flush=True,
+        )
+
+    def run_auto_repo_source(
+        self,
+        key: str,
+        repo: str,
+        license_name: str,
+        cap: int,
+        max_docs: int | None = None,
+    ) -> None:
+        st = self._init_source(key, repo, license_name, cap)
+        try:
+            from huggingface_hub import HfApi, hf_hub_download
+
+            api = HfApi()
+            repo_files = sorted(api.list_repo_files(repo, repo_type="dataset"))
+            data_files = [
+                f
+                for f in repo_files
+                if f.endswith((".parquet", ".jsonl.gz", ".jsonl", ".json"))
+                and not os.path.basename(f).startswith(".")
+            ]
+
+            def reached_limit() -> bool:
+                if st["clean_chars"] >= cap or self.total_clean_chars >= self.target_chars:
+                    return True
+                return max_docs is not None and st["docs_scanned"] >= max_docs
+
+            loaded_any = False
+            for fname in data_files:
+                if reached_limit():
+                    break
+                local_path = None
+                try:
+                    local_path = hf_hub_download(repo_id=repo, filename=fname, repo_type="dataset")
+                    if fname.endswith(".parquet"):
+                        import pyarrow.parquet as pq
+
+                        pf = pq.ParquetFile(local_path)
+                        cols = pf.schema_arrow.names
+                        for batch in pf.iter_batches(batch_size=1024, columns=cols):
+                            d = batch.to_pydict()
+                            n_rows = len(next(iter(d.values()))) if d else 0
+                            for idx in range(n_rows):
+                                if reached_limit():
+                                    break
+                                st["docs_scanned"] += 1
+                                buf: list[str] = []
+                                for col in cols:
+                                    extract_strings_recursive(d[col][idx], buf)
+                                for s in buf:
+                                    self._feed_text(key, s, cap)
+                            if reached_limit():
+                                break
+                        loaded_any = True
+                    elif fname.endswith((".jsonl", ".jsonl.gz")):
+                        with open_maybe_gz_text(local_path, "rt") as f:
+                            for line in f:
+                                if reached_limit():
+                                    break
+                                sline = line.strip()
+                                if not sline:
+                                    continue
+                                try:
+                                    row = json.loads(sline)
+                                except Exception:
+                                    continue
+                                st["docs_scanned"] += 1
+                                buf = []
+                                extract_strings_recursive(row, buf)
+                                for s in buf:
+                                    self._feed_text(key, s, cap)
+                        loaded_any = True
+                    elif fname.endswith(".json"):
+                        with open(local_path, "r", encoding="utf-8", errors="replace") as f:
+                            data = json.load(f)
+                        items = data if isinstance(data, list) else [data]
+                        for row in items:
+                            if reached_limit():
+                                break
+                            st["docs_scanned"] += 1
+                            buf = []
+                            extract_strings_recursive(row, buf)
+                            for s in buf:
+                                self._feed_text(key, s, cap)
+                        loaded_any = True
+                except Exception:
+                    continue
+                finally:
+                    if local_path and os.path.exists(local_path):
+                        try:
+                            os.remove(local_path)
+                        except OSError:
+                            pass
+
+            if not loaded_any:
+                from datasets import load_dataset
+
+                ds = load_dataset(repo, split="train", streaming=True)
+                for row in ds:
+                    if reached_limit():
+                        break
+                    st["docs_scanned"] += 1
+                    buf: list[str] = []
+                    extract_strings_recursive(row, buf)
+                    for s in buf:
+                        self._feed_text(key, s, cap)
+            st["status"] = "ok"
+        except Exception as exc:
+            st["status"] = "error"
+            st["error"] = str(exc)
+        print(
+            f"[source] {key}: status={st['status']} docs={st['docs_scanned']:,} clean_chars={st['clean_chars']:,}",
+            flush=True,
+        )
+
 
 # ── Modified Kneser-Ney (MKN) 平滑與精確重正化輸出 ────────────────────────────────
 
@@ -927,8 +1124,10 @@ def emit_word_level_and_free(
     segmenter: LexiconSegmenter,
     acc: NgramAccumulator,
     max_word_bi: int,
+    emit_word_trigrams: bool = False,
+    max_word_tri: int = 1_500_000,
 ) -> dict:
-    """計算詞彙級 MKN (WU + WB)、輸出 TSV 並立即釋放詞彙雙元組字典。"""
+    """計算詞彙級 MKN (WU + WB + 選配 WT)、輸出 TSV 並立即釋放詞彙統計字典。"""
     t0 = time.monotonic()
     d1, d2, d3 = compute_mkn_discounts(acc.word_bi.values())
     vocab_size = len(segmenter.id_to_word)
@@ -996,20 +1195,24 @@ def emit_word_level_and_free(
     acc.word_uni.clear()
     gc.collect()
 
+    retained_wb_set: set[int] = set()
     grouped_wb: dict[int, list[tuple[int, int]]] = defaultdict(list)
     for cnt, _np, _nc, key in top_wb:
+        retained_wb_set.add(key)
         grouped_wb[key >> 20].append((key & 0xFFFFF, cnt))
     del top_wb
 
     bow_word: dict[int, float] = {}
-    wb_lines_count = 0
-    wb_buffer: list[str] = []
+    alpha_word: dict[int, float] = {}
+    wb_prob_map: dict[int, float] = {}
+    wb_logp_out: list[tuple[int, int, float]] = []
     id_to_word = segmenter.id_to_word
 
     for p_id, succs in grouped_wb.items():
         tot = ctx_total[p_id]
         if tot <= 0:
             bow_word[p_id] = 0.0
+            alpha_word[p_id] = 1.0
             continue
         gamma = (d1 * ctx_n1[p_id] + d2 * ctx_n2[p_id] + d3 * ctx_n3p[p_id]) / tot
         raw_probs: list[tuple[int, float]] = []
@@ -1030,14 +1233,112 @@ def emit_word_level_and_free(
 
         rem_hi = max(1e-12, 1.0 - sum_p)
         rem_lo = max(1e-12, 1.0 - sum_lo)
-        bow_word[p_id] = clamp_log10(rem_hi / rem_lo)
+        a_w = rem_hi / rem_lo
+        alpha_word[p_id] = a_w
+        bow_word[p_id] = clamp_log10(a_w)
 
-        prev_str = id_to_word[p_id]
         for c_id, p_kn in raw_probs:
-            wb_buffer.append(f"WB\t{prev_str}\t{id_to_word[c_id]}\t{clamp_log10(p_kn):.6f}\n")
-            wb_lines_count += 1
+            wb_prob_map[(p_id << 20) | c_id] = p_kn
+            wb_logp_out.append((p_id, c_id, clamp_log10(p_kn)))
 
-    # 先寫 WU 再寫 WB
+    del grouped_wb, ctx_total, ctx_n1, ctx_n2, ctx_n3p, cont_in
+    gc.collect()
+
+    def eff_p_wb(p1_id: int, w3_id: int) -> float:
+        p = wb_prob_map.get((p1_id << 20) | w3_id)
+        if p is not None:
+            return p
+        return alpha_word.get(p1_id, 1.0) * p_uni[w3_id]
+
+    bow_wb: dict[int, float] = {}
+    wt_buffer: list[str] = []
+    wt_lines_count = 0
+    wt_discounts = [0.75, 1.0, 1.25]
+
+    if emit_word_trigrams and acc.word_tri:
+        wt_d1, wt_d2, wt_d3 = compute_mkn_discounts(acc.word_tri.values())
+        wt_discounts = [round(wt_d1, 4), round(wt_d2, 4), round(wt_d3, 4)]
+
+        wt_total: dict[int, int] = defaultdict(int)
+        wt_n1: dict[int, int] = defaultdict(int)
+        wt_n2: dict[int, int] = defaultdict(int)
+        wt_n3p: dict[int, int] = defaultdict(int)
+        wt_cands: list[tuple[int, int]] = []
+
+        for key, cnt in acc.word_tri.items():
+            prefix = key >> 20
+            if prefix not in retained_wb_set:
+                continue
+            w3_id = key & 0xFFFFF
+            if w3_id == 0 or w3_id not in kept_words:
+                continue
+            wt_total[prefix] += cnt
+            if cnt == 1:
+                wt_n1[prefix] += 1
+            elif cnt == 2:
+                wt_n2[prefix] += 1
+            else:
+                wt_n3p[prefix] += 1
+            if cnt >= 3:
+                wt_cands.append((cnt, key))
+
+        acc.word_tri.clear()
+        gc.collect()
+
+        top_wt = heapq.nlargest(max_word_tri, ((cnt, -k, k) for cnt, k in wt_cands))
+        del wt_cands
+        gc.collect()
+
+        grouped_wt: dict[int, list[tuple[int, int]]] = defaultdict(list)
+        for cnt, _nk, key in top_wt:
+            grouped_wt[key >> 20].append((key & 0xFFFFF, cnt))
+        del top_wt
+
+        for prefix, succs in grouped_wt.items():
+            tot = wt_total.get(prefix, 0)
+            if tot <= 0:
+                bow_wb[prefix] = 0.0
+                continue
+            gamma = (wt_d1 * wt_n1[prefix] + wt_d2 * wt_n2[prefix] + wt_d3 * wt_n3p[prefix]) / tot
+            p2_id = prefix >> 20
+            p1_id = prefix & 0xFFFFF
+            raw_probs_wt: list[tuple[int, float]] = []
+            sum_p = 0.0
+            sum_lo = 0.0
+            for w3_id, cnt in succs:
+                d = wt_d1 if cnt == 1 else (wt_d2 if cnt == 2 else wt_d3)
+                p_lo = eff_p_wb(p1_id, w3_id)
+                p_kn = (cnt - d) / tot + gamma * p_lo
+                p_kn = max(1e-11, min(0.999999, p_kn))
+                raw_probs_wt.append((w3_id, p_kn))
+                sum_p += p_kn
+                sum_lo += p_lo
+
+            if sum_p >= 0.999999:
+                scale = 0.99999 / sum_p
+                raw_probs_wt = [(w3_id, p * scale) for w3_id, p in raw_probs_wt]
+                sum_p = 0.99999
+
+            rem_hi = max(1e-12, 1.0 - sum_p)
+            rem_lo = max(1e-12, 1.0 - sum_lo)
+            bow_wb[prefix] = clamp_log10(rem_hi / rem_lo)
+
+            s1 = id_to_word[p2_id]
+            s2 = id_to_word[p1_id]
+            for w3_id, p_kn in raw_probs_wt:
+                wt_buffer.append(
+                    f"WT\t{s1}\t{s2}\t{id_to_word[w3_id]}\t{clamp_log10(p_kn):.6f}\n"
+                )
+                wt_lines_count += 1
+
+        del grouped_wt, wt_total, wt_n1, wt_n2, wt_n3p
+    else:
+        acc.word_tri.clear()
+
+    del retained_wb_set, wb_prob_map, alpha_word, p_uni
+    gc.collect()
+
+    # 先寫 WU 再寫 WB，最後寫選配 WT
     wu_count = 0
     out_file.write(f"WU\t{BOS_WORD}\t{LOG10_MIN:.6f}\t{bow_word.get(0, 0.0):.6f}\n")
     wu_count += 1
@@ -1045,19 +1346,31 @@ def emit_word_level_and_free(
         if wid == 0:
             continue
         wstr = id_to_word[wid]
-        lp = clamp_log10(p_uni[wid])
+        lp = clamp_log10(uni_mass[wid] / total_mass)
         lb = bow_word.get(wid, 0.0)
         out_file.write(f"WU\t{wstr}\t{lp:.6f}\t{lb:.6f}\n")
         wu_count += 1
 
-    out_file.writelines(wb_buffer)
-    del wb_buffer, grouped_wb, bow_word, ctx_total, ctx_n1, ctx_n2, ctx_n3p, cont_in
+    wb_lines_count = len(wb_logp_out)
+    if emit_word_trigrams and wt_lines_count > 0:
+        for p_id, c_id, lp in wb_logp_out:
+            bow = bow_wb.get((p_id << 20) | c_id, 0.0)
+            out_file.write(f"WB\t{id_to_word[p_id]}\t{id_to_word[c_id]}\t{lp:.6f}\t{bow:.6f}\n")
+        out_file.writelines(wt_buffer)
+    else:
+        for p_id, c_id, lp in wb_logp_out:
+            out_file.write(f"WB\t{id_to_word[p_id]}\t{id_to_word[c_id]}\t{lp:.6f}\n")
+
+    del wb_logp_out, wt_buffer, bow_wb, bow_word, uni_mass
     gc.collect()
 
     return {
         "word_discounts": [round(d1, 4), round(d2, 4), round(d3, 4)],
+        "word_tri_discounts": wt_discounts,
         "word_vocab_emitted": wu_count,
         "word_bigrams_emitted": wb_lines_count,
+        "word_trigrams_emitted": wt_lines_count,
+        "tri_circuit_pruned": acc._tri_circuit_pruned,
         "elapsed_sec": round(time.monotonic() - t0, 1),
     }
 
@@ -1329,10 +1642,13 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--out-manifest", help="輸出訓練報告 JSON 路徑")
     ap.add_argument("--target-chars", type=int, default=80_000_000, help="目標乾淨總字數上限")
     ap.add_argument("--max-word-bi", type=int, default=2_200_000, help="詞彙雙元組保留上限")
+    ap.add_argument("--max-word-tri", type=int, default=1_500_000, help="詞彙三元組保留上限")
+    ap.add_argument("--max-trad-zh-docs", type=int, default=250_000, help="agentlans/traditional-chinese 讀取文件上限")
     ap.add_argument("--max-char-vocab", type=int, default=25_000, help="字元字表保留上限")
     ap.add_argument("--max-char-bi", type=int, default=750_000, help="字元雙元組保留上限")
     ap.add_argument("--max-char-tri", type=int, default=1_600_000, help="字元三元組保留上限")
     ap.add_argument("--fineweb-timeout-sec", type=int, default=600, help="FineWeb-2 串流逾時上限（秒）")
+    ap.add_argument("--emit-word-trigrams", action="store_true", help="啟用詞彙級三元組統計並輸出 RLNG0002 (WB 5 欄 + WT)")
     ap.add_argument("--self-test-seg", action="store_true", help="僅執行本機 S5 斷詞回歸驗證並結束")
     return ap.parse_args()
 
@@ -1351,11 +1667,24 @@ def main() -> int:
     purity = TaiwanPurityFilter(dev_hashes)
     print(f"[lexicon] 載入詞庫：{args.lexicon}", flush=True)
     segmenter = LexiconSegmenter(args.lexicon)
-    acc = NgramAccumulator(segmenter)
+    acc = NgramAccumulator(segmenter, emit_word_trigrams=args.emit_word_trigrams)
     ingestor = CorpusIngestor(purity, acc, args.target_chars, args.fineweb_timeout_sec)
 
-    # 依四大領域授權安全清單依序載入
+    # 依商業授權安全清單載入台灣正體網路、本土口語對話與法律推理語料
     ingestor.run_fineweb_tw(cap=40_000_000)
+    ingestor.run_common_voice_tw(cap=5_000_000)
+    ingestor.run_auto_repo_source(
+        "tw_chinese_chat",
+        "lianghsun/tw-chinese-chat",
+        "MIT",
+        cap=15_000_000,
+    )
+    ingestor.run_auto_repo_source(
+        "coco_caption_zh_tw_val",
+        "lianghsun/coco-caption-zh_tw-val",
+        "CC-BY-4.0",
+        cap=3_000_000,
+    )
     ingestor.run_ivod(cap=14_000_000)
     ingestor.run_ly_interpellation(cap=4_000_000)
     ingestor.run_ly_bill(cap=2_000_000)
@@ -1396,12 +1725,19 @@ def main() -> int:
         "Apache-2.0",
         cap=2_500_000,
     )
+    ingestor.run_auto_repo_source(
+        "traditional_chinese_odc",
+        "agentlans/traditional-chinese",
+        "ODC-BY",
+        cap=20_000_000,
+        max_docs=args.max_trad_zh_docs,
+    )
 
     fineweb_chars = ingestor.source_stats["fineweb_tw"]["clean_chars"]
     total_chars = ingestor.total_clean_chars
 
     manifest: dict = {
-        "schema_version": 1,
+        "schema_version": 2 if args.emit_word_trigrams else 1,
         "segmentation_policy": "ruhi_core_viterbi_production_s5",
         "target_chars": args.target_chars,
         "total_clean_chars": total_chars,
@@ -1433,8 +1769,15 @@ def main() -> int:
 
     Path(args.out_arpa).parent.mkdir(parents=True, exist_ok=True)
     with open_maybe_gz_text(args.out_arpa, "wt") as out_f:
-        print("[MKN] 計算並輸出詞彙級 N-gram (WU/WB)...", flush=True)
-        word_stats = emit_word_level_and_free(out_f, segmenter, acc, args.max_word_bi)
+        print("[MKN] 計算並輸出詞彙級 N-gram (WU/WB/WT)...", flush=True)
+        word_stats = emit_word_level_and_free(
+            out_f,
+            segmenter,
+            acc,
+            args.max_word_bi,
+            emit_word_trigrams=args.emit_word_trigrams,
+            max_word_tri=args.max_word_tri,
+        )
         print(f"[MKN] 詞彙級完成: {word_stats}", flush=True)
 
         print("[MKN] 計算並輸出字元級 N-gram (CU/CB/CT)...", flush=True)

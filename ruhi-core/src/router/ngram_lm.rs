@@ -10,14 +10,18 @@ use std::sync::{Arc, OnceLock, RwLock};
 
 use crate::mmap_io::{read_f32_le, read_u16_le, read_u32_le, read_u64_le, ReadOnlyMmap};
 
-/// 檔案魔數與格式常數
+/// 檔案魔數與格式常數 (`RLNG0001` 與向上相容擴充之 `RLNG0002` 詞三元格式)
 pub const RLNG_MAGIC: &[u8; 8] = b"RLNG0001";
+pub const RLNG_MAGIC_V2: &[u8; 8] = b"RLNG0002";
 pub const RLNG_VERSION: u32 = 1;
+pub const RLNG_VERSION_V2: u32 = 2;
 pub const RLNG_HEADER_LEN: usize = 144;
+pub const RLNG_HEADER_LEN_V2: usize = 176;
 pub const BOS_WORD: &str = "<s>";
 pub const BOS_CHAR: char = '\u{0002}';
 
 const WORD_VOCAB_REC_BYTES: usize = 12;
+const WORD_TRI_REC_BYTES: usize = 6;
 const CHAR_VOCAB_REC_BYTES: usize = 8;
 const CHAR_BI_REC_BYTES: usize = 6;
 const CHAR_TRI_REC_BYTES: usize = 4;
@@ -29,12 +33,13 @@ fn global_slot() -> &'static RwLock<Option<Arc<NgramLanguageModel>>> {
     GLOBAL_NGRAM_LM.get_or_init(|| RwLock::new(None))
 }
 
-/// 編譯 `RLNG0001` 二進位檔之統計摘要
+/// 編譯 `RLNG0001`／`RLNG0002` 二進位檔之統計摘要
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct NgramCompileStats {
     pub vocab_count: usize,
     pub char_vocab_count: usize,
     pub word_bi_count: usize,
+    pub word_tri_count: usize,
     pub char_bi_count: usize,
     pub char_tri_count: usize,
     pub skipped_missing_vocab: usize,
@@ -43,12 +48,14 @@ pub struct NgramCompileStats {
     pub bytes_written: usize,
 }
 
-/// `RLNG0001` 唯讀記憶體映射統計 N-gram 語言模型檢視器（零堆積熱路徑查詢）
+/// `RLNG0001`／`RLNG0002` 唯讀記憶體映射統計 N-gram 語言模型檢視器（零堆積熱路徑查詢）
 pub struct NgramLanguageModel {
     raw: ReadOnlyMmap,
+    pub format_version: u32,
     pub vocab_count: usize,
     pub char_vocab_count: usize,
     pub word_bi_count: usize,
+    pub word_tri_count: usize,
     pub char_bi_count: usize,
     pub char_tri_count: usize,
     pub q_min: f32,
@@ -62,6 +69,9 @@ pub struct NgramLanguageModel {
     off_wb_row_off: usize,
     off_wb_cols: usize,
     off_wb_logp: usize,
+    off_wb_bow: usize,
+    off_wt_row_off: usize,
+    off_wt_data: usize,
     off_char_vocab: usize,
     off_cb_row_off: usize,
     off_cb_data: usize,
@@ -72,9 +82,11 @@ pub struct NgramLanguageModel {
 impl std::fmt::Debug for NgramLanguageModel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NgramLanguageModel")
+            .field("format_version", &self.format_version)
             .field("vocab_count", &self.vocab_count)
             .field("char_vocab_count", &self.char_vocab_count)
             .field("word_bi_count", &self.word_bi_count)
+            .field("word_tri_count", &self.word_tri_count)
             .field("char_bi_count", &self.char_bi_count)
             .field("char_tri_count", &self.char_tri_count)
             .field("q_min", &self.q_min)
@@ -101,8 +113,15 @@ fn invalid_data(msg: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, msg)
 }
 
-fn check_section_bounds(buf_len: usize, off: usize, count: usize, stride: usize, label: &'static str) -> io::Result<()> {
-    if off < RLNG_HEADER_LEN || off % 8 != 0 {
+fn check_section_bounds(
+    buf_len: usize,
+    off: usize,
+    count: usize,
+    stride: usize,
+    label: &'static str,
+    min_header: usize,
+) -> io::Result<()> {
+    if off < min_header || off % 8 != 0 {
         return Err(invalid_data(label));
     }
     let byte_len = count.checked_mul(stride).ok_or_else(|| invalid_data(label))?;
@@ -133,17 +152,24 @@ fn validate_row_offsets(buf: &[u8], off: usize, num_rows: usize, expected_total:
 }
 
 impl NgramLanguageModel {
-    /// 開啟並嚴格校驗 `RLNG0001` 唯讀記憶體映射語言模型
+    /// 開啟並嚴格校驗 `RLNG0001`／`RLNG0002` 唯讀記憶體映射語言模型
     pub fn open(path: &Path) -> io::Result<Self> {
         let raw = ReadOnlyMmap::open(path)?;
         let buf = raw.as_slice();
-        if buf.len() < RLNG_HEADER_LEN || &buf[0..8] != RLNG_MAGIC {
-            return Err(invalid_data("invalid RLNG0001 header or magic"));
+        if buf.len() < RLNG_HEADER_LEN {
+            return Err(invalid_data("invalid RLNG header truncated"));
         }
         let version = read_u32_le(buf, 8).ok_or_else(|| invalid_data("header truncated"))?;
-        if version != RLNG_VERSION {
-            return Err(invalid_data("unsupported RLNG0001 version"));
-        }
+        let hdr_len = if &buf[0..8] == RLNG_MAGIC && version == RLNG_VERSION {
+            RLNG_HEADER_LEN
+        } else if &buf[0..8] == RLNG_MAGIC_V2 && version == RLNG_VERSION_V2 {
+            if buf.len() < RLNG_HEADER_LEN_V2 {
+                return Err(invalid_data("invalid RLNG0002 header truncated"));
+            }
+            RLNG_HEADER_LEN_V2
+        } else {
+            return Err(invalid_data("invalid RLNG0001/RLNG0002 magic or version"));
+        };
         let _flags = read_u32_le(buf, 12).ok_or_else(|| invalid_data("header truncated"))?;
         let vocab_count = read_u32_le(buf, 16).ok_or_else(|| invalid_data("header truncated"))? as usize;
         let char_vocab_count = read_u32_le(buf, 20).ok_or_else(|| invalid_data("header truncated"))? as usize;
@@ -181,20 +207,34 @@ impl NgramLanguageModel {
         let off_ct_data = read_off(136)?;
 
         let blen = buf.len();
-        check_section_bounds(blen, off_strings_blob, strings_blob_len, 1, "RLNG0001 strings_blob out of bounds")?;
-        check_section_bounds(blen, off_word_vocab, vocab_count, WORD_VOCAB_REC_BYTES, "RLNG0001 word_vocab out of bounds")?;
-        check_section_bounds(blen, off_wb_row_off, vocab_count + 1, 4, "RLNG0001 wb_row_off out of bounds")?;
-        check_section_bounds(blen, off_wb_cols, word_bi_count, 4, "RLNG0001 wb_cols out of bounds")?;
-        check_section_bounds(blen, off_wb_logp, word_bi_count, 2, "RLNG0001 wb_logp out of bounds")?;
-        check_section_bounds(blen, off_char_vocab, char_vocab_count, CHAR_VOCAB_REC_BYTES, "RLNG0001 char_vocab out of bounds")?;
-        check_section_bounds(blen, off_cb_row_off, char_vocab_count + 1, 4, "RLNG0001 cb_row_off out of bounds")?;
-        check_section_bounds(blen, off_cb_data, char_bi_count, CHAR_BI_REC_BYTES, "RLNG0001 cb_data out of bounds")?;
-        check_section_bounds(blen, off_ct_row_off, char_bi_count + 1, 4, "RLNG0001 ct_row_off out of bounds")?;
-        check_section_bounds(blen, off_ct_data, char_tri_count, CHAR_TRI_REC_BYTES, "RLNG0001 ct_data out of bounds")?;
+        check_section_bounds(blen, off_strings_blob, strings_blob_len, 1, "RLNG strings_blob out of bounds", hdr_len)?;
+        check_section_bounds(blen, off_word_vocab, vocab_count, WORD_VOCAB_REC_BYTES, "RLNG word_vocab out of bounds", hdr_len)?;
+        check_section_bounds(blen, off_wb_row_off, vocab_count + 1, 4, "RLNG wb_row_off out of bounds", hdr_len)?;
+        check_section_bounds(blen, off_wb_cols, word_bi_count, 4, "RLNG wb_cols out of bounds", hdr_len)?;
+        check_section_bounds(blen, off_wb_logp, word_bi_count, 2, "RLNG wb_logp out of bounds", hdr_len)?;
+        check_section_bounds(blen, off_char_vocab, char_vocab_count, CHAR_VOCAB_REC_BYTES, "RLNG char_vocab out of bounds", hdr_len)?;
+        check_section_bounds(blen, off_cb_row_off, char_vocab_count + 1, 4, "RLNG cb_row_off out of bounds", hdr_len)?;
+        check_section_bounds(blen, off_cb_data, char_bi_count, CHAR_BI_REC_BYTES, "RLNG cb_data out of bounds", hdr_len)?;
+        check_section_bounds(blen, off_ct_row_off, char_bi_count + 1, 4, "RLNG ct_row_off out of bounds", hdr_len)?;
+        check_section_bounds(blen, off_ct_data, char_tri_count, CHAR_TRI_REC_BYTES, "RLNG ct_data out of bounds", hdr_len)?;
 
-        validate_row_offsets(buf, off_wb_row_off, vocab_count, word_bi_count, "RLNG0001 invalid wb_row_off")?;
-        validate_row_offsets(buf, off_cb_row_off, char_vocab_count, char_bi_count, "RLNG0001 invalid cb_row_off")?;
-        validate_row_offsets(buf, off_ct_row_off, char_bi_count, char_tri_count, "RLNG0001 invalid ct_row_off")?;
+        validate_row_offsets(buf, off_wb_row_off, vocab_count, word_bi_count, "RLNG invalid wb_row_off")?;
+        validate_row_offsets(buf, off_cb_row_off, char_vocab_count, char_bi_count, "RLNG invalid cb_row_off")?;
+        validate_row_offsets(buf, off_ct_row_off, char_bi_count, char_tri_count, "RLNG invalid ct_row_off")?;
+
+        let (word_tri_count, off_wb_bow, off_wt_row_off, off_wt_data) = if version == RLNG_VERSION_V2 {
+            let wt_cnt = read_u32_le(buf, 144).ok_or_else(|| invalid_data("RLNG0002 header truncated"))? as usize;
+            let bow_off = read_off(152)?;
+            let row_off = read_off(160)?;
+            let data_off = read_off(168)?;
+            check_section_bounds(blen, bow_off, word_bi_count, 2, "RLNG0002 wb_bow out of bounds", hdr_len)?;
+            check_section_bounds(blen, row_off, word_bi_count + 1, 4, "RLNG0002 wt_row_off out of bounds", hdr_len)?;
+            check_section_bounds(blen, data_off, wt_cnt, WORD_TRI_REC_BYTES, "RLNG0002 wt_data out of bounds", hdr_len)?;
+            validate_row_offsets(buf, row_off, word_bi_count, wt_cnt, "RLNG0002 invalid wt_row_off")?;
+            (wt_cnt, bow_off, row_off, data_off)
+        } else {
+            (0usize, 0usize, 0usize, 0usize)
+        };
 
         // 校驗所有 word_vocab 字串切片位於 strings_blob 範圍內，保證熱路徑查詢無界外風險
         for i in 0..vocab_count {
@@ -203,15 +243,17 @@ impl NgramLanguageModel {
             let str_len = read_u16_le(buf, rec + 4).ok_or_else(|| invalid_data("word_vocab truncated"))? as usize;
             let end = str_off.checked_add(str_len).ok_or_else(|| invalid_data("word string overflow"))?;
             if end > strings_blob_len {
-                return Err(invalid_data("RLNG0001 word string out of strings_blob bounds"));
+                return Err(invalid_data("RLNG word string out of strings_blob bounds"));
             }
         }
 
         Ok(Self {
             raw,
+            format_version: version,
             vocab_count,
             char_vocab_count,
             word_bi_count,
+            word_tri_count,
             char_bi_count,
             char_tri_count,
             q_min,
@@ -225,6 +267,9 @@ impl NgramLanguageModel {
             off_wb_row_off,
             off_wb_cols,
             off_wb_logp,
+            off_wb_bow,
+            off_wt_row_off,
+            off_wt_data,
             off_char_vocab,
             off_cb_row_off,
             off_cb_data,
@@ -463,6 +508,39 @@ impl NgramLanguageModel {
         None
     }
 
+    #[inline]
+    fn wt_row_range(&self, buf: &[u8], wb_idx: usize) -> (usize, usize) {
+        let o0 = self.off_wt_row_off + wb_idx * 4;
+        let start = u32::from_le_bytes([buf[o0], buf[o0 + 1], buf[o0 + 2], buf[o0 + 3]]) as usize;
+        let end = u32::from_le_bytes([buf[o0 + 4], buf[o0 + 5], buf[o0 + 6], buf[o0 + 7]]) as usize;
+        (start, end)
+    }
+
+    #[inline]
+    fn lookup_word_trigram_q16(&self, buf: &[u8], wb_idx: usize, w3_id: u32) -> Option<u16> {
+        let (mut lo, mut hi) = self.wt_row_range(buf, wb_idx);
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            let rec = self.off_wt_data + mid * WORD_TRI_REC_BYTES;
+            let col = u32::from_le_bytes([buf[rec], buf[rec + 1], buf[rec + 2], buf[rec + 3]]);
+            match col.cmp(&w3_id) {
+                std::cmp::Ordering::Less => lo = mid + 1,
+                std::cmp::Ordering::Greater => hi = mid,
+                std::cmp::Ordering::Equal => {
+                    return Some(u16::from_le_bytes([buf[rec + 4], buf[rec + 5]]));
+                }
+            }
+        }
+        None
+    }
+
+    #[inline]
+    pub fn has_word_trigrams(&self) -> bool {
+        self.format_version >= RLNG_VERSION_V2
+            && self.word_tri_count > 0
+            && self.off_wt_data >= RLNG_HEADER_LEN_V2
+    }
+
     /// 查詢詞彙一元對數機率 $\log_{10} P(w)$（未登錄詞回傳 `unk_uni`）
     #[inline]
     pub fn word_unigram_logp(&self, word: &str) -> f64 {
@@ -475,22 +553,46 @@ impl NgramLanguageModel {
         }
     }
 
-    /// 計算詞級二元回退對數機率 $\log_{10} P_{\text{KN}}(\text{curr} \mid \text{prev})$
+    /// 查詢句首標記 `<s>` 的詞彙索引
     #[inline]
-    pub fn score_word_bigram(&self, prev: &str, curr: &str) -> f64 {
-        let prev_eff = if prev.is_empty() { BOS_WORD } else { prev };
+    pub fn bos_word_id(&self) -> Option<u32> {
+        self.lookup_word_id(BOS_WORD)
+    }
+
+    /// 依預先查得之詞彙索引取得一元對數機率（`None` 回傳 UNK 先驗機率）
+    #[inline]
+    pub fn word_unigram_logp_by_id(&self, cid_opt: Option<u32>) -> f64 {
         let buf = self.raw.as_slice();
-        let curr_id_opt = self.lookup_word_id(curr);
-        let curr_uni = match curr_id_opt {
+        match cid_opt {
             Some(cid) => {
                 let (uni_q, _) = self.word_uni_bow_q16(buf, cid as usize);
                 self.dequantize(uni_q)
             }
             None => self.dequantize(self.unk_uni_q16),
-        };
+        }
+    }
 
-        if let Some(pid) = self.lookup_word_id(prev_eff) {
-            if let Some(cid) = curr_id_opt {
+    /// 依雙詞索引取得 `WB` 紀錄位置，供多次三元查詢重複利用
+    #[inline]
+    pub fn word_bigram_idx_for_pair(
+        &self,
+        p2_id: Option<u32>,
+        p1_id: Option<u32>,
+    ) -> Option<usize> {
+        let (id2, id1) = (p2_id?, p1_id?);
+        self.lookup_word_bigram_idx(self.raw.as_slice(), id2, id1)
+    }
+
+    #[inline]
+    fn word_bigram_by_id(
+        &self,
+        buf: &[u8],
+        pid_opt: Option<u32>,
+        cid_opt: Option<u32>,
+        curr_uni: f64,
+    ) -> f64 {
+        if let Some(pid) = pid_opt {
+            if let Some(cid) = cid_opt {
                 if let Some(wb_idx) = self.lookup_word_bigram_idx(buf, pid, cid) {
                     let p_off = self.off_wb_logp + wb_idx * 2;
                     let logp_q = u16::from_le_bytes([buf[p_off], buf[p_off + 1]]);
@@ -502,6 +604,75 @@ impl NgramLanguageModel {
         } else {
             curr_uni
         }
+    }
+
+    /// 以預先查得之詞彙與雙詞索引同時計算詞級二元與三元對數機率 `(wb, wt)`
+    ///
+    /// - `prev1_id_for_bi`: 當 `prev_is_empty` 時應傳入 `bos_word_id()`，否則為 `lookup_word_id(prev)`。
+    /// - `prev2_wb_idx`: 預先查得之 `(prev2, prev)` 在 `WB` 表中的位置（`prev_is_empty` 時應為 `None`）。
+    /// - 數值上與分別呼叫 `score_word_bigram(prev, curr)` 及 `score_word_trigram(prev2, prev, curr)` 完全等價。
+    #[inline]
+    pub fn score_word_bigram_and_trigram_by_ids(
+        &self,
+        prev2_wb_idx: Option<usize>,
+        prev1_id_for_bi: Option<u32>,
+        prev_is_empty: bool,
+        curr_id: Option<u32>,
+        curr_uni: f64,
+    ) -> (f64, f64) {
+        let buf = self.raw.as_slice();
+        let bi_23 = self.word_bigram_by_id(buf, prev1_id_for_bi, curr_id, curr_uni);
+        if !self.has_word_trigrams() || prev_is_empty {
+            return (bi_23, bi_23);
+        }
+        if let Some(wb_idx) = prev2_wb_idx {
+            if let Some(cid) = curr_id {
+                if let Some(lp_q) = self.lookup_word_trigram_q16(buf, wb_idx, cid) {
+                    return (bi_23, self.dequantize(lp_q));
+                }
+            }
+            let bow_off = self.off_wb_bow + wb_idx * 2;
+            let bow_q = u16::from_le_bytes([buf[bow_off], buf[bow_off + 1]]);
+            return (bi_23, self.dequantize(bow_q) + bi_23);
+        }
+        (bi_23, bi_23)
+    }
+
+    /// 計算詞級二元回退對數機率 $\log_{10} P_{\text{KN}}(\text{curr} \mid \text{prev})$
+    #[inline]
+    pub fn score_word_bigram(&self, prev: &str, curr: &str) -> f64 {
+        let prev_eff = if prev.is_empty() { BOS_WORD } else { prev };
+        let curr_id = self.lookup_word_id(curr);
+        let curr_uni = self.word_unigram_logp_by_id(curr_id);
+        let pid_opt = self.lookup_word_id(prev_eff);
+        self.word_bigram_by_id(self.raw.as_slice(), pid_opt, curr_id, curr_uni)
+    }
+
+    /// 計算詞級三元回退對數機率 $\log_{10} P_{\text{KN}}(\text{curr} \mid \text{prev}_2, \text{prev})$
+    #[inline]
+    pub fn score_word_trigram(&self, prev2_word: Option<&str>, prev: &str, curr: &str) -> f64 {
+        let prev_is_empty = prev.is_empty();
+        let prev_eff = if prev_is_empty { BOS_WORD } else { prev };
+        let prev1_id = self.lookup_word_id(prev_eff);
+        let curr_id = self.lookup_word_id(curr);
+        let curr_uni = self.word_unigram_logp_by_id(curr_id);
+        let prev2_wb_idx = if !self.has_word_trigrams() || prev_is_empty {
+            None
+        } else {
+            let p2_eff = match prev2_word {
+                Some(s) if !s.is_empty() => s,
+                _ => BOS_WORD,
+            };
+            self.word_bigram_idx_for_pair(self.lookup_word_id(p2_eff), prev1_id)
+        };
+        self.score_word_bigram_and_trigram_by_ids(
+            prev2_wb_idx,
+            prev1_id,
+            prev_is_empty,
+            curr_id,
+            curr_uni,
+        )
+        .1
     }
 
     #[inline]
@@ -654,14 +825,15 @@ fn fnv1a_file_fingerprint(path: &Path) -> io::Result<u64> {
     Ok(h)
 }
 
-/// 將標籤化之 ARPA TSV 中介檔 (`WU`/`WB`/`CU`/`CB`/`CT`) 編譯為 `RLNG0001` 唯讀記憶體映射檔
+/// 將標籤化之 ARPA TSV 中介檔 (`WU`/`WB`/`WT`/`CU`/`CB`/`CT`) 編譯為 `RLNG0001`（無詞三元）或 `RLNG0002`（含詞三元）唯讀記憶體映射檔
 pub fn compile_arpa_tsv_to_bin(tsv_path: &Path, bin_path: &Path) -> io::Result<NgramCompileStats> {
     let fingerprint = fnv1a_file_fingerprint(tsv_path)?;
     let file = File::open(tsv_path)?;
     let reader = BufReader::with_capacity(256 * 1024, file);
 
     let mut word_unis: HashMap<String, (f64, f64)> = HashMap::new();
-    let mut word_bis: HashMap<(String, String), f64> = HashMap::new();
+    let mut word_bis: HashMap<(String, String), (f64, f64)> = HashMap::new();
+    let mut word_tris: HashMap<(String, String, String), f64> = HashMap::new();
     let mut char_unis: HashMap<char, (f64, f64)> = HashMap::new();
     let mut char_bis: HashMap<(char, char), (f64, f64)> = HashMap::new();
     let mut char_tris: HashMap<(char, char, char), f64> = HashMap::new();
@@ -711,8 +883,30 @@ pub fn compile_arpa_tsv_to_bin(tsv_path: &Path, bin_path: &Path) -> io::Result<N
                 let p = cols[1];
                 let c = cols[2];
                 if let Ok(lp) = cols[3].parse::<f64>() {
+                    let bow = if cols.len() >= 5 {
+                        cols[4].parse::<f64>().unwrap_or(0.0)
+                    } else {
+                        0.0
+                    };
                     track_range(lp);
-                    if word_bis.insert((p.to_string(), c.to_string()), lp).is_some() {
+                    if cols.len() >= 5 {
+                        track_range(bow);
+                    }
+                    if word_bis.insert((p.to_string(), c.to_string()), (lp, bow)).is_some() {
+                        duplicate_entries_overwritten += 1;
+                    }
+                }
+            }
+            "WT" if cols.len() >= 5 => {
+                let w1 = cols[1];
+                let w2 = cols[2];
+                let w3 = cols[3];
+                if let Ok(lp) = cols[4].parse::<f64>() {
+                    track_range(lp);
+                    if word_tris
+                        .insert((w1.to_string(), w2.to_string(), w3.to_string()), lp)
+                        .is_some()
+                    {
                         duplicate_entries_overwritten += 1;
                     }
                 }
@@ -802,33 +996,93 @@ pub fn compile_arpa_tsv_to_bin(tsv_path: &Path, bin_path: &Path) -> io::Result<N
     let unk_word_uni = explicit_unk_word_uni.unwrap_or_else(|| (min_word_uni - 1.0).max(q_min as f64));
     let unk_uni_q16 = quantize_logp(unk_word_uni, q_min, q_max);
 
-    // 2. 建置詞級 Bigram CSR (依 (prev_id, curr_id) 嚴格排序)
+    // 2. 建置詞級 Bigram CSR (依 (prev_id, curr_id) 嚴格排序) 與選配詞級 Trigram CSR
+    let has_wt = !word_tris.is_empty();
     let vocab_count = sorted_words.len();
     let mut skipped_missing_vocab = 0usize;
-    let mut wb_indexed: Vec<(u32, u32, u16)> = Vec::with_capacity(word_bis.len());
-    for ((pw, cw), lp) in word_bis {
+    let mut wb_indexed: Vec<(u32, u32, u16, u16)> = Vec::with_capacity(word_bis.len());
+    for ((pw, cw), (lp, bow)) in word_bis {
         if let (Some(&pid), Some(&cid)) = (word_to_id.get(&pw), word_to_id.get(&cw)) {
-            wb_indexed.push((pid, cid, quantize_logp(lp, q_min, q_max)));
+            wb_indexed.push((
+                pid,
+                cid,
+                quantize_logp(lp, q_min, q_max),
+                quantize_logp(bow, q_min, q_max),
+            ));
         } else {
             skipped_missing_vocab += 1;
         }
     }
-    wb_indexed.sort_unstable_by_key(|&(p, c, _)| (p, c));
+    wb_indexed.sort_unstable_by_key(|&(p, c, _, _)| (p, c));
 
+    let word_bi_count = wb_indexed.len();
     let mut wb_row_off_buf: Vec<u8> = Vec::with_capacity((vocab_count + 1) * 4);
-    let mut wb_cols_buf: Vec<u8> = Vec::with_capacity(wb_indexed.len() * 4);
-    let mut wb_logp_buf: Vec<u8> = Vec::with_capacity(wb_indexed.len() * 2);
+    let mut wb_cols_buf: Vec<u8> = Vec::with_capacity(word_bi_count * 4);
+    let mut wb_logp_buf: Vec<u8> = Vec::with_capacity(word_bi_count * 2);
+    let mut wb_bow_buf: Vec<u8> = if has_wt {
+        Vec::with_capacity(word_bi_count * 2)
+    } else {
+        Vec::new()
+    };
+    let mut wb_pair_to_idx: HashMap<(u32, u32), u32> = if has_wt {
+        HashMap::with_capacity(word_bi_count)
+    } else {
+        HashMap::new()
+    };
     let mut wb_cursor = 0usize;
     for r in 0..vocab_count {
         wb_row_off_buf.extend_from_slice(&(wb_cursor as u32).to_le_bytes());
-        while wb_cursor < wb_indexed.len() && wb_indexed[wb_cursor].0 as usize == r {
-            wb_cols_buf.extend_from_slice(&wb_indexed[wb_cursor].1.to_le_bytes());
-            wb_logp_buf.extend_from_slice(&wb_indexed[wb_cursor].2.to_le_bytes());
+        while wb_cursor < word_bi_count && wb_indexed[wb_cursor].0 as usize == r {
+            let (pid, cid, lp_q, bow_q) = wb_indexed[wb_cursor];
+            if has_wt {
+                wb_pair_to_idx.insert((pid, cid), wb_cursor as u32);
+                wb_bow_buf.extend_from_slice(&bow_q.to_le_bytes());
+            }
+            wb_cols_buf.extend_from_slice(&cid.to_le_bytes());
+            wb_logp_buf.extend_from_slice(&lp_q.to_le_bytes());
             wb_cursor += 1;
         }
     }
     wb_row_off_buf.extend_from_slice(&(wb_cursor as u32).to_le_bytes());
-    let word_bi_count = wb_indexed.len();
+    drop(wb_indexed);
+
+    let mut wt_row_off_buf: Vec<u8> = Vec::new();
+    let mut wt_data_buf: Vec<u8> = Vec::new();
+    let mut word_tri_count = 0usize;
+    if has_wt {
+        let mut wt_indexed: Vec<(u32, u32, u16)> = Vec::with_capacity(word_tris.len());
+        for ((w1, w2, w3), lp) in word_tris {
+            if let (Some(&id1), Some(&id2), Some(&id3)) = (
+                word_to_id.get(&w1),
+                word_to_id.get(&w2),
+                word_to_id.get(&w3),
+            ) {
+                if let Some(&wb_idx) = wb_pair_to_idx.get(&(id1, id2)) {
+                    wt_indexed.push((wb_idx, id3, quantize_logp(lp, q_min, q_max)));
+                } else {
+                    skipped_missing_vocab += 1;
+                }
+            } else {
+                skipped_missing_vocab += 1;
+            }
+        }
+        drop(wb_pair_to_idx);
+        wt_indexed.sort_unstable_by_key(|&(wb_idx, id3, _)| (wb_idx, id3));
+
+        word_tri_count = wt_indexed.len();
+        wt_row_off_buf.reserve((word_bi_count + 1) * 4);
+        wt_data_buf.reserve(word_tri_count * WORD_TRI_REC_BYTES);
+        let mut wt_cursor = 0usize;
+        for r in 0..word_bi_count {
+            wt_row_off_buf.extend_from_slice(&(wt_cursor as u32).to_le_bytes());
+            while wt_cursor < word_tri_count && wt_indexed[wt_cursor].0 as usize == r {
+                wt_data_buf.extend_from_slice(&wt_indexed[wt_cursor].1.to_le_bytes());
+                wt_data_buf.extend_from_slice(&wt_indexed[wt_cursor].2.to_le_bytes());
+                wt_cursor += 1;
+            }
+        }
+        wt_row_off_buf.extend_from_slice(&(wt_cursor as u32).to_le_bytes());
+    }
 
     // 3. 排序字元表 (按 Unicode scalar codepoint 遞增)
     let mut sorted_chars: Vec<(u32, f64, f64)> = char_unis
@@ -924,7 +1178,9 @@ pub fn compile_arpa_tsv_to_bin(tsv_path: &Path, bin_path: &Path) -> io::Result<N
 
     // 6. 組裝 8-byte 對齊之二進位映像並原子寫入
     let strings_blob_len = strings_blob.len() as u64;
-    let mut out: Vec<u8> = vec![0u8; RLNG_HEADER_LEN];
+    let emit_v2 = has_wt && word_tri_count > 0;
+    let hdr_len = if emit_v2 { RLNG_HEADER_LEN_V2 } else { RLNG_HEADER_LEN };
+    let mut out: Vec<u8> = vec![0u8; hdr_len];
 
     let off_strings_blob = out.len() as u64;
     out.extend_from_slice(&strings_blob);
@@ -966,8 +1222,30 @@ pub fn compile_arpa_tsv_to_bin(tsv_path: &Path, bin_path: &Path) -> io::Result<N
     out.extend_from_slice(&ct_data_buf);
     align8(&mut out);
 
-    out[0..8].copy_from_slice(RLNG_MAGIC);
-    out[8..12].copy_from_slice(&RLNG_VERSION.to_le_bytes());
+    let (off_wb_bow, off_wt_row_off, off_wt_data) = if emit_v2 {
+        let bow_off = out.len() as u64;
+        out.extend_from_slice(&wb_bow_buf);
+        align8(&mut out);
+
+        let wt_row_off = out.len() as u64;
+        out.extend_from_slice(&wt_row_off_buf);
+        align8(&mut out);
+
+        let wt_data_off = out.len() as u64;
+        out.extend_from_slice(&wt_data_buf);
+        align8(&mut out);
+        (bow_off, wt_row_off, wt_data_off)
+    } else {
+        (0u64, 0u64, 0u64)
+    };
+
+    if emit_v2 {
+        out[0..8].copy_from_slice(RLNG_MAGIC_V2);
+        out[8..12].copy_from_slice(&RLNG_VERSION_V2.to_le_bytes());
+    } else {
+        out[0..8].copy_from_slice(RLNG_MAGIC);
+        out[8..12].copy_from_slice(&RLNG_VERSION.to_le_bytes());
+    }
     out[12..16].copy_from_slice(&0u32.to_le_bytes());
     out[16..20].copy_from_slice(&(vocab_count as u32).to_le_bytes());
     out[20..24].copy_from_slice(&(char_vocab_count as u32).to_le_bytes());
@@ -991,6 +1269,13 @@ pub fn compile_arpa_tsv_to_bin(tsv_path: &Path, bin_path: &Path) -> io::Result<N
     out[120..128].copy_from_slice(&off_cb_data.to_le_bytes());
     out[128..136].copy_from_slice(&off_ct_row_off.to_le_bytes());
     out[136..144].copy_from_slice(&off_ct_data.to_le_bytes());
+    if emit_v2 {
+        out[144..148].copy_from_slice(&(word_tri_count as u32).to_le_bytes());
+        out[148..152].copy_from_slice(&0u32.to_le_bytes());
+        out[152..160].copy_from_slice(&off_wb_bow.to_le_bytes());
+        out[160..168].copy_from_slice(&off_wt_row_off.to_le_bytes());
+        out[168..176].copy_from_slice(&off_wt_data.to_le_bytes());
+    }
 
     if let Some(parent) = bin_path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -1008,6 +1293,7 @@ pub fn compile_arpa_tsv_to_bin(tsv_path: &Path, bin_path: &Path) -> io::Result<N
         vocab_count,
         char_vocab_count,
         word_bi_count,
+        word_tri_count: if emit_v2 { word_tri_count } else { 0 },
         char_bi_count,
         char_tri_count,
         skipped_missing_vocab,
@@ -1201,6 +1487,83 @@ CT\t是\t主\t觀\t-0.45
         std::fs::write(&p5, &bad_row).unwrap();
         assert!(NgramLanguageModel::open(&p5).is_err());
 
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn test_rlng0002_word_trigram_compile_open_lookup_and_backoff_roundtrip() {
+        let tmp_dir = std::env::temp_dir().join(format!("ruhi_rlng0002_rt_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+
+        let tsv_v2 = concat!(
+            "WU\t<s>\t-1.0\t-0.3\n",
+            "WU\t<unk>\t-7.5\t0.0\n",
+            "WU\t美\t-3.2\t-0.4\n",
+            "WU\t是\t-2.1\t-0.2\n",
+            "WU\t主觀\t-3.6\t-0.3\n",
+            "WU\t的\t-1.4\t-0.1\n",
+            "WB\t<s>\t美\t-2.8\t-0.35\n",
+            "WB\t美\t是\t-1.1\t-0.25\n",
+            "WB\t是\t主觀\t-1.5\t-0.15\n",
+            "WB\t主觀\t的\t-0.8\t0.0\n",
+            "WT\t<s>\t美\t是\t-0.95\n",
+            "WT\t美\t是\t主觀\t-1.25\n",
+            "CU\t<s>\t-0.9\t-0.2\n",
+            "CU\t<unk>\t-6.8\t0.0\n",
+            "CU\t美\t-2.9\t-0.3\n",
+            "CU\t是\t-1.8\t-0.2\n",
+            "CU\t主\t-2.6\t-0.3\n",
+            "CU\t觀\t-3.0\t-0.2\n",
+            "CU\t的\t-1.2\t-0.1\n",
+            "CB\t<s>\t美\t-2.4\t-0.3\n",
+            "CT\t<s>\t美\t是\t-1.05\n",
+        );
+
+        let tsv_path = tmp_dir.join("ngram_v2.arpa.tsv");
+        let bin_path = tmp_dir.join("ngram_v2.bin");
+        std::fs::write(&tsv_path, tsv_v2).unwrap();
+
+        let stats = compile_arpa_tsv_to_bin(&tsv_path, &bin_path).expect("compile RLNG0002");
+        assert_eq!(stats.word_bi_count, 4);
+        assert_eq!(stats.word_tri_count, 2);
+
+        let lm = NgramLanguageModel::open(&bin_path).expect("open RLNG0002");
+        assert_eq!(lm.format_version, RLNG_VERSION_V2);
+        assert!(lm.has_word_trigrams());
+        assert_eq!(lm.word_tri_count, 2);
+
+        // Exact hits in WT
+        assert!((lm.score_word_trigram(Some("<s>"), "美", "是") - (-0.95)).abs() < 1e-3);
+        assert!((lm.score_word_trigram(None, "美", "是") - (-0.95)).abs() < 1e-3);
+        assert!((lm.score_word_trigram(Some("美"), "是", "主觀") - (-1.25)).abs() < 1e-3);
+
+        // Backoff: (是, 主觀) is in WB with bow=-0.15, (是, 主觀, 的) not in WT => -0.15 + wb(主觀, 的)=-0.8 = -0.95
+        assert!((lm.score_word_trigram(Some("是"), "主觀", "的") - (-0.95)).abs() < 1e-3);
+
+        // Backoff: (主觀, 的) -> bow=0.0 + uni("美") => bow("的") + uni("美") = -0.1 + (-3.2) = -3.3
+        assert!((lm.score_word_trigram(Some("主觀"), "的", "美") - (-3.3)).abs() < 1e-3);
+
+        // Sentence initial (prev_word == "") falls back directly to score_word_bigram("", "美") = -2.8
+        assert!((lm.score_word_trigram(None, "", "美") - (-2.8)).abs() < 1e-3);
+
+        // Corrupted v2 offset & wt_row_off safety
+        let valid_bytes = std::fs::read(&bin_path).unwrap();
+        let mut bad_v2_off = valid_bytes.clone();
+        let huge_off: u64 = (valid_bytes.len() as u64) + 64;
+        bad_v2_off[168..176].copy_from_slice(&huge_off.to_le_bytes());
+        let p_bad_off = tmp_dir.join("bad_v2_off.bin");
+        std::fs::write(&p_bad_off, &bad_v2_off).unwrap();
+        assert!(NgramLanguageModel::open(&p_bad_off).is_err());
+
+        let off_wt_row = read_u64_le(&valid_bytes, 160).unwrap() as usize;
+        let mut bad_wt_row = valid_bytes.clone();
+        bad_wt_row[off_wt_row..off_wt_row + 4].copy_from_slice(&555u32.to_le_bytes());
+        let p_bad_row = tmp_dir.join("bad_wt_row.bin");
+        std::fs::write(&p_bad_row, &bad_wt_row).unwrap();
+        assert!(NgramLanguageModel::open(&p_bad_row).is_err());
+
+        drop(lm);
         let _ = std::fs::remove_dir_all(&tmp_dir);
     }
 }
