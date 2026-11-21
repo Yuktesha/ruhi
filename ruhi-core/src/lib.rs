@@ -2,6 +2,7 @@
 /// src/lib.rs - C-ABI 跨平台導出介面
 
 pub mod fsm;
+pub mod mmap_io;
 pub mod lexicon;
 pub mod router;
 pub mod templates;

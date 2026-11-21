@@ -29,6 +29,10 @@ path = "src/bin/ruhi_eval.rs"
 name = "ruhi_lkbin"
 path = "src/bin/ruhi_lkbin.rs"
 
+[[bin]]
+name = "ruhi_ngbin"
+path = "src/bin/ruhi_ngbin.rs"
+
 [profile.dev]
 debug = 0
 strip = "debuginfo"

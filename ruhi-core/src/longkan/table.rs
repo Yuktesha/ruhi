@@ -62,129 +62,7 @@ pub struct LongkanReverseEntry {
     pub breakdown: String,
 }
 
-/// 作業系統原生唯讀記憶體映射緩衝區（Windows `CreateFileMappingW` / `MapViewOfFile`；非 Windows 採用唯讀緩衝區）
-pub struct ReadOnlyMmap {
-    ptr: *const u8,
-    len: usize,
-    #[cfg(target_os = "windows")]
-    mapping_handle: isize,
-    #[cfg(not(target_os = "windows"))]
-    _owned_fallback: Vec<u8>,
-}
-
-unsafe impl Send for ReadOnlyMmap {}
-unsafe impl Sync for ReadOnlyMmap {}
-
-#[cfg(target_os = "windows")]
-mod win_mmap {
-    use std::fs::File;
-    use std::io;
-    use std::os::windows::io::AsRawHandle;
-
-    const PAGE_READONLY: u32 = 0x02;
-    const FILE_MAP_READ: u32 = 0x0004;
-
-    #[link(name = "kernel32")]
-    extern "system" {
-        fn CreateFileMappingW(
-            hFile: isize,
-            lpFileMappingAttributes: *const core::ffi::c_void,
-            flProtect: u32,
-            dwMaximumSizeHigh: u32,
-            dwMaximumSizeLow: u32,
-            lpName: *const u16,
-        ) -> isize;
-        fn MapViewOfFile(
-            hFileMappingObject: isize,
-            dwDesiredAccess: u32,
-            dwFileOffsetHigh: u32,
-            dwFileOffsetLow: u32,
-            dwNumberOfBytesToMap: usize,
-        ) -> *const u8;
-        fn UnmapViewOfFile(lpBaseAddress: *const u8) -> i32;
-        fn CloseHandle(hObject: isize) -> i32;
-    }
-
-    pub fn map_file(file: &File, len: usize) -> io::Result<(*const u8, isize)> {
-        if len == 0 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "empty file"));
-        }
-        unsafe {
-            let h_file = file.as_raw_handle() as isize;
-            let h_map = CreateFileMappingW(
-                h_file,
-                core::ptr::null(),
-                PAGE_READONLY,
-                0,
-                0,
-                core::ptr::null(),
-            );
-            if h_map == 0 {
-                return Err(io::Error::last_os_error());
-            }
-            let ptr = MapViewOfFile(h_map, FILE_MAP_READ, 0, 0, len);
-            if ptr.is_null() {
-                let err = io::Error::last_os_error();
-                CloseHandle(h_map);
-                return Err(err);
-            }
-            Ok((ptr, h_map))
-        }
-    }
-
-    pub fn unmap(ptr: *const u8, h_map: isize) {
-        unsafe {
-            if !ptr.is_null() {
-                UnmapViewOfFile(ptr);
-            }
-            if h_map != 0 {
-                CloseHandle(h_map);
-            }
-        }
-    }
-}
-
-impl ReadOnlyMmap {
-    pub fn open(path: &Path) -> io::Result<Self> {
-        let file = File::open(path)?;
-        let len = file.metadata()?.len() as usize;
-        #[cfg(target_os = "windows")]
-        {
-            let (ptr, mapping_handle) = win_mmap::map_file(&file, len)?;
-            Ok(Self {
-                ptr,
-                len,
-                mapping_handle,
-            })
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            drop(file);
-            let bytes = std::fs::read(path)?;
-            let ptr = bytes.as_ptr();
-            let len = bytes.len();
-            Ok(Self {
-                ptr,
-                len,
-                _owned_fallback: bytes,
-            })
-        }
-    }
-
-    #[inline]
-    pub fn as_slice(&self) -> &[u8] {
-        unsafe { core::slice::from_raw_parts(self.ptr, self.len) }
-    }
-}
-
-impl Drop for ReadOnlyMmap {
-    fn drop(&mut self) {
-        #[cfg(target_os = "windows")]
-        {
-            win_mmap::unmap(self.ptr, self.mapping_handle);
-        }
-    }
-}
+pub use crate::mmap_io::ReadOnlyMmap;
 
 /// `RLKB0001` 唯讀記憶體映射碼表檢視器
 pub struct LongkanMmap {
@@ -583,7 +461,7 @@ impl LongkanTable {
 
     /// 回傳唯讀記憶體映射區域之位元組大小（若尚未映射則先觸發映射）
     pub fn mmap_bytes(&self) -> usize {
-        self.get_mmap().map(|m| m.raw.len).unwrap_or(0)
+        self.get_mmap().map(|m| m.raw.len()).unwrap_or(0)
     }
 
     /// 正式版與開發環境之標準碼表路徑解析（遵循交接規範 4.1：正式版僅讀安裝目錄與 `%APPDATA%\Ruhi\data`）
