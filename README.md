@@ -3,7 +3,7 @@
 # 🌸 如喜（RuhI）通用智慧型輸入法
 ### Responsive Universal Human Input — Written in 100% Pure Rust
 
-> **「如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。」**  
+> **「如雲行水流自在歡喜」**  
 > **RuhI**（**R**esponsive **U**niversal **H**uman **I**nput，梵語字根 *Ruh / Rūhi* 意為「萌芽、生長、向上攀升」），是一款面向 Windows 10/11 與 Linux、完全採用純 Rust 打造的次世代自適應通用人本輸入法與語意調校系統。
 
 [![Version](https://img.shields.io/badge/version-v0.7.1-blue.svg)]()

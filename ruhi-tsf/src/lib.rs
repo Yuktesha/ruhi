@@ -5,6 +5,7 @@ pub mod edit_session;
 pub mod service;
 pub mod class_factory;
 pub mod logger;
+pub mod about_dialog;
 pub mod candidate_window;
 pub mod display_attribute;
 pub mod user_word_dialog;
@@ -23,6 +24,11 @@ const DLL_PROCESS_ATTACH: u32 = 1;
 static DLL_HINSTANCE: AtomicIsize = AtomicIsize::new(0);
 thread_local! {
     static IN_DLL_FORWARD: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// 取得本 TSF DLL 模組執行個體控制代碼，供對話框視窗類別註冊使用
+pub(crate) fn dll_hinstance() -> HINSTANCE {
+    HINSTANCE(DLL_HINSTANCE.load(Ordering::SeqCst) as *mut c_void)
 }
 
 type DllGetClassObjectFn = unsafe extern "system" fn(

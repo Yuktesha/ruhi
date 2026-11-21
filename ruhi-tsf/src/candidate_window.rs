@@ -824,7 +824,7 @@ where
     }
 }
 
-fn read_candidate_state<R>(f: impl FnOnce(&CandidateState) -> R) -> std::result::Result<R, std::cell::BorrowError> {
+pub(crate) fn read_candidate_state<R>(f: impl FnOnce(&CandidateState) -> R) -> std::result::Result<R, std::cell::BorrowError> {
     TLS_CANDIDATE_STATE.with(|cell| cell.try_borrow().map(|s| f(&*s)))
 }
 
@@ -954,7 +954,7 @@ impl CandidateWindow {
         }
     }
 
-    fn resolve_dark_theme(theme: &str) -> bool {
+    pub(crate) fn resolve_dark_theme(theme: &str) -> bool {
         if theme == "dark" {
             true
         } else if theme == "light" {
@@ -2539,85 +2539,7 @@ pub fn maybe_spawn_background_telemetry_upload(paths: &crate::service::RuhiPaths
 }
 
 pub fn show_about_dialog(hwnd: HWND) {
-    let (kb_mode, is_caps) = read_candidate_state(|s| (s.keyboard_mode.to_lowercase(), s.is_caps_on))
-        .unwrap_or_else(|_| ("hsu".to_string(), false));
-
-    let ui_lang = current_effective_ui_lang();
-    let ver_str = env!("CARGO_PKG_VERSION");
-    let (title, msg) = if ui_lang == "en-US" || is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
-        (
-            "About RuhI",
-            format!("RuhI — Responsive Universal Human Input\nVersion: {} (Release)\nFlowing like clouds and water, effortless and joyful.", ver_str)
-        )
-    } else {
-        match kb_mode.as_str() {
-            "japanese" | "kana" | "romaji" => (
-                "RuhI について",
-                format!("RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: {} (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。", ver_str)
-            ),
-            "korean" | "ko" | "hangul" | "romaja" => (
-                "RuhI 정보",
-                format!("RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: {} (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게.", ver_str)
-            ),
-            "iast" | "sanskrit" => (
-                "About RuhI (IAST)",
-                format!("RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: {} (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)", ver_str)
-            ),
-            "thai" => (
-                "เกี่ยวกับ RuhI",
-                format!("RuhI — Responsive Universal Human Input\nเวอร์ชัน: {} (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข", ver_str)
-            ),
-            _ if ui_lang == "ja-JP" => (
-                "RuhI について",
-                format!("RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: {} (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。", ver_str)
-            ),
-            _ if ui_lang == "ko-KR" => (
-                "RuhI 정보",
-                format!("RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: {} (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게.", ver_str)
-            ),
-            // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列、四角、龍龕等）：
-            _ => (
-                "關於如喜",
-                format!("RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: {} (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。", ver_str)
-            ),
-        }
-    };
-    /*
-                "RuhI について",
-                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.5.0 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
-            ),
-            "korean" | "ko" | "hangul" | "romaja" => (
-                "RuhI 정보",
-                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.5.0 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
-            ),
-            "iast" | "sanskrit" => (
-                "About RuhI (IAST)",
-                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.5.0 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
-            ),
-            "thai" => (
-                "เกี่ยวกับ RuhI",
-                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.5.0 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
-            ),
-            // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列等）：
-            _ => (
-                "關於如喜",
-                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.5.0 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
-            ),
-        }
-    };
-
-    */
-    let title_wide: Vec<u16> = title.encode_utf16().chain(Some(0)).collect();
-    let msg_wide: Vec<u16> = msg.encode_utf16().chain(Some(0)).collect();
-
-    unsafe {
-        let _ = MessageBoxW(
-            hwnd,
-            PCWSTR(msg_wide.as_ptr()),
-            PCWSTR(title_wide.as_ptr()),
-            MB_OK | MB_ICONINFORMATION,
-        );
-    }
+    crate::about_dialog::show_about_dialog(hwnd);
 }
 
 fn get_context_menu_labels() -> (&'static str, &'static str, &'static str) {
@@ -2636,53 +2558,6 @@ fn get_context_menu_labels() -> (&'static str, &'static str, &'static str) {
     }
 }
 
-#[allow(dead_code)]
-fn _legacy_context_menu_labels(_kb_mode: String, _is_caps: bool) -> (&'static str, &'static str, &'static str) { ("", "", "") }
-/*
-    if is_caps || kb_mode == "english" || kb_mode == "latin" || kb_mode == "western" {
-        ("Preferences Center (&S)...", "Semantic Tuning Studio (&T)...", "About RuhI (&A)")
-    } else {
-        match kb_mode.as_str() {
-            "japanese" | "kana" | "romaji" => (
-                "RuhI について",
-                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.5.5 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
-            ),
-            "korean" | "ko" | "hangul" | "romaja" => (
-                "RuhI 정보",
-                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.5.5 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
-            ),
-            "iast" | "sanskrit" => (
-                "About RuhI (IAST)",
-                "RuhI — Responsive Universal Human Input (Sanskrit root: Rūhi — to sprout, to grow)\nVersion: 0.5.5 (Release)\nYathā meghāḥ calanti yathā vāri vahati, svacchandataḥ ānandaḥ.\n(如雲行水流自在歡喜)"
-            ),
-            "thai" => (
-                "เกี่ยวกับ RuhI",
-                "RuhI — Responsive Universal Human Input\nเวอร์ชัน: 0.5.5 (Release)\nดั่งเมฆเคลื่อน ดั่งสายน้ำไหล สบายใจและเปี่ยมสุข"
-            ),
-            _ if ui_lang == "ja-JP" => (
-                "RuhI について",
-                "RuhI 如喜スマートIME (Responsive Universal Human Input)\nバージョン: 0.5.5 (Release)\n雲の行くが如く水の流るるが如く、自在にして歓喜。"
-            ),
-            _ if ui_lang == "ko-KR" => (
-                "RuhI 정보",
-                "RuhI 루히 유니버설 스마트 입력기 (Responsive Universal Human Input)\n버전: 0.5.5 (Release)\n구름 가듯 물 흐르듯 자유롭고 기쁘게."
-            ),
-            // 中文模式（許氏、大千、倉頡、倚天、拼音、大易、行列等）：
-            _ => (
-                "關於如喜",
-                "RuhI 如喜通用智慧型輸入法 (Responsive Universal Human Input)\n版本: 0.5.5 (Release)\n如雲行水流自在歡喜 —— 再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。"
-            ),
-        }
-    };
-    // "設定センター (&S)...", "意味チューニングスタジオ (&T)...", "RuhI について (&A)"),
-            "korean" | "ko" | "hangul" | "romaja" => ("환경설정 (&S)...", "의미 튜닝 스튜디오 (&T)...", "RuhI 정보 (&A)"),
-            _ => ("偏好設定中心 (&S)...", "語意調校工作室 (&T)...", "關於 RuhI 如喜 (&A)"),
-        }
-    }
-}
-
-
-*/
 unsafe fn draw_shift_down_quick_switcher_bar(
     mem_dc: HDC,
     bar_rect: RECT,

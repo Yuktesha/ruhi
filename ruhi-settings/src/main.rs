@@ -455,6 +455,8 @@ pub struct RuhiStudioApp {
     pub last_wakeup_ts: u64,
     pub last_config_mtime: Option<std::time::SystemTime>,
     pub cli_lang_override: Option<String>,
+    pub studio_logo_dark_tex: Option<egui::TextureHandle>,
+    pub studio_logo_light_tex: Option<egui::TextureHandle>,
 }
 
 impl RuhiStudioApp {
@@ -576,6 +578,8 @@ impl RuhiStudioApp {
             last_wakeup_ts,
             last_config_mtime,
             cli_lang_override,
+            studio_logo_dark_tex: None,
+            studio_logo_light_tex: None,
         }
     }
 
@@ -3364,8 +3368,94 @@ impl RuhiStudioApp {
         });
     }
 
+    fn decode_studio_logo_premul_rgba(is_dark: bool) -> Option<(usize, usize, Vec<u8>)> {
+        const RLE3: &[u8] = include_bytes!("../../assets/studio_logo_640x100.rle3");
+        if RLE3.len() < 10 || &RLE3[0..4] != b"RLGO" {
+            return None;
+        }
+        let w = u16::from_le_bytes([RLE3[4], RLE3[5]]) as usize;
+        let h = u16::from_le_bytes([RLE3[6], RLE3[7]]) as usize;
+        let layers_cnt = RLE3[8] as usize;
+        if w == 0 || h == 0 || layers_cnt != 3 {
+            return None;
+        }
+        let total = w.checked_mul(h)?;
+        let mut cursor = 10usize;
+        let mut layers = Vec::with_capacity(3);
+        for _ in 0..3 {
+            let mut alphas = Vec::with_capacity(total);
+            while alphas.len() < total {
+                if cursor + 1 >= RLE3.len() {
+                    return None;
+                }
+                let run = RLE3[cursor] as usize;
+                let a = RLE3[cursor + 1];
+                cursor += 2;
+                if run == 0 || alphas.len() + run > total {
+                    return None;
+                }
+                alphas.resize(alphas.len() + run, a);
+            }
+            layers.push(alphas);
+        }
+
+        let ink = if is_dark {
+            [0xE8u32, 0xEE, 0xF8]
+        } else {
+            [0x2Fu32, 0x31, 0x8B]
+        };
+        let palette = [[0x00u32, 0xA2, 0xE9], [0xE4, 0x00, 0x82], ink];
+        let mut out = vec![0u8; total * 4];
+        for (layer_idx, rgb) in palette.iter().enumerate() {
+            let alphas = &layers[layer_idx];
+            for i in 0..total {
+                let sa = alphas[i] as u32;
+                if sa == 0 {
+                    continue;
+                }
+                let off = i * 4;
+                let sr = (rgb[0] * sa + 127) / 255;
+                let sg = (rgb[1] * sa + 127) / 255;
+                let sb = (rgb[2] * sa + 127) / 255;
+                let inv = 255 - sa;
+                out[off] = (sr + (out[off] as u32 * inv + 127) / 255).min(255) as u8;
+                out[off + 1] = (sg + (out[off + 1] as u32 * inv + 127) / 255).min(255) as u8;
+                out[off + 2] = (sb + (out[off + 2] as u32 * inv + 127) / 255).min(255) as u8;
+                out[off + 3] = (sa + (out[off + 3] as u32 * inv + 127) / 255).min(255) as u8;
+            }
+        }
+        Some((w, h, out))
+    }
+
+    fn ensure_studio_logo_texture(
+        &mut self,
+        ctx: &egui::Context,
+        is_dark: bool,
+    ) -> Option<egui::TextureId> {
+        let slot = if is_dark {
+            &mut self.studio_logo_dark_tex
+        } else {
+            &mut self.studio_logo_light_tex
+        };
+        if let Some(ref tex) = slot {
+            return Some(tex.id());
+        }
+        let (w, h, rgba) = Self::decode_studio_logo_premul_rgba(is_dark)?;
+        let img = egui::ColorImage::from_rgba_premultiplied([w, h], &rgba);
+        let tex_name = if is_dark {
+            "ruhi_studio_logo_dark"
+        } else {
+            "ruhi_studio_logo_light"
+        };
+        let handle = ctx.load_texture(tex_name, img, egui::TextureOptions::LINEAR);
+        let id = handle.id();
+        *slot = Some(handle);
+        Some(id)
+    }
+
     fn render_about_page(&mut self, ui: &mut egui::Ui) {
         let palette = self.shell.palette;
+        let studio_tex_id = self.ensure_studio_logo_texture(ui.ctx(), palette.is_dark);
 
         ui.group(|ui| {
             ui.heading("品牌理念與精神哲學");
@@ -3378,9 +3468,22 @@ impl RuhiStudioApp {
             ui.add_space(4.0);
             ui.label("• 中文釋義：「如雲行水流自在歡喜」——思緒如行雲流水般暢行無阻，選字貼合心意而自在歡喜。");
             ui.label("• 英文全稱：Responsive Universal Human Input（自適應通用人本輸入法，承襲 rud() 自適應初心）。");
-            ui.label("• 梵語語源：字根 Ruh / Rūhi (रूहि) 意為「萌芽、生長、向上攀升」，象徵詞庫隨使用者與群集智慧生生不息。");
-            ui.label("• 核心宣言：「再也不必望穿秋水，等候一個可能永遠不會進步的官方詞庫。」");
+            ui.label("• 梵語語源：字根 Ruh / Rūhi (रूहि) 意為「萌芽、生長、向上攀升」，象徵詞庫隨日常書寫與語境持續精進成長。");
             ui.add_space(6.0);
+            ui.horizontal_wrapped(|ui| {
+                ui.label("• 出品團隊 (Studio)：");
+                if let Some(tex_id) = studio_tex_id {
+                    let h = 24.0 * self.shell.ui_scale;
+                    let w = h * 6.4;
+                    ui.add(egui::Image::from_texture((tex_id, egui::vec2(w, h))))
+                        .on_hover_text("A Solid GUI Studio (Yuktesha Zer)");
+                }
+                ui.label(
+                    egui::RichText::new("(Yuktesha Zer)")
+                        .color(palette.fg_muted.to_egui()),
+                );
+            });
+            ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
                 ui.label("• 官方社群：「如喜通用智慧型輸入法」LINE 社群");
                 if ui.button("💬 點擊開啟 LINE 社群邀請連結").clicked() {
@@ -4213,4 +4316,42 @@ fn main() {
         native_options,
         Box::new(|_cc| Ok(Box::new(app))),
     );
+}
+
+#[cfg(test)]
+mod studio_logo_tests {
+    use super::RuhiStudioApp;
+
+    fn has_color(rgba: &[u8], rgb: [u8; 3]) -> usize {
+        rgba.chunks_exact(4)
+            .filter(|px| {
+                let a = px[3];
+                if a < 200 {
+                    return false;
+                }
+                let r = ((px[0] as u16 * 255) / (a as u16)) as i16;
+                let g = ((px[1] as u16 * 255) / (a as u16)) as i16;
+                let b = ((px[2] as u16 * 255) / (a as u16)) as i16;
+                (r - rgb[0] as i16).abs() <= 4
+                    && (g - rgb[1] as i16).abs() <= 4
+                    && (b - rgb[2] as i16).abs() <= 4
+            })
+            .count()
+    }
+
+    #[test]
+    fn test_settings_studio_logo_rle3_decodes_dual_theme() {
+        let (lw, lh, light) =
+            RuhiStudioApp::decode_studio_logo_premul_rgba(false).expect("light studio logo");
+        let (dw, dh, dark) =
+            RuhiStudioApp::decode_studio_logo_premul_rgba(true).expect("dark studio logo");
+        assert_eq!((lw, lh), (640, 100));
+        assert_eq!((dw, dh), (640, 100));
+        assert!(has_color(&light, [0x00, 0xA2, 0xE9]) > 80);
+        assert!(has_color(&light, [0xE4, 0x00, 0x82]) > 30);
+        assert!(has_color(&light, [0x2F, 0x31, 0x8B]) > 1500);
+        assert_eq!(has_color(&light, [0xE8, 0xEE, 0xF8]), 0);
+        assert!(has_color(&dark, [0xE8, 0xEE, 0xF8]) > 1500);
+        assert_eq!(has_color(&dark, [0x2F, 0x31, 0x8B]), 0);
+    }
 }
