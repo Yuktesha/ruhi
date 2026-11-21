@@ -1,0 +1,7281 @@
+{
+  "all_harmful_derived_words": [
+    {
+      "best_path_hits": 15,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 8,
+      "char_len": 2,
+      "delta_char_errors": -8,
+      "error_path_hits": 11,
+      "families": [
+        "suf2_de_struct"
+      ],
+      "fixed_sents": 5,
+      "is_derived": true,
+      "lexicon_weight": 650,
+      "touched_sents": 27,
+      "word": "大的"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 482,
+      "touched_sents": 7,
+      "word": "不成"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 2,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 2,
+      "is_derived": true,
+      "lexicon_weight": 334,
+      "touched_sents": 4,
+      "word": "載有"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 2,
+      "families": [
+        "suf2_de_struct"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 566,
+      "touched_sents": 5,
+      "word": "長的"
+    },
+    {
+      "best_path_hits": 8,
+      "broken_sents": 2,
+      "char_degraded_sents": 2,
+      "char_improved_sents": 5,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 6,
+      "families": [
+        "pref2_pronoun",
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 5,
+      "is_derived": true,
+      "lexicon_weight": 551,
+      "touched_sents": 20,
+      "word": "他是"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [
+        "pref2_zai"
+      ],
+      "fixed_sents": 2,
+      "is_derived": true,
+      "lexicon_weight": 358,
+      "touched_sents": 4,
+      "word": "在位"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 2,
+      "is_derived": true,
+      "lexicon_weight": 381,
+      "touched_sents": 2,
+      "word": "要角"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_de_comp"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 100,
+      "touched_sents": 21,
+      "word": "乘得"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 100,
+      "touched_sents": 1,
+      "word": "借有"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_you"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 624,
+      "touched_sents": 13,
+      "word": "有時"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_le",
+        "outlier_wt_ge_800",
+        "outlier_wt_ge_800_derived"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 950,
+      "touched_sents": 3,
+      "word": "用了"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 3,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [
+        "tri_xx_de"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 460,
+      "touched_sents": 5,
+      "word": "自然的"
+    },
+    {
+      "best_path_hits": 4,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [
+        "suf2_de_struct"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 484,
+      "touched_sents": 5,
+      "word": "貴的"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_adverb"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 372,
+      "touched_sents": 1,
+      "word": "最長"
+    },
+    {
+      "best_path_hits": 11,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 4,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 459,
+      "touched_sents": 13,
+      "word": "某一"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 427,
+      "touched_sents": 2,
+      "word": "豈不"
+    },
+    {
+      "best_path_hits": 5,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 3,
+      "families": [
+        "suf2_le"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 705,
+      "touched_sents": 5,
+      "word": "除了"
+    },
+    {
+      "best_path_hits": 5,
+      "broken_sents": 1,
+      "char_degraded_sents": 1,
+      "char_improved_sents": 3,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 4,
+      "families": [
+        "pref2_you"
+      ],
+      "fixed_sents": 2,
+      "is_derived": true,
+      "lexicon_weight": 569,
+      "touched_sents": 21,
+      "word": "有意"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 370,
+      "touched_sents": 1,
+      "word": "不屑"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 255,
+      "touched_sents": 1,
+      "word": "不礙"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 466,
+      "touched_sents": 1,
+      "word": "不符"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 3,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "tri_bu_xx"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 430,
+      "touched_sents": 1,
+      "word": "不能不"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 466,
+      "touched_sents": 2,
+      "word": "以是"
+    },
+    {
+      "best_path_hits": 4,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 2,
+      "families": [
+        "pref2_pronoun",
+        "outlier_wt_ge_800",
+        "outlier_wt_ge_800_derived"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 950,
+      "touched_sents": 4,
+      "word": "你就"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_le"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 573,
+      "touched_sents": 3,
+      "word": "來了"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 282,
+      "touched_sents": 1,
+      "word": "可憎"
+    },
+    {
+      "best_path_hits": 0,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 0,
+      "families": [
+        "pref2_zai"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 405,
+      "touched_sents": 6,
+      "word": "在座"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_de_comp"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 359,
+      "touched_sents": 14,
+      "word": "多得"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_di"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 467,
+      "touched_sents": 2,
+      "word": "實地"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 278,
+      "touched_sents": 1,
+      "word": "帶在"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_pronoun",
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 568,
+      "touched_sents": 4,
+      "word": "我在"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_di"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 334,
+      "touched_sents": 1,
+      "word": "整地"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 513,
+      "touched_sents": 2,
+      "word": "是想"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 418,
+      "touched_sents": 1,
+      "word": "畫在"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 347,
+      "touched_sents": 1,
+      "word": "能知"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_modal_copula",
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 412,
+      "touched_sents": 3,
+      "word": "該在"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 643,
+      "touched_sents": 7,
+      "word": "這一"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 2,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 542,
+      "touched_sents": 5,
+      "word": "那就"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 3,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "tri_bu_xx"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 180,
+      "touched_sents": 1,
+      "word": "不可期"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 3,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "tri_bu_xx"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 180,
+      "touched_sents": 1,
+      "word": "不同意"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 403,
+      "touched_sents": 1,
+      "word": "不慎"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 267,
+      "touched_sents": 2,
+      "word": "健在"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 357,
+      "touched_sents": 1,
+      "word": "其二"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 336,
+      "touched_sents": 2,
+      "word": "其內"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 3,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "tri_xx_aspect"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 100,
+      "touched_sents": 1,
+      "word": "只經過"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 314,
+      "touched_sents": 1,
+      "word": "可乘"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 431,
+      "touched_sents": 3,
+      "word": "各部"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 489,
+      "touched_sents": 1,
+      "word": "國有"
+    },
+    {
+      "best_path_hits": 0,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 0,
+      "families": [
+        "pref2_zai"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 385,
+      "touched_sents": 2,
+      "word": "在即"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 474,
+      "touched_sents": 1,
+      "word": "會看"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_you"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 374,
+      "touched_sents": 1,
+      "word": "有病"
+    },
+    {
+      "best_path_hits": 0,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 0,
+      "families": [
+        "pref2_you"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 359,
+      "touched_sents": 2,
+      "word": "有神"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_you"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 420,
+      "touched_sents": 1,
+      "word": "有餘"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 2,
+      "families": [
+        "pref2_modal_copula",
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 529,
+      "touched_sents": 6,
+      "word": "能有"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 447,
+      "touched_sents": 2,
+      "word": "能看"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_lai_qu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 620,
+      "touched_sents": 1,
+      "word": "進來"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_de_struct"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 484,
+      "touched_sents": 2,
+      "word": "難的"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 1,
+      "char_degraded_sents": 1,
+      "char_improved_sents": 2,
+      "char_len": 3,
+      "delta_char_errors": -1,
+      "error_path_hits": 2,
+      "families": [
+        "tri_xx_de",
+        "tri_bu_xx"
+      ],
+      "fixed_sents": 2,
+      "is_derived": true,
+      "lexicon_weight": 449,
+      "touched_sents": 3,
+      "word": "不斷的"
+    },
+    {
+      "best_path_hits": 4,
+      "broken_sents": 1,
+      "char_degraded_sents": 1,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_le"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 614,
+      "touched_sents": 6,
+      "word": "到了"
+    },
+    {
+      "best_path_hits": 32,
+      "broken_sents": 1,
+      "char_degraded_sents": 1,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -1,
+      "error_path_hits": 10,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 792,
+      "touched_sents": 39,
+      "word": "可以"
+    },
+    {
+      "best_path_hits": 6,
+      "broken_sents": 1,
+      "char_degraded_sents": 1,
+      "char_improved_sents": 1,
+      "char_len": 3,
+      "delta_char_errors": -1,
+      "error_path_hits": 2,
+      "families": [
+        "tri_bu_xx"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 520,
+      "touched_sents": 7,
+      "word": "不需要"
+    }
+  ],
+  "all_harmful_non_derived_words": [
+    {
+      "best_path_hits": 4,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 4,
+      "char_len": 2,
+      "delta_char_errors": -8,
+      "error_path_hits": 4,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 369,
+      "touched_sents": 5,
+      "word": "痊癒"
+    },
+    {
+      "best_path_hits": 6,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 6,
+      "char_len": 2,
+      "delta_char_errors": -8,
+      "error_path_hits": 6,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 571,
+      "touched_sents": 9,
+      "word": "自行"
+    },
+    {
+      "best_path_hits": 6,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 6,
+      "char_len": 2,
+      "delta_char_errors": -6,
+      "error_path_hits": 6,
+      "families": [],
+      "fixed_sents": 3,
+      "is_derived": false,
+      "lexicon_weight": 521,
+      "touched_sents": 7,
+      "word": "無線"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 3,
+      "delta_char_errors": -6,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 311,
+      "touched_sents": 2,
+      "word": "一向是"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 3,
+      "char_len": 2,
+      "delta_char_errors": -6,
+      "error_path_hits": 3,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 231,
+      "touched_sents": 5,
+      "word": "浮於"
+    },
+    {
+      "best_path_hits": 11,
+      "broken_sents": 1,
+      "char_degraded_sents": 2,
+      "char_improved_sents": 8,
+      "char_len": 2,
+      "delta_char_errors": -6,
+      "error_path_hits": 10,
+      "families": [],
+      "fixed_sents": 6,
+      "is_derived": false,
+      "lexicon_weight": 390,
+      "touched_sents": 310,
+      "word": "妳們"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -5,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 267,
+      "touched_sents": 12,
+      "word": "舊稱"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -5,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 100,
+      "touched_sents": 1,
+      "word": "加塗"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -5,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 314,
+      "touched_sents": 1,
+      "word": "敬畏"
+    },
+    {
+      "best_path_hits": 4,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 4,
+      "char_len": 3,
+      "delta_char_errors": -4,
+      "error_path_hits": 4,
+      "families": [],
+      "fixed_sents": 4,
+      "is_derived": false,
+      "lexicon_weight": 100,
+      "touched_sents": 4,
+      "word": "借助於"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 324,
+      "touched_sents": 2,
+      "word": "似曾"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 380,
+      "touched_sents": 3,
+      "word": "吳鳳"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 314,
+      "touched_sents": 2,
+      "word": "擇期"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 340,
+      "touched_sents": 3,
+      "word": "種因"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 528,
+      "touched_sents": 4,
+      "word": "藥物"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 341,
+      "touched_sents": 2,
+      "word": "針織"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [
+        "outlier_wt_ge_800"
+      ],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 860,
+      "touched_sents": 2,
+      "word": "一句"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 600,
+      "touched_sents": 5,
+      "word": "一幅"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 377,
+      "touched_sents": 2,
+      "word": "尖石"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 350,
+      "touched_sents": 6,
+      "word": "覬覦"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 470,
+      "touched_sents": 3,
+      "word": "語音"
+    },
+    {
+      "best_path_hits": 4,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 4,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 4,
+      "families": [],
+      "fixed_sents": 0,
+      "is_derived": false,
+      "lexicon_weight": 377,
+      "touched_sents": 10,
+      "word": "制式"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 0,
+      "is_derived": false,
+      "lexicon_weight": 349,
+      "touched_sents": 3,
+      "word": "成像"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 0,
+      "is_derived": false,
+      "lexicon_weight": 357,
+      "touched_sents": 1,
+      "word": "死因"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 3,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 0,
+      "is_derived": false,
+      "lexicon_weight": 419,
+      "touched_sents": 3,
+      "word": "無異議"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 0,
+      "is_derived": false,
+      "lexicon_weight": 319,
+      "touched_sents": 1,
+      "word": "義理"
+    },
+    {
+      "best_path_hits": 4,
+      "broken_sents": 2,
+      "char_degraded_sents": 2,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -4,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 399,
+      "touched_sents": 5,
+      "word": "成語"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 3,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 3,
+      "families": [],
+      "fixed_sents": 3,
+      "is_derived": false,
+      "lexicon_weight": 423,
+      "touched_sents": 15,
+      "word": "一班"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 3,
+      "delta_char_errors": -3,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 319,
+      "touched_sents": 3,
+      "word": "受教育"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 3,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 3,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 780,
+      "touched_sents": 12,
+      "word": "部份"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 3,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 3,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 557,
+      "touched_sents": 19,
+      "word": "事務"
+    },
+    {
+      "best_path_hits": 4,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 3,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 4,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 393,
+      "touched_sents": 9,
+      "word": "人稱"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 385,
+      "touched_sents": 2,
+      "word": "副署"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 267,
+      "touched_sents": 1,
+      "word": "圍毆"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 3,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 3,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 396,
+      "touched_sents": 3,
+      "word": "大字"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 336,
+      "touched_sents": 1,
+      "word": "微幅"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 248,
+      "touched_sents": 8,
+      "word": "支薪"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 347,
+      "touched_sents": 8,
+      "word": "當心"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 291,
+      "touched_sents": 3,
+      "word": "笑語"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 3,
+      "delta_char_errors": -3,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 208,
+      "touched_sents": 1,
+      "word": "魷魚絲"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 282,
+      "touched_sents": 2,
+      "word": "齊集"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 0,
+      "is_derived": false,
+      "lexicon_weight": 208,
+      "touched_sents": 2,
+      "word": "去騎"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 0,
+      "is_derived": false,
+      "lexicon_weight": 248,
+      "touched_sents": 1,
+      "word": "忠恕"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 0,
+      "is_derived": false,
+      "lexicon_weight": 100,
+      "touched_sents": 1,
+      "word": "支桿"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 0,
+      "is_derived": false,
+      "lexicon_weight": 640,
+      "touched_sents": 1,
+      "word": "近音"
+    },
+    {
+      "best_path_hits": 5,
+      "broken_sents": 1,
+      "char_degraded_sents": 1,
+      "char_improved_sents": 4,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 4,
+      "families": [],
+      "fixed_sents": 3,
+      "is_derived": false,
+      "lexicon_weight": 475,
+      "touched_sents": 5,
+      "word": "慾望"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 1,
+      "char_degraded_sents": 2,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -3,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 273,
+      "touched_sents": 4,
+      "word": "之罪"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 267,
+      "touched_sents": 17,
+      "word": "小雨"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 573,
+      "touched_sents": 2,
+      "word": "慢慢"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 4,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 100,
+      "touched_sents": 2,
+      "word": "投機份子"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 396,
+      "touched_sents": 2,
+      "word": "易於"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 2,
+      "is_derived": false,
+      "lexicon_weight": 100,
+      "touched_sents": 2,
+      "word": "馳念"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 398,
+      "touched_sents": 14,
+      "word": "一棟"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 340,
+      "touched_sents": 2,
+      "word": "三等"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 208,
+      "touched_sents": 2,
+      "word": "主位"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 331,
+      "touched_sents": 2,
+      "word": "乘以"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 564,
+      "touched_sents": 1,
+      "word": "九九"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 329,
+      "touched_sents": 3,
+      "word": "二等"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 314,
+      "touched_sents": 4,
+      "word": "人兒"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 3,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 365,
+      "touched_sents": 13,
+      "word": "人禍"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 220,
+      "touched_sents": 3,
+      "word": "儘力"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 364,
+      "touched_sents": 1,
+      "word": "兌現"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 174,
+      "touched_sents": 4,
+      "word": "典試"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 443,
+      "touched_sents": 1,
+      "word": "兼具"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 231,
+      "touched_sents": 1,
+      "word": "厚紙"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 248,
+      "touched_sents": 1,
+      "word": "右臂"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 255,
+      "touched_sents": 1,
+      "word": "味蕾"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 437,
+      "touched_sents": 1,
+      "word": "圓形"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 381,
+      "touched_sents": 1,
+      "word": "執意"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 510,
+      "touched_sents": 2,
+      "word": "天然"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 100,
+      "touched_sents": 1,
+      "word": "奸賊"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 261,
+      "touched_sents": 2,
+      "word": "娜拉"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 393,
+      "touched_sents": 2,
+      "word": "學士"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 100,
+      "touched_sents": 2,
+      "word": "封装"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 414,
+      "touched_sents": 1,
+      "word": "引述"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 436,
+      "touched_sents": 1,
+      "word": "強人"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 416,
+      "touched_sents": 3,
+      "word": "彙整"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 389,
+      "touched_sents": 2,
+      "word": "急於"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 398,
+      "touched_sents": 1,
+      "word": "戰力"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 355,
+      "touched_sents": 1,
+      "word": "承載"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 361,
+      "touched_sents": 6,
+      "word": "支部"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 282,
+      "touched_sents": 1,
+      "word": "數億"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 322,
+      "touched_sents": 1,
+      "word": "機具"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 751,
+      "touched_sents": 1,
+      "word": "此碑"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 705,
+      "touched_sents": 2,
+      "word": "氣血"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 322,
+      "touched_sents": 2,
+      "word": "深究"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 410,
+      "touched_sents": 9,
+      "word": "無名"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 4,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 0,
+      "touched_sents": 1,
+      "word": "片片段段"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 100,
+      "touched_sents": 1,
+      "word": "牛勁"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 278,
+      "touched_sents": 1,
+      "word": "確鑿"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 278,
+      "touched_sents": 2,
+      "word": "積雨"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 322,
+      "touched_sents": 1,
+      "word": "窒礙"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 355,
+      "touched_sents": 2,
+      "word": "筆試"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 255,
+      "touched_sents": 1,
+      "word": "精忠"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 575,
+      "touched_sents": 3,
+      "word": "縣市"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 273,
+      "touched_sents": 1,
+      "word": "羽狀"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 2,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 324,
+      "touched_sents": 4,
+      "word": "藥學"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 404,
+      "touched_sents": 1,
+      "word": "記事"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 554,
+      "touched_sents": 11,
+      "word": "說話"
+    },
+    {
+      "best_path_hits": 1,
+      "broken_sents": 0,
+      "char_degraded_sents": 0,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": -2,
+      "error_path_hits": 1,
+      "families": [],
+      "fixed_sents": 1,
+      "is_derived": false,
+      "lexicon_weight": 100,
+      "touched_sents": 1,
+      "word": "賜爵"
+    }
+  ],
+  "baseline": {
+    "cer": 0.0454,
+    "cer_percent": "4.54%",
+    "dataset": "dev",
+    "exact_match_sentences": 2441,
+    "per_category": {
+      "civic_public": {
+        "cer": 0.0267,
+        "cer_percent": "2.67%",
+        "char_errors": 271,
+        "chars": 10132,
+        "exact_match": 548,
+        "sentences": 728
+      },
+      "daily_dialogue": {
+        "cer": 0.037,
+        "cer_percent": "3.70%",
+        "char_errors": 337,
+        "chars": 9098,
+        "exact_match": 511,
+        "sentences": 728
+      },
+      "literary_narrative": {
+        "cer": 0.0475,
+        "cer_percent": "4.75%",
+        "char_errors": 387,
+        "chars": 8139,
+        "exact_match": 487,
+        "sentences": 728
+      },
+      "moe_idiom_context": {
+        "cer": 0.0331,
+        "cer_percent": "3.31%",
+        "char_errors": 326,
+        "chars": 9846,
+        "exact_match": 525,
+        "sentences": 728
+      },
+      "tech_doc": {
+        "cer": 0.0936,
+        "cer_percent": "9.36%",
+        "char_errors": 715,
+        "chars": 7640,
+        "exact_match": 370,
+        "sentences": 728
+      }
+    },
+    "sentence_accuracy_percent": "67.06%",
+    "total_char_errors": 2036,
+    "total_chars": 44855,
+    "total_sentences": 3640
+  },
+  "census": {
+    "derived_families_1_to_29_active_wt_ge_90": 7144,
+    "derived_families_1_to_29_total_words": 8033,
+    "dev_touched_classified_words": 1432,
+    "dev_touched_multi_char_words": 10424,
+    "lexicon_unique_words": 222744,
+    "loo_candidates_evaluated": 3758,
+    "outlier_wt_ge_800_words": 140
+  },
+  "elapsed_seconds": 39.86,
+  "family_ablation": [
+    {
+      "ablated_cer": 4.5413,
+      "ablated_cer_percent": "4.5413%",
+      "broken_sentences": 2,
+      "char_degraded_sentences": 3,
+      "char_improved_sentences": 3,
+      "delta_cer_percentage_points": "+0.0022%",
+      "delta_char_errors": 1,
+      "dev_touched_sentences": 155,
+      "dev_touched_words": 50,
+      "family": "pref2_pronoun",
+      "fixed_sentences": 2,
+      "lexicon_active_wt_ge_90": 126,
+      "lexicon_total_words": 147,
+      "mcnemar_chi_square": 0.0,
+      "mcnemar_p_value": 1.0,
+      "per_category_delta_char_errors": {
+        "civic_public": 0,
+        "literary_narrative": 2,
+        "moe_idiom_context": -2,
+        "tech_doc": 1
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.6639,
+      "ablated_cer_percent": "4.6639%",
+      "broken_sentences": 39,
+      "char_degraded_sentences": 55,
+      "char_improved_sentences": 15,
+      "delta_cer_percentage_points": "+0.1248%",
+      "delta_char_errors": 56,
+      "dev_touched_sentences": 518,
+      "dev_touched_words": 122,
+      "family": "pref2_modal_copula",
+      "fixed_sentences": 9,
+      "lexicon_active_wt_ge_90": 399,
+      "lexicon_total_words": 514,
+      "mcnemar_chi_square": 17.5208,
+      "mcnemar_p_value": 0.00002843509738799292,
+      "per_category_delta_char_errors": {
+        "civic_public": 6,
+        "daily_dialogue": 8,
+        "literary_narrative": 25,
+        "moe_idiom_context": 10,
+        "tech_doc": 7
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.7598,
+      "ablated_cer_percent": "4.7598%",
+      "broken_sentences": 40,
+      "char_degraded_sentences": 61,
+      "char_improved_sentences": 3,
+      "delta_cer_percentage_points": "+0.2207%",
+      "delta_char_errors": 99,
+      "dev_touched_sentences": 512,
+      "dev_touched_words": 149,
+      "family": "pref2_adverb",
+      "fixed_sentences": 1,
+      "lexicon_active_wt_ge_90": 561,
+      "lexicon_total_words": 706,
+      "mcnemar_chi_square": 35.2195,
+      "mcnemar_p_value": 2.9556577965114797e-9,
+      "per_category_delta_char_errors": {
+        "civic_public": 25,
+        "daily_dialogue": 20,
+        "literary_narrative": 22,
+        "moe_idiom_context": 12,
+        "tech_doc": 20
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 5.1388,
+      "ablated_cer_percent": "5.1388%",
+      "broken_sentences": 148,
+      "char_degraded_sentences": 210,
+      "char_improved_sentences": 16,
+      "delta_cer_percentage_points": "+0.5997%",
+      "delta_char_errors": 269,
+      "dev_touched_sentences": 1128,
+      "dev_touched_words": 281,
+      "family": "suf2_neg_cop_exist",
+      "fixed_sentences": 11,
+      "lexicon_active_wt_ge_90": 601,
+      "lexicon_total_words": 650,
+      "mcnemar_chi_square": 116.327,
+      "mcnemar_p_value": 4.127186055995922e-27,
+      "per_category_delta_char_errors": {
+        "civic_public": 67,
+        "daily_dialogue": 50,
+        "literary_narrative": 78,
+        "moe_idiom_context": 53,
+        "tech_doc": 21
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.5458,
+      "ablated_cer_percent": "4.5458%",
+      "broken_sentences": 11,
+      "char_degraded_sentences": 17,
+      "char_improved_sentences": 16,
+      "delta_cer_percentage_points": "+0.0067%",
+      "delta_char_errors": 3,
+      "dev_touched_sentences": 490,
+      "dev_touched_words": 63,
+      "family": "suf2_de_struct",
+      "fixed_sentences": 11,
+      "lexicon_active_wt_ge_90": 93,
+      "lexicon_total_words": 108,
+      "mcnemar_chi_square": 0.0,
+      "mcnemar_p_value": 1.0,
+      "per_category_delta_char_errors": {
+        "civic_public": 3,
+        "daily_dialogue": -1,
+        "literary_narrative": 4,
+        "moe_idiom_context": 0,
+        "tech_doc": -3
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.7152,
+      "ablated_cer_percent": "4.7152%",
+      "broken_sentences": 41,
+      "char_degraded_sentences": 57,
+      "char_improved_sentences": 3,
+      "delta_cer_percentage_points": "+0.1761%",
+      "delta_char_errors": 79,
+      "dev_touched_sentences": 383,
+      "dev_touched_words": 50,
+      "family": "suf2_de_comp",
+      "fixed_sentences": 2,
+      "lexicon_active_wt_ge_90": 67,
+      "lexicon_total_words": 82,
+      "mcnemar_chi_square": 33.5814,
+      "mcnemar_p_value": 6.855493551194335e-9,
+      "per_category_delta_char_errors": {
+        "civic_public": 8,
+        "daily_dialogue": 46,
+        "literary_narrative": 13,
+        "moe_idiom_context": 11,
+        "tech_doc": 1
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.5614,
+      "ablated_cer_percent": "4.5614%",
+      "broken_sentences": 7,
+      "char_degraded_sentences": 10,
+      "char_improved_sentences": 2,
+      "delta_cer_percentage_points": "+0.0223%",
+      "delta_char_errors": 10,
+      "dev_touched_sentences": 75,
+      "dev_touched_words": 35,
+      "family": "suf2_di",
+      "fixed_sentences": 2,
+      "lexicon_active_wt_ge_90": 188,
+      "lexicon_total_words": 267,
+      "mcnemar_chi_square": 1.7778,
+      "mcnemar_p_value": 0.18242256953891564,
+      "per_category_delta_char_errors": {
+        "civic_public": 1,
+        "daily_dialogue": 3,
+        "literary_narrative": -1,
+        "moe_idiom_context": 2,
+        "tech_doc": 5
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.5792,
+      "ablated_cer_percent": "4.5792%",
+      "broken_sentences": 19,
+      "char_degraded_sentences": 24,
+      "char_improved_sentences": 4,
+      "delta_cer_percentage_points": "+0.0401%",
+      "delta_char_errors": 18,
+      "dev_touched_sentences": 74,
+      "dev_touched_words": 25,
+      "family": "suf2_le",
+      "fixed_sentences": 3,
+      "lexicon_active_wt_ge_90": 74,
+      "lexicon_total_words": 87,
+      "mcnemar_chi_square": 10.2273,
+      "mcnemar_p_value": 0.001383919782728056,
+      "per_category_delta_char_errors": {
+        "civic_public": 3,
+        "daily_dialogue": 6,
+        "literary_narrative": 6,
+        "moe_idiom_context": 3
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.577,
+      "ablated_cer_percent": "4.5770%",
+      "broken_sentences": 13,
+      "char_degraded_sentences": 16,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0379%",
+      "delta_char_errors": 17,
+      "dev_touched_sentences": 46,
+      "dev_touched_words": 28,
+      "family": "suf2_zhe",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 255,
+      "lexicon_total_words": 289,
+      "mcnemar_chi_square": 11.0769,
+      "mcnemar_p_value": 0.000874200340179958,
+      "per_category_delta_char_errors": {
+        "civic_public": 5,
+        "daily_dialogue": 5,
+        "literary_narrative": 2,
+        "moe_idiom_context": 4,
+        "tech_doc": 1
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.5614,
+      "ablated_cer_percent": "4.5614%",
+      "broken_sentences": 5,
+      "char_degraded_sentences": 9,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0223%",
+      "delta_char_errors": 10,
+      "dev_touched_sentences": 75,
+      "dev_touched_words": 32,
+      "family": "suf2_guo",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 274,
+      "lexicon_total_words": 287,
+      "mcnemar_chi_square": 3.2,
+      "mcnemar_p_value": 0.07363816975042521,
+      "per_category_delta_char_errors": {
+        "civic_public": 2,
+        "daily_dialogue": 4,
+        "literary_narrative": 1,
+        "moe_idiom_context": 3
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.5391,
+      "ablated_cer_percent": "4.5391%",
+      "broken_sentences": 0,
+      "char_degraded_sentences": 0,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0000%",
+      "delta_char_errors": 0,
+      "dev_touched_sentences": 1,
+      "dev_touched_words": 1,
+      "family": "suf2_modal_particle",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 31,
+      "lexicon_total_words": 38,
+      "mcnemar_chi_square": 0.0,
+      "mcnemar_p_value": 1.0,
+      "per_category_delta_char_errors": {},
+      "verdict": "NEUTRAL_PRUNABLE"
+    },
+    {
+      "ablated_cer": 4.82,
+      "ablated_cer_percent": "4.8200%",
+      "broken_sentences": 84,
+      "char_degraded_sentences": 110,
+      "char_improved_sentences": 4,
+      "delta_cer_percentage_points": "+0.2809%",
+      "delta_char_errors": 126,
+      "dev_touched_sentences": 488,
+      "dev_touched_words": 169,
+      "family": "pref2_bu",
+      "fixed_sentences": 2,
+      "lexicon_active_wt_ge_90": 385,
+      "lexicon_total_words": 616,
+      "mcnemar_chi_square": 76.2907,
+      "mcnemar_p_value": 2.481312539843731e-18,
+      "per_category_delta_char_errors": {
+        "civic_public": 28,
+        "daily_dialogue": 43,
+        "literary_narrative": 18,
+        "moe_idiom_context": 25,
+        "tech_doc": 12
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.5636,
+      "ablated_cer_percent": "4.5636%",
+      "broken_sentences": 6,
+      "char_degraded_sentences": 8,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0245%",
+      "delta_char_errors": 11,
+      "dev_touched_sentences": 95,
+      "dev_touched_words": 6,
+      "family": "pref2_mei",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 120,
+      "lexicon_total_words": 147,
+      "mcnemar_chi_square": 4.1667,
+      "mcnemar_p_value": 0.04122669847007823,
+      "per_category_delta_char_errors": {
+        "civic_public": 3,
+        "daily_dialogue": 2,
+        "literary_narrative": 3,
+        "moe_idiom_context": 3
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.5747,
+      "ablated_cer_percent": "4.5747%",
+      "broken_sentences": 13,
+      "char_degraded_sentences": 20,
+      "char_improved_sentences": 9,
+      "delta_cer_percentage_points": "+0.0357%",
+      "delta_char_errors": 16,
+      "dev_touched_sentences": 254,
+      "dev_touched_words": 77,
+      "family": "pref2_you",
+      "fixed_sentences": 6,
+      "lexicon_active_wt_ge_90": 170,
+      "lexicon_total_words": 210,
+      "mcnemar_chi_square": 1.8947,
+      "mcnemar_p_value": 0.1686687367694599,
+      "per_category_delta_char_errors": {
+        "civic_public": 6,
+        "daily_dialogue": 0,
+        "literary_narrative": 11,
+        "moe_idiom_context": 0,
+        "tech_doc": -1
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.5458,
+      "ablated_cer_percent": "4.5458%",
+      "broken_sentences": 1,
+      "char_degraded_sentences": 4,
+      "char_improved_sentences": 4,
+      "delta_cer_percentage_points": "+0.0067%",
+      "delta_char_errors": 3,
+      "dev_touched_sentences": 146,
+      "dev_touched_words": 23,
+      "family": "pref2_zai",
+      "fixed_sentences": 3,
+      "lexicon_active_wt_ge_90": 42,
+      "lexicon_total_words": 49,
+      "mcnemar_chi_square": 0.25,
+      "mcnemar_p_value": 0.6170750745520118,
+      "per_category_delta_char_errors": {
+        "civic_public": 1,
+        "daily_dialogue": -2,
+        "moe_idiom_context": 1,
+        "tech_doc": 3
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.82,
+      "ablated_cer_percent": "4.8200%",
+      "broken_sentences": 73,
+      "char_degraded_sentences": 95,
+      "char_improved_sentences": 7,
+      "delta_cer_percentage_points": "+0.2809%",
+      "delta_char_errors": 126,
+      "dev_touched_sentences": 781,
+      "dev_touched_words": 111,
+      "family": "pref2_dem_quant",
+      "fixed_sentences": 3,
+      "lexicon_active_wt_ge_90": 495,
+      "lexicon_total_words": 534,
+      "mcnemar_chi_square": 62.6447,
+      "mcnemar_p_value": 2.50016306945384e-15,
+      "per_category_delta_char_errors": {
+        "civic_public": 33,
+        "daily_dialogue": 32,
+        "literary_narrative": 29,
+        "moe_idiom_context": 23,
+        "tech_doc": 9
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.6862,
+      "ablated_cer_percent": "4.6862%",
+      "broken_sentences": 51,
+      "char_degraded_sentences": 62,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.1471%",
+      "delta_char_errors": 66,
+      "dev_touched_sentences": 179,
+      "dev_touched_words": 53,
+      "family": "suf2_dao",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 404,
+      "lexicon_total_words": 409,
+      "mcnemar_chi_square": 49.0196,
+      "mcnemar_p_value": 2.5506398299895086e-12,
+      "per_category_delta_char_errors": {
+        "civic_public": 8,
+        "daily_dialogue": 19,
+        "literary_narrative": 19,
+        "moe_idiom_context": 16,
+        "tech_doc": 4
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.6104,
+      "ablated_cer_percent": "4.6104%",
+      "broken_sentences": 19,
+      "char_degraded_sentences": 23,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0713%",
+      "delta_char_errors": 32,
+      "dev_touched_sentences": 101,
+      "dev_touched_words": 37,
+      "family": "suf2_chu",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 373,
+      "lexicon_total_words": 392,
+      "mcnemar_chi_square": 17.0526,
+      "mcnemar_p_value": 0.00003637854550863657,
+      "per_category_delta_char_errors": {
+        "civic_public": 6,
+        "daily_dialogue": 3,
+        "literary_narrative": 8,
+        "moe_idiom_context": 2,
+        "tech_doc": 13
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.6305,
+      "ablated_cer_percent": "4.6305%",
+      "broken_sentences": 21,
+      "char_degraded_sentences": 29,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0914%",
+      "delta_char_errors": 41,
+      "dev_touched_sentences": 146,
+      "dev_touched_words": 53,
+      "family": "suf2_lai_qu",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 398,
+      "lexicon_total_words": 422,
+      "mcnemar_chi_square": 19.0476,
+      "mcnemar_p_value": 0.00001275960236875682,
+      "per_category_delta_char_errors": {
+        "civic_public": 7,
+        "daily_dialogue": 7,
+        "literary_narrative": 9,
+        "moe_idiom_context": 14,
+        "tech_doc": 4
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.5569,
+      "ablated_cer_percent": "4.5569%",
+      "broken_sentences": 5,
+      "char_degraded_sentences": 9,
+      "char_improved_sentences": 3,
+      "delta_cer_percentage_points": "+0.0178%",
+      "delta_char_errors": 8,
+      "dev_touched_sentences": 235,
+      "dev_touched_words": 40,
+      "family": "tri_xx_de",
+      "fixed_sentences": 3,
+      "lexicon_active_wt_ge_90": 188,
+      "lexicon_total_words": 188,
+      "mcnemar_chi_square": 0.125,
+      "mcnemar_p_value": 0.7236737386464728,
+      "per_category_delta_char_errors": {
+        "civic_public": 4,
+        "daily_dialogue": 3,
+        "literary_narrative": -3,
+        "moe_idiom_context": 4
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.5458,
+      "ablated_cer_percent": "4.5458%",
+      "broken_sentences": 3,
+      "char_degraded_sentences": 3,
+      "char_improved_sentences": 1,
+      "delta_cer_percentage_points": "+0.0067%",
+      "delta_char_errors": 3,
+      "dev_touched_sentences": 30,
+      "dev_touched_words": 20,
+      "family": "tri_xx_aspect",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 299,
+      "lexicon_total_words": 299,
+      "mcnemar_chi_square": 1.3333,
+      "mcnemar_p_value": 0.2482131941503969,
+      "per_category_delta_char_errors": {
+        "daily_dialogue": 1,
+        "moe_idiom_context": 3,
+        "tech_doc": -1
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.5502,
+      "ablated_cer_percent": "4.5502%",
+      "broken_sentences": 2,
+      "char_degraded_sentences": 2,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0111%",
+      "delta_char_errors": 5,
+      "dev_touched_sentences": 8,
+      "dev_touched_words": 5,
+      "family": "tri_x_de_y",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 23,
+      "lexicon_total_words": 23,
+      "mcnemar_chi_square": 0.5,
+      "mcnemar_p_value": 0.4794999836952528,
+      "per_category_delta_char_errors": {
+        "civic_public": 5
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.5413,
+      "ablated_cer_percent": "4.5413%",
+      "broken_sentences": 0,
+      "char_degraded_sentences": 1,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0022%",
+      "delta_char_errors": 1,
+      "dev_touched_sentences": 3,
+      "dev_touched_words": 2,
+      "family": "tri_x_le_y",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 37,
+      "lexicon_total_words": 37,
+      "mcnemar_chi_square": 0.0,
+      "mcnemar_p_value": 1.0,
+      "per_category_delta_char_errors": {
+        "literary_narrative": 1
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.5725,
+      "ablated_cer_percent": "4.5725%",
+      "broken_sentences": 13,
+      "char_degraded_sentences": 19,
+      "char_improved_sentences": 6,
+      "delta_cer_percentage_points": "+0.0334%",
+      "delta_char_errors": 15,
+      "dev_touched_sentences": 122,
+      "dev_touched_words": 54,
+      "family": "tri_bu_xx",
+      "fixed_sentences": 3,
+      "lexicon_active_wt_ge_90": 662,
+      "lexicon_total_words": 662,
+      "mcnemar_chi_square": 5.0625,
+      "mcnemar_p_value": 0.024448867783740214,
+      "per_category_delta_char_errors": {
+        "civic_public": 7,
+        "daily_dialogue": 5,
+        "literary_narrative": 0,
+        "moe_idiom_context": 4,
+        "tech_doc": -1
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.5435,
+      "ablated_cer_percent": "4.5435%",
+      "broken_sentences": 1,
+      "char_degraded_sentences": 1,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0045%",
+      "delta_char_errors": 2,
+      "dev_touched_sentences": 12,
+      "dev_touched_words": 2,
+      "family": "tri_mei_xx",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 220,
+      "lexicon_total_words": 220,
+      "mcnemar_chi_square": 0.0,
+      "mcnemar_p_value": 1.0,
+      "per_category_delta_char_errors": {
+        "civic_public": 2
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.5435,
+      "ablated_cer_percent": "4.5435%",
+      "broken_sentences": 1,
+      "char_degraded_sentences": 2,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0045%",
+      "delta_char_errors": 2,
+      "dev_touched_sentences": 32,
+      "dev_touched_words": 10,
+      "family": "tri_you_xx",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 166,
+      "lexicon_total_words": 166,
+      "mcnemar_chi_square": 0.0,
+      "mcnemar_p_value": 1.0,
+      "per_category_delta_char_errors": {
+        "civic_public": 2
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.5435,
+      "ablated_cer_percent": "4.5435%",
+      "broken_sentences": 2,
+      "char_degraded_sentences": 2,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0045%",
+      "delta_char_errors": 2,
+      "dev_touched_sentences": 37,
+      "dev_touched_words": 23,
+      "family": "tri_x_bu_y",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 518,
+      "lexicon_total_words": 518,
+      "mcnemar_chi_square": 0.5,
+      "mcnemar_p_value": 0.4794999836952528,
+      "per_category_delta_char_errors": {
+        "civic_public": 1,
+        "daily_dialogue": 1
+      },
+      "verdict": "MIXED_SELECTIVE"
+    },
+    {
+      "ablated_cer": 4.5391,
+      "ablated_cer_percent": "4.5391%",
+      "broken_sentences": 0,
+      "char_degraded_sentences": 0,
+      "char_improved_sentences": 0,
+      "delta_cer_percentage_points": "+0.0000%",
+      "delta_char_errors": 0,
+      "dev_touched_sentences": 5,
+      "dev_touched_words": 5,
+      "family": "tri_x_de2_y",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 138,
+      "lexicon_total_words": 138,
+      "mcnemar_chi_square": 0.0,
+      "mcnemar_p_value": 1.0,
+      "per_category_delta_char_errors": {},
+      "verdict": "NEUTRAL_PRUNABLE"
+    },
+    {
+      "ablated_cer": 4.5881,
+      "ablated_cer_percent": "4.5881%",
+      "broken_sentences": 11,
+      "char_degraded_sentences": 17,
+      "char_improved_sentences": 1,
+      "delta_cer_percentage_points": "+0.0490%",
+      "delta_char_errors": 22,
+      "dev_touched_sentences": 101,
+      "dev_touched_words": 14,
+      "family": "tri_x_yi_y",
+      "fixed_sentences": 0,
+      "lexicon_active_wt_ge_90": 202,
+      "lexicon_total_words": 202,
+      "mcnemar_chi_square": 9.0909,
+      "mcnemar_p_value": 0.002568970081442857,
+      "per_category_delta_char_errors": {
+        "civic_public": 3,
+        "daily_dialogue": 13,
+        "literary_narrative": 3,
+        "moe_idiom_context": 3
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.927,
+      "ablated_cer_percent": "4.9270%",
+      "broken_sentences": 99,
+      "char_degraded_sentences": 141,
+      "char_improved_sentences": 6,
+      "delta_cer_percentage_points": "+0.3879%",
+      "delta_char_errors": 174,
+      "dev_touched_sentences": 589,
+      "dev_touched_words": 18,
+      "family": "outlier_wt_ge_800",
+      "fixed_sentences": 4,
+      "lexicon_active_wt_ge_90": 140,
+      "lexicon_total_words": 140,
+      "mcnemar_chi_square": 85.7864,
+      "mcnemar_p_value": 2.036631517687496e-20,
+      "per_category_delta_char_errors": {
+        "civic_public": 36,
+        "daily_dialogue": 63,
+        "literary_narrative": 37,
+        "moe_idiom_context": 30,
+        "tech_doc": 8
+      },
+      "verdict": "KEEP_OR_FACTORIZE_FIRST"
+    },
+    {
+      "ablated_cer": 4.5346,
+      "ablated_cer_percent": "4.5346%",
+      "broken_sentences": 1,
+      "char_degraded_sentences": 1,
+      "char_improved_sentences": 2,
+      "delta_cer_percentage_points": "-0.0045%",
+      "delta_char_errors": -2,
+      "dev_touched_sentences": 12,
+      "dev_touched_words": 6,
+      "family": "outlier_wt_ge_800_derived",
+      "fixed_sentences": 2,
+      "lexicon_active_wt_ge_90": 25,
+      "lexicon_total_words": 25,
+      "mcnemar_chi_square": 0.0,
+      "mcnemar_p_value": 1.0,
+      "per_category_delta_char_errors": {
+        "moe_idiom_context": -2
+      },
+      "verdict": "NET_BENEFICIAL_TO_REMOVE"
+    }
+  ],
+  "joint_simulations": [
+    {
+      "ablated_cer_percent": "4.3629%",
+      "broken_sentences": 0,
+      "char_degraded_sentences": 0,
+      "char_improved_sentences": 65,
+      "delta_cer_percentage_points": "-0.1761%",
+      "delta_char_errors": -79,
+      "exact_match_sentences": 2480,
+      "fixed_sentences": 39,
+      "mcnemar_chi_square": 37.0256,
+      "mcnemar_p_value": 1.1702838751345411e-9,
+      "per_category_delta_char_errors": {
+        "civic_public": -15,
+        "daily_dialogue": -12,
+        "literary_narrative": -22,
+        "moe_idiom_context": -18,
+        "tech_doc": -12
+      },
+      "removed_word_count": 55,
+      "simulation_name": "strict_harmful_derived",
+      "touched_sentences": 207
+    },
+    {
+      "ablated_cer_percent": "4.3451%",
+      "broken_sentences": 7,
+      "char_degraded_sentences": 7,
+      "char_improved_sentences": 79,
+      "delta_cer_percentage_points": "-0.1940%",
+      "delta_char_errors": -87,
+      "exact_match_sentences": 2483,
+      "fixed_sentences": 49,
+      "mcnemar_chi_square": 30.0179,
+      "mcnemar_p_value": 4.291237279819604e-8,
+      "per_category_delta_char_errors": {
+        "civic_public": -16,
+        "daily_dialogue": -12,
+        "literary_narrative": -28,
+        "moe_idiom_context": -18,
+        "tech_doc": -13
+      },
+      "removed_word_count": 61,
+      "simulation_name": "all_harmful_derived",
+      "touched_sentences": 295
+    },
+    {
+      "ablated_cer_percent": "3.2393%",
+      "broken_sentences": 0,
+      "char_degraded_sentences": 1,
+      "char_improved_sentences": 411,
+      "delta_cer_percentage_points": "-1.2997%",
+      "delta_char_errors": -583,
+      "exact_match_sentences": 2668,
+      "fixed_sentences": 227,
+      "mcnemar_chi_square": 225.0044,
+      "mcnemar_p_value": 7.687326382430603e-51,
+      "per_category_delta_char_errors": {
+        "civic_public": -89,
+        "daily_dialogue": -82,
+        "literary_narrative": -118,
+        "moe_idiom_context": -104,
+        "tech_doc": -190
+      },
+      "removed_word_count": 379,
+      "simulation_name": "strict_harmful_all",
+      "touched_sentences": 871
+    },
+    {
+      "ablated_cer_percent": "3.1836%",
+      "broken_sentences": 18,
+      "char_degraded_sentences": 22,
+      "char_improved_sentences": 446,
+      "delta_cer_percentage_points": "-1.3555%",
+      "delta_char_errors": -608,
+      "exact_match_sentences": 2678,
+      "fixed_sentences": 255,
+      "mcnemar_chi_square": 204.0147,
+      "mcnemar_p_value": 2.9031384845897976e-46,
+      "per_category_delta_char_errors": {
+        "civic_public": -90,
+        "daily_dialogue": -94,
+        "literary_narrative": -127,
+        "moe_idiom_context": -109,
+        "tech_doc": -188
+      },
+      "removed_word_count": 395,
+      "simulation_name": "all_harmful_all",
+      "touched_sentences": 1231
+    },
+    {
+      "ablated_cer_percent": "4.5480%",
+      "broken_sentences": 7,
+      "char_degraded_sentences": 11,
+      "char_improved_sentences": 6,
+      "delta_cer_percentage_points": "+0.0089%",
+      "delta_char_errors": 4,
+      "exact_match_sentences": 2438,
+      "fixed_sentences": 4,
+      "mcnemar_chi_square": 0.3636,
+      "mcnemar_p_value": 0.5464934972694719,
+      "per_category_delta_char_errors": {
+        "civic_public": -3,
+        "daily_dialogue": 4,
+        "literary_narrative": 2,
+        "moe_idiom_context": 1,
+        "tech_doc": 0
+      },
+      "removed_word_count": 1081,
+      "simulation_name": "neutral_derived_touched",
+      "touched_sentences": 2074
+    }
+  ],
+  "loo_totals": {
+    "derived_harmful_count": 61,
+    "derived_helpful_count": 278,
+    "derived_neutral_count": 1081,
+    "derived_strict_harmful_count": 55,
+    "evaluated_candidates": 3758,
+    "non_derived_harmful_count": 334
+  },
+  "multi_char_bonus_curve": [
+    {
+      "cer": 0.0454,
+      "cer_percent": "4.54%",
+      "delta_char_errors_vs_28": 0,
+      "exact_match_sentences": 2441,
+      "multi_char_bonus": 28.0,
+      "per_category": {
+        "civic_public": {
+          "cer": 0.0267,
+          "cer_percent": "2.67%",
+          "char_errors": 271,
+          "exact_match": 548,
+          "sentences": 728
+        },
+        "daily_dialogue": {
+          "cer": 0.037,
+          "cer_percent": "3.70%",
+          "char_errors": 337,
+          "exact_match": 511,
+          "sentences": 728
+        },
+        "literary_narrative": {
+          "cer": 0.0475,
+          "cer_percent": "4.75%",
+          "char_errors": 387,
+          "exact_match": 487,
+          "sentences": 728
+        },
+        "moe_idiom_context": {
+          "cer": 0.0331,
+          "cer_percent": "3.31%",
+          "char_errors": 326,
+          "exact_match": 525,
+          "sentences": 728
+        },
+        "tech_doc": {
+          "cer": 0.0936,
+          "cer_percent": "9.36%",
+          "char_errors": 715,
+          "exact_match": 370,
+          "sentences": 728
+        }
+      },
+      "sentence_accuracy_percent": "67.06%",
+      "total_char_errors": 2036
+    },
+    {
+      "cer": 0.0519,
+      "cer_percent": "5.19%",
+      "delta_char_errors_vs_28": 291,
+      "exact_match_sentences": 2287,
+      "multi_char_bonus": 24.0,
+      "per_category": {
+        "civic_public": {
+          "cer": 0.0336,
+          "cer_percent": "3.36%",
+          "char_errors": 340,
+          "exact_match": 510,
+          "sentences": 728
+        },
+        "daily_dialogue": {
+          "cer": 0.0413,
+          "cer_percent": "4.13%",
+          "char_errors": 376,
+          "exact_match": 488,
+          "sentences": 728
+        },
+        "literary_narrative": {
+          "cer": 0.0557,
+          "cer_percent": "5.57%",
+          "char_errors": 453,
+          "exact_match": 449,
+          "sentences": 728
+        },
+        "moe_idiom_context": {
+          "cer": 0.0373,
+          "cer_percent": "3.73%",
+          "char_errors": 367,
+          "exact_match": 501,
+          "sentences": 728
+        },
+        "tech_doc": {
+          "cer": 0.1035,
+          "cer_percent": "10.35%",
+          "char_errors": 791,
+          "exact_match": 339,
+          "sentences": 728
+        }
+      },
+      "sentence_accuracy_percent": "62.83%",
+      "total_char_errors": 2327
+    },
+    {
+      "cer": 0.0568,
+      "cer_percent": "5.68%",
+      "delta_char_errors_vs_28": 512,
+      "exact_match_sentences": 2173,
+      "multi_char_bonus": 20.0,
+      "per_category": {
+        "civic_public": {
+          "cer": 0.0355,
+          "cer_percent": "3.55%",
+          "char_errors": 360,
+          "exact_match": 493,
+          "sentences": 728
+        },
+        "daily_dialogue": {
+          "cer": 0.047,
+          "cer_percent": "4.70%",
+          "char_errors": 428,
+          "exact_match": 457,
+          "sentences": 728
+        },
+        "literary_narrative": {
+          "cer": 0.0617,
+          "cer_percent": "6.17%",
+          "char_errors": 502,
+          "exact_match": 426,
+          "sentences": 728
+        },
+        "moe_idiom_context": {
+          "cer": 0.0442,
+          "cer_percent": "4.42%",
+          "char_errors": 435,
+          "exact_match": 477,
+          "sentences": 728
+        },
+        "tech_doc": {
+          "cer": 0.1077,
+          "cer_percent": "10.77%",
+          "char_errors": 823,
+          "exact_match": 320,
+          "sentences": 728
+        }
+      },
+      "sentence_accuracy_percent": "59.70%",
+      "total_char_errors": 2548
+    },
+    {
+      "cer": 0.0616,
+      "cer_percent": "6.16%",
+      "delta_char_errors_vs_28": 727,
+      "exact_match_sentences": 2061,
+      "multi_char_bonus": 16.0,
+      "per_category": {
+        "civic_public": {
+          "cer": 0.0397,
+          "cer_percent": "3.97%",
+          "char_errors": 402,
+          "exact_match": 471,
+          "sentences": 728
+        },
+        "daily_dialogue": {
+          "cer": 0.0533,
+          "cer_percent": "5.33%",
+          "char_errors": 485,
+          "exact_match": 427,
+          "sentences": 728
+        },
+        "literary_narrative": {
+          "cer": 0.0671,
+          "cer_percent": "6.71%",
+          "char_errors": 546,
+          "exact_match": 404,
+          "sentences": 728
+        },
+        "moe_idiom_context": {
+          "cer": 0.0468,
+          "cer_percent": "4.68%",
+          "char_errors": 461,
+          "exact_match": 460,
+          "sentences": 728
+        },
+        "tech_doc": {
+          "cer": 0.1137,
+          "cer_percent": "11.37%",
+          "char_errors": 869,
+          "exact_match": 299,
+          "sentences": 728
+        }
+      },
+      "sentence_accuracy_percent": "56.62%",
+      "total_char_errors": 2763
+    },
+    {
+      "cer": 0.0703,
+      "cer_percent": "7.03%",
+      "delta_char_errors_vs_28": 1118,
+      "exact_match_sentences": 1906,
+      "multi_char_bonus": 12.0,
+      "per_category": {
+        "civic_public": {
+          "cer": 0.0471,
+          "cer_percent": "4.71%",
+          "char_errors": 477,
+          "exact_match": 442,
+          "sentences": 728
+        },
+        "daily_dialogue": {
+          "cer": 0.0609,
+          "cer_percent": "6.09%",
+          "char_errors": 554,
+          "exact_match": 392,
+          "sentences": 728
+        },
+        "literary_narrative": {
+          "cer": 0.0749,
+          "cer_percent": "7.49%",
+          "char_errors": 610,
+          "exact_match": 375,
+          "sentences": 728
+        },
+        "moe_idiom_context": {
+          "cer": 0.0564,
+          "cer_percent": "5.64%",
+          "char_errors": 555,
+          "exact_match": 419,
+          "sentences": 728
+        },
+        "tech_doc": {
+          "cer": 0.1254,
+          "cer_percent": "12.54%",
+          "char_errors": 958,
+          "exact_match": 278,
+          "sentences": 728
+        }
+      },
+      "sentence_accuracy_percent": "52.36%",
+      "total_char_errors": 3154
+    },
+    {
+      "cer": 0.0806,
+      "cer_percent": "8.06%",
+      "delta_char_errors_vs_28": 1580,
+      "exact_match_sentences": 1719,
+      "multi_char_bonus": 8.0,
+      "per_category": {
+        "civic_public": {
+          "cer": 0.0542,
+          "cer_percent": "5.42%",
+          "char_errors": 549,
+          "exact_match": 405,
+          "sentences": 728
+        },
+        "daily_dialogue": {
+          "cer": 0.0676,
+          "cer_percent": "6.76%",
+          "char_errors": 615,
+          "exact_match": 362,
+          "sentences": 728
+        },
+        "literary_narrative": {
+          "cer": 0.0812,
+          "cer_percent": "8.12%",
+          "char_errors": 661,
+          "exact_match": 353,
+          "sentences": 728
+        },
+        "moe_idiom_context": {
+          "cer": 0.0687,
+          "cer_percent": "6.87%",
+          "char_errors": 676,
+          "exact_match": 375,
+          "sentences": 728
+        },
+        "tech_doc": {
+          "cer": 0.1459,
+          "cer_percent": "14.59%",
+          "char_errors": 1115,
+          "exact_match": 224,
+          "sentences": 728
+        }
+      },
+      "sentence_accuracy_percent": "47.23%",
+      "total_char_errors": 3616
+    },
+    {
+      "cer": 0.1984,
+      "cer_percent": "19.84%",
+      "delta_char_errors_vs_28": 6861,
+      "exact_match_sentences": 497,
+      "multi_char_bonus": 4.0,
+      "per_category": {
+        "civic_public": {
+          "cer": 0.1813,
+          "cer_percent": "18.13%",
+          "char_errors": 1837,
+          "exact_match": 73,
+          "sentences": 728
+        },
+        "daily_dialogue": {
+          "cer": 0.1567,
+          "cer_percent": "15.67%",
+          "char_errors": 1426,
+          "exact_match": 144,
+          "sentences": 728
+        },
+        "literary_narrative": {
+          "cer": 0.2011,
+          "cer_percent": "20.11%",
+          "char_errors": 1637,
+          "exact_match": 99,
+          "sentences": 728
+        },
+        "moe_idiom_context": {
+          "cer": 0.1739,
+          "cer_percent": "17.39%",
+          "char_errors": 1712,
+          "exact_match": 133,
+          "sentences": 728
+        },
+        "tech_doc": {
+          "cer": 0.2991,
+          "cer_percent": "29.91%",
+          "char_errors": 2285,
+          "exact_match": 48,
+          "sentences": 728
+        }
+      },
+      "sentence_accuracy_percent": "13.65%",
+      "total_char_errors": 8897
+    },
+    {
+      "cer": 0.2207,
+      "cer_percent": "22.07%",
+      "delta_char_errors_vs_28": 7863,
+      "exact_match_sentences": 365,
+      "multi_char_bonus": 0.0,
+      "per_category": {
+        "civic_public": {
+          "cer": 0.1979,
+          "cer_percent": "19.79%",
+          "char_errors": 2005,
+          "exact_match": 57,
+          "sentences": 728
+        },
+        "daily_dialogue": {
+          "cer": 0.1685,
+          "cer_percent": "16.85%",
+          "char_errors": 1533,
+          "exact_match": 129,
+          "sentences": 728
+        },
+        "literary_narrative": {
+          "cer": 0.2134,
+          "cer_percent": "21.34%",
+          "char_errors": 1737,
+          "exact_match": 80,
+          "sentences": 728
+        },
+        "moe_idiom_context": {
+          "cer": 0.222,
+          "cer_percent": "22.20%",
+          "char_errors": 2186,
+          "exact_match": 64,
+          "sentences": 728
+        },
+        "tech_doc": {
+          "cer": 0.3191,
+          "cer_percent": "31.91%",
+          "char_errors": 2438,
+          "exact_match": 35,
+          "sentences": 728
+        }
+      },
+      "sentence_accuracy_percent": "10.03%",
+      "total_char_errors": 9899
+    }
+  ],
+  "per_family_loo": [
+    {
+      "family": "pref2_pronoun",
+      "harmful_word_count": 3,
+      "helpful_word_count": 3,
+      "neutral_word_count": 44,
+      "sum_harmful_delta_errors": -5,
+      "sum_helpful_delta_errors": 5,
+      "top_5_harmful_words": [
+        {
+          "broken": 2,
+          "delta_char_errors": -3,
+          "fixed": 5,
+          "weight": 551,
+          "word": "他是"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 950,
+          "word": "你就"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 568,
+          "word": "我在"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 518,
+          "word": "他不"
+        },
+        {
+          "broken": 2,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 609,
+          "word": "我是"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 423,
+          "word": "他想"
+        }
+      ]
+    },
+    {
+      "family": "pref2_modal_copula",
+      "harmful_word_count": 10,
+      "helpful_word_count": 22,
+      "neutral_word_count": 90,
+      "sum_harmful_delta_errors": -11,
+      "sum_helpful_delta_errors": 73,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 2,
+          "weight": 381,
+          "word": "要角"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 314,
+          "word": "可乘"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 792,
+          "word": "可以"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 282,
+          "word": "可憎"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 513,
+          "word": "是想"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 8,
+          "delta_char_errors": 17,
+          "fixed": 0,
+          "weight": 634,
+          "word": "能力"
+        },
+        {
+          "broken": 5,
+          "delta_char_errors": 11,
+          "fixed": 0,
+          "weight": 455,
+          "word": "要素"
+        },
+        {
+          "broken": 3,
+          "delta_char_errors": 5,
+          "fixed": 0,
+          "weight": 744,
+          "word": "可能"
+        },
+        {
+          "broken": 3,
+          "delta_char_errors": 5,
+          "fixed": 1,
+          "weight": 684,
+          "word": "能夠"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 4,
+          "fixed": 0,
+          "weight": 584,
+          "word": "是個"
+        }
+      ]
+    },
+    {
+      "family": "pref2_adverb",
+      "harmful_word_count": 1,
+      "helpful_word_count": 31,
+      "neutral_word_count": 117,
+      "sum_harmful_delta_errors": -2,
+      "sum_helpful_delta_errors": 103,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 0,
+          "weight": 372,
+          "word": "最長"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 15,
+          "delta_char_errors": 38,
+          "fixed": 0,
+          "weight": 741,
+          "word": "就是"
+        },
+        {
+          "broken": 3,
+          "delta_char_errors": 10,
+          "fixed": 0,
+          "weight": 541,
+          "word": "更新"
+        },
+        {
+          "broken": 4,
+          "delta_char_errors": 8,
+          "fixed": 0,
+          "weight": 539,
+          "word": "才是"
+        },
+        {
+          "broken": 2,
+          "delta_char_errors": 4,
+          "fixed": 0,
+          "weight": 560,
+          "word": "最佳"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": 3,
+          "fixed": 0,
+          "weight": 723,
+          "word": "太太"
+        }
+      ]
+    },
+    {
+      "family": "suf2_neg_cop_exist",
+      "harmful_word_count": 12,
+      "helpful_word_count": 58,
+      "neutral_word_count": 211,
+      "sum_harmful_delta_errors": -18,
+      "sum_helpful_delta_errors": 307,
+      "top_5_harmful_words": [
+        {
+          "broken": 2,
+          "delta_char_errors": -3,
+          "fixed": 5,
+          "weight": 551,
+          "word": "他是"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -3,
+          "fixed": 2,
+          "weight": 334,
+          "word": "載有"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 1,
+          "weight": 100,
+          "word": "借有"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 0,
+          "weight": 427,
+          "word": "豈不"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 466,
+          "word": "以是"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 15,
+          "delta_char_errors": 38,
+          "fixed": 0,
+          "weight": 741,
+          "word": "就是"
+        },
+        {
+          "broken": 17,
+          "delta_char_errors": 25,
+          "fixed": 0,
+          "weight": 625,
+          "word": "具有"
+        },
+        {
+          "broken": 8,
+          "delta_char_errors": 24,
+          "fixed": 0,
+          "weight": 674,
+          "word": "只是"
+        },
+        {
+          "broken": 12,
+          "delta_char_errors": 16,
+          "fixed": 0,
+          "weight": 663,
+          "word": "只有"
+        },
+        {
+          "broken": 11,
+          "delta_char_errors": 16,
+          "fixed": 0,
+          "weight": 736,
+          "word": "現在"
+        }
+      ]
+    },
+    {
+      "family": "suf2_de_struct",
+      "harmful_word_count": 4,
+      "helpful_word_count": 8,
+      "neutral_word_count": 51,
+      "sum_harmful_delta_errors": -14,
+      "sum_helpful_delta_errors": 15,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -8,
+          "fixed": 5,
+          "weight": 650,
+          "word": "大的"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -3,
+          "fixed": 1,
+          "weight": 566,
+          "word": "長的"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 1,
+          "weight": 484,
+          "word": "貴的"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 484,
+          "word": "難的"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 3,
+          "delta_char_errors": 6,
+          "fixed": 0,
+          "weight": 629,
+          "word": "目的"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 3,
+          "fixed": 0,
+          "weight": 468,
+          "word": "標的"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 554,
+          "word": "分的"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 567,
+          "word": "別的"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 377,
+          "word": "圓的"
+        }
+      ]
+    },
+    {
+      "family": "suf2_de_comp",
+      "harmful_word_count": 2,
+      "helpful_word_count": 9,
+      "neutral_word_count": 39,
+      "sum_harmful_delta_errors": -3,
+      "sum_helpful_delta_errors": 86,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 1,
+          "weight": 100,
+          "word": "乘得"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 359,
+          "word": "多得"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 15,
+          "delta_char_errors": 27,
+          "fixed": 0,
+          "weight": 721,
+          "word": "覺得"
+        },
+        {
+          "broken": 17,
+          "delta_char_errors": 24,
+          "fixed": 0,
+          "weight": 627,
+          "word": "獲得"
+        },
+        {
+          "broken": 6,
+          "delta_char_errors": 20,
+          "fixed": 0,
+          "weight": 593,
+          "word": "記得"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 4,
+          "fixed": 0,
+          "weight": 593,
+          "word": "值得"
+        },
+        {
+          "broken": 4,
+          "delta_char_errors": 4,
+          "fixed": 0,
+          "weight": 705,
+          "word": "變得"
+        }
+      ]
+    },
+    {
+      "family": "suf2_di",
+      "harmful_word_count": 2,
+      "helpful_word_count": 6,
+      "neutral_word_count": 27,
+      "sum_harmful_delta_errors": -2,
+      "sum_helpful_delta_errors": 12,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 467,
+          "word": "實地"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 334,
+          "word": "整地"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 347,
+          "word": "何地"
+        },
+        {
+          "broken": 2,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 555,
+          "word": "各地"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 614,
+          "word": "土地"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 514,
+          "word": "大地"
+        },
+        {
+          "broken": 2,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 470,
+          "word": "本地"
+        }
+      ]
+    },
+    {
+      "family": "suf2_le",
+      "harmful_word_count": 4,
+      "helpful_word_count": 5,
+      "neutral_word_count": 16,
+      "sum_harmful_delta_errors": -6,
+      "sum_helpful_delta_errors": 24,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 1,
+          "weight": 950,
+          "word": "用了"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 0,
+          "weight": 705,
+          "word": "除了"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 573,
+          "word": "來了"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 614,
+          "word": "到了"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 14,
+          "delta_char_errors": 18,
+          "fixed": 0,
+          "weight": 654,
+          "word": "為了"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 3,
+          "fixed": 0,
+          "weight": 473,
+          "word": "罷了"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 417,
+          "word": "想了"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 319,
+          "word": "終了"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 379,
+          "word": "記了"
+        }
+      ]
+    },
+    {
+      "family": "suf2_zhe",
+      "harmful_word_count": 0,
+      "helpful_word_count": 8,
+      "neutral_word_count": 20,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 18,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": [
+        {
+          "broken": 4,
+          "delta_char_errors": 7,
+          "fixed": 0,
+          "weight": 451,
+          "word": "執著"
+        },
+        {
+          "broken": 4,
+          "delta_char_errors": 5,
+          "fixed": 0,
+          "weight": 495,
+          "word": "藉著"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 408,
+          "word": "坐著"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 428,
+          "word": "對著"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 517,
+          "word": "帶著"
+        }
+      ]
+    },
+    {
+      "family": "suf2_guo",
+      "harmful_word_count": 0,
+      "helpful_word_count": 7,
+      "neutral_word_count": 25,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 11,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": [
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 406,
+          "word": "受過"
+        },
+        {
+          "broken": 2,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 308,
+          "word": "罪過"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 410,
+          "word": "見過"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 465,
+          "word": "說過"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 540,
+          "word": "看過"
+        }
+      ]
+    },
+    {
+      "family": "suf2_modal_particle",
+      "harmful_word_count": 0,
+      "helpful_word_count": 0,
+      "neutral_word_count": 1,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 0,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": []
+    },
+    {
+      "family": "pref2_bu",
+      "harmful_word_count": 5,
+      "helpful_word_count": 36,
+      "neutral_word_count": 128,
+      "sum_harmful_delta_errors": -8,
+      "sum_helpful_delta_errors": 136,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -4,
+          "fixed": 1,
+          "weight": 482,
+          "word": "不成"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 370,
+          "word": "不屑"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 403,
+          "word": "不慎"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 255,
+          "word": "不礙"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 466,
+          "word": "不符"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 12,
+          "delta_char_errors": 20,
+          "fixed": 0,
+          "weight": 512,
+          "word": "不應"
+        },
+        {
+          "broken": 16,
+          "delta_char_errors": 18,
+          "fixed": 0,
+          "weight": 700,
+          "word": "不會"
+        },
+        {
+          "broken": 11,
+          "delta_char_errors": 14,
+          "fixed": 0,
+          "weight": 716,
+          "word": "不是"
+        },
+        {
+          "broken": 5,
+          "delta_char_errors": 8,
+          "fixed": 0,
+          "weight": 656,
+          "word": "不可"
+        },
+        {
+          "broken": 5,
+          "delta_char_errors": 8,
+          "fixed": 0,
+          "weight": 699,
+          "word": "不能"
+        }
+      ]
+    },
+    {
+      "family": "pref2_mei",
+      "harmful_word_count": 0,
+      "helpful_word_count": 1,
+      "neutral_word_count": 5,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 11,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": [
+        {
+          "broken": 6,
+          "delta_char_errors": 11,
+          "fixed": 0,
+          "weight": 789,
+          "word": "沒有"
+        }
+      ]
+    },
+    {
+      "family": "pref2_you",
+      "harmful_word_count": 5,
+      "helpful_word_count": 7,
+      "neutral_word_count": 65,
+      "sum_harmful_delta_errors": -7,
+      "sum_helpful_delta_errors": 19,
+      "top_5_harmful_words": [
+        {
+          "broken": 1,
+          "delta_char_errors": -2,
+          "fixed": 2,
+          "weight": 569,
+          "word": "有意"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 1,
+          "weight": 624,
+          "word": "有時"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 374,
+          "word": "有病"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 359,
+          "word": "有神"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 420,
+          "word": "有餘"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 3,
+          "delta_char_errors": 6,
+          "fixed": 0,
+          "weight": 568,
+          "word": "有限"
+        },
+        {
+          "broken": 4,
+          "delta_char_errors": 5,
+          "fixed": 0,
+          "weight": 515,
+          "word": "有其"
+        },
+        {
+          "broken": 3,
+          "delta_char_errors": 3,
+          "fixed": 0,
+          "weight": 643,
+          "word": "有人"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 1,
+          "weight": 420,
+          "word": "有害"
+        },
+        {
+          "broken": 3,
+          "delta_char_errors": 1,
+          "fixed": 2,
+          "weight": 520,
+          "word": "有利"
+        }
+      ]
+    },
+    {
+      "family": "pref2_zai",
+      "harmful_word_count": 3,
+      "helpful_word_count": 3,
+      "neutral_word_count": 17,
+      "sum_harmful_delta_errors": -4,
+      "sum_helpful_delta_errors": 7,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 2,
+          "weight": 358,
+          "word": "在位"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 385,
+          "word": "在即"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 405,
+          "word": "在座"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": 3,
+          "fixed": 0,
+          "weight": 473,
+          "word": "在意"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 423,
+          "word": "在心"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 585,
+          "word": "在於"
+        }
+      ]
+    },
+    {
+      "family": "pref2_dem_quant",
+      "harmful_word_count": 6,
+      "helpful_word_count": 36,
+      "neutral_word_count": 69,
+      "sum_harmful_delta_errors": -7,
+      "sum_helpful_delta_errors": 150,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 0,
+          "weight": 459,
+          "word": "某一"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 357,
+          "word": "其二"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 336,
+          "word": "其內"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 431,
+          "word": "各部"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 643,
+          "word": "這一"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 16,
+          "delta_char_errors": 24,
+          "fixed": 1,
+          "weight": 705,
+          "word": "其他"
+        },
+        {
+          "broken": 12,
+          "delta_char_errors": 15,
+          "fixed": 1,
+          "weight": 671,
+          "word": "所有"
+        },
+        {
+          "broken": 4,
+          "delta_char_errors": 13,
+          "fixed": 0,
+          "weight": 517,
+          "word": "各自"
+        },
+        {
+          "broken": 7,
+          "delta_char_errors": 11,
+          "fixed": 0,
+          "weight": 642,
+          "word": "所謂"
+        },
+        {
+          "broken": 6,
+          "delta_char_errors": 7,
+          "fixed": 0,
+          "weight": 655,
+          "word": "其中"
+        }
+      ]
+    },
+    {
+      "family": "suf2_dao",
+      "harmful_word_count": 0,
+      "helpful_word_count": 13,
+      "neutral_word_count": 40,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 66,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": [
+        {
+          "broken": 27,
+          "delta_char_errors": 33,
+          "fixed": 0,
+          "weight": 636,
+          "word": "得到"
+        },
+        {
+          "broken": 14,
+          "delta_char_errors": 19,
+          "fixed": 0,
+          "weight": 607,
+          "word": "達到"
+        },
+        {
+          "broken": 2,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 630,
+          "word": "回到"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 607,
+          "word": "找到"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 470,
+          "word": "移到"
+        }
+      ]
+    },
+    {
+      "family": "suf2_chu",
+      "harmful_word_count": 0,
+      "helpful_word_count": 10,
+      "neutral_word_count": 27,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 29,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": [
+        {
+          "broken": 6,
+          "delta_char_errors": 6,
+          "fixed": 0,
+          "weight": 522,
+          "word": "付出"
+        },
+        {
+          "broken": 4,
+          "delta_char_errors": 6,
+          "fixed": 0,
+          "weight": 661,
+          "word": "提出"
+        },
+        {
+          "broken": 4,
+          "delta_char_errors": 6,
+          "fixed": 0,
+          "weight": 489,
+          "word": "輸出"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 3,
+          "fixed": 0,
+          "weight": 382,
+          "word": "射出"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": 2,
+          "fixed": 1,
+          "weight": 555,
+          "word": "做出"
+        }
+      ]
+    },
+    {
+      "family": "suf2_lai_qu",
+      "harmful_word_count": 1,
+      "helpful_word_count": 10,
+      "neutral_word_count": 42,
+      "sum_harmful_delta_errors": -1,
+      "sum_helpful_delta_errors": 41,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 620,
+          "word": "進來"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 13,
+          "delta_char_errors": 21,
+          "fixed": 0,
+          "weight": 705,
+          "word": "未來"
+        },
+        {
+          "broken": 2,
+          "delta_char_errors": 6,
+          "fixed": 0,
+          "weight": 618,
+          "word": "原來"
+        },
+        {
+          "broken": 2,
+          "delta_char_errors": 4,
+          "fixed": 0,
+          "weight": 619,
+          "word": "回來"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 4,
+          "fixed": 0,
+          "weight": 561,
+          "word": "失去"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 606,
+          "word": "以來"
+        }
+      ]
+    },
+    {
+      "family": "tri_xx_de",
+      "harmful_word_count": 2,
+      "helpful_word_count": 5,
+      "neutral_word_count": 33,
+      "sum_harmful_delta_errors": -3,
+      "sum_helpful_delta_errors": 11,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 1,
+          "weight": 460,
+          "word": "自然的"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": -1,
+          "fixed": 2,
+          "weight": 449,
+          "word": "不斷的"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": 3,
+          "fixed": 0,
+          "weight": 506,
+          "word": "真正的"
+        },
+        {
+          "broken": 2,
+          "delta_char_errors": 3,
+          "fixed": 0,
+          "weight": 448,
+          "word": "適當的"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 581,
+          "word": "不同的"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 471,
+          "word": "你們的"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 628,
+          "word": "自己的"
+        }
+      ]
+    },
+    {
+      "family": "tri_xx_aspect",
+      "harmful_word_count": 1,
+      "helpful_word_count": 3,
+      "neutral_word_count": 16,
+      "sum_harmful_delta_errors": -1,
+      "sum_helpful_delta_errors": 4,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 100,
+          "word": "只經過"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 534,
+          "word": "是為了"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 447,
+          "word": "不覺得"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 950,
+          "word": "得到了"
+        }
+      ]
+    },
+    {
+      "family": "tri_x_de_y",
+      "harmful_word_count": 0,
+      "helpful_word_count": 1,
+      "neutral_word_count": 4,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 5,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": [
+        {
+          "broken": 2,
+          "delta_char_errors": 5,
+          "fixed": 0,
+          "weight": 338,
+          "word": "為的是"
+        }
+      ]
+    },
+    {
+      "family": "tri_x_le_y",
+      "harmful_word_count": 0,
+      "helpful_word_count": 1,
+      "neutral_word_count": 1,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 1,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 423,
+          "word": "不了解"
+        }
+      ]
+    },
+    {
+      "family": "tri_bu_xx",
+      "harmful_word_count": 5,
+      "helpful_word_count": 11,
+      "neutral_word_count": 38,
+      "sum_harmful_delta_errors": -5,
+      "sum_helpful_delta_errors": 22,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 180,
+          "word": "不可期"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 180,
+          "word": "不同意"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": -1,
+          "fixed": 2,
+          "weight": 449,
+          "word": "不斷的"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 430,
+          "word": "不能不"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": -1,
+          "fixed": 0,
+          "weight": 520,
+          "word": "不需要"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 4,
+          "delta_char_errors": 5,
+          "fixed": 0,
+          "weight": 622,
+          "word": "不知道"
+        },
+        {
+          "broken": 2,
+          "delta_char_errors": 4,
+          "fixed": 0,
+          "weight": 489,
+          "word": "不應該"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 3,
+          "fixed": 0,
+          "weight": 374,
+          "word": "不平等"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 581,
+          "word": "不同的"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 362,
+          "word": "不尋常"
+        }
+      ]
+    },
+    {
+      "family": "tri_mei_xx",
+      "harmful_word_count": 0,
+      "helpful_word_count": 1,
+      "neutral_word_count": 1,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 2,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": [
+        {
+          "broken": 1,
+          "delta_char_errors": 2,
+          "fixed": 0,
+          "weight": 278,
+          "word": "沒良心"
+        }
+      ]
+    },
+    {
+      "family": "tri_you_xx",
+      "harmful_word_count": 0,
+      "helpful_word_count": 2,
+      "neutral_word_count": 8,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 2,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": [
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 460,
+          "word": "有些人"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 497,
+          "word": "有助於"
+        }
+      ]
+    },
+    {
+      "family": "tri_x_bu_y",
+      "harmful_word_count": 0,
+      "helpful_word_count": 2,
+      "neutral_word_count": 21,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 2,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": [
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 365,
+          "word": "得不到"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 255,
+          "word": "提不起"
+        }
+      ]
+    },
+    {
+      "family": "tri_x_de2_y",
+      "harmful_word_count": 0,
+      "helpful_word_count": 0,
+      "neutral_word_count": 5,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 0,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": []
+    },
+    {
+      "family": "tri_x_yi_y",
+      "harmful_word_count": 0,
+      "helpful_word_count": 4,
+      "neutral_word_count": 10,
+      "sum_harmful_delta_errors": 0,
+      "sum_helpful_delta_errors": 22,
+      "top_5_harmful_words": [],
+      "top_5_helpful_words": [
+        {
+          "broken": 7,
+          "delta_char_errors": 11,
+          "fixed": 0,
+          "weight": 506,
+          "word": "每一個"
+        },
+        {
+          "broken": 3,
+          "delta_char_errors": 9,
+          "fixed": 0,
+          "weight": 567,
+          "word": "在一起"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 447,
+          "word": "另一種"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 329,
+          "word": "第一種"
+        }
+      ]
+    },
+    {
+      "family": "outlier_wt_ge_800",
+      "harmful_word_count": 3,
+      "helpful_word_count": 6,
+      "neutral_word_count": 9,
+      "sum_harmful_delta_errors": -7,
+      "sum_helpful_delta_errors": 177,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -4,
+          "fixed": 1,
+          "weight": 860,
+          "word": "一句"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 1,
+          "weight": 950,
+          "word": "用了"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 950,
+          "word": "你就"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 75,
+          "delta_char_errors": 131,
+          "fixed": 1,
+          "weight": 880,
+          "word": "一個"
+        },
+        {
+          "broken": 18,
+          "delta_char_errors": 36,
+          "fixed": 1,
+          "weight": 814,
+          "word": "我們"
+        },
+        {
+          "broken": 4,
+          "delta_char_errors": 5,
+          "fixed": 0,
+          "weight": 900,
+          "word": "關係"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 3,
+          "fixed": 0,
+          "weight": 950,
+          "word": "為之"
+        },
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 950,
+          "word": "得到了"
+        }
+      ]
+    },
+    {
+      "family": "outlier_wt_ge_800_derived",
+      "harmful_word_count": 2,
+      "helpful_word_count": 1,
+      "neutral_word_count": 3,
+      "sum_harmful_delta_errors": -3,
+      "sum_helpful_delta_errors": 1,
+      "top_5_harmful_words": [
+        {
+          "broken": 0,
+          "delta_char_errors": -2,
+          "fixed": 1,
+          "weight": 950,
+          "word": "用了"
+        },
+        {
+          "broken": 0,
+          "delta_char_errors": -1,
+          "fixed": 1,
+          "weight": 950,
+          "word": "你就"
+        }
+      ],
+      "top_5_helpful_words": [
+        {
+          "broken": 1,
+          "delta_char_errors": 1,
+          "fixed": 0,
+          "weight": 950,
+          "word": "得到了"
+        }
+      ]
+    }
+  ],
+  "stdout_summary": {
+    "baseline": {
+      "cer": 0.0454,
+      "cer_percent": "4.54%",
+      "dataset": "dev",
+      "exact_match_sentences": 2441,
+      "per_category": {
+        "civic_public": {
+          "cer": 0.0267,
+          "cer_percent": "2.67%",
+          "char_errors": 271,
+          "chars": 10132,
+          "exact_match": 548,
+          "sentences": 728
+        },
+        "daily_dialogue": {
+          "cer": 0.037,
+          "cer_percent": "3.70%",
+          "char_errors": 337,
+          "chars": 9098,
+          "exact_match": 511,
+          "sentences": 728
+        },
+        "literary_narrative": {
+          "cer": 0.0475,
+          "cer_percent": "4.75%",
+          "char_errors": 387,
+          "chars": 8139,
+          "exact_match": 487,
+          "sentences": 728
+        },
+        "moe_idiom_context": {
+          "cer": 0.0331,
+          "cer_percent": "3.31%",
+          "char_errors": 326,
+          "chars": 9846,
+          "exact_match": 525,
+          "sentences": 728
+        },
+        "tech_doc": {
+          "cer": 0.0936,
+          "cer_percent": "9.36%",
+          "char_errors": 715,
+          "chars": 7640,
+          "exact_match": 370,
+          "sentences": 728
+        }
+      },
+      "sentence_accuracy_percent": "67.06%",
+      "total_char_errors": 2036,
+      "total_chars": 44855,
+      "total_sentences": 3640
+    },
+    "census": {
+      "derived_families_1_to_29_active_wt_ge_90": 7144,
+      "derived_families_1_to_29_total_words": 8033,
+      "dev_touched_classified_words": 1432,
+      "dev_touched_multi_char_words": 10424,
+      "lexicon_unique_words": 222744,
+      "loo_candidates_evaluated": 3758,
+      "outlier_wt_ge_800_words": 140
+    },
+    "elapsed_seconds": 39.86,
+    "family_ablation_summary": [
+      {
+        "broken": 2,
+        "delta_errs": 1,
+        "family": "pref2_pronoun",
+        "fixed": 2,
+        "lex_active": 126,
+        "touched_sents": 155,
+        "touched_words": 50,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 39,
+        "delta_errs": 56,
+        "family": "pref2_modal_copula",
+        "fixed": 9,
+        "lex_active": 399,
+        "touched_sents": 518,
+        "touched_words": 122,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 40,
+        "delta_errs": 99,
+        "family": "pref2_adverb",
+        "fixed": 1,
+        "lex_active": 561,
+        "touched_sents": 512,
+        "touched_words": 149,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 148,
+        "delta_errs": 269,
+        "family": "suf2_neg_cop_exist",
+        "fixed": 11,
+        "lex_active": 601,
+        "touched_sents": 1128,
+        "touched_words": 281,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 11,
+        "delta_errs": 3,
+        "family": "suf2_de_struct",
+        "fixed": 11,
+        "lex_active": 93,
+        "touched_sents": 490,
+        "touched_words": 63,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 41,
+        "delta_errs": 79,
+        "family": "suf2_de_comp",
+        "fixed": 2,
+        "lex_active": 67,
+        "touched_sents": 383,
+        "touched_words": 50,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 7,
+        "delta_errs": 10,
+        "family": "suf2_di",
+        "fixed": 2,
+        "lex_active": 188,
+        "touched_sents": 75,
+        "touched_words": 35,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 19,
+        "delta_errs": 18,
+        "family": "suf2_le",
+        "fixed": 3,
+        "lex_active": 74,
+        "touched_sents": 74,
+        "touched_words": 25,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 13,
+        "delta_errs": 17,
+        "family": "suf2_zhe",
+        "fixed": 0,
+        "lex_active": 255,
+        "touched_sents": 46,
+        "touched_words": 28,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 5,
+        "delta_errs": 10,
+        "family": "suf2_guo",
+        "fixed": 0,
+        "lex_active": 274,
+        "touched_sents": 75,
+        "touched_words": 32,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 0,
+        "delta_errs": 0,
+        "family": "suf2_modal_particle",
+        "fixed": 0,
+        "lex_active": 31,
+        "touched_sents": 1,
+        "touched_words": 1,
+        "verdict": "NEUTRAL_PRUNABLE"
+      },
+      {
+        "broken": 84,
+        "delta_errs": 126,
+        "family": "pref2_bu",
+        "fixed": 2,
+        "lex_active": 385,
+        "touched_sents": 488,
+        "touched_words": 169,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 6,
+        "delta_errs": 11,
+        "family": "pref2_mei",
+        "fixed": 0,
+        "lex_active": 120,
+        "touched_sents": 95,
+        "touched_words": 6,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 13,
+        "delta_errs": 16,
+        "family": "pref2_you",
+        "fixed": 6,
+        "lex_active": 170,
+        "touched_sents": 254,
+        "touched_words": 77,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 1,
+        "delta_errs": 3,
+        "family": "pref2_zai",
+        "fixed": 3,
+        "lex_active": 42,
+        "touched_sents": 146,
+        "touched_words": 23,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 73,
+        "delta_errs": 126,
+        "family": "pref2_dem_quant",
+        "fixed": 3,
+        "lex_active": 495,
+        "touched_sents": 781,
+        "touched_words": 111,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 51,
+        "delta_errs": 66,
+        "family": "suf2_dao",
+        "fixed": 0,
+        "lex_active": 404,
+        "touched_sents": 179,
+        "touched_words": 53,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 19,
+        "delta_errs": 32,
+        "family": "suf2_chu",
+        "fixed": 0,
+        "lex_active": 373,
+        "touched_sents": 101,
+        "touched_words": 37,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 21,
+        "delta_errs": 41,
+        "family": "suf2_lai_qu",
+        "fixed": 0,
+        "lex_active": 398,
+        "touched_sents": 146,
+        "touched_words": 53,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 5,
+        "delta_errs": 8,
+        "family": "tri_xx_de",
+        "fixed": 3,
+        "lex_active": 188,
+        "touched_sents": 235,
+        "touched_words": 40,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 3,
+        "delta_errs": 3,
+        "family": "tri_xx_aspect",
+        "fixed": 0,
+        "lex_active": 299,
+        "touched_sents": 30,
+        "touched_words": 20,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 2,
+        "delta_errs": 5,
+        "family": "tri_x_de_y",
+        "fixed": 0,
+        "lex_active": 23,
+        "touched_sents": 8,
+        "touched_words": 5,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 0,
+        "delta_errs": 1,
+        "family": "tri_x_le_y",
+        "fixed": 0,
+        "lex_active": 37,
+        "touched_sents": 3,
+        "touched_words": 2,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 13,
+        "delta_errs": 15,
+        "family": "tri_bu_xx",
+        "fixed": 3,
+        "lex_active": 662,
+        "touched_sents": 122,
+        "touched_words": 54,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 1,
+        "delta_errs": 2,
+        "family": "tri_mei_xx",
+        "fixed": 0,
+        "lex_active": 220,
+        "touched_sents": 12,
+        "touched_words": 2,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 1,
+        "delta_errs": 2,
+        "family": "tri_you_xx",
+        "fixed": 0,
+        "lex_active": 166,
+        "touched_sents": 32,
+        "touched_words": 10,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 2,
+        "delta_errs": 2,
+        "family": "tri_x_bu_y",
+        "fixed": 0,
+        "lex_active": 518,
+        "touched_sents": 37,
+        "touched_words": 23,
+        "verdict": "MIXED_SELECTIVE"
+      },
+      {
+        "broken": 0,
+        "delta_errs": 0,
+        "family": "tri_x_de2_y",
+        "fixed": 0,
+        "lex_active": 138,
+        "touched_sents": 5,
+        "touched_words": 5,
+        "verdict": "NEUTRAL_PRUNABLE"
+      },
+      {
+        "broken": 11,
+        "delta_errs": 22,
+        "family": "tri_x_yi_y",
+        "fixed": 0,
+        "lex_active": 202,
+        "touched_sents": 101,
+        "touched_words": 14,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 99,
+        "delta_errs": 174,
+        "family": "outlier_wt_ge_800",
+        "fixed": 4,
+        "lex_active": 140,
+        "touched_sents": 589,
+        "touched_words": 18,
+        "verdict": "KEEP_OR_FACTORIZE_FIRST"
+      },
+      {
+        "broken": 1,
+        "delta_errs": -2,
+        "family": "outlier_wt_ge_800_derived",
+        "fixed": 2,
+        "lex_active": 25,
+        "touched_sents": 12,
+        "touched_words": 6,
+        "verdict": "NET_BENEFICIAL_TO_REMOVE"
+      }
+    ],
+    "joint_simulations": [
+      {
+        "ablated_cer_percent": "4.3629%",
+        "broken_sentences": 0,
+        "char_degraded_sentences": 0,
+        "char_improved_sentences": 65,
+        "delta_cer_percentage_points": "-0.1761%",
+        "delta_char_errors": -79,
+        "exact_match_sentences": 2480,
+        "fixed_sentences": 39,
+        "mcnemar_chi_square": 37.0256,
+        "mcnemar_p_value": 1.1702838751345411e-9,
+        "per_category_delta_char_errors": {
+          "civic_public": -15,
+          "daily_dialogue": -12,
+          "literary_narrative": -22,
+          "moe_idiom_context": -18,
+          "tech_doc": -12
+        },
+        "removed_word_count": 55,
+        "simulation_name": "strict_harmful_derived",
+        "touched_sentences": 207
+      },
+      {
+        "ablated_cer_percent": "4.3451%",
+        "broken_sentences": 7,
+        "char_degraded_sentences": 7,
+        "char_improved_sentences": 79,
+        "delta_cer_percentage_points": "-0.1940%",
+        "delta_char_errors": -87,
+        "exact_match_sentences": 2483,
+        "fixed_sentences": 49,
+        "mcnemar_chi_square": 30.0179,
+        "mcnemar_p_value": 4.291237279819604e-8,
+        "per_category_delta_char_errors": {
+          "civic_public": -16,
+          "daily_dialogue": -12,
+          "literary_narrative": -28,
+          "moe_idiom_context": -18,
+          "tech_doc": -13
+        },
+        "removed_word_count": 61,
+        "simulation_name": "all_harmful_derived",
+        "touched_sentences": 295
+      },
+      {
+        "ablated_cer_percent": "3.2393%",
+        "broken_sentences": 0,
+        "char_degraded_sentences": 1,
+        "char_improved_sentences": 411,
+        "delta_cer_percentage_points": "-1.2997%",
+        "delta_char_errors": -583,
+        "exact_match_sentences": 2668,
+        "fixed_sentences": 227,
+        "mcnemar_chi_square": 225.0044,
+        "mcnemar_p_value": 7.687326382430603e-51,
+        "per_category_delta_char_errors": {
+          "civic_public": -89,
+          "daily_dialogue": -82,
+          "literary_narrative": -118,
+          "moe_idiom_context": -104,
+          "tech_doc": -190
+        },
+        "removed_word_count": 379,
+        "simulation_name": "strict_harmful_all",
+        "touched_sentences": 871
+      },
+      {
+        "ablated_cer_percent": "3.1836%",
+        "broken_sentences": 18,
+        "char_degraded_sentences": 22,
+        "char_improved_sentences": 446,
+        "delta_cer_percentage_points": "-1.3555%",
+        "delta_char_errors": -608,
+        "exact_match_sentences": 2678,
+        "fixed_sentences": 255,
+        "mcnemar_chi_square": 204.0147,
+        "mcnemar_p_value": 2.9031384845897976e-46,
+        "per_category_delta_char_errors": {
+          "civic_public": -90,
+          "daily_dialogue": -94,
+          "literary_narrative": -127,
+          "moe_idiom_context": -109,
+          "tech_doc": -188
+        },
+        "removed_word_count": 395,
+        "simulation_name": "all_harmful_all",
+        "touched_sentences": 1231
+      },
+      {
+        "ablated_cer_percent": "4.5480%",
+        "broken_sentences": 7,
+        "char_degraded_sentences": 11,
+        "char_improved_sentences": 6,
+        "delta_cer_percentage_points": "+0.0089%",
+        "delta_char_errors": 4,
+        "exact_match_sentences": 2438,
+        "fixed_sentences": 4,
+        "mcnemar_chi_square": 0.3636,
+        "mcnemar_p_value": 0.5464934972694719,
+        "per_category_delta_char_errors": {
+          "civic_public": -3,
+          "daily_dialogue": 4,
+          "literary_narrative": 2,
+          "moe_idiom_context": 1,
+          "tech_doc": 0
+        },
+        "removed_word_count": 1081,
+        "simulation_name": "neutral_derived_touched",
+        "touched_sentences": 2074
+      }
+    ],
+    "loo_totals": {
+      "derived_harmful_count": 61,
+      "derived_helpful_count": 278,
+      "derived_neutral_count": 1081,
+      "derived_strict_harmful_count": 55,
+      "evaluated_candidates": 3758,
+      "non_derived_harmful_count": 334
+    },
+    "multi_char_bonus_curve": [
+      {
+        "cer": 0.0454,
+        "cer_percent": "4.54%",
+        "delta_char_errors_vs_28": 0,
+        "exact_match_sentences": 2441,
+        "multi_char_bonus": 28.0,
+        "per_category": {
+          "civic_public": {
+            "cer": 0.0267,
+            "cer_percent": "2.67%",
+            "char_errors": 271,
+            "exact_match": 548,
+            "sentences": 728
+          },
+          "daily_dialogue": {
+            "cer": 0.037,
+            "cer_percent": "3.70%",
+            "char_errors": 337,
+            "exact_match": 511,
+            "sentences": 728
+          },
+          "literary_narrative": {
+            "cer": 0.0475,
+            "cer_percent": "4.75%",
+            "char_errors": 387,
+            "exact_match": 487,
+            "sentences": 728
+          },
+          "moe_idiom_context": {
+            "cer": 0.0331,
+            "cer_percent": "3.31%",
+            "char_errors": 326,
+            "exact_match": 525,
+            "sentences": 728
+          },
+          "tech_doc": {
+            "cer": 0.0936,
+            "cer_percent": "9.36%",
+            "char_errors": 715,
+            "exact_match": 370,
+            "sentences": 728
+          }
+        },
+        "sentence_accuracy_percent": "67.06%",
+        "total_char_errors": 2036
+      },
+      {
+        "cer": 0.0519,
+        "cer_percent": "5.19%",
+        "delta_char_errors_vs_28": 291,
+        "exact_match_sentences": 2287,
+        "multi_char_bonus": 24.0,
+        "per_category": {
+          "civic_public": {
+            "cer": 0.0336,
+            "cer_percent": "3.36%",
+            "char_errors": 340,
+            "exact_match": 510,
+            "sentences": 728
+          },
+          "daily_dialogue": {
+            "cer": 0.0413,
+            "cer_percent": "4.13%",
+            "char_errors": 376,
+            "exact_match": 488,
+            "sentences": 728
+          },
+          "literary_narrative": {
+            "cer": 0.0557,
+            "cer_percent": "5.57%",
+            "char_errors": 453,
+            "exact_match": 449,
+            "sentences": 728
+          },
+          "moe_idiom_context": {
+            "cer": 0.0373,
+            "cer_percent": "3.73%",
+            "char_errors": 367,
+            "exact_match": 501,
+            "sentences": 728
+          },
+          "tech_doc": {
+            "cer": 0.1035,
+            "cer_percent": "10.35%",
+            "char_errors": 791,
+            "exact_match": 339,
+            "sentences": 728
+          }
+        },
+        "sentence_accuracy_percent": "62.83%",
+        "total_char_errors": 2327
+      },
+      {
+        "cer": 0.0568,
+        "cer_percent": "5.68%",
+        "delta_char_errors_vs_28": 512,
+        "exact_match_sentences": 2173,
+        "multi_char_bonus": 20.0,
+        "per_category": {
+          "civic_public": {
+            "cer": 0.0355,
+            "cer_percent": "3.55%",
+            "char_errors": 360,
+            "exact_match": 493,
+            "sentences": 728
+          },
+          "daily_dialogue": {
+            "cer": 0.047,
+            "cer_percent": "4.70%",
+            "char_errors": 428,
+            "exact_match": 457,
+            "sentences": 728
+          },
+          "literary_narrative": {
+            "cer": 0.0617,
+            "cer_percent": "6.17%",
+            "char_errors": 502,
+            "exact_match": 426,
+            "sentences": 728
+          },
+          "moe_idiom_context": {
+            "cer": 0.0442,
+            "cer_percent": "4.42%",
+            "char_errors": 435,
+            "exact_match": 477,
+            "sentences": 728
+          },
+          "tech_doc": {
+            "cer": 0.1077,
+            "cer_percent": "10.77%",
+            "char_errors": 823,
+            "exact_match": 320,
+            "sentences": 728
+          }
+        },
+        "sentence_accuracy_percent": "59.70%",
+        "total_char_errors": 2548
+      },
+      {
+        "cer": 0.0616,
+        "cer_percent": "6.16%",
+        "delta_char_errors_vs_28": 727,
+        "exact_match_sentences": 2061,
+        "multi_char_bonus": 16.0,
+        "per_category": {
+          "civic_public": {
+            "cer": 0.0397,
+            "cer_percent": "3.97%",
+            "char_errors": 402,
+            "exact_match": 471,
+            "sentences": 728
+          },
+          "daily_dialogue": {
+            "cer": 0.0533,
+            "cer_percent": "5.33%",
+            "char_errors": 485,
+            "exact_match": 427,
+            "sentences": 728
+          },
+          "literary_narrative": {
+            "cer": 0.0671,
+            "cer_percent": "6.71%",
+            "char_errors": 546,
+            "exact_match": 404,
+            "sentences": 728
+          },
+          "moe_idiom_context": {
+            "cer": 0.0468,
+            "cer_percent": "4.68%",
+            "char_errors": 461,
+            "exact_match": 460,
+            "sentences": 728
+          },
+          "tech_doc": {
+            "cer": 0.1137,
+            "cer_percent": "11.37%",
+            "char_errors": 869,
+            "exact_match": 299,
+            "sentences": 728
+          }
+        },
+        "sentence_accuracy_percent": "56.62%",
+        "total_char_errors": 2763
+      },
+      {
+        "cer": 0.0703,
+        "cer_percent": "7.03%",
+        "delta_char_errors_vs_28": 1118,
+        "exact_match_sentences": 1906,
+        "multi_char_bonus": 12.0,
+        "per_category": {
+          "civic_public": {
+            "cer": 0.0471,
+            "cer_percent": "4.71%",
+            "char_errors": 477,
+            "exact_match": 442,
+            "sentences": 728
+          },
+          "daily_dialogue": {
+            "cer": 0.0609,
+            "cer_percent": "6.09%",
+            "char_errors": 554,
+            "exact_match": 392,
+            "sentences": 728
+          },
+          "literary_narrative": {
+            "cer": 0.0749,
+            "cer_percent": "7.49%",
+            "char_errors": 610,
+            "exact_match": 375,
+            "sentences": 728
+          },
+          "moe_idiom_context": {
+            "cer": 0.0564,
+            "cer_percent": "5.64%",
+            "char_errors": 555,
+            "exact_match": 419,
+            "sentences": 728
+          },
+          "tech_doc": {
+            "cer": 0.1254,
+            "cer_percent": "12.54%",
+            "char_errors": 958,
+            "exact_match": 278,
+            "sentences": 728
+          }
+        },
+        "sentence_accuracy_percent": "52.36%",
+        "total_char_errors": 3154
+      },
+      {
+        "cer": 0.0806,
+        "cer_percent": "8.06%",
+        "delta_char_errors_vs_28": 1580,
+        "exact_match_sentences": 1719,
+        "multi_char_bonus": 8.0,
+        "per_category": {
+          "civic_public": {
+            "cer": 0.0542,
+            "cer_percent": "5.42%",
+            "char_errors": 549,
+            "exact_match": 405,
+            "sentences": 728
+          },
+          "daily_dialogue": {
+            "cer": 0.0676,
+            "cer_percent": "6.76%",
+            "char_errors": 615,
+            "exact_match": 362,
+            "sentences": 728
+          },
+          "literary_narrative": {
+            "cer": 0.0812,
+            "cer_percent": "8.12%",
+            "char_errors": 661,
+            "exact_match": 353,
+            "sentences": 728
+          },
+          "moe_idiom_context": {
+            "cer": 0.0687,
+            "cer_percent": "6.87%",
+            "char_errors": 676,
+            "exact_match": 375,
+            "sentences": 728
+          },
+          "tech_doc": {
+            "cer": 0.1459,
+            "cer_percent": "14.59%",
+            "char_errors": 1115,
+            "exact_match": 224,
+            "sentences": 728
+          }
+        },
+        "sentence_accuracy_percent": "47.23%",
+        "total_char_errors": 3616
+      },
+      {
+        "cer": 0.1984,
+        "cer_percent": "19.84%",
+        "delta_char_errors_vs_28": 6861,
+        "exact_match_sentences": 497,
+        "multi_char_bonus": 4.0,
+        "per_category": {
+          "civic_public": {
+            "cer": 0.1813,
+            "cer_percent": "18.13%",
+            "char_errors": 1837,
+            "exact_match": 73,
+            "sentences": 728
+          },
+          "daily_dialogue": {
+            "cer": 0.1567,
+            "cer_percent": "15.67%",
+            "char_errors": 1426,
+            "exact_match": 144,
+            "sentences": 728
+          },
+          "literary_narrative": {
+            "cer": 0.2011,
+            "cer_percent": "20.11%",
+            "char_errors": 1637,
+            "exact_match": 99,
+            "sentences": 728
+          },
+          "moe_idiom_context": {
+            "cer": 0.1739,
+            "cer_percent": "17.39%",
+            "char_errors": 1712,
+            "exact_match": 133,
+            "sentences": 728
+          },
+          "tech_doc": {
+            "cer": 0.2991,
+            "cer_percent": "29.91%",
+            "char_errors": 2285,
+            "exact_match": 48,
+            "sentences": 728
+          }
+        },
+        "sentence_accuracy_percent": "13.65%",
+        "total_char_errors": 8897
+      },
+      {
+        "cer": 0.2207,
+        "cer_percent": "22.07%",
+        "delta_char_errors_vs_28": 7863,
+        "exact_match_sentences": 365,
+        "multi_char_bonus": 0.0,
+        "per_category": {
+          "civic_public": {
+            "cer": 0.1979,
+            "cer_percent": "19.79%",
+            "char_errors": 2005,
+            "exact_match": 57,
+            "sentences": 728
+          },
+          "daily_dialogue": {
+            "cer": 0.1685,
+            "cer_percent": "16.85%",
+            "char_errors": 1533,
+            "exact_match": 129,
+            "sentences": 728
+          },
+          "literary_narrative": {
+            "cer": 0.2134,
+            "cer_percent": "21.34%",
+            "char_errors": 1737,
+            "exact_match": 80,
+            "sentences": 728
+          },
+          "moe_idiom_context": {
+            "cer": 0.222,
+            "cer_percent": "22.20%",
+            "char_errors": 2186,
+            "exact_match": 64,
+            "sentences": 728
+          },
+          "tech_doc": {
+            "cer": 0.3191,
+            "cer_percent": "31.91%",
+            "char_errors": 2438,
+            "exact_match": 35,
+            "sentences": 728
+          }
+        },
+        "sentence_accuracy_percent": "10.03%",
+        "total_char_errors": 9899
+      }
+    ]
+  },
+  "top_60_helpful_derived_words": [
+    {
+      "best_path_hits": 40,
+      "broken_sents": 15,
+      "char_degraded_sents": 19,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 38,
+      "error_path_hits": 11,
+      "families": [
+        "pref2_adverb",
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 741,
+      "touched_sents": 72,
+      "word": "就是"
+    },
+    {
+      "best_path_hits": 34,
+      "broken_sents": 27,
+      "char_degraded_sents": 33,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 33,
+      "error_path_hits": 6,
+      "families": [
+        "suf2_dao"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 636,
+      "touched_sents": 54,
+      "word": "得到"
+    },
+    {
+      "best_path_hits": 22,
+      "broken_sents": 15,
+      "char_degraded_sents": 22,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 27,
+      "error_path_hits": 7,
+      "families": [
+        "suf2_de_comp"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 721,
+      "touched_sents": 31,
+      "word": "覺得"
+    },
+    {
+      "best_path_hits": 25,
+      "broken_sents": 17,
+      "char_degraded_sents": 25,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 25,
+      "error_path_hits": 8,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 625,
+      "touched_sents": 25,
+      "word": "具有"
+    },
+    {
+      "best_path_hits": 21,
+      "broken_sents": 17,
+      "char_degraded_sents": 20,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 24,
+      "error_path_hits": 4,
+      "families": [
+        "suf2_de_comp"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 627,
+      "touched_sents": 23,
+      "word": "獲得"
+    },
+    {
+      "best_path_hits": 26,
+      "broken_sents": 16,
+      "char_degraded_sents": 22,
+      "char_improved_sents": 2,
+      "char_len": 2,
+      "delta_char_errors": 24,
+      "error_path_hits": 8,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 705,
+      "touched_sents": 37,
+      "word": "其他"
+    },
+    {
+      "best_path_hits": 12,
+      "broken_sents": 8,
+      "char_degraded_sents": 12,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 24,
+      "error_path_hits": 4,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 674,
+      "touched_sents": 21,
+      "word": "只是"
+    },
+    {
+      "best_path_hits": 15,
+      "broken_sents": 13,
+      "char_degraded_sents": 15,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 21,
+      "error_path_hits": 2,
+      "families": [
+        "suf2_lai_qu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 705,
+      "touched_sents": 16,
+      "word": "未來"
+    },
+    {
+      "best_path_hits": 15,
+      "broken_sents": 12,
+      "char_degraded_sents": 15,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 20,
+      "error_path_hits": 3,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 512,
+      "touched_sents": 24,
+      "word": "不應"
+    },
+    {
+      "best_path_hits": 9,
+      "broken_sents": 6,
+      "char_degraded_sents": 8,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": 20,
+      "error_path_hits": 3,
+      "families": [
+        "suf2_de_comp"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 593,
+      "touched_sents": 21,
+      "word": "記得"
+    },
+    {
+      "best_path_hits": 18,
+      "broken_sents": 14,
+      "char_degraded_sents": 17,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 19,
+      "error_path_hits": 3,
+      "families": [
+        "suf2_dao"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 607,
+      "touched_sents": 20,
+      "word": "達到"
+    },
+    {
+      "best_path_hits": 18,
+      "broken_sents": 16,
+      "char_degraded_sents": 17,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 18,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 700,
+      "touched_sents": 25,
+      "word": "不會"
+    },
+    {
+      "best_path_hits": 17,
+      "broken_sents": 14,
+      "char_degraded_sents": 17,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 18,
+      "error_path_hits": 3,
+      "families": [
+        "suf2_le"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 654,
+      "touched_sents": 20,
+      "word": "為了"
+    },
+    {
+      "best_path_hits": 19,
+      "broken_sents": 8,
+      "char_degraded_sents": 12,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 17,
+      "error_path_hits": 5,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 634,
+      "touched_sents": 24,
+      "word": "能力"
+    },
+    {
+      "best_path_hits": 16,
+      "broken_sents": 12,
+      "char_degraded_sents": 16,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 16,
+      "error_path_hits": 4,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 663,
+      "touched_sents": 19,
+      "word": "只有"
+    },
+    {
+      "best_path_hits": 20,
+      "broken_sents": 11,
+      "char_degraded_sents": 16,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": 16,
+      "error_path_hits": 8,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 736,
+      "touched_sents": 27,
+      "word": "現在"
+    },
+    {
+      "best_path_hits": 70,
+      "broken_sents": 12,
+      "char_degraded_sents": 15,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": 15,
+      "error_path_hits": 17,
+      "families": [
+        "suf2_neg_cop_exist",
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 671,
+      "touched_sents": 72,
+      "word": "所有"
+    },
+    {
+      "best_path_hits": 17,
+      "broken_sents": 11,
+      "char_degraded_sents": 13,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 14,
+      "error_path_hits": 5,
+      "families": [
+        "suf2_neg_cop_exist",
+        "pref2_bu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 716,
+      "touched_sents": 30,
+      "word": "不是"
+    },
+    {
+      "best_path_hits": 5,
+      "broken_sents": 4,
+      "char_degraded_sents": 5,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 13,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 517,
+      "touched_sents": 20,
+      "word": "各自"
+    },
+    {
+      "best_path_hits": 11,
+      "broken_sents": 10,
+      "char_degraded_sents": 11,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 12,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 605,
+      "touched_sents": 12,
+      "word": "擁有"
+    },
+    {
+      "best_path_hits": 7,
+      "broken_sents": 7,
+      "char_degraded_sents": 7,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 11,
+      "error_path_hits": 0,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 642,
+      "touched_sents": 7,
+      "word": "所謂"
+    },
+    {
+      "best_path_hits": 12,
+      "broken_sents": 7,
+      "char_degraded_sents": 11,
+      "char_improved_sents": 0,
+      "char_len": 3,
+      "delta_char_errors": 11,
+      "error_path_hits": 4,
+      "families": [
+        "tri_x_yi_y"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 506,
+      "touched_sents": 37,
+      "word": "每一個"
+    },
+    {
+      "best_path_hits": 52,
+      "broken_sents": 6,
+      "char_degraded_sents": 8,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 11,
+      "error_path_hits": 8,
+      "families": [
+        "suf2_neg_cop_exist",
+        "pref2_mei"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 789,
+      "touched_sents": 87,
+      "word": "沒有"
+    },
+    {
+      "best_path_hits": 6,
+      "broken_sents": 5,
+      "char_degraded_sents": 6,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 11,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 455,
+      "touched_sents": 6,
+      "word": "要素"
+    },
+    {
+      "best_path_hits": 6,
+      "broken_sents": 5,
+      "char_degraded_sents": 5,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 10,
+      "error_path_hits": 0,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 653,
+      "touched_sents": 7,
+      "word": "或是"
+    },
+    {
+      "best_path_hits": 5,
+      "broken_sents": 4,
+      "char_degraded_sents": 5,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 10,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 610,
+      "touched_sents": 8,
+      "word": "於是"
+    },
+    {
+      "best_path_hits": 4,
+      "broken_sents": 3,
+      "char_degraded_sents": 4,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 10,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_adverb"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 541,
+      "touched_sents": 4,
+      "word": "更新"
+    },
+    {
+      "best_path_hits": 23,
+      "broken_sents": 3,
+      "char_degraded_sents": 4,
+      "char_improved_sents": 1,
+      "char_len": 3,
+      "delta_char_errors": 9,
+      "error_path_hits": 10,
+      "families": [
+        "tri_x_yi_y"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 567,
+      "touched_sents": 30,
+      "word": "在一起"
+    },
+    {
+      "best_path_hits": 9,
+      "broken_sents": 5,
+      "char_degraded_sents": 8,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 8,
+      "error_path_hits": 3,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 656,
+      "touched_sents": 30,
+      "word": "不可"
+    },
+    {
+      "best_path_hits": 11,
+      "broken_sents": 5,
+      "char_degraded_sents": 7,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 8,
+      "error_path_hits": 3,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 699,
+      "touched_sents": 21,
+      "word": "不能"
+    },
+    {
+      "best_path_hits": 4,
+      "broken_sents": 4,
+      "char_degraded_sents": 4,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 8,
+      "error_path_hits": 0,
+      "families": [
+        "pref2_adverb",
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 539,
+      "touched_sents": 6,
+      "word": "才是"
+    },
+    {
+      "best_path_hits": 8,
+      "broken_sents": 4,
+      "char_degraded_sents": 8,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 8,
+      "error_path_hits": 4,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 705,
+      "touched_sents": 10,
+      "word": "絕不"
+    },
+    {
+      "best_path_hits": 7,
+      "broken_sents": 6,
+      "char_degraded_sents": 7,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 7,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 591,
+      "touched_sents": 24,
+      "word": "不再"
+    },
+    {
+      "best_path_hits": 7,
+      "broken_sents": 6,
+      "char_degraded_sents": 7,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 7,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 655,
+      "touched_sents": 10,
+      "word": "其中"
+    },
+    {
+      "best_path_hits": 8,
+      "broken_sents": 5,
+      "char_degraded_sents": 7,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 7,
+      "error_path_hits": 2,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 673,
+      "touched_sents": 9,
+      "word": "不要"
+    },
+    {
+      "best_path_hits": 6,
+      "broken_sents": 4,
+      "char_degraded_sents": 6,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 7,
+      "error_path_hits": 2,
+      "families": [
+        "suf2_zhe"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 451,
+      "touched_sents": 6,
+      "word": "執著"
+    },
+    {
+      "best_path_hits": 65,
+      "broken_sents": 4,
+      "char_degraded_sents": 4,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 7,
+      "error_path_hits": 17,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 751,
+      "touched_sents": 70,
+      "word": "所以"
+    },
+    {
+      "best_path_hits": 8,
+      "broken_sents": 3,
+      "char_degraded_sents": 5,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 7,
+      "error_path_hits": 2,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 208,
+      "touched_sents": 8,
+      "word": "某物"
+    },
+    {
+      "best_path_hits": 8,
+      "broken_sents": 6,
+      "char_degraded_sents": 6,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 6,
+      "error_path_hits": 0,
+      "families": [
+        "suf2_chu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 522,
+      "touched_sents": 8,
+      "word": "付出"
+    },
+    {
+      "best_path_hits": 40,
+      "broken_sents": 4,
+      "char_degraded_sents": 4,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 6,
+      "error_path_hits": 9,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 616,
+      "touched_sents": 47,
+      "word": "存在"
+    },
+    {
+      "best_path_hits": 6,
+      "broken_sents": 4,
+      "char_degraded_sents": 6,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 6,
+      "error_path_hits": 2,
+      "families": [
+        "suf2_chu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 661,
+      "touched_sents": 8,
+      "word": "提出"
+    },
+    {
+      "best_path_hits": 4,
+      "broken_sents": 4,
+      "char_degraded_sents": 4,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 6,
+      "error_path_hits": 0,
+      "families": [
+        "suf2_chu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 489,
+      "touched_sents": 4,
+      "word": "輸出"
+    },
+    {
+      "best_path_hits": 8,
+      "broken_sents": 3,
+      "char_degraded_sents": 7,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": 6,
+      "error_path_hits": 5,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 481,
+      "touched_sents": 11,
+      "word": "唯有"
+    },
+    {
+      "best_path_hits": 8,
+      "broken_sents": 3,
+      "char_degraded_sents": 6,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 6,
+      "error_path_hits": 4,
+      "families": [
+        "pref2_you"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 568,
+      "touched_sents": 12,
+      "word": "有限"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 3,
+      "char_degraded_sents": 3,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 6,
+      "error_path_hits": 0,
+      "families": [
+        "suf2_de_struct"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 629,
+      "touched_sents": 4,
+      "word": "目的"
+    },
+    {
+      "best_path_hits": 3,
+      "broken_sents": 2,
+      "char_degraded_sents": 3,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 6,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_lai_qu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 618,
+      "touched_sents": 4,
+      "word": "原來"
+    },
+    {
+      "best_path_hits": 17,
+      "broken_sents": 2,
+      "char_degraded_sents": 2,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 6,
+      "error_path_hits": 3,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 580,
+      "touched_sents": 17,
+      "word": "各種"
+    },
+    {
+      "best_path_hits": 5,
+      "broken_sents": 5,
+      "char_degraded_sents": 5,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 5,
+      "error_path_hits": 0,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 635,
+      "touched_sents": 5,
+      "word": "這裡"
+    },
+    {
+      "best_path_hits": 6,
+      "broken_sents": 4,
+      "char_degraded_sents": 5,
+      "char_improved_sents": 0,
+      "char_len": 3,
+      "delta_char_errors": 5,
+      "error_path_hits": 1,
+      "families": [
+        "tri_bu_xx"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 622,
+      "touched_sents": 7,
+      "word": "不知道"
+    },
+    {
+      "best_path_hits": 17,
+      "broken_sents": 4,
+      "char_degraded_sents": 4,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 5,
+      "error_path_hits": 6,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 491,
+      "touched_sents": 19,
+      "word": "內在"
+    },
+    {
+      "best_path_hits": 5,
+      "broken_sents": 4,
+      "char_degraded_sents": 5,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 5,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_you"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 515,
+      "touched_sents": 10,
+      "word": "有其"
+    },
+    {
+      "best_path_hits": 5,
+      "broken_sents": 4,
+      "char_degraded_sents": 5,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 5,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_zhe"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 495,
+      "touched_sents": 6,
+      "word": "藉著"
+    },
+    {
+      "best_path_hits": 30,
+      "broken_sents": 3,
+      "char_degraded_sents": 4,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 5,
+      "error_path_hits": 12,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 744,
+      "touched_sents": 44,
+      "word": "可能"
+    },
+    {
+      "best_path_hits": 14,
+      "broken_sents": 3,
+      "char_degraded_sents": 3,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 5,
+      "error_path_hits": 6,
+      "families": [
+        "suf2_neg_cop_exist"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 497,
+      "touched_sents": 16,
+      "word": "外在"
+    },
+    {
+      "best_path_hits": 16,
+      "broken_sents": 3,
+      "char_degraded_sents": 3,
+      "char_improved_sents": 1,
+      "char_len": 2,
+      "delta_char_errors": 5,
+      "error_path_hits": 5,
+      "families": [
+        "pref2_modal_copula"
+      ],
+      "fixed_sents": 1,
+      "is_derived": true,
+      "lexicon_weight": 684,
+      "touched_sents": 18,
+      "word": "能夠"
+    },
+    {
+      "best_path_hits": 2,
+      "broken_sents": 2,
+      "char_degraded_sents": 2,
+      "char_improved_sents": 0,
+      "char_len": 3,
+      "delta_char_errors": 5,
+      "error_path_hits": 0,
+      "families": [
+        "tri_x_de_y"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 338,
+      "touched_sents": 2,
+      "word": "為的是"
+    },
+    {
+      "best_path_hits": 11,
+      "broken_sents": 4,
+      "char_degraded_sents": 4,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 4,
+      "error_path_hits": 1,
+      "families": [
+        "suf2_de_comp"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 705,
+      "touched_sents": 18,
+      "word": "變得"
+    },
+    {
+      "best_path_hits": 8,
+      "broken_sents": 3,
+      "char_degraded_sents": 4,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 4,
+      "error_path_hits": 2,
+      "families": [
+        "pref2_bu"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 695,
+      "touched_sents": 34,
+      "word": "不同"
+    },
+    {
+      "best_path_hits": 4,
+      "broken_sents": 3,
+      "char_degraded_sents": 4,
+      "char_improved_sents": 0,
+      "char_len": 2,
+      "delta_char_errors": 4,
+      "error_path_hits": 1,
+      "families": [
+        "pref2_dem_quant"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 487,
+      "touched_sents": 4,
+      "word": "那兒"
+    },
+    {
+      "best_path_hits": 5,
+      "broken_sents": 2,
+      "char_degraded_sents": 3,
+      "char_improved_sents": 0,
+      "char_len": 3,
+      "delta_char_errors": 4,
+      "error_path_hits": 2,
+      "families": [
+        "tri_bu_xx"
+      ],
+      "fixed_sents": 0,
+      "is_derived": true,
+      "lexicon_weight": 489,
+      "touched_sents": 5,
+      "word": "不應該"
+    }
+  ]
+}

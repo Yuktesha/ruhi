@@ -6,17 +6,18 @@
 
 ---
 
-## 一、系統現況快照（最後更新：2026-11-16）
+## 一、系統現況快照（最後更新：2026-11-21）
 
 | 項目 | 目前狀態／實測數值 |
 |---|---|
-| Git 分支與基底 | `main`（技術核心整合至 `0e48a67`，含本交接與基準線更新提交後領先 `origin/main` 共 `16` 個 commit，未推送遠端）；第二階段分波提交涵蓋 `e0362a8`（Stage 0）、`53bde24`（Wave 1A）、`21e9754`（Wave 1B）、`4fc297d`（Wave 1C）、`dc3dc2b`（Wave 2a）、`9e9733e`（Wave 2b）與 `0e48a67`（Wave 3b `[Cold-Restart Required]`），工作樹維持潔淨 |
-| `dev` 開發集品質閘門（`ruhi_eval --set dev --gate`） | **`PASS`**（`gate_passed: true`）；CER **`4.61%`**（較 Stage 0 基線 `5.22%` 降低 `0.6064` 個百分點）；總字元錯誤 **`2,068 / 44,855`**（淨減 **`272`** 字錯）；整句完全命中 **`2,423 / 3,640`**（**`66.57%`**，淨增 **`+130`** 句）；五大文體全面改善（`civic_public` `2.73%` / `daily_dialogue` `3.76%` / `literary_narrative` `4.91%` / `moe_idiom_context` `3.36%` / `tech_doc` `9.40%`）；基準線 [`eval_reports/dev_gate_baseline.json`](file:///c:/ATGprjs/ruhi/eval_reports/dev_gate_baseline.json) 已刷新至 `0e48a67` |
-| `ruhi-core` Release 單元測試 | `--lib`：**`223 passed; 0 failed; 7 ignored`**（7 項 `#[ignore]` 為 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 既有困難例句）；整合測試 `--test person_names_and_y_cases`：**`4 passed; 0 failed; 0 ignored`**（雙鍵盤模式 `standard` + `hsu`） |
-| `ruhi-tsf` Release 單元測試（`--lib`） | **`22 passed; 0 failed; 0 ignored`**（含 Layer B `RuhiTextService` 27 欄位＋`Drop`、`LAYER_B_ABI_EPOCH = 2`、`VecDeque` Undo 100 步環狀上限、`TLS_CANDIDATE_STATE` 隔離與 `ToUnicodeEx`/AltGr/導字元防護測試） |
-| `ruhi-settings` Release 單元測試 | **`7 passed; 0 failed; 0 ignored`**（含單一／多重鍵盤模式掛載、`western_languages` 多語種與 `sa_am` 選項同步驗證） |
-| 規則靜態檢查（`scripts/lint_scoring_rules.py --full`） | **0 項違規**（全量掃描 **`63,205`** 行，覆蓋 `router/`、`western/` 與設定資料表） |
-| 核心與執行期詞庫同步 | `ruhi_lexicon/data/lexicon_core.tsv` 與 `data/`、`scripts/data/`、`dist/data/`、`dist/RuhI_v0.7.0_Windows_x64/data/` 位元組完全一致（**`8,147,355`** bytes，SHA256 `2AD1C1BC1E09BD83A942E8E8AA7A63A0C1F4E18AD851E98E2B452BACD052D47C`）；其餘核心資料檔與 `packs/pack_western_sanskrit.tsv` 亦全數 SHA-256 同步 |
+| Git 分支與基底 | `main`（Phase 0 收斂提交：`9c7a577` 語言核心／TSF／詞庫＋`d673cb4` Android Companion Preview；領先 `origin/main`），工作樹維持潔淨 |
+| `dev` 開發集品質閘門（`ruhi_eval --set dev --gate`） | **`PASS`**（`gate_passed: true`）；CER **`4.43%`**（較 `0e48a67` 基線 `4.61%` 再降 `0.18` 個百分點）；總字元錯誤 **`1,985 / 44,855`**（淨減 **`83`** 字錯）；整句完全命中 **`2,467 / 3,640`**（**`67.77%`**，淨增 **`+44`** 句）；五大文體全面改善（`civic_public` `2.59%` / `daily_dialogue` `3.65%` / `literary_narrative` `4.48%` / `moe_idiom_context` `3.24%` / `tech_doc` `9.25%`）；基準線 [`eval_reports/dev_gate_baseline.json`](file:///c:/ATGprjs/ruhi/eval_reports/dev_gate_baseline.json) 已鎖定於 `9c7a577` |
+| `ruhi-core` Release 單元測試 | `--lib`：**`247 passed; 0 failed; 7 ignored`**（7 項 `#[ignore]` 為 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 既有困難例句）；整合測試 `--test person_names_and_y_cases`：**`4 passed; 0 failed; 0 ignored`**（雙鍵盤模式 `standard` + `hsu`） |
+| `ruhi-tsf` Release 單元測試（`--lib`） | **`27 passed; 0 failed; 0 ignored`**（維持 Layer B `RuhiTextService` COM ABI 不變量與 `LAYER_B_ABI_EPOCH = 2`） |
+| `ruhi-settings` Release 單元測試 | **`8 passed; 0 failed; 0 ignored`** |
+| 規則靜態檢查（`scripts/lint_scoring_rules.py --full`） | **0 項違規**（全量掃描 **`70,124`** 行，覆蓋 `router/`、`western/` 與設定資料表） |
+| 核心語素本體與詞庫同步 | [`morpheme_ontology.json`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/morpheme_ontology.json) 擴充至 **107 類／1,894 不重複語素**；`ruhi_lexicon/data/lexicon_core.tsv` 與 `data/`、`scripts/data/`、`dist/data/` 位元組完全一致（**`8,148,164`** bytes，SHA256 `8C6173B8F34F4190867F7AE0A64870863A3AC31AE21F21A1B19C5797C300EAAA`） |
+| 路線二（Windows 1.0 收斂）狀態 | **Phase 0 完成**；已確立 `constructions.rs` 開放類雙字實詞個案規則凍結界線（後續不再為開放類實詞手寫個案規則，專注封閉功能詞與高維拓撲構式，實詞搭配由 Phase 1 台灣正體統計 N-gram 與 Phase 3 個人快取承接）；`ruhi-android` 定位為 `v1.0 Companion Preview` |
 | 24／48 音節無標點長句解碼延遲 | Release 基準 `test_task4_and_task5_integration_benchmarks_261114`：24 音節 **`7.081 ms`**（視窗 `7.072 ms`）、35 音節 **`9.822 ms`**、48 音節 **`13.903 ms`**（遠低於 `25.0 ms`／`55.0 ms` 門檻） |
 | Release 建置與熱重載／冷重啟狀態 | 已完成 [`ruhi_tsf.dll`](file:///c:/ATGprjs/ruhi/ruhi-tsf/target/release/ruhi_tsf.dll)（`10,892,800` bytes）與 [`ruhi-settings.exe`](file:///c:/ATGprjs/ruhi/ruhi-settings/target/release/ruhi-settings.exe)（`18,108,416` bytes）Release 建置並同步至 `scripts/` 與 `dist/`；因 Wave 3b (`0e48a67`) 啟用 Layer B 結構體與 `Drop` 收斂（`LAYER_B_ABI_EPOCH = 2`），請由使用者執行 `hot_reload.ps1` 後**重啟既有應用程式（或執行一次 Windows 登出／重開機）**以完成全進程安全換版 |
 

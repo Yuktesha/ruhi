@@ -1,0 +1,1426 @@
+{
+  "elapsed_seconds": 9.03,
+  "modes": {
+    "Auto": {
+      "classical_10_unseen": {
+        "auto_triggered_count": 4,
+        "cer": 0.024390243902439025,
+        "cer_percent": "2.44%",
+        "char_errors": 2,
+        "exact_count": 8,
+        "exact_match": "8/10",
+        "predictions": [
+          {
+            "auto_score": 7,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "學而不思則罔思而不學則殆",
+            "id": "classical_10_unseen_01",
+            "pred": "學而不思則罔思而不學則殆"
+          },
+          {
+            "auto_score": 6,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "青出於藍而勝於藍",
+            "id": "classical_10_unseen_02",
+            "pred": "青出於藍而勝於藍"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "仁者見仁智者見智",
+            "id": "classical_10_unseen_03",
+            "pred": "仁者見仁智者見智"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "君子坦蕩蕩小人長戚戚",
+            "id": "classical_10_unseen_04",
+            "pred": "君子坦蕩蕩小人長戚戚"
+          },
+          {
+            "auto_score": 2,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "敏而好學不恥下問",
+            "id": "classical_10_unseen_05",
+            "pred": "敏而好學不恥下問"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 1,
+            "gold": "業精於勤荒於嬉",
+            "id": "classical_10_unseen_06",
+            "pred": "業精於勤荒於西"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "行成於思毀於隨",
+            "id": "classical_10_unseen_07",
+            "pred": "行成於思毀於隨"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "言必信行必果",
+            "id": "classical_10_unseen_08",
+            "pred": "言必信行必果"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 1,
+            "gold": "失之毫釐謬以千里",
+            "id": "classical_10_unseen_09",
+            "pred": "師之毫釐謬以千里"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "天下興亡匹夫有責",
+            "id": "classical_10_unseen_10",
+            "pred": "天下興亡匹夫有責"
+          }
+        ],
+        "total_chars": 82,
+        "total_sentences": 10
+      },
+      "classical_20": {
+        "auto_triggered_count": 11,
+        "cer": 0.11442786069651742,
+        "cer_percent": "11.44%",
+        "char_errors": 23,
+        "exact_count": 13,
+        "exact_match": "13/20",
+        "predictions": [
+          {
+            "auto_score": 10,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "知之為知之不知為不知是知也",
+            "id": "classical_20_01",
+            "pred": "知之為知之不知為不知是知也"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "道可道非常道名可名非常名",
+            "id": "classical_20_02",
+            "pred": "道可道非常道名可名非常名"
+          },
+          {
+            "auto_score": 9,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "先天下之憂而憂後天下之樂而樂",
+            "id": "classical_20_03",
+            "pred": "先天下之憂而憂後天下之樂而樂"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "古之學者必有師",
+            "id": "classical_20_04",
+            "pred": "古之學者必有師"
+          },
+          {
+            "auto_score": 6,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "師者所以傳道受業解惑也",
+            "id": "classical_20_05",
+            "pred": "師者所以傳道受業解惑也"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 4,
+            "gold": "不以物喜不以己悲",
+            "id": "classical_20_06",
+            "pred": "不已物喜不已幾杯"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "醉翁之意不在酒在乎山水之間也",
+            "id": "classical_20_07",
+            "pred": "醉翁之意不在酒在乎山水之間也"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 2,
+            "gold": "予獨愛蓮之出淤泥而不染",
+            "id": "classical_20_08",
+            "pred": "與獨愛憐之出淤泥而不染"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "三人行必有我師焉",
+            "id": "classical_20_09",
+            "pred": "三人行必有我師焉"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "溫故而知新可以為師矣",
+            "id": "classical_20_10",
+            "pred": "溫故而知新可以為師矣"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "生於憂患而死於安樂",
+            "id": "classical_20_11",
+            "pred": "生於憂患而死於安樂"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "天將降大任於斯人也",
+            "id": "classical_20_12",
+            "pred": "天將降大任於斯人也"
+          },
+          {
+            "auto_score": 2,
+            "auto_triggered": false,
+            "char_errors": 4,
+            "gold": "臣本布衣躬耕於南陽",
+            "id": "classical_20_13",
+            "pred": "陳本不一躬耕於南洋"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "己所不欲勿施於人",
+            "id": "classical_20_14",
+            "pred": "己所不欲勿施於人"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "君子和而不同小人同而不和",
+            "id": "classical_20_15",
+            "pred": "君子和而不同小人同而不和"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 2,
+            "gold": "水能載舟亦能覆舟",
+            "id": "classical_20_16",
+            "pred": "水能在洲亦能覆舟"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 5,
+            "gold": "民為貴社稷次之君為輕",
+            "id": "classical_20_17",
+            "pred": "民為貴設計次之軍衛青"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 1,
+            "gold": "千里之行始於足下",
+            "id": "classical_20_18",
+            "pred": "千里知行始於足下"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 5,
+            "gold": "工欲善其事必先利其器",
+            "id": "classical_20_19",
+            "pred": "公寓善其勢必先例其氣"
+          },
+          {
+            "auto_score": 2,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "欲窮千里目更上一層樓",
+            "id": "classical_20_20",
+            "pred": "欲窮千里目更上一層樓"
+          }
+        ],
+        "total_chars": 201,
+        "total_sentences": 20
+      },
+      "dev": {
+        "auto_triggered_count": 7,
+        "auto_triggered_ids": [
+          "dev_tech_doc_0039",
+          "dev_tech_doc_0201",
+          "dev_tech_doc_0436",
+          "dev_tech_doc_0464",
+          "dev_tech_doc_0558",
+          "dev_tech_doc_0591",
+          "dev_tech_doc_0592"
+        ],
+        "auto_triggered_rate_percent": "0.192%",
+        "cer": 0.0442537063872478,
+        "cer_percent": "4.43%",
+        "char_errors": 1985,
+        "delta_char_errors_vs_modern": -2,
+        "exact_match": 2467,
+        "per_category": {
+          "civic_public": {
+            "cer": 0.025858665613896565,
+            "cer_percent": "2.59%",
+            "char_errors": 262,
+            "total_chars": 10132
+          },
+          "daily_dialogue": {
+            "cer": 0.036491536601450866,
+            "cer_percent": "3.65%",
+            "char_errors": 332,
+            "total_chars": 9098
+          },
+          "literary_narrative": {
+            "cer": 0.04484580415284433,
+            "cer_percent": "4.48%",
+            "char_errors": 365,
+            "total_chars": 8139
+          },
+          "moe_idiom_context": {
+            "cer": 0.03239894373349583,
+            "cer_percent": "3.24%",
+            "char_errors": 319,
+            "total_chars": 9846
+          },
+          "tech_doc": {
+            "cer": 0.0925392670157068,
+            "cer_percent": "9.25%",
+            "char_errors": 707,
+            "total_chars": 7640
+          }
+        },
+        "sentence_accuracy_percent": "67.77%",
+        "total_chars": 44855,
+        "total_sentences": 3640
+      },
+      "novel_15": {
+        "auto_triggered_count": 0,
+        "cer": 0.0,
+        "cer_percent": "0.00%",
+        "char_errors": 0,
+        "exact_count": 15,
+        "exact_match": "15/15",
+        "predictions": [
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "一個有辦法打文言文的輸入法",
+            "id": "novel_15_01",
+            "pred": "一個有辦法打文言文的輸入法"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "文言文輸入不出錯",
+            "id": "novel_15_02",
+            "pred": "文言文輸入不出錯"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "不過是該漢字的常見連結",
+            "id": "novel_15_03",
+            "pred": "不過是該漢字的常見連結"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "漢字系統的原型",
+            "id": "novel_15_04",
+            "pred": "漢字系統的原型"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "先跑一下統計以確定利弊得失",
+            "id": "novel_15_05",
+            "pred": "先跑一下統計以確定利弊得失"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "每一個漢字本身就是一個語意本體",
+            "id": "novel_15_06",
+            "pred": "每一個漢字本身就是一個語意本體"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "憑感覺的事情",
+            "id": "novel_15_07",
+            "pred": "憑感覺的事情"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "平均值的計算",
+            "id": "novel_15_08",
+            "pred": "平均值的計算"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "令人不捨的行為",
+            "id": "novel_15_09",
+            "pred": "令人不捨的行為"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "台灣省的時代",
+            "id": "novel_15_10",
+            "pred": "台灣省的時代"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "他樂得清閒",
+            "id": "novel_15_11",
+            "pred": "他樂得清閒"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "我也很禮貌的回答",
+            "id": "novel_15_12",
+            "pred": "我也很禮貌的回答"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "量子計算機與神經形態晶片",
+            "id": "novel_15_13",
+            "pred": "量子計算機與神經形態晶片"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "跨域語素因式分解拓撲模型",
+            "id": "novel_15_14",
+            "pred": "跨域語素因式分解拓撲模型"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "低延遲本地端解碼引擎",
+            "id": "novel_15_15",
+            "pred": "低延遲本地端解碼引擎"
+          }
+        ],
+        "total_chars": 139,
+        "total_sentences": 15
+      }
+    },
+    "ClassicalExplicit": {
+      "classical_10_unseen": {
+        "auto_triggered_count": 4,
+        "cer": 0.0,
+        "cer_percent": "0.00%",
+        "char_errors": 0,
+        "exact_count": 10,
+        "exact_match": "10/10",
+        "predictions": [
+          {
+            "auto_score": 7,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "學而不思則罔思而不學則殆",
+            "id": "classical_10_unseen_01",
+            "pred": "學而不思則罔思而不學則殆"
+          },
+          {
+            "auto_score": 6,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "青出於藍而勝於藍",
+            "id": "classical_10_unseen_02",
+            "pred": "青出於藍而勝於藍"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "仁者見仁智者見智",
+            "id": "classical_10_unseen_03",
+            "pred": "仁者見仁智者見智"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "君子坦蕩蕩小人長戚戚",
+            "id": "classical_10_unseen_04",
+            "pred": "君子坦蕩蕩小人長戚戚"
+          },
+          {
+            "auto_score": 2,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "敏而好學不恥下問",
+            "id": "classical_10_unseen_05",
+            "pred": "敏而好學不恥下問"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "業精於勤荒於嬉",
+            "id": "classical_10_unseen_06",
+            "pred": "業精於勤荒於嬉"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "行成於思毀於隨",
+            "id": "classical_10_unseen_07",
+            "pred": "行成於思毀於隨"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "言必信行必果",
+            "id": "classical_10_unseen_08",
+            "pred": "言必信行必果"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "失之毫釐謬以千里",
+            "id": "classical_10_unseen_09",
+            "pred": "失之毫釐謬以千里"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "天下興亡匹夫有責",
+            "id": "classical_10_unseen_10",
+            "pred": "天下興亡匹夫有責"
+          }
+        ],
+        "total_chars": 82,
+        "total_sentences": 10
+      },
+      "classical_20": {
+        "auto_triggered_count": 11,
+        "cer": 0.004975124378109453,
+        "cer_percent": "0.50%",
+        "char_errors": 1,
+        "exact_count": 19,
+        "exact_match": "19/20",
+        "predictions": [
+          {
+            "auto_score": 10,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "知之為知之不知為不知是知也",
+            "id": "classical_20_01",
+            "pred": "知之為知之不知為不知是知也"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "道可道非常道名可名非常名",
+            "id": "classical_20_02",
+            "pred": "道可道非常道名可名非常名"
+          },
+          {
+            "auto_score": 9,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "先天下之憂而憂後天下之樂而樂",
+            "id": "classical_20_03",
+            "pred": "先天下之憂而憂後天下之樂而樂"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "古之學者必有師",
+            "id": "classical_20_04",
+            "pred": "古之學者必有師"
+          },
+          {
+            "auto_score": 6,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "師者所以傳道受業解惑也",
+            "id": "classical_20_05",
+            "pred": "師者所以傳道受業解惑也"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "不以物喜不以己悲",
+            "id": "classical_20_06",
+            "pred": "不以物喜不以己悲"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "醉翁之意不在酒在乎山水之間也",
+            "id": "classical_20_07",
+            "pred": "醉翁之意不在酒在乎山水之間也"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "予獨愛蓮之出淤泥而不染",
+            "id": "classical_20_08",
+            "pred": "予獨愛蓮之出淤泥而不染"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "三人行必有我師焉",
+            "id": "classical_20_09",
+            "pred": "三人行必有我師焉"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "溫故而知新可以為師矣",
+            "id": "classical_20_10",
+            "pred": "溫故而知新可以為師矣"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "生於憂患而死於安樂",
+            "id": "classical_20_11",
+            "pred": "生於憂患而死於安樂"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "天將降大任於斯人也",
+            "id": "classical_20_12",
+            "pred": "天將降大任於斯人也"
+          },
+          {
+            "auto_score": 2,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "臣本布衣躬耕於南陽",
+            "id": "classical_20_13",
+            "pred": "臣本布衣躬耕於南陽"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "己所不欲勿施於人",
+            "id": "classical_20_14",
+            "pred": "己所不欲勿施於人"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 1,
+            "gold": "君子和而不同小人同而不和",
+            "id": "classical_20_15",
+            "pred": "君子和而不同小人同而不漢"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "水能載舟亦能覆舟",
+            "id": "classical_20_16",
+            "pred": "水能載舟亦能覆舟"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "民為貴社稷次之君為輕",
+            "id": "classical_20_17",
+            "pred": "民為貴社稷次之君為輕"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "千里之行始於足下",
+            "id": "classical_20_18",
+            "pred": "千里之行始於足下"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "工欲善其事必先利其器",
+            "id": "classical_20_19",
+            "pred": "工欲善其事必先利其器"
+          },
+          {
+            "auto_score": 2,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "欲窮千里目更上一層樓",
+            "id": "classical_20_20",
+            "pred": "欲窮千里目更上一層樓"
+          }
+        ],
+        "total_chars": 201,
+        "total_sentences": 20
+      },
+      "dev": {
+        "auto_triggered_count": 7,
+        "auto_triggered_ids": [
+          "dev_tech_doc_0039",
+          "dev_tech_doc_0201",
+          "dev_tech_doc_0436",
+          "dev_tech_doc_0464",
+          "dev_tech_doc_0558",
+          "dev_tech_doc_0591",
+          "dev_tech_doc_0592"
+        ],
+        "auto_triggered_rate_percent": "0.192%",
+        "cer": 0.1322483558131758,
+        "cer_percent": "13.22%",
+        "char_errors": 5932,
+        "delta_char_errors_vs_modern": 3945,
+        "exact_match": 1053,
+        "per_category": {
+          "civic_public": {
+            "cer": 0.11646269245953415,
+            "cer_percent": "11.65%",
+            "char_errors": 1180,
+            "total_chars": 10132
+          },
+          "daily_dialogue": {
+            "cer": 0.11705869421850956,
+            "cer_percent": "11.71%",
+            "char_errors": 1065,
+            "total_chars": 9098
+          },
+          "literary_narrative": {
+            "cer": 0.1443666298071016,
+            "cer_percent": "14.44%",
+            "char_errors": 1175,
+            "total_chars": 8139
+          },
+          "moe_idiom_context": {
+            "cer": 0.09618119033109893,
+            "cer_percent": "9.62%",
+            "char_errors": 947,
+            "total_chars": 9846
+          },
+          "tech_doc": {
+            "cer": 0.20484293193717276,
+            "cer_percent": "20.48%",
+            "char_errors": 1565,
+            "total_chars": 7640
+          }
+        },
+        "sentence_accuracy_percent": "28.93%",
+        "total_chars": 44855,
+        "total_sentences": 3640
+      },
+      "novel_15": {
+        "auto_triggered_count": 0,
+        "cer": 0.08633093525179857,
+        "cer_percent": "8.63%",
+        "char_errors": 12,
+        "exact_count": 9,
+        "exact_match": "9/15",
+        "predictions": [
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "一個有辦法打文言文的輸入法",
+            "id": "novel_15_01",
+            "pred": "一個有辦法打文言文的輸入法"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "文言文輸入不出錯",
+            "id": "novel_15_02",
+            "pred": "文言文輸入不出錯"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 2,
+            "gold": "不過是該漢字的常見連結",
+            "id": "novel_15_03",
+            "pred": "不過是該漢字的常見廉潔"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "漢字系統的原型",
+            "id": "novel_15_04",
+            "pred": "漢字系統的原型"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "先跑一下統計以確定利弊得失",
+            "id": "novel_15_05",
+            "pred": "先跑一下統計以確定利弊得失"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 2,
+            "gold": "每一個漢字本身就是一個語意本體",
+            "id": "novel_15_06",
+            "pred": "每一個漢字本身就是一個予義本體"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "憑感覺的事情",
+            "id": "novel_15_07",
+            "pred": "憑感覺的事情"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "平均值的計算",
+            "id": "novel_15_08",
+            "pred": "平均值的計算"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "令人不捨的行為",
+            "id": "novel_15_09",
+            "pred": "令人不捨的行為"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 1,
+            "gold": "台灣省的時代",
+            "id": "novel_15_10",
+            "pred": "台灣省的時殆"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 1,
+            "gold": "他樂得清閒",
+            "id": "novel_15_11",
+            "pred": "他樂得清咸"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "我也很禮貌的回答",
+            "id": "novel_15_12",
+            "pred": "我也很禮貌的回答"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 1,
+            "gold": "量子計算機與神經形態晶片",
+            "id": "novel_15_13",
+            "pred": "量子計算機予神經形態晶片"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 5,
+            "gold": "跨域語素因式分解拓撲模型",
+            "id": "novel_15_14",
+            "pred": "跨欲予速因式分解拓撲麼行"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "低延遲本地端解碼引擎",
+            "id": "novel_15_15",
+            "pred": "低延遲本地端解碼引擎"
+          }
+        ],
+        "total_chars": 139,
+        "total_sentences": 15
+      }
+    },
+    "ModernOnly": {
+      "classical_10_unseen": {
+        "auto_triggered_count": 4,
+        "cer": 0.14634146341463414,
+        "cer_percent": "14.63%",
+        "char_errors": 12,
+        "exact_count": 5,
+        "exact_match": "5/10",
+        "predictions": [
+          {
+            "auto_score": 7,
+            "auto_triggered": true,
+            "char_errors": 4,
+            "gold": "學而不思則罔思而不學則殆",
+            "id": "classical_10_unseen_01",
+            "pred": "學而不司則網司而不學則代"
+          },
+          {
+            "auto_score": 6,
+            "auto_triggered": true,
+            "char_errors": 3,
+            "gold": "青出於藍而勝於藍",
+            "id": "classical_10_unseen_02",
+            "pred": "青出於藍而剩餘蘭"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 3,
+            "gold": "仁者見仁智者見智",
+            "id": "classical_10_unseen_03",
+            "pred": "仁者見人智者建置"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "君子坦蕩蕩小人長戚戚",
+            "id": "classical_10_unseen_04",
+            "pred": "君子坦蕩蕩小人長戚戚"
+          },
+          {
+            "auto_score": 2,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "敏而好學不恥下問",
+            "id": "classical_10_unseen_05",
+            "pred": "敏而好學不恥下問"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 1,
+            "gold": "業精於勤荒於嬉",
+            "id": "classical_10_unseen_06",
+            "pred": "業精於勤荒於西"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "行成於思毀於隨",
+            "id": "classical_10_unseen_07",
+            "pred": "行成於思毀於隨"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "言必信行必果",
+            "id": "classical_10_unseen_08",
+            "pred": "言必信行必果"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 1,
+            "gold": "失之毫釐謬以千里",
+            "id": "classical_10_unseen_09",
+            "pred": "師之毫釐謬以千里"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "天下興亡匹夫有責",
+            "id": "classical_10_unseen_10",
+            "pred": "天下興亡匹夫有責"
+          }
+        ],
+        "total_chars": 82,
+        "total_sentences": 10
+      },
+      "classical_20": {
+        "auto_triggered_count": 11,
+        "cer": 0.21393034825870647,
+        "cer_percent": "21.39%",
+        "char_errors": 43,
+        "exact_count": 6,
+        "exact_match": "6/20",
+        "predictions": [
+          {
+            "auto_score": 10,
+            "auto_triggered": true,
+            "char_errors": 4,
+            "gold": "知之為知之不知為不知是知也",
+            "id": "classical_20_01",
+            "pred": "之之為之之不知為不知是之野"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 5,
+            "gold": "道可道非常道名可名非常名",
+            "id": "classical_20_02",
+            "pred": "到可到非常道明可明非常明"
+          },
+          {
+            "auto_score": 9,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "先天下之憂而憂後天下之樂而樂",
+            "id": "classical_20_03",
+            "pred": "先天下之憂而憂後天下之樂而樂"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "古之學者必有師",
+            "id": "classical_20_04",
+            "pred": "古之學者必有師"
+          },
+          {
+            "auto_score": 6,
+            "auto_triggered": true,
+            "char_errors": 2,
+            "gold": "師者所以傳道受業解惑也",
+            "id": "classical_20_05",
+            "pred": "師者所以傳到授業解惑也"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 4,
+            "gold": "不以物喜不以己悲",
+            "id": "classical_20_06",
+            "pred": "不已物喜不已幾杯"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "醉翁之意不在酒在乎山水之間也",
+            "id": "classical_20_07",
+            "pred": "醉翁之意不在酒在乎山水之間也"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 2,
+            "gold": "予獨愛蓮之出淤泥而不染",
+            "id": "classical_20_08",
+            "pred": "與獨愛憐之出淤泥而不染"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 1,
+            "gold": "三人行必有我師焉",
+            "id": "classical_20_09",
+            "pred": "三人行必有我師煙"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 3,
+            "gold": "溫故而知新可以為師矣",
+            "id": "classical_20_10",
+            "pred": "溫故而知心可以為施以"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 0,
+            "gold": "生於憂患而死於安樂",
+            "id": "classical_20_11",
+            "pred": "生於憂患而死於安樂"
+          },
+          {
+            "auto_score": 5,
+            "auto_triggered": true,
+            "char_errors": 2,
+            "gold": "天將降大任於斯人也",
+            "id": "classical_20_12",
+            "pred": "天將將大任於私人也"
+          },
+          {
+            "auto_score": 2,
+            "auto_triggered": false,
+            "char_errors": 4,
+            "gold": "臣本布衣躬耕於南陽",
+            "id": "classical_20_13",
+            "pred": "陳本不一躬耕於南洋"
+          },
+          {
+            "auto_score": 4,
+            "auto_triggered": true,
+            "char_errors": 3,
+            "gold": "己所不欲勿施於人",
+            "id": "classical_20_14",
+            "pred": "己所不欲物師漁人"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "君子和而不同小人同而不和",
+            "id": "classical_20_15",
+            "pred": "君子和而不同小人同而不和"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 2,
+            "gold": "水能載舟亦能覆舟",
+            "id": "classical_20_16",
+            "pred": "水能在洲亦能覆舟"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 5,
+            "gold": "民為貴社稷次之君為輕",
+            "id": "classical_20_17",
+            "pred": "民為貴設計次之軍衛青"
+          },
+          {
+            "auto_score": 3,
+            "auto_triggered": false,
+            "char_errors": 1,
+            "gold": "千里之行始於足下",
+            "id": "classical_20_18",
+            "pred": "千里知行始於足下"
+          },
+          {
+            "auto_score": 1,
+            "auto_triggered": false,
+            "char_errors": 5,
+            "gold": "工欲善其事必先利其器",
+            "id": "classical_20_19",
+            "pred": "公寓善其勢必先例其氣"
+          },
+          {
+            "auto_score": 2,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "欲窮千里目更上一層樓",
+            "id": "classical_20_20",
+            "pred": "欲窮千里目更上一層樓"
+          }
+        ],
+        "total_chars": 201,
+        "total_sentences": 20
+      },
+      "dev": {
+        "auto_triggered_count": 7,
+        "auto_triggered_ids": [
+          "dev_tech_doc_0039",
+          "dev_tech_doc_0201",
+          "dev_tech_doc_0436",
+          "dev_tech_doc_0464",
+          "dev_tech_doc_0558",
+          "dev_tech_doc_0591",
+          "dev_tech_doc_0592"
+        ],
+        "auto_triggered_rate_percent": "0.192%",
+        "cer": 0.04429829450451455,
+        "cer_percent": "4.43%",
+        "char_errors": 1987,
+        "delta_char_errors_vs_modern": 0,
+        "exact_match": 2466,
+        "per_category": {
+          "civic_public": {
+            "cer": 0.025858665613896565,
+            "cer_percent": "2.59%",
+            "char_errors": 262,
+            "total_chars": 10132
+          },
+          "daily_dialogue": {
+            "cer": 0.036491536601450866,
+            "cer_percent": "3.65%",
+            "char_errors": 332,
+            "total_chars": 9098
+          },
+          "literary_narrative": {
+            "cer": 0.04484580415284433,
+            "cer_percent": "4.48%",
+            "char_errors": 365,
+            "total_chars": 8139
+          },
+          "moe_idiom_context": {
+            "cer": 0.03239894373349583,
+            "cer_percent": "3.24%",
+            "char_errors": 319,
+            "total_chars": 9846
+          },
+          "tech_doc": {
+            "cer": 0.09280104712041885,
+            "cer_percent": "9.28%",
+            "char_errors": 709,
+            "total_chars": 7640
+          }
+        },
+        "sentence_accuracy_percent": "67.75%",
+        "total_chars": 44855,
+        "total_sentences": 3640
+      },
+      "novel_15": {
+        "auto_triggered_count": 0,
+        "cer": 0.0,
+        "cer_percent": "0.00%",
+        "char_errors": 0,
+        "exact_count": 15,
+        "exact_match": "15/15",
+        "predictions": [
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "一個有辦法打文言文的輸入法",
+            "id": "novel_15_01",
+            "pred": "一個有辦法打文言文的輸入法"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "文言文輸入不出錯",
+            "id": "novel_15_02",
+            "pred": "文言文輸入不出錯"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "不過是該漢字的常見連結",
+            "id": "novel_15_03",
+            "pred": "不過是該漢字的常見連結"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "漢字系統的原型",
+            "id": "novel_15_04",
+            "pred": "漢字系統的原型"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "先跑一下統計以確定利弊得失",
+            "id": "novel_15_05",
+            "pred": "先跑一下統計以確定利弊得失"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "每一個漢字本身就是一個語意本體",
+            "id": "novel_15_06",
+            "pred": "每一個漢字本身就是一個語意本體"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "憑感覺的事情",
+            "id": "novel_15_07",
+            "pred": "憑感覺的事情"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "平均值的計算",
+            "id": "novel_15_08",
+            "pred": "平均值的計算"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "令人不捨的行為",
+            "id": "novel_15_09",
+            "pred": "令人不捨的行為"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "台灣省的時代",
+            "id": "novel_15_10",
+            "pred": "台灣省的時代"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "他樂得清閒",
+            "id": "novel_15_11",
+            "pred": "他樂得清閒"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "我也很禮貌的回答",
+            "id": "novel_15_12",
+            "pred": "我也很禮貌的回答"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "量子計算機與神經形態晶片",
+            "id": "novel_15_13",
+            "pred": "量子計算機與神經形態晶片"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "跨域語素因式分解拓撲模型",
+            "id": "novel_15_14",
+            "pred": "跨域語素因式分解拓撲模型"
+          },
+          {
+            "auto_score": 0,
+            "auto_triggered": false,
+            "char_errors": 0,
+            "gold": "低延遲本地端解碼引擎",
+            "id": "novel_15_15",
+            "pred": "低延遲本地端解碼引擎"
+          }
+        ],
+        "total_chars": 139,
+        "total_sentences": 15
+      }
+    }
+  },
+  "stdout_summary": {
+    "elapsed_seconds": 9.03,
+    "modes_compact": [
+      {
+        "cl10_unseen_cer": "14.63%",
+        "cl10_unseen_errors": 12,
+        "cl10_unseen_exact": "5/10",
+        "cl10_unseen_trig": 4,
+        "cl20_cer": "21.39%",
+        "cl20_errors": 43,
+        "cl20_exact": "6/20",
+        "cl20_trig": 11,
+        "dev_auto_rate": "0.192%",
+        "dev_auto_trig": 7,
+        "dev_cer": "4.43%",
+        "dev_delta_vs_modern": 0,
+        "dev_errors": 1987,
+        "dev_exact": 2466,
+        "mode": "ModernOnly",
+        "novel15_cer": "0.00%",
+        "novel15_errors": 0,
+        "novel15_exact": "15/15",
+        "novel15_trig": 0
+      },
+      {
+        "cl10_unseen_cer": "2.44%",
+        "cl10_unseen_errors": 2,
+        "cl10_unseen_exact": "8/10",
+        "cl10_unseen_trig": 4,
+        "cl20_cer": "11.44%",
+        "cl20_errors": 23,
+        "cl20_exact": "13/20",
+        "cl20_trig": 11,
+        "dev_auto_rate": "0.192%",
+        "dev_auto_trig": 7,
+        "dev_cer": "4.43%",
+        "dev_delta_vs_modern": -2,
+        "dev_errors": 1985,
+        "dev_exact": 2467,
+        "mode": "Auto",
+        "novel15_cer": "0.00%",
+        "novel15_errors": 0,
+        "novel15_exact": "15/15",
+        "novel15_trig": 0
+      },
+      {
+        "cl10_unseen_cer": "0.00%",
+        "cl10_unseen_errors": 0,
+        "cl10_unseen_exact": "10/10",
+        "cl10_unseen_trig": 4,
+        "cl20_cer": "0.50%",
+        "cl20_errors": 1,
+        "cl20_exact": "19/20",
+        "cl20_trig": 11,
+        "dev_auto_rate": "0.192%",
+        "dev_auto_trig": 7,
+        "dev_cer": "13.22%",
+        "dev_delta_vs_modern": 3945,
+        "dev_errors": 5932,
+        "dev_exact": 1053,
+        "mode": "ClassicalExplicit",
+        "novel15_cer": "8.63%",
+        "novel15_errors": 12,
+        "novel15_exact": "9/15",
+        "novel15_trig": 0
+      }
+    ]
+  }
+}

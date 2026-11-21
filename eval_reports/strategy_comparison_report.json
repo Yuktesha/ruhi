@@ -1,0 +1,3132 @@
+{
+  "best_s1c_narrow_bonus": 20.0,
+  "best_s2b": {
+    "hi": 350,
+    "lo": 100,
+    "min_bonus": 20.0
+  },
+  "elapsed_seconds": 87.44,
+  "s1a_word_count": 688,
+  "s1b_word_count": 937,
+  "s3_five_fold_cv": [
+    {
+      "avg_selected_words_per_fold": 46.8,
+      "full_dev_selected_words": 55,
+      "full_dev_set_classical_cer_percent": "21.39%",
+      "full_dev_set_classical_errors": 43,
+      "full_dev_set_classical_exact": "6/20",
+      "full_dev_set_novel_cer_percent": "6.47%",
+      "full_dev_set_novel_errors": 9,
+      "full_dev_set_novel_exact": "9/15",
+      "generalization_retention_ratio": 0.0633,
+      "in_sample_broken_sents": 0,
+      "in_sample_cer_percent": "4.3629%",
+      "in_sample_delta_char_errors": -79,
+      "in_sample_fixed_sents": 39,
+      "oof_broken_sents": 5,
+      "oof_cer_percent": "4.5279%",
+      "oof_char_degraded_sents": 9,
+      "oof_char_improved_sents": 16,
+      "oof_delta_cer_pp": "-0.0111%",
+      "oof_delta_char_errors": -5,
+      "oof_exact_match": 2446,
+      "oof_fixed_sents": 10,
+      "oof_mcnemar_p_value": 0.3016996269605025,
+      "oof_per_category_delta": {
+        "civic_public": 0,
+        "daily_dialogue": 3,
+        "literary_narrative": -2,
+        "moe_idiom_context": -5,
+        "tech_doc": -1
+      },
+      "strategy": "S3a_cv_strict_harmful_derived"
+    },
+    {
+      "avg_selected_words_per_fold": 322.4,
+      "full_dev_selected_words": 379,
+      "full_dev_set_classical_cer_percent": "21.39%",
+      "full_dev_set_classical_errors": 43,
+      "full_dev_set_classical_exact": "6/20",
+      "full_dev_set_novel_cer_percent": "6.47%",
+      "full_dev_set_novel_errors": 9,
+      "full_dev_set_novel_exact": "10/15",
+      "generalization_retention_ratio": 0.1561,
+      "in_sample_broken_sents": 0,
+      "in_sample_cer_percent": "3.2393%",
+      "in_sample_delta_char_errors": -583,
+      "in_sample_fixed_sents": 227,
+      "oof_broken_sents": 37,
+      "oof_cer_percent": "4.3362%",
+      "oof_char_degraded_sents": 52,
+      "oof_char_improved_sents": 120,
+      "oof_delta_cer_pp": "-0.2029%",
+      "oof_delta_char_errors": -91,
+      "oof_exact_match": 2471,
+      "oof_fixed_sents": 67,
+      "oof_mcnemar_p_value": 0.004459653373170065,
+      "oof_per_category_delta": {
+        "civic_public": -24,
+        "daily_dialogue": -5,
+        "literary_narrative": -18,
+        "moe_idiom_context": -12,
+        "tech_doc": -32
+      },
+      "strategy": "S3b_cv_strict_harmful_all"
+    },
+    {
+      "avg_selected_words_per_fold": 128.4,
+      "full_dev_selected_words": 155,
+      "full_dev_set_classical_cer_percent": "21.39%",
+      "full_dev_set_classical_errors": 43,
+      "full_dev_set_classical_exact": "6/20",
+      "full_dev_set_novel_cer_percent": "6.47%",
+      "full_dev_set_novel_errors": 9,
+      "full_dev_set_novel_exact": "10/15",
+      "generalization_retention_ratio": 0.1916,
+      "in_sample_broken_sents": 0,
+      "in_sample_cer_percent": "3.6897%",
+      "in_sample_delta_char_errors": -381,
+      "in_sample_fixed_sents": 132,
+      "oof_broken_sents": 20,
+      "oof_cer_percent": "4.3763%",
+      "oof_char_degraded_sents": 24,
+      "oof_char_improved_sents": 72,
+      "oof_delta_cer_pp": "-0.1627%",
+      "oof_delta_char_errors": -73,
+      "oof_exact_match": 2464,
+      "oof_fixed_sents": 43,
+      "oof_mcnemar_p_value": 0.005575879867440372,
+      "oof_per_category_delta": {
+        "civic_public": -15,
+        "daily_dialogue": 0,
+        "literary_narrative": -10,
+        "moe_idiom_context": -10,
+        "tech_doc": -38
+      },
+      "strategy": "S3c_cv_strict_harmful_all_le_m2"
+    },
+    {
+      "avg_selected_words_per_fold": 989.8,
+      "full_dev_selected_words": 1081,
+      "full_dev_set_classical_cer_percent": "24.38%",
+      "full_dev_set_classical_errors": 49,
+      "full_dev_set_classical_exact": "5/20",
+      "full_dev_set_novel_cer_percent": "5.76%",
+      "full_dev_set_novel_errors": 8,
+      "full_dev_set_novel_exact": "10/15",
+      "generalization_retention_ratio": 21.5,
+      "in_sample_broken_sents": 7,
+      "in_sample_cer_percent": "4.5480%",
+      "in_sample_delta_char_errors": 4,
+      "in_sample_fixed_sents": 4,
+      "oof_broken_sents": 58,
+      "oof_cer_percent": "4.7308%",
+      "oof_char_degraded_sents": 88,
+      "oof_char_improved_sents": 26,
+      "oof_delta_cer_pp": "+0.1917%",
+      "oof_delta_char_errors": 86,
+      "oof_exact_match": 2404,
+      "oof_fixed_sents": 21,
+      "oof_mcnemar_p_value": 0.00005117420774547575,
+      "oof_per_category_delta": {
+        "civic_public": 26,
+        "daily_dialogue": 21,
+        "literary_narrative": 7,
+        "moe_idiom_context": 17,
+        "tech_doc": 15
+      },
+      "strategy": "S3d_cv_neutral_derived"
+    }
+  ],
+  "s6_classical_mode_preview": [
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_chars": 201,
+      "classical_errors": 43,
+      "classical_exact": "6/20",
+      "classical_predictions": [
+        {
+          "char_errors": 4,
+          "gold": "知之為知之不知為不知是知也",
+          "id": "classical_01",
+          "pred": "之之為之之不知為不知是之野"
+        },
+        {
+          "char_errors": 5,
+          "gold": "道可道非常道名可名非常名",
+          "id": "classical_02",
+          "pred": "到可到非常道明可明非常明"
+        },
+        {
+          "char_errors": 0,
+          "gold": "先天下之憂而憂後天下之樂而樂",
+          "id": "classical_03",
+          "pred": "先天下之憂而憂後天下之樂而樂"
+        },
+        {
+          "char_errors": 0,
+          "gold": "古之學者必有師",
+          "id": "classical_04",
+          "pred": "古之學者必有師"
+        },
+        {
+          "char_errors": 2,
+          "gold": "師者所以傳道受業解惑也",
+          "id": "classical_05",
+          "pred": "師者所以傳到授業解惑也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "不以物喜不以己悲",
+          "id": "classical_06",
+          "pred": "不已物喜不已幾杯"
+        },
+        {
+          "char_errors": 0,
+          "gold": "醉翁之意不在酒在乎山水之間也",
+          "id": "classical_07",
+          "pred": "醉翁之意不在酒在乎山水之間也"
+        },
+        {
+          "char_errors": 2,
+          "gold": "予獨愛蓮之出淤泥而不染",
+          "id": "classical_08",
+          "pred": "與獨愛憐之出淤泥而不染"
+        },
+        {
+          "char_errors": 1,
+          "gold": "三人行必有我師焉",
+          "id": "classical_09",
+          "pred": "三人行必有我師煙"
+        },
+        {
+          "char_errors": 3,
+          "gold": "溫故而知新可以為師矣",
+          "id": "classical_10",
+          "pred": "溫故而知心可以為施以"
+        },
+        {
+          "char_errors": 0,
+          "gold": "生於憂患而死於安樂",
+          "id": "classical_11",
+          "pred": "生於憂患而死於安樂"
+        },
+        {
+          "char_errors": 2,
+          "gold": "天將降大任於斯人也",
+          "id": "classical_12",
+          "pred": "天將將大任於私人也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "臣本布衣躬耕於南陽",
+          "id": "classical_13",
+          "pred": "陳本不一躬耕於南洋"
+        },
+        {
+          "char_errors": 3,
+          "gold": "己所不欲勿施於人",
+          "id": "classical_14",
+          "pred": "己所不欲物師漁人"
+        },
+        {
+          "char_errors": 0,
+          "gold": "君子和而不同小人同而不和",
+          "id": "classical_15",
+          "pred": "君子和而不同小人同而不和"
+        },
+        {
+          "char_errors": 2,
+          "gold": "水能載舟亦能覆舟",
+          "id": "classical_16",
+          "pred": "水能在洲亦能覆舟"
+        },
+        {
+          "char_errors": 5,
+          "gold": "民為貴社稷次之君為輕",
+          "id": "classical_17",
+          "pred": "民為貴設計次之軍衛青"
+        },
+        {
+          "char_errors": 1,
+          "gold": "千里之行始於足下",
+          "id": "classical_18",
+          "pred": "千里知行始於足下"
+        },
+        {
+          "char_errors": 5,
+          "gold": "工欲善其事必先利其器",
+          "id": "classical_19",
+          "pred": "公寓善其勢必先例其氣"
+        },
+        {
+          "char_errors": 0,
+          "gold": "欲窮千里目更上一層樓",
+          "id": "classical_20",
+          "pred": "欲窮千里目更上一層樓"
+        }
+      ],
+      "multi_char_bonus": 28.0,
+      "novel_cer_percent": "6.47%",
+      "novel_chars": 139,
+      "novel_errors": 9,
+      "novel_exact": "9/15",
+      "novel_predictions": [
+        {
+          "char_errors": 0,
+          "gold": "一個有辦法打文言文的輸入法",
+          "id": "novel_01",
+          "pred": "一個有辦法打文言文的輸入法"
+        },
+        {
+          "char_errors": 1,
+          "gold": "文言文輸入不出錯",
+          "id": "novel_02",
+          "pred": "文言文輸入埠出錯"
+        },
+        {
+          "char_errors": 1,
+          "gold": "不過是該漢字的常見連結",
+          "id": "novel_03",
+          "pred": "不過是賅漢字的常見連結"
+        },
+        {
+          "char_errors": 2,
+          "gold": "漢字系統的原型",
+          "id": "novel_04",
+          "pred": "漢字系統的圓形"
+        },
+        {
+          "char_errors": 1,
+          "gold": "先跑一下統計以確定利弊得失",
+          "id": "novel_05",
+          "pred": "先跑一下統計已確定利弊得失"
+        },
+        {
+          "char_errors": 0,
+          "gold": "每一個漢字本身就是一個語意本體",
+          "id": "novel_06",
+          "pred": "每一個漢字本身就是一個語意本體"
+        },
+        {
+          "char_errors": 0,
+          "gold": "憑感覺的事情",
+          "id": "novel_07",
+          "pred": "憑感覺的事情"
+        },
+        {
+          "char_errors": 0,
+          "gold": "平均值的計算",
+          "id": "novel_08",
+          "pred": "平均值的計算"
+        },
+        {
+          "char_errors": 0,
+          "gold": "令人不捨的行為",
+          "id": "novel_09",
+          "pred": "令人不捨的行為"
+        },
+        {
+          "char_errors": 0,
+          "gold": "台灣省的時代",
+          "id": "novel_10",
+          "pred": "台灣省的時代"
+        },
+        {
+          "char_errors": 0,
+          "gold": "他樂得清閒",
+          "id": "novel_11",
+          "pred": "他樂得清閒"
+        },
+        {
+          "char_errors": 0,
+          "gold": "我也很禮貌的回答",
+          "id": "novel_12",
+          "pred": "我也很禮貌的回答"
+        },
+        {
+          "char_errors": 1,
+          "gold": "量子計算機與神經形態晶片",
+          "id": "novel_13",
+          "pred": "量子計算機與神經型態晶片"
+        },
+        {
+          "char_errors": 3,
+          "gold": "跨域語素因式分解拓撲模型",
+          "id": "novel_14",
+          "pred": "跨御宇速因式分解拓撲模型"
+        },
+        {
+          "char_errors": 0,
+          "gold": "低延遲本地端解碼引擎",
+          "id": "novel_15",
+          "pred": "低延遲本地端解碼引擎"
+        }
+      ]
+    },
+    {
+      "classical_cer_percent": "24.38%",
+      "classical_chars": 201,
+      "classical_errors": 49,
+      "classical_exact": "6/20",
+      "multi_char_bonus": 20.0,
+      "novel_cer_percent": "7.19%",
+      "novel_chars": 139,
+      "novel_errors": 10,
+      "novel_exact": "9/15"
+    },
+    {
+      "classical_cer_percent": "25.37%",
+      "classical_chars": 201,
+      "classical_errors": 51,
+      "classical_exact": "6/20",
+      "multi_char_bonus": 14.0,
+      "novel_cer_percent": "7.19%",
+      "novel_chars": 139,
+      "novel_errors": 10,
+      "novel_exact": "9/15"
+    },
+    {
+      "classical_cer_percent": "27.86%",
+      "classical_chars": 201,
+      "classical_errors": 56,
+      "classical_exact": "4/20",
+      "classical_predictions": [
+        {
+          "char_errors": 9,
+          "gold": "知之為知之不知為不知是知也",
+          "id": "classical_01",
+          "pred": "之之衛之之不之衛不之事之野"
+        },
+        {
+          "char_errors": 6,
+          "gold": "道可道非常道名可名非常名",
+          "id": "classical_02",
+          "pred": "到渴到非常道明可明非常明"
+        },
+        {
+          "char_errors": 2,
+          "gold": "先天下之憂而憂後天下之樂而樂",
+          "id": "classical_03",
+          "pred": "先天下之優而優後天下之樂而樂"
+        },
+        {
+          "char_errors": 0,
+          "gold": "古之學者必有師",
+          "id": "classical_04",
+          "pred": "古之學者必有師"
+        },
+        {
+          "char_errors": 2,
+          "gold": "師者所以傳道受業解惑也",
+          "id": "classical_05",
+          "pred": "師者所以傳到授業解惑也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "不以物喜不以己悲",
+          "id": "classical_06",
+          "pred": "不椅物喜不椅幾杯"
+        },
+        {
+          "char_errors": 1,
+          "gold": "醉翁之意不在酒在乎山水之間也",
+          "id": "classical_07",
+          "pred": "醉翁之意不在九在乎山水之間也"
+        },
+        {
+          "char_errors": 3,
+          "gold": "予獨愛蓮之出淤泥而不染",
+          "id": "classical_08",
+          "pred": "與獨愛憐之出淤泥兒不染"
+        },
+        {
+          "char_errors": 1,
+          "gold": "三人行必有我師焉",
+          "id": "classical_09",
+          "pred": "三人行必有我師煙"
+        },
+        {
+          "char_errors": 4,
+          "gold": "溫故而知新可以為師矣",
+          "id": "classical_10",
+          "pred": "溫故而之心可以為施以"
+        },
+        {
+          "char_errors": 0,
+          "gold": "生於憂患而死於安樂",
+          "id": "classical_11",
+          "pred": "生於憂患而死於安樂"
+        },
+        {
+          "char_errors": 2,
+          "gold": "天將降大任於斯人也",
+          "id": "classical_12",
+          "pred": "天將將大任於私人也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "臣本布衣躬耕於南陽",
+          "id": "classical_13",
+          "pred": "陳本不醫躬耕於南洋"
+        },
+        {
+          "char_errors": 4,
+          "gold": "己所不欲勿施於人",
+          "id": "classical_14",
+          "pred": "幾所不欲物師漁人"
+        },
+        {
+          "char_errors": 0,
+          "gold": "君子和而不同小人同而不和",
+          "id": "classical_15",
+          "pred": "君子和而不同小人同而不和"
+        },
+        {
+          "char_errors": 2,
+          "gold": "水能載舟亦能覆舟",
+          "id": "classical_16",
+          "pred": "水能在洲亦能覆舟"
+        },
+        {
+          "char_errors": 5,
+          "gold": "民為貴社稷次之君為輕",
+          "id": "classical_17",
+          "pred": "民為貴設計次之軍衛青"
+        },
+        {
+          "char_errors": 2,
+          "gold": "千里之行始於足下",
+          "id": "classical_18",
+          "pred": "簽裡之行始於足下"
+        },
+        {
+          "char_errors": 5,
+          "gold": "工欲善其事必先利其器",
+          "id": "classical_19",
+          "pred": "公寓善其是必先例其氣"
+        },
+        {
+          "char_errors": 0,
+          "gold": "欲窮千里目更上一層樓",
+          "id": "classical_20",
+          "pred": "欲窮千里目更上一層樓"
+        }
+      ],
+      "multi_char_bonus": 10.0,
+      "novel_cer_percent": "7.19%",
+      "novel_chars": 139,
+      "novel_errors": 10,
+      "novel_exact": "9/15",
+      "novel_predictions": [
+        {
+          "char_errors": 0,
+          "gold": "一個有辦法打文言文的輸入法",
+          "id": "novel_01",
+          "pred": "一個有辦法打文言文的輸入法"
+        },
+        {
+          "char_errors": 1,
+          "gold": "文言文輸入不出錯",
+          "id": "novel_02",
+          "pred": "文言文輸入埠出錯"
+        },
+        {
+          "char_errors": 1,
+          "gold": "不過是該漢字的常見連結",
+          "id": "novel_03",
+          "pred": "不過是賅漢字的常見連結"
+        },
+        {
+          "char_errors": 2,
+          "gold": "漢字系統的原型",
+          "id": "novel_04",
+          "pred": "漢字系統的圓形"
+        },
+        {
+          "char_errors": 1,
+          "gold": "先跑一下統計以確定利弊得失",
+          "id": "novel_05",
+          "pred": "先跑一下統計已確定利弊得失"
+        },
+        {
+          "char_errors": 0,
+          "gold": "每一個漢字本身就是一個語意本體",
+          "id": "novel_06",
+          "pred": "每一個漢字本身就是一個語意本體"
+        },
+        {
+          "char_errors": 0,
+          "gold": "憑感覺的事情",
+          "id": "novel_07",
+          "pred": "憑感覺的事情"
+        },
+        {
+          "char_errors": 0,
+          "gold": "平均值的計算",
+          "id": "novel_08",
+          "pred": "平均值的計算"
+        },
+        {
+          "char_errors": 0,
+          "gold": "令人不捨的行為",
+          "id": "novel_09",
+          "pred": "令人不捨的行為"
+        },
+        {
+          "char_errors": 0,
+          "gold": "台灣省的時代",
+          "id": "novel_10",
+          "pred": "台灣省的時代"
+        },
+        {
+          "char_errors": 0,
+          "gold": "他樂得清閒",
+          "id": "novel_11",
+          "pred": "他樂得清閒"
+        },
+        {
+          "char_errors": 0,
+          "gold": "我也很禮貌的回答",
+          "id": "novel_12",
+          "pred": "我也很禮貌的回答"
+        },
+        {
+          "char_errors": 2,
+          "gold": "量子計算機與神經形態晶片",
+          "id": "novel_13",
+          "pred": "量子計算機與神經行太晶片"
+        },
+        {
+          "char_errors": 3,
+          "gold": "跨域語素因式分解拓撲模型",
+          "id": "novel_14",
+          "pred": "跨御宇速因式分解拓撲模型"
+        },
+        {
+          "char_errors": 0,
+          "gold": "低延遲本地端解碼引擎",
+          "id": "novel_15",
+          "pred": "低延遲本地端解碼引擎"
+        }
+      ]
+    },
+    {
+      "classical_cer_percent": "31.84%",
+      "classical_chars": 201,
+      "classical_errors": 64,
+      "classical_exact": "3/20",
+      "multi_char_bonus": 6.0,
+      "novel_cer_percent": "19.42%",
+      "novel_chars": 139,
+      "novel_errors": 27,
+      "novel_exact": "5/15"
+    },
+    {
+      "classical_cer_percent": "36.82%",
+      "classical_chars": 201,
+      "classical_errors": 74,
+      "classical_exact": "1/20",
+      "classical_predictions": [
+        {
+          "char_errors": 9,
+          "gold": "知之為知之不知為不知是知也",
+          "id": "classical_01",
+          "pred": "之之衛之之不之衛不之事之野"
+        },
+        {
+          "char_errors": 9,
+          "gold": "道可道非常道名可名非常名",
+          "id": "classical_02",
+          "pred": "到渴到非長到明可明非長明"
+        },
+        {
+          "char_errors": 2,
+          "gold": "先天下之憂而憂後天下之樂而樂",
+          "id": "classical_03",
+          "pred": "先天下之優而優後天下之樂而樂"
+        },
+        {
+          "char_errors": 0,
+          "gold": "古之學者必有師",
+          "id": "classical_04",
+          "pred": "古之學者必有師"
+        },
+        {
+          "char_errors": 2,
+          "gold": "師者所以傳道受業解惑也",
+          "id": "classical_05",
+          "pred": "師者所以傳到受業解或也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "不以物喜不以己悲",
+          "id": "classical_06",
+          "pred": "不椅物喜不椅幾杯"
+        },
+        {
+          "char_errors": 2,
+          "gold": "醉翁之意不在酒在乎山水之間也",
+          "id": "classical_07",
+          "pred": "最翁之意不在九在乎山水之間也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "予獨愛蓮之出淤泥而不染",
+          "id": "classical_08",
+          "pred": "與獨愛連之出淤尼兒不染"
+        },
+        {
+          "char_errors": 1,
+          "gold": "三人行必有我師焉",
+          "id": "classical_09",
+          "pred": "三人行必有我師煙"
+        },
+        {
+          "char_errors": 3,
+          "gold": "溫故而知新可以為師矣",
+          "id": "classical_10",
+          "pred": "溫故而之心可以為師以"
+        },
+        {
+          "char_errors": 2,
+          "gold": "生於憂患而死於安樂",
+          "id": "classical_11",
+          "pred": "生於優換而死於安樂"
+        },
+        {
+          "char_errors": 2,
+          "gold": "天將降大任於斯人也",
+          "id": "classical_12",
+          "pred": "天將將大任於司人也"
+        },
+        {
+          "char_errors": 6,
+          "gold": "臣本布衣躬耕於南陽",
+          "id": "classical_13",
+          "pred": "陳本不醫公更於難陽"
+        },
+        {
+          "char_errors": 4,
+          "gold": "己所不欲勿施於人",
+          "id": "classical_14",
+          "pred": "幾所不育物師於人"
+        },
+        {
+          "char_errors": 3,
+          "gold": "君子和而不同小人同而不和",
+          "id": "classical_15",
+          "pred": "君子和兒不同小人同兒不漢"
+        },
+        {
+          "char_errors": 5,
+          "gold": "水能載舟亦能覆舟",
+          "id": "classical_16",
+          "pred": "水能在洲意能負洲"
+        },
+        {
+          "char_errors": 3,
+          "gold": "民為貴社稷次之君為輕",
+          "id": "classical_17",
+          "pred": "民為貴社計次之軍為清"
+        },
+        {
+          "char_errors": 4,
+          "gold": "千里之行始於足下",
+          "id": "classical_18",
+          "pred": "簽裡之行使於族下"
+        },
+        {
+          "char_errors": 5,
+          "gold": "工欲善其事必先利其器",
+          "id": "classical_19",
+          "pred": "公育善其是必先力其氣"
+        },
+        {
+          "char_errors": 4,
+          "gold": "欲窮千里目更上一層樓",
+          "id": "classical_20",
+          "pred": "育窮簽裡目更上意層樓"
+        }
+      ],
+      "multi_char_bonus": 0.0,
+      "novel_cer_percent": "25.18%",
+      "novel_chars": 139,
+      "novel_errors": 35,
+      "novel_exact": "4/15",
+      "novel_predictions": [
+        {
+          "char_errors": 2,
+          "gold": "一個有辦法打文言文的輸入法",
+          "id": "novel_01",
+          "pred": "移個有辦法打文言文的書入法"
+        },
+        {
+          "char_errors": 1,
+          "gold": "文言文輸入不出錯",
+          "id": "novel_02",
+          "pred": "文言文輸入埠出錯"
+        },
+        {
+          "char_errors": 3,
+          "gold": "不過是該漢字的常見連結",
+          "id": "novel_03",
+          "pred": "不過是賅漢字的長建連結"
+        },
+        {
+          "char_errors": 2,
+          "gold": "漢字系統的原型",
+          "id": "novel_04",
+          "pred": "漢字系統的員行"
+        },
+        {
+          "char_errors": 4,
+          "gold": "先跑一下統計以確定利弊得失",
+          "id": "novel_05",
+          "pred": "先跑一下統計已確定力必得師"
+        },
+        {
+          "char_errors": 5,
+          "gold": "每一個漢字本身就是一個語意本體",
+          "id": "novel_06",
+          "pred": "美移個汗自本身就是一個與意本體"
+        },
+        {
+          "char_errors": 0,
+          "gold": "憑感覺的事情",
+          "id": "novel_07",
+          "pred": "憑感覺的事情"
+        },
+        {
+          "char_errors": 2,
+          "gold": "平均值的計算",
+          "id": "novel_08",
+          "pred": "平軍質的計算"
+        },
+        {
+          "char_errors": 0,
+          "gold": "令人不捨的行為",
+          "id": "novel_09",
+          "pred": "令人不捨的行為"
+        },
+        {
+          "char_errors": 0,
+          "gold": "台灣省的時代",
+          "id": "novel_10",
+          "pred": "台灣省的時代"
+        },
+        {
+          "char_errors": 0,
+          "gold": "他樂得清閒",
+          "id": "novel_11",
+          "pred": "他樂得清閒"
+        },
+        {
+          "char_errors": 2,
+          "gold": "我也很禮貌的回答",
+          "id": "novel_12",
+          "pred": "我也很禮貌的迴達"
+        },
+        {
+          "char_errors": 4,
+          "gold": "量子計算機與神經形態晶片",
+          "id": "novel_13",
+          "pred": "量子計算機與什經行太精片"
+        },
+        {
+          "char_errors": 6,
+          "gold": "跨域語素因式分解拓撲模型",
+          "id": "novel_14",
+          "pred": "跨育與速因是分解拓撲麼行"
+        },
+        {
+          "char_errors": 4,
+          "gold": "低延遲本地端解碼引擎",
+          "id": "novel_15",
+          "pred": "低言持本地端解馬引情"
+        }
+      ]
+    }
+  ],
+  "stdout_summary": {
+    "elapsed_seconds": 87.44,
+    "s3_five_fold_cv": [
+      {
+        "avg_selected_words_per_fold": 46.8,
+        "full_dev_selected_words": 55,
+        "full_dev_set_classical_cer_percent": "21.39%",
+        "full_dev_set_classical_errors": 43,
+        "full_dev_set_classical_exact": "6/20",
+        "full_dev_set_novel_cer_percent": "6.47%",
+        "full_dev_set_novel_errors": 9,
+        "full_dev_set_novel_exact": "9/15",
+        "generalization_retention_ratio": 0.0633,
+        "in_sample_broken_sents": 0,
+        "in_sample_cer_percent": "4.3629%",
+        "in_sample_delta_char_errors": -79,
+        "in_sample_fixed_sents": 39,
+        "oof_broken_sents": 5,
+        "oof_cer_percent": "4.5279%",
+        "oof_char_degraded_sents": 9,
+        "oof_char_improved_sents": 16,
+        "oof_delta_cer_pp": "-0.0111%",
+        "oof_delta_char_errors": -5,
+        "oof_exact_match": 2446,
+        "oof_fixed_sents": 10,
+        "oof_mcnemar_p_value": 0.3016996269605025,
+        "oof_per_category_delta": {
+          "civic_public": 0,
+          "daily_dialogue": 3,
+          "literary_narrative": -2,
+          "moe_idiom_context": -5,
+          "tech_doc": -1
+        },
+        "strategy": "S3a_cv_strict_harmful_derived"
+      },
+      {
+        "avg_selected_words_per_fold": 322.4,
+        "full_dev_selected_words": 379,
+        "full_dev_set_classical_cer_percent": "21.39%",
+        "full_dev_set_classical_errors": 43,
+        "full_dev_set_classical_exact": "6/20",
+        "full_dev_set_novel_cer_percent": "6.47%",
+        "full_dev_set_novel_errors": 9,
+        "full_dev_set_novel_exact": "10/15",
+        "generalization_retention_ratio": 0.1561,
+        "in_sample_broken_sents": 0,
+        "in_sample_cer_percent": "3.2393%",
+        "in_sample_delta_char_errors": -583,
+        "in_sample_fixed_sents": 227,
+        "oof_broken_sents": 37,
+        "oof_cer_percent": "4.3362%",
+        "oof_char_degraded_sents": 52,
+        "oof_char_improved_sents": 120,
+        "oof_delta_cer_pp": "-0.2029%",
+        "oof_delta_char_errors": -91,
+        "oof_exact_match": 2471,
+        "oof_fixed_sents": 67,
+        "oof_mcnemar_p_value": 0.004459653373170065,
+        "oof_per_category_delta": {
+          "civic_public": -24,
+          "daily_dialogue": -5,
+          "literary_narrative": -18,
+          "moe_idiom_context": -12,
+          "tech_doc": -32
+        },
+        "strategy": "S3b_cv_strict_harmful_all"
+      },
+      {
+        "avg_selected_words_per_fold": 128.4,
+        "full_dev_selected_words": 155,
+        "full_dev_set_classical_cer_percent": "21.39%",
+        "full_dev_set_classical_errors": 43,
+        "full_dev_set_classical_exact": "6/20",
+        "full_dev_set_novel_cer_percent": "6.47%",
+        "full_dev_set_novel_errors": 9,
+        "full_dev_set_novel_exact": "10/15",
+        "generalization_retention_ratio": 0.1916,
+        "in_sample_broken_sents": 0,
+        "in_sample_cer_percent": "3.6897%",
+        "in_sample_delta_char_errors": -381,
+        "in_sample_fixed_sents": 132,
+        "oof_broken_sents": 20,
+        "oof_cer_percent": "4.3763%",
+        "oof_char_degraded_sents": 24,
+        "oof_char_improved_sents": 72,
+        "oof_delta_cer_pp": "-0.1627%",
+        "oof_delta_char_errors": -73,
+        "oof_exact_match": 2464,
+        "oof_fixed_sents": 43,
+        "oof_mcnemar_p_value": 0.005575879867440372,
+        "oof_per_category_delta": {
+          "civic_public": -15,
+          "daily_dialogue": 0,
+          "literary_narrative": -10,
+          "moe_idiom_context": -10,
+          "tech_doc": -38
+        },
+        "strategy": "S3c_cv_strict_harmful_all_le_m2"
+      },
+      {
+        "avg_selected_words_per_fold": 989.8,
+        "full_dev_selected_words": 1081,
+        "full_dev_set_classical_cer_percent": "24.38%",
+        "full_dev_set_classical_errors": 49,
+        "full_dev_set_classical_exact": "5/20",
+        "full_dev_set_novel_cer_percent": "5.76%",
+        "full_dev_set_novel_errors": 8,
+        "full_dev_set_novel_exact": "10/15",
+        "generalization_retention_ratio": 21.5,
+        "in_sample_broken_sents": 7,
+        "in_sample_cer_percent": "4.5480%",
+        "in_sample_delta_char_errors": 4,
+        "in_sample_fixed_sents": 4,
+        "oof_broken_sents": 58,
+        "oof_cer_percent": "4.7308%",
+        "oof_char_degraded_sents": 88,
+        "oof_char_improved_sents": 26,
+        "oof_delta_cer_pp": "+0.1917%",
+        "oof_delta_char_errors": 86,
+        "oof_exact_match": 2404,
+        "oof_fixed_sents": 21,
+        "oof_mcnemar_p_value": 0.00005117420774547575,
+        "oof_per_category_delta": {
+          "civic_public": 26,
+          "daily_dialogue": 21,
+          "literary_narrative": 7,
+          "moe_idiom_context": 17,
+          "tech_doc": 15
+        },
+        "strategy": "S3d_cv_neutral_derived"
+      }
+    ],
+    "s6_classical_preview_compact": [
+      {
+        "classical_cer": "21.39%",
+        "classical_errors": 43,
+        "classical_exact": "6/20",
+        "multi_char_bonus": 28.0,
+        "novel_cer": "6.47%",
+        "novel_errors": 9,
+        "novel_exact": "9/15"
+      },
+      {
+        "classical_cer": "24.38%",
+        "classical_errors": 49,
+        "classical_exact": "6/20",
+        "multi_char_bonus": 20.0,
+        "novel_cer": "7.19%",
+        "novel_errors": 10,
+        "novel_exact": "9/15"
+      },
+      {
+        "classical_cer": "25.37%",
+        "classical_errors": 51,
+        "classical_exact": "6/20",
+        "multi_char_bonus": 14.0,
+        "novel_cer": "7.19%",
+        "novel_errors": 10,
+        "novel_exact": "9/15"
+      },
+      {
+        "classical_cer": "27.86%",
+        "classical_errors": 56,
+        "classical_exact": "4/20",
+        "multi_char_bonus": 10.0,
+        "novel_cer": "7.19%",
+        "novel_errors": 10,
+        "novel_exact": "9/15"
+      },
+      {
+        "classical_cer": "31.84%",
+        "classical_errors": 64,
+        "classical_exact": "3/20",
+        "multi_char_bonus": 6.0,
+        "novel_cer": "19.42%",
+        "novel_errors": 27,
+        "novel_exact": "5/15"
+      },
+      {
+        "classical_cer": "36.82%",
+        "classical_errors": 74,
+        "classical_exact": "1/20",
+        "multi_char_bonus": 0.0,
+        "novel_cer": "25.18%",
+        "novel_errors": 35,
+        "novel_exact": "4/15"
+      }
+    ],
+    "strategies_compact": [
+      {
+        "brk": 0,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.5391%",
+        "dev_delta": 0,
+        "dev_exact": 2441,
+        "fix": 0,
+        "group": "S0",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 1.0,
+        "strategy": "S0_baseline"
+      },
+      {
+        "brk": 8,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.5591%",
+        "dev_delta": 9,
+        "dev_exact": 2438,
+        "fix": 5,
+        "group": "S1a",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.5790996835135263,
+        "strategy": "S1a_prune_3char_and_wt800_derived"
+      },
+      {
+        "brk": 16,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.5480%",
+        "dev_delta": 4,
+        "dev_exact": 2442,
+        "fix": 17,
+        "group": "S1b",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 1.0,
+        "strategy": "S1b_prune_transparent_derived_narrow"
+      },
+      {
+        "brk": 8,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.5257%",
+        "dev_delta": -6,
+        "dev_exact": 2447,
+        "fix": 14,
+        "group": "S1c_narrow",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.28642209035208127,
+        "strategy": "S1c_narrow_derived_bonus_20"
+      },
+      {
+        "brk": 12,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.5346%",
+        "dev_delta": -2,
+        "dev_exact": 2444,
+        "fix": 15,
+        "group": "S1c_narrow",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.7003114832085154,
+        "strategy": "S1c_narrow_derived_bonus_14"
+      },
+      {
+        "brk": 13,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.5368%",
+        "dev_delta": -1,
+        "dev_exact": 2443,
+        "fix": 15,
+        "group": "S1c_narrow",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.8501067716269013,
+        "strategy": "S1c_narrow_derived_bonus_10"
+      },
+      {
+        "brk": 13,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.5302%",
+        "dev_delta": -4,
+        "dev_exact": 2445,
+        "fix": 17,
+        "group": "S1c_narrow",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.5838823689192368,
+        "strategy": "S1c_narrow_derived_bonus_6"
+      },
+      {
+        "brk": 16,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.5413%",
+        "dev_delta": 1,
+        "dev_exact": 2442,
+        "fix": 17,
+        "group": "S1c_narrow",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 1.0,
+        "strategy": "S1c_narrow_derived_bonus_0"
+      },
+      {
+        "brk": 182,
+        "cl_cer": "24.38%",
+        "cl_exact": "6/20",
+        "dev_cer": "5.2569%",
+        "dev_delta": 322,
+        "dev_exact": 2284,
+        "fix": 25,
+        "group": "S1c_all",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 2.211375466365693e-27,
+        "strategy": "S1c_all_derived_bonus_22"
+      },
+      {
+        "brk": 218,
+        "cl_cer": "24.38%",
+        "cl_exact": "6/20",
+        "dev_cer": "5.4063%",
+        "dev_delta": 389,
+        "dev_exact": 2248,
+        "fix": 25,
+        "group": "S1c_all",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 7.596991328504466e-35,
+        "strategy": "S1c_all_derived_bonus_18"
+      },
+      {
+        "brk": 264,
+        "cl_cer": "24.38%",
+        "cl_exact": "6/20",
+        "dev_cer": "5.5958%",
+        "dev_delta": 474,
+        "dev_exact": 2203,
+        "fix": 26,
+        "group": "S1c_all",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 5.198630883312513e-44,
+        "strategy": "S1c_all_derived_bonus_14"
+      },
+      {
+        "brk": 28,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.5948%",
+        "dev_delta": 25,
+        "dev_exact": 2424,
+        "fix": 11,
+        "group": "S2a",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.010405673982723206,
+        "strategy": "S2a_prune_len2_lt_120"
+      },
+      {
+        "brk": 33,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.6171%",
+        "dev_delta": 35,
+        "dev_exact": 2419,
+        "fix": 11,
+        "group": "S2a",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.0015463349822519982,
+        "strategy": "S2a_prune_len2_lt_150"
+      },
+      {
+        "brk": 41,
+        "cl_cer": "20.90%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.6216%",
+        "dev_delta": 37,
+        "dev_exact": 2414,
+        "fix": 14,
+        "group": "S2a",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.000455257728483071,
+        "strategy": "S2a_prune_len2_lt_180"
+      },
+      {
+        "brk": 62,
+        "cl_cer": "20.90%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.7107%",
+        "dev_delta": 77,
+        "dev_exact": 2398,
+        "fix": 19,
+        "group": "S2a",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 3.064674153981394e-6,
+        "strategy": "S2a_prune_len2_lt_220"
+      },
+      {
+        "brk": 107,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.8289%",
+        "dev_delta": 130,
+        "dev_exact": 2367,
+        "fix": 33,
+        "group": "S2a",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 6.872640624095893e-10,
+        "strategy": "S2a_prune_len2_lt_260"
+      },
+      {
+        "brk": 186,
+        "cl_cer": "21.89%",
+        "cl_exact": "7/20",
+        "dev_cer": "5.1321%",
+        "dev_delta": 266,
+        "dev_exact": 2303,
+        "fix": 48,
+        "group": "S2a",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 3.416449435019511e-19,
+        "strategy": "S2a_prune_len2_lt_300"
+      },
+      {
+        "brk": 345,
+        "cl_cer": "22.89%",
+        "cl_exact": "7/20",
+        "dev_cer": "5.8589%",
+        "dev_delta": 592,
+        "dev_exact": 2157,
+        "fix": 61,
+        "group": "S2a",
+        "nv_cer": "7.91%",
+        "nv_exact": "7/15",
+        "p": 8.619344654923777e-45,
+        "strategy": "S2a_prune_len2_lt_350"
+      },
+      {
+        "brk": 29,
+        "cl_cer": "22.89%",
+        "cl_exact": "5/20",
+        "dev_cer": "4.5279%",
+        "dev_delta": -5,
+        "dev_exact": 2441,
+        "fix": 29,
+        "group": "S2b",
+        "nv_cer": "7.19%",
+        "nv_exact": "9/15",
+        "p": 1.0,
+        "strategy": "S2b_ramp_100_300_min14"
+      },
+      {
+        "brk": 14,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.4700%",
+        "dev_delta": -31,
+        "dev_exact": 2454,
+        "fix": 27,
+        "group": "S2b",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.06091856403979544,
+        "strategy": "S2b_ramp_100_300_min18"
+      },
+      {
+        "brk": 8,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.4878%",
+        "dev_delta": -23,
+        "dev_exact": 2449,
+        "fix": 16,
+        "group": "S2b",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.153041980788361,
+        "strategy": "S2b_ramp_100_300_min22"
+      },
+      {
+        "brk": 31,
+        "cl_cer": "22.89%",
+        "cl_exact": "5/20",
+        "dev_cer": "4.5235%",
+        "dev_delta": -7,
+        "dev_exact": 2444,
+        "fix": 34,
+        "group": "S2b",
+        "nv_cer": "7.19%",
+        "nv_exact": "9/15",
+        "p": 0.8040807657442822,
+        "strategy": "S2b_ramp_100_350_min12"
+      },
+      {
+        "brk": 18,
+        "cl_cer": "22.39%",
+        "cl_exact": "5/20",
+        "dev_cer": "4.4588%",
+        "dev_delta": -36,
+        "dev_exact": 2457,
+        "fix": 34,
+        "group": "S2b",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.037513872672364994,
+        "strategy": "S2b_ramp_100_350_min16"
+      },
+      {
+        "brk": 12,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.4454%",
+        "dev_delta": -42,
+        "dev_exact": 2459,
+        "fix": 30,
+        "group": "S2b",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.008711988751483586,
+        "strategy": "S2b_ramp_100_350_min20"
+      },
+      {
+        "brk": 49,
+        "cl_cer": "23.38%",
+        "cl_exact": "5/20",
+        "dev_cer": "4.5502%",
+        "dev_delta": 5,
+        "dev_exact": 2440,
+        "fix": 48,
+        "group": "S2b",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 1.0,
+        "strategy": "S2b_ramp_150_400_min14"
+      },
+      {
+        "brk": 28,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.4744%",
+        "dev_delta": -29,
+        "dev_exact": 2456,
+        "fix": 43,
+        "group": "S2b",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.09661417097793551,
+        "strategy": "S2b_ramp_150_400_min18"
+      },
+      {
+        "brk": 55,
+        "cl_cer": "21.89%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.5480%",
+        "dev_delta": 4,
+        "dev_exact": 2439,
+        "fix": 53,
+        "group": "S2b",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.9233417214265692,
+        "strategy": "S2b_ramp_180_450_min16"
+      },
+      {
+        "brk": 20,
+        "cl_cer": "21.39%",
+        "cl_exact": "6/20",
+        "dev_cer": "4.4276%",
+        "dev_delta": -50,
+        "dev_exact": 2466,
+        "fix": 45,
+        "group": "S5",
+        "nv_cer": "6.47%",
+        "nv_exact": "9/15",
+        "p": 0.0029125581703034046,
+        "strategy": "S5_combo_ramp_100_350_min20_plus_narrow20"
+      }
+    ]
+  },
+  "strategies": [
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_predictions": [
+        {
+          "char_errors": 4,
+          "gold": "知之為知之不知為不知是知也",
+          "id": "classical_01",
+          "pred": "之之為之之不知為不知是之野"
+        },
+        {
+          "char_errors": 5,
+          "gold": "道可道非常道名可名非常名",
+          "id": "classical_02",
+          "pred": "到可到非常道明可明非常明"
+        },
+        {
+          "char_errors": 0,
+          "gold": "先天下之憂而憂後天下之樂而樂",
+          "id": "classical_03",
+          "pred": "先天下之憂而憂後天下之樂而樂"
+        },
+        {
+          "char_errors": 0,
+          "gold": "古之學者必有師",
+          "id": "classical_04",
+          "pred": "古之學者必有師"
+        },
+        {
+          "char_errors": 2,
+          "gold": "師者所以傳道受業解惑也",
+          "id": "classical_05",
+          "pred": "師者所以傳到授業解惑也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "不以物喜不以己悲",
+          "id": "classical_06",
+          "pred": "不已物喜不已幾杯"
+        },
+        {
+          "char_errors": 0,
+          "gold": "醉翁之意不在酒在乎山水之間也",
+          "id": "classical_07",
+          "pred": "醉翁之意不在酒在乎山水之間也"
+        },
+        {
+          "char_errors": 2,
+          "gold": "予獨愛蓮之出淤泥而不染",
+          "id": "classical_08",
+          "pred": "與獨愛憐之出淤泥而不染"
+        },
+        {
+          "char_errors": 1,
+          "gold": "三人行必有我師焉",
+          "id": "classical_09",
+          "pred": "三人行必有我師煙"
+        },
+        {
+          "char_errors": 3,
+          "gold": "溫故而知新可以為師矣",
+          "id": "classical_10",
+          "pred": "溫故而知心可以為施以"
+        },
+        {
+          "char_errors": 0,
+          "gold": "生於憂患而死於安樂",
+          "id": "classical_11",
+          "pred": "生於憂患而死於安樂"
+        },
+        {
+          "char_errors": 2,
+          "gold": "天將降大任於斯人也",
+          "id": "classical_12",
+          "pred": "天將將大任於私人也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "臣本布衣躬耕於南陽",
+          "id": "classical_13",
+          "pred": "陳本不一躬耕於南洋"
+        },
+        {
+          "char_errors": 3,
+          "gold": "己所不欲勿施於人",
+          "id": "classical_14",
+          "pred": "己所不欲物師漁人"
+        },
+        {
+          "char_errors": 0,
+          "gold": "君子和而不同小人同而不和",
+          "id": "classical_15",
+          "pred": "君子和而不同小人同而不和"
+        },
+        {
+          "char_errors": 2,
+          "gold": "水能載舟亦能覆舟",
+          "id": "classical_16",
+          "pred": "水能在洲亦能覆舟"
+        },
+        {
+          "char_errors": 5,
+          "gold": "民為貴社稷次之君為輕",
+          "id": "classical_17",
+          "pred": "民為貴設計次之軍衛青"
+        },
+        {
+          "char_errors": 1,
+          "gold": "千里之行始於足下",
+          "id": "classical_18",
+          "pred": "千里知行始於足下"
+        },
+        {
+          "char_errors": 5,
+          "gold": "工欲善其事必先利其器",
+          "id": "classical_19",
+          "pred": "公寓善其勢必先例其氣"
+        },
+        {
+          "char_errors": 0,
+          "gold": "欲窮千里目更上一層樓",
+          "id": "classical_20",
+          "pred": "欲窮千里目更上一層樓"
+        }
+      ],
+      "classical_total_chars": 201,
+      "dev_broken_sents": 0,
+      "dev_cer": 0.0454,
+      "dev_cer_percent": "4.5391%",
+      "dev_char_errors": 2036,
+      "dev_delta_cer_pp": "+0.0000%",
+      "dev_delta_char_errors": 0,
+      "dev_exact_match": 2441,
+      "dev_fixed_sents": 0,
+      "dev_mcnemar_p_value": 1.0,
+      "dev_per_category_delta": {
+        "civic_public": 0,
+        "daily_dialogue": 0,
+        "literary_narrative": 0,
+        "moe_idiom_context": 0,
+        "tech_doc": 0
+      },
+      "group": "S0",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_predictions": [
+        {
+          "char_errors": 0,
+          "gold": "一個有辦法打文言文的輸入法",
+          "id": "novel_01",
+          "pred": "一個有辦法打文言文的輸入法"
+        },
+        {
+          "char_errors": 1,
+          "gold": "文言文輸入不出錯",
+          "id": "novel_02",
+          "pred": "文言文輸入埠出錯"
+        },
+        {
+          "char_errors": 1,
+          "gold": "不過是該漢字的常見連結",
+          "id": "novel_03",
+          "pred": "不過是賅漢字的常見連結"
+        },
+        {
+          "char_errors": 2,
+          "gold": "漢字系統的原型",
+          "id": "novel_04",
+          "pred": "漢字系統的圓形"
+        },
+        {
+          "char_errors": 1,
+          "gold": "先跑一下統計以確定利弊得失",
+          "id": "novel_05",
+          "pred": "先跑一下統計已確定利弊得失"
+        },
+        {
+          "char_errors": 0,
+          "gold": "每一個漢字本身就是一個語意本體",
+          "id": "novel_06",
+          "pred": "每一個漢字本身就是一個語意本體"
+        },
+        {
+          "char_errors": 0,
+          "gold": "憑感覺的事情",
+          "id": "novel_07",
+          "pred": "憑感覺的事情"
+        },
+        {
+          "char_errors": 0,
+          "gold": "平均值的計算",
+          "id": "novel_08",
+          "pred": "平均值的計算"
+        },
+        {
+          "char_errors": 0,
+          "gold": "令人不捨的行為",
+          "id": "novel_09",
+          "pred": "令人不捨的行為"
+        },
+        {
+          "char_errors": 0,
+          "gold": "台灣省的時代",
+          "id": "novel_10",
+          "pred": "台灣省的時代"
+        },
+        {
+          "char_errors": 0,
+          "gold": "他樂得清閒",
+          "id": "novel_11",
+          "pred": "他樂得清閒"
+        },
+        {
+          "char_errors": 0,
+          "gold": "我也很禮貌的回答",
+          "id": "novel_12",
+          "pred": "我也很禮貌的回答"
+        },
+        {
+          "char_errors": 1,
+          "gold": "量子計算機與神經形態晶片",
+          "id": "novel_13",
+          "pred": "量子計算機與神經型態晶片"
+        },
+        {
+          "char_errors": 3,
+          "gold": "跨域語素因式分解拓撲模型",
+          "id": "novel_14",
+          "pred": "跨御宇速因式分解拓撲模型"
+        },
+        {
+          "char_errors": 0,
+          "gold": "低延遲本地端解碼引擎",
+          "id": "novel_15",
+          "pred": "低延遲本地端解碼引擎"
+        }
+      ],
+      "novel_total_chars": 139,
+      "strategy": "S0_baseline"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 8,
+      "dev_cer": 0.0456,
+      "dev_cer_percent": "4.5591%",
+      "dev_char_errors": 2045,
+      "dev_delta_cer_pp": "+0.0201%",
+      "dev_delta_char_errors": 9,
+      "dev_exact_match": 2438,
+      "dev_fixed_sents": 5,
+      "dev_mcnemar_p_value": 0.5790996835135263,
+      "dev_per_category_delta": {
+        "civic_public": 4,
+        "daily_dialogue": 4,
+        "literary_narrative": -2,
+        "moe_idiom_context": 4,
+        "tech_doc": -1
+      },
+      "group": "S1a",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S1a_prune_3char_and_wt800_derived"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_predictions": [
+        {
+          "char_errors": 4,
+          "gold": "知之為知之不知為不知是知也",
+          "id": "classical_01",
+          "pred": "之之為之之不知為不知是之野"
+        },
+        {
+          "char_errors": 5,
+          "gold": "道可道非常道名可名非常名",
+          "id": "classical_02",
+          "pred": "到可到非常道明可明非常明"
+        },
+        {
+          "char_errors": 0,
+          "gold": "先天下之憂而憂後天下之樂而樂",
+          "id": "classical_03",
+          "pred": "先天下之憂而憂後天下之樂而樂"
+        },
+        {
+          "char_errors": 0,
+          "gold": "古之學者必有師",
+          "id": "classical_04",
+          "pred": "古之學者必有師"
+        },
+        {
+          "char_errors": 2,
+          "gold": "師者所以傳道受業解惑也",
+          "id": "classical_05",
+          "pred": "師者所以傳到授業解惑也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "不以物喜不以己悲",
+          "id": "classical_06",
+          "pred": "不已物喜不已幾杯"
+        },
+        {
+          "char_errors": 0,
+          "gold": "醉翁之意不在酒在乎山水之間也",
+          "id": "classical_07",
+          "pred": "醉翁之意不在酒在乎山水之間也"
+        },
+        {
+          "char_errors": 2,
+          "gold": "予獨愛蓮之出淤泥而不染",
+          "id": "classical_08",
+          "pred": "與獨愛憐之出淤泥而不染"
+        },
+        {
+          "char_errors": 1,
+          "gold": "三人行必有我師焉",
+          "id": "classical_09",
+          "pred": "三人行必有我師煙"
+        },
+        {
+          "char_errors": 3,
+          "gold": "溫故而知新可以為師矣",
+          "id": "classical_10",
+          "pred": "溫故而知心可以為施以"
+        },
+        {
+          "char_errors": 0,
+          "gold": "生於憂患而死於安樂",
+          "id": "classical_11",
+          "pred": "生於憂患而死於安樂"
+        },
+        {
+          "char_errors": 2,
+          "gold": "天將降大任於斯人也",
+          "id": "classical_12",
+          "pred": "天將將大任於私人也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "臣本布衣躬耕於南陽",
+          "id": "classical_13",
+          "pred": "陳本不一躬耕於南洋"
+        },
+        {
+          "char_errors": 3,
+          "gold": "己所不欲勿施於人",
+          "id": "classical_14",
+          "pred": "己所不欲物師漁人"
+        },
+        {
+          "char_errors": 0,
+          "gold": "君子和而不同小人同而不和",
+          "id": "classical_15",
+          "pred": "君子和而不同小人同而不和"
+        },
+        {
+          "char_errors": 2,
+          "gold": "水能載舟亦能覆舟",
+          "id": "classical_16",
+          "pred": "水能在洲亦能覆舟"
+        },
+        {
+          "char_errors": 5,
+          "gold": "民為貴社稷次之君為輕",
+          "id": "classical_17",
+          "pred": "民為貴設計次之軍衛青"
+        },
+        {
+          "char_errors": 1,
+          "gold": "千里之行始於足下",
+          "id": "classical_18",
+          "pred": "千里知行始於足下"
+        },
+        {
+          "char_errors": 5,
+          "gold": "工欲善其事必先利其器",
+          "id": "classical_19",
+          "pred": "公寓善其勢必先例其氣"
+        },
+        {
+          "char_errors": 0,
+          "gold": "欲窮千里目更上一層樓",
+          "id": "classical_20",
+          "pred": "欲窮千里目更上一層樓"
+        }
+      ],
+      "classical_total_chars": 201,
+      "dev_broken_sents": 16,
+      "dev_cer": 0.0455,
+      "dev_cer_percent": "4.5480%",
+      "dev_char_errors": 2040,
+      "dev_delta_cer_pp": "+0.0089%",
+      "dev_delta_char_errors": 4,
+      "dev_exact_match": 2442,
+      "dev_fixed_sents": 17,
+      "dev_mcnemar_p_value": 1.0,
+      "dev_per_category_delta": {
+        "civic_public": 5,
+        "daily_dialogue": 4,
+        "literary_narrative": -3,
+        "moe_idiom_context": 1,
+        "tech_doc": -3
+      },
+      "group": "S1b",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_predictions": [
+        {
+          "char_errors": 0,
+          "gold": "一個有辦法打文言文的輸入法",
+          "id": "novel_01",
+          "pred": "一個有辦法打文言文的輸入法"
+        },
+        {
+          "char_errors": 1,
+          "gold": "文言文輸入不出錯",
+          "id": "novel_02",
+          "pred": "文言文輸入埠出錯"
+        },
+        {
+          "char_errors": 1,
+          "gold": "不過是該漢字的常見連結",
+          "id": "novel_03",
+          "pred": "不過是賅漢字的常見連結"
+        },
+        {
+          "char_errors": 2,
+          "gold": "漢字系統的原型",
+          "id": "novel_04",
+          "pred": "漢字系統的圓形"
+        },
+        {
+          "char_errors": 1,
+          "gold": "先跑一下統計以確定利弊得失",
+          "id": "novel_05",
+          "pred": "先跑一下統計已確定利弊得失"
+        },
+        {
+          "char_errors": 0,
+          "gold": "每一個漢字本身就是一個語意本體",
+          "id": "novel_06",
+          "pred": "每一個漢字本身就是一個語意本體"
+        },
+        {
+          "char_errors": 0,
+          "gold": "憑感覺的事情",
+          "id": "novel_07",
+          "pred": "憑感覺的事情"
+        },
+        {
+          "char_errors": 0,
+          "gold": "平均值的計算",
+          "id": "novel_08",
+          "pred": "平均值的計算"
+        },
+        {
+          "char_errors": 0,
+          "gold": "令人不捨的行為",
+          "id": "novel_09",
+          "pred": "令人不捨的行為"
+        },
+        {
+          "char_errors": 0,
+          "gold": "台灣省的時代",
+          "id": "novel_10",
+          "pred": "台灣省的時代"
+        },
+        {
+          "char_errors": 0,
+          "gold": "他樂得清閒",
+          "id": "novel_11",
+          "pred": "他樂得清閒"
+        },
+        {
+          "char_errors": 0,
+          "gold": "我也很禮貌的回答",
+          "id": "novel_12",
+          "pred": "我也很禮貌的回答"
+        },
+        {
+          "char_errors": 1,
+          "gold": "量子計算機與神經形態晶片",
+          "id": "novel_13",
+          "pred": "量子計算機與神經型態晶片"
+        },
+        {
+          "char_errors": 3,
+          "gold": "跨域語素因式分解拓撲模型",
+          "id": "novel_14",
+          "pred": "跨御宇速因式分解拓撲模型"
+        },
+        {
+          "char_errors": 0,
+          "gold": "低延遲本地端解碼引擎",
+          "id": "novel_15",
+          "pred": "低延遲本地端解碼引擎"
+        }
+      ],
+      "novel_total_chars": 139,
+      "strategy": "S1b_prune_transparent_derived_narrow"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 8,
+      "dev_cer": 0.0453,
+      "dev_cer_percent": "4.5257%",
+      "dev_char_errors": 2030,
+      "dev_delta_cer_pp": "-0.0134%",
+      "dev_delta_char_errors": -6,
+      "dev_exact_match": 2447,
+      "dev_fixed_sents": 14,
+      "dev_mcnemar_p_value": 0.28642209035208127,
+      "dev_per_category_delta": {
+        "civic_public": -1,
+        "daily_dialogue": 1,
+        "literary_narrative": -5,
+        "moe_idiom_context": 3,
+        "tech_doc": -4
+      },
+      "group": "S1c_narrow",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S1c_narrow_derived_bonus_20"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 12,
+      "dev_cer": 0.0453,
+      "dev_cer_percent": "4.5346%",
+      "dev_char_errors": 2034,
+      "dev_delta_cer_pp": "-0.0045%",
+      "dev_delta_char_errors": -2,
+      "dev_exact_match": 2444,
+      "dev_fixed_sents": 15,
+      "dev_mcnemar_p_value": 0.7003114832085154,
+      "dev_per_category_delta": {
+        "civic_public": 3,
+        "daily_dialogue": 2,
+        "literary_narrative": -5,
+        "moe_idiom_context": 1,
+        "tech_doc": -3
+      },
+      "group": "S1c_narrow",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S1c_narrow_derived_bonus_14"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 13,
+      "dev_cer": 0.0454,
+      "dev_cer_percent": "4.5368%",
+      "dev_char_errors": 2035,
+      "dev_delta_cer_pp": "-0.0022%",
+      "dev_delta_char_errors": -1,
+      "dev_exact_match": 2443,
+      "dev_fixed_sents": 15,
+      "dev_mcnemar_p_value": 0.8501067716269013,
+      "dev_per_category_delta": {
+        "civic_public": 3,
+        "daily_dialogue": 3,
+        "literary_narrative": -5,
+        "moe_idiom_context": 1,
+        "tech_doc": -3
+      },
+      "group": "S1c_narrow",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S1c_narrow_derived_bonus_10"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 13,
+      "dev_cer": 0.0453,
+      "dev_cer_percent": "4.5302%",
+      "dev_char_errors": 2032,
+      "dev_delta_cer_pp": "-0.0089%",
+      "dev_delta_char_errors": -4,
+      "dev_exact_match": 2445,
+      "dev_fixed_sents": 17,
+      "dev_mcnemar_p_value": 0.5838823689192368,
+      "dev_per_category_delta": {
+        "civic_public": 2,
+        "daily_dialogue": 3,
+        "literary_narrative": -5,
+        "moe_idiom_context": -1,
+        "tech_doc": -3
+      },
+      "group": "S1c_narrow",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S1c_narrow_derived_bonus_6"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 16,
+      "dev_cer": 0.0454,
+      "dev_cer_percent": "4.5413%",
+      "dev_char_errors": 2037,
+      "dev_delta_cer_pp": "+0.0022%",
+      "dev_delta_char_errors": 1,
+      "dev_exact_match": 2442,
+      "dev_fixed_sents": 17,
+      "dev_mcnemar_p_value": 1.0,
+      "dev_per_category_delta": {
+        "civic_public": 5,
+        "daily_dialogue": 3,
+        "literary_narrative": -5,
+        "moe_idiom_context": 1,
+        "tech_doc": -3
+      },
+      "group": "S1c_narrow",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S1c_narrow_derived_bonus_0"
+    },
+    {
+      "classical_cer_percent": "24.38%",
+      "classical_char_errors": 49,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 182,
+      "dev_cer": 0.0526,
+      "dev_cer_percent": "5.2569%",
+      "dev_char_errors": 2358,
+      "dev_delta_cer_pp": "+0.7179%",
+      "dev_delta_char_errors": 322,
+      "dev_exact_match": 2284,
+      "dev_fixed_sents": 25,
+      "dev_mcnemar_p_value": 2.211375466365693e-27,
+      "dev_per_category_delta": {
+        "civic_public": 66,
+        "daily_dialogue": 71,
+        "literary_narrative": 70,
+        "moe_idiom_context": 78,
+        "tech_doc": 37
+      },
+      "group": "S1c_all",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S1c_all_derived_bonus_22"
+    },
+    {
+      "classical_cer_percent": "24.38%",
+      "classical_char_errors": 49,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 218,
+      "dev_cer": 0.0541,
+      "dev_cer_percent": "5.4063%",
+      "dev_char_errors": 2425,
+      "dev_delta_cer_pp": "+0.8672%",
+      "dev_delta_char_errors": 389,
+      "dev_exact_match": 2248,
+      "dev_fixed_sents": 25,
+      "dev_mcnemar_p_value": 7.596991328504466e-35,
+      "dev_per_category_delta": {
+        "civic_public": 76,
+        "daily_dialogue": 100,
+        "literary_narrative": 84,
+        "moe_idiom_context": 92,
+        "tech_doc": 37
+      },
+      "group": "S1c_all",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S1c_all_derived_bonus_18"
+    },
+    {
+      "classical_cer_percent": "24.38%",
+      "classical_char_errors": 49,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 264,
+      "dev_cer": 0.056,
+      "dev_cer_percent": "5.5958%",
+      "dev_char_errors": 2510,
+      "dev_delta_cer_pp": "+1.0567%",
+      "dev_delta_char_errors": 474,
+      "dev_exact_match": 2203,
+      "dev_fixed_sents": 26,
+      "dev_mcnemar_p_value": 5.198630883312513e-44,
+      "dev_per_category_delta": {
+        "civic_public": 94,
+        "daily_dialogue": 121,
+        "literary_narrative": 114,
+        "moe_idiom_context": 102,
+        "tech_doc": 43
+      },
+      "group": "S1c_all",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S1c_all_derived_bonus_14"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 28,
+      "dev_cer": 0.0459,
+      "dev_cer_percent": "4.5948%",
+      "dev_char_errors": 2061,
+      "dev_delta_cer_pp": "+0.0557%",
+      "dev_delta_char_errors": 25,
+      "dev_exact_match": 2424,
+      "dev_fixed_sents": 11,
+      "dev_mcnemar_p_value": 0.010405673982723206,
+      "dev_per_category_delta": {
+        "civic_public": 13,
+        "daily_dialogue": 2,
+        "literary_narrative": 1,
+        "moe_idiom_context": 5,
+        "tech_doc": 4
+      },
+      "group": "S2a",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2a_prune_len2_lt_120"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 33,
+      "dev_cer": 0.0462,
+      "dev_cer_percent": "4.6171%",
+      "dev_char_errors": 2071,
+      "dev_delta_cer_pp": "+0.0780%",
+      "dev_delta_char_errors": 35,
+      "dev_exact_match": 2419,
+      "dev_fixed_sents": 11,
+      "dev_mcnemar_p_value": 0.0015463349822519982,
+      "dev_per_category_delta": {
+        "civic_public": 13,
+        "daily_dialogue": 2,
+        "literary_narrative": 2,
+        "moe_idiom_context": 5,
+        "tech_doc": 13
+      },
+      "group": "S2a",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2a_prune_len2_lt_150"
+    },
+    {
+      "classical_cer_percent": "20.90%",
+      "classical_char_errors": 42,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 41,
+      "dev_cer": 0.0462,
+      "dev_cer_percent": "4.6216%",
+      "dev_char_errors": 2073,
+      "dev_delta_cer_pp": "+0.0825%",
+      "dev_delta_char_errors": 37,
+      "dev_exact_match": 2414,
+      "dev_fixed_sents": 14,
+      "dev_mcnemar_p_value": 0.000455257728483071,
+      "dev_per_category_delta": {
+        "civic_public": 13,
+        "daily_dialogue": 8,
+        "literary_narrative": -4,
+        "moe_idiom_context": 4,
+        "tech_doc": 16
+      },
+      "group": "S2a",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2a_prune_len2_lt_180"
+    },
+    {
+      "classical_cer_percent": "20.90%",
+      "classical_char_errors": 42,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 62,
+      "dev_cer": 0.0471,
+      "dev_cer_percent": "4.7107%",
+      "dev_char_errors": 2113,
+      "dev_delta_cer_pp": "+0.1717%",
+      "dev_delta_char_errors": 77,
+      "dev_exact_match": 2398,
+      "dev_fixed_sents": 19,
+      "dev_mcnemar_p_value": 3.064674153981394e-6,
+      "dev_per_category_delta": {
+        "civic_public": 13,
+        "daily_dialogue": 12,
+        "literary_narrative": 5,
+        "moe_idiom_context": 8,
+        "tech_doc": 39
+      },
+      "group": "S2a",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2a_prune_len2_lt_220"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 107,
+      "dev_cer": 0.0483,
+      "dev_cer_percent": "4.8289%",
+      "dev_char_errors": 2166,
+      "dev_delta_cer_pp": "+0.2898%",
+      "dev_delta_char_errors": 130,
+      "dev_exact_match": 2367,
+      "dev_fixed_sents": 33,
+      "dev_mcnemar_p_value": 6.872640624095893e-10,
+      "dev_per_category_delta": {
+        "civic_public": 22,
+        "daily_dialogue": 20,
+        "literary_narrative": 10,
+        "moe_idiom_context": 14,
+        "tech_doc": 64
+      },
+      "group": "S2a",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2a_prune_len2_lt_260"
+    },
+    {
+      "classical_cer_percent": "21.89%",
+      "classical_char_errors": 44,
+      "classical_exact": "7/20",
+      "classical_exact_count": 7,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 186,
+      "dev_cer": 0.0513,
+      "dev_cer_percent": "5.1321%",
+      "dev_char_errors": 2302,
+      "dev_delta_cer_pp": "+0.5930%",
+      "dev_delta_char_errors": 266,
+      "dev_exact_match": 2303,
+      "dev_fixed_sents": 48,
+      "dev_mcnemar_p_value": 3.416449435019511e-19,
+      "dev_per_category_delta": {
+        "civic_public": 49,
+        "daily_dialogue": 43,
+        "literary_narrative": 22,
+        "moe_idiom_context": 30,
+        "tech_doc": 122
+      },
+      "group": "S2a",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2a_prune_len2_lt_300"
+    },
+    {
+      "classical_cer_percent": "22.89%",
+      "classical_char_errors": 46,
+      "classical_exact": "7/20",
+      "classical_exact_count": 7,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 345,
+      "dev_cer": 0.0586,
+      "dev_cer_percent": "5.8589%",
+      "dev_char_errors": 2628,
+      "dev_delta_cer_pp": "+1.3198%",
+      "dev_delta_char_errors": 592,
+      "dev_exact_match": 2157,
+      "dev_fixed_sents": 61,
+      "dev_mcnemar_p_value": 8.619344654923777e-45,
+      "dev_per_category_delta": {
+        "civic_public": 131,
+        "daily_dialogue": 91,
+        "literary_narrative": 62,
+        "moe_idiom_context": 76,
+        "tech_doc": 232
+      },
+      "group": "S2a",
+      "novel_cer_percent": "7.91%",
+      "novel_char_errors": 11,
+      "novel_exact": "7/15",
+      "novel_exact_count": 7,
+      "novel_total_chars": 139,
+      "strategy": "S2a_prune_len2_lt_350"
+    },
+    {
+      "classical_cer_percent": "22.89%",
+      "classical_char_errors": 46,
+      "classical_exact": "5/20",
+      "classical_exact_count": 5,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 29,
+      "dev_cer": 0.0453,
+      "dev_cer_percent": "4.5279%",
+      "dev_char_errors": 2031,
+      "dev_delta_cer_pp": "-0.0111%",
+      "dev_delta_char_errors": -5,
+      "dev_exact_match": 2441,
+      "dev_fixed_sents": 29,
+      "dev_mcnemar_p_value": 1.0,
+      "dev_per_category_delta": {
+        "civic_public": -9,
+        "daily_dialogue": -3,
+        "literary_narrative": -14,
+        "moe_idiom_context": 5,
+        "tech_doc": 16
+      },
+      "group": "S2b",
+      "novel_cer_percent": "7.19%",
+      "novel_char_errors": 10,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2b_ramp_100_300_min14"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 14,
+      "dev_cer": 0.0447,
+      "dev_cer_percent": "4.4700%",
+      "dev_char_errors": 2005,
+      "dev_delta_cer_pp": "-0.0691%",
+      "dev_delta_char_errors": -31,
+      "dev_exact_match": 2454,
+      "dev_fixed_sents": 27,
+      "dev_mcnemar_p_value": 0.06091856403979544,
+      "dev_per_category_delta": {
+        "civic_public": -9,
+        "daily_dialogue": -5,
+        "literary_narrative": -20,
+        "moe_idiom_context": -6,
+        "tech_doc": 9
+      },
+      "group": "S2b",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2b_ramp_100_300_min18"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 8,
+      "dev_cer": 0.0449,
+      "dev_cer_percent": "4.4878%",
+      "dev_char_errors": 2013,
+      "dev_delta_cer_pp": "-0.0513%",
+      "dev_delta_char_errors": -23,
+      "dev_exact_match": 2449,
+      "dev_fixed_sents": 16,
+      "dev_mcnemar_p_value": 0.153041980788361,
+      "dev_per_category_delta": {
+        "civic_public": -8,
+        "daily_dialogue": -6,
+        "literary_narrative": -13,
+        "moe_idiom_context": -2,
+        "tech_doc": 6
+      },
+      "group": "S2b",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2b_ramp_100_300_min22"
+    },
+    {
+      "classical_cer_percent": "22.89%",
+      "classical_char_errors": 46,
+      "classical_exact": "5/20",
+      "classical_exact_count": 5,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 31,
+      "dev_cer": 0.0452,
+      "dev_cer_percent": "4.5235%",
+      "dev_char_errors": 2029,
+      "dev_delta_cer_pp": "-0.0156%",
+      "dev_delta_char_errors": -7,
+      "dev_exact_match": 2444,
+      "dev_fixed_sents": 34,
+      "dev_mcnemar_p_value": 0.8040807657442822,
+      "dev_per_category_delta": {
+        "civic_public": -9,
+        "daily_dialogue": -1,
+        "literary_narrative": -11,
+        "moe_idiom_context": -1,
+        "tech_doc": 15
+      },
+      "group": "S2b",
+      "novel_cer_percent": "7.19%",
+      "novel_char_errors": 10,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2b_ramp_100_350_min12"
+    },
+    {
+      "classical_cer_percent": "22.39%",
+      "classical_char_errors": 45,
+      "classical_exact": "5/20",
+      "classical_exact_count": 5,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 18,
+      "dev_cer": 0.0446,
+      "dev_cer_percent": "4.4588%",
+      "dev_char_errors": 2000,
+      "dev_delta_cer_pp": "-0.0803%",
+      "dev_delta_char_errors": -36,
+      "dev_exact_match": 2457,
+      "dev_fixed_sents": 34,
+      "dev_mcnemar_p_value": 0.037513872672364994,
+      "dev_per_category_delta": {
+        "civic_public": -9,
+        "daily_dialogue": -4,
+        "literary_narrative": -22,
+        "moe_idiom_context": -9,
+        "tech_doc": 8
+      },
+      "group": "S2b",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2b_ramp_100_350_min16"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_predictions": [
+        {
+          "char_errors": 4,
+          "gold": "知之為知之不知為不知是知也",
+          "id": "classical_01",
+          "pred": "之之為之之不知為不知是之野"
+        },
+        {
+          "char_errors": 5,
+          "gold": "道可道非常道名可名非常名",
+          "id": "classical_02",
+          "pred": "到可到非常道明可明非常明"
+        },
+        {
+          "char_errors": 0,
+          "gold": "先天下之憂而憂後天下之樂而樂",
+          "id": "classical_03",
+          "pred": "先天下之憂而憂後天下之樂而樂"
+        },
+        {
+          "char_errors": 0,
+          "gold": "古之學者必有師",
+          "id": "classical_04",
+          "pred": "古之學者必有師"
+        },
+        {
+          "char_errors": 2,
+          "gold": "師者所以傳道受業解惑也",
+          "id": "classical_05",
+          "pred": "師者所以傳到授業解惑也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "不以物喜不以己悲",
+          "id": "classical_06",
+          "pred": "不已物喜不已幾杯"
+        },
+        {
+          "char_errors": 0,
+          "gold": "醉翁之意不在酒在乎山水之間也",
+          "id": "classical_07",
+          "pred": "醉翁之意不在酒在乎山水之間也"
+        },
+        {
+          "char_errors": 2,
+          "gold": "予獨愛蓮之出淤泥而不染",
+          "id": "classical_08",
+          "pred": "與獨愛憐之出淤泥而不染"
+        },
+        {
+          "char_errors": 1,
+          "gold": "三人行必有我師焉",
+          "id": "classical_09",
+          "pred": "三人行必有我師煙"
+        },
+        {
+          "char_errors": 3,
+          "gold": "溫故而知新可以為師矣",
+          "id": "classical_10",
+          "pred": "溫故而知心可以為施以"
+        },
+        {
+          "char_errors": 0,
+          "gold": "生於憂患而死於安樂",
+          "id": "classical_11",
+          "pred": "生於憂患而死於安樂"
+        },
+        {
+          "char_errors": 2,
+          "gold": "天將降大任於斯人也",
+          "id": "classical_12",
+          "pred": "天將將大任於私人也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "臣本布衣躬耕於南陽",
+          "id": "classical_13",
+          "pred": "陳本不一躬耕於南洋"
+        },
+        {
+          "char_errors": 3,
+          "gold": "己所不欲勿施於人",
+          "id": "classical_14",
+          "pred": "己所不欲物師漁人"
+        },
+        {
+          "char_errors": 0,
+          "gold": "君子和而不同小人同而不和",
+          "id": "classical_15",
+          "pred": "君子和而不同小人同而不和"
+        },
+        {
+          "char_errors": 2,
+          "gold": "水能載舟亦能覆舟",
+          "id": "classical_16",
+          "pred": "水能在洲亦能覆舟"
+        },
+        {
+          "char_errors": 5,
+          "gold": "民為貴社稷次之君為輕",
+          "id": "classical_17",
+          "pred": "民為貴設計次之軍衛青"
+        },
+        {
+          "char_errors": 1,
+          "gold": "千里之行始於足下",
+          "id": "classical_18",
+          "pred": "千里知行始於足下"
+        },
+        {
+          "char_errors": 5,
+          "gold": "工欲善其事必先利其器",
+          "id": "classical_19",
+          "pred": "公寓善其勢必先例其氣"
+        },
+        {
+          "char_errors": 0,
+          "gold": "欲窮千里目更上一層樓",
+          "id": "classical_20",
+          "pred": "欲窮千里目更上一層樓"
+        }
+      ],
+      "classical_total_chars": 201,
+      "dev_broken_sents": 12,
+      "dev_cer": 0.0445,
+      "dev_cer_percent": "4.4454%",
+      "dev_char_errors": 1994,
+      "dev_delta_cer_pp": "-0.0936%",
+      "dev_delta_char_errors": -42,
+      "dev_exact_match": 2459,
+      "dev_fixed_sents": 30,
+      "dev_mcnemar_p_value": 0.008711988751483586,
+      "dev_per_category_delta": {
+        "civic_public": -9,
+        "daily_dialogue": -6,
+        "literary_narrative": -24,
+        "moe_idiom_context": -7,
+        "tech_doc": 4
+      },
+      "group": "S2b",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_predictions": [
+        {
+          "char_errors": 0,
+          "gold": "一個有辦法打文言文的輸入法",
+          "id": "novel_01",
+          "pred": "一個有辦法打文言文的輸入法"
+        },
+        {
+          "char_errors": 1,
+          "gold": "文言文輸入不出錯",
+          "id": "novel_02",
+          "pred": "文言文輸入埠出錯"
+        },
+        {
+          "char_errors": 1,
+          "gold": "不過是該漢字的常見連結",
+          "id": "novel_03",
+          "pred": "不過是賅漢字的常見連結"
+        },
+        {
+          "char_errors": 2,
+          "gold": "漢字系統的原型",
+          "id": "novel_04",
+          "pred": "漢字系統的圓形"
+        },
+        {
+          "char_errors": 1,
+          "gold": "先跑一下統計以確定利弊得失",
+          "id": "novel_05",
+          "pred": "先跑一下統計已確定利弊得失"
+        },
+        {
+          "char_errors": 0,
+          "gold": "每一個漢字本身就是一個語意本體",
+          "id": "novel_06",
+          "pred": "每一個漢字本身就是一個語意本體"
+        },
+        {
+          "char_errors": 0,
+          "gold": "憑感覺的事情",
+          "id": "novel_07",
+          "pred": "憑感覺的事情"
+        },
+        {
+          "char_errors": 0,
+          "gold": "平均值的計算",
+          "id": "novel_08",
+          "pred": "平均值的計算"
+        },
+        {
+          "char_errors": 0,
+          "gold": "令人不捨的行為",
+          "id": "novel_09",
+          "pred": "令人不捨的行為"
+        },
+        {
+          "char_errors": 0,
+          "gold": "台灣省的時代",
+          "id": "novel_10",
+          "pred": "台灣省的時代"
+        },
+        {
+          "char_errors": 0,
+          "gold": "他樂得清閒",
+          "id": "novel_11",
+          "pred": "他樂得清閒"
+        },
+        {
+          "char_errors": 0,
+          "gold": "我也很禮貌的回答",
+          "id": "novel_12",
+          "pred": "我也很禮貌的回答"
+        },
+        {
+          "char_errors": 1,
+          "gold": "量子計算機與神經形態晶片",
+          "id": "novel_13",
+          "pred": "量子計算機與神經型態晶片"
+        },
+        {
+          "char_errors": 3,
+          "gold": "跨域語素因式分解拓撲模型",
+          "id": "novel_14",
+          "pred": "跨御宇速因式分解拓撲模型"
+        },
+        {
+          "char_errors": 0,
+          "gold": "低延遲本地端解碼引擎",
+          "id": "novel_15",
+          "pred": "低延遲本地端解碼引擎"
+        }
+      ],
+      "novel_total_chars": 139,
+      "strategy": "S2b_ramp_100_350_min20"
+    },
+    {
+      "classical_cer_percent": "23.38%",
+      "classical_char_errors": 47,
+      "classical_exact": "5/20",
+      "classical_exact_count": 5,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 49,
+      "dev_cer": 0.0455,
+      "dev_cer_percent": "4.5502%",
+      "dev_char_errors": 2041,
+      "dev_delta_cer_pp": "+0.0111%",
+      "dev_delta_char_errors": 5,
+      "dev_exact_match": 2440,
+      "dev_fixed_sents": 48,
+      "dev_mcnemar_p_value": 1.0,
+      "dev_per_category_delta": {
+        "civic_public": -6,
+        "daily_dialogue": -5,
+        "literary_narrative": -13,
+        "moe_idiom_context": 18,
+        "tech_doc": 11
+      },
+      "group": "S2b",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2b_ramp_150_400_min14"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 28,
+      "dev_cer": 0.0447,
+      "dev_cer_percent": "4.4744%",
+      "dev_char_errors": 2007,
+      "dev_delta_cer_pp": "-0.0647%",
+      "dev_delta_char_errors": -29,
+      "dev_exact_match": 2456,
+      "dev_fixed_sents": 43,
+      "dev_mcnemar_p_value": 0.09661417097793551,
+      "dev_per_category_delta": {
+        "civic_public": -5,
+        "daily_dialogue": -7,
+        "literary_narrative": -18,
+        "moe_idiom_context": 2,
+        "tech_doc": -1
+      },
+      "group": "S2b",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2b_ramp_150_400_min18"
+    },
+    {
+      "classical_cer_percent": "21.89%",
+      "classical_char_errors": 44,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_total_chars": 201,
+      "dev_broken_sents": 55,
+      "dev_cer": 0.0455,
+      "dev_cer_percent": "4.5480%",
+      "dev_char_errors": 2040,
+      "dev_delta_cer_pp": "+0.0089%",
+      "dev_delta_char_errors": 4,
+      "dev_exact_match": 2439,
+      "dev_fixed_sents": 53,
+      "dev_mcnemar_p_value": 0.9233417214265692,
+      "dev_per_category_delta": {
+        "civic_public": 1,
+        "daily_dialogue": -6,
+        "literary_narrative": -17,
+        "moe_idiom_context": 3,
+        "tech_doc": 23
+      },
+      "group": "S2b",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_total_chars": 139,
+      "strategy": "S2b_ramp_180_450_min16"
+    },
+    {
+      "classical_cer_percent": "21.39%",
+      "classical_char_errors": 43,
+      "classical_exact": "6/20",
+      "classical_exact_count": 6,
+      "classical_predictions": [
+        {
+          "char_errors": 4,
+          "gold": "知之為知之不知為不知是知也",
+          "id": "classical_01",
+          "pred": "之之為之之不知為不知是之野"
+        },
+        {
+          "char_errors": 5,
+          "gold": "道可道非常道名可名非常名",
+          "id": "classical_02",
+          "pred": "到可到非常道明可明非常明"
+        },
+        {
+          "char_errors": 0,
+          "gold": "先天下之憂而憂後天下之樂而樂",
+          "id": "classical_03",
+          "pred": "先天下之憂而憂後天下之樂而樂"
+        },
+        {
+          "char_errors": 0,
+          "gold": "古之學者必有師",
+          "id": "classical_04",
+          "pred": "古之學者必有師"
+        },
+        {
+          "char_errors": 2,
+          "gold": "師者所以傳道受業解惑也",
+          "id": "classical_05",
+          "pred": "師者所以傳到授業解惑也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "不以物喜不以己悲",
+          "id": "classical_06",
+          "pred": "不已物喜不已幾杯"
+        },
+        {
+          "char_errors": 0,
+          "gold": "醉翁之意不在酒在乎山水之間也",
+          "id": "classical_07",
+          "pred": "醉翁之意不在酒在乎山水之間也"
+        },
+        {
+          "char_errors": 2,
+          "gold": "予獨愛蓮之出淤泥而不染",
+          "id": "classical_08",
+          "pred": "與獨愛憐之出淤泥而不染"
+        },
+        {
+          "char_errors": 1,
+          "gold": "三人行必有我師焉",
+          "id": "classical_09",
+          "pred": "三人行必有我師煙"
+        },
+        {
+          "char_errors": 3,
+          "gold": "溫故而知新可以為師矣",
+          "id": "classical_10",
+          "pred": "溫故而知心可以為施以"
+        },
+        {
+          "char_errors": 0,
+          "gold": "生於憂患而死於安樂",
+          "id": "classical_11",
+          "pred": "生於憂患而死於安樂"
+        },
+        {
+          "char_errors": 2,
+          "gold": "天將降大任於斯人也",
+          "id": "classical_12",
+          "pred": "天將將大任於私人也"
+        },
+        {
+          "char_errors": 4,
+          "gold": "臣本布衣躬耕於南陽",
+          "id": "classical_13",
+          "pred": "陳本不一躬耕於南洋"
+        },
+        {
+          "char_errors": 3,
+          "gold": "己所不欲勿施於人",
+          "id": "classical_14",
+          "pred": "己所不欲物師漁人"
+        },
+        {
+          "char_errors": 0,
+          "gold": "君子和而不同小人同而不和",
+          "id": "classical_15",
+          "pred": "君子和而不同小人同而不和"
+        },
+        {
+          "char_errors": 2,
+          "gold": "水能載舟亦能覆舟",
+          "id": "classical_16",
+          "pred": "水能在洲亦能覆舟"
+        },
+        {
+          "char_errors": 5,
+          "gold": "民為貴社稷次之君為輕",
+          "id": "classical_17",
+          "pred": "民為貴設計次之軍衛青"
+        },
+        {
+          "char_errors": 1,
+          "gold": "千里之行始於足下",
+          "id": "classical_18",
+          "pred": "千里知行始於足下"
+        },
+        {
+          "char_errors": 5,
+          "gold": "工欲善其事必先利其器",
+          "id": "classical_19",
+          "pred": "公寓善其勢必先例其氣"
+        },
+        {
+          "char_errors": 0,
+          "gold": "欲窮千里目更上一層樓",
+          "id": "classical_20",
+          "pred": "欲窮千里目更上一層樓"
+        }
+      ],
+      "classical_total_chars": 201,
+      "dev_broken_sents": 20,
+      "dev_cer": 0.0443,
+      "dev_cer_percent": "4.4276%",
+      "dev_char_errors": 1986,
+      "dev_delta_cer_pp": "-0.1115%",
+      "dev_delta_char_errors": -50,
+      "dev_exact_match": 2466,
+      "dev_fixed_sents": 45,
+      "dev_mcnemar_p_value": 0.0029125581703034046,
+      "dev_per_category_delta": {
+        "civic_public": -11,
+        "daily_dialogue": -5,
+        "literary_narrative": -29,
+        "moe_idiom_context": -6,
+        "tech_doc": 1
+      },
+      "group": "S5",
+      "novel_cer_percent": "6.47%",
+      "novel_char_errors": 9,
+      "novel_exact": "9/15",
+      "novel_exact_count": 9,
+      "novel_predictions": [
+        {
+          "char_errors": 0,
+          "gold": "一個有辦法打文言文的輸入法",
+          "id": "novel_01",
+          "pred": "一個有辦法打文言文的輸入法"
+        },
+        {
+          "char_errors": 1,
+          "gold": "文言文輸入不出錯",
+          "id": "novel_02",
+          "pred": "文言文輸入埠出錯"
+        },
+        {
+          "char_errors": 1,
+          "gold": "不過是該漢字的常見連結",
+          "id": "novel_03",
+          "pred": "不過是賅漢字的常見連結"
+        },
+        {
+          "char_errors": 2,
+          "gold": "漢字系統的原型",
+          "id": "novel_04",
+          "pred": "漢字系統的圓形"
+        },
+        {
+          "char_errors": 1,
+          "gold": "先跑一下統計以確定利弊得失",
+          "id": "novel_05",
+          "pred": "先跑一下統計已確定利弊得失"
+        },
+        {
+          "char_errors": 0,
+          "gold": "每一個漢字本身就是一個語意本體",
+          "id": "novel_06",
+          "pred": "每一個漢字本身就是一個語意本體"
+        },
+        {
+          "char_errors": 0,
+          "gold": "憑感覺的事情",
+          "id": "novel_07",
+          "pred": "憑感覺的事情"
+        },
+        {
+          "char_errors": 0,
+          "gold": "平均值的計算",
+          "id": "novel_08",
+          "pred": "平均值的計算"
+        },
+        {
+          "char_errors": 0,
+          "gold": "令人不捨的行為",
+          "id": "novel_09",
+          "pred": "令人不捨的行為"
+        },
+        {
+          "char_errors": 0,
+          "gold": "台灣省的時代",
+          "id": "novel_10",
+          "pred": "台灣省的時代"
+        },
+        {
+          "char_errors": 0,
+          "gold": "他樂得清閒",
+          "id": "novel_11",
+          "pred": "他樂得清閒"
+        },
+        {
+          "char_errors": 0,
+          "gold": "我也很禮貌的回答",
+          "id": "novel_12",
+          "pred": "我也很禮貌的回答"
+        },
+        {
+          "char_errors": 1,
+          "gold": "量子計算機與神經形態晶片",
+          "id": "novel_13",
+          "pred": "量子計算機與神經型態晶片"
+        },
+        {
+          "char_errors": 3,
+          "gold": "跨域語素因式分解拓撲模型",
+          "id": "novel_14",
+          "pred": "跨御宇速因式分解拓撲模型"
+        },
+        {
+          "char_errors": 0,
+          "gold": "低延遲本地端解碼引擎",
+          "id": "novel_15",
+          "pred": "低延遲本地端解碼引擎"
+        }
+      ],
+      "novel_total_chars": 139,
+      "strategy": "S5_combo_ramp_100_350_min20_plus_narrow20"
+    }
+  ]
+}
