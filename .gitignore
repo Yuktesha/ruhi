@@ -124,3 +124,12 @@ data/longkan.bin
 /user_word_events.jsonl
 /.last_bg_telemetry_spawn
 ruhi_lexicon/data/homophone_context_profiles.json
+
+# Android IME build artifacts & synced assets
+ruhi-android-jni/target/
+ruhi-android/.gradle/
+ruhi-android/local.properties
+ruhi-android/build/
+ruhi-android/app/build/
+ruhi-android/app/src/main/jniLibs/
+ruhi-android/app/src/main/assets/ruhi_data/

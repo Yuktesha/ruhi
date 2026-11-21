@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">如喜輸入法</string>
+    <string name="ime_name">如喜（許氏／歐文）</string>
+    <string name="subtype_hsu">如喜・許氏雙拼</string>
+    <string name="subtype_english">如喜・歐文鍵盤</string>
+</resources>
