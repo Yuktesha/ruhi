@@ -286,16 +286,24 @@ pub fn add_user_word_entry(
     }
 
     let today = chrono_like_today();
+    let cjk_len = |s: &str| -> usize {
+        s.chars()
+            .filter(|&c| ('\u{3400}'..='\u{9fff}').contains(&c) || ('\u{f900}'..='\u{faff}').contains(&c))
+            .count()
+    };
     if let Ok(mut t_file) = OpenOptions::new().create(true).append(true).open(&paths.transitions) {
         if let Some(prev) = prev_word {
-            if !prev.is_empty() {
+            if !prev.is_empty() && cjk_len(prev) < 4 && cjk_len(word) < 4 {
                 let trans_line = format!("{}\t{}\t32.0\tuser_attractor\t{}\n", prev, word, today);
                 let _ = t_file.write_all(trans_line.as_bytes());
             }
         }
         for (p, c, b) in &sub_transitions {
-            let trans_line = format!("{}\t{}\t{:.1}\tentity_decomp\t{}\n", p, c, b, today);
-            let _ = t_file.write_all(trans_line.as_bytes());
+            if cjk_len(p) < 4 && cjk_len(c) < 4 {
+                let clamped = b.clamp(-35.0, 35.0);
+                let trans_line = format!("{}\t{}\t{:.1}\tentity_decomp\t{}\n", p, c, clamped, today);
+                let _ = t_file.write_all(trans_line.as_bytes());
+            }
         }
     }
 

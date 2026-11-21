@@ -807,6 +807,8 @@ thread_local! {
     // 改採每執行緒 TLS RefCell + try_borrow 保護，並於同執行緒 CandidateWindow::drop 重置，兼顧零鎖競爭與跨視窗隔離。
     static TLS_CANDIDATE_STATE: std::cell::RefCell<CandidateState> =
         std::cell::RefCell::new(default_candidate_state());
+    // 記錄本 DLL 模組之 TLS_CANDIDATE_STATE 已完成 WndProc 與組態綁定之 HWND（不變動任何 struct ABI 佈局）
+    static TLS_BOUND_HWND: std::cell::Cell<isize> = const { std::cell::Cell::new(0) };
 }
 
 static SHIFT_DOWN_QUICK_SWITCH_CB: Mutex<
@@ -835,6 +837,7 @@ fn reset_candidate_state() {
     let _ = write_candidate_state(|s| {
         *s = fresh;
     });
+    TLS_BOUND_HWND.with(|c| c.set(0));
 }
 
 pub struct CandidateWindow {
@@ -939,6 +942,7 @@ impl CandidateWindow {
             })
             .unwrap_or(95);
             apply_window_opacity(hwnd, init_opacity);
+            TLS_BOUND_HWND.with(|c| c.set(hwnd.0 as isize));
 
             // 徹底移除舊版隱藏於「^」溢位匣之 Shell_NotifyIconW 圖示，將功能 100% 整合至右下角工作列 TSF 圖示本身
             purge_legacy_overflow_tray_icons();
@@ -947,6 +951,80 @@ impl CandidateWindow {
 
             logger::log(&format!("CandidateWindow/InputDesk created: hwnd={:?}, dpi={}", hwnd, dpi_scale));
             Ok(Self { hwnd, tray_mutex: None, is_tray_registered: false })
+        }
+    }
+
+    fn resolve_dark_theme(theme: &str) -> bool {
+        if theme == "dark" {
+            true
+        } else if theme == "light" {
+            false
+        } else {
+            Self::detect_dark_theme()
+        }
+    }
+
+    fn apply_config_to_state(state: &mut CandidateState, cfg: &RuhiConfig, is_dark: bool, dpi_scale: Option<f32>) -> u32 {
+        if let Some(ds) = dpi_scale {
+            state.dpi_scale = ds;
+        }
+        state.quick_key_mode = cfg.candidate_quick_key.clone();
+        state.input_display_mode = cfg.input_display_mode.clone();
+        state.keyboard_mode = cfg.keyboard_mode.clone();
+        state.enabled_keyboard_modes = cfg.enabled_keyboard_modes.clone();
+        state.font_size = (cfg.font_size as f32).clamp(16.0, 96.0);
+        state.candidate_font_size = (cfg.candidate_font_size as f32).clamp(14.0, 72.0);
+        state.desk_opacity = cfg.desk_opacity.clamp(20, 100);
+        state.orientation = cfg.orientation.clone();
+        state.fixed_x = cfg.desk_x;
+        state.fixed_y = cfg.desk_y;
+        state.max_composition_chars = cfg.max_composition_chars.clamp(8, 80);
+        state.enable_array30_coach = cfg.enable_array30_coach;
+        state.shift_down_mode = cfg.shift_down_mode.clone();
+        state.ui_lang = cfg.ui_lang.clone();
+        state.is_fullwidth = cfg.fullwidth_mode;
+        state.is_dark_theme = is_dark;
+        state.desk_opacity
+    }
+
+    /// 確保既有 HWND 之 GWLP_WNDPROC 與當前新載入 DLL 模組之 wnd_proc 及 TLS_CANDIDATE_STATE 保持同步（修復跨模組熱升級黑框分裂）
+    pub fn ensure_bound_to_current_module(&mut self) {
+        if self.hwnd.0.is_null() {
+            return;
+        }
+        unsafe {
+            if !IsWindow(self.hwnd).as_bool() {
+                return;
+            }
+            if GetWindowThreadProcessId(self.hwnd, None) != GetCurrentThreadId() {
+                return;
+            }
+            let expected_proc = wnd_proc as *const () as usize as isize;
+            let cur_proc = GetWindowLongPtrW(self.hwnd, GWLP_WNDPROC);
+            let hwnd_val = self.hwnd.0 as isize;
+            let tls_bound = TLS_BOUND_HWND.with(|c| c.get());
+            if cur_proc == expected_proc && tls_bound == hwnd_val {
+                return;
+            }
+
+            let _ = SetWindowLongPtrW(self.hwnd, GWLP_WNDPROC, expected_proc);
+            let dpi = GetDpiForWindow(self.hwnd);
+            let dpi_scale = if dpi > 0 { dpi as f32 / 96.0 } else { 1.0 };
+
+            let paths = crate::service::RuhiPaths::resolve();
+            let cfg = crate::service::load_ruhi_config(&paths);
+            let is_dark = Self::resolve_dark_theme(&cfg.theme);
+
+            let opacity = write_candidate_state(|state| {
+                Self::apply_config_to_state(state, &cfg, is_dark, Some(dpi_scale))
+            })
+            .unwrap_or(95);
+            apply_window_opacity(self.hwnd, opacity);
+            TLS_BOUND_HWND.with(|c| c.set(hwnd_val));
+            logger::log(&format!(
+                "CandidateWindow rebound WndProc & TLS to current module: hwnd={:?}, dpi={}",
+                self.hwnd, dpi_scale
+            ));
         }
     }
 
@@ -966,31 +1044,16 @@ impl CandidateWindow {
     }
 
     pub fn apply_config(&mut self, cfg: &RuhiConfig) {
-        let is_dark = if cfg.theme == "dark" {
-            true
-        } else if cfg.theme == "light" {
-            false
+        self.ensure_bound_to_current_module();
+        let dpi_scale_opt = if !self.hwnd.0.is_null() && unsafe { IsWindow(self.hwnd).as_bool() } {
+            let d = unsafe { GetDpiForWindow(self.hwnd) };
+            if d > 0 { Some(d as f32 / 96.0) } else { None }
         } else {
-            Self::detect_dark_theme()
+            None
         };
+        let is_dark = Self::resolve_dark_theme(&cfg.theme);
         let opacity = write_candidate_state(|state| {
-            state.quick_key_mode = cfg.candidate_quick_key.clone();
-            state.input_display_mode = cfg.input_display_mode.clone();
-            state.keyboard_mode = cfg.keyboard_mode.clone();
-            state.enabled_keyboard_modes = cfg.enabled_keyboard_modes.clone();
-            state.font_size = (cfg.font_size as f32).clamp(16.0, 96.0);
-            state.candidate_font_size = (cfg.candidate_font_size as f32).clamp(14.0, 72.0);
-            state.desk_opacity = cfg.desk_opacity.clamp(20, 100);
-            state.orientation = cfg.orientation.clone();
-            state.fixed_x = cfg.desk_x;
-            state.fixed_y = cfg.desk_y;
-            state.max_composition_chars = cfg.max_composition_chars.clamp(8, 80);
-            state.enable_array30_coach = cfg.enable_array30_coach;
-            state.shift_down_mode = cfg.shift_down_mode.clone();
-            state.ui_lang = cfg.ui_lang.clone();
-            state.is_fullwidth = cfg.fullwidth_mode;
-            state.is_dark_theme = is_dark;
-            state.desk_opacity
+            Self::apply_config_to_state(state, cfg, is_dark, dpi_scale_opt)
         })
         .unwrap_or(95);
         unsafe {
@@ -999,12 +1062,14 @@ impl CandidateWindow {
     }
 
     pub fn set_keyboard_mode(&mut self, mode: &str) {
+        self.ensure_bound_to_current_module();
         let _ = write_candidate_state(|state| {
             state.keyboard_mode = mode.to_string();
         });
     }
 
     pub fn set_quick_key_mode(&mut self, mode: &str) {
+        self.ensure_bound_to_current_module();
         let _ = write_candidate_state(|state| {
             state.quick_key_mode = mode.to_string();
         });
@@ -1021,6 +1086,7 @@ impl CandidateWindow {
         force_num_labels: bool,
         force_asdf_labels: bool,
     ) {
+        self.ensure_bound_to_current_module();
         let _ = write_candidate_state(|state| {
             state.array30_coach_hint = hint.to_string();
             state.is_array30_live_preview = is_array30_live_preview;
@@ -1030,6 +1096,7 @@ impl CandidateWindow {
     }
 
     pub fn set_shift_down_popup_state(&mut self, is_active: bool, mode: &str) {
+        self.ensure_bound_to_current_module();
         let _ = write_candidate_state(|state| {
             state.is_shift_down_popup = is_active;
             if !mode.trim().is_empty() {
@@ -1042,6 +1109,7 @@ impl CandidateWindow {
     }
 
     pub fn set_quick_edit_kind(&mut self, kind: &str) {
+        self.ensure_bound_to_current_module();
         let _ = write_candidate_state(|state| {
             state.quick_edit_kind = kind.to_string();
         });
@@ -1467,6 +1535,7 @@ impl CandidateWindow {
         caret_x: i32,
         caret_y: i32,
     ) {
+        self.ensure_bound_to_current_module();
         let (final_x, final_y, width, height, opacity) = write_candidate_state(|state| {
             state.composition_text = comp_text.to_string();
             state.cursor_pos = cursor_pos;
@@ -1517,6 +1586,7 @@ impl CandidateWindow {
 
     /// 微軟新注音游標跟隨模式：僅在選字或開啟行列教練提示時彈出輕巧候選浮窗
     pub fn show_candidates_only(&mut self, candidates: &[String], selected: usize, x: i32, y: i32) {
+        self.ensure_bound_to_current_module();
         let (dpi_scale, cand_font_size, orientation, coach_hint, page_sz, opacity, is_shift_down_popup, quick_edit_kind, ui_lang) = read_candidate_state(|s| {
             (
                 s.dpi_scale,
@@ -1640,6 +1710,7 @@ impl CandidateWindow {
 
     /// 切換輸入模式或半全形時（無組字狀態下）短暫顯示 1.2 秒的狀態膠囊提示，讓使用者即時確認已切換至何種輸入狀態
     pub fn show_mode_toast(&mut self, mode_code: &str, is_caps: bool, x: i32, y: i32) {
+        self.ensure_bound_to_current_module();
         let (badge, mode_name) = get_mode_badge_and_name(mode_code, is_caps);
         let is_fw = read_candidate_state(|s| s.is_fullwidth).unwrap_or(false);
         let width_tag = if is_fw { "全" } else { "半" };
@@ -1718,35 +1789,76 @@ impl CandidateWindow {
         }
     }
 
-    pub fn set_selected(&mut self, index: usize) {
-        let is_cands_only = write_candidate_state(|state| {
-            state.selected_index = index;
-            state.is_candidates_only
-        })
-        .unwrap_or(true);
-        unsafe {
-            if !is_cands_only {
+    pub fn sync_selection_with_candidates(
+        &mut self,
+        candidates: &[String],
+        index: usize,
+        coach_hint: Option<&str>,
+    ) {
+        self.ensure_bound_to_current_module();
+        let Ok((is_cands_only, need_relayout, cands_snapshot, last_x, last_y, dpi_scale)) =
+            write_candidate_state(|state| {
+                let page_sz = state.effective_page_size().max(1);
+                let old_page = state.selected_index / page_sz;
+                let new_page = index / page_sz;
+                let was_empty = state.candidates.is_empty() && !candidates.is_empty();
+                if !candidates.is_empty() && state.candidates != candidates {
+                    state.candidates = candidates.to_vec();
+                }
+                state.selected_index = index;
+                state.page_offset = new_page * page_sz;
+                let coach_toggled = if let Some(h) = coach_hint {
+                    let chg = state.array30_coach_hint.is_empty() != h.is_empty();
+                    state.array30_coach_hint = h.to_string();
+                    chg
+                } else {
+                    false
+                };
+                (
+                    state.is_candidates_only,
+                    was_empty || old_page != new_page || coach_toggled,
+                    state.candidates.clone(),
+                    state.last_caret_x,
+                    state.last_caret_y,
+                    state.dpi_scale,
+                )
+            })
+        else {
+            return;
+        };
+
+        if !is_cands_only {
+            unsafe {
                 relayout_and_repaint_window(self.hwnd);
+            }
+        } else if need_relayout && !cands_snapshot.is_empty() {
+            let (cx, cy) = if last_x != crate::service::CARET_UNPROBED
+                && last_y != crate::service::CARET_UNPROBED
+            {
+                (last_x, last_y)
             } else {
+                let mut wr = RECT::default();
+                if unsafe { GetWindowRect(self.hwnd, &mut wr).is_ok() } {
+                    (wr.left, wr.top - (24.0 * dpi_scale) as i32)
+                } else {
+                    (200, 300)
+                }
+            };
+            self.show_candidates_only(&cands_snapshot, index, cx, cy);
+        } else {
+            unsafe {
                 let _ = InvalidateRect(self.hwnd, None, false);
+                let _ = UpdateWindow(self.hwnd);
             }
         }
     }
 
+    pub fn set_selected(&mut self, index: usize) {
+        self.sync_selection_with_candidates(&[], index, None);
+    }
+
     pub fn set_selected_with_coach(&mut self, index: usize, coach_hint: &str) {
-        let is_cands_only = write_candidate_state(|state| {
-            state.selected_index = index;
-            state.array30_coach_hint = coach_hint.to_string();
-            state.is_candidates_only
-        })
-        .unwrap_or(true);
-        unsafe {
-            if !is_cands_only {
-                relayout_and_repaint_window(self.hwnd);
-            } else {
-                let _ = InvalidateRect(self.hwnd, None, false);
-            }
-        }
+        self.sync_selection_with_candidates(&[], index, Some(coach_hint));
     }
 
     pub fn detect_dark_theme() -> bool {
@@ -2771,6 +2883,15 @@ unsafe fn paint_candidate_window(hwnd: HWND, hdc: HDC) {
         let font_height = -(item_font_h).round() as i32;
         let font = cached_gdi_font(font_height, false);
         let old_font = SelectObject(mem_dc, font);
+
+        if state.candidates.is_empty() && !has_coach {
+            SelectObject(mem_dc, old_font);
+            SelectObject(mem_dc, old_bmp);
+            let _ = DeleteObject(mem_bmp);
+            let _ = DeleteDC(mem_dc);
+            let _ = ShowWindow(hwnd, SW_HIDE);
+            return;
+        }
 
         if state.candidates.is_empty() && has_coach {
             // 純行列 30 即時反查教練浮動小卡
@@ -4896,5 +5017,34 @@ mod tests {
             read_candidate_state(|s| (s.keyboard_mode.clone(), s.composition_text.clone())).unwrap(),
             ("hsu".to_string(), String::new())
         );
+    }
+
+    #[test]
+    fn test_candidate_window_hot_reload_wndproc_and_tls_rebind_261118() {
+        let mut cw = CandidateWindow::new().expect("create hidden CandidateWindow");
+        let expected_proc = wnd_proc as *const () as usize as isize;
+        assert_eq!(unsafe { GetWindowLongPtrW(cw.hwnd, GWLP_WNDPROC) }, expected_proc);
+
+        unsafe {
+            let _ = SetWindowLongPtrW(
+                cw.hwnd,
+                GWLP_WNDPROC,
+                safe_teardown_wnd_proc as *const () as usize as isize,
+            );
+        }
+        reset_candidate_state();
+
+        let cands = vec!["容".to_string(), "蓉".to_string(), "融".to_string()];
+        cw.show_candidates_only(&cands, 0, 240, 240);
+
+        assert_eq!(unsafe { GetWindowLongPtrW(cw.hwnd, GWLP_WNDPROC) }, expected_proc);
+        assert_eq!(TLS_BOUND_HWND.with(|c| c.get()), cw.hwnd.0 as isize);
+        assert_eq!(
+            read_candidate_state(|s| (s.candidates.clone(), s.selected_index, s.is_candidates_only)).unwrap(),
+            (cands, 0, true)
+        );
+
+        cw.hide();
+        drop(cw);
     }
 }

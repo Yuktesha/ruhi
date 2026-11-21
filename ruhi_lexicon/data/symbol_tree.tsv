@@ -1,0 +1,52 @@
+# RuhI (如喜) 次世代 9x9x9 多層分類樹符號表 (支援 2000ms 節流熱重載)
+# PATH	SYMBOLS(space-separated)	KEYWORDS(comma-separated)	MODE(normal|wrap|box)
+標點引括		標點,引括,標點符號,punct	normal
+標點引括/成對引號	「」 『』 “” ‘’ 〝〞	引號,單引號,雙引號,quote,quotes	wrap
+標點引括/成對括號	（） 【】 〔〕 《》 〈〉 〖〗 ［］ ｛｝	括號,括弧,方括號,中括號,大括號,書名號,六角括號,bracket,brackets,paren	wrap
+標點引括/直排括號	︵︶ ︷︸ ︹︺ ︻︼ ︽︾ ︿﹀ ﹁﹂ ﹃﹄	直排括號,直式括號	wrap
+標點引括/句讀標點	， 。 、 ； ： ？ ！ …… ──	句讀,刪節號,省略號,點點點,破折號,句號,逗號,頓號,分號,冒號,問號,驚嘆號,感嘆號,ellipsis,dash	normal
+標點引括/連字間隔	· ‧ ～ — – ― ﹏ ＿ 〃	間隔號,音界號,波浪號,連接號,底線	normal
+幾何核取		幾何,形狀,圖形,geometry,shape	normal
+幾何核取/方框核取	□ ■ ☑ ☒ ▢ ▣ ▫ ▪ ⬜	方框,正方形,核取,核取方塊,空格框,空心框,實心框,方塊,框,box,square,checkbox	normal
+幾何核取/圓形環點	○ ● ◎ ◉ ◌ ◍ ◐ ◑ ◯	圓圈,圓形,空心圓,實心圓,雙圈,同心圓,圓點,圓,circle,dot	normal
+幾何核取/三角菱形	△ ▲ ▽ ▼ ◁ ▷ ◇ ◆ ◈	三角形,三角,正三角,倒三角,菱形,鑽石,triangle,diamond	normal
+幾何核取/星號花飾	☆ ★ ※ ✳ ✴ ✦ ✧ ❀ ❁	星星,星號,五角星,米字,米字號,重點,參考號,花飾,星,star,asterisk	normal
+幾何核取/勾叉對錯	✓ ✔ ✗ ✘ ⭕ ❌ ⊕ ⊖ ⊗	打勾,勾,勾勾,打叉,叉,叉叉,對錯,正確,錯誤,check,tick,cross	normal
+箭頭方向		箭頭,方向,指標,arrow,arrows	normal
+箭頭方向/單線箭頭	→ ← ↑ ↓ ↗ ↘ ↙ ↖ ↔	單線箭頭,右箭頭,左箭頭,上箭頭,下箭頭,雙向箭頭,right,left,up,down	normal
+箭頭方向/雙線推論	⇒ ⇐ ⇑ ⇓ ⇔ ⇖ ⇗ ⇘ ⇙	雙箭頭,雙線箭頭,推論,蘊含,等價,若且唯若,implies,iff	normal
+箭頭方向/實心指標	➔ ➜ ➤ ➢ ▶ ◀ ▲ ▼ ☞	粗箭頭,實心箭頭,手指,播放,pointer	normal
+箭頭方向/迴轉循環	↺ ↻ ↩ ↪ ⤴ ⤵ ⇄ ⇅ ⇌	循環,重整,迴轉,對調,來回,可逆,refresh,swap	normal
+數理邏輯		數學,數理,邏輯,算術,math,logic	normal
+數理邏輯/四則正負	＋ － × ÷ ± ∓ ＝ ≠ ≈	加減乘除,正負,正負號,乘號,除號,不等於,約等於,plus,minus,times,divide,pm,neq,approx	normal
+數理邏輯/大小比較	＜ ＞ ≤ ≥ ≦ ≧ ≪ ≫ ≡	小於等於,大於等於,恆等於,遠小於,遠大於,比較,leq,geq,equiv	normal
+數理邏輯/微積根號	√ ∛ ∞ ∑ ∏ ∫ ∂ ∇ ∝	根號,開根號,無限大,無窮大,無限,總和,連乘,積分,偏微分,梯度,正比,sqrt,inf,infinity,sum,integral	normal
+數理邏輯/集合邏輯	∈ ∉ ⊂ ⊆ ∪ ∩ ∅ ∀ ∃	屬於,不屬於,子集,聯集,交集,空集合,空集,任意,所有,存在,集合,in,subset,union,empty,forall,exists	normal
+數理邏輯/幾何比例	∵ ∴ ⊥ ∥ ∠ ∟ ‰ ‱ ∶	因為,所以,垂直,平行,角度,直角,千分比,萬分比,because,therefore,perp,parallel,angle	normal
+單位貨幣		單位,度量衡,貨幣,金錢,unit,currency	normal
+單位貨幣/溫度角度	℃ ℉ ° ′ ″ Å μ Ω ℧	溫度,攝氏,華氏,度,度數,歐姆,微,埃,deg,degree,celsius,fahrenheit,ohm,micro	normal
+單位貨幣/長度面積	㎜ ㎝ ㎞ ㎡ ㎢ ㎚ ㎛ 寸 尺	公釐,毫米,公分,厘米,公里,千米,平方公尺,長度,面積,mm,cm,km,m2	normal
+單位貨幣/重量容積	㎎ ㎏ ㏄ ㎖ ℓ ㎘ ㎐ ㎑ ㎒	毫克,公斤,千克,毫升,公升,赫茲,重量,容積,mg,kg,cc,ml,hz	normal
+單位貨幣/世界貨幣	NT$ ＄ ￥ € £ ¢ ₩ ₹ ฿	台幣,新台幣,美金,美元,日圓,日幣,歐元,英鎊,韓元,盧比,泰銖,ntd,usd,dollar,yen,euro,pound,won	normal
+序號圈碼		序號,編號,圈號,number,index	normal
+序號圈碼/白底圈號	① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ ⑪ ⑫ ⑬ ⑭ ⑮ ⑯ ⑰ ⑱ ⑲ ⑳	圈號,圓圈數字,白圈數字,circled	normal
+序號圈碼/黑底圈號	❶ ❷ ❸ ❹ ❺ ❻ ❼ ❽ ❾ ❿	黑圈,黑底圈號,實心圈號	normal
+序號圈碼/括弧點號	⑴ ⑵ ⑶ ⑷ ⑸ ⑹ ⑺ ⑻ ⑼ ⑽ ⒈ ⒉ ⒊ ⒋ ⒌ ⒍ ⒎ ⒏ ⒐ ⒑	括弧數字,括號數字,點號數字	normal
+序號圈碼/羅馬大寫	Ⅰ Ⅱ Ⅲ Ⅳ Ⅴ Ⅵ Ⅶ Ⅷ Ⅸ Ⅹ Ⅺ Ⅻ	羅馬數字,大寫羅馬數字,roman	normal
+序號圈碼/羅馬小寫	ⅰ ⅱ ⅲ ⅳ ⅴ ⅵ ⅶ ⅷ ⅸ ⅹ ⅺ ⅻ	小寫羅馬數字	normal
+序號圈碼/中文圈碼	㈠ ㈡ ㈢ ㈣ ㈤ ㈥ ㈦ ㈧ ㈨ ㈩ 甲 乙 丙 丁 戊 己 庚 辛 壬 癸	中文圈號,天干,甲乙丙丁	normal
+製表框線		製表,框線,表格,畫框,畫線,table,boxdraw	normal
+製表框線/細線九宮	┌ ┬ ┐ ├ ┼ ┤ └ ┴ ┘ ─ │	細線,細框,單線框	box
+製表框線/粗線九宮	┏ ┳ ┓ ┣ ╋ ┫ ┗ ┻ ┛ ━ ┃	粗線,粗框	box
+製表框線/雙線九宮	╔ ╦ ╗ ╠ ╬ ╣ ╚ ╩ ╝ ═ ║	雙線,雙線框	box
+製表框線/圓角區塊	╭ ╮ ╰ ╯ ▀ ▄ █ ▌ ▐ ░ ▒ ▓	圓角,圓角框,區塊,陰影,網底	normal
+語文音標		語文,音標,字母	normal
+語文音標/希臘大寫	Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω	希臘,希臘字母,大寫希臘,greek,alpha,beta,gamma,delta,omega	normal
+語文音標/希臘小寫	α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω	小寫希臘,pi,sigma,theta,lambda	normal
+語文音標/注音聲母	ㄅ ㄆ ㄇ ㄈ ㄉ ㄊ ㄋ ㄌ ㄍ ㄎ ㄏ ㄐ ㄑ ㄒ ㄓ ㄔ ㄕ ㄖ ㄗ ㄘ ㄙ	注音,注音符號,聲母,bopomofo	normal
+語文音標/注音韻調	ㄧ ㄨ ㄩ ㄚ ㄛ ㄜ ㄝ ㄞ ㄟ ㄠ ㄡ ㄢ ㄣ ㄤ ㄥ ㄦ ˊ ˇ ˋ ˙	韻母,聲調	normal
+特殊記號		特殊,記號,圖示	normal
+特殊記號/文書法務	§ ¶ © ® ™ ℗ ℠ № ℡	版權,著作權,商標,註冊商標,章節,段落號,copyright,tm	normal
+特殊記號/音樂棋牌	♪ ♫ ♩ ♬ ♭ ♮ ♯ ♠ ♥ ♦ ♣	音符,音樂,升記號,降記號,撲克,黑桃,紅心,梅花,music	normal
+特殊記號/天氣天象	☀ ☁ ☂ ☃ ⚡ ☼ ☽ ☾ ☄	天氣,太陽,晴天,雲,雨傘,雪人,閃電,月亮,weather,sun,moon	normal
+特殊記號/哲學心靈	☸ 🕉 ☯ ✡ ✝ 卍 ☮ ❀ ❖	法輪,太極,八卦,宗教,哲學,卍,和平,蓮花,om,dharma	normal

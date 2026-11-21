@@ -934,7 +934,7 @@ impl LexiconManager {
             self.sync_user_onomastic_entry(&entry);
         }
         let norm_bpm = LexiconEntry::normalize_bpm(&entry.bopomofo);
-        if entry.note == "auto_given_name" || entry.note == "ephemeral_given_name" {
+        if entry.note == "auto_given_name" {
             let mut max_homophone_wt = 0u32;
             if let Some(indices) = self.bopomofo_index.get(&norm_bpm) {
                 for &idx in indices {
@@ -1011,17 +1011,7 @@ impl LexiconManager {
         for b1 in &bpms_g1 {
             for b2 in &bpms_g2 {
                 let combined = format!("{} {}", b1, b2);
-                let norm_bpm = LexiconEntry::normalize_bpm(&combined);
-                let mut max_exact_wt = 0u32;
-                if let Some(indices) = self.bopomofo_index.get(&norm_bpm) {
-                    for &idx in indices {
-                        let e = &self.entries[idx];
-                        if e.word.chars().count() == 2 && e.weight > max_exact_wt {
-                            max_exact_wt = e.weight;
-                        }
-                    }
-                }
-                let eff_wt = 1150u32.max(max_exact_wt.saturating_add(100)).min(1800);
+                let eff_wt = 120u32;
                 self.upsert_entry(LexiconEntry::new(
                     given_word,
                     &combined,

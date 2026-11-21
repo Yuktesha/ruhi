@@ -20530,7 +20530,6 @@
 之名	集	15.0	collocation	A100_Gemma2_27B
 眾生	接	12.0	collocation	A100_Gemma2_27B
 何種	的為	10.0	collocation	A100_Gemma2_27B
-實在	地	30.0	collocation	A100_Gemma2_27B
 奉承	富	35.0	collocation	A100_Gemma2_27B
 的一	員	25.0	collocation	A100_Gemma2_27B
 喜悅	即	30.0	collocation	A100_Gemma2_27B
@@ -21017,7 +21016,6 @@
 分費	力及	25.0	collocation	A100_Gemma2_27B
 灌輸	美	-25.0	collocation	A100_Gemma2_27B
 制中	野	-30.0	collocation	A100_Gemma2_27B
-可能	是	-25.0	collocation	A100_Gemma2_27B
 第一	週	25.0	collocation	A100_Gemma2_27B
 尼拉	和	15.0	collocation	A100_Gemma2_27B
 天堂	和	15.0	collocation	A100_Gemma2_27B
@@ -21809,7 +21807,6 @@
 上四	像	-20.0	collocation	A100_Gemma2_27B
 人的	和	-15.0	collocation	A100_Gemma2_27B
 一種	儜	-25.0	collocation	A100_Gemma2_27B
-現在	是	-20.0	collocation	A100_Gemma2_27B
 品味	和	-15.0	collocation	A100_Gemma2_27B
 神	秘	25.0	collocation	A100_Gemma2_27B
 將自	深諳	15.0	collocation	A100_Gemma2_27B
@@ -24838,3 +24835,15 @@
 很	到位	28.0	collocation	2026-11-11 很 銜接 到位
 感覺	很	26.0	collocation	2026-11-11 感覺 銜接 很
 部份	的	35.0	collocation	結構助詞
+再度	靈魂	26.0	collocation	Tailcat_Community_Verified
+靈魂	拷問	28.0	collocation	Tailcat_Community_Verified
+在	極簡	32.0	user_attractor	2026-11-17
+曹	非羽	28.0	entity_decomp	2026-11-17
+叫	非羽	20.0	entity_decomp	2026-11-17
+找	非羽	18.0	entity_decomp	2026-11-17
+我是	非羽	22.0	entity_decomp	2026-11-17
+老婆	吳玟蓉	32.0	user_attractor	2026-11-18
+吳	玟蓉	28.0	entity_decomp	2026-11-18
+叫	玟蓉	20.0	entity_decomp	2026-11-18
+找	玟蓉	18.0	entity_decomp	2026-11-18
+我是	玟蓉	22.0	entity_decomp	2026-11-18

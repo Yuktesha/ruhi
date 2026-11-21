@@ -260,6 +260,21 @@ pub struct GrammarSettings {
     /// - `"maintainer"` (Lv.3 核心總工程師模式：完整開放全域 `patterns_user.jsonl` 多維槽位陣列編輯、黃金基準入庫與 Tailcat 發布)
     #[serde(default = "default_studio_access_tier")]
     pub studio_access_tier: String,
+    /// 文言單字語體引擎模式（`"auto"` 預設自動偵測 / `"off"` 停用 / `"explicit"` 手動強制開啟）
+    #[serde(default = "default_classical_mode")]
+    pub classical_mode: String,
+}
+
+pub fn default_classical_mode() -> String {
+    "auto".to_string()
+}
+
+pub fn normalize_classical_mode(raw: &str) -> String {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "off" | "modern_only" | "modern" => "off".to_string(),
+        "explicit" | "classical_explicit" => "explicit".to_string(),
+        _ => "auto".to_string(),
+    }
 }
 
 pub fn default_studio_access_tier() -> String {
@@ -274,6 +289,7 @@ impl Default for GrammarSettings {
             enable_colloquial_biases: true,
             enable_hot_reload: true,
             studio_access_tier: default_studio_access_tier(),
+            classical_mode: default_classical_mode(),
         }
     }
 }
@@ -740,6 +756,9 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
                 settings.grammar.studio_access_tier = trimmed.to_string();
             }
         }
+        if let Some(v) = gr.get("classical_mode").and_then(Value::as_str) {
+            settings.grammar.classical_mode = normalize_classical_mode(v);
+        }
     }
 
     if let Some(ai) = val.get("ai_and_privacy").and_then(Value::as_object) {
@@ -932,6 +951,9 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
             settings.grammar.studio_access_tier = trimmed.to_string();
         }
     }
+    if let Some(v) = map.get("classical_mode").and_then(Value::as_str) {
+        settings.grammar.classical_mode = normalize_classical_mode(v);
+    }
 }
 
 /// 確保目前預設鍵盤模式一定包含在 `enabled_keyboard_modes` 清單中
@@ -996,6 +1018,7 @@ pub fn mount_single_keyboard_mode_only(settings: &mut RuhiSettings, code: &str) 
 /// 儲存 `settings_config.json` 並同步所有 `config.json` 路徑（供 `ruhi-tsf` 即時讀取）
 pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), String> {
     ensure_keyboard_modes_consistent(settings);
+    settings.grammar.classical_mode = normalize_classical_mode(&settings.grammar.classical_mode);
 
     let pretty_settings = serde_json::to_string_pretty(settings)
         .map_err(|e| format!("序列化 settings_config.json 失敗: {e}"))?;
@@ -1200,6 +1223,10 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
             "studio_access_tier".to_string(),
             json!(settings.grammar.studio_access_tier),
         );
+        map.insert(
+            "classical_mode".to_string(),
+            json!(settings.grammar.classical_mode),
+        );
 
         if let Ok(s) = serde_json::to_string_pretty(&Value::Object(map)) {
             let _ = fs::write(flat_path, s);
@@ -1353,6 +1380,67 @@ mod tests {
                 .and_then(|k| k.get("western_languages")),
             Some(&json!(["en"]))
         );
+
+        let _ = fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn test_classical_mode_config_roundtrip() {
+        let tmp_dir = std::env::temp_dir().join(format!(
+            "ruhi_classical_mode_test_{}_{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        ));
+        let _ = fs::create_dir_all(&tmp_dir);
+
+        // 1. 預設模式必須為 "auto"
+        let initial = load_settings(&tmp_dir);
+        assert_eq!(initial.grammar.classical_mode, "auto");
+
+        // 2. 不明字串自動正規化回 "auto"，"off" / "explicit" 完整雙檔往返同步
+        let mut s = initial;
+        s.grammar.classical_mode = "unknown_value".to_string();
+        save_settings(&tmp_dir, &mut s).unwrap();
+        assert_eq!(s.grammar.classical_mode, "auto");
+        let flat_norm: Value =
+            serde_json::from_str(&fs::read_to_string(tmp_dir.join("config.json")).unwrap())
+                .unwrap();
+        assert_eq!(flat_norm.get("classical_mode"), Some(&json!("auto")));
+        let nested_norm: Value = serde_json::from_str(
+            &fs::read_to_string(tmp_dir.join("settings_config.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            nested_norm.get("grammar").and_then(|g| g.get("classical_mode")),
+            Some(&json!("auto"))
+        );
+
+        for target in ["off", "explicit", "auto"] {
+            s.grammar.classical_mode = target.to_string();
+            save_settings(&tmp_dir, &mut s).unwrap();
+
+            let flat: Value =
+                serde_json::from_str(&fs::read_to_string(tmp_dir.join("config.json")).unwrap())
+                    .unwrap();
+            assert_eq!(flat.get("classical_mode"), Some(&json!(target)));
+
+            let nested: Value = serde_json::from_str(
+                &fs::read_to_string(tmp_dir.join("settings_config.json")).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(
+                nested.get("grammar").and_then(|g| g.get("classical_mode")),
+                Some(&json!(target))
+            );
+
+            let reloaded = load_settings(&tmp_dir);
+            assert_eq!(reloaded.grammar.classical_mode, target);
+        }
+
+        // 3. 驗證扁平 config.json 覆寫可被正確合併
+        fs::write(tmp_dir.join("config.json"), r#"{"classical_mode":"off"}"#).unwrap();
+        let overridden = load_settings(&tmp_dir);
+        assert_eq!(overridden.grammar.classical_mode, "off");
 
         let _ = fs::remove_dir_all(&tmp_dir);
     }

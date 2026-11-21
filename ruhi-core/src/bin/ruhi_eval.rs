@@ -1270,6 +1270,2349 @@ pub fn run_ablation_study(
     })
 }
 
+const DERIVED_FAMILIES: [&str; 31] = [
+    // Stratum 1: Glued Pronoun / Modal / Adverb / Neg-Copula Bigrams
+    "pref2_pronoun",
+    "pref2_modal_copula",
+    "pref2_adverb",
+    "suf2_neg_cop_exist",
+    // Stratum 2: Particle-Attached Bigrams
+    "suf2_de_struct",
+    "suf2_de_comp",
+    "suf2_di",
+    "suf2_le",
+    "suf2_zhe",
+    "suf2_guo",
+    "suf2_modal_particle",
+    // Stratum 3: Negation / Existence / Demonstrative / Quantifier Prefixed Bigrams
+    "pref2_bu",
+    "pref2_mei",
+    "pref2_you",
+    "pref2_zai",
+    "pref2_dem_quant",
+    // Stratum 4: Verb-Complement / Directional Bigrams
+    "suf2_dao",
+    "suf2_chu",
+    "suf2_lai_qu",
+    // Stratum 5: Transparent 3-Char Function-Word Phrases
+    "tri_xx_de",
+    "tri_xx_aspect",
+    "tri_x_de_y",
+    "tri_x_le_y",
+    "tri_bu_xx",
+    "tri_mei_xx",
+    "tri_you_xx",
+    "tri_x_bu_y",
+    "tri_x_de2_y",
+    "tri_x_yi_y",
+    // Stratum 6: Legacy High-Weight Multi-Char Outliers
+    "outlier_wt_ge_800",
+    "outlier_wt_ge_800_derived",
+];
+
+/// Classify a lexicon word (char len >= 2) into overlapping structural/derived families.
+fn classify_derived_families(word: &str, max_weight: u32) -> Vec<&'static str> {
+    let chars: Vec<char> = word.chars().collect();
+    let len = chars.len();
+    if len < 2 {
+        return Vec::new();
+    }
+
+    let mut fams = Vec::new();
+    if len == 2 {
+        if matches!(chars[0], '我' | '你' | '妳' | '他' | '她' | '它' | '牠' | '祂')
+            && chars[1] != '們'
+        {
+            fams.push("pref2_pronoun");
+        }
+        if matches!(chars[0], '要' | '會' | '能' | '可' | '該' | '是') {
+            fams.push("pref2_modal_copula");
+        }
+        if matches!(
+            chars[0],
+            '很' | '太' | '最' | '更' | '都' | '也' | '就' | '才' | '再' | '又' | '還'
+        ) {
+            fams.push("pref2_adverb");
+        }
+        if matches!(chars[1], '不' | '沒' | '是' | '在' | '有') {
+            fams.push("suf2_neg_cop_exist");
+        }
+        if chars[1] == '的' {
+            fams.push("suf2_de_struct");
+        }
+        if chars[1] == '得' {
+            fams.push("suf2_de_comp");
+        }
+        if chars[1] == '地' {
+            fams.push("suf2_di");
+        }
+        if chars[1] == '了' {
+            fams.push("suf2_le");
+        }
+        if chars[1] == '著' {
+            fams.push("suf2_zhe");
+        }
+        if chars[1] == '過' {
+            fams.push("suf2_guo");
+        }
+        if matches!(chars[1], '嗎' | '呢' | '吧' | '啊' | '呀' | '嘛' | '啦') {
+            fams.push("suf2_modal_particle");
+        }
+        if chars[0] == '不' {
+            fams.push("pref2_bu");
+        }
+        if chars[0] == '沒' {
+            fams.push("pref2_mei");
+        }
+        if chars[0] == '有' {
+            fams.push("pref2_you");
+        }
+        if chars[0] == '在' {
+            fams.push("pref2_zai");
+        }
+        if matches!(chars[0], '這' | '那' | '哪' | '每' | '各' | '某' | '其' | '所') {
+            fams.push("pref2_dem_quant");
+        }
+        if chars[1] == '到' {
+            fams.push("suf2_dao");
+        }
+        if chars[1] == '出' {
+            fams.push("suf2_chu");
+        }
+        if matches!(chars[1], '來' | '去') {
+            fams.push("suf2_lai_qu");
+        }
+    } else if len == 3 {
+        if chars[2] == '的' {
+            fams.push("tri_xx_de");
+        }
+        if matches!(chars[2], '得' | '了' | '著' | '過') {
+            fams.push("tri_xx_aspect");
+        }
+        if chars[1] == '的' {
+            fams.push("tri_x_de_y");
+        }
+        if chars[1] == '了' {
+            fams.push("tri_x_le_y");
+        }
+        if chars[0] == '不' {
+            fams.push("tri_bu_xx");
+        }
+        if chars[0] == '沒' {
+            fams.push("tri_mei_xx");
+        }
+        if chars[0] == '有' {
+            fams.push("tri_you_xx");
+        }
+        if chars[1] == '不' {
+            fams.push("tri_x_bu_y");
+        }
+        if chars[1] == '得' {
+            fams.push("tri_x_de2_y");
+        }
+        if chars[1] == '一' {
+            fams.push("tri_x_yi_y");
+        }
+    }
+
+    let is_structural_derived = !fams.is_empty();
+    if max_weight >= 800 {
+        fams.push("outlier_wt_ge_800");
+        if is_structural_derived {
+            fams.push("outlier_wt_ge_800_derived");
+        }
+    }
+    fams
+}
+
+struct RemovedWordSetMetrics {
+    delta_char_errors: isize,
+    ablated_cer: f64,
+    delta_cer_pp: f64,
+    fixed_sents: usize,
+    broken_sents: usize,
+    char_improved_sents: usize,
+    char_degraded_sents: usize,
+    mcnemar_chi_square: f64,
+    mcnemar_p_value: f64,
+    per_category_delta_char_errors: BTreeMap<String, isize>,
+}
+
+/// Filter multi-char nodes matching `remove_set` from a single sentence's lattice DAG while keeping all length-1 nodes intact.
+fn filter_dag_excluding(
+    dag: &HashMap<usize, Vec<ruhi::router::LatticeNode>>,
+    remove_set: &HashSet<String>,
+) -> HashMap<usize, Vec<ruhi::router::LatticeNode>> {
+    let mut out = HashMap::with_capacity(dag.len());
+    for (&pos, nodes) in dag {
+        let filtered: Vec<ruhi::router::LatticeNode> = nodes
+            .iter()
+            .filter(|n| n.length() == 1 || !remove_set.contains(&n.word))
+            .cloned()
+            .collect();
+        out.insert(pos, filtered);
+    }
+    out
+}
+
+/// Compute McNemar continuity-corrected chi-square and two-sided p-value.
+fn compute_mcnemar(fixed_sents: usize, broken_sents: usize) -> (f64, f64) {
+    let discord = fixed_sents + broken_sents;
+    if discord == 0 {
+        return (0.0, 1.0);
+    }
+    let diff = (fixed_sents as f64 - broken_sents as f64).abs();
+    let num = (diff - 1.0).max(0.0);
+    let chi_square = (num * num) / (discord as f64);
+    let p_value = if chi_square > 0.0 {
+        erfc_approx((chi_square / 2.0).sqrt())
+    } else {
+        1.0
+    };
+    (chi_square, p_value)
+}
+
+/// Evaluate removal of `remove_set` across only the affected `touched_sents` in parallel.
+fn eval_removed_word_set(
+    base_engine: &RuhiEngine,
+    compiled: &[CompiledSentence],
+    dags: &[HashMap<usize, Vec<ruhi::router::LatticeNode>>],
+    base_errors: &[usize],
+    base_exact: &[bool],
+    total_chars: usize,
+    base_total_errors: usize,
+    base_cer: f64,
+    remove_set: &HashSet<String>,
+    touched_sents: &[usize],
+) -> RemovedWordSetMetrics {
+    if touched_sents.is_empty() || remove_set.is_empty() {
+        return RemovedWordSetMetrics {
+            delta_char_errors: 0,
+            ablated_cer: base_cer,
+            delta_cer_pp: 0.0,
+            fixed_sents: 0,
+            broken_sents: 0,
+            char_improved_sents: 0,
+            char_degraded_sents: 0,
+            mcnemar_chi_square: 0.0,
+            mcnemar_p_value: 1.0,
+            per_category_delta_char_errors: BTreeMap::new(),
+        };
+    }
+
+    let n_threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(16);
+
+    let eval_chunk = |chunk: &[usize],
+                      trans: &mut ruhi::router::transitions::TransitionEngine|
+     -> (isize, usize, usize, usize, usize, BTreeMap<String, isize>) {
+        let mut diff_errs = 0isize;
+        let mut fixed = 0usize;
+        let mut broken = 0usize;
+        let mut improved = 0usize;
+        let mut degraded = 0usize;
+        let mut cat_diff: BTreeMap<String, isize> = BTreeMap::new();
+
+        for &s_idx in chunk {
+            let cs = &compiled[s_idx];
+            let f_dag = filter_dag_excluding(&dags[s_idx], remove_set);
+            let (nodes, _) =
+                base_engine
+                    .router
+                    .solve_best_path(cs.syllables.len(), &f_dag, Some(trans));
+            let pred: String = nodes.iter().map(|n| n.word.as_str()).collect();
+            let ablated_errs = char_levenshtein(&pred, &cs.item.text);
+            let orig_errs = base_errors[s_idx];
+            let d = (ablated_errs as isize) - (orig_errs as isize);
+            if d != 0 {
+                diff_errs += d;
+                *cat_diff.entry(cs.item.category.clone()).or_insert(0) += d;
+            }
+            if !base_exact[s_idx] && ablated_errs == 0 {
+                fixed += 1;
+            } else if base_exact[s_idx] && ablated_errs > 0 {
+                broken += 1;
+            }
+            if ablated_errs < orig_errs {
+                improved += 1;
+            } else if ablated_errs > orig_errs {
+                degraded += 1;
+            }
+        }
+        (diff_errs, fixed, broken, improved, degraded, cat_diff)
+    };
+
+    let (delta_char_errors, fixed_sents, broken_sents, char_improved_sents, char_degraded_sents, per_cat) =
+        if touched_sents.len() <= 32 || n_threads <= 1 {
+            let mut worker_trans = base_engine.transitions.clone();
+            eval_chunk(touched_sents, &mut worker_trans)
+        } else {
+            let chunk_size = (touched_sents.len() + n_threads - 1) / n_threads.max(1);
+            let parts: Vec<_> = std::thread::scope(|s| {
+                let mut handles = Vec::new();
+                for chunk in touched_sents.chunks(chunk_size) {
+                    let mut worker_trans = base_engine.transitions.clone();
+                    handles.push(s.spawn(move || eval_chunk(chunk, &mut worker_trans)));
+                }
+                handles.into_iter().map(|h| h.join().unwrap()).collect()
+            });
+            let mut delta = 0isize;
+            let mut fixed = 0usize;
+            let mut broken = 0usize;
+            let mut improved = 0usize;
+            let mut degraded = 0usize;
+            let mut cat_diff: BTreeMap<String, isize> = BTreeMap::new();
+            for (d, fx, brk, imp, deg, cd) in parts {
+                delta += d;
+                fixed += fx;
+                broken += brk;
+                improved += imp;
+                degraded += deg;
+                for (k, v) in cd {
+                    *cat_diff.entry(k).or_insert(0) += v;
+                }
+            }
+            (delta, fixed, broken, improved, degraded, cat_diff)
+        };
+
+    let ablated_total_errs = (base_total_errors as isize + delta_char_errors).max(0) as usize;
+    let ablated_cer = ablated_total_errs as f64 / total_chars.max(1) as f64;
+    let delta_cer_pp = (ablated_cer - base_cer) * 100.0;
+    let (mcnemar_chi_square, mcnemar_p_value) = compute_mcnemar(fixed_sents, broken_sents);
+
+    RemovedWordSetMetrics {
+        delta_char_errors,
+        ablated_cer,
+        delta_cer_pp,
+        fixed_sents,
+        broken_sents,
+        char_improved_sents,
+        char_degraded_sents,
+        mcnemar_chi_square,
+        mcnemar_p_value,
+        per_category_delta_char_errors: per_cat,
+    }
+}
+
+fn family_verdict(m: &RemovedWordSetMetrics) -> &'static str {
+    if m.delta_char_errors < 0 && m.broken_sents <= m.fixed_sents {
+        "NET_BENEFICIAL_TO_REMOVE"
+    } else if m.delta_char_errors == 0 && m.fixed_sents == m.broken_sents {
+        "NEUTRAL_PRUNABLE"
+    } else if m.delta_char_errors <= 10
+        || (m.fixed_sents > 0 && m.broken_sents > 0 && m.fixed_sents * 2 >= m.broken_sents)
+    {
+        "MIXED_SELECTIVE"
+    } else {
+        "KEEP_OR_FACTORIZE_FIRST"
+    }
+}
+
+/// 執行衍生詞庫系統性盤查、家族與單詞級離線因果消融暨 `multi_char_bonus` 靈敏度實驗 (`--lexicon-ablation`)
+pub fn run_lexicon_ablation_study(
+    base_engine: &RuhiEngine,
+    compiled: &[CompiledSentence],
+    root: &Path,
+) -> Value {
+    let t_start = Instant::now();
+    println!(
+        "[LexiconAblation] 正在掃描 lexicon_core.tsv 與 {} 句開發集 (dev.tsv) 之全晶格結構...",
+        compiled.len()
+    );
+
+    // Layer 1a: Read lexicon_core.tsv for census
+    let lex_path = root.join("ruhi_lexicon").join("data").join("lexicon_core.tsv");
+    let lex_content = fs::read_to_string(&lex_path).expect("無法讀取 ruhi_lexicon/data/lexicon_core.tsv");
+    let mut lex_max_weight: HashMap<String, u32> = HashMap::new();
+    for line in lex_content.lines() {
+        let t = line.trim();
+        if t.is_empty() || t.starts_with('#') {
+            continue;
+        }
+        let mut cols = t.split('\t');
+        let Some(w) = cols.next() else { continue };
+        let Some(_bpm) = cols.next() else { continue };
+        let Some(wt_str) = cols.next() else { continue };
+        let Ok(wt) = wt_str.trim().parse::<u32>() else { continue };
+        let entry = lex_max_weight.entry(w.to_string()).or_insert(0);
+        if wt > *entry {
+            *entry = wt;
+        }
+    }
+
+    let mut fam_lex_total: HashMap<&'static str, usize> = HashMap::new();
+    let mut fam_lex_active: HashMap<&'static str, usize> = HashMap::new();
+    let mut derived_union_all_words = 0usize;
+    let mut derived_union_active_words = 0usize;
+    let mut outlier_800_all_words = 0usize;
+
+    for (w, &wt) in &lex_max_weight {
+        if w.chars().count() < 2 {
+            continue;
+        }
+        let fams = classify_derived_families(w, wt);
+        let mut has_1_to_29 = false;
+        for &f in &fams {
+            *fam_lex_total.entry(f).or_insert(0) += 1;
+            if wt >= 90 {
+                *fam_lex_active.entry(f).or_insert(0) += 1;
+            }
+            if f != "outlier_wt_ge_800" && f != "outlier_wt_ge_800_derived" {
+                has_1_to_29 = true;
+            }
+        }
+        if has_1_to_29 {
+            derived_union_all_words += 1;
+            if wt >= 90 {
+                derived_union_active_words += 1;
+            }
+        }
+        if wt >= 800 {
+            outlier_800_all_words += 1;
+        }
+    }
+
+    // Layer 1b: Build cached DAGs & compute baseline predictions in parallel
+    let n_threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(16);
+    let chunk_size = (compiled.len() + n_threads - 1) / n_threads.max(1);
+
+    let per_sent_base: Vec<(
+        HashMap<usize, Vec<ruhi::router::LatticeNode>>,
+        usize,
+        bool,
+        usize,
+        Vec<String>,
+        Vec<String>,
+    )> = std::thread::scope(|s| {
+        let mut handles = Vec::new();
+        for chunk in compiled.chunks(chunk_size) {
+            let dag_builder = LatticeDAG::new(&base_engine.lexicon);
+            let mut worker_trans = base_engine.transitions.clone();
+            handles.push(s.spawn(move || {
+                let mut out = Vec::with_capacity(chunk.len());
+                for cs in chunk {
+                    let dag = dag_builder.build_dag(&cs.syllables, true);
+                    let (best_nodes, _) = base_engine.router.solve_best_path(
+                        cs.syllables.len(),
+                        &dag,
+                        Some(&mut worker_trans),
+                    );
+                    let pred: String = best_nodes.iter().map(|n| n.word.as_str()).collect();
+                    let ch_len = cs.item.text.chars().count();
+                    let errs = char_levenshtein(&pred, &cs.item.text);
+
+                    let mut multi_in_dag: HashSet<String> = HashSet::new();
+                    for nodes in dag.values() {
+                        for n in nodes {
+                            if n.length() >= 2 && n.word.chars().count() >= 2 {
+                                multi_in_dag.insert(n.word.clone());
+                            }
+                        }
+                    }
+                    let best_multi: Vec<String> = best_nodes
+                        .iter()
+                        .filter(|n| n.length() >= 2 && n.word.chars().count() >= 2)
+                        .map(|n| n.word.clone())
+                        .collect();
+                    out.push((
+                        dag,
+                        errs,
+                        errs == 0,
+                        ch_len,
+                        multi_in_dag.into_iter().collect(),
+                        best_multi,
+                    ));
+                }
+                out
+            }));
+        }
+        handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
+    });
+
+    let mut dags = Vec::with_capacity(compiled.len());
+    let mut base_errors = Vec::with_capacity(compiled.len());
+    let mut base_exact = Vec::with_capacity(compiled.len());
+    let mut total_chars = 0usize;
+    let mut base_total_errors = 0usize;
+    let mut base_exact_count = 0usize;
+    let mut base_per_cat: BTreeMap<String, (usize, usize, usize, usize)> = BTreeMap::new();
+
+    let mut word_to_touched_sents: HashMap<String, Vec<usize>> = HashMap::new();
+    let mut word_best_hits: HashMap<String, usize> = HashMap::new();
+    let mut word_error_hits: HashMap<String, usize> = HashMap::new();
+
+    for (s_idx, (dag, errs, is_exact, ch_len, dag_words, best_multi)) in
+        per_sent_base.into_iter().enumerate()
+    {
+        total_chars += ch_len;
+        base_total_errors += errs;
+        if is_exact {
+            base_exact_count += 1;
+        }
+        let ce = base_per_cat
+            .entry(compiled[s_idx].item.category.clone())
+            .or_insert((0, 0, 0, 0));
+        ce.0 += 1;
+        ce.1 += ch_len;
+        ce.2 += errs;
+        if is_exact {
+            ce.3 += 1;
+        }
+
+        for w in dag_words {
+            word_to_touched_sents.entry(w).or_default().push(s_idx);
+        }
+        let mut seen_best = HashSet::new();
+        for w in best_multi {
+            if seen_best.insert(w.clone()) {
+                *word_best_hits.entry(w.clone()).or_insert(0) += 1;
+                if errs > 0 {
+                    *word_error_hits.entry(w).or_insert(0) += 1;
+                }
+            }
+        }
+        dags.push(dag);
+        base_errors.push(errs);
+        base_exact.push(is_exact);
+    }
+
+    let base_cer = base_total_errors as f64 / total_chars.max(1) as f64;
+    let base_ser = base_exact_count as f64 / compiled.len().max(1) as f64;
+
+    // Index families over touched multi-char words in dev DAGs
+    let mut family_to_words: HashMap<&'static str, HashSet<String>> = HashMap::new();
+    let mut family_to_touched_set: HashMap<&'static str, HashSet<usize>> = HashMap::new();
+    let mut word_families_cache: HashMap<String, Vec<&'static str>> = HashMap::new();
+
+    for (w, sents) in &word_to_touched_sents {
+        let wt = lex_max_weight.get(w).copied().unwrap_or(0);
+        let fams = classify_derived_families(w, wt);
+        if !fams.is_empty() {
+            for &f in &fams {
+                family_to_words.entry(f).or_default().insert(w.clone());
+                let st = family_to_touched_set.entry(f).or_default();
+                for &si in sents {
+                    st.insert(si);
+                }
+            }
+            word_families_cache.insert(w.clone(), fams);
+        }
+    }
+
+    println!(
+        "[LexiconAblation] 基準 CER {:.4}% ({} 字錯 / {} 句精準), 已觸及 {} 個多字詞與 {} 個衍生詞",
+        base_cer * 100.0,
+        base_total_errors,
+        base_exact_count,
+        word_to_touched_sents.len(),
+        word_families_cache.len()
+    );
+
+    // Layer 2: Macro Family Ablation (all 31 families)
+    let mut family_ablation = Vec::with_capacity(DERIVED_FAMILIES.len());
+    for &fam in &DERIVED_FAMILIES {
+        let remove_words = family_to_words.get(fam).cloned().unwrap_or_default();
+        let mut touched_sents: Vec<usize> = family_to_touched_set
+            .get(fam)
+            .map(|st| st.iter().copied().collect())
+            .unwrap_or_default();
+        touched_sents.sort_unstable();
+
+        let metrics = eval_removed_word_set(
+            base_engine,
+            compiled,
+            &dags,
+            &base_errors,
+            &base_exact,
+            total_chars,
+            base_total_errors,
+            base_cer,
+            &remove_words,
+            &touched_sents,
+        );
+        let verdict = family_verdict(&metrics);
+        family_ablation.push(json!({
+            "family": fam,
+            "lexicon_total_words": fam_lex_total.get(fam).copied().unwrap_or(0),
+            "lexicon_active_wt_ge_90": fam_lex_active.get(fam).copied().unwrap_or(0),
+            "dev_touched_words": remove_words.len(),
+            "dev_touched_sentences": touched_sents.len(),
+            "delta_char_errors": metrics.delta_char_errors,
+            "ablated_cer": round4_f64(metrics.ablated_cer * 100.0),
+            "ablated_cer_percent": format!("{:.4}%", metrics.ablated_cer * 100.0),
+            "delta_cer_percentage_points": format!("{:+.4}%", metrics.delta_cer_pp),
+            "fixed_sentences": metrics.fixed_sents,
+            "broken_sentences": metrics.broken_sents,
+            "char_improved_sentences": metrics.char_improved_sents,
+            "char_degraded_sentences": metrics.char_degraded_sents,
+            "mcnemar_chi_square": round4_f64(metrics.mcnemar_chi_square),
+            "mcnemar_p_value": metrics.mcnemar_p_value,
+            "per_category_delta_char_errors": metrics.per_category_delta_char_errors,
+            "verdict": verdict
+        }));
+    }
+
+    // Layer 3: Micro Word-Level Leave-One-Out (LOO) Causal Attribution
+    #[derive(Clone)]
+    struct LooCandidate {
+        word: String,
+        char_len: usize,
+        weight: u32,
+        is_derived_1_29: bool,
+        families: Vec<&'static str>,
+        touched_sents: Vec<usize>,
+        best_hits: usize,
+        error_hits: usize,
+    }
+
+    #[derive(Clone, serde::Serialize)]
+    struct LooResult {
+        word: String,
+        char_len: usize,
+        lexicon_weight: u32,
+        is_derived: bool,
+        families: Vec<&'static str>,
+        touched_sents: usize,
+        best_path_hits: usize,
+        error_path_hits: usize,
+        delta_char_errors: isize,
+        fixed_sents: usize,
+        broken_sents: usize,
+        char_improved_sents: usize,
+        char_degraded_sents: usize,
+    }
+
+    let mut loo_candidates: Vec<LooCandidate> = Vec::new();
+    for (w, sents) in &word_to_touched_sents {
+        let wt = lex_max_weight.get(w).copied().unwrap_or(0);
+        let fams = word_families_cache.get(w).cloned().unwrap_or_default();
+        let best_hits = word_best_hits.get(w).copied().unwrap_or(0);
+        let error_hits = word_error_hits.get(w).copied().unwrap_or(0);
+        let is_derived_1_29 = fams
+            .iter()
+            .any(|&f| f != "outlier_wt_ge_800" && f != "outlier_wt_ge_800_derived");
+        let include = !fams.is_empty() || error_hits >= 1;
+        if include {
+            loo_candidates.push(LooCandidate {
+                word: w.clone(),
+                char_len: w.chars().count(),
+                weight: wt,
+                is_derived_1_29,
+                families: fams,
+                touched_sents: sents.clone(),
+                best_hits,
+                error_hits,
+            });
+        }
+    }
+    loo_candidates.sort_by(|a, b| a.word.cmp(&b.word));
+    println!(
+        "[LexiconAblation] 正在平行執行 {} 個候選詞之單詞級 Leave-One-Out 因果驗證...",
+        loo_candidates.len()
+    );
+
+    let loo_chunk = (loo_candidates.len() + n_threads - 1) / n_threads.max(1);
+    let dags_ref = dags.as_slice();
+    let base_errors_ref = base_errors.as_slice();
+    let base_exact_ref = base_exact.as_slice();
+    let loo_results: Vec<LooResult> = if loo_candidates.is_empty() {
+        Vec::new()
+    } else {
+        std::thread::scope(|s| {
+            let mut handles = Vec::new();
+            for chunk in loo_candidates.chunks(loo_chunk) {
+                let mut worker_trans = base_engine.transitions.clone();
+                handles.push(s.spawn(move || {
+                    let mut out = Vec::with_capacity(chunk.len());
+                    for cand in chunk {
+                        let mut d_errs = 0isize;
+                        let mut fixed = 0usize;
+                        let mut broken = 0usize;
+                        let mut imp = 0usize;
+                        let mut deg = 0usize;
+                        for &s_idx in &cand.touched_sents {
+                            let cs = &compiled[s_idx];
+                            let mut f_dag = HashMap::with_capacity(dags_ref[s_idx].len());
+                            for (&pos, nodes) in &dags_ref[s_idx] {
+                                let kept: Vec<ruhi::router::LatticeNode> = nodes
+                                    .iter()
+                                    .filter(|n| n.length() == 1 || n.word != cand.word)
+                                    .cloned()
+                                    .collect();
+                                f_dag.insert(pos, kept);
+                            }
+                            let (nodes, _) = base_engine.router.solve_best_path(
+                                cs.syllables.len(),
+                                &f_dag,
+                                Some(&mut worker_trans),
+                            );
+                            let pred: String = nodes.iter().map(|n| n.word.as_str()).collect();
+                            let ab_e = char_levenshtein(&pred, &cs.item.text);
+                            let orig_e = base_errors_ref[s_idx];
+                            d_errs += (ab_e as isize) - (orig_e as isize);
+                            if !base_exact_ref[s_idx] && ab_e == 0 {
+                                fixed += 1;
+                            } else if base_exact_ref[s_idx] && ab_e > 0 {
+                                broken += 1;
+                            }
+                            if ab_e < orig_e {
+                                imp += 1;
+                            } else if ab_e > orig_e {
+                                deg += 1;
+                            }
+                        }
+                        out.push(LooResult {
+                            word: cand.word.clone(),
+                            char_len: cand.char_len,
+                            lexicon_weight: cand.weight,
+                            is_derived: cand.is_derived_1_29,
+                            families: cand.families.clone(),
+                            touched_sents: cand.touched_sents.len(),
+                            best_path_hits: cand.best_hits,
+                            error_path_hits: cand.error_hits,
+                            delta_char_errors: d_errs,
+                            fixed_sents: fixed,
+                            broken_sents: broken,
+                            char_improved_sents: imp,
+                            char_degraded_sents: deg,
+                        });
+                    }
+                    out
+                }));
+            }
+            handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
+        })
+    };
+
+    // Aggregate LOO statistics
+    let mut derived_harmful_count = 0usize;
+    let mut derived_strict_harmful_count = 0usize;
+    let mut derived_neutral_count = 0usize;
+    let mut derived_helpful_count = 0usize;
+
+    let mut derived_harmful: Vec<&LooResult> = Vec::new();
+    let mut derived_helpful: Vec<&LooResult> = Vec::new();
+    let mut non_derived_harmful: Vec<&LooResult> = Vec::new();
+
+    for r in &loo_results {
+        if r.is_derived {
+            if r.delta_char_errors < 0 {
+                derived_harmful_count += 1;
+                if r.broken_sents == 0 {
+                    derived_strict_harmful_count += 1;
+                }
+                derived_harmful.push(r);
+            } else if r.delta_char_errors > 0 {
+                derived_helpful_count += 1;
+                derived_helpful.push(r);
+            } else {
+                derived_neutral_count += 1;
+            }
+        } else if r.delta_char_errors < 0 {
+            non_derived_harmful.push(r);
+        }
+    }
+
+    derived_harmful.sort_by(|a, b| {
+        a.delta_char_errors
+            .cmp(&b.delta_char_errors)
+            .then_with(|| a.broken_sents.cmp(&b.broken_sents))
+            .then_with(|| b.fixed_sents.cmp(&a.fixed_sents))
+            .then_with(|| a.word.cmp(&b.word))
+    });
+    derived_helpful.sort_by(|a, b| {
+        b.delta_char_errors
+            .cmp(&a.delta_char_errors)
+            .then_with(|| b.broken_sents.cmp(&a.broken_sents))
+            .then_with(|| a.word.cmp(&b.word))
+    });
+    non_derived_harmful.sort_by(|a, b| {
+        a.delta_char_errors
+            .cmp(&b.delta_char_errors)
+            .then_with(|| a.broken_sents.cmp(&b.broken_sents))
+            .then_with(|| b.fixed_sents.cmp(&a.fixed_sents))
+            .then_with(|| a.word.cmp(&b.word))
+    });
+
+    // Per-family LOO breakdown across all 31 families
+    let mut per_family_loo = Vec::with_capacity(DERIVED_FAMILIES.len());
+    for &fam in &DERIVED_FAMILIES {
+        let mut mems: Vec<&LooResult> = loo_results
+            .iter()
+            .filter(|r| r.families.contains(&fam))
+            .collect();
+        let mut h_cnt = 0usize;
+        let mut k_cnt = 0usize;
+        let mut n_cnt = 0usize;
+        let mut sum_harm_d = 0isize;
+        let mut sum_help_d = 0isize;
+        for &m in &mems {
+            if m.delta_char_errors < 0 {
+                h_cnt += 1;
+                sum_harm_d += m.delta_char_errors;
+            } else if m.delta_char_errors > 0 {
+                k_cnt += 1;
+                sum_help_d += m.delta_char_errors;
+            } else {
+                n_cnt += 1;
+            }
+        }
+        mems.sort_by(|a, b| a.delta_char_errors.cmp(&b.delta_char_errors));
+        let top5_harm: Vec<Value> = mems
+            .iter()
+            .filter(|m| m.delta_char_errors < 0)
+            .take(5)
+            .map(|m| json!({"word": m.word, "weight": m.lexicon_weight, "delta_char_errors": m.delta_char_errors, "fixed": m.fixed_sents, "broken": m.broken_sents}))
+            .collect();
+        mems.sort_by(|a, b| b.delta_char_errors.cmp(&a.delta_char_errors));
+        let top5_help: Vec<Value> = mems
+            .iter()
+            .filter(|m| m.delta_char_errors > 0)
+            .take(5)
+            .map(|m| json!({"word": m.word, "weight": m.lexicon_weight, "delta_char_errors": m.delta_char_errors, "fixed": m.fixed_sents, "broken": m.broken_sents}))
+            .collect();
+
+        per_family_loo.push(json!({
+            "family": fam,
+            "harmful_word_count": h_cnt,
+            "helpful_word_count": k_cnt,
+            "neutral_word_count": n_cnt,
+            "sum_harmful_delta_errors": sum_harm_d,
+            "sum_helpful_delta_errors": sum_help_d,
+            "top_5_harmful_words": top5_harm,
+            "top_5_helpful_words": top5_help,
+        }));
+    }
+
+    // Layer 4: Joint Prune Simulations
+    let build_joint_sim = |name: &str, words: HashSet<String>| -> Value {
+        let mut tset: HashSet<usize> = HashSet::new();
+        for w in &words {
+            if let Some(sents) = word_to_touched_sents.get(w) {
+                for &si in sents {
+                    tset.insert(si);
+                }
+            }
+        }
+        let mut tvec: Vec<usize> = tset.into_iter().collect();
+        tvec.sort_unstable();
+        let m = eval_removed_word_set(
+            base_engine,
+            compiled,
+            &dags,
+            &base_errors,
+            &base_exact,
+            total_chars,
+            base_total_errors,
+            base_cer,
+            &words,
+            &tvec,
+        );
+        json!({
+            "simulation_name": name,
+            "removed_word_count": words.len(),
+            "touched_sentences": tvec.len(),
+            "delta_char_errors": m.delta_char_errors,
+            "ablated_cer_percent": format!("{:.4}%", m.ablated_cer * 100.0),
+            "delta_cer_percentage_points": format!("{:+.4}%", m.delta_cer_pp),
+            "exact_match_sentences": (base_exact_count as isize + m.fixed_sents as isize - m.broken_sents as isize),
+            "fixed_sentences": m.fixed_sents,
+            "broken_sentences": m.broken_sents,
+            "char_improved_sentences": m.char_improved_sents,
+            "char_degraded_sentences": m.char_degraded_sents,
+            "mcnemar_chi_square": round4_f64(m.mcnemar_chi_square),
+            "mcnemar_p_value": m.mcnemar_p_value,
+            "per_category_delta_char_errors": m.per_category_delta_char_errors,
+        })
+    };
+
+    let s_strict_harm_der: HashSet<String> = loo_results
+        .iter()
+        .filter(|r| r.is_derived && r.delta_char_errors < 0 && r.broken_sents == 0)
+        .map(|r| r.word.clone())
+        .collect();
+    let s_all_harm_der: HashSet<String> = loo_results
+        .iter()
+        .filter(|r| r.is_derived && r.delta_char_errors < 0)
+        .map(|r| r.word.clone())
+        .collect();
+    let s_strict_harm_all: HashSet<String> = loo_results
+        .iter()
+        .filter(|r| r.delta_char_errors < 0 && r.broken_sents == 0)
+        .map(|r| r.word.clone())
+        .collect();
+    let s_all_harm_all: HashSet<String> = loo_results
+        .iter()
+        .filter(|r| r.delta_char_errors < 0)
+        .map(|r| r.word.clone())
+        .collect();
+    let s_neutral_der: HashSet<String> = loo_results
+        .iter()
+        .filter(|r| r.is_derived && r.delta_char_errors == 0 && r.touched_sents > 0)
+        .map(|r| r.word.clone())
+        .collect();
+
+    let joint_simulations = vec![
+        build_joint_sim("strict_harmful_derived", s_strict_harm_der),
+        build_joint_sim("all_harmful_derived", s_all_harm_der),
+        build_joint_sim("strict_harmful_all", s_strict_harm_all),
+        build_joint_sim("all_harmful_all", s_all_harm_all),
+        build_joint_sim("neutral_derived_touched", s_neutral_der),
+    ];
+
+    // Layer 5: multi_char_bonus Sensitivity Curve
+    let bonus_values = [28.0_f64, 24.0, 20.0, 16.0, 12.0, 8.0, 4.0, 0.0];
+    let mut bonus_curve = Vec::with_capacity(bonus_values.len());
+    for &bval in &bonus_values {
+        let mut test_router = base_engine.router.clone();
+        test_router.multi_char_bonus = bval;
+
+        let part_res: Vec<Vec<(usize, bool, usize, String)>> = std::thread::scope(|s| {
+            let mut handles = Vec::new();
+            for (c_chunk, d_chunk) in compiled.chunks(chunk_size).zip(dags.chunks(chunk_size)) {
+                let mut worker_trans = base_engine.transitions.clone();
+                let r_ref = &test_router;
+                handles.push(s.spawn(move || {
+                    let mut local = Vec::with_capacity(c_chunk.len());
+                    for (cs, dag) in c_chunk.iter().zip(d_chunk.iter()) {
+                        let (nodes, _) = r_ref.solve_best_path(
+                            cs.syllables.len(),
+                            dag,
+                            Some(&mut worker_trans),
+                        );
+                        let pred: String = nodes.iter().map(|n| n.word.as_str()).collect();
+                        let e = char_levenshtein(&pred, &cs.item.text);
+                        local.push((
+                            e,
+                            e == 0,
+                            cs.item.text.chars().count(),
+                            cs.item.category.clone(),
+                        ));
+                    }
+                    local
+                }));
+            }
+            handles.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+
+        let mut tot_e = 0usize;
+        let mut tot_ex = 0usize;
+        let mut cat_m: BTreeMap<String, (usize, usize, usize, usize)> = BTreeMap::new();
+        for part in part_res {
+            for (e, ex, clen, cat) in part {
+                tot_e += e;
+                if ex {
+                    tot_ex += 1;
+                }
+                let ce = cat_m.entry(cat).or_insert((0, 0, 0, 0));
+                ce.0 += 1;
+                ce.1 += clen;
+                ce.2 += e;
+                if ex {
+                    ce.3 += 1;
+                }
+            }
+        }
+        let cer_v = tot_e as f64 / total_chars.max(1) as f64;
+        let ser_v = tot_ex as f64 / compiled.len().max(1) as f64;
+        let mut per_cat_json = serde_json::Map::new();
+        for (cat, (sents, clen, ce, cex)) in cat_m {
+            let ccer = ce as f64 / clen.max(1) as f64;
+            per_cat_json.insert(
+                cat,
+                json!({
+                    "cer": round4_f64(ccer),
+                    "cer_percent": format!("{:.2}%", ccer * 100.0),
+                    "char_errors": ce,
+                    "exact_match": cex,
+                    "sentences": sents
+                }),
+            );
+        }
+        bonus_curve.push(json!({
+            "multi_char_bonus": bval,
+            "total_char_errors": tot_e,
+            "delta_char_errors_vs_28": (tot_e as isize) - (base_total_errors as isize),
+            "cer": round4_f64(cer_v),
+            "cer_percent": format!("{:.2}%", cer_v * 100.0),
+            "exact_match_sentences": tot_ex,
+            "sentence_accuracy_percent": format!("{:.2}%", ser_v * 100.0),
+            "per_category": per_cat_json,
+        }));
+    }
+
+    let elapsed_secs = t_start.elapsed().as_secs_f64();
+    let mut base_cat_json = serde_json::Map::new();
+    for (cat, (sents, clen, ce, cex)) in base_per_cat {
+        let ccer = ce as f64 / clen.max(1) as f64;
+        base_cat_json.insert(
+            cat,
+            json!({
+                "sentences": sents,
+                "chars": clen,
+                "char_errors": ce,
+                "cer": round4_f64(ccer),
+                "cer_percent": format!("{:.2}%", ccer * 100.0),
+                "exact_match": cex,
+            }),
+        );
+    }
+    let baseline_json = json!({
+        "dataset": "dev",
+        "total_sentences": compiled.len(),
+        "total_chars": total_chars,
+        "total_char_errors": base_total_errors,
+        "cer": round4_f64(base_cer),
+        "cer_percent": format!("{:.2}%", base_cer * 100.0),
+        "exact_match_sentences": base_exact_count,
+        "sentence_accuracy_percent": format!("{:.2}%", base_ser * 100.0),
+        "per_category": base_cat_json,
+    });
+    let census_summary = json!({
+        "lexicon_unique_words": lex_max_weight.len(),
+        "derived_families_1_to_29_total_words": derived_union_all_words,
+        "derived_families_1_to_29_active_wt_ge_90": derived_union_active_words,
+        "outlier_wt_ge_800_words": outlier_800_all_words,
+        "dev_touched_multi_char_words": word_to_touched_sents.len(),
+        "dev_touched_classified_words": word_families_cache.len(),
+        "loo_candidates_evaluated": loo_results.len(),
+    });
+    let loo_totals = json!({
+        "evaluated_candidates": loo_results.len(),
+        "derived_harmful_count": derived_harmful_count,
+        "derived_strict_harmful_count": derived_strict_harmful_count,
+        "derived_neutral_count": derived_neutral_count,
+        "derived_helpful_count": derived_helpful_count,
+        "non_derived_harmful_count": non_derived_harmful.len(),
+    });
+
+    let top_60_helpful: Vec<&&LooResult> = derived_helpful.iter().take(60).collect();
+    let top_100_non_derived_harmful: Vec<&&LooResult> = non_derived_harmful.iter().take(100).collect();
+
+    let compact_family_table: Vec<Value> = family_ablation
+        .iter()
+        .map(|f| {
+            json!({
+                "family": f["family"],
+                "lex_active": f["lexicon_active_wt_ge_90"],
+                "touched_words": f["dev_touched_words"],
+                "touched_sents": f["dev_touched_sentences"],
+                "delta_errs": f["delta_char_errors"],
+                "fixed": f["fixed_sentences"],
+                "broken": f["broken_sentences"],
+                "verdict": f["verdict"],
+            })
+        })
+        .collect();
+
+    let stdout_summary = json!({
+        "elapsed_seconds": (elapsed_secs * 100.0).round() / 100.0,
+        "baseline": baseline_json,
+        "census": census_summary,
+        "family_ablation_summary": compact_family_table,
+        "loo_totals": loo_totals,
+        "joint_simulations": joint_simulations,
+        "multi_char_bonus_curve": bonus_curve,
+    });
+
+    json!({
+        "elapsed_seconds": (elapsed_secs * 100.0).round() / 100.0,
+        "baseline": baseline_json,
+        "census": census_summary,
+        "family_ablation": family_ablation,
+        "per_family_loo": per_family_loo,
+        "loo_totals": loo_totals,
+        "all_harmful_derived_words": derived_harmful,
+        "top_60_helpful_derived_words": top_60_helpful,
+        "all_harmful_non_derived_words": top_100_non_derived_harmful,
+        "joint_simulations": joint_simulations,
+        "multi_char_bonus_curve": bonus_curve,
+        "stdout_summary": stdout_summary,
+    })
+}
+
+/// 執行跨策略控制對照統計 (`--strategy-bench`)：比較 S0..S6 各方案於現代白話、5-Fold 跨折泛化、文言文與新創實戰之利弊得失
+pub fn run_strategy_benchmark(
+    base_engine: &RuhiEngine,
+    compiled: &[CompiledSentence],
+    compiler: &PhoneticCompiler,
+    root: &Path,
+) -> Value {
+    let t_start = Instant::now();
+    println!(
+        "[StrategyBench] 正在建立基準晶格與診斷探針（dev {} 句 + 文言文 20 句 + 新創/實戰 15 句）...",
+        compiled.len()
+    );
+
+    let classical_texts = [
+        "知之為知之不知為不知是知也",
+        "道可道非常道名可名非常名",
+        "先天下之憂而憂後天下之樂而樂",
+        "古之學者必有師",
+        "師者所以傳道受業解惑也",
+        "不以物喜不以己悲",
+        "醉翁之意不在酒在乎山水之間也",
+        "予獨愛蓮之出淤泥而不染",
+        "三人行必有我師焉",
+        "溫故而知新可以為師矣",
+        "生於憂患而死於安樂",
+        "天將降大任於斯人也",
+        "臣本布衣躬耕於南陽",
+        "己所不欲勿施於人",
+        "君子和而不同小人同而不和",
+        "水能載舟亦能覆舟",
+        "民為貴社稷次之君為輕",
+        "千里之行始於足下",
+        "工欲善其事必先利其器",
+        "欲窮千里目更上一層樓",
+    ];
+    let novel_texts = [
+        "一個有辦法打文言文的輸入法",
+        "文言文輸入不出錯",
+        "不過是該漢字的常見連結",
+        "漢字系統的原型",
+        "先跑一下統計以確定利弊得失",
+        "每一個漢字本身就是一個語意本體",
+        "憑感覺的事情",
+        "平均值的計算",
+        "令人不捨的行為",
+        "台灣省的時代",
+        "他樂得清閒",
+        "我也很禮貌的回答",
+        "量子計算機與神經形態晶片",
+        "跨域語素因式分解拓撲模型",
+        "低延遲本地端解碼引擎",
+    ];
+
+    let compile_probe = |texts: &[&str], cat: &str| -> Vec<CompiledSentence> {
+        texts
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, &txt)| {
+                let item = CorpusItem {
+                    id: format!("{}_{:02}", cat, idx + 1),
+                    category: cat.to_string(),
+                    text: txt.to_string(),
+                };
+                compiler.compile(&item)
+            })
+            .collect()
+    };
+
+    let classical_compiled = compile_probe(&classical_texts, "classical");
+    let novel_compiled = compile_probe(&novel_texts, "novel");
+
+    let n_threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(16);
+    let chunk_size = (compiled.len() + n_threads - 1) / n_threads.max(1);
+
+    // Build dev DAGs + baseline in parallel
+    let base_dev_parts: Vec<(
+        HashMap<usize, Vec<ruhi::router::LatticeNode>>,
+        usize,
+        bool,
+        usize,
+        Vec<String>,
+        Vec<String>,
+    )> = std::thread::scope(|s| {
+        let mut handles = Vec::new();
+        for chunk in compiled.chunks(chunk_size) {
+            let dag_builder = LatticeDAG::new(&base_engine.lexicon);
+            let mut worker_trans = base_engine.transitions.clone();
+            handles.push(s.spawn(move || {
+                let mut out = Vec::with_capacity(chunk.len());
+                for cs in chunk {
+                    let dag = dag_builder.build_dag(&cs.syllables, true);
+                    let (best_nodes, _) = base_engine.router.solve_best_path(
+                        cs.syllables.len(),
+                        &dag,
+                        Some(&mut worker_trans),
+                    );
+                    let pred: String = best_nodes.iter().map(|n| n.word.as_str()).collect();
+                    let ch_len = cs.item.text.chars().count();
+                    let errs = char_levenshtein(&pred, &cs.item.text);
+
+                    let mut multi_in_dag: HashSet<String> = HashSet::new();
+                    for nodes in dag.values() {
+                        for n in nodes {
+                            if n.length() >= 2 && n.word.chars().count() >= 2 {
+                                multi_in_dag.insert(n.word.clone());
+                            }
+                        }
+                    }
+                    let best_multi: Vec<String> = best_nodes
+                        .iter()
+                        .filter(|n| n.length() >= 2 && n.word.chars().count() >= 2)
+                        .map(|n| n.word.clone())
+                        .collect();
+                    out.push((
+                        dag,
+                        errs,
+                        errs == 0,
+                        ch_len,
+                        multi_in_dag.into_iter().collect(),
+                        best_multi,
+                    ));
+                }
+                out
+            }));
+        }
+        handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
+    });
+
+    let mut dags = Vec::with_capacity(compiled.len());
+    let mut base_errors = Vec::with_capacity(compiled.len());
+    let mut base_exact = Vec::with_capacity(compiled.len());
+    let mut total_chars = 0usize;
+    let mut base_total_errors = 0usize;
+    let mut base_exact_count = 0usize;
+    let mut word_to_touched_sents: HashMap<String, Vec<usize>> = HashMap::new();
+    let mut word_error_hits: HashMap<String, usize> = HashMap::new();
+
+    for (s_idx, (dag, errs, is_exact, ch_len, dag_words, best_multi)) in
+        base_dev_parts.into_iter().enumerate()
+    {
+        total_chars += ch_len;
+        base_total_errors += errs;
+        if is_exact {
+            base_exact_count += 1;
+        }
+        for w in dag_words {
+            word_to_touched_sents.entry(w).or_default().push(s_idx);
+        }
+        let mut seen_best = HashSet::new();
+        for w in best_multi {
+            if seen_best.insert(w.clone()) && errs > 0 {
+                *word_error_hits.entry(w).or_insert(0) += 1;
+            }
+        }
+        dags.push(dag);
+        base_errors.push(errs);
+        base_exact.push(is_exact);
+    }
+    let base_cer = base_total_errors as f64 / total_chars.max(1) as f64;
+
+    // Build probe DAGs once
+    let dag_builder_probe = LatticeDAG::new(&base_engine.lexicon);
+    let classical_dags: Vec<_> = classical_compiled
+        .iter()
+        .map(|cs| dag_builder_probe.build_dag(&cs.syllables, true))
+        .collect();
+    let novel_dags: Vec<_> = novel_compiled
+        .iter()
+        .map(|cs| dag_builder_probe.build_dag(&cs.syllables, true))
+        .collect();
+
+    // Load lexicon_core.tsv unique word max weights to construct S1 / S1c structural sets
+    let lex_path = root.join("ruhi_lexicon").join("data").join("lexicon_core.tsv");
+    let lex_content = fs::read_to_string(&lex_path).expect("無法讀取 lexicon_core.tsv");
+    let mut lex_max_weight: HashMap<String, u32> = HashMap::new();
+    for line in lex_content.lines() {
+        let t = line.trim();
+        if t.is_empty() || t.starts_with('#') {
+            continue;
+        }
+        let mut cols = t.split('\t');
+        let Some(w) = cols.next() else { continue };
+        let Some(_bpm) = cols.next() else { continue };
+        let Some(wt_str) = cols.next() else { continue };
+        let Ok(wt) = wt_str.trim().parse::<u32>() else { continue };
+        let e = lex_max_weight.entry(w.to_string()).or_insert(0);
+        if wt > *e {
+            *e = wt;
+        }
+    }
+
+    let atomic_suf2_de_nouns: HashSet<&str> = ["目的", "標的", "別的", "有的", "是的"]
+        .into_iter()
+        .collect();
+    let truncated_frag_words: HashSet<&str> = ["沒辦", "沒關", "沒想"].into_iter().collect();
+
+    let mut all_derived_1_29: HashSet<String> = HashSet::new();
+    let mut transparent_derived_narrow: HashSet<String> = HashSet::new();
+    let mut s1a_remove_set: HashSet<String> = HashSet::new();
+
+    for (w, &wt) in &lex_max_weight {
+        if w.chars().count() < 2 {
+            continue;
+        }
+        let fams = classify_derived_families(w, wt);
+        if fams
+            .iter()
+            .any(|&f| f != "outlier_wt_ge_800" && f != "outlier_wt_ge_800_derived")
+        {
+            all_derived_1_29.insert(w.clone());
+        }
+        let is_s1a = fams.iter().any(|&f| {
+            matches!(
+                f,
+                "outlier_wt_ge_800_derived"
+                    | "suf2_modal_particle"
+                    | "tri_x_de2_y"
+                    | "tri_x_le_y"
+                    | "tri_xx_de"
+                    | "tri_xx_aspect"
+            )
+        });
+        if is_s1a {
+            s1a_remove_set.insert(w.clone());
+        }
+        let is_narrow = is_s1a
+            || truncated_frag_words.contains(w.as_str())
+            || fams.contains(&"pref2_pronoun")
+            || (fams.contains(&"suf2_de_struct") && !atomic_suf2_de_nouns.contains(w.as_str()));
+        if is_narrow {
+            transparent_derived_narrow.insert(w.clone());
+        }
+    }
+    let s1b_remove_set = transparent_derived_narrow.clone();
+    let all_derived_arc = std::sync::Arc::new(all_derived_1_29);
+    let narrow_derived_arc = std::sync::Arc::new(transparent_derived_narrow);
+
+    let dags_ref = dags.as_slice();
+    let base_errors_ref = base_errors.as_slice();
+    let base_exact_ref = base_exact.as_slice();
+
+    // Helper: evaluate a strategy across dev.tsv + Classical-20 + Novel-15
+    let filter_dag_strat = |dag: &HashMap<usize, Vec<ruhi::router::LatticeNode>>,
+                            n_syls: usize,
+                            rm: Option<&HashSet<String>>,
+                            min_l2: Option<u32>|
+     -> HashMap<usize, Vec<ruhi::router::LatticeNode>> {
+        let mut out = HashMap::with_capacity(dag.len());
+        for (&pos, nodes) in dag {
+            let kept: Vec<ruhi::router::LatticeNode> = nodes
+                .iter()
+                .filter(|n| {
+                    if n.length() == 1 {
+                        return true;
+                    }
+                    if let Some(rset) = rm {
+                        if rset.contains(&n.word) {
+                            return false;
+                        }
+                    }
+                    if let Some(mw) = min_l2 {
+                        if n_syls >= 3 && n.length() == 2 && n.weight < mw {
+                            return false;
+                        }
+                    }
+                    true
+                })
+                .cloned()
+                .collect();
+            out.insert(pos, kept);
+        }
+        out
+    };
+
+    let eval_probe_set = |router: &ruhi::router::ViterbiRouter,
+                          probes: &[CompiledSentence],
+                          p_dags: &[HashMap<usize, Vec<ruhi::router::LatticeNode>>],
+                          rm: Option<&HashSet<String>>,
+                          min_l2: Option<u32>|
+     -> (usize, usize, usize, f64, Vec<Value>) {
+        let mut trans = base_engine.transitions.clone();
+        let mut tot_ch = 0usize;
+        let mut tot_err = 0usize;
+        let mut exact = 0usize;
+        let mut preds = Vec::with_capacity(probes.len());
+        for (cs, dag) in probes.iter().zip(p_dags.iter()) {
+            let (nodes, _) = if rm.is_some() || min_l2.is_some() {
+                let fd = filter_dag_strat(dag, cs.syllables.len(), rm, min_l2);
+                router.solve_best_path(cs.syllables.len(), &fd, Some(&mut trans))
+            } else {
+                router.solve_best_path(cs.syllables.len(), dag, Some(&mut trans))
+            };
+            let pred: String = nodes.iter().map(|n| n.word.as_str()).collect();
+            let ch_len = cs.item.text.chars().count();
+            let errs = char_levenshtein(&pred, &cs.item.text);
+            tot_ch += ch_len;
+            tot_err += errs;
+            if errs == 0 {
+                exact += 1;
+            }
+            preds.push(json!({
+                "id": cs.item.id,
+                "gold": cs.item.text,
+                "pred": pred,
+                "char_errors": errs,
+            }));
+        }
+        let cer = tot_err as f64 / tot_ch.max(1) as f64;
+        (tot_err, tot_ch, exact, cer, preds)
+    };
+
+    let eval_strategy_full = |name: &str,
+                              group: &str,
+                              router: &ruhi::router::ViterbiRouter,
+                              rm: Option<&HashSet<String>>,
+                              min_l2: Option<u32>,
+                              include_probe_details: bool|
+     -> Value {
+        let part_res: Vec<Vec<(usize, bool, bool, bool, isize, String)>> = std::thread::scope(|s| {
+            let mut handles = Vec::new();
+            for (chunk_idx, c_chunk) in compiled.chunks(chunk_size).enumerate() {
+                let offset = chunk_idx * chunk_size;
+                let mut worker_trans = base_engine.transitions.clone();
+                handles.push(s.spawn(move || {
+                    let mut local = Vec::with_capacity(c_chunk.len());
+                    for (local_i, cs) in c_chunk.iter().enumerate() {
+                        let s_idx = offset + local_i;
+                        let orig_dag = &dags_ref[s_idx];
+                        let (nodes, _) = if rm.is_some() || min_l2.is_some() {
+                            let fd = filter_dag_strat(orig_dag, cs.syllables.len(), rm, min_l2);
+                            router.solve_best_path(cs.syllables.len(), &fd, Some(&mut worker_trans))
+                        } else {
+                            router.solve_best_path(
+                                cs.syllables.len(),
+                                orig_dag,
+                                Some(&mut worker_trans),
+                            )
+                        };
+                        let pred: String = nodes.iter().map(|n| n.word.as_str()).collect();
+                        let errs = char_levenshtein(&pred, &cs.item.text);
+                        let orig_e = base_errors_ref[s_idx];
+                        let orig_ex = base_exact_ref[s_idx];
+                        let fixed = !orig_ex && errs == 0;
+                        let broken = orig_ex && errs > 0;
+                        let d_err = (errs as isize) - (orig_e as isize);
+                        local.push((
+                            errs,
+                            errs == 0,
+                            fixed,
+                            broken,
+                            d_err,
+                            cs.item.category.clone(),
+                        ));
+                    }
+                    local
+                }));
+            }
+            handles.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+
+        let mut tot_e = 0usize;
+        let mut tot_ex = 0usize;
+        let mut fixed = 0usize;
+        let mut broken = 0usize;
+        let mut cat_stats: BTreeMap<String, (usize, isize)> = BTreeMap::new();
+        for part in part_res {
+            for (e, is_ex, fx, brk, d_e, cat) in part {
+                tot_e += e;
+                if is_ex {
+                    tot_ex += 1;
+                }
+                if fx {
+                    fixed += 1;
+                }
+                if brk {
+                    broken += 1;
+                }
+                let ce = cat_stats.entry(cat).or_insert((0, 0));
+                ce.0 += e;
+                ce.1 += d_e;
+            }
+        }
+        let delta_err = (tot_e as isize) - (base_total_errors as isize);
+        let cer = tot_e as f64 / total_chars.max(1) as f64;
+        let delta_cer_pp = (cer - base_cer) * 100.0;
+        let (_, mcnemar_p) = compute_mcnemar(fixed, broken);
+
+        let mut per_cat_delta = BTreeMap::new();
+        for (cat, (_ce, cd)) in cat_stats {
+            per_cat_delta.insert(cat, cd);
+        }
+
+        let (cl_err, cl_ch, cl_ex, cl_cer, cl_preds) =
+            eval_probe_set(router, &classical_compiled, &classical_dags, rm, min_l2);
+        let (nv_err, nv_ch, nv_ex, nv_cer, nv_preds) =
+            eval_probe_set(router, &novel_compiled, &novel_dags, rm, min_l2);
+
+        let mut obj = json!({
+            "strategy": name,
+            "group": group,
+            "dev_char_errors": tot_e,
+            "dev_delta_char_errors": delta_err,
+            "dev_cer": round4_f64(cer),
+            "dev_cer_percent": format!("{:.4}%", cer * 100.0),
+            "dev_delta_cer_pp": format!("{:+.4}%", delta_cer_pp),
+            "dev_exact_match": tot_ex,
+            "dev_fixed_sents": fixed,
+            "dev_broken_sents": broken,
+            "dev_mcnemar_p_value": mcnemar_p,
+            "dev_per_category_delta": per_cat_delta,
+            "classical_total_chars": cl_ch,
+            "classical_char_errors": cl_err,
+            "classical_exact": format!("{}/{}", cl_ex, classical_compiled.len()),
+            "classical_exact_count": cl_ex,
+            "classical_cer_percent": format!("{:.2}%", cl_cer * 100.0),
+            "novel_total_chars": nv_ch,
+            "novel_char_errors": nv_err,
+            "novel_exact": format!("{}/{}", nv_ex, novel_compiled.len()),
+            "novel_exact_count": nv_ex,
+            "novel_cer_percent": format!("{:.2}%", nv_cer * 100.0),
+        });
+        if include_probe_details {
+            obj["classical_predictions"] = json!(cl_preds);
+            obj["novel_predictions"] = json!(nv_preds);
+        }
+        obj
+    };
+
+    let mut strategies_table: Vec<Value> = Vec::new();
+
+    // S0: Baseline (平權重 +28.0 參照基準，停用路線 C 文言單字模組)
+    println!("[StrategyBench] 評估 S0 (Baseline) & S1 (規則式衍生詞裁剪/降級)...");
+    let mut s0_router = base_engine.router.clone();
+    s0_router.bonus_policy = None;
+    s0_router.classical_mode = ruhi::router::ClassicalRegisterMode::ModernOnly;
+    strategies_table.push(eval_strategy_full(
+        "S0_baseline",
+        "S0",
+        &s0_router,
+        None,
+        None,
+        true,
+    ));
+
+    // S1a & S1b: Hard rule-based derived pruning in n>=3
+    strategies_table.push(eval_strategy_full(
+        "S1a_prune_3char_and_wt800_derived",
+        "S1a",
+        &s0_router,
+        Some(&s1a_remove_set),
+        None,
+        false,
+    ));
+    strategies_table.push(eval_strategy_full(
+        "S1b_prune_transparent_derived_narrow",
+        "S1b",
+        &s0_router,
+        Some(&s1b_remove_set),
+        None,
+        true,
+    ));
+
+    // S1c: Tiered derived multi_char_bonus (narrow set & all derived 1..29)
+    let mut best_s1c_narrow_bonus = 20.0_f64;
+    let mut best_s1c_narrow_errs = usize::MAX;
+    for &dbonus in &[20.0_f64, 14.0, 10.0, 6.0, 0.0] {
+        let mut r = s0_router.clone();
+        r.bonus_policy = Some(ruhi::router::MultiCharBonusPolicy {
+            derived_words: Some(narrow_derived_arc.clone()),
+            derived_bonus: dbonus,
+            ..Default::default()
+        });
+        let res = eval_strategy_full(
+            &format!("S1c_narrow_derived_bonus_{}", dbonus as i32),
+            "S1c_narrow",
+            &r,
+            None,
+            None,
+            false,
+        );
+        let errs = res["dev_char_errors"].as_u64().unwrap() as usize;
+        if errs < best_s1c_narrow_errs {
+            best_s1c_narrow_errs = errs;
+            best_s1c_narrow_bonus = dbonus;
+        }
+        strategies_table.push(res);
+    }
+    for &dbonus in &[22.0_f64, 18.0, 14.0] {
+        let mut r = s0_router.clone();
+        r.bonus_policy = Some(ruhi::router::MultiCharBonusPolicy {
+            derived_words: Some(all_derived_arc.clone()),
+            derived_bonus: dbonus,
+            ..Default::default()
+        });
+        strategies_table.push(eval_strategy_full(
+            &format!("S1c_all_derived_bonus_{}", dbonus as i32),
+            "S1c_all",
+            &r,
+            None,
+            None,
+            false,
+        ));
+    }
+
+    // S2a: Hard low-weight 2-char pruning threshold in n >= 3
+    println!("[StrategyBench] 評估 S2a (低權重雙字詞硬剪枝) & S2b (平滑權重梯度)...");
+    for &thresh in &[120_u32, 150, 180, 220, 260, 300, 350] {
+        strategies_table.push(eval_strategy_full(
+            &format!("S2a_prune_len2_lt_{}", thresh),
+            "S2a",
+            &s0_router,
+            None,
+            Some(thresh),
+            false,
+        ));
+    }
+
+    // S2b: Soft weight-modulated multi_char_bonus ramp
+    let ramp_grid: [(u32, u32, f64); 9] = [
+        (100, 300, 14.0),
+        (100, 300, 18.0),
+        (100, 300, 22.0),
+        (100, 350, 12.0),
+        (100, 350, 16.0),
+        (100, 350, 20.0),
+        (150, 400, 14.0),
+        (150, 400, 18.0),
+        (180, 450, 16.0),
+    ];
+    let mut best_s2b = ramp_grid[0];
+    let mut best_s2b_errs = usize::MAX;
+    let mut best_s2b_idx = 0usize;
+    for &(lo, hi, min_b) in &ramp_grid {
+        let mut r = s0_router.clone();
+        r.bonus_policy = Some(ruhi::router::MultiCharBonusPolicy {
+            weight_ramp_low: Some(lo),
+            weight_ramp_high: Some(hi),
+            weight_ramp_min_bonus: min_b,
+            ..Default::default()
+        });
+        let res = eval_strategy_full(
+            &format!("S2b_ramp_{}_{}_min{}", lo, hi, min_b as i32),
+            "S2b",
+            &r,
+            None,
+            None,
+            false,
+        );
+        let errs = res["dev_char_errors"].as_u64().unwrap() as usize;
+        if errs < best_s2b_errs {
+            best_s2b_errs = errs;
+            best_s2b = (lo, hi, min_b);
+            best_s2b_idx = strategies_table.len();
+        }
+        strategies_table.push(res);
+    }
+    // Re-run best S2b with probe details for inspection
+    {
+        let (lo, hi, min_b) = best_s2b;
+        let mut r = s0_router.clone();
+        r.bonus_policy = Some(ruhi::router::MultiCharBonusPolicy {
+            weight_ramp_low: Some(lo),
+            weight_ramp_high: Some(hi),
+            weight_ramp_min_bonus: min_b,
+            ..Default::default()
+        });
+        strategies_table[best_s2b_idx] = eval_strategy_full(
+            &format!("S2b_ramp_{}_{}_min{}", lo, hi, min_b as i32),
+            "S2b",
+            &r,
+            None,
+            None,
+            true,
+        );
+    }
+
+    // S5: Combined best non-overfitting structural policy (best S2b ramp + best S1c narrow bonus)
+    println!(
+        "[StrategyBench] 評估 S5 (組合 S2b({}, {}, {}) + S1c_narrow({}))...",
+        best_s2b.0, best_s2b.1, best_s2b.2, best_s1c_narrow_bonus
+    );
+    {
+        let mut r = s0_router.clone();
+        r.bonus_policy = Some(ruhi::router::MultiCharBonusPolicy {
+            weight_ramp_low: Some(best_s2b.0),
+            weight_ramp_high: Some(best_s2b.1),
+            weight_ramp_min_bonus: best_s2b.2,
+            use_narrow_derived_tier: false,
+            derived_words: Some(narrow_derived_arc.clone()),
+            derived_bonus: best_s1c_narrow_bonus,
+        });
+        strategies_table.push(eval_strategy_full(
+            &format!(
+                "S5_combo_ramp_{}_{}_min{}_plus_narrow{}",
+                best_s2b.0, best_s2b.1, best_s2b.2 as i32, best_s1c_narrow_bonus as i32
+            ),
+            "S5",
+            &r,
+            None,
+            None,
+            true,
+        ));
+    }
+
+    // S3: 5-Fold Stratified CV Out-Of-Fold Generalization Audit of Per-Word LOO Pruning
+    println!("[StrategyBench] 正在執行 S3 5-Fold 跨折交叉驗證（檢驗逐詞刪詞之真實泛化率 vs 過擬合率）...");
+    let mut cat_counters: BTreeMap<String, usize> = BTreeMap::new();
+    let mut sent_fold: Vec<usize> = Vec::with_capacity(compiled.len());
+    for cs in compiled {
+        let cnt = cat_counters.entry(cs.item.category.clone()).or_insert(0);
+        sent_fold.push(*cnt % 5);
+        *cnt += 1;
+    }
+
+    struct CvCandidate {
+        word: String,
+        is_derived_1_29: bool,
+        touched_sents: Vec<usize>,
+    }
+    struct CvWordTrace {
+        word: String,
+        is_derived: bool,
+        fold_touched: [usize; 5],
+        nonzero_outcomes: Vec<(usize, isize, bool, bool)>,
+    }
+
+    let mut cv_candidates: Vec<CvCandidate> = Vec::new();
+    for (w, sents) in &word_to_touched_sents {
+        let wt = lex_max_weight.get(w).copied().unwrap_or(0);
+        let fams = classify_derived_families(w, wt);
+        let error_hits = word_error_hits.get(w).copied().unwrap_or(0);
+        let is_derived_1_29 = fams
+            .iter()
+            .any(|&f| f != "outlier_wt_ge_800" && f != "outlier_wt_ge_800_derived");
+        if !fams.is_empty() || error_hits >= 1 {
+            cv_candidates.push(CvCandidate {
+                word: w.clone(),
+                is_derived_1_29,
+                touched_sents: sents.clone(),
+            });
+        }
+    }
+    cv_candidates.sort_by(|a, b| a.word.cmp(&b.word));
+
+    let cv_chunk = (cv_candidates.len() + n_threads - 1) / n_threads.max(1);
+    let sent_fold_ref = sent_fold.as_slice();
+    let cv_traces: Vec<CvWordTrace> = if cv_candidates.is_empty() {
+        Vec::new()
+    } else {
+        std::thread::scope(|s| {
+            let mut handles = Vec::new();
+            for chunk in cv_candidates.chunks(cv_chunk) {
+                let mut worker_trans = base_engine.transitions.clone();
+                handles.push(s.spawn(move || {
+                    let mut out = Vec::with_capacity(chunk.len());
+                    for cand in chunk {
+                        let mut fold_touched = [0usize; 5];
+                        let mut nonzero_outcomes = Vec::new();
+                        for &s_idx in &cand.touched_sents {
+                            fold_touched[sent_fold_ref[s_idx]] += 1;
+                            let cs = &compiled[s_idx];
+                            let mut f_dag = HashMap::with_capacity(dags_ref[s_idx].len());
+                            for (&pos, nodes) in &dags_ref[s_idx] {
+                                let kept: Vec<ruhi::router::LatticeNode> = nodes
+                                    .iter()
+                                    .filter(|n| n.length() == 1 || n.word != cand.word)
+                                    .cloned()
+                                    .collect();
+                                f_dag.insert(pos, kept);
+                            }
+                            let (nodes, _) = base_engine.router.solve_best_path(
+                                cs.syllables.len(),
+                                &f_dag,
+                                Some(&mut worker_trans),
+                            );
+                            let pred: String = nodes.iter().map(|n| n.word.as_str()).collect();
+                            let ab_e = char_levenshtein(&pred, &cs.item.text);
+                            let orig_e = base_errors_ref[s_idx];
+                            let d = (ab_e as isize) - (orig_e as isize);
+                            let fx = !base_exact_ref[s_idx] && ab_e == 0;
+                            let brk = base_exact_ref[s_idx] && ab_e > 0;
+                            if d != 0 || fx || brk {
+                                nonzero_outcomes.push((s_idx, d, fx, brk));
+                            }
+                        }
+                        out.push(CvWordTrace {
+                            word: cand.word.clone(),
+                            is_derived: cand.is_derived_1_29,
+                            fold_touched,
+                            nonzero_outcomes,
+                        });
+                    }
+                    out
+                }));
+            }
+            handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
+        })
+    };
+
+    #[derive(Clone, Copy)]
+    enum CvRule {
+        StrictHarmfulDerived,
+        StrictHarmfulAll,
+        StrictHarmfulAllLeMinus2,
+        NeutralDerived,
+    }
+    let cv_rules = [
+        ("S3a_cv_strict_harmful_derived", CvRule::StrictHarmfulDerived),
+        ("S3b_cv_strict_harmful_all", CvRule::StrictHarmfulAll),
+        ("S3c_cv_strict_harmful_all_le_m2", CvRule::StrictHarmfulAllLeMinus2),
+        ("S3d_cv_neutral_derived", CvRule::NeutralDerived),
+    ];
+
+    let matches_cv_rule = |rule: CvRule, tr: &CvWordTrace, excluded_fold: Option<usize>| -> bool {
+        if matches!(rule, CvRule::StrictHarmfulDerived | CvRule::NeutralDerived) && !tr.is_derived {
+            return false;
+        }
+        let mut d_sum = 0isize;
+        let mut brk_sum = 0usize;
+        for &(s_idx, d, _fx, brk) in &tr.nonzero_outcomes {
+            if excluded_fold.is_some_and(|kf| sent_fold_ref[s_idx] == kf) {
+                continue;
+            }
+            d_sum += d;
+            if brk {
+                brk_sum += 1;
+            }
+        }
+        let touched_sum: usize = (0..5)
+            .filter(|&f| excluded_fold != Some(f))
+            .map(|f| tr.fold_touched[f])
+            .sum();
+        match rule {
+            CvRule::StrictHarmfulDerived | CvRule::StrictHarmfulAll => d_sum < 0 && brk_sum == 0,
+            CvRule::StrictHarmfulAllLeMinus2 => d_sum <= -2 && brk_sum == 0,
+            CvRule::NeutralDerived => d_sum == 0 && touched_sum > 0,
+        }
+    };
+
+    let mut cv_results: Vec<Value> = Vec::with_capacity(cv_rules.len());
+    for &(rname, rule) in &cv_rules {
+        // Full in-sample evaluation for exact baseline comparison
+        let full_words: HashSet<String> = cv_traces
+            .iter()
+            .filter(|tr| matches_cv_rule(rule, tr, None))
+            .map(|tr| tr.word.clone())
+            .collect();
+        let mut full_touched_set: HashSet<usize> = HashSet::new();
+        for w in &full_words {
+            if let Some(sents) = word_to_touched_sents.get(w) {
+                for &si in sents {
+                    full_touched_set.insert(si);
+                }
+            }
+        }
+        let mut full_touched_vec: Vec<usize> = full_touched_set.into_iter().collect();
+        full_touched_vec.sort_unstable();
+        let in_sample = eval_removed_word_set(
+            base_engine,
+            compiled,
+            &dags,
+            &base_errors,
+            &base_exact,
+            total_chars,
+            base_total_errors,
+            base_cer,
+            &full_words,
+            &full_touched_vec,
+        );
+
+        // 5-Fold Out-Of-Fold evaluation
+        let mut fold_word_counts = Vec::with_capacity(5);
+        let mut oof_delta = 0isize;
+        let mut oof_fixed = 0usize;
+        let mut oof_broken = 0usize;
+        let mut oof_imp = 0usize;
+        let mut oof_deg = 0usize;
+        let mut oof_cat_delta: BTreeMap<String, isize> = BTreeMap::new();
+
+        for k in 0..5 {
+            let fold_words: HashSet<String> = cv_traces
+                .iter()
+                .filter(|tr| matches_cv_rule(rule, tr, Some(k)))
+                .map(|tr| tr.word.clone())
+                .collect();
+            fold_word_counts.push(fold_words.len());
+
+            let mut heldout_touched: HashSet<usize> = HashSet::new();
+            for w in &fold_words {
+                if let Some(sents) = word_to_touched_sents.get(w) {
+                    for &si in sents {
+                        if sent_fold[si] == k {
+                            heldout_touched.insert(si);
+                        }
+                    }
+                }
+            }
+            let mut heldout_vec: Vec<usize> = heldout_touched.into_iter().collect();
+            heldout_vec.sort_unstable();
+
+            let fm = eval_removed_word_set(
+                base_engine,
+                compiled,
+                &dags,
+                &base_errors,
+                &base_exact,
+                total_chars,
+                base_total_errors,
+                base_cer,
+                &fold_words,
+                &heldout_vec,
+            );
+            oof_delta += fm.delta_char_errors;
+            oof_fixed += fm.fixed_sents;
+            oof_broken += fm.broken_sents;
+            oof_imp += fm.char_improved_sents;
+            oof_deg += fm.char_degraded_sents;
+            for (cat, cd) in fm.per_category_delta_char_errors {
+                *oof_cat_delta.entry(cat).or_insert(0) += cd;
+            }
+        }
+
+        let avg_words = fold_word_counts.iter().sum::<usize>() as f64 / 5.0;
+        let oof_errs = (base_total_errors as isize + oof_delta).max(0) as usize;
+        let oof_cer = oof_errs as f64 / total_chars.max(1) as f64;
+        let oof_cer_pp = (oof_cer - base_cer) * 100.0;
+        let (_, oof_p) = compute_mcnemar(oof_fixed, oof_broken);
+        let retention = if in_sample.delta_char_errors != 0 {
+            Some(round4_f64(
+                oof_delta as f64 / in_sample.delta_char_errors as f64,
+            ))
+        } else {
+            None
+        };
+
+        // Also check Probe sets using the full-dev selected words
+        let (cl_err, _cl_ch, cl_ex, cl_cer, _) =
+            eval_probe_set(&base_engine.router, &classical_compiled, &classical_dags, Some(&full_words), None);
+        let (nv_err, _nv_ch, nv_ex, nv_cer, _) =
+            eval_probe_set(&base_engine.router, &novel_compiled, &novel_dags, Some(&full_words), None);
+
+        cv_results.push(json!({
+            "strategy": rname,
+            "full_dev_selected_words": full_words.len(),
+            "avg_selected_words_per_fold": (avg_words * 10.0).round() / 10.0,
+            "in_sample_delta_char_errors": in_sample.delta_char_errors,
+            "in_sample_cer_percent": format!("{:.4}%", in_sample.ablated_cer * 100.0),
+            "in_sample_fixed_sents": in_sample.fixed_sents,
+            "in_sample_broken_sents": in_sample.broken_sents,
+            "oof_delta_char_errors": oof_delta,
+            "oof_cer_percent": format!("{:.4}%", oof_cer * 100.0),
+            "oof_delta_cer_pp": format!("{:+.4}%", oof_cer_pp),
+            "oof_exact_match": (base_exact_count as isize + oof_fixed as isize - oof_broken as isize),
+            "oof_fixed_sents": oof_fixed,
+            "oof_broken_sents": oof_broken,
+            "oof_char_improved_sents": oof_imp,
+            "oof_char_degraded_sents": oof_deg,
+            "oof_mcnemar_p_value": oof_p,
+            "generalization_retention_ratio": retention,
+            "oof_per_category_delta": oof_cat_delta,
+            "full_dev_set_classical_cer_percent": format!("{:.2}%", cl_cer * 100.0),
+            "full_dev_set_classical_errors": cl_err,
+            "full_dev_set_classical_exact": format!("{}/{}", cl_ex, classical_compiled.len()),
+            "full_dev_set_novel_cer_percent": format!("{:.2}%", nv_cer * 100.0),
+            "full_dev_set_novel_errors": nv_err,
+            "full_dev_set_novel_exact": format!("{}/{}", nv_ex, novel_compiled.len()),
+        }));
+    }
+
+    // S6: Classical-Mode preview (sweep multi_char_bonus on Classical-20 & Novel-15 only)
+    let mut classical_mode_preview = Vec::new();
+    for &bval in &[28.0_f64, 20.0, 14.0, 10.0, 6.0, 0.0] {
+        let mut r = s0_router.clone();
+        r.multi_char_bonus = bval;
+        let include_preds = matches!(bval as i32, 28 | 10 | 0);
+        let (cl_err, cl_ch, cl_ex, cl_cer, cl_preds) =
+            eval_probe_set(&r, &classical_compiled, &classical_dags, None, None);
+        let (nv_err, nv_ch, nv_ex, nv_cer, nv_preds) =
+            eval_probe_set(&r, &novel_compiled, &novel_dags, None, None);
+        let mut row = json!({
+            "multi_char_bonus": bval,
+            "classical_chars": cl_ch,
+            "classical_errors": cl_err,
+            "classical_exact": format!("{}/{}", cl_ex, classical_compiled.len()),
+            "classical_cer_percent": format!("{:.2}%", cl_cer * 100.0),
+            "novel_chars": nv_ch,
+            "novel_errors": nv_err,
+            "novel_exact": format!("{}/{}", nv_ex, novel_compiled.len()),
+            "novel_cer_percent": format!("{:.2}%", nv_cer * 100.0),
+        });
+        if include_preds {
+            row["classical_predictions"] = json!(cl_preds);
+            row["novel_predictions"] = json!(nv_preds);
+        }
+        classical_mode_preview.push(row);
+    }
+
+    let elapsed_secs = (t_start.elapsed().as_secs_f64() * 100.0).round() / 100.0;
+    let compact_strategies: Vec<Value> = strategies_table
+        .iter()
+        .map(|s| {
+            json!({
+                "strategy": s["strategy"],
+                "group": s["group"],
+                "dev_delta": s["dev_delta_char_errors"],
+                "dev_cer": s["dev_cer_percent"],
+                "dev_exact": s["dev_exact_match"],
+                "fix": s["dev_fixed_sents"],
+                "brk": s["dev_broken_sents"],
+                "p": s["dev_mcnemar_p_value"],
+                "cl_cer": s["classical_cer_percent"],
+                "cl_exact": s["classical_exact"],
+                "nv_cer": s["novel_cer_percent"],
+                "nv_exact": s["novel_exact"],
+            })
+        })
+        .collect();
+
+    let stdout_summary = json!({
+        "elapsed_seconds": elapsed_secs,
+        "strategies_compact": compact_strategies,
+        "s3_five_fold_cv": cv_results,
+        "s6_classical_preview_compact": classical_mode_preview.iter().map(|c| json!({
+            "multi_char_bonus": c["multi_char_bonus"],
+            "classical_errors": c["classical_errors"],
+            "classical_exact": c["classical_exact"],
+            "classical_cer": c["classical_cer_percent"],
+            "novel_errors": c["novel_errors"],
+            "novel_exact": c["novel_exact"],
+            "novel_cer": c["novel_cer_percent"],
+        })).collect::<Vec<_>>(),
+    });
+
+    json!({
+        "elapsed_seconds": elapsed_secs,
+        "s1a_word_count": s1a_remove_set.len(),
+        "s1b_word_count": s1b_remove_set.len(),
+        "best_s2b": {"lo": best_s2b.0, "hi": best_s2b.1, "min_bonus": best_s2b.2},
+        "best_s1c_narrow_bonus": best_s1c_narrow_bonus,
+        "strategies": strategies_table,
+        "s3_five_fold_cv": cv_results,
+        "s6_classical_mode_preview": classical_mode_preview,
+        "stdout_summary": stdout_summary,
+    })
+}
+
+/// 路線 C 文言單字語境原型評估 (`--classical-bench`)：
+/// 於 S5 生產底盤之上，比較 `ModernOnly`、`Auto`、`ClassicalExplicit` 三種模式在
+/// `dev.tsv`、`Classical-20`、`Classical-10 Unseen Holdout` 與 `Novel-15` 之實證表現。
+pub fn run_classical_benchmark(
+    base_engine: &RuhiEngine,
+    compiled: &[CompiledSentence],
+    compiler: &PhoneticCompiler,
+    _root: &Path,
+) -> Value {
+    use ruhi::router::{ClassicalRegisterMode, ClassicalRegisterProfile};
+
+    let t_start = Instant::now();
+    let classical_20_texts = [
+        "知之為知之不知為不知是知也",
+        "道可道非常道名可名非常名",
+        "先天下之憂而憂後天下之樂而樂",
+        "古之學者必有師",
+        "師者所以傳道受業解惑也",
+        "不以物喜不以己悲",
+        "醉翁之意不在酒在乎山水之間也",
+        "予獨愛蓮之出淤泥而不染",
+        "三人行必有我師焉",
+        "溫故而知新可以為師矣",
+        "生於憂患而死於安樂",
+        "天將降大任於斯人也",
+        "臣本布衣躬耕於南陽",
+        "己所不欲勿施於人",
+        "君子和而不同小人同而不和",
+        "水能載舟亦能覆舟",
+        "民為貴社稷次之君為輕",
+        "千里之行始於足下",
+        "工欲善其事必先利其器",
+        "欲窮千里目更上一層樓",
+    ];
+    let classical_10_unseen_texts = [
+        "學而不思則罔思而不學則殆",
+        "青出於藍而勝於藍",
+        "仁者見仁智者見智",
+        "君子坦蕩蕩小人長戚戚",
+        "敏而好學不恥下問",
+        "業精於勤荒於嬉",
+        "行成於思毀於隨",
+        "言必信行必果",
+        "失之毫釐謬以千里",
+        "天下興亡匹夫有責",
+    ];
+    let novel_15_texts = [
+        "一個有辦法打文言文的輸入法",
+        "文言文輸入不出錯",
+        "不過是該漢字的常見連結",
+        "漢字系統的原型",
+        "先跑一下統計以確定利弊得失",
+        "每一個漢字本身就是一個語意本體",
+        "憑感覺的事情",
+        "平均值的計算",
+        "令人不捨的行為",
+        "台灣省的時代",
+        "他樂得清閒",
+        "我也很禮貌的回答",
+        "量子計算機與神經形態晶片",
+        "跨域語素因式分解拓撲模型",
+        "低延遲本地端解碼引擎",
+    ];
+
+    let compile_probe = |texts: &[&str], cat: &str| -> Vec<CompiledSentence> {
+        texts
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, &txt)| {
+                let item = CorpusItem {
+                    id: format!("{}_{:02}", cat, idx + 1),
+                    category: cat.to_string(),
+                    text: txt.to_string(),
+                };
+                compiler.compile(&item)
+            })
+            .collect()
+    };
+
+    let cl20 = compile_probe(&classical_20_texts, "classical_20");
+    let cl10 = compile_probe(&classical_10_unseen_texts, "classical_10_unseen");
+    let nv15 = compile_probe(&novel_15_texts, "novel_15");
+
+    let build_dags = |items: &[CompiledSentence]| -> Vec<HashMap<usize, Vec<ruhi::router::LatticeNode>>> {
+        let n_threads = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+            .min(16);
+        let chunk_size = (items.len() + n_threads - 1) / n_threads.max(1);
+        std::thread::scope(|s| {
+            let mut handles = Vec::new();
+            for chunk in items.chunks(chunk_size.max(1)) {
+                let dag_builder = LatticeDAG::new(&base_engine.lexicon);
+                handles.push(s.spawn(move || {
+                    chunk
+                        .iter()
+                        .map(|cs| dag_builder.build_dag(&cs.syllables, true))
+                        .collect::<Vec<_>>()
+                }));
+            }
+            handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
+        })
+    };
+
+    println!(
+        "[ClassicalBench] 正在建置詞網格（dev {} 句 + Classical-20 {} 句 + Unseen-10 {} 句 + Novel-15 {} 句）...",
+        compiled.len(),
+        cl20.len(),
+        cl10.len(),
+        nv15.len()
+    );
+    let dev_dags = build_dags(compiled);
+    let cl20_dags = build_dags(&cl20);
+    let cl10_dags = build_dags(&cl10);
+    let nv15_dags = build_dags(&nv15);
+
+    let eval_dev_mode = |mode: ClassicalRegisterMode| -> Value {
+        let mut router = base_engine.router.clone();
+        router.classical_mode = mode;
+        let n_threads = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+            .min(16);
+        let chunk_size = (compiled.len() + n_threads - 1) / n_threads.max(1);
+
+        let parts: Vec<(String, usize, usize, bool, String)> = std::thread::scope(|s| {
+            let mut handles = Vec::new();
+            for (c_idx, chunk) in compiled.chunks(chunk_size.max(1)).enumerate() {
+                let start = c_idx * chunk_size.max(1);
+                let dag_slice = &dev_dags[start..start + chunk.len()];
+                let router_ref = &router;
+                let mut trans = base_engine.transitions.clone();
+                handles.push(s.spawn(move || {
+                    let mut out = Vec::with_capacity(chunk.len());
+                    for (cs, dag) in chunk.iter().zip(dag_slice.iter()) {
+                        let (nodes, _) =
+                            router_ref.solve_best_path(cs.syllables.len(), dag, Some(&mut trans));
+                        let pred: String = nodes.iter().map(|n| n.word.as_str()).collect();
+                        let ch_len = cs.item.text.chars().count();
+                        let errs = char_levenshtein(&pred, &cs.item.text);
+                        let auto_trig =
+                            ClassicalRegisterProfile::detect(ClassicalRegisterMode::Auto, cs.syllables.len(), dag)
+                                .active;
+                        out.push((
+                            cs.item.category.clone(),
+                            ch_len,
+                            errs,
+                            auto_trig,
+                            cs.item.id.clone(),
+                        ));
+                    }
+                    out
+                }));
+            }
+            handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
+        });
+
+        let mut total_chars = 0usize;
+        let mut total_errors = 0usize;
+        let mut exact_match = 0usize;
+        let mut auto_triggered_ids: Vec<String> = Vec::new();
+        let mut by_cat: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+        for (cat, ch, errs, trig, id) in parts {
+            total_chars += ch;
+            total_errors += errs;
+            if errs == 0 {
+                exact_match += 1;
+            }
+            if trig {
+                auto_triggered_ids.push(id);
+            }
+            let e = by_cat.entry(cat).or_insert((0, 0));
+            e.0 += ch;
+            e.1 += errs;
+        }
+        let cer = total_errors as f64 / total_chars.max(1) as f64;
+        let ser = exact_match as f64 / compiled.len().max(1) as f64;
+        let trig_cnt = auto_triggered_ids.len();
+        let trig_rate = trig_cnt as f64 / compiled.len().max(1) as f64;
+        let mut per_category = BTreeMap::new();
+        for (cat, (ch, err)) in by_cat {
+            let c_cer = err as f64 / ch.max(1) as f64;
+            per_category.insert(
+                cat,
+                json!({
+                    "total_chars": ch,
+                    "char_errors": err,
+                    "cer": c_cer,
+                    "cer_percent": format!("{:.2}%", c_cer * 100.0),
+                }),
+            );
+        }
+        json!({
+            "total_sentences": compiled.len(),
+            "total_chars": total_chars,
+            "char_errors": total_errors,
+            "cer": cer,
+            "cer_percent": format!("{:.2}%", cer * 100.0),
+            "exact_match": exact_match,
+            "sentence_accuracy_percent": format!("{:.2}%", ser * 100.0),
+            "auto_triggered_count": trig_cnt,
+            "auto_triggered_rate_percent": format!("{:.3}%", trig_rate * 100.0),
+            "auto_triggered_ids": auto_triggered_ids,
+            "per_category": per_category,
+        })
+    };
+
+    let eval_probe = |mode: ClassicalRegisterMode,
+                      items: &[CompiledSentence],
+                      dags: &[HashMap<usize, Vec<ruhi::router::LatticeNode>>]|
+     -> Value {
+        let mut router = base_engine.router.clone();
+        router.classical_mode = mode;
+        let mut trans = base_engine.transitions.clone();
+        let mut tot_ch = 0usize;
+        let mut tot_err = 0usize;
+        let mut exact = 0usize;
+        let mut auto_trig_cnt = 0usize;
+        let mut preds = Vec::with_capacity(items.len());
+
+        for (cs, dag) in items.iter().zip(dags.iter()) {
+            let (nodes, _) = router.solve_best_path(cs.syllables.len(), dag, Some(&mut trans));
+            let pred: String = nodes.iter().map(|n| n.word.as_str()).collect();
+            let ch_len = cs.item.text.chars().count();
+            let errs = char_levenshtein(&pred, &cs.item.text);
+            let prof_auto =
+                ClassicalRegisterProfile::detect(ClassicalRegisterMode::Auto, cs.syllables.len(), dag);
+            tot_ch += ch_len;
+            tot_err += errs;
+            if errs == 0 {
+                exact += 1;
+            }
+            if prof_auto.active {
+                auto_trig_cnt += 1;
+            }
+            preds.push(json!({
+                "id": cs.item.id,
+                "gold": cs.item.text,
+                "pred": pred,
+                "char_errors": errs,
+                "auto_triggered": prof_auto.active,
+                "auto_score": prof_auto.classical_score,
+            }));
+        }
+        let cer = tot_err as f64 / tot_ch.max(1) as f64;
+        json!({
+            "total_sentences": items.len(),
+            "total_chars": tot_ch,
+            "char_errors": tot_err,
+            "cer": cer,
+            "cer_percent": format!("{:.2}%", cer * 100.0),
+            "exact_match": format!("{}/{}", exact, items.len()),
+            "exact_count": exact,
+            "auto_triggered_count": auto_trig_cnt,
+            "predictions": preds,
+        })
+    };
+
+    let modes = [
+        ("ModernOnly", ClassicalRegisterMode::ModernOnly),
+        ("Auto", ClassicalRegisterMode::Auto),
+        ("ClassicalExplicit", ClassicalRegisterMode::ClassicalExplicit),
+    ];
+
+    let mut modern_dev_errors = 0isize;
+    let mut mode_reports = serde_json::Map::new();
+    let mut compact_rows = Vec::new();
+
+    for (label, mode) in modes {
+        println!("[ClassicalBench] 評估模式 {} ...", label);
+        let mut dev_res = eval_dev_mode(mode);
+        let cur_dev_err = dev_res["char_errors"].as_u64().unwrap_or(0) as isize;
+        if label == "ModernOnly" {
+            modern_dev_errors = cur_dev_err;
+        }
+        let delta_dev = cur_dev_err - modern_dev_errors;
+        dev_res["delta_char_errors_vs_modern"] = json!(delta_dev);
+
+        let r20 = eval_probe(mode, &cl20, &cl20_dags);
+        let r10 = eval_probe(mode, &cl10, &cl10_dags);
+        let r15 = eval_probe(mode, &nv15, &nv15_dags);
+
+        compact_rows.push(json!({
+            "mode": label,
+            "dev_errors": cur_dev_err,
+            "dev_delta_vs_modern": delta_dev,
+            "dev_cer": dev_res["cer_percent"],
+            "dev_exact": dev_res["exact_match"],
+            "dev_auto_trig": dev_res["auto_triggered_count"],
+            "dev_auto_rate": dev_res["auto_triggered_rate_percent"],
+            "cl20_errors": r20["char_errors"],
+            "cl20_cer": r20["cer_percent"],
+            "cl20_exact": r20["exact_match"],
+            "cl20_trig": r20["auto_triggered_count"],
+            "cl10_unseen_errors": r10["char_errors"],
+            "cl10_unseen_cer": r10["cer_percent"],
+            "cl10_unseen_exact": r10["exact_match"],
+            "cl10_unseen_trig": r10["auto_triggered_count"],
+            "novel15_errors": r15["char_errors"],
+            "novel15_cer": r15["cer_percent"],
+            "novel15_exact": r15["exact_match"],
+            "novel15_trig": r15["auto_triggered_count"],
+        }));
+
+        mode_reports.insert(
+            label.to_string(),
+            json!({
+                "dev": dev_res,
+                "classical_20": r20,
+                "classical_10_unseen": r10,
+                "novel_15": r15,
+            }),
+        );
+    }
+
+    let elapsed_secs = (t_start.elapsed().as_secs_f64() * 100.0).round() / 100.0;
+    let stdout_summary = json!({
+        "elapsed_seconds": elapsed_secs,
+        "modes_compact": compact_rows,
+    });
+
+    json!({
+        "elapsed_seconds": elapsed_secs,
+        "modes": mode_reports,
+        "stdout_summary": stdout_summary,
+    })
+}
+
 /// 線性特徵安全邊界（Trust-Region Bounds，保護構式雙字詞與既有單元測試不退化）
 fn feature_bounds(k: &str) -> (f64, f64) {
     match k {
@@ -2418,6 +4761,9 @@ fn main() {
     let mut out_path: Option<PathBuf> = None;
     let mut baseline_path: Option<PathBuf> = None;
     let mut do_ablation = false;
+    let mut do_lexicon_ablation = false;
+    let mut do_strategy_bench = false;
+    let mut do_classical_bench = false;
     let mut prune_harmful = false;
     let mut do_calibrate = false;
     let mut do_gate = false;
@@ -2457,6 +4803,18 @@ fn main() {
             }
             "--ablation" => {
                 do_ablation = true;
+                i += 1;
+            }
+            "--lexicon-ablation" => {
+                do_lexicon_ablation = true;
+                i += 1;
+            }
+            "--strategy-bench" => {
+                do_strategy_bench = true;
+                i += 1;
+            }
+            "--classical-bench" => {
+                do_classical_bench = true;
                 i += 1;
             }
             "--prune-harmful" => {
@@ -2529,6 +4887,54 @@ fn main() {
             }))
             .unwrap()
         );
+        return;
+    }
+
+    if do_lexicon_ablation {
+        if set_name == "test" || set_name == "typing_tw" {
+            eprintln!("錯誤：嚴禁在盲測集 ({}.tsv) 上執行衍生詞庫消融分析！", set_name);
+            std::process::exit(1);
+        }
+        let rep = run_lexicon_ablation_study(&engine, &compiled, &root);
+        if let Some(ref p) = out_path {
+            if let Some(parent) = p.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(p, serde_json::to_string_pretty(&rep).unwrap());
+        }
+        println!("{}", serde_json::to_string_pretty(&rep["stdout_summary"]).unwrap());
+        return;
+    }
+
+    if do_strategy_bench {
+        if set_name == "test" || set_name == "typing_tw" {
+            eprintln!("錯誤：嚴禁在盲測集 ({}.tsv) 上執行策略對照統計！", set_name);
+            std::process::exit(1);
+        }
+        let rep = run_strategy_benchmark(&engine, &compiled, &compiler, &root);
+        if let Some(ref p) = out_path {
+            if let Some(parent) = p.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(p, serde_json::to_string_pretty(&rep).unwrap());
+        }
+        println!("{}", serde_json::to_string_pretty(&rep["stdout_summary"]).unwrap());
+        return;
+    }
+
+    if do_classical_bench {
+        if set_name == "test" || set_name == "typing_tw" {
+            eprintln!("錯誤：嚴禁在盲測集 ({}.tsv) 上執行路線 C 文言對照評估！", set_name);
+            std::process::exit(1);
+        }
+        let rep = run_classical_benchmark(&engine, &compiled, &compiler, &root);
+        if let Some(ref p) = out_path {
+            if let Some(parent) = p.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(p, serde_json::to_string_pretty(&rep).unwrap());
+        }
+        println!("{}", serde_json::to_string_pretty(&rep["stdout_summary"]).unwrap());
         return;
     }
 

@@ -57,7 +57,7 @@ fn is_rare_impostor(word: &str) -> bool {
 }
 
 pub(crate) const VALID_DE2_STEMS: &[&str] = &[
-    "看", "聽", "讀", "寫", "說", "講", "走", "跑", "跳", "飛", "做", "弄", "搞", "打",
+    "看", "聽", "讀", "寫", "說", "講", "問", "查", "走", "跑", "跳", "飛", "做", "弄", "搞", "打",
     "吃", "喝", "睡", "穿", "買", "賣", "學", "教", "唱", "畫", "洗", "擦", "修", "改",
     "算", "記", "認", "猜", "想", "找", "拿", "搬", "追", "逃", "忍", "受", "忘", "合",
     "配", "顧", "分", "談", "比", "長", "變", "顯", "過", "活", "玩", "笑", "哭", "鬧",
@@ -66,6 +66,15 @@ pub(crate) const VALID_DE2_STEMS: &[&str] = &[
     "說明", "形容", "描述", "控制", "掌握", "發揮", "維持", "保持", "保護", "照顧", "打扮",
     "收拾", "打掃", "安排", "設計", "規劃", "計算", "分析", "研究", "觀察", "配合", "發展",
     "完成", "達成", "實現",
+    "拉", "推", "造", "蓋", "生", "組", "拼", "搓", "靠", "貼", "離",
+    "吹", "吵", "罵", "燒", "咬", "咳", "吐", "跌", "漲", "震", "搖", "晃", "擠", "綁",
+    "鎖", "藏", "躲", "演", "踢", "摔", "撞", "敲", "砸", "撕", "扯", "抓", "捏", "抱",
+    "撐", "擋", "虧", "賺", "喘", "痛", "癢", "腫", "抖", "漏", "流", "噴", "冒", "滾",
+    "漂", "沉", "浮", "排",
+    "工作", "合作", "寫作", "創作", "操作", "運作", "實作", "製作", "協作",
+    "執行", "管理", "溝通", "互動", "相處", "搭配", "表達", "休息", "生活",
+    "解決", "回應", "回答", "學習", "練習", "翻譯", "演奏", "演唱", "表演",
+    "演講", "拍攝", "剪輯", "排版", "調校", "調整", "整合",
 ];
 
 impl WordPattern {
@@ -489,7 +498,7 @@ impl TransitionEngine {
             "顆", "粒", "滴", "杯", "碗", "盤", "皿", "瓶", "罐", "盒", "包", "袋", "箱",
             "籃", "桶", "本", "冊", "卷", "集", "首", "幅", "件", "套", "組", "批", "雙",
             "對", "副", "串", "束", "朵", "棵", "株", "隻", "頭", "匹", "尾", "群", "種",
-            "類", "樣", "份",
+            "類", "樣", "份", "餐", "頓",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Numeric,
@@ -957,7 +966,7 @@ impl TransitionEngine {
         let metric_dimension_prefixes = vec![
             "品質", "效能", "容量", "頻率", "速度", "成本", "風險", "價值",
             "壓力", "溫度", "時間", "空間", "比例", "極限", "權重", "精度",
-            "維度", "門檻", "負載", "耗損", "頻寬",
+            "維度", "門檻", "負載", "耗損", "頻寬", "上限", "下限",
         ];
         let metric_carrier_suffixes = vec![
             "值", "率", "比", "量", "度", "數", "階", "級", "線", "點",
@@ -1091,7 +1100,7 @@ impl TransitionEngine {
             "朵", "匹", "頭", "尾", "顆", "粒", "片", "杯", "碗", "盤",
             "部", "座", "所", "家", "款", "項", "套", "組", "段", "幢",
             "艘", "幅", "首", "尊", "面", "扇", "門", "臺", "冊",
-            "堂", "列", "班", "口",
+            "堂", "列", "班", "口", "餐", "頓",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(numerals.iter().map(|s| s.to_string()).collect()),
@@ -1266,7 +1275,7 @@ impl TransitionEngine {
             "看", "聽", "說", "講", "問", "做", "作", "弄", "搞", "忙", "等", "等待", "找", "尋找",
             "玩", "笑", "哭", "睡", "吃", "喝", "讀", "寫", "學", "學習", "討論", "商量", "開會",
             "工作", "運動", "測試", "檢查", "確認", "檢視", "執行", "運作", "運行", "處理", "發展", "使用",
-            "改", "修", "加", "補", "設定", "調整", "修改", "切換", "開", "買", "查", "談", "議", "辦", "打",
+            "改", "修", "加", "補", "設定", "調整", "修改", "切換", "開", "買", "查", "談", "議", "辦", "打", "用",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vec!["在".to_string(), "再".to_string()]),
@@ -1516,6 +1525,7 @@ impl TransitionEngine {
         // ── 感嘆/疑問程度副詞「多」+ 核心狀態形容詞 (有多厲害、有多神奇、多好、多大) ──
         let duo_gradable_adjs = vec![
             "厲害", "神奇", "好", "大", "高", "快", "遠", "久", "難", "美", "棒", "讚", "強", "深", "重", "貴", "美妙", "精彩", "漂亮", "誇張", "離譜", "嚴重", "辛苦", "開心", "高興",
+            "兇", "凶", "猛", "狠", "狂", "慘", "爛", "雷", "扯", "嗆", "爽", "酷", "準", "穩", "帥", "笨", "傻", "累", "忙", "痛", "苦", "甜", "辣", "熱", "冷", "早", "晚", "長", "短", "硬", "軟",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("多".to_string()),
@@ -1525,7 +1535,7 @@ impl TransitionEngine {
         });
 
         // ── 專職程度副詞 + 實詞謂詞/形容詞 (很普通、很好、很大；排除單字「多/真/挺/超」無條件匹配一般名詞) ──
-        let strict_degree_advs = vec!["很", "非常", "特別", "十分", "太", "極為", "多麼"];
+        let strict_degree_advs = vec!["很", "非常", "特別", "十分", "太", "極為", "多麼", "得很", "都很"];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(strict_degree_advs.into_iter().map(|s| s.to_string()).collect()),
             curr_pattern: WordPattern::ContentWord,
@@ -1554,6 +1564,15 @@ impl TransitionEngine {
             curr_pattern: WordPattern::OneOf(indefinite_num_classifiers.into_iter().map(|s| s.to_string()).collect()),
             bonus: 26.0,
             name: "copula_shi_indefinite_np".to_string(),
+        });
+
+        // 判斷繫詞「是 / 的是」➔ 指示／限定功能詞（防止「該/此/其/每/某/各/本」因位於 function_words 而被 shi_predicate +8.0 偏袒生僻單字如「是賅漢字」反超）
+        let shi_determiners = vec!["該", "此", "其", "每", "某", "各", "本"];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec!["是".to_string(), "的是".to_string()]),
+            curr_pattern: WordPattern::OneOf(shi_determiners.into_iter().map(|s| s.to_string()).collect()),
+            bonus: 10.0,
+            name: "copula_shi_determiner".to_string(),
         });
 
         // 判斷: 是 + 實詞
@@ -2326,10 +2345,10 @@ impl TransitionEngine {
             name: "degree_adv_psych_verb".to_string(),
         });
 
-        // ── 敬語/致謝動詞 ➔ 動賓客體/反饋名詞 (感謝/多謝/謝謝/萬分感謝/非常感謝 ➔ 回覆/回復/協助/支持/指導/解釋/提醒/分享/幫忙/配合/賜教/建議/耐心/告知/實作/開發/修正/調校) ──
+        // ── 敬語/致謝動詞 ➔ 動賓客體/反饋名詞 (感謝/多謝/謝謝/萬分感謝/非常感謝 ➔ 回覆/協助/支持/指導/解釋/提醒/分享/幫忙/配合/賜教/建議/耐心/告知/實作/開發/修正/調校) ──
         let gratitude_verbs = vec!["感謝", "多謝", "謝謝", "萬分感謝", "非常感謝", "十分感謝"];
         let gratitude_objects = vec![
-            "回覆", "回復", "協助", "支持", "指導", "解釋", "提醒", "分享", "幫忙", "配合",
+            "回覆", "協助", "支持", "指導", "解釋", "提醒", "分享", "幫忙", "配合",
             "賜教", "建議", "解答", "耐心", "告知", "包容", "體諒", "關照", "照顧", "招待",
             "反饋", "回饋", "提供", "指教", "實作", "開發", "修正", "修復", "調整", "調校",
             "更新", "升級", "設計", "測試", "維護", "貢獻", "參與", "付出",
@@ -2444,7 +2463,7 @@ impl TransitionEngine {
             "之中", "裡面", "外面", "中間", "底下", "身上", "手裡", "心中",
         ];
         let non_locative_stems = vec![
-            "裡", "外", "內", "中", "上", "下", "前", "後", "旁", "決心", "信念", "信心", "意志", "時", "實", "全",
+            "裡", "外", "內", "中", "上", "下", "前", "後", "旁", "決心", "信念", "信心", "意志", "時", "實", "全", "整", "德",
         ].into_iter().map(|s| s.to_string()).collect();
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::ContentWordExcept(non_locative_stems),
@@ -2486,9 +2505,19 @@ impl TransitionEngine {
         });
 
         // 時間狀語/定語構式 (Temporal topics/specifiers: 未來、過去、現在、目前、今天、明天、昨天、月底...)
+        // 必須先對封閉類高頻副詞/繫詞給予同等加分（刻意排除「在/再」留交體貌構式分流），避免「現在就看」因 function_words 排除而落敗於「現在舊看」
         let temporal_topics = vec![
             "未來", "過去", "現在", "目前", "今天", "明天", "昨天", "最近", "這幾天", "月底", "月初", "年底",
         ];
+        let temporal_func_advs = vec![
+            "就", "才", "都", "也", "還", "又", "已", "正", "將", "會", "能", "要", "不", "沒", "很", "是",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(temporal_topics.iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::OneOf(temporal_func_advs.into_iter().map(|s| s.to_string()).collect()),
+            bonus: 22.0,
+            name: "temporal_topic_func_adv".to_string(),
+        });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(temporal_topics.into_iter().map(|s| s.to_string()).collect()),
             curr_pattern: WordPattern::ContentWord,
@@ -3061,9 +3090,10 @@ impl TransitionEngine {
 
         // 9. 可能補語與程度狀態補語構式 [ 動詞 + 得/不 + 補語 ] (看得懂/看不懂、做得到/做不到、收羅得十分齊全、說得很清楚)
         let potential_complements = vec![
-            "懂", "見", "清", "到", "起", "下", "住", "著", "完", "好",
+            "懂", "見", "清", "清楚", "明白", "到", "起", "下", "住", "著", "完", "好",
             "開", "來", "去", "過", "飽", "慣", "動", "走", "跑", "通",
             "出", "上", "成", "了", "掉", "進", "回", "準", "穩",
+            "出來", "起來", "下去", "進去", "進來", "回來", "回去", "乾淨",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("得".to_string()),
@@ -3270,14 +3300,19 @@ impl TransitionEngine {
             "實".to_string(), "面".to_string(), "骨".to_string(),
             "法".to_string(), "皮".to_string(), "賣".to_string(), "看".to_string(), "照".to_string(),
         ];
+        let fact_left_positive: Vec<String> = fact_left_context
+            .iter()
+            .filter(|w| w.as_str() != "賣")
+            .cloned()
+            .collect();
         self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::OneOf(fact_left_context.clone()),
+            prev_pattern: WordPattern::OneOf(fact_left_context),
             curr_pattern: WordPattern::OneOf(vec!["像".to_string(), "象".to_string()]),
             bonus: -35.0,
             name: "anti_fact_feature_confusion".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::OneOf(fact_left_context),
+            prev_pattern: WordPattern::OneOf(fact_left_positive),
             curr_pattern: WordPattern::Exact("相".to_string()),
             bonus: 28.0,
             name: "xiang_fact_feature_attraction".to_string(),
@@ -3834,7 +3869,7 @@ impl TransitionEngine {
             name: "anti_rain_or_lang_before_determiner".to_string(),
         });
         let weather_rain_prefixes = vec![
-            "下", "淋", "冒", "避", "躲", "防", "擋", "遮", "暴", "豪", "陣", "酸", "梅", "春", "秋", "雷", "風", "被",
+            "下", "淋", "冒", "避", "躲", "防", "擋", "遮", "暴", "豪", "陣", "酸", "梅", "春", "秋", "雷", "風",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(weather_rain_prefixes.iter().map(|s| s.to_string()).collect()),
@@ -3952,7 +3987,7 @@ impl TransitionEngine {
             "破音", "近義", "同義", "反義", "生僻", "冷僻", "罕見", "常用", "高頻", "低頻",
             "關鍵", "敏感", "專有", "專業", "外來", "方言", "主", "謂", "賓", "定", "狀",
             "補", "語", "字", "組", "造", "選", "拆", "分", "斷", "歌", "詩", "宋", "唐",
-            "填", "台", "臺", "講", "說", "微", "一", "個", "這", "那", "每個", "這個", "那個",
+            "填", "台", "臺", "講", "說", "一", "個", "這", "那", "每個", "這個", "那個",
             "類", "延伸", "衍生", "同類", "各類", "這類", "那類", "假",
         ];
         self.grammar_rules.push(GrammarRule {
@@ -4376,14 +4411,15 @@ impl TransitionEngine {
 
         // 15. 可能補語三維陣列構式：{核心動詞} × {得, 不} × {結果/趨向補語}（取代 lexicon_domain.tsv 120 筆平面化詞條）
         let pot_verbs: Vec<String> = [
-            "看", "聽", "讀", "寫", "說", "算", "想", "記", "認", "猜", "弄", "搞", "分",
+            "看", "聽", "讀", "寫", "說", "講", "問", "查", "算", "想", "記", "認", "猜", "弄", "搞", "分",
             "做", "受", "吃", "合", "忘", "拿", "睡", "買", "走", "追", "配", "顧", "找",
             "學", "用", "穿", "搬", "喝", "忍", "逃", "比", "猜", "算", "談",
             "分辨", "區分", "判斷", "解釋", "說明", "分析", "處理", "表達", "描述",
         ].iter().map(|s| s.to_string()).collect();
         let pot_results: Vec<String> = [
-            "懂", "到", "見", "清", "起", "出", "完", "好", "下", "了", "飽", "來", "通",
+            "懂", "到", "見", "清", "清楚", "明白", "起", "出", "完", "好", "下", "了", "飽", "來", "通",
             "動", "著", "住", "上", "過", "開", "掉", "得", "進", "回", "準", "穩",
+            "出來", "起來", "下去", "進去", "進來", "回來", "回去", "乾淨",
         ].iter().map(|s| s.to_string()).collect();
         let pot_neg_compounds: Vec<String> = [
             "不懂", "不到", "不見", "不清", "不起", "不完", "不好", "不下", "不了", "不飽",
@@ -4441,11 +4477,23 @@ impl TransitionEngine {
             bonus: 28.0,
             name: "vo_verb_momentum_infix_array".to_string(),
         });
+        let vo_infix_obj_prev: Vec<String> = [
+            "一下", "一頓", "一趟", "一場", "一番", "頓",
+        ].iter().map(|s| s.to_string()).collect();
         self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::OneOf(vo_infixes.clone()),
+            prev_pattern: WordPattern::OneOf(vo_infix_obj_prev),
             curr_pattern: WordPattern::OneOf(vo_objects),
             bonus: 26.0,
             name: "vo_infix_object_head_array".to_string(),
+        });
+        let vo_ge_compound_objs: Vec<String> = [
+            "什麼", "廁所", "招呼", "玩笑", "脾氣", "石頭",
+        ].iter().map(|s| s.to_string()).collect();
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::Exact("個".to_string()),
+            curr_pattern: WordPattern::OneOf(vo_ge_compound_objs),
+            bonus: 24.0,
+            name: "vo_ge_compound_object_array".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vo_infixes),
@@ -5388,6 +5436,7 @@ impl TransitionEngine {
             prev_pattern: WordPattern::OneOf(vec![
                 "中".to_string(), "裡".to_string(), "內".to_string(), "上".to_string(),
                 "下".to_string(), "裡面".to_string(), "之中".to_string(), "之內".to_string(),
+                "以上".to_string(), "以下".to_string(), "以內".to_string(),
             ]),
             curr_pattern: WordPattern::OneOf(vec![
                 "也".to_string(), "都".to_string(), "就".to_string(), "才".to_string(),
@@ -5941,6 +5990,34 @@ impl TransitionEngine {
                 } else if pat.slots.len() == 1 && !eff_target.is_empty() {
                     (pat.slots[0].clone(), eff_target)
                 } else if pat.slots.len() == 2 && !eff_target.is_empty() {
+                    // 雙槽位與目標槽位共同構成三元詞序構式；僅當 slot[0] 明訂為可選時才允許 bare s1 獨立觸發，防止「非常+北 -> 非常+西」跨語境誤觸發
+                    if !pat.optional_slots.contains(&0) {
+                        let s0_set: HashSet<String> = pat.slots[0]
+                            .iter()
+                            .map(|w| w.trim().to_string())
+                            .filter(|w| Self::is_valid_cjk_token(w))
+                            .collect();
+                        let s1_set: HashSet<String> = pat.slots[1]
+                            .iter()
+                            .map(|w| w.trim().to_string())
+                            .filter(|w| Self::is_valid_cjk_token(w))
+                            .collect();
+                        let s2_set: HashSet<String> = eff_target
+                            .iter()
+                            .map(|w| w.trim().to_string())
+                            .filter(|w| Self::is_valid_cjk_token(w))
+                            .collect();
+                        if !s0_set.is_empty() && !s1_set.is_empty() && !s2_set.is_empty() {
+                            self.user_trigram_patterns.push(TrigramSlotPattern {
+                                slot0: s0_set,
+                                slot1: s1_set,
+                                slot2: s2_set,
+                                bonus: safe_bonus,
+                                trigram_rule_name: format!("trigram_{}", label),
+                                name: label.clone(),
+                            });
+                        }
+                    }
                     // 雙槽位笛卡兒展開為前驅組合 + 單槽位後驅
                     let mut combined = Vec::new();
                     for s0 in &pat.slots[0] {
@@ -5948,8 +6025,10 @@ impl TransitionEngine {
                             combined.push(format!("{}{}", s0.trim(), s1.trim()));
                         }
                     }
-                    for s1 in &pat.slots[1] {
-                        combined.push(s1.trim().to_string());
+                    if pat.optional_slots.contains(&0) {
+                        for s1 in &pat.slots[1] {
+                            combined.push(s1.trim().to_string());
+                        }
                     }
                     (combined, eff_target)
                 } else if pat.slots.len() == 2 && eff_target.is_empty() {
@@ -6263,6 +6342,22 @@ impl TransitionEngine {
         Ok(count)
     }
 
+    #[inline(always)]
+    fn is_mismatched_bigram_polyphone(w: &str, bpm: &str) -> bool {
+        if bpm.is_empty() {
+            return false;
+        }
+        match w {
+            // 「好」讀四聲 ㄏㄠˋ（愛好／好奇）絕不作自由程度副詞、動結補語「做好」或評價形容詞「很好」
+            "好" => bpm.starts_with("ㄏㄠˋ"),
+            // 「累」讀二聲 ㄌㄟˊ（累贅／果實累累）絕不作自由狀態謂語「很累 (ㄌㄟˋ)」
+            "累" => bpm.starts_with("ㄌㄟˊ"),
+            "的" => bpm.starts_with("ㄉㄧ"),
+            "不" => !bpm.starts_with("ㄅㄨ"),
+            _ => false,
+        }
+    }
+
     /// 供後向預掃描 (`LatticeBackwardProfile`) 查詢之唯讀靜態二元轉移位勢（不觸發 trace 紀錄，零副作用）
     #[inline]
     pub fn peek_static_bigram_bonus(
@@ -6284,11 +6379,17 @@ impl TransitionEngine {
             return 0.0;
         }
         let mut b = 0.0;
+        let poly_mismatch = Self::is_mismatched_bigram_polyphone(prev_word, prev_bopomofo)
+            || Self::is_mismatched_bigram_polyphone(curr_word, curr_bopomofo);
         if let Some(&s) = self.user_nested.get(prev_word).and_then(|m| m.get(curr_word)) {
-            b += s;
+            if !(s > 0.0 && poly_mismatch) {
+                b += s;
+            }
         }
         if let Some(&s) = self.builtin_nested.get(prev_word).and_then(|m| m.get(curr_word)) {
-            b += s;
+            if !(s > 0.0 && poly_mismatch) {
+                b += s;
+            }
         }
         b
     }
@@ -6338,26 +6439,32 @@ impl TransitionEngine {
 
         // Layer 2: 精確二元搭配 O(1) 雜湊查表（使用者自訂 transitions + 內建結構化收斂 builtin_transitions）
         if self.bigram_firsts.contains(prev_word) {
+            let poly_mismatch = Self::is_mismatched_bigram_polyphone(prev_word, prev_bopomofo)
+                || Self::is_mismatched_bigram_polyphone(curr_word, curr_bopomofo);
             if let Some(&score) = self.user_nested.get(prev_word).and_then(|m| m.get(curr_word)) {
-                if self.active_trace.is_some() || !self.disabled_rules.is_empty() {
-                    let rid = if score >= 0.0 {
-                        format!("user_bigram_pos:{}->{}", prev_word, curr_word)
+                if !(score > 0.0 && poly_mismatch) {
+                    if self.active_trace.is_some() || !self.disabled_rules.is_empty() {
+                        let rid = if score >= 0.0 {
+                            format!("user_bigram_pos:{}->{}", prev_word, curr_word)
+                        } else {
+                            format!("user_bigram_neg:{}->{}", prev_word, curr_word)
+                        };
+                        bonus += self.apply_rule_score(&rid, score);
+                    } else if score >= 0.0 {
+                        bonus += self.apply_rule_score("user_bigram_pos", score);
                     } else {
-                        format!("user_bigram_neg:{}->{}", prev_word, curr_word)
-                    };
-                    bonus += self.apply_rule_score(&rid, score);
-                } else if score >= 0.0 {
-                    bonus += self.apply_rule_score("user_bigram_pos", score);
-                } else {
-                    bonus += self.apply_rule_score("user_bigram_neg", score);
+                        bonus += self.apply_rule_score("user_bigram_neg", score);
+                    }
                 }
             }
             if let Some(&score) = self.builtin_nested.get(prev_word).and_then(|m| m.get(curr_word)) {
-                if self.active_trace.is_some() || !self.disabled_rules.is_empty() {
-                    let rid = format!("builtin_bigram:{}->{}", prev_word, curr_word);
-                    bonus += self.apply_rule_score(&rid, score);
-                } else {
-                    bonus += self.apply_rule_score("builtin_bigram", score);
+                if !(score > 0.0 && poly_mismatch) {
+                    if self.active_trace.is_some() || !self.disabled_rules.is_empty() {
+                        let rid = format!("builtin_bigram:{}->{}", prev_word, curr_word);
+                        bonus += self.apply_rule_score(&rid, score);
+                    } else {
+                        bonus += self.apply_rule_score("builtin_bigram", score);
+                    }
                 }
             }
         }
@@ -6477,9 +6584,13 @@ impl TransitionEngine {
                             "種" => bpm.starts_with("ㄓㄨㄥˋ") && rname.contains("classifier"),
                             "間" => bpm.starts_with("ㄐㄧㄢˋ") && rname.contains("classifier"),
                             "處" => bpm.starts_with("ㄔㄨˇ") && (rname.contains("classifier") || rname.contains("localizer")),
+                            "片" => bpm != "ㄆㄧㄢˋ" && rname.contains("classifier"),
                             "著" => (bpm.starts_with("ㄓㄨ") || bpm.starts_with("ㄓㄠ")) && rname.contains("aspect"),
                             "了" => bpm.starts_with("ㄌㄧㄠ") && rname.contains("aspect"),
+                            "好" => bpm.starts_with("ㄏㄠˋ"),
+                            "累" => bpm.starts_with("ㄌㄟˊ") || (bpm.starts_with("ㄌㄟˇ") && (rname.contains("degree") || rname.contains("adj") || rname.contains("state") || rname.contains("yueshi") || rname.contains("yue_"))),
                             "分" => bpm.starts_with("ㄈㄣˋ") && (rname.contains("potential") || rname.contains("vo_") || rname.contains("user_")),
+                            "請" => bpm.starts_with("ㄑㄧㄥˊ"),
                             "中" => bpm != "ㄓㄨㄥ" && (rname.contains("localizer") || rname.contains("locative") || rname.contains("guo_chengzhong") || rname.starts_with("user_")),
                             _ => false,
                         }
@@ -6493,6 +6604,12 @@ impl TransitionEngine {
                     if rule.name == "postpositional_locative"
                         && curr_word == "裡"
                         && prev_bopomofo == "ㄔㄨˇ"
+                    {
+                        continue;
+                    }
+                    // 防「但／卻／但卻／不過／可是」等轉折／並列連詞冒領時間從句 `temporal_event_shi` 加分而拆碎「確實／事實」
+                    if rule.name == "temporal_event_shi"
+                        && matches!(prev_word, "但" | "卻" | "但卻" | "不過" | "可是" | "而且" | "並且")
                     {
                         continue;
                     }
@@ -6585,7 +6702,12 @@ impl TransitionEngine {
                         "好", "大", "小", "多", "少", "快", "慢", "長", "短", "高", "低", "美", "難", "新", "舊",
                         "貴", "熱", "冷", "棒", "讚", "累", "忙", "深", "淺", "厚", "薄", "紅", "黑", "白", "早",
                         "晚", "遠", "近", "差", "重", "輕", "硬", "軟", "甜", "苦", "鹹", "香", "痛", "純", "真",
-                        "假", "準", "穩", "省", "狂", "狠", "凶", "兇", "酷", "爽", "爛",
+                        "假", "準", "穩", "省", "狂", "狠", "凶", "兇", "酷", "爽", "爛", "雷",
+                        "神", "猛", "慘", "扯", "嗆", "強", "亮", "緊", "擠", "窄", "吵", "髒", "亂", "臭",
+                        "酸", "辣", "濃", "淡", "鬆", "肥", "瘦", "胖", "矮", "弱", "暗", "鮮", "乾", "濕",
+                        "滑", "脆", "酥", "傻", "笨", "呆", "乖", "衰", "毒", "妙", "巧", "靈", "精", "潮",
+                        "俗", "宅", "萌", "暖", "涼", "燙", "冰", "閒", "睏", "餓", "飽", "渴", "癢", "暈",
+                        "慌", "急", "煩", "悶", "糟", "久",
                     ];
                     if !gradable_adjectives.contains(&curr_word) {
                         continue;
@@ -6604,10 +6726,14 @@ impl TransitionEngine {
                     }
                 }
 
-                // 6. 句末疑問助詞「嗎」：必須讀輕聲 ˙ㄇㄚ 或一聲 ㄇㄚ，排除三聲 ㄇㄚˇ（嗎啡）
+                // 6. 句末疑問／語氣助詞讀音錨定：排除非語氣詞之破音讀法（嗎ㄇㄚˇ=嗎啡、囉ㄌㄨㄛˊ=囉嗦、呢ㄋㄧˊ=毛呢/呢喃、呀ㄒㄧㄚ=呀然、嘛ㄇㄚˊ=幹嘛、耶ㄧㄝˊ=耶穌）
                 if rule.name == "sentence_final_particle"
                     && ((curr_word == "嗎" && curr_bopomofo.contains('ˇ'))
-                        || (curr_word == "囉" && curr_bopomofo.contains('ˊ')))
+                        || (curr_word == "囉" && curr_bopomofo.contains('ˊ'))
+                        || (curr_word == "呢" && curr_bopomofo.starts_with("ㄋㄧ"))
+                        || (curr_word == "呀" && curr_bopomofo.starts_with('ㄒ'))
+                        || (curr_word == "嘛" && curr_bopomofo.contains('ˊ'))
+                        || (curr_word == "耶" && curr_bopomofo.contains('ˊ')))
                 {
                     continue;
                 }
@@ -6714,6 +6840,11 @@ impl TransitionEngine {
         {
             bonus += self.apply_rule_score("guard_he_huo_polyphone", -35.0);
         }
+        if (curr_word == "請" && curr_bopomofo.starts_with("ㄑㄧㄥˊ"))
+            || (prev_word == "請" && prev_bopomofo.starts_with("ㄑㄧㄥˊ"))
+        {
+            bonus += self.apply_rule_score("guard_qing2_polyphone", -35.0);
+        }
 
         // 3. 疊字後接修飾標記已交由具語意區分度之構式處理；等權對「的/地」加分會干擾詞界，予以移除
 
@@ -6729,6 +6860,15 @@ impl TransitionEngine {
         if curr_word == "般"
             && curr_bopomofo.contains("ㄅㄢ")
             && !self.function_words.contains(prev_word)
+            && !matches!(
+                prev_word,
+                "昨天" | "今天" | "明天" | "前天" | "後天" | "今年" | "去年" | "明年"
+                    | "現在" | "目前" | "剛才" | "剛剛" | "最近" | "以前" | "以後" | "之後"
+                    | "後來" | "當時" | "隨時" | "同時" | "平時" | "經常" | "時常" | "常常"
+                    | "偶爾" | "馬上" | "立刻" | "趕快" | "準備" | "開始" | "決定" | "打算"
+                    | "想要" | "可以" | "能夠" | "應該" | "必須" | "一起" | "幫忙" | "協助"
+                    | "負責" | "自己" | "親自" | "我們" | "你們" | "他們" | "她們" | "大家"
+            )
             && prev_word.chars().count() >= 2
             && prev_word.chars().count() <= 4
         {

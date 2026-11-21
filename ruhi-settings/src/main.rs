@@ -2977,6 +2977,53 @@ impl RuhiStudioApp {
         ui.add_space(10.0);
 
         ui.group(|ui| {
+            ui.heading("文言單字語體引擎 (Classical Register Engine)");
+            ui.add_space(6.0);
+
+            let mut classical_changed = false;
+            if two_tier_radio(
+                ui,
+                &mut self.settings.grammar.classical_mode,
+                "auto".to_string(),
+                "自動偵測古典文言語境（預設・現代白話零干擾）",
+                "具備輕聲與現代指標詞嚴格否定閘門，僅於句中累積多重文言虛詞或對偶特徵時自動啟用古典單字語境。",
+                &palette,
+            ) {
+                classical_changed = true;
+            }
+            ui.add_space(4.0);
+
+            if two_tier_radio(
+                ui,
+                &mut self.settings.grammar.classical_mode,
+                "off".to_string(),
+                "永遠停用（純現代白話解碼）",
+                "關閉文言單字語境權重與對偶規則；若遇偶發古今同音誤觸，可隨時切換此選項恢復純白話計分。",
+                &palette,
+            ) {
+                classical_changed = true;
+            }
+            ui.add_space(4.0);
+
+            if two_tier_radio(
+                ui,
+                &mut self.settings.grammar.classical_mode,
+                "explicit".to_string(),
+                "手動強制開啟文言模式（古籍／詩詞／散文長句適用）",
+                "無視句末虛詞與句長門檻，全程以最高強度啟用文言虛詞句法槽位與古典單字先驗加權。",
+                &palette,
+            ) {
+                classical_changed = true;
+            }
+
+            if classical_changed {
+                self.auto_save_settings_quiet();
+            }
+        });
+
+        ui.add_space(10.0);
+
+        ui.group(|ui| {
             ui.heading("詞庫主權與熱重載");
             ui.add_space(6.0);
 

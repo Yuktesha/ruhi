@@ -62,7 +62,7 @@ impl LatticeBackwardProfile {
         let mut max_len2_weight_at = vec![0u32; n_syllables + 2];
         let mut max_len3_weight_at = vec![0u32; n_syllables + 2];
 
-        let (w_freq_c1, w_freq_cmp, w_mchar, w_coh3, w_coh4) = if let Some(eng) = transitions {
+        let (w_freq_c1, w_freq_cmp, w_mchar, w_coh3, w_coh4, w_class) = if let Some(eng) = transitions {
             (
                 eng.feature_weights
                     .get("freq_ln_char1")
@@ -77,12 +77,18 @@ impl LatticeBackwardProfile {
                 eng.feature_weights.get("multi_char_len").copied().unwrap_or(1.0),
                 eng.feature_weights.get("cohesion_len3").copied().unwrap_or(1.0),
                 eng.feature_weights.get("cohesion_len4").copied().unwrap_or(1.0),
+                eng.feature_weights.get("classical_register").copied().unwrap_or(1.0),
             )
         } else {
-            (1.0, 1.0, 1.0, 1.0, 1.0)
+            (1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
         };
 
         let ont = MorphemeOntology::global();
+        let classical = super::classical_register::ClassicalRegisterProfile::detect(
+            router.classical_mode,
+            n_syllables,
+            dag,
+        );
 
         for pos in (0..n_syllables).rev() {
             let nodes = match dag.get(&pos) {
@@ -121,27 +127,39 @@ impl LatticeBackwardProfile {
                     continue;
                 }
 
-                let word_len = node.length() as f64;
-                let base_weight = (std::cmp::max(1, node.weight)) as f64;
-                let freq_score = base_weight.ln() * if word_len > 1.0 { w_freq_cmp } else { w_freq_c1 };
-                let length_bonus = if word_len > 1.0 {
-                    let cohesion_extra = if word_len >= 4.0 {
-                        16.0 * w_coh4
-                    } else if word_len >= 3.0 {
-                        8.0 * w_coh3
+                    let word_len_u = node.length();
+                    let word_len = word_len_u as f64;
+                    let is_session_name =
+                        transitions.is_some_and(|eng| eng.session_given_names.contains(&node.word));
+                    let base_weight = (std::cmp::max(1, node.weight)) as f64;
+                    let freq_score = base_weight.ln() * if word_len > 1.0 { w_freq_cmp } else { w_freq_c1 };
+                    let length_bonus = if word_len > 1.0 {
+                        let cohesion_extra = if word_len >= 4.0 {
+                            16.0 * w_coh4
+                        } else if word_len >= 3.0 {
+                            8.0 * w_coh3
+                        } else {
+                            0.0
+                        };
+                        (word_len - 1.0)
+                            * router.effective_multi_char_bonus(
+                                &node.word,
+                                word_len_u,
+                                node.weight,
+                                is_session_name,
+                            )
+                            * w_mchar
+                            + cohesion_extra
                     } else {
                         0.0
                     };
-                    (word_len - 1.0) * router.multi_char_bonus * w_mchar + cohesion_extra
-                } else {
-                    0.0
-                };
                 let archaic_penalty = if crate::router::archaic_table::is_archaic_polyphonic(&node.word, &node.bopomofo) {
                     -45.0
                 } else {
                     0.0
                 };
-                let self_score = freq_score + length_bonus + archaic_penalty;
+                let classical_node = classical.node_score_delta(node, n_syllables) * w_class;
+                let self_score = freq_score + length_bonus + archaic_penalty + classical_node;
 
                 let right_bigram = if j < n_syllables && !best_right_word[j].is_empty() {
                     transitions.map_or(0.0, |eng| {
@@ -235,10 +253,94 @@ impl LatticeBackwardProfile {
     }
 }
 
+/// 判斷多字詞是否屬於高透明度之純句法拼接衍生詞（排除語意已詞彙化之原子名詞與複數人稱代詞），
+/// 供 S5 結構化階梯加成使用（保留 100% 選單可達性，適度壓制其跨界搶佔權重）。
+#[inline]
+pub fn is_narrow_transparent_derived(word: &str) -> bool {
+    let mut it = word.chars();
+    let Some(c0) = it.next() else { return false };
+    let Some(c1) = it.next() else { return false };
+    match it.next() {
+        None => {
+            if matches!(c0, '我' | '你' | '妳' | '他' | '她' | '它' | '牠' | '祂') && c1 != '們' {
+                return true;
+            }
+            if c1 == '的' && !matches!(word, "目的" | "標的" | "別的" | "有的" | "是的" | "新的") {
+                return true;
+            }
+            if matches!(c1, '嗎' | '呢' | '吧' | '啊' | '呀' | '嘛' | '啦') {
+                return true;
+            }
+            matches!(word, "沒辦" | "沒關" | "沒想")
+        }
+        Some(c2) => {
+            if it.next().is_some() {
+                return false;
+            }
+            if matches!(
+                word,
+                "不見得"
+                    | "怪不得"
+                    | "恨不得"
+                    | "由不得"
+                    | "捨不得"
+                    | "了不得"
+                    | "免不了"
+                    | "少不了"
+                    | "受不了"
+                    | "算不了"
+                    | "大不了"
+                    | "省不了"
+                    | "逃不了"
+                    | "免不得"
+                    | "來得及"
+                    | "不得不"
+                    | "不得已"
+                    | "不得了"
+                    | "對不起"
+                    | "了不起"
+            ) {
+                return false;
+            }
+            matches!(c2, '的' | '得' | '了' | '著' | '過') || matches!(c1, '得' | '了')
+        }
+    }
+}
+
+/// Optional policy for tiered or weight-modulated `multi_char_bonus` evaluation.
+/// Production default uses `MultiCharBonusPolicy::production_s5()`.
+#[derive(Debug, Clone, Default)]
+pub struct MultiCharBonusPolicy {
+    pub weight_ramp_low: Option<u32>,
+    pub weight_ramp_high: Option<u32>,
+    pub weight_ramp_min_bonus: f64,
+    pub use_narrow_derived_tier: bool,
+    pub derived_words: Option<std::sync::Arc<std::collections::HashSet<String>>>,
+    pub derived_bonus: f64,
+}
+
+impl MultiCharBonusPolicy {
+    /// S5 統計驗證勝出之零過擬合多字詞階梯加成策略：
+    /// - 雙字詞（排除對話期間臨時登錄人名）權重 100→250 平滑線性梯度 20.0→28.0
+    /// - 狹義透明衍生詞（`is_narrow_transparent_derived`）單字組總降幅上限為 8.0（雙字詞 20.0、三字詞以上按邊界均分）
+    pub fn production_s5() -> Self {
+        Self {
+            weight_ramp_low: Some(100),
+            weight_ramp_high: Some(250),
+            weight_ramp_min_bonus: 20.0,
+            use_narrow_derived_tier: true,
+            derived_words: None,
+            derived_bonus: 20.0,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ViterbiRouter {
     pub syllable_base_score: f64,
     pub multi_char_bonus: f64,
+    pub bonus_policy: Option<MultiCharBonusPolicy>,
+    pub classical_mode: super::classical_register::ClassicalRegisterMode,
 }
 
 impl Default for ViterbiRouter {
@@ -246,6 +348,8 @@ impl Default for ViterbiRouter {
         Self {
             syllable_base_score: 0.0,
             multi_char_bonus: 28.0,
+            bonus_policy: Some(MultiCharBonusPolicy::production_s5()),
+            classical_mode: super::classical_register::ClassicalRegisterMode::Auto,
         }
     }
 }
@@ -253,6 +357,48 @@ impl Default for ViterbiRouter {
 impl ViterbiRouter {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    #[inline]
+    pub fn effective_multi_char_bonus(
+        &self,
+        word: &str,
+        word_len: usize,
+        weight: u32,
+        is_session_name: bool,
+    ) -> f64 {
+        let Some(ref pol) = self.bonus_policy else {
+            return self.multi_char_bonus;
+        };
+        let mut b = self.multi_char_bonus;
+        if word_len == 2 && !is_session_name {
+            if let (Some(lo), Some(hi)) = (pol.weight_ramp_low, pol.weight_ramp_high) {
+                if hi > lo {
+                    let t = if weight <= lo {
+                        0.0
+                    } else if weight >= hi {
+                        1.0
+                    } else {
+                        (weight - lo) as f64 / (hi - lo) as f64
+                    };
+                    b = pol.weight_ramp_min_bonus + t * (b - pol.weight_ramp_min_bonus);
+                }
+            }
+        }
+        let is_demoted_derived = (pol.use_narrow_derived_tier && is_narrow_transparent_derived(word))
+            || pol.derived_words.as_ref().is_some_and(|dset| dset.contains(word));
+        if is_demoted_derived && pol.derived_bonus < self.multi_char_bonus {
+            let max_total_demotion = self.multi_char_bonus - pol.derived_bonus;
+            let capped_b = if word_len >= 3 {
+                self.multi_char_bonus - max_total_demotion / ((word_len - 1) as f64)
+            } else {
+                pol.derived_bonus
+            };
+            if capped_b < b {
+                b = capped_b;
+            }
+        }
+        b
     }
 
     pub fn solve_best_path(&self, n_syllables: usize, dag: &HashMap<usize, Vec<LatticeNode>>, transitions: Option<&mut super::transitions::TransitionEngine>) -> (Vec<LatticeNode>, f64) {
@@ -290,6 +436,11 @@ impl ViterbiRouter {
             eng.maybe_reload();
         }
         let backward = LatticeBackwardProfile::compute(self, n_syllables, dag, transitions.as_deref());
+        let classical = super::classical_register::ClassicalRegisterProfile::detect(
+            self.classical_mode,
+            n_syllables,
+            dag,
+        );
 
         for i in 0..n_syllables {
             if trellis[i].is_empty() {
@@ -297,7 +448,7 @@ impl ViterbiRouter {
             }
 
             if let Some(nodes) = dag.get(&i) {
-                let (w_freq_c1, w_freq_cmp, w_mchar, w_coh3, w_coh4, w_coord_yu, w_coord_he) = if let Some(ref eng) = transitions {
+                let (w_freq_c1, w_freq_cmp, w_mchar, w_coh3, w_coh4, w_coord_yu, w_coord_he, w_class) = if let Some(ref eng) = transitions {
                     (
                         eng.feature_weights
                             .get("freq_ln_char1")
@@ -314,9 +465,10 @@ impl ViterbiRouter {
                         eng.feature_weights.get("cohesion_len4").copied().unwrap_or(1.0),
                         eng.feature_weights.get("coord_prior").copied().unwrap_or(1.0),
                         eng.feature_weights.get("coord_he_huo_prior").copied().unwrap_or(0.0),
+                        eng.feature_weights.get("classical_register").copied().unwrap_or(1.0),
                     )
                 } else {
-                    (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0)
+                    (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0)
                 };
 
                 let (trellis_past, trellis_future) = trellis.split_at_mut(i + 1);
@@ -418,7 +570,11 @@ impl ViterbiRouter {
                     }
                     let curr_archaic =
                         super::archaic_table::is_archaic_polyphonic(&node.word, &node.bopomofo);
-                    let word_len = node.length() as f64;
+                    let word_len_u = node.length();
+                    let word_len = word_len_u as f64;
+                    let is_session_name = transitions
+                        .as_ref()
+                        .is_some_and(|eng| eng.session_given_names.contains(&node.word));
                     let base_weight = (std::cmp::max(1, node.weight)) as f64;
 
                     let freq_score = base_weight.ln() * if word_len > 1.0 { w_freq_cmp } else { w_freq_c1 };
@@ -430,11 +586,20 @@ impl ViterbiRouter {
                         } else {
                             0.0
                         };
-                        (word_len - 1.0) * self.multi_char_bonus * w_mchar + cohesion_extra
+                        (word_len - 1.0)
+                            * self.effective_multi_char_bonus(
+                                &node.word,
+                                word_len_u,
+                                node.weight,
+                                is_session_name,
+                            )
+                            * w_mchar
+                            + cohesion_extra
                     } else {
                         0.0
                     };
-                    let self_score = freq_score + length_bonus;
+                    let classical_node = classical.node_score_delta(node, n_syllables) * w_class;
+                    let self_score = freq_score + length_bonus + classical_node;
 
                     let is_coord_conj = matches!(node.word.as_str(), "與" | "和" | "或");
                     let mut best_incoming_score = -f64::INFINITY;
@@ -442,6 +607,22 @@ impl ViterbiRouter {
                     let mut coord_candidates: Vec<(f64, usize)> = Vec::new();
 
                     for (prev_idx, prev_state) in trellis_past[i].iter().enumerate() {
+                        let prev2_word = if !prev_state.node.word.is_empty()
+                            && i > 0
+                            && prev_idx < 32
+                            && lookback_lens[prev_idx] >= 2
+                        {
+                            Some(lookback_bufs[prev_idx][MAX_LOOKBACK - 2])
+                        } else {
+                            None
+                        };
+                        let classical_trans = classical.transition_score_delta(
+                            &prev_state.node.word,
+                            prev2_word,
+                            node,
+                            n_syllables,
+                            dag,
+                        ) * w_class;
                         let trans_bonus = if let Some(ref mut engine) = transitions {
                             if !prev_state.node.word.is_empty() {
                                 let p_arch = if prev_idx < 32 {
@@ -509,7 +690,7 @@ impl ViterbiRouter {
                             0.0
                         };
 
-                        let total = prev_state.score + trans_bonus + self_score;
+                        let total = prev_state.score + trans_bonus + classical_trans + self_score;
                         if is_coord_conj && total > -f64::INFINITY {
                             coord_candidates.push((total, prev_idx));
                         }
@@ -680,10 +861,25 @@ impl ViterbiRouter {
 
         let n_syl = path.last().map(|n| n.end_idx).unwrap_or(0);
         let backward = LatticeBackwardProfile::compute(self, n_syl, dag, Some(&*transitions));
+        let classical = super::classical_register::ClassicalRegisterProfile::detect(
+            self.classical_mode,
+            n_syl,
+            dag,
+        );
 
         let mut prefix_words: Vec<&str> = Vec::with_capacity(path.len());
         for (idx, node) in path.iter().enumerate() {
-            let word_len = node.length() as f64;
+            let c_node = classical.node_score_delta(node, n_syl);
+            let prev_w = if idx > 0 { path[idx - 1].word.as_str() } else { "" };
+            let prev2_w = if idx >= 2 { Some(path[idx - 2].word.as_str()) } else { None };
+            let c_trans = classical.transition_score_delta(prev_w, prev2_w, node, n_syl, dag);
+            let c_total = c_node + c_trans;
+            if c_total.abs() > 1e-12 {
+                *features.entry("classical_register".to_string()).or_insert(0.0) += c_total;
+            }
+            let word_len_u = node.length();
+            let word_len = word_len_u as f64;
+            let is_session_name = transitions.session_given_names.contains(&node.word);
             let base_weight = (std::cmp::max(1, node.weight)) as f64;
             if word_len > 1.0 {
                 *features.entry("freq_ln_compound".to_string()).or_insert(0.0) += base_weight.ln();
@@ -692,7 +888,13 @@ impl ViterbiRouter {
             }
             if word_len > 1.0 {
                 *features.entry("multi_char_len".to_string()).or_insert(0.0) +=
-                    (word_len - 1.0) * self.multi_char_bonus;
+                    (word_len - 1.0)
+                        * self.effective_multi_char_bonus(
+                            &node.word,
+                            word_len_u,
+                            node.weight,
+                            is_session_name,
+                        );
                 if word_len >= 4.0 {
                     *features.entry("cohesion_len4".to_string()).or_insert(0.0) += 16.0;
                 } else if word_len >= 3.0 {
@@ -841,6 +1043,43 @@ mod tests {
         assert!(
             (best_score - dot).abs() < 1e-9,
             "best_score ({}) != dot product ({}), diff = {}",
+            best_score,
+            dot,
+            (best_score - dot).abs()
+        );
+    }
+
+    #[test]
+    fn test_classical_register_dot_product_equivalence_261120() {
+        let mut router = ViterbiRouter::default();
+        router.classical_mode = super::super::classical_register::ClassicalRegisterMode::ClassicalExplicit;
+        let mut eng = crate::router::transitions::TransitionEngine::new();
+        eng.feature_weights.insert("freq_ln_char1".to_string(), 1.04);
+        eng.feature_weights.insert("freq_ln_compound".to_string(), 1.09);
+        eng.feature_weights.insert("multi_char_len".to_string(), 1.01);
+        eng.feature_weights.insert("classical_register".to_string(), 1.07);
+
+        let mut dag: HashMap<usize, Vec<LatticeNode>> = HashMap::new();
+        dag.insert(0, vec![LatticeNode::new(0, 1, "知", 500, "ㄓ"), LatticeNode::new(0, 1, "之", 500, "ㄓ")]);
+        dag.insert(1, vec![LatticeNode::new(1, 2, "之", 500, "ㄓ"), LatticeNode::new(1, 2, "支", 400, "ㄓ")]);
+        dag.insert(2, vec![LatticeNode::new(2, 3, "為", 500, "ㄨㄟˊ")]);
+        dag.insert(3, vec![LatticeNode::new(3, 4, "知", 500, "ㄓ")]);
+        dag.insert(4, vec![LatticeNode::new(4, 5, "之", 500, "ㄓ")]);
+        dag.insert(5, vec![LatticeNode::new(5, 6, "也", 600, "ㄧㄝˇ"), LatticeNode::new(5, 6, "野", 600, "ㄧㄝˇ")]);
+
+        let (path, best_score) = router.solve_best_path(6, &dag, Some(&mut eng));
+        let joined: String = path.iter().map(|n| n.word.as_str()).collect();
+        assert_eq!(joined, "知之為知之也");
+
+        let (feats, _) = router.extract_path_features_and_triggers(&path, &dag, &mut eng);
+        assert!(feats.get("classical_register").copied().unwrap_or(0.0) > 0.0);
+        let dot: f64 = feats
+            .iter()
+            .map(|(k, v)| v * eng.feature_weights.get(k).copied().unwrap_or(1.0))
+            .sum();
+        assert!(
+            (best_score - dot).abs() < 1e-9,
+            "classical explicit best_score ({}) != dot product ({}), diff = {}",
             best_score,
             dot,
             (best_score - dot).abs()

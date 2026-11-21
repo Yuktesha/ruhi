@@ -8,9 +8,11 @@ pub mod archaic_table;
 pub mod geo_hierarchy;
 pub mod pattern_audit;
 pub mod onomastics;
+pub mod classical_register;
 
 pub use lattice::{LatticeDAG, LatticeNode};
-pub use viterbi::{LatticeBackwardProfile, ViterbiRouter};
+pub use viterbi::{LatticeBackwardProfile, MultiCharBonusPolicy, ViterbiRouter};
+pub use classical_register::{ClassicalRegisterMode, ClassicalRegisterProfile};
 pub use transitions::TransitionEngine;
 pub use morpheme_ontology::{MorphemeClass, MorphemeMask256, MorphemeOntology};
 

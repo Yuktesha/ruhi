@@ -2861,6 +2861,32 @@ impl CjkGeoHierarchy {
         None
     }
 
+    /// 判斷是否為台灣縣市鄉鎮市區或常見商圈門市詞幹（供 `[GeoStem] × [店]` 分店語境消歧使用）
+    pub fn is_tw_branch_place_stem(&self, w: &str) -> bool {
+        static TW_BRANCH_PLACE_STEMS: OnceLock<HashSet<String>> = OnceLock::new();
+        let stems = TW_BRANCH_PLACE_STEMS.get_or_init(|| {
+            let mut set = HashSet::new();
+            for meta in self.entities_by_name.values().flatten() {
+                if meta.country == "TW" && matches!(meta.level.as_str(), "L1" | "L2") {
+                    let stem = meta.entity.trim_end_matches(['市', '縣', '區', '鎮', '鄉']);
+                    if stem.chars().count() >= 2
+                        && !matches!(stem, "成功" | "和平" | "安定" | "光復" | "大同")
+                    {
+                        set.insert(stem.to_string());
+                    }
+                }
+            }
+            for extra in [
+                "旗艦", "直營", "加盟", "站前", "逢甲", "一中", "西門", "東區",
+                "敦南", "忠孝", "南京", "松江", "公館", "天母", "博愛", "公益",
+            ] {
+                set.insert(extra.to_string());
+            }
+            set
+        });
+        stems.contains(w)
+    }
+
     #[allow(dead_code)]
     fn _unused_postal_tail(&self, resolved_code: String, meta: GeoEntityMeta, chain: Vec<String>, trimmed: &str) -> Option<GeoPostalMatch> {
         let formatted_with_postal = format!("{} {}", resolved_code, trimmed);

@@ -6,6 +6,7 @@ pub mod lexicon;
 pub mod router;
 pub mod templates;
 pub mod symbols;
+pub mod symbol_tree;
 pub mod cangjie;
 pub mod array30;
 pub mod four_corner;
@@ -22,6 +23,7 @@ pub use reverse_coach::{
     UNIVERSAL_REVERSE_PROVIDERS,
 };
 pub use symbols::SymbolsManager;
+pub use symbol_tree::{SymbolTabTarget, SymbolTreeStep};
 pub use cangjie::CangjieEngine;
 pub use array30::Array30Engine;
 pub use four_corner::FourCornerEngine;

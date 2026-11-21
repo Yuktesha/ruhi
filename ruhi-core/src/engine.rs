@@ -114,6 +114,7 @@ pub enum EngineMode {
     QuickNum,
     LexiconSwitch,
     CandidatePopup,
+    SymbolTree,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -375,6 +376,10 @@ impl Default for RuhiEngine {
 }
 
 impl RuhiEngine {
+    pub fn set_classical_mode(&mut self, mode: crate::router::ClassicalRegisterMode) {
+        self.router.classical_mode = mode;
+    }
+
     pub fn new_with_data_dir(data_dir: &str) -> Self {
         Self::new_with_data_dir_options(data_dir, true)
     }
@@ -457,6 +462,11 @@ impl RuhiEngine {
             if let Some(path_str) = sym_path.to_str() {
                 let _ = engine.symbols.load_tsv(path_str);
             }
+        }
+
+        let sym_tree_path = p.join("symbol_tree.tsv");
+        if sym_tree_path.exists() {
+            crate::symbol_tree::configure_tsv_path(&sym_tree_path);
         }
         
         let tpl_path = p.join("templates.tsv");
@@ -566,6 +576,7 @@ impl RuhiEngine {
         self.japanese.reset();
         self.korean.reset();
         self.western.reset();
+        crate::symbol_tree::clear_active_session(self.symbol_tree_key());
         self.mode = EngineMode::Normal;
         self.q_press_count = 0;
         self.backtick_press_count = 0;
@@ -2179,6 +2190,148 @@ impl RuhiEngine {
         self.build_response("show_quick_num", "")
     }
 
+    #[inline]
+    fn symbol_tree_key(&self) -> usize {
+        (self as *const Self) as usize
+    }
+
+    pub fn clear_symbol_tree_mru(&self) {
+        crate::symbol_tree::clear_session_and_mru(self.symbol_tree_key());
+    }
+
+    pub fn open_symbol_tree(&mut self, has_selection_wrap: bool) -> EngineResponse {
+        self.open_symbol_tree_at(None, None, has_selection_wrap)
+    }
+
+    pub fn open_symbol_tree_at(
+        &mut self,
+        major_idx: Option<usize>,
+        sub_idx: Option<usize>,
+        has_selection_wrap: bool,
+    ) -> EngineResponse {
+        self.mode = EngineMode::SymbolTree;
+        self.backtick_press_count = 0;
+        self.tilde_press_count = 0;
+        self.inline_longkan_active = false;
+        let (cands, idx) = crate::symbol_tree::open_at(
+            self.symbol_tree_key(),
+            major_idx,
+            sub_idx,
+            has_selection_wrap,
+        );
+        self.current_candidates = cands;
+        self.candidate_cycle_idx = idx;
+        self.build_response("show_symbol_tree", "")
+    }
+
+    pub fn close_symbol_tree(&mut self) {
+        crate::symbol_tree::clear_active_session(self.symbol_tree_key());
+        if self.mode == EngineMode::SymbolTree {
+            self.mode = EngineMode::Normal;
+        }
+        self.current_candidates.clear();
+        self.candidate_cycle_idx = 0;
+        self.update_active_candidates();
+    }
+
+    pub fn is_symbol_tree_sticky_box(&self) -> bool {
+        self.mode == EngineMode::SymbolTree
+            && crate::symbol_tree::is_sticky_box_active(self.symbol_tree_key())
+    }
+
+    pub fn symbol_tree_breadcrumb_badge(&self) -> String {
+        crate::symbol_tree::breadcrumb_badge(self.symbol_tree_key())
+    }
+
+    pub fn symbol_tree_coach_hint(&self) -> String {
+        crate::symbol_tree::coach_hint(
+            self.symbol_tree_key(),
+            self.effective_candidate_quick_key(),
+        )
+    }
+
+    pub fn lookup_symbol_tab_target(&self, query: &str) -> Option<crate::symbol_tree::SymbolTabTarget> {
+        crate::symbol_tree::lookup_symbol_tab_target(query)
+    }
+
+    pub fn step_symbol_tree_key(&mut self, key_str: &str) -> crate::symbol_tree::SymbolTreeStep {
+        let qk = self.effective_candidate_quick_key();
+        let page_sz = self.candidate_page_size();
+        let step = crate::symbol_tree::step_key(
+            self.symbol_tree_key(),
+            key_str,
+            qk,
+            page_sz,
+            &mut self.current_candidates,
+            &mut self.candidate_cycle_idx,
+        );
+        if matches!(
+            step,
+            crate::symbol_tree::SymbolTreeStep::CommitSymbol { .. }
+                | crate::symbol_tree::SymbolTreeStep::Exit
+        ) {
+            self.mode = EngineMode::Normal;
+        }
+        step
+    }
+
+    fn handle_symbol_tree_process_key_str(&mut self, key_str: &str) -> EngineResponse {
+        let step = self.step_symbol_tree_key(key_str);
+        match step {
+            crate::symbol_tree::SymbolTreeStep::Stay => self.build_response("show_symbol_tree", ""),
+            crate::symbol_tree::SymbolTreeStep::CommitSymbol {
+                symbol,
+                is_wrap_pair,
+            } => {
+                let cur_norm = Self::normalize_keyboard_mode(&self.keyboard_mode);
+                if matches!(cur_norm.as_str(), "hsu" | "standard" | "et26") {
+                    let prev_cur = self.cursor_pos.min(self.sentence_chars.len());
+                    self.insert_inline_longkan_text(&symbol, vec![symbol.clone()]);
+                    if is_wrap_pair && symbol.chars().count() == 2 {
+                        self.cursor_pos = prev_cur + 1;
+                    }
+                    self.build_response("commit_symbol_tree", "")
+                } else {
+                    self.commit_inline_or_special_text(
+                        &symbol,
+                        vec![symbol.clone()],
+                        "commit_symbol_tree",
+                    )
+                }
+            }
+            crate::symbol_tree::SymbolTreeStep::InsertStickyBox { symbol, .. } => {
+                let cur_norm = Self::normalize_keyboard_mode(&self.keyboard_mode);
+                if matches!(cur_norm.as_str(), "hsu" | "standard" | "et26") {
+                    self.insert_inline_longkan_text(&symbol, Vec::new());
+                    self.build_response("insert_symbol_tree_box", "")
+                } else {
+                    self.build_response("insert_symbol_tree_box", &symbol)
+                }
+            }
+            crate::symbol_tree::SymbolTreeStep::DeletePrevStickyBox => {
+                let cur_norm = Self::normalize_keyboard_mode(&self.keyboard_mode);
+                if matches!(cur_norm.as_str(), "hsu" | "standard" | "et26")
+                    && self.cursor_pos > 0
+                    && self.cursor_pos <= self.sentence_chars.len()
+                {
+                    let del_idx = self.cursor_pos - 1;
+                    self.sentence_chars.remove(del_idx);
+                    if del_idx < self.fsm.syllables.len() {
+                        self.fsm.syllables.remove(del_idx);
+                    }
+                    self.shift_user_pinned_for_splice(del_idx, del_idx + 1, 0);
+                    self.cursor_pos = del_idx;
+                    self.composed_sentence = self.sentence_chars.join("");
+                }
+                self.build_response("delete_symbol_tree_box", "")
+            }
+            crate::symbol_tree::SymbolTreeStep::Exit => {
+                self.update_active_candidates();
+                self.build_response("update_preedit", "")
+            }
+        }
+    }
+
     /// 解析非自身的目標輔助輸入法方案（確保 `` ` `` 與 `~` 永遠指向「另一個非自身的輸入法」）
     pub fn resolve_non_self_aux_mode(&self, configured_target: &str) -> String {
         let cur = Self::normalize_keyboard_mode(&self.keyboard_mode);
@@ -2681,9 +2834,253 @@ impl RuhiEngine {
         self.build_response("show_lexicon_switcher", "")
     }
 
+    fn step_roster_tag_for_segment(
+        &self,
+        prev_tag: Option<&'static str>,
+        seg: &str,
+    ) -> Option<&'static str> {
+        let core_s = seg.trim_matches(|c: char| {
+            c.is_whitespace()
+                || matches!(
+                    c,
+                    '：' | ':' | '，' | ',' | '、' | '。' | '！' | '？' | '；' | '.' | '!' | '?'
+                        | ';' | '「' | '」' | '『' | '』' | '（' | '）' | '(' | ')' | '　'
+                )
+        });
+        let cjk_chars: Vec<char> = core_s
+            .chars()
+            .filter(|&c| ('\u{4E00}'..='\u{9FFF}').contains(&c))
+            .collect();
+        let cjk_cnt = cjk_chars.len();
+        if cjk_cnt == 0 {
+            return prev_tag;
+        }
+        let tail6: String = cjk_chars[cjk_cnt.saturating_sub(6)..].iter().collect();
+        let ends_action_vp = [
+            "練習", "開會", "討論", "比賽", "上課", "吃飯", "跑步", "工作", "休息", "努力",
+            "加油", "出發", "集合",
+        ]
+        .iter()
+        .any(|&v| core_s.ends_with(v));
+        if !ends_action_vp {
+            if ["女兒", "姊妹", "姐妹"].iter().any(|&k| tail6.contains(k)) {
+                return Some("__ROSTER_F__");
+            }
+            if ["兒子", "兄弟"].iter().any(|&k| tail6.contains(k)) {
+                return Some("__ROSTER_M__");
+            }
+            if [
+                "隊員", "成員", "團員", "組員", "班員", "球員", "選手", "名單", "人員", "人選",
+                "同學", "校友", "來賓", "貴賓", "嘉賓", "講者", "與會者", "出席者", "候選人",
+                "得獎者", "獲獎者", "我們班", "全班", "本班", "孩子",
+            ]
+            .iter()
+            .any(|&k| tail6.contains(k))
+                || ((tail6.contains("介紹") || tail6.contains("歡迎"))
+                    && (core_s.ends_with("介紹")
+                        || core_s.ends_with("歡迎")
+                        || seg.trim_end().ends_with(['：', ':'])))
+            {
+                return Some("__ROSTER__");
+            }
+        }
+        if (4..=8).contains(&cjk_cnt)
+            && ["還有什麼", "另外還有", "還有", "像是", "比如", "例如"]
+                .iter()
+                .any(|&p| core_s.starts_with(p))
+        {
+            let (c0, c1, c2) = (
+                cjk_chars[cjk_cnt - 3],
+                cjk_chars[cjk_cnt - 2],
+                cjk_chars[cjk_cnt - 1],
+            );
+            let full3: String = [c0, c1, c2].iter().collect();
+            if crate::router::onomastics::is_tier_a_surname(c0)
+                && !crate::router::onomastics::is_non_given_name_char(c1)
+                && !crate::router::onomastics::is_non_given_name_char(c2)
+                && (self.lexicon.word_index.contains_key(&full3)
+                    || crate::router::onomastics::is_plausible_committed_personal_name(
+                        &c0.to_string(),
+                        &c1.to_string(),
+                        &c2.to_string(),
+                        "",
+                        "？",
+                        &self.lexicon,
+                    ))
+            {
+                return Some("__ROSTER__");
+            }
+        }
+        if let Some(prev_t) = prev_tag {
+            let base_t = if prev_t == "__ROSTER_COOL__" {
+                "__ROSTER__"
+            } else {
+                prev_t
+            };
+            let ends_plausible_name = (cjk_cnt >= 3 && {
+                let (c0, c1, c2) = (
+                    cjk_chars[cjk_cnt - 3],
+                    cjk_chars[cjk_cnt - 2],
+                    cjk_chars[cjk_cnt - 1],
+                );
+                let full3: String = [c0, c1, c2].iter().collect();
+                crate::router::onomastics::is_tier_a_surname(c0)
+                    && (self.lexicon.word_index.contains_key(&full3)
+                        || crate::router::onomastics::is_plausible_committed_personal_name(
+                            &c0.to_string(),
+                            &c1.to_string(),
+                            &c2.to_string(),
+                            "：",
+                            "",
+                            &self.lexicon,
+                        ))
+            }) || (cjk_cnt >= 4
+                && cjk_chars[cjk_cnt - 2] == '阿'
+                && crate::router::onomastics::is_tier_a_surname(cjk_chars[cjk_cnt - 4])
+                && crate::router::onomastics::is_tier_a_surname(cjk_chars[cjk_cnt - 3])
+                && crate::router::onomastics::is_naming_register_char(cjk_chars[cjk_cnt - 1]));
+            let has_item_lead = [
+                "一個", "一位", "一名", "另一個", "另一位", "第", "隊長", "副隊長", "組長",
+                "班長", "還有", "以及", "和", "與", "跟", "像是", "比如", "例如",
+            ]
+            .iter()
+            .any(|&p| core_s.starts_with(p));
+            if cjk_cnt <= 5 || (cjk_cnt <= 8 && (ends_plausible_name || has_item_lead)) {
+                return Some(base_t);
+            } else if cjk_cnt <= 9 && prev_t != "__ROSTER_COOL__" {
+                return Some("__ROSTER_COOL__");
+            } else {
+                return None;
+            }
+        }
+        None
+    }
+
+    fn step_roster_tag_across_text(
+        &self,
+        mut tag: Option<&'static str>,
+        text: &str,
+    ) -> Option<&'static str> {
+        for seg in text.split_inclusive([
+            '\n', '\r', '：', ':', '、', '，', ',', '。', '！', '？', '；', '.', '!', '?', ';',
+        ]) {
+            tag = self.step_roster_tag_for_segment(tag, seg);
+        }
+        tag
+    }
+
+    pub fn compute_joint_reeval_prefix(&self, pending_left: &str) -> Option<String> {
+        let prev_tag: Option<&'static str> =
+            if self.last_committed_word.starts_with("__ROSTER_F__\t") {
+                Some("__ROSTER_F__")
+            } else if self.last_committed_word.starts_with("__ROSTER_M__\t") {
+                Some("__ROSTER_M__")
+            } else if self.last_committed_word.starts_with("__ROSTER__\t") {
+                Some("__ROSTER__")
+            } else if self.last_committed_word.starts_with("__ROSTER_COOL__\t") {
+                Some("__ROSTER_COOL__")
+            } else {
+                None
+            };
+        if pending_left.is_empty() {
+            if !self.last_committed_word.is_empty() {
+                if !self.active_geo_context.is_empty()
+                    && !self.last_committed_word.starts_with("__ROSTER")
+                    && !self.last_committed_word.contains(&self.active_geo_context)
+                {
+                    return Some(format!(
+                        "{}\t{}",
+                        self.active_geo_context, self.last_committed_word
+                    ));
+                } else {
+                    return Some(self.last_committed_word.clone());
+                }
+            } else if !self.active_geo_context.is_empty() {
+                return Some(self.active_geo_context.clone());
+            } else {
+                return None;
+            }
+        }
+        let tag = self.step_roster_tag_across_text(prev_tag, pending_left);
+        if let Some(t) = tag {
+            if pending_left.ends_with('\n') || pending_left.ends_with('\r') {
+                return Some(format!("{}\t\n", t));
+            }
+            let tr = pending_left.trim_end_matches(|c: char| c == ' ' || c == '\t');
+            let tail_tok = if let Some(last_c) = tr.chars().last() {
+                if matches!(
+                    last_c,
+                    '：' | ':' | '、' | '，' | ',' | '。' | '！' | '？' | '；' | '.' | '!'
+                        | '?' | ';' | '」' | '』'
+                ) {
+                    let chars: Vec<char> = tr.chars().collect();
+                    let mut cjk_rev = Vec::new();
+                    for &c in chars[..chars.len() - 1].iter().rev() {
+                        if !c.is_ascii()
+                            && !"，。、！？：；（）「」『』—…～《》〈〉,.!?:;()[]{}\"' \t\r\n"
+                                .contains(c)
+                        {
+                            cjk_rev.push(c);
+                            if cjk_rev.len() >= 3 {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                    if !cjk_rev.is_empty() {
+                        cjk_rev.reverse();
+                        let mut s: String = cjk_rev.into_iter().collect();
+                        s.push(last_c);
+                        s
+                    } else {
+                        last_c.to_string()
+                    }
+                } else {
+                    let cjk_tail: Vec<char> = tr
+                        .chars()
+                        .rev()
+                        .take_while(|&c| ('\u{4E00}'..='\u{9FFF}').contains(&c))
+                        .take(2)
+                        .collect();
+                    if !cjk_tail.is_empty() {
+                        cjk_tail.into_iter().rev().collect()
+                    } else {
+                        "\n".to_string()
+                    }
+                }
+            } else {
+                "\n".to_string()
+            };
+            Some(format!("{}\t{}", t, tail_tok))
+        } else {
+            Some(pending_left.to_string())
+        }
+    }
+
     pub fn record_committed(&mut self, text: &str) {
+        let ended_with_newline = text.ends_with('\n') || text.ends_with('\r');
+        let prev_roster_tag: Option<&'static str> =
+            if self.last_committed_word.starts_with("__ROSTER_F__\t") {
+                Some("__ROSTER_F__")
+            } else if self.last_committed_word.starts_with("__ROSTER_M__\t") {
+                Some("__ROSTER_M__")
+            } else if self.last_committed_word.starts_with("__ROSTER__\t") {
+                Some("__ROSTER__")
+            } else if self.last_committed_word.starts_with("__ROSTER_COOL__\t") {
+                Some("__ROSTER_COOL__")
+            } else {
+                None
+            };
         let trimmed = text.trim();
         if trimmed.is_empty() {
+            if ended_with_newline {
+                if let Some(t) = prev_roster_tag {
+                    self.last_committed_word = format!("{}\t\n", t);
+                } else {
+                    self.last_committed_word.clear();
+                }
+            }
             return;
         }
 
@@ -2742,6 +3139,8 @@ impl RuhiEngine {
                 return;
             }
         }
+        let active_roster_tag: Option<&'static str> =
+            self.step_roster_tag_across_text(prev_roster_tag, text);
         if last_ch.is_ascii_alphanumeric() || last_ch == '_' || last_ch == '-' {
             let mut ascii_rev = Vec::new();
             for c in trimmed.chars().rev() {
@@ -2766,7 +3165,10 @@ impl RuhiEngine {
                 self.last_committed_word = ascii_tok;
             }
             self.longkan.record_committed(&self.last_committed_word);
-        } else if matches!(last_ch, '，' | '。' | '；' | '、' | '」' | '』') {
+        } else if matches!(
+            last_ch,
+            '，' | '。' | '；' | '、' | '：' | ':' | '」' | '』' | '！' | '？' | '!' | '?'
+        ) {
             // 保留停頓逗號「，」與句號「。」前之話題主語或平行分句尾部（最多 3 個漢字＋標點，如「風，」、「還在吹。」、「燈，」），
             // 供 Layer 1 構式矩陣進行跨逗號話題—述題穿透 ($\mathcal{T}_{\text{comma}}$) 與平行語篇對仗投射 ($\mathcal{T}_{\text{parallel}}$)，
             // 同時因帶有標點符號，絕不誤觸一般無標點之二階轉移規則。
@@ -2786,27 +3188,48 @@ impl RuhiEngine {
                 cjk_rev.reverse();
                 let cjk_only: String = cjk_rev.iter().collect();
                 self.longkan.record_committed(&cjk_only);
-                self.last_committed_word = format!("{}{}", cjk_only, last_ch);
+                self.last_committed_word = if let Some(t) = active_roster_tag {
+                    format!("{}\t{}{}", t, cjk_only, last_ch)
+                } else {
+                    format!("{}{}", cjk_only, last_ch)
+                };
             } else {
-                self.last_committed_word.clear();
-                self.longkan.record_committed(&self.last_committed_word);
+                if let Some(t) = active_roster_tag {
+                    self.last_committed_word = format!("{}\t{}", t, last_ch);
+                } else {
+                    self.last_committed_word.clear();
+                }
+                self.longkan.record_committed("");
             }
         } else if "，。、！？：；（）「」『』—…～《》〈〉,.!?:;()[]{}\"'".contains(last_ch) {
-            self.last_committed_word.clear();
-            self.longkan.record_committed(&self.last_committed_word);
+            if let Some(t) = active_roster_tag {
+                self.last_committed_word = format!("{}\t{}", t, last_ch);
+            } else {
+                self.last_committed_word.clear();
+            }
+            self.longkan.record_committed("");
         } else {
             let chars: Vec<char> = trimmed.chars().collect();
-            if chars.len() >= 2 {
+            let raw_word = if chars.len() >= 2 {
                 let tail2: String = chars[chars.len() - 2..].iter().collect();
                 if tail2.chars().all(|c| !c.is_ascii() && !"，。、！？：；（）「」『』—…～《》〈〉".contains(c)) {
-                    self.last_committed_word = tail2;
+                    tail2
                 } else {
-                    self.last_committed_word = last_ch.to_string();
+                    last_ch.to_string()
                 }
             } else {
-                self.last_committed_word = chars.iter().collect();
-            }
-            self.longkan.record_committed(&self.last_committed_word);
+                chars.iter().collect()
+            };
+            self.longkan.record_committed(&raw_word);
+            self.last_committed_word = if let Some(t) = active_roster_tag {
+                if ended_with_newline {
+                    format!("{}\t{}\n", t, raw_word)
+                } else {
+                    format!("{}\t{}", t, raw_word)
+                }
+            } else {
+                raw_word
+            };
         }
     }
 
@@ -3258,7 +3681,11 @@ impl RuhiEngine {
             }
         }
         if !self.last_committed_word.is_empty() {
-            let hint = self.array30.table.format_text_coach(&self.last_committed_word);
+            let raw_last = self
+                .last_committed_word
+                .rsplit_once('\t')
+                .map_or(self.last_committed_word.as_str(), |(_, w)| w);
+            let hint = self.array30.table.format_text_coach(raw_last);
             if !hint.is_empty() {
                 return format!("🎯 行列教練：{}", hint);
             }
@@ -5002,6 +5429,11 @@ impl RuhiEngine {
     }
 
     pub fn process_key_str(&mut self, key_str: &str) -> EngineResponse {
+        // 0. 9×9×9 多層分類樹符號系統
+        if self.mode == EngineMode::SymbolTree {
+            return self.handle_symbol_tree_process_key_str(key_str);
+        }
+
         // 0A. 跨輸入法通用特殊選單模式（文字範本 `` `` ``、數字快打 `~~`、專業詞庫切換 `~~~`）
         if matches!(
             self.mode,
@@ -5579,6 +6011,7 @@ impl RuhiEngine {
                 self.capture_sentence_revision_before_commit(&punct);
                 let mut committed = self.composed_sentence.clone();
                 committed.push_str(&punct);
+                self.record_committed(&committed);
                 self.reset_buffer();
                 return self.build_response("commit_punctuation", &committed);
             }
@@ -5587,6 +6020,21 @@ impl RuhiEngine {
     }
 
     pub fn process_key(&mut self, key: char) -> EngineResponse {
+        if self.mode == EngineMode::SymbolTree {
+            return match key {
+                '\x1b' => self.handle_symbol_tree_process_key_str("Escape"),
+                '\x08' => self.handle_symbol_tree_process_key_str("BackSpace"),
+                '\t' => self.handle_symbol_tree_process_key_str("Tab"),
+                '\n' | '\r' => self.handle_symbol_tree_process_key_str("Enter"),
+                ' ' => self.handle_symbol_tree_process_key_str("Space"),
+                other => {
+                    let mut buf = [0u8; 4];
+                    let s = other.encode_utf8(&mut buf);
+                    self.handle_symbol_tree_process_key_str(s)
+                }
+            };
+        }
+
         if self.absorb_next_space_after_inline_lk {
             self.absorb_next_space_after_inline_lk = false;
             if key == ' ' && !self.fsm.has_pending() {
@@ -7264,10 +7712,21 @@ impl RuhiEngine {
             let raw_len = self.raw_ascii_buffer.len();
             let raw_lower = self.raw_ascii_buffer.to_ascii_lowercase();
             let is_protected_chinese_sound = raw_lower == "ha" || raw_lower == "has";
-            let is_pending_single_syllable = self.fsm.syllables.is_empty() && self.fsm.has_pending();
+            let has_prior_confirmed_chinese = !self.fsm.syllables.is_empty()
+                && !self.composed_sentence.is_empty()
+                && self.fsm.raw_keys.len() > self.raw_ascii_buffer.len();
+            let is_pending_single_syllable =
+                (self.fsm.syllables.is_empty() || has_prior_confirmed_chinese)
+                    && self.fsm.has_pending()
+                    && !self.fsm.has_invalid_pending();
 
             let is_valid_en_token = if raw_len == 1 {
-                raw_lower == "a" || raw_lower == "i"
+                raw_lower == "a"
+                    || raw_lower == "i"
+                    || (self.prior_was_english
+                        && self.composed_sentence.is_empty()
+                        && self.fsm.syllables.is_empty()
+                        && self.raw_ascii_buffer.bytes().all(|b| b.is_ascii_alphabetic()))
             } else if raw_len >= 2 {
                 !is_protected_chinese_sound && (
                     self.western.lexicon.contains(&raw_lower)
@@ -7304,7 +7763,7 @@ impl RuhiEngine {
                 self.prior_was_english = false;
                 self.fsm.get_display_preedit()
             };
-            self.record_committed(&committed);
+            self.record_committed(&format!("{}\n", committed));
             self.reset_buffer();
             return self.build_response("commit_enter", &committed);
         }
@@ -7367,7 +7826,13 @@ impl RuhiEngine {
                 let _western_conf = self.western.score_string(&self.raw_ascii_buffer);
                 let raw_lower = self.raw_ascii_buffer.to_ascii_lowercase();
                 let is_protected_chinese_sound = raw_lower == "ha" || raw_lower == "has";
-                let is_pending_single_syllable = self.fsm.syllables.is_empty() && self.fsm.has_pending();
+                let has_prior_confirmed_chinese = !self.fsm.syllables.is_empty()
+                    && !self.composed_sentence.is_empty()
+                    && self.fsm.raw_keys.len() > self.raw_ascii_buffer.len();
+                let is_pending_single_syllable =
+                    (self.fsm.syllables.is_empty() || has_prior_confirmed_chinese)
+                        && self.fsm.has_pending()
+                        && !self.fsm.has_invalid_pending();
                 let is_standard_untoned_initials = matches!(self.keyboard_mode.as_str(), "standard" | "daikien")
                     && self.fsm.syllables.iter().all(|s| s.is_pure_initial())
                     && self.fsm.cur_medial.is_empty()
@@ -7381,7 +7846,7 @@ impl RuhiEngine {
                         || raw_len >= 4
                         || (raw_len >= 3 && self.western.lexicon.contains(&raw_lower) && (!is_pending_single_syllable || self.prior_was_english))
                         || (self.prior_was_english && self.western.lexicon.contains(&raw_lower))
-                        || raw_lower == "hi"
+                        || (raw_lower == "hi" && !has_prior_confirmed_chinese)
                 };
 
                 let is_valid_en_token = if raw_len == 1 {
@@ -7412,6 +7877,121 @@ impl RuhiEngine {
                     self.reset_buffer();
                     self.prior_was_english = true;
                     return self.build_response("commit_space", &committed);
+                } else if !self.is_latin_mode
+                    && self.mixed_english_mode != "conservative"
+                    && !self.fsm.syllables.is_empty()
+                    && !self.composed_sentence.is_empty()
+                    && self.raw_ascii_buffer.is_ascii()
+                    && raw_len >= 4
+                {
+                    let min_tail_len = if self.mixed_english_mode == "min_length_only" {
+                        self.mixed_english_min_len.max(4)
+                    } else {
+                        4
+                    };
+                    let raw_bytes = self.raw_ascii_buffer.as_bytes();
+                    let mut split_candidates: Vec<usize> = Vec::new();
+                    if has_prior_confirmed_chinese && is_valid_en_token && raw_len >= min_tail_len {
+                        split_candidates.push(0);
+                    }
+                    if self.keyboard_mode == "hsu" && raw_len > min_tail_len {
+                        for idx in 1..=(raw_len - min_tail_len) {
+                            if matches!(raw_bytes[idx - 1], b'd' | b'f' | b'j' | b's') {
+                                split_candidates.push(idx);
+                            }
+                        }
+                    }
+                    for split_idx in split_candidates {
+                        let tail = &self.raw_ascii_buffer[split_idx..];
+                        let tail_lower = tail.to_ascii_lowercase();
+                        if !tail.bytes().all(|b| b.is_ascii_alphabetic())
+                            || tail_lower == "ha"
+                            || tail_lower == "has"
+                            || !(self.western.lexicon.contains(&tail_lower)
+                                || crate::western::WesternConfidenceScorer::COMMON_ABBREVS
+                                    .contains(&tail_lower.as_str()))
+                        {
+                            continue;
+                        }
+                        let mut probe_fsm = crate::fsm::HsuFSM::new();
+                        let mut probe_ok = true;
+                        for ch in tail.chars() {
+                            if !probe_fsm.parse_key_with_layout(ch, &self.keyboard_mode) {
+                                probe_ok = false;
+                                break;
+                            }
+                        }
+                        if !probe_ok {
+                            continue;
+                        }
+                        let pending_matches = self.fsm.cur_initial == probe_fsm.cur_initial
+                            && self.fsm.cur_medial == probe_fsm.cur_medial
+                            && self.fsm.cur_final == probe_fsm.cur_final
+                            && self.fsm.cur_tone == probe_fsm.cur_tone;
+                        let probe_committed_len = probe_fsm.syllables.len();
+                        if !pending_matches
+                            || self.fsm.syllables.len() <= probe_committed_len
+                            || self.fsm.syllables[self.fsm.syllables.len() - probe_committed_len..]
+                                != probe_fsm.syllables[..]
+                        {
+                            continue;
+                        }
+                        let prefix_syl_len = self.fsm.syllables.len() - probe_committed_len;
+                        if split_idx > 0 {
+                            let prefix_keys = &self.raw_ascii_buffer[..split_idx];
+                            let mut prefix_fsm = crate::fsm::HsuFSM::new();
+                            let mut prefix_ok = true;
+                            for ch in prefix_keys.chars() {
+                                if !prefix_fsm.parse_key_with_layout(ch, &self.keyboard_mode) {
+                                    prefix_ok = false;
+                                    break;
+                                }
+                            }
+                            if !prefix_ok
+                                || prefix_fsm.has_pending()
+                                || prefix_fsm.syllables.is_empty()
+                                || prefix_syl_len < prefix_fsm.syllables.len()
+                                || self.fsm.syllables
+                                    [prefix_syl_len - prefix_fsm.syllables.len()..prefix_syl_len]
+                                    != prefix_fsm.syllables[..]
+                            {
+                                continue;
+                            }
+                        }
+                        let crosses_prefix = self
+                            .segments
+                            .iter()
+                            .any(|seg| seg.start_idx < prefix_syl_len && seg.end_idx > prefix_syl_len);
+                        if probe_fsm.has_pending() {
+                            probe_fsm.commit_current('1');
+                        }
+                        let tail_syls = &probe_fsm.syllables;
+                        let tail_dag = LatticeDAG::new(&self.lexicon).build_dag(tail_syls, true);
+                        let tail_has_compound = tail_dag
+                            .values()
+                            .any(|ns| ns.iter().any(|m| m.length() >= 2 && m.weight >= 180));
+                        if !crosses_prefix && !tail_has_compound && tail_syls.len() >= 2 {
+                            let tail_owned = tail.to_string();
+                            self.fsm.syllables.truncate(prefix_syl_len);
+                            self.fsm.cur_initial.clear();
+                            self.fsm.cur_medial.clear();
+                            self.fsm.cur_final.clear();
+                            self.fsm.cur_tone = '1';
+                            self.update_sentence_composition();
+                            let chinese_prefix = self.composed_sentence.clone();
+                            let sp = if self.fullwidth_mode { "\u{3000}" } else { " " };
+                            let committed = format!(
+                                "{}{}{}",
+                                chinese_prefix,
+                                self.format_latin_for_width(&tail_owned),
+                                sp
+                            );
+                            self.record_committed(&committed);
+                            self.reset_buffer();
+                            self.prior_was_english = true;
+                            return self.build_response("commit_space", &committed);
+                        }
+                    }
                 }
             }
         }
@@ -7456,10 +8036,14 @@ impl RuhiEngine {
                     }));
 
                 let has_upper = self.raw_ascii_buffer.chars().any(|c| c.is_ascii_uppercase());
-                let prev_is_complete_word = is_all_upper_acronym || ((self.raw_ascii_buffer.len() >= 4 || (has_upper && self.raw_ascii_buffer.len() >= 3))
-                    && (self.western.lexicon.contains(&self.raw_ascii_buffer)
-                        || self.western.score_string(&self.raw_ascii_buffer) >= 0.70
-                        || crate::western::WesternToken::new(&self.raw_ascii_buffer).is_code_identifier()));
+                let prev_is_complete_word = is_all_upper_acronym
+                    || (self.raw_ascii_buffer.len() >= 4
+                        && (self.western.lexicon.contains(&self.raw_ascii_buffer)
+                            || self.western.score_string(&self.raw_ascii_buffer) >= 0.70
+                            || crate::western::WesternToken::new(&self.raw_ascii_buffer).is_code_identifier()))
+                    || (has_upper
+                        && self.raw_ascii_buffer.len() == 3
+                        && self.western.lexicon.contains(&self.raw_ascii_buffer));
 
                 if !is_still_english_prefix && prev_is_complete_word && key.is_ascii_lowercase() {
                     let prior_word = self.format_latin_for_width(&self.raw_ascii_buffer);
@@ -7845,6 +8429,14 @@ impl RuhiEngine {
         self.lexicon.maybe_reload_dynamic_lexicons();
         let dag_builder = LatticeDAG::new(&self.lexicon);
         let mut dag = dag_builder.build_dag_with_cuts(&syls, true, &self.manual_cuts);
+        for (&pos, pinned_w) in &self.user_pinned {
+            if pinned_w == "\n" && pos < syls.len() {
+                dag.insert(
+                    pos,
+                    vec![crate::router::lattice::LatticeNode::new(pos, pos + 1, "\n", 500, "")],
+                );
+            }
+        }
         if !self.user_pinned.is_empty() {
             for node_list in dag.values_mut() {
                 let matching_count = node_list
@@ -7879,6 +8471,7 @@ impl RuhiEngine {
         let combined_prefix;
         let prefix = if !self.last_committed_word.is_empty() {
             if !self.active_geo_context.is_empty()
+                && !self.last_committed_word.starts_with("__ROSTER")
                 && !self.last_committed_word.contains(&self.active_geo_context)
             {
                 combined_prefix = format!("{}\t{}", self.active_geo_context, self.last_committed_word);
@@ -8352,6 +8945,7 @@ impl RuhiEngine {
             EngineMode::QuickNum => "quick_num",
             EngineMode::LexiconSwitch => "lexicon",
             EngineMode::CandidatePopup => "candidates",
+            EngineMode::SymbolTree => "symbol_tree",
         };
 
         let display_composed = if self.inline_longkan_active {
@@ -8396,6 +8990,8 @@ impl RuhiEngine {
             "📋文字範本".to_string()
         } else if self.mode == EngineMode::LexiconSwitch {
             "📚詞庫切換".to_string()
+        } else if self.mode == EngineMode::SymbolTree {
+            self.symbol_tree_breadcrumb_badge()
         } else {
             self.fsm.get_display_preedit()
         };
@@ -17954,6 +18550,4893 @@ mod tests {
             engine.current_candidates.iter().any(|c| c == "café"),
             "多詞空白後鍵入 cafe 之 ↓ 候選應為 café（不應連帶 hello cafe 整句傳入）: {:?}",
             engine.current_candidates
+        );
+    }
+
+    #[test]
+    fn test_xueya_vs_xieya_and_sfp_compound_cohesion_261117() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+
+        let bopomofo_to_std_keys = |syllables: &[&str]| -> String {
+            let map: std::collections::HashMap<char, char> = [
+                ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
+                ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
+                ('ㄍ', 'e'), ('ㄎ', 'd'), ('ㄏ', 'c'),
+                ('ㄐ', 'r'), ('ㄑ', 'f'), ('ㄒ', 'v'),
+                ('ㄓ', '5'), ('ㄔ', 't'), ('ㄕ', 'g'), ('ㄖ', 'b'),
+                ('ㄗ', 'y'), ('ㄘ', 'h'), ('ㄙ', 'n'),
+                ('ㄧ', 'u'), ('ㄨ', 'j'), ('ㄩ', 'm'),
+                ('ㄚ', '8'), ('ㄛ', 'i'), ('ㄜ', 'k'), ('ㄝ', ','),
+                ('ㄞ', '9'), ('ㄟ', 'o'), ('ㄠ', 'l'), ('ㄡ', '.'),
+                ('ㄢ', '0'), ('ㄣ', 'p'), ('ㄤ', ';'), ('ㄥ', '/'),
+                ('ㄦ', '-'),
+            ]
+            .into_iter()
+            .collect();
+            let mut out = String::new();
+            for syl in syllables {
+                let mut tone = ' ';
+                for ch in syl.chars() {
+                    match ch {
+                        'ˊ' => tone = '6',
+                        'ˇ' => tone = '3',
+                        'ˋ' => tone = '4',
+                        '˙' => tone = '7',
+                        _ => {
+                            if let Some(&k) = map.get(&ch) {
+                                out.push(k);
+                            }
+                        }
+                    }
+                }
+                out.push(tone);
+            }
+            out
+        };
+
+        let bopomofo_to_hsu_keys = |bpms: &[&str]| -> String {
+            let mut s = String::new();
+            for b in bpms {
+                let syl = crate::fsm::HsuSyllable::from_bopomofo_display(b).expect(b);
+                if syl.initial.is_empty() && syl.medial.is_empty() {
+                    let k = match syl.final_part.as_str() {
+                        "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                        "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                        _ => panic!("unknown hsu zero final {}", syl.final_part),
+                    };
+                    s.push(k);
+                } else {
+                    if !syl.initial.is_empty() {
+                        let ik = match syl.initial.as_str() {
+                            "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                            "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                            "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                            "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                            _ => panic!("unknown hsu initial {}", syl.initial),
+                        };
+                        s.push(ik);
+                    }
+                    if !syl.medial.is_empty() {
+                        let mk = match syl.medial.as_str() {
+                            "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                            _ => panic!("unknown hsu medial {}", syl.medial),
+                        };
+                        s.push(mk);
+                    }
+                    if !syl.final_part.is_empty() {
+                        let fk = match syl.final_part.as_str() {
+                            "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                            "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                            "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                            _ => panic!("unknown hsu final {}", syl.final_part),
+                        };
+                        s.push(fk);
+                    }
+                }
+                let tk = match syl.tone {
+                    '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's',
+                    _ => ' ',
+                };
+                s.push(tk);
+            }
+            s
+        };
+
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            // 1. 複合詞凝聚保護（陰平一聲與文讀相容，嚴防無視野語氣詞加分拆碎）
+            (vec!["ㄒㄧㄝˇ", "ㄧㄚ"], "血壓"),
+            (vec!["ㄒㄩㄝˋ", "ㄧㄚ"], "血壓"),
+            (vec!["ㄌㄧㄤˊ", "ㄒㄧㄝˇ", "ㄧㄚ"], "量血壓"),
+            (vec!["ㄒㄧㄝˇ", "ㄧㄚ", "ㄏㄣˇ", "ㄍㄠ"], "血壓很高"),
+            (vec!["ㄉㄧㄢˋ", "ㄧㄚ"], "電壓"),
+            (vec!["ㄗㄨㄟˇ", "ㄅㄚ"], "嘴巴"),
+            (vec!["ㄐㄧㄡˇ", "ㄅㄚ"], "酒吧"),
+            (vec!["ㄕㄚ", "ㄌㄚ"], "沙拉"),
+            (vec!["ㄑㄧㄥ", "ㄨㄚ"], "青蛙"),
+            // 2. 真實句末語氣助詞正例（確保零誤傷）
+            (vec!["ㄏㄠˇ", "ㄧㄚ"], "好呀"),
+            (vec!["ㄏㄠˇ", "˙ㄧㄚ"], "好呀"),
+            (vec!["ㄒㄧㄝˇ", "˙ㄧㄚ"], "寫呀"),
+            (vec!["ㄎㄨㄞˋ", "ㄑㄩˋ", "ㄅㄚ"], "快去吧"),
+            (vec!["ㄨㄛˇ", "˙ㄌㄚ"], "我啦"),
+        ];
+
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+            for (bpms, expected) in &cases {
+                let keys = if mode == "standard" {
+                    bopomofo_to_std_keys(bpms)
+                } else {
+                    bopomofo_to_hsu_keys(bpms)
+                };
+                engine.reset_buffer();
+                engine.last_committed_word.clear();
+                let mut committed = String::new();
+                for ch in keys.chars() {
+                    let resp = engine.process_key(ch);
+                    if !resp.committed_chunk.is_empty() {
+                        committed.push_str(&resp.committed_chunk);
+                    }
+                }
+                let actual = format!("{}{}", committed, engine.get_display_text());
+                assert_eq!(
+                    actual, *expected,
+                    "[{}] 鍵位 {} 解碼失敗，預期『{}』，實際『{}』",
+                    mode, keys, expected, actual
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_symbol_tree_navigation_box_drawing_tab_lookup_and_moe_dual_track_261117() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("data");
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        engine.set_keyboard_mode("hsu");
+        engine.candidate_quick_key = "1234".to_string();
+        engine.clear_symbol_tree_mru();
+
+        // 1. 9 大類多層符號樹導覽：根節點 9 大類 -> BackSpace 返回 -> 子分類 -> 葉節點 -> MRU(0)
+        let resp0 = engine.open_symbol_tree(false);
+        assert_eq!(engine.mode, EngineMode::SymbolTree);
+        assert_eq!(resp0.candidates.len(), 9);
+
+        let resp_geom = engine.process_key('2');
+        assert_eq!(engine.mode, EngineMode::SymbolTree);
+        assert!(resp_geom.candidates.iter().any(|c| c == "方框核取"));
+
+        let resp_back = engine.process_key('\x08');
+        assert_eq!(engine.mode, EngineMode::SymbolTree);
+        assert_eq!(resp_back.candidates.len(), 9);
+
+        engine.process_key('2');
+        let resp_box_sub = engine.process_key('1');
+        assert_eq!(resp_box_sub.candidates.first().map(String::as_str), Some("□"));
+
+        let resp_commit = engine.process_key('1');
+        assert_eq!(resp_commit.action, "commit_symbol_tree");
+        assert_eq!(engine.mode, EngineMode::Normal);
+        assert_eq!(engine.composed_sentence, "□");
+
+        // MRU 記憶：根節點第 0 欄出現「最近常用(0)」
+        let resp_reopen = engine.open_symbol_tree(false);
+        assert_eq!(resp_reopen.candidates.len(), 10);
+        assert_eq!(resp_reopen.candidates.last().map(String::as_str), Some("最近常用(0)"));
+        let resp_mru = engine.process_key('0');
+        assert_eq!(resp_mru.candidates, vec!["□".to_string()]);
+        engine.process_key('1');
+        assert_eq!(engine.mode, EngineMode::Normal);
+        assert_eq!(engine.composed_sentence, "□□");
+
+        // 無選取範圍插入成對括號：游標自動置中
+        engine.reset_buffer();
+        engine.open_symbol_tree_at(Some(0), Some(1), false);
+        let resp_wrap = engine.process_key('2');
+        assert_eq!(resp_wrap.action, "commit_symbol_tree");
+        assert_eq!(engine.mode, EngineMode::Normal);
+        assert_eq!(engine.composed_sentence, "【】");
+        assert_eq!(engine.cursor_pos, 1);
+
+        // 2. 製表框線駐留連打模式（細線 ⇄ 粗線 ⇄ 雙線切換與退格／退出）
+        engine.reset_buffer();
+        engine.open_symbol_tree_at(Some(6), Some(0), false);
+        assert!(engine.is_symbol_tree_sticky_box());
+        for ch in ['7', '-', '-', '8', '-', '-', '9', '|'] {
+            engine.process_key(ch);
+        }
+        assert_eq!(engine.composed_sentence, "┌──┬──┐│");
+
+        engine.process_key_str("Tab");
+        engine.process_key('7');
+        engine.process_key('-');
+        assert_eq!(engine.composed_sentence, "┌──┬──┐│┏━");
+
+        engine.process_key_str("Tab");
+        engine.process_key('7');
+        engine.process_key('-');
+        assert_eq!(engine.composed_sentence, "┌──┬──┐│┏━╔═");
+
+        engine.process_key('\x08');
+        assert_eq!(engine.composed_sentence, "┌──┬──┐│┏━╔");
+
+        engine.process_key('\r');
+        assert_eq!(engine.mode, EngineMode::Normal);
+        assert_eq!(engine.composed_sentence, "┌──┬──┐│┏━╔");
+
+        // 3. Shift+標記 -> Tab 語意符號直達查表
+        match engine.lookup_symbol_tab_target("方框") {
+            Some(crate::symbol_tree::SymbolTabTarget::Candidates(cands)) => {
+                assert_eq!(cands.first().map(String::as_str), Some("□"));
+            }
+            other => panic!("預期「方框」回傳 Candidates，實際 {:?}", other),
+        }
+        match engine.lookup_symbol_tab_target("打勾") {
+            Some(crate::symbol_tree::SymbolTabTarget::Candidates(cands)) => {
+                assert_eq!(cands.first().map(String::as_str), Some("✓"));
+            }
+            other => panic!("預期「打勾」回傳 Candidates，實際 {:?}", other),
+        }
+        match engine.lookup_symbol_tab_target("箭頭") {
+            Some(crate::symbol_tree::SymbolTabTarget::Candidates(cands)) => {
+                assert_eq!(cands.first().map(String::as_str), Some("→"));
+            }
+            other => panic!("預期「箭頭」回傳 Candidates，實際 {:?}", other),
+        }
+        match engine.lookup_symbol_tab_target("符號") {
+            Some(crate::symbol_tree::SymbolTabTarget::OpenTree { major_idx, sub_idx }) => {
+                assert_eq!((major_idx, sub_idx), (None, None));
+            }
+            other => panic!("預期「符號」回傳 OpenTree(None, None)，實際 {:?}", other),
+        }
+
+        // 4. 審訂表正讀 × 台灣民間慣讀雙軌兼容測試（standard / hsu 雙鍵盤）
+        let bopomofo_to_std_keys = |bpms: &[&str]| -> String {
+            let mut s = String::new();
+            for b in bpms {
+                let syl = crate::fsm::HsuSyllable::from_bopomofo_display(b).expect(b);
+                if !syl.initial.is_empty() {
+                    let ik = match syl.initial.as_str() {
+                        "ㄅ" => '1', "ㄆ" => 'q', "ㄇ" => 'a', "ㄈ" => 'z',
+                        "ㄉ" => '2', "ㄊ" => 'w', "ㄋ" => 's', "ㄌ" => 'x',
+                        "ㄍ" => 'e', "ㄎ" => 'd', "ㄏ" => 'c',
+                        "ㄐ" => 'r', "ㄑ" => 'f', "ㄒ" => 'v',
+                        "ㄓ" => '5', "ㄔ" => 't', "ㄕ" => 'g', "ㄖ" => 'b',
+                        "ㄗ" => 'y', "ㄘ" => 'h', "ㄙ" => 'n',
+                        _ => panic!("unknown std initial {}", syl.initial),
+                    };
+                    s.push(ik);
+                }
+                if !syl.medial.is_empty() {
+                    let mk = match syl.medial.as_str() {
+                        "ㄧ" => 'u', "ㄨ" => 'j', "ㄩ" => 'm',
+                        _ => panic!("unknown std medial {}", syl.medial),
+                    };
+                    s.push(mk);
+                }
+                if !syl.final_part.is_empty() {
+                    let fk = match syl.final_part.as_str() {
+                        "ㄚ" => '8', "ㄛ" => 'i', "ㄜ" => 'k', "ㄝ" => ',',
+                        "ㄞ" => '9', "ㄟ" => 'o', "ㄠ" => 'l', "ㄡ" => '.',
+                        "ㄢ" => '0', "ㄣ" => 'p', "ㄤ" => ';', "ㄥ" => '/',
+                        "ㄦ" => '-',
+                        _ => panic!("unknown std final {}", syl.final_part),
+                    };
+                    s.push(fk);
+                }
+                let tk = match syl.tone {
+                    '1' => ' ', '2' => '6', '3' => '3', '4' => '4', '5' => '7',
+                    _ => ' ',
+                };
+                s.push(tk);
+            }
+            s
+        };
+
+        let bopomofo_to_hsu_keys = |bpms: &[&str]| -> String {
+            let mut s = String::new();
+            for b in bpms {
+                let syl = crate::fsm::HsuSyllable::from_bopomofo_display(b).expect(b);
+                let mut out = String::with_capacity(4);
+                if syl.initial.is_empty() && syl.medial.is_empty() {
+                    let k = match syl.final_part.as_str() {
+                        "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                        "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                        _ => panic!("unknown zero final {}", syl.final_part),
+                    };
+                    out.push(k);
+                } else {
+                    if !syl.initial.is_empty() {
+                        let ik = match syl.initial.as_str() {
+                            "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                            "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                            "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                            "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                            _ => panic!("unknown hsu initial {}", syl.initial),
+                        };
+                        out.push(ik);
+                    }
+                    if !syl.medial.is_empty() {
+                        let mk = match syl.medial.as_str() {
+                            "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                            _ => panic!("unknown hsu medial {}", syl.medial),
+                        };
+                        out.push(mk);
+                    }
+                    if !syl.final_part.is_empty() {
+                        let fk = match syl.final_part.as_str() {
+                            "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                            "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                            "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                            _ => panic!("unknown hsu final {}", syl.final_part),
+                        };
+                        out.push(fk);
+                    }
+                }
+                let tk = match syl.tone {
+                    '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's',
+                    _ => ' ',
+                };
+                out.push(tk);
+                s.push_str(&out);
+            }
+            s
+        };
+
+        let lex_cases: &[(&[&str], &str)] = &[
+            (&["ㄒㄩㄢˊ", "ㄧㄚˊ"], "懸崖"),
+            (&["ㄉㄨㄢˋ", "ㄧㄚˊ"], "斷崖"),
+            (&["ㄑㄧˇ", "ㄧㄝˋ"], "企業"),
+            (&["ㄒㄧㄥ", "ㄑㄧ"], "星期"),
+            (&["ㄒㄧㄝˊ", "ㄕㄡˇ"], "攜手"),
+            (&["ㄉㄤˋ", "ㄢˋ"], "檔案"),
+            (&["ㄔㄨˋ", "ㄌㄧˇ"], "處理"),
+            (&["ㄒㄧㄝˊ", "ㄉㄞˋ"], "鞋帶"),
+            (&["ㄒㄧ", "ㄉㄞˋ"], "攜帶"),
+        ];
+
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+            for (bpms, expected) in lex_cases {
+                let keys = if mode == "standard" {
+                    bopomofo_to_std_keys(bpms)
+                } else {
+                    bopomofo_to_hsu_keys(bpms)
+                };
+                engine.reset_buffer();
+                engine.last_committed_word.clear();
+                let mut committed = String::new();
+                for ch in keys.chars() {
+                    let resp = engine.process_key(ch);
+                    if !resp.committed_chunk.is_empty() {
+                        committed.push_str(&resp.committed_chunk);
+                    }
+                }
+                let actual = format!("{}{}", committed, engine.get_display_text());
+                assert_eq!(
+                    actual, *expected,
+                    "[{}] 鍵位 {} 解碼失敗，預期『{}』，實際『{}』",
+                    mode, keys, expected, actual
+                );
+            }
+        }
+    }
+
+    fn assert_bopomofo_dual_mode_cases(cases: &[(Vec<&str>, &str)]) {
+        assert_bopomofo_dual_mode_cases_with_classical_mode(
+            crate::router::ClassicalRegisterMode::Auto,
+            cases,
+        );
+    }
+
+    fn assert_bopomofo_dual_mode_cases_with_classical_mode(
+        classical_mode: crate::router::ClassicalRegisterMode,
+        cases: &[(Vec<&str>, &str)],
+    ) {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        engine.set_classical_mode(classical_mode);
+
+        let bopomofo_to_std_keys = |syllables: &[&str]| -> String {
+            let map: std::collections::HashMap<char, char> = [
+                ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
+                ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
+                ('ㄍ', 'e'), ('ㄎ', 'd'), ('ㄏ', 'c'),
+                ('ㄐ', 'r'), ('ㄑ', 'f'), ('ㄒ', 'v'),
+                ('ㄓ', '5'), ('ㄔ', 't'), ('ㄕ', 'g'), ('ㄖ', 'b'),
+                ('ㄗ', 'y'), ('ㄘ', 'h'), ('ㄙ', 'n'),
+                ('ㄧ', 'u'), ('ㄨ', 'j'), ('ㄩ', 'm'),
+                ('ㄚ', '8'), ('ㄛ', 'i'), ('ㄜ', 'k'), ('ㄝ', ','),
+                ('ㄞ', '9'), ('ㄟ', 'o'), ('ㄠ', 'l'), ('ㄡ', '.'),
+                ('ㄢ', '0'), ('ㄣ', 'p'), ('ㄤ', ';'), ('ㄥ', '/'),
+                ('ㄦ', '-'),
+            ]
+            .into_iter()
+            .collect();
+            let mut out = String::new();
+            for syl in syllables {
+                let mut tone = ' ';
+                for ch in syl.chars() {
+                    match ch {
+                        'ˊ' => tone = '6',
+                        'ˇ' => tone = '3',
+                        'ˋ' => tone = '4',
+                        '˙' => tone = '7',
+                        _ => {
+                            if let Some(&k) = map.get(&ch) {
+                                out.push(k);
+                            }
+                        }
+                    }
+                }
+                out.push(tone);
+            }
+            out
+        };
+
+        let bopomofo_to_hsu_keys = |bpms: &[&str]| -> String {
+            let mut s = String::new();
+            for b in bpms {
+                let syl = crate::fsm::HsuSyllable::from_bopomofo_display(b).expect(b);
+                if syl.initial.is_empty() && syl.medial.is_empty() {
+                    let k = match syl.final_part.as_str() {
+                        "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                        "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                        _ => panic!("unknown hsu zero final {}", syl.final_part),
+                    };
+                    s.push(k);
+                } else {
+                    if !syl.initial.is_empty() {
+                        let ik = match syl.initial.as_str() {
+                            "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                            "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                            "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                            "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                            _ => panic!("unknown hsu initial {}", syl.initial),
+                        };
+                        s.push(ik);
+                    }
+                    if !syl.medial.is_empty() {
+                        let mk = match syl.medial.as_str() {
+                            "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                            _ => panic!("unknown hsu medial {}", syl.medial),
+                        };
+                        s.push(mk);
+                    }
+                    if !syl.final_part.is_empty() {
+                        let fk = match syl.final_part.as_str() {
+                            "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                            "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                            "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                            _ => panic!("unknown hsu final {}", syl.final_part),
+                        };
+                        s.push(fk);
+                    }
+                }
+                let tk = match syl.tone {
+                    '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's',
+                    _ => ' ',
+                };
+                s.push(tk);
+            }
+            s
+        };
+
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+            for (bpms, expected) in cases {
+                let keys = if mode == "standard" {
+                    bopomofo_to_std_keys(bpms)
+                } else {
+                    bopomofo_to_hsu_keys(bpms)
+                };
+                engine.reset_buffer();
+                engine.last_committed_word.clear();
+                let mut committed = String::new();
+                for ch in keys.chars() {
+                    let resp = engine.process_key(ch);
+                    if !resp.committed_chunk.is_empty() {
+                        committed.push_str(&resp.committed_chunk);
+                    }
+                }
+                let actual = format!("{}{}", committed, engine.get_display_text());
+                assert_eq!(
+                    actual, *expected,
+                    "[{}] 鍵位 {} 解碼失敗，預期『{}』，實際『{}』",
+                    mode, keys, expected, actual
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_twelve_bedtime_homophone_cases_and_contrastives_261118() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            // 1. 全麥粉比例超過一半以上就十分乾硬（ㄧˊ ㄅㄢˋ 與 ㄧ ㄅㄢˋ 雙讀）
+            (
+                vec!["ㄑㄩㄢˊ", "ㄇㄞˋ", "ㄈㄣˇ", "ㄅㄧˇ", "ㄌㄧˋ", "ㄔㄠ", "ㄍㄨㄛˋ", "ㄧˊ", "ㄅㄢˋ", "ㄧˇ", "ㄕㄤˋ", "ㄐㄧㄡˋ", "ㄕˊ", "ㄈㄣ", "ㄍㄢ", "ㄧㄥˋ"],
+                "全麥粉比例超過一半以上就十分乾硬",
+            ),
+            (
+                vec!["ㄑㄩㄢˊ", "ㄇㄞˋ", "ㄈㄣˇ", "ㄅㄧˇ", "ㄌㄧˋ", "ㄔㄠ", "ㄍㄨㄛˋ", "ㄧ", "ㄅㄢˋ", "ㄧˇ", "ㄕㄤˋ", "ㄐㄧㄡˋ", "ㄕˊ", "ㄈㄣ", "ㄍㄢ", "ㄧㄥˋ"],
+                "全麥粉比例超過一半以上就十分乾硬",
+            ),
+            // 2. 其實也不敢肯定是不是真的不感興趣
+            (
+                vec!["ㄑㄧˊ", "ㄕˊ", "ㄧㄝˇ", "ㄅㄨˋ", "ㄍㄢˇ", "ㄎㄣˇ", "ㄉㄧㄥˋ", "ㄕˋ", "ㄅㄨˊ", "ㄕˋ", "ㄓㄣ", "˙ㄉㄜ", "ㄅㄨˋ", "ㄍㄢˇ", "ㄒㄧㄥˋ", "ㄑㄩˋ"],
+                "其實也不敢肯定是不是真的不感興趣",
+            ),
+            // 3. 義大利麵原料都是全麥粉嗎
+            (
+                vec!["ㄧˋ", "ㄉㄚˋ", "ㄌㄧˋ", "ㄇㄧㄢˋ", "ㄩㄢˊ", "ㄌㄧㄠˋ", "ㄉㄡ", "ㄕˋ", "ㄑㄩㄢˊ", "ㄇㄞˋ", "ㄈㄣˇ", "˙ㄇㄚ"],
+                "義大利麵原料都是全麥粉嗎",
+            ),
+            // 4. 杜蘭小麥粗粒粉除了作成義大利麵，也能作成麵包嗎（ㄔㄨˊ ˙ㄌㄜ 與 ㄔㄨˊ ㄌㄜ）
+            (
+                vec!["ㄉㄨˋ", "ㄌㄢˊ", "ㄒㄧㄠˇ", "ㄇㄞˋ", "ㄘㄨ", "ㄌㄧˋ", "ㄈㄣˇ", "ㄔㄨˊ", "˙ㄌㄜ", "ㄗㄨㄛˋ", "ㄔㄥˊ", "ㄧˋ", "ㄉㄚˋ", "ㄌㄧˋ", "ㄇㄧㄢˋ"],
+                "杜蘭小麥粗粒粉除了作成義大利麵",
+            ),
+            (
+                vec!["ㄉㄨˋ", "ㄌㄢˊ", "ㄒㄧㄠˇ", "ㄇㄞˋ", "ㄘㄨ", "ㄌㄧˋ", "ㄈㄣˇ", "ㄔㄨˊ", "ㄌㄜ", "ㄗㄨㄛˋ", "ㄔㄥˊ", "ㄧˋ", "ㄉㄚˋ", "ㄌㄧˋ", "ㄇㄧㄢˋ"],
+                "杜蘭小麥粗粒粉除了作成義大利麵",
+            ),
+            (
+                vec!["ㄧㄝˇ", "ㄋㄥˊ", "ㄗㄨㄛˋ", "ㄔㄥˊ", "ㄇㄧㄢˋ", "ㄅㄠ", "˙ㄇㄚ"],
+                "也能作成麵包嗎",
+            ),
+            // 5. 可能單純是新莊店的問題？看來新莊店真的很雷
+            (
+                vec!["ㄎㄜˇ", "ㄋㄥˊ", "ㄉㄢ", "ㄔㄨㄣˊ", "ㄕˋ", "ㄒㄧㄣ", "ㄓㄨㄤ", "ㄉㄧㄢˋ", "˙ㄉㄜ", "ㄨㄣˋ", "ㄊㄧˊ"],
+                "可能單純是新莊店的問題",
+            ),
+            (
+                vec!["ㄎㄢˋ", "ㄌㄞˊ", "ㄒㄧㄣ", "ㄓㄨㄤ", "ㄉㄧㄢˋ", "ㄓㄣ", "˙ㄉㄜ", "ㄏㄣˇ", "ㄌㄟˊ"],
+                "看來新莊店真的很雷",
+            ),
+            // 6. 通常不愉快的回憶不會記得太清楚
+            (
+                vec!["ㄊㄨㄥ", "ㄔㄤˊ", "ㄅㄨˋ", "ㄩˊ", "ㄎㄨㄞˋ", "˙ㄉㄜ", "ㄏㄨㄟˊ", "ㄧˋ", "ㄅㄨˊ", "ㄏㄨㄟˋ", "ㄐㄧˋ", "˙ㄉㄜ", "ㄊㄞˋ", "ㄑㄧㄥ", "ㄔㄨˇ"],
+                "通常不愉快的回憶不會記得太清楚",
+            ),
+            // 7. 放過自己也放過客人
+            (
+                vec!["ㄈㄤˋ", "ㄍㄨㄛˋ", "ㄗˋ", "ㄐㄧˇ", "ㄧㄝˇ", "ㄈㄤˋ", "ㄍㄨㄛˋ", "ㄎㄜˋ", "ㄖㄣˊ"],
+                "放過自己也放過客人",
+            ),
+            // 8. 內人在問如果別人想用我這個程式要如何取得這樣
+            (
+                vec!["ㄋㄟˋ", "ㄖㄣˊ", "ㄗㄞˋ", "ㄨㄣˋ", "ㄖㄨˊ", "ㄍㄨㄛˇ", "ㄅㄧㄝˊ", "ㄖㄣˊ", "ㄒㄧㄤˇ", "ㄩㄥˋ", "ㄨㄛˇ", "ㄓㄜˋ", "˙ㄍㄜ", "ㄔㄥˊ", "ㄕˋ", "ㄧㄠˋ", "ㄖㄨˊ", "ㄏㄜˊ", "ㄑㄩˇ", "ㄉㄜˊ", "ㄓㄜˋ", "ㄧㄤˋ"],
+                "內人在問如果別人想用我這個程式要如何取得這樣",
+            ),
+            // 9. 請問要求刪除皮克敏開花帳號為什麼顯示（含與不含「皮克敏」）
+            (
+                vec!["ㄑㄧㄥˇ", "ㄨㄣˋ", "ㄧㄠ", "ㄑㄧㄡˊ", "ㄕㄢ", "ㄔㄨˊ", "ㄆㄧˊ", "ㄎㄜˋ", "ㄇㄧㄣˇ", "ㄎㄞ", "ㄏㄨㄚ", "ㄓㄤˋ", "ㄏㄠˋ", "ㄨㄟˋ", "ㄕㄜˊ", "˙ㄇㄜ", "ㄒㄧㄢˇ", "ㄕˋ"],
+                "請問要求刪除皮克敏開花帳號為什麼顯示",
+            ),
+            (
+                vec!["ㄕㄢ", "ㄔㄨˊ", "ㄎㄞ", "ㄏㄨㄚ", "ㄓㄤˋ", "ㄏㄠˋ", "ㄨㄟˋ", "ㄕㄜˊ", "˙ㄇㄜ", "ㄒㄧㄢˇ", "ㄕˋ"],
+                "刪除開花帳號為什麼顯示",
+            ),
+            // 10. 約上半個月你有空的日子去桃園做做看（ㄅㄢˋ ˙ㄍㄜ 與 ㄅㄢˋ ㄍㄜˋ）
+            (
+                vec!["ㄩㄝ", "ㄕㄤˋ", "ㄅㄢˋ", "˙ㄍㄜ", "ㄩㄝˋ", "ㄋㄧˇ", "ㄧㄡˇ", "ㄎㄨㄥˋ", "˙ㄉㄜ", "ㄖˋ", "˙ㄗ", "ㄑㄩˋ", "ㄊㄠˊ", "ㄩㄢˊ", "ㄗㄨㄛˋ", "ㄗㄨㄛˋ", "ㄎㄢˋ"],
+                "約上半個月你有空的日子去桃園做做看",
+            ),
+            (
+                vec!["ㄩㄝ", "ㄕㄤˋ", "ㄅㄢˋ", "ㄍㄜˋ", "ㄩㄝˋ", "ㄋㄧˇ", "ㄧㄡˇ", "ㄎㄨㄥˋ", "˙ㄉㄜ", "ㄖˋ", "˙ㄗ", "ㄑㄩˋ", "ㄊㄠˊ", "ㄩㄢˊ", "ㄗㄨㄛˋ", "ㄗㄨㄛˋ", "ㄎㄢˋ"],
+                "約上半個月你有空的日子去桃園做做看",
+            ),
+            // 11. 現在已經接近年底，不然來許個願（ㄒㄩˇ ˙ㄍㄜ 與 ㄒㄩˇ ㄍㄜˋ）
+            (
+                vec!["ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄧˇ", "ㄐㄧㄥ", "ㄐㄧㄝ", "ㄐㄧㄣˋ", "ㄋㄧㄢˊ", "ㄉㄧˇ"],
+                "現在已經接近年底",
+            ),
+            (
+                vec!["ㄅㄨˋ", "ㄖㄢˊ", "ㄌㄞˊ", "ㄒㄩˇ", "˙ㄍㄜ", "ㄩㄢˋ"],
+                "不然來許個願",
+            ),
+            (
+                vec!["ㄅㄨˋ", "ㄖㄢˊ", "ㄌㄞˊ", "ㄒㄩˇ", "ㄍㄜˋ", "ㄩㄢˋ"],
+                "不然來許個願",
+            ),
+            // 12. 沒有道歉沒有課金
+            (
+                vec!["ㄇㄟˊ", "ㄧㄡˇ", "ㄉㄠˋ", "ㄑㄧㄢˋ", "ㄇㄟˊ", "ㄧㄡˇ", "ㄎㄜˋ", "ㄐㄧㄣ"],
+                "沒有道歉沒有課金",
+            ),
+            // 正反對照組（確保無過擬合副作用）
+            (vec!["ㄗㄨㄛˋ", "ㄗㄞˋ", "ㄧˇ", "˙ㄗ", "ㄕㄤˋ"], "坐在椅子上"),
+            (vec!["ㄧˋ", "ㄉㄧㄢˇ", "ㄧㄝˇ", "ㄅㄨˋ", "ㄍㄢˇ", "ㄒㄧㄥˋ", "ㄑㄩˋ"], "一點也不感興趣"),
+            (vec!["ㄎㄢˋ", "ㄌㄞˊ", "ㄐㄧㄣ", "ㄊㄧㄢ", "ㄓㄣ", "˙ㄉㄜ", "ㄏㄣˇ", "ㄌㄟˋ"], "看來今天真的很累"),
+            (vec!["ㄦˊ", "ㄑㄧㄝˇ", "ㄌㄧㄤˊ", "ㄕˊ", "ㄅㄨˋ", "ㄩˊ", "ㄎㄨㄟˋ", "ㄈㄚˊ"], "而且糧食不虞匱乏"),
+            (vec!["ㄅㄚˇ", "ㄕˊ", "ㄏㄨˇ", "ㄧㄝˇ", "ㄈㄤˋ", "ㄏㄨㄟˊ", "ㄕㄢ", "ㄌㄧㄣˊ"], "把石虎野放回山林"),
+            (vec!["ㄏㄨㄢ", "ㄧㄥˊ", "ㄐㄧㄣˋ", "ㄑㄧㄥˊ", "ㄒㄧㄤˇ", "ㄩㄥˋ", "ㄇㄟˇ", "ㄨㄟˋ", "˙ㄉㄜ", "ㄘㄢ", "ㄉㄧㄢˇ"], "歡迎盡情享用美味的餐點"),
+            (vec!["ㄒㄧㄣ", "ㄓㄨㄤ", "ㄉㄧㄢˋ", "ㄧㄥˇ", "ㄩㄢˋ"], "新莊電影院"),
+            (vec!["ㄓㄜˋ", "˙ㄍㄜ", "ㄩㄝˋ", "ㄌㄞˊ", "ㄩㄝˋ", "ㄏㄠˇ"], "這個越來越好"),
+            (vec!["ㄓㄜˋ", "˙ㄍㄜ", "ㄩㄝˋ", "ㄊㄨㄢˊ"], "這個樂團"),
+            (vec!["ㄑㄩˋ", "ㄧ", "ㄩㄢˋ", "ㄓㄨˋ", "˙ㄍㄜ", "ㄩㄢˋ"], "去醫院住個院"),
+            (vec!["ㄌㄩˇ", "ㄎㄜˋ", "ㄐㄧㄣ", "ㄊㄧㄢ", "ㄉㄧˇ", "ㄉㄚˊ"], "旅客今天抵達"),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+    }
+
+    #[test]
+    fn test_seven_extreme_contrastive_sentences_and_lei2_audit_261118() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            // 極端造句 1：有一半以上的人應酬時坐在椅子上應對另一半以下沒有坐在椅子上的人（ㄧˊ ㄅㄢˋ 與 ㄧ ㄅㄢˋ）
+            (
+                vec![
+                    "ㄧㄡˇ", "ㄧˊ", "ㄅㄢˋ", "ㄧˇ", "ㄕㄤˋ", "˙ㄉㄜ", "ㄖㄣˊ", "ㄧㄥˋ", "ㄔㄡˊ", "ㄕˊ",
+                    "ㄗㄨㄛˋ", "ㄗㄞˋ", "ㄧˇ", "˙ㄗ", "ㄕㄤˋ", "ㄧㄥˋ", "ㄉㄨㄟˋ", "ㄌㄧㄥˋ", "ㄧˊ", "ㄅㄢˋ",
+                    "ㄧˇ", "ㄒㄧㄚˋ", "ㄇㄟˊ", "ㄧㄡˇ", "ㄗㄨㄛˋ", "ㄗㄞˋ", "ㄧˇ", "˙ㄗ", "ㄕㄤˋ", "˙ㄉㄜ", "ㄖㄣˊ",
+                ],
+                "有一半以上的人應酬時坐在椅子上應對另一半以下沒有坐在椅子上的人",
+            ),
+            (
+                vec![
+                    "ㄧㄡˇ", "ㄧ", "ㄅㄢˋ", "ㄧˇ", "ㄕㄤˋ", "˙ㄉㄜ", "ㄖㄣˊ", "ㄧㄥˋ", "ㄔㄡˊ", "ㄕˊ",
+                    "ㄗㄨㄛˋ", "ㄗㄞˋ", "ㄧˇ", "˙ㄗ", "ㄕㄤˋ", "ㄧㄥˋ", "ㄉㄨㄟˋ", "ㄌㄧㄥˋ", "ㄧ", "ㄅㄢˋ",
+                    "ㄧˇ", "ㄒㄧㄚˋ", "ㄇㄟˊ", "ㄧㄡˇ", "ㄗㄨㄛˋ", "ㄗㄞˋ", "ㄧˇ", "˙ㄗ", "ㄕㄤˋ", "˙ㄉㄜ", "ㄖㄣˊ",
+                ],
+                "有一半以上的人應酬時坐在椅子上應對另一半以下沒有坐在椅子上的人",
+            ),
+            // 極端造句 2：一個愉快回憶不虞匱乏的人必然十分愉快喜悅（三種聲調變體）
+            (
+                vec![
+                    "ㄧˊ", "˙ㄍㄜ", "ㄩˊ", "ㄎㄨㄞˋ", "ㄏㄨㄟˊ", "ㄧˋ", "ㄅㄨˋ", "ㄩˊ", "ㄎㄨㄟˋ", "ㄈㄚˊ",
+                    "˙ㄉㄜ", "ㄖㄣˊ", "ㄅㄧˋ", "ㄖㄢˊ", "ㄕˊ", "ㄈㄣ", "ㄩˊ", "ㄎㄨㄞˋ", "ㄒㄧˇ", "ㄩㄝˋ",
+                ],
+                "一個愉快回憶不虞匱乏的人必然十分愉快喜悅",
+            ),
+            (
+                vec![
+                    "ㄧ", "ㄍㄜˋ", "ㄩˊ", "ㄎㄨㄞˋ", "ㄏㄨㄟˊ", "ㄧˋ", "ㄅㄨˋ", "ㄩˊ", "ㄎㄨㄟˋ", "ㄈㄚˊ",
+                    "˙ㄉㄜ", "ㄖㄣˊ", "ㄅㄧˋ", "ㄖㄢˊ", "ㄕˊ", "ㄈㄣ", "ㄩˊ", "ㄎㄨㄞˋ", "ㄒㄧˇ", "ㄩㄝˋ",
+                ],
+                "一個愉快回憶不虞匱乏的人必然十分愉快喜悅",
+            ),
+            (
+                vec![
+                    "ㄧˊ", "ㄍㄜˋ", "ㄩˊ", "ㄎㄨㄞˋ", "ㄏㄨㄟˊ", "ㄧˋ", "ㄅㄨˋ", "ㄩˊ", "ㄎㄨㄟˋ", "ㄈㄚˊ",
+                    "˙ㄉㄜ", "ㄖㄣˊ", "ㄅㄧˋ", "ㄖㄢˊ", "ㄕˊ", "ㄈㄣ", "ㄩˊ", "ㄎㄨㄞˋ", "ㄒㄧˇ", "ㄩㄝˋ",
+                ],
+                "一個愉快回憶不虞匱乏的人必然十分愉快喜悅",
+            ),
+            // 極端造句 3：一條魚快要在水分不虞匱乏的魚缸裡窒息了（含 ㄓˋ ㄒㄧˊ 與口語雙音 ㄓˋ ㄒㄧ）
+            (
+                vec![
+                    "ㄧˋ", "ㄊㄧㄠˊ", "ㄩˊ", "ㄎㄨㄞˋ", "ㄧㄠˋ", "ㄗㄞˋ", "ㄕㄨㄟˇ", "ㄈㄣˋ",
+                    "ㄅㄨˋ", "ㄩˊ", "ㄎㄨㄟˋ", "ㄈㄚˊ", "˙ㄉㄜ", "ㄩˊ", "ㄍㄤ", "ㄌㄧˇ", "ㄓˋ", "ㄒㄧˊ", "˙ㄌㄜ",
+                ],
+                "一條魚快要在水分不虞匱乏的魚缸裡窒息了",
+            ),
+            (
+                vec![
+                    "ㄧ", "ㄊㄧㄠˊ", "ㄩˊ", "ㄎㄨㄞˋ", "ㄧㄠˋ", "ㄗㄞˋ", "ㄕㄨㄟˇ", "ㄈㄣˋ",
+                    "ㄅㄨˋ", "ㄩˊ", "ㄎㄨㄟˋ", "ㄈㄚˊ", "˙ㄉㄜ", "ㄩˊ", "ㄍㄤ", "ㄌㄧˇ", "ㄓˋ", "ㄒㄧˊ", "˙ㄌㄜ",
+                ],
+                "一條魚快要在水分不虞匱乏的魚缸裡窒息了",
+            ),
+            (
+                vec![
+                    "ㄧˋ", "ㄊㄧㄠˊ", "ㄩˊ", "ㄎㄨㄞˋ", "ㄧㄠˋ", "ㄗㄞˋ", "ㄕㄨㄟˇ", "ㄈㄣ",
+                    "ㄅㄨˋ", "ㄩˊ", "ㄎㄨㄟˋ", "ㄈㄚˊ", "˙ㄉㄜ", "ㄩˊ", "ㄍㄤ", "ㄌㄧˇ", "ㄓˋ", "ㄒㄧ", "˙ㄌㄜ",
+                ],
+                "一條魚快要在水分不虞匱乏的魚缸裡窒息了",
+            ),
+            // 極端造句 4：不要因為宗教信仰任意野放任一生物，放過自己也放過別人
+            (
+                vec![
+                    "ㄅㄨˊ", "ㄧㄠˋ", "ㄧㄣ", "ㄨㄟˋ", "ㄗㄨㄥ", "ㄐㄧㄠˋ", "ㄒㄧㄣˋ", "ㄧㄤˇ",
+                    "ㄖㄣˋ", "ㄧˋ", "ㄧㄝˇ", "ㄈㄤˋ", "ㄖㄣˋ", "ㄧ", "ㄕㄥ", "ㄨˋ",
+                ],
+                "不要因為宗教信仰任意野放任一生物",
+            ),
+            (
+                vec![
+                    "ㄅㄨˊ", "ㄧㄠˋ", "ㄧㄣ", "ㄨㄟˋ", "ㄗㄨㄥ", "ㄐㄧㄠˋ", "ㄒㄧㄣˋ", "ㄧㄤˇ",
+                    "ㄖㄣˋ", "ㄧˋ", "ㄧㄝˇ", "ㄈㄤˋ", "ㄖㄣˋ", "ㄧˊ", "ㄕㄥ", "ㄨˋ",
+                ],
+                "不要因為宗教信仰任意野放任一生物",
+            ),
+            (
+                vec![
+                    "ㄅㄨˊ", "ㄧㄠˋ", "ㄧㄣ", "ㄨㄟˋ", "ㄗㄨㄥ", "ㄐㄧㄠˋ", "ㄒㄧㄣˋ", "ㄧㄤˇ",
+                    "ㄖㄣˋ", "ㄧˋ", "ㄧㄝˇ", "ㄈㄤˋ", "ㄖㄣˋ", "ㄧˋ", "ㄕㄥ", "ㄨˋ",
+                ],
+                "不要因為宗教信仰任意野放任一生物",
+            ),
+            (
+                vec!["ㄈㄤˋ", "ㄍㄨㄛˋ", "ㄗˋ", "ㄐㄧˇ", "ㄧㄝˇ", "ㄈㄤˋ", "ㄍㄨㄛˋ", "ㄅㄧㄝˊ", "ㄖㄣˊ"],
+                "放過自己也放過別人",
+            ),
+            // 極端造句 5：分句與 41 音節無標點全句
+            (
+                vec![
+                    "ㄨㄛˇ", "ㄗㄞˋ", "ㄨㄛˇ", "ㄗˋ", "ㄐㄧˇ", "ㄐㄩ", "ㄓㄨˋ", "˙ㄉㄜ", "ㄔㄥˊ", "ㄕˋ",
+                    "ㄒㄧㄝˇ", "˙ㄉㄜ", "ㄔㄥˊ", "ㄕˋ", "ㄨㄛˇ", "ㄗˋ", "ㄐㄧˇ", "ㄈㄟ", "ㄔㄤˊ", "ㄒㄧㄤˇ", "ㄩㄥˋ",
+                ],
+                "我在我自己居住的城市寫的程式我自己非常享用",
+            ),
+            (
+                vec![
+                    "ㄧㄝˇ", "ㄈㄟ", "ㄔㄤˊ", "ㄒㄧ", "ㄨㄤˋ", "ㄒㄧㄤˇ", "ㄩㄥˋ", "˙ㄉㄜ", "ㄖㄣˊ",
+                    "ㄩㄥˋ", "˙ㄌㄜ", "ㄓ", "ㄏㄡˋ", "ㄧㄝˇ", "ㄉㄡ", "ㄕˊ", "ㄈㄣ", "ㄒㄧㄤˇ", "ㄩㄥˋ",
+                ],
+                "也非常希望想用的人用了之後也都十分享用",
+            ),
+            (
+                vec![
+                    "ㄨㄛˇ", "ㄗㄞˋ", "ㄨㄛˇ", "ㄗˋ", "ㄐㄧˇ", "ㄐㄩ", "ㄓㄨˋ", "˙ㄉㄜ", "ㄔㄥˊ", "ㄕˋ",
+                    "ㄒㄧㄝˇ", "˙ㄉㄜ", "ㄔㄥˊ", "ㄕˋ", "ㄨㄛˇ", "ㄗˋ", "ㄐㄧˇ", "ㄈㄟ", "ㄔㄤˊ", "ㄒㄧㄤˇ", "ㄩㄥˋ",
+                    "ㄧㄝˇ", "ㄈㄟ", "ㄔㄤˊ", "ㄒㄧ", "ㄨㄤˋ", "ㄒㄧㄤˇ", "ㄩㄥˋ", "˙ㄉㄜ", "ㄖㄣˊ",
+                    "ㄩㄥˋ", "˙ㄌㄜ", "ㄓ", "ㄏㄡˋ", "ㄧㄝˇ", "ㄉㄡ", "ㄕˊ", "ㄈㄣ", "ㄒㄧㄤˇ", "ㄩㄥˋ",
+                ],
+                "我在我自己居住的城市寫的程式我自己非常享用也非常希望想用的人用了之後也都十分享用",
+            ),
+            // 極端造句 6：這個樂團在下半個月會越來越好，請您接下來的半個月惠顧光臨支持鼓勵
+            (
+                vec![
+                    "ㄓㄜˋ", "˙ㄍㄜ", "ㄩㄝˋ", "ㄊㄨㄢˊ", "ㄗㄞˋ", "ㄒㄧㄚˋ", "ㄅㄢˋ", "˙ㄍㄜ", "ㄩㄝˋ",
+                    "ㄏㄨㄟˋ", "ㄩㄝˋ", "ㄌㄞˊ", "ㄩㄝˋ", "ㄏㄠˇ",
+                ],
+                "這個樂團在下半個月會越來越好",
+            ),
+            (
+                vec![
+                    "ㄓㄜˋ", "ㄍㄜˋ", "ㄩㄝˋ", "ㄊㄨㄢˊ", "ㄗㄞˋ", "ㄒㄧㄚˋ", "ㄅㄢˋ", "ㄍㄜˋ", "ㄩㄝˋ",
+                    "ㄏㄨㄟˋ", "ㄩㄝˋ", "ㄌㄞˊ", "ㄩㄝˋ", "ㄏㄠˇ",
+                ],
+                "這個樂團在下半個月會越來越好",
+            ),
+            (
+                vec![
+                    "ㄑㄧㄥˇ", "ㄋㄧㄣˊ", "ㄐㄧㄝ", "ㄒㄧㄚˋ", "ㄌㄞˊ", "˙ㄉㄜ", "ㄅㄢˋ", "˙ㄍㄜ", "ㄩㄝˋ",
+                    "ㄏㄨㄟˋ", "ㄍㄨˋ", "ㄍㄨㄤ", "ㄌㄧㄣˊ", "ㄓ", "ㄔˊ", "ㄍㄨˇ", "ㄌㄧˋ",
+                ],
+                "請您接下來的半個月惠顧光臨支持鼓勵",
+            ),
+            (
+                vec![
+                    "ㄑㄧㄥˇ", "ㄋㄧㄣˊ", "ㄐㄧㄝ", "ㄒㄧㄚˋ", "ㄌㄞˊ", "˙ㄉㄜ", "ㄅㄢˋ", "ㄍㄜˋ", "ㄩㄝˋ",
+                    "ㄏㄨㄟˋ", "ㄍㄨˋ", "ㄍㄨㄤ", "ㄌㄧㄣˊ", "ㄓ", "ㄔˊ", "ㄍㄨˇ", "ㄌㄧˋ",
+                ],
+                "請您接下來的半個月惠顧光臨支持鼓勵",
+            ),
+            // 極端造句 7：來許個願：每個人都能健健康康一輩子連住萬分之一個院都不需要
+            (vec!["ㄌㄞˊ", "ㄒㄩˇ", "˙ㄍㄜ", "ㄩㄢˋ"], "來許個願"),
+            (
+                vec![
+                    "ㄇㄟˇ", "˙ㄍㄜ", "ㄖㄣˊ", "ㄉㄡ", "ㄋㄥˊ", "ㄐㄧㄢˋ", "ㄐㄧㄢˋ", "ㄎㄤ", "ㄎㄤ",
+                    "ㄧˊ", "ㄅㄟˋ", "˙ㄗ", "ㄌㄧㄢˊ", "ㄓㄨˋ", "ㄨㄢˋ", "ㄈㄣ", "ㄓ", "ㄧˊ", "˙ㄍㄜ",
+                    "ㄩㄢˋ", "ㄉㄡ", "ㄅㄨˋ", "ㄒㄩ", "ㄧㄠˋ",
+                ],
+                "每個人都能健健康康一輩子連住萬分之一個院都不需要",
+            ),
+            (
+                vec![
+                    "ㄇㄟˇ", "ㄍㄜˋ", "ㄖㄣˊ", "ㄉㄡ", "ㄋㄥˊ", "ㄐㄧㄢˋ", "ㄐㄧㄢˋ", "ㄎㄤ", "ㄎㄤ",
+                    "ㄧˊ", "ㄅㄟˋ", "˙ㄗ", "ㄌㄧㄢˊ", "ㄓㄨˋ", "ㄨㄢˋ", "ㄈㄣ", "ㄓ", "ㄧ", "ㄍㄜˋ",
+                    "ㄩㄢˋ", "ㄉㄡ", "ㄅㄨˋ", "ㄒㄩ", "ㄧㄠˋ",
+                ],
+                "每個人都能健健康康一輩子連住萬分之一個院都不需要",
+            ),
+            (
+                vec![
+                    "ㄇㄟˇ", "ㄍㄜˋ", "ㄖㄣˊ", "ㄉㄡ", "ㄋㄥˊ", "ㄐㄧㄢˋ", "ㄐㄧㄢˋ", "ㄎㄤ", "ㄎㄤ",
+                    "ㄧˊ", "ㄅㄟˋ", "˙ㄗ", "ㄌㄧㄢˊ", "ㄓㄨˋ", "ㄨㄢˋ", "ㄈㄣ", "ㄓ", "ㄧˊ", "ㄍㄜˋ",
+                    "ㄩㄢˋ", "ㄉㄡ", "ㄅㄨˋ", "ㄒㄩ", "ㄧㄠˋ",
+                ],
+                "每個人都能健健康康一輩子連住萬分之一個院都不需要",
+            ),
+            // ㄌㄟˊ 正反驗證與外部正例防護
+            (vec!["ㄌㄟˊ"], "雷"),
+            (vec!["ㄓㄜˋ", "ㄐㄧㄚ", "ㄉㄧㄢˋ", "ㄔㄠ", "ㄌㄟˊ"], "這家店超雷"),
+            (vec!["ㄊㄞˋ", "ㄌㄟˊ", "˙ㄌㄜ"], "太雷了"),
+            (vec!["ㄓㄣ", "ㄌㄟˊ"], "真雷"),
+            (vec!["ㄧㄡˇ", "ㄍㄡˋ", "ㄌㄟˊ"], "有夠雷"),
+            (vec!["ㄏㄠˇ", "ㄌㄟˊ"], "好雷"),
+            (vec!["ㄇㄢˊ", "ㄌㄟˊ", "˙ㄉㄜ"], "蠻雷的"),
+            (vec!["ㄧˋ", "ㄉㄧㄢˇ", "ㄧㄝˇ", "ㄅㄨˋ", "ㄌㄟˊ"], "一點也不雷"),
+            (vec!["ㄅㄧˋ", "ㄌㄟˊ"], "避雷"),
+            (vec!["ㄅㄠˋ", "ㄌㄟˊ"], "爆雷"),
+            (vec!["ㄓㄜˋ", "ㄅㄨˋ", "ㄉㄧㄢˋ", "ㄧㄥˇ", "ㄐㄧˊ", "ㄐㄧㄤ", "ㄕㄤˋ", "ㄧㄥˋ"], "這部電影即將上映"),
+            (vec!["ㄓㄨˋ", "ㄗㄞˋ", "ㄈㄟ", "ㄔㄤˊ", "ㄅㄟˇ", "˙ㄉㄜ", "ㄉㄧˋ", "ㄈㄤ"], "住在非常北的地方"),
+            (
+                vec![
+                    "ㄦˊ", "ㄉㄠˇ", "ㄓˋ", "ㄉㄨㄟˋ", "ㄖˋ", "ㄔㄤˊ", "ㄕㄥ", "ㄏㄨㄛˊ",
+                    "ㄍㄜˋ", "ㄓㄨㄥˇ", "ㄕˋ", "ㄙㄨˊ", "ㄗㄜˊ", "ㄖㄣˋ", "ㄧ", "ㄍㄞˋ",
+                    "ㄊㄧˊ", "ㄅㄨˋ", "ㄑㄧˇ", "ㄒㄧㄥˋ", "ㄓˋ",
+                ],
+                "而導致對日常生活各種世俗責任一概提不起興致",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+    }
+
+    #[test]
+    fn test_manxue_vs_manxie_and_symbol_ellipsis_lookup_261118() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            // 滿血 vs 滿寫（既然恢復滿血，當然全速前進 — 口語 ㄇㄢˇ ㄒㄧㄝˇ 與正讀 ㄇㄢˇ ㄒㄩㄝˋ 雙軌）
+            (
+                vec!["ㄐㄧˋ", "ㄖㄢˊ", "ㄏㄨㄟ", "ㄈㄨˋ", "ㄇㄢˇ", "ㄒㄧㄝˇ"],
+                "既然恢復滿血",
+            ),
+            (
+                vec!["ㄐㄧˋ", "ㄖㄢˊ", "ㄏㄨㄟ", "ㄈㄨˋ", "ㄇㄢˇ", "ㄒㄩㄝˋ"],
+                "既然恢復滿血",
+            ),
+            (
+                vec!["ㄉㄤ", "ㄖㄢˊ", "ㄑㄩㄢˊ", "ㄙㄨˋ", "ㄑㄧㄢˊ", "ㄐㄧㄣˋ"],
+                "當然全速前進",
+            ),
+            (
+                vec![
+                    "ㄐㄧˋ", "ㄖㄢˊ", "ㄏㄨㄟ", "ㄈㄨˋ", "ㄇㄢˇ", "ㄒㄧㄝˇ",
+                    "ㄉㄤ", "ㄖㄢˊ", "ㄑㄩㄢˊ", "ㄙㄨˋ", "ㄑㄧㄢˊ", "ㄐㄧㄣˋ",
+                ],
+                "既然恢復滿血當然全速前進",
+            ),
+            (
+                vec![
+                    "ㄐㄧˋ", "ㄖㄢˊ", "ㄏㄨㄟ", "ㄈㄨˋ", "ㄇㄢˇ", "ㄒㄩㄝˋ",
+                    "ㄉㄤ", "ㄖㄢˊ", "ㄑㄩㄢˊ", "ㄙㄨˋ", "ㄑㄧㄢˊ", "ㄐㄧㄣˋ",
+                ],
+                "既然恢復滿血當然全速前進",
+            ),
+            (
+                vec!["ㄩㄢˊ", "ㄉㄧˋ", "ㄇㄢˇ", "ㄒㄧㄝˇ", "ㄈㄨˋ", "ㄏㄨㄛˊ"],
+                "原地滿血復活",
+            ),
+            (
+                vec!["ㄩㄢˊ", "ㄉㄧˋ", "ㄇㄢˇ", "ㄒㄩㄝˋ", "ㄈㄨˋ", "ㄏㄨㄛˊ"],
+                "原地滿血復活",
+            ),
+            // 反例防護：不可過度偏向「滿血」而破壞「滿滿寫著／不滿寫／充滿寫實」
+            (
+                vec![
+                    "ㄗㄞˋ", "ㄓˇ", "ㄕㄤˋ", "ㄇㄢˇ", "ㄇㄢˇ", "ㄒㄧㄝˇ", "˙ㄓㄜ",
+                    "ㄊㄚ", "˙ㄉㄜ", "ㄇㄧㄥˊ", "ㄗˋ",
+                ],
+                "在紙上滿滿寫著他的名字",
+            ),
+            (
+                vec![
+                    "ㄉㄨㄟˋ", "ㄐㄧㄝˊ", "ㄍㄨㄛˇ", "ㄅㄨˋ", "ㄇㄢˇ",
+                    "ㄒㄧㄝˇ", "˙ㄌㄜ", "ㄧˋ", "ㄈㄥ", "ㄒㄧㄣˋ",
+                ],
+                "對結果不滿寫了一封信",
+            ),
+            (
+                vec!["ㄔㄨㄥ", "ㄇㄢˇ", "ㄒㄧㄝˇ", "ㄕˊ", "ㄈㄥ", "ㄍㄜˊ"],
+                "充滿寫實風格",
+            ),
+            // 標點符號關鍵詞組詞驗證（供 標記 -> Tab 直達）
+            (vec!["ㄕㄢ", "ㄐㄧㄝˊ", "ㄏㄠˋ"], "刪節號"),
+            (vec!["ㄕㄥˇ", "ㄌㄩㄝˋ", "ㄏㄠˋ"], "省略號"),
+            (vec!["ㄆㄛˋ", "ㄓㄜˊ", "ㄏㄠˋ"], "破折號"),
+            (vec!["ㄕㄨ", "ㄇㄧㄥˊ", "ㄏㄠˋ"], "書名號"),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+
+        let engine = RuhiEngine::new_without_core_lexicon(".");
+        match engine.lookup_symbol_tab_target("刪節號") {
+            Some(crate::symbol_tree::SymbolTabTarget::Candidates(cands)) => {
+                assert_eq!(cands.first().map(String::as_str), Some("……"));
+            }
+            other => panic!("預期「刪節號」回傳 Candidates，實際 {:?}", other),
+        }
+        match engine.lookup_symbol_tab_target("省略號") {
+            Some(crate::symbol_tree::SymbolTabTarget::Candidates(cands)) => {
+                assert_eq!(cands.first().map(String::as_str), Some("……"));
+            }
+            other => panic!("預期「省略號」回傳 Candidates，實際 {:?}", other),
+        }
+        match engine.lookup_symbol_tab_target("破折號") {
+            Some(crate::symbol_tree::SymbolTabTarget::Candidates(cands)) => {
+                assert_eq!(cands.first().map(String::as_str), Some("──"));
+            }
+            other => panic!("預期「破折號」回傳 Candidates，實際 {:?}", other),
+        }
+        match engine.lookup_symbol_tab_target("上箭頭") {
+            Some(crate::symbol_tree::SymbolTabTarget::Candidates(cands)) => {
+                assert_eq!(cands.first().map(String::as_str), Some("↑"));
+            }
+            other => panic!("預期「上箭頭」回傳 Candidates，實際 {:?}", other),
+        }
+        assert!(crate::symbol_tree::is_symbol_candidate("❌"));
+        assert!(crate::symbol_tree::is_symbol_candidate("……"));
+        assert!(crate::symbol_tree::is_symbol_candidate("↑"));
+        assert!(!crate::symbol_tree::is_symbol_candidate("甲"));
+        assert!(!crate::symbol_tree::is_symbol_candidate("寸"));
+    }
+
+    #[test]
+    fn test_spouse_appositive_onomastics_and_lexical_veto_261118() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄌㄠˇ", "ㄆㄛˊ", "ㄨˊ", "ㄨㄣˊ", "ㄖㄨㄥˊ"],
+                "我的老婆吳玟蓉",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄊㄞˋ", "˙ㄊㄞ", "ㄨˊ", "ㄨㄣˊ", "ㄖㄨㄥˊ"],
+                "我太太吳玟蓉",
+            ),
+            (
+                vec!["ㄋㄟˋ", "ㄖㄣˊ", "ㄨˊ", "ㄨㄣˊ", "ㄖㄨㄥˊ"],
+                "內人吳玟蓉",
+            ),
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄌㄠˇ", "ㄆㄛˊ", "ㄏㄣˇ", "ㄨˊ", "ㄋㄞˋ"],
+                "我的老婆很無奈",
+            ),
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄌㄠˇ", "ㄆㄛˊ", "ㄨˊ", "ㄋㄞˋ", "ㄧㄠˊ", "ㄊㄡˊ"],
+                "我的老婆無奈搖頭",
+            ),
+            (
+                vec![
+                    "ㄨㄛˇ", "˙ㄉㄜ", "ㄌㄠˇ", "ㄆㄛˊ", "ㄨˊ", "ㄌㄨㄣˋ",
+                    "ㄖㄨˊ", "ㄏㄜˊ", "ㄉㄡ", "ㄓ", "ㄔˊ", "ㄨㄛˇ",
+                ],
+                "我的老婆無論如何都支持我",
+            ),
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄌㄠˇ", "ㄆㄛˊ", "ㄨㄣ", "ㄖㄡˊ", "ㄊㄧˇ", "ㄊㄧㄝ"],
+                "我的老婆溫柔體貼",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+    }
+
+    #[test]
+    fn test_kinship_appositive_family_onomastics_and_contrastives_261118() {
+        // 1. 雙鍵盤模式（標準大千 + 許氏）純核心詞庫零詞庫人名與親屬同位語對比測試
+        let dual_cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄊㄞˋ", "˙ㄊㄞ", "ㄨˊ", "ㄨㄣˊ", "ㄖㄨㄥˊ"],
+                "我的太太吳玟蓉",
+            ),
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄋㄩˇ", "ㄒㄩˋ", "ㄧㄢˊ", "ㄌㄨㄛˊ", "ㄣ"],
+                "我的女婿顏羅恩",
+            ),
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄋㄩˇ", "ㄦˊ", "ㄧㄢˊ", "ㄖㄨㄛˋ", "ㄏㄢˊ"],
+                "我的女兒顏若涵",
+            ),
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄦˊ", "ㄗˇ", "ㄧㄢˊ", "ㄊㄧㄥˊ", "ㄧㄡˋ"],
+                "我的兒子顏庭佑",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄅㄚˋ", "˙ㄅㄚ", "ㄧㄢˊ", "ㄊㄧㄥˊ", "ㄧㄡˋ"],
+                "我爸爸顏庭佑",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄇㄚ", "˙ㄇㄚ", "ㄨˊ", "ㄨㄣˊ", "ㄖㄨㄥˊ"],
+                "我媽媽吳玟蓉",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄍㄜ", "˙ㄍㄜ", "ㄧㄢˊ", "ㄌㄨㄛˊ", "ㄣ"],
+                "我哥哥顏羅恩",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄇㄟˋ", "˙ㄇㄟ", "ㄧㄢˊ", "ㄖㄨㄛˋ", "ㄏㄢˊ"],
+                "我妹妹顏若涵",
+            ),
+            // 反例防護：確保不誤傷日常複合詞、高頻結構詞與專有名詞
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄋㄩˇ", "ㄦˊ", "ㄧㄢˊ", "ㄍㄜˊ", "ㄧㄠ", "ㄑㄧㄡˊ", "ㄗˋ", "ㄐㄧˇ"],
+                "我的女兒嚴格要求自己",
+            ),
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄋㄩˇ", "ㄦˊ", "ㄧㄢˊ", "ㄐㄧㄡˋ", "ㄕㄥ", "ㄨˋ"],
+                "我的女兒研究生物",
+            ),
+            (
+                vec!["ㄉㄨㄟˋ", "ㄋㄩˇ", "ㄦˊ", "ㄦˊ", "ㄧㄢˊ"],
+                "對女兒而言",
+            ),
+            (
+                vec!["ㄉㄨㄟˋ", "ㄋㄩˇ", "ㄒㄧㄥˋ", "ㄦˊ", "ㄧㄢˊ"],
+                "對女性而言",
+            ),
+            (
+                vec!["ㄧˋ", "ㄅㄢ", "ㄦˊ", "ㄧㄢˊ"],
+                "一般而言",
+            ),
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄋㄩˇ", "ㄒㄩˋ", "ㄒㄧㄝˇ", "˙ㄌㄜ", "ㄧˋ", "ㄆㄧㄢ", "ㄒㄩˋ", "ㄧㄢˊ"],
+                "我的女婿寫了一篇序言",
+            ),
+            (
+                vec!["ㄧㄢˊ", "ㄌㄨㄛˊ"],
+                "閻羅",
+            ),
+            (
+                vec!["ㄎㄢˋ", "ㄐㄧㄢˋ", "ㄧㄢˊ", "ㄌㄨㄛˊ", "ㄨㄤˊ"],
+                "看見閻羅王",
+            ),
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄋㄩˇ", "ㄒㄩˋ", "ㄅㄢˋ", "ㄧㄢˇ", "ㄧㄢˊ", "ㄌㄨㄛˊ", "ㄨㄤˊ"],
+                "我的女婿扮演閻羅王",
+            ),
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄦˊ", "ㄗˇ", "ㄧˊ", "ㄉㄢˋ", "ㄓㄤˇ", "ㄉㄚˋ", "ㄔㄥˊ", "ㄖㄣˊ"],
+                "我的兒子一旦長大成人",
+            ),
+            (
+                vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄦˊ", "ㄗˇ", "ㄊㄧㄥˊ", "ㄒㄧㄚˋ", "ㄌㄞˊ", "ㄧㄡˋ", "ㄏㄨㄟˊ", "ㄊㄡˊ", "ㄎㄢˋ"],
+                "我的兒子停下來又回頭看",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&dual_cases);
+
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+
+        let encode_syl_std = |syl: &crate::fsm::HsuSyllable| -> String {
+            let map: std::collections::HashMap<char, char> = [
+                ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
+                ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
+                ('ㄍ', 'e'), ('ㄎ', 'd'), ('ㄏ', 'c'),
+                ('ㄐ', 'r'), ('ㄑ', 'f'), ('ㄒ', 'v'),
+                ('ㄓ', '5'), ('ㄔ', 't'), ('ㄕ', 'g'), ('ㄖ', 'b'),
+                ('ㄗ', 'y'), ('ㄘ', 'h'), ('ㄙ', 'n'),
+                ('ㄧ', 'u'), ('ㄨ', 'j'), ('ㄩ', 'm'),
+                ('ㄚ', '8'), ('ㄛ', 'i'), ('ㄜ', 'k'), ('ㄝ', ','),
+                ('ㄞ', '9'), ('ㄟ', 'o'), ('ㄠ', 'l'), ('ㄡ', '.'),
+                ('ㄢ', '0'), ('ㄣ', 'p'), ('ㄤ', ';'), ('ㄥ', '/'),
+                ('ㄦ', '-'),
+            ]
+            .into_iter()
+            .collect();
+            let mut out = String::new();
+            for ch in syl.bopomofo_display().chars() {
+                if let Some(&k) = map.get(&ch) {
+                    out.push(k);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => '6', '3' => '3', '4' => '4', '5' => '7', _ => ' ',
+            };
+            out.push(tk);
+            out
+        };
+
+        let encode_syl_hsu = |syl: &crate::fsm::HsuSyllable| -> String {
+            let mut s = String::new();
+            if syl.initial.is_empty() && syl.medial.is_empty() {
+                let k = match syl.final_part.as_str() {
+                    "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                    "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                    "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                    _ => panic!("unknown hsu zero final {}", syl.final_part),
+                };
+                s.push(k);
+            } else {
+                if !syl.initial.is_empty() {
+                    let ik = match syl.initial.as_str() {
+                        "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                        "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                        "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                        "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                        _ => panic!("unknown hsu initial {}", syl.initial),
+                    };
+                    s.push(ik);
+                }
+                if !syl.medial.is_empty() {
+                    let mk = match syl.medial.as_str() {
+                        "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                        _ => panic!("unknown hsu medial {}", syl.medial),
+                    };
+                    s.push(mk);
+                }
+                if !syl.final_part.is_empty() {
+                    let fk = match syl.final_part.as_str() {
+                        "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                        "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                        _ => panic!("unknown hsu final {}", syl.final_part),
+                    };
+                    s.push(fk);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's', _ => ' ',
+            };
+            s.push(tk);
+            s
+        };
+
+        let decode_stream = |eng: &mut RuhiEngine, mode: &str, tokens: &[&str]| -> String {
+            eng.set_keyboard_mode(mode);
+            eng.reset_buffer();
+            eng.last_committed_word.clear();
+            let mut out = String::new();
+            for &tok in tokens {
+                if tok == "，" {
+                    let r = if mode == "standard" {
+                        eng.process_key_str("Ctrl+,")
+                    } else {
+                        eng.process_key(',')
+                    };
+                    out.push_str(&r.committed_chunk);
+                } else if tok == "。" {
+                    let r = if mode == "standard" {
+                        eng.process_key('\n')
+                    } else {
+                        eng.process_key('.')
+                    };
+                    out.push_str(&r.committed_chunk);
+                } else {
+                    let syl = crate::fsm::HsuSyllable::from_bopomofo_display(tok).expect(tok);
+                    let keys = if mode == "standard" {
+                        encode_syl_std(&syl)
+                    } else {
+                        encode_syl_hsu(&syl)
+                    };
+                    for ch in keys.chars() {
+                        let r = eng.process_key(ch);
+                        out.push_str(&r.committed_chunk);
+                    }
+                }
+            }
+            out.push_str(&eng.get_display_text());
+            out
+        };
+
+        // 2. 完整五子句實境測試（僅登錄「吳玟蓉」與「曹非羽」，其餘「顏羅恩」「顏若涵」「顏庭佑」維持純零詞庫）
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        engine.lexicon.upsert_entry(crate::lexicon::LexiconEntry::new(
+            "吳玟蓉",
+            "ㄨˊ ㄨㄣˊ ㄖㄨㄥˊ",
+            820,
+            "user",
+            "person_s1_g2:吳+玟蓉",
+        ));
+        engine.lexicon.upsert_entry(crate::lexicon::LexiconEntry::new(
+            "曹非羽",
+            "ㄘㄠˊ ㄈㄟ ㄩˇ",
+            820,
+            "user",
+            "person_s1_g2:曹+非羽",
+        ));
+
+        let full_tokens = [
+            "ㄨㄛˇ", "˙ㄉㄜ", "ㄊㄞˋ", "˙ㄊㄞ", "ㄨˊ", "ㄨㄣˊ", "ㄖㄨㄥˊ", "，",
+            "ㄨㄛˇ", "˙ㄉㄜ", "ㄋㄩˇ", "ㄦˊ", "ㄘㄠˊ", "ㄈㄟ", "ㄩˇ", "，",
+            "ㄨㄛˇ", "˙ㄉㄜ", "ㄋㄩˇ", "ㄒㄩˋ", "ㄧㄢˊ", "ㄌㄨㄛˊ", "ㄣ", "，",
+            "ㄨㄛˇ", "˙ㄉㄜ", "ㄋㄩˇ", "ㄦˊ", "ㄧㄢˊ", "ㄖㄨㄛˋ", "ㄏㄢˊ", "，",
+            "ㄨㄛˇ", "˙ㄉㄜ", "ㄦˊ", "ㄗˇ", "ㄧㄢˊ", "ㄊㄧㄥˊ", "ㄧㄡˋ", "。",
+        ];
+
+        let hsu_actual = decode_stream(&mut engine, "hsu", &full_tokens);
+        assert_eq!(
+            hsu_actual,
+            "我的太太吳玟蓉，我的女兒曹非羽，我的女婿顏羅恩，我的女兒顏若涵，我的兒子顏庭佑。"
+        );
+
+        let std_actual = decode_stream(&mut engine, "standard", &full_tokens);
+        assert_eq!(
+            std_actual,
+            "我的太太吳玟蓉，我的女兒曹非羽，我的女婿顏羅恩，我的女兒顏若涵，我的兒子顏庭佑"
+        );
+
+        // 3. 模擬 35 音節聯合詞網格（跨逗號全域聯合重估路徑）
+        let joint_syls: Vec<crate::fsm::HsuSyllable> = full_tokens
+            .iter()
+            .filter(|&&t| t != "，" && t != "。")
+            .map(|&t| crate::fsm::HsuSyllable::from_bopomofo_display(t).expect(t))
+            .collect();
+        let dag_builder = LatticeDAG::new(&engine.lexicon);
+        let joint_dag = dag_builder.build_dag(&joint_syls, true);
+        let (joint_nodes, _) = engine.router.solve_best_path_with_prefix(
+            joint_syls.len(),
+            &joint_dag,
+            Some(&mut engine.transitions),
+            None,
+        );
+        let joint_text: String = joint_nodes.iter().map(|n| n.word.as_str()).collect();
+        assert_eq!(
+            joint_text,
+            "我的太太吳玟蓉我的女兒曹非羽我的女婿顏羅恩我的女兒顏若涵我的兒子顏庭佑"
+        );
+
+        // 4. 送出採集後之跨句省姓名字指代（Session Harvesting）
+        let mut session_engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        session_engine.record_committed("我的女婿顏羅恩，我的女兒顏若涵，我的兒子顏庭佑。");
+        for mode in ["hsu", "standard"] {
+            assert_eq!(
+                decode_stream(&mut session_engine, mode, &["ㄌㄨㄛˊ", "ㄣ", "ㄕㄨㄛ"]),
+                "羅恩說"
+            );
+            assert_eq!(
+                decode_stream(
+                    &mut session_engine,
+                    mode,
+                    &["ㄑㄧㄥˇ", "ㄨㄣˋ", "ㄖㄨㄛˋ", "ㄏㄢˊ", "ㄗㄞˋ", "˙ㄇㄚ"]
+                ),
+                "請問若涵在嗎"
+            );
+            assert_eq!(
+                decode_stream(&mut session_engine, mode, &["ㄓㄠˇ", "ㄊㄧㄥˊ", "ㄧㄡˋ"]),
+                "找庭佑"
+            );
+        }
+    }
+
+    #[test]
+    fn test_ten_batch_homophone_and_anti_shatter_cases_261118() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            // 1. 劉克襄（零詞庫姓名構式推論：左側引介詞／右側稱謂錨點）
+            (
+                vec!["ㄗㄨㄛˋ", "ㄐㄧㄚ", "ㄌㄧㄡˊ", "ㄎㄜˋ", "ㄒㄧㄤ"],
+                "作家劉克襄",
+            ),
+            (
+                vec!["ㄌㄧㄡˊ", "ㄎㄜˋ", "ㄒㄧㄤ", "ㄌㄠˇ", "ㄕ", "˙ㄉㄜ", "ㄗㄨㄛˋ", "ㄆㄧㄣˇ"],
+                "劉克襄老師的作品",
+            ),
+            // 2. 淺顯／淺顯易懂（三聲正讀 + 連上變調二聲雙軌）
+            (
+                vec!["ㄑㄧㄢˇ", "ㄒㄧㄢˇ", "ㄧˋ", "ㄉㄨㄥˇ"],
+                "淺顯易懂",
+            ),
+            (
+                vec!["ㄑㄧㄢˊ", "ㄒㄧㄢˇ", "ㄧˋ", "ㄉㄨㄥˇ"],
+                "淺顯易懂",
+            ),
+            (
+                vec!["ㄑㄧㄢˇ", "ㄒㄧㄢˇ", "˙ㄉㄜ", "ㄉㄠˋ", "ㄌㄧˇ"],
+                "淺顯的道理",
+            ),
+            (
+                vec!["ㄑㄧㄢˊ", "ㄒㄧㄢˇ", "˙ㄉㄜ", "ㄉㄠˋ", "ㄌㄧˇ"],
+                "淺顯的道理",
+            ),
+            // 3. 稀奇 vs 期貨
+            (
+                vec!["ㄇㄟˊ", "ㄕㄣˊ", "˙ㄇㄜ", "ㄒㄧ", "ㄑㄧˊ", "˙ㄉㄜ"],
+                "沒什麼稀奇的",
+            ),
+            (
+                vec!["ㄐㄩㄝˊ", "˙ㄉㄜ", "ㄏㄣˇ", "ㄒㄧ", "ㄑㄧˊ"],
+                "覺得很稀奇",
+            ),
+            // 4. 但確實 vs 但卻十分／但卻時常
+            (
+                vec!["ㄉㄢˋ", "ㄑㄩㄝˋ", "ㄕˊ", "ㄖㄨˊ", "ㄘˇ"],
+                "但確實如此",
+            ),
+            (
+                vec!["ㄉㄢˋ", "ㄑㄩㄝˋ", "ㄕˊ", "ㄒㄩ", "ㄧㄠˋ"],
+                "但確實需要",
+            ),
+            // 5. 童稚 vs 同志
+            (
+                vec!["ㄧˋ", "ㄕㄨㄤ", "ㄊㄨㄥˊ", "ㄓˋ", "˙ㄉㄜ", "ㄕㄨㄤ", "ㄧㄢˇ"],
+                "一雙童稚的雙眼",
+            ),
+            (
+                vec!["ㄊㄨㄥˊ", "ㄓˋ", "˙ㄉㄜ", "ㄒㄧㄠˋ", "ㄖㄨㄥˊ"],
+                "童稚的笑容",
+            ),
+            // 6. 語彙 vs 與會
+            (
+                vec!["ㄈㄥ", "ㄈㄨˋ", "ㄩˇ", "ㄏㄨㄟˋ"],
+                "豐富語彙",
+            ),
+            (
+                vec!["ㄐㄧ", "ㄅㄣˇ", "ㄩˇ", "ㄏㄨㄟˋ", "ㄌㄧㄤˋ"],
+                "基本語彙量",
+            ),
+            (
+                vec!["ㄊㄞˊ", "ㄩˇ", "ㄩˇ", "ㄏㄨㄟˋ"],
+                "台語語彙",
+            ),
+            // 7. V得 + 程度副詞 + Adj ＆ 來得／發展得 + 光桿速率補語
+            (
+                vec!["ㄒㄧㄝˇ", "˙ㄉㄜ", "ㄈㄟ", "ㄔㄤˊ", "ㄏㄠˇ"],
+                "寫得非常好",
+            ),
+            (
+                vec!["ㄒㄧㄝˇ", "ㄉㄜˊ", "ㄈㄟ", "ㄔㄤˊ", "ㄏㄠˇ"],
+                "寫得非常好",
+            ),
+            (
+                vec!["ㄌㄞˊ", "˙ㄉㄜ", "ㄎㄨㄞˋ"],
+                "來得快",
+            ),
+            (
+                vec!["ㄈㄚ", "ㄓㄢˇ", "˙ㄉㄜ", "ㄎㄨㄞˋ"],
+                "發展得快",
+            ),
+            (
+                vec!["ㄌㄞˊ", "˙ㄉㄜ", "ㄖㄨㄥˊ", "ㄧˋ"],
+                "來得容易",
+            ),
+            // 8. 漢字 + 就／和 ＆ 就認定／知道有／沒有
+            (
+                vec!["ㄊㄞˊ", "ㄩˇ", "ㄏㄢˋ", "ㄗˋ"],
+                "台語漢字",
+            ),
+            (
+                vec!["ㄏㄢˋ", "ㄗˋ", "ㄐㄧㄡˋ", "ㄏㄣˇ", "ㄖㄨㄥˊ", "ㄧˋ"],
+                "漢字就很容易",
+            ),
+            (
+                vec!["ㄗㄠˇ", "ㄐㄧㄡˋ", "ㄖㄣˋ", "ㄉㄧㄥˋ", "˙ㄌㄜ"],
+                "早就認定了",
+            ),
+            (
+                vec!["ㄓ", "ㄉㄠˋ", "ㄧㄡˇ", "ㄨㄣˋ", "ㄊㄧˊ"],
+                "知道有問題",
+            ),
+            (
+                vec!["ㄓ", "ㄉㄠˋ", "ㄇㄟˊ", "ㄧㄡˇ", "ㄅㄢˋ", "ㄈㄚˇ"],
+                "知道沒有辦法",
+            ),
+            // 9. 搓 vs 磋 ＆ 復刻 vs 婦科
+            (
+                vec!["ㄕㄡˇ", "ㄘㄨㄛ", "ㄊㄤ", "ㄩㄢˊ"],
+                "手搓湯圓",
+            ),
+            (
+                vec!["ㄗˋ", "ㄐㄧˇ", "ㄘㄨㄛ", "ㄔㄨ", "ㄌㄞˊ"],
+                "自己搓出來",
+            ),
+            (
+                vec!["ㄏㄨㄚ", "ㄕˊ", "ㄐㄧㄢ", "ㄈㄨˋ", "ㄎㄜ", "ㄧˊ", "ㄍㄜˋ"],
+                "花時間復刻一個",
+            ),
+            (
+                vec!["ㄗˋ", "ㄐㄧˇ", "ㄈㄨˋ", "ㄎㄜˋ", "ㄐㄧㄥ", "ㄉㄧㄢˇ"],
+                "自己復刻經典",
+            ),
+            // 9b. 完整使用者原句覆蓋驗證
+            (
+                vec![
+                    "ㄗㄞˋ", "ㄋㄚˋ", "˙ㄍㄜ", "ㄋㄧㄢˊ", "ㄉㄞˋ", "ㄧㄝˇ", "ㄅㄨˊ", "ㄙㄨㄢˋ",
+                    "ㄕㄣˊ", "˙ㄇㄜ", "ㄒㄧ", "ㄑㄧˊ", "ㄏㄨㄛˋ", "ㄅㄟ", "ㄘㄢˇ", "˙ㄉㄜ",
+                    "ㄕˋ", "ㄑㄧㄥˊ",
+                ],
+                "在那個年代也不算什麼稀奇或悲慘的事情",
+            ),
+            (
+                vec![
+                    "ㄉㄢˋ", "ㄑㄩㄝˋ", "ㄕˊ", "ㄏㄠˋ", "ㄑㄧˊ", "ㄍㄨㄛˋ", "ㄧㄡˋ", "ㄓˋ",
+                    "ㄩㄢˊ", "ㄕˋ", "ㄕㄣˊ", "˙ㄇㄜ", "ㄧㄤˋ", "˙ㄗ",
+                ],
+                "但確實好奇過幼稚園是什麼樣子",
+            ),
+            (
+                vec![
+                    "ㄊㄨㄥˊ", "ㄓˋ", "˙ㄉㄜ", "ㄕㄨㄤ", "ㄧㄢˇ", "ㄎㄢˋ", "˙ㄓㄜ",
+                    "ㄉㄚˋ", "ㄖㄣˊ", "˙ㄉㄜ", "ㄕˋ", "ㄐㄧㄝˋ",
+                ],
+                "童稚的雙眼看著大人的世界",
+            ),
+            (
+                vec![
+                    "ㄗㄞˋ", "ㄋㄠˇ", "ㄏㄞˇ", "ㄌㄧˇ", "ㄉㄨㄟˋ", "ㄧㄥˋ", "˙ㄓㄜ",
+                    "ㄐㄧㄣˋ", "ㄙˋ", "ㄩˇ", "ㄏㄨㄟˋ", "˙ㄉㄜ", "ㄅㄨˋ", "ㄊㄨㄥˊ", "ㄩˇ", "ㄧㄣ",
+                ],
+                "在腦海裡對映著近似語彙的不同語音",
+            ),
+            (
+                vec!["ㄈㄥ", "ㄈㄨˋ", "˙ㄉㄜ", "ㄩˇ", "ㄏㄨㄟˋ"],
+                "豐富的語彙",
+            ),
+            (
+                vec![
+                    "ㄧㄣ", "ㄨㄟˋ", "ㄓㄣ", "˙ㄉㄜ", "ㄒㄧㄝˇ", "˙ㄉㄜ",
+                    "ㄈㄟ", "ㄔㄤˊ", "ㄑㄧㄢˇ", "ㄒㄧㄢˇ", "ㄧˋ", "ㄉㄨㄥˇ",
+                ],
+                "因為真的寫得非常淺顯易懂",
+            ),
+            (
+                vec![
+                    "ㄧㄣ", "ㄨㄟˋ", "ㄓㄣ", "˙ㄉㄜ", "ㄒㄧㄝˇ", "˙ㄉㄜ",
+                    "ㄈㄟ", "ㄔㄤˊ", "ㄑㄧㄢˊ", "ㄒㄧㄢˇ", "ㄧˋ", "ㄉㄨㄥˇ",
+                ],
+                "因為真的寫得非常淺顯易懂",
+            ),
+            (
+                vec![
+                    "ㄙㄨㄛˇ", "ㄧˇ", "ㄨㄛˇ", "ㄎㄢˋ", "ㄧˋ", "ㄉㄨㄟ", "ㄨㄣˊ", "ㄅㄨˊ",
+                    "ㄉㄨㄟˋ", "ㄊㄧˊ", "˙ㄉㄜ", "ㄊㄞˊ", "ㄩˇ", "ㄏㄢˋ", "ㄗˋ", "ㄐㄧㄡˋ",
+                    "ㄏㄣˇ", "ㄅㄨˊ", "ㄗˋ", "ㄐㄩㄝˊ", "˙ㄉㄜ", "ㄈㄢ", "ㄅㄞˊ", "ㄧㄢˇ",
+                ],
+                "所以我看一堆文不對題的台語漢字就很不自覺的翻白眼",
+            ),
+            (
+                vec![
+                    "ㄋㄢˊ", "ㄍㄨㄞˋ", "ㄌㄧㄡˊ", "ㄎㄜˋ", "ㄒㄧㄤ", "ㄌㄠˇ", "ㄕ",
+                    "ㄗㄞˋ", "ㄋㄚˋ", "˙ㄇㄜ", "ㄐㄧㄡˇ", "ㄧˇ", "ㄑㄧㄢˊ", "ㄐㄧㄡˋ",
+                    "ㄖㄣˋ", "ㄉㄧㄥˋ", "˙ㄌㄜ", "ㄕㄣˇ", "ㄅㄛˊ", "ㄧㄤˊ", "ㄕˋ",
+                    "ㄙㄨㄥˋ", "ㄍㄟˇ", "ㄊㄞˊ", "ㄨㄢ", "ㄗㄨㄟˋ", "ㄏㄠˇ", "˙ㄉㄜ", "ㄌㄧˇ", "ㄨˋ",
+                ],
+                "難怪劉克襄老師在那麼久以前就認定了沈伯洋是送給台灣最好的禮物",
+            ),
+            (
+                vec!["ㄊㄧˋ", "ㄉㄞˋ", "ㄈㄤ", "ㄢˋ", "ㄌㄞˊ", "ㄉㄜˊ", "ㄎㄨㄞˋ"],
+                "替代方案來得快",
+            ),
+            (
+                vec!["ㄊㄧˋ", "ㄉㄞˋ", "ㄈㄤ", "ㄢˋ", "ㄌㄞˊ", "˙ㄉㄜ", "ㄎㄨㄞˋ"],
+                "替代方案來得快",
+            ),
+            (
+                vec!["ㄋㄧㄢˊ", "ㄓ", "ㄉㄠˋ", "ㄧㄡˇ"],
+                "年知道有",
+            ),
+            (
+                vec![
+                    "ㄨㄛˇ", "ㄅㄨˊ", "ㄅㄧˋ", "ㄌㄤˋ", "ㄈㄟˋ", "ㄕˊ", "ㄐㄧㄢ",
+                    "ㄈㄨˋ", "ㄎㄜˋ", "ㄧˊ", "˙ㄍㄜ", "ㄐㄧㄥ", "ㄐㄧㄢˇ", "ㄅㄢˇ", "˙ㄉㄜ",
+                ],
+                "我不必浪費時間復刻一個精簡版的",
+            ),
+            (
+                vec![
+                    "ㄨㄛˇ", "ㄅㄨˊ", "ㄅㄧˋ", "ㄌㄤˋ", "ㄈㄟˋ", "ㄕˊ", "ㄐㄧㄢ",
+                    "ㄈㄨˋ", "ㄎㄜ", "ㄧ", "ㄍㄜˋ", "ㄐㄧㄥ", "ㄐㄧㄢˇ", "ㄅㄢˇ", "˙ㄉㄜ",
+                ],
+                "我不必浪費時間復刻一個精簡版的",
+            ),
+            // 10. 對照反例（確保不誤傷金融期貨、轉折但卻、同志平權、與會學者、關係子句「的」、目前顯然、自救、就任、切磋／磋商、道友、婦科門診）
+            (
+                vec![
+                    "ㄊㄚ", "ㄗㄞˋ", "ㄓㄥˋ", "ㄑㄩㄢˋ", "ㄕˋ", "ㄔㄤˇ",
+                    "ㄘㄠ", "ㄗㄨㄛˋ", "ㄏㄨㄤˊ", "ㄐㄧㄣ", "ㄩˇ", "ㄩㄢˊ", "ㄧㄡˊ", "ㄑㄧˊ", "ㄏㄨㄛˋ",
+                ],
+                "他在證券市場操作黃金與原油期貨",
+            ),
+            (
+                vec!["ㄉㄢˋ", "ㄑㄩㄝˋ", "ㄕˊ", "ㄈㄣ", "ㄏㄠˋ", "ㄑㄧˊ"],
+                "但卻十分好奇",
+            ),
+            (
+                vec!["ㄉㄢˋ", "ㄑㄩㄝˋ", "ㄕˊ", "ㄔㄤˊ", "ㄒㄧㄤˇ", "ㄑㄧˇ"],
+                "但卻時常想起",
+            ),
+            (
+                vec![
+                    "ㄊㄨㄥˊ", "ㄓˋ", "˙ㄉㄜ", "ㄑㄩㄢˊ", "ㄧˋ",
+                    "ㄧㄥ", "ㄍㄞ", "ㄕㄡˋ", "ㄉㄠˋ", "ㄅㄠˇ", "ㄓㄤˋ",
+                ],
+                "同志的權益應該受到保障",
+            ),
+            (
+                vec!["ㄘㄢ", "ㄐㄧㄚ", "ㄊㄞˊ", "ㄨㄢ", "ㄊㄨㄥˊ", "ㄓˋ", "ㄧㄡˊ", "ㄒㄧㄥˊ"],
+                "參加台灣同志遊行",
+            ),
+            (
+                vec![
+                    "ㄍㄢˇ", "ㄒㄧㄝˋ", "ㄑㄩㄢˊ", "ㄊㄧˇ", "ㄩˇ", "ㄏㄨㄟˋ",
+                    "ㄖㄣˊ", "ㄩㄢˊ", "ㄩˇ", "ㄒㄩㄝˊ", "ㄓㄜˇ", "˙ㄉㄜ", "ㄘㄢ", "ㄩˇ",
+                ],
+                "感謝全體與會人員與學者的參與",
+            ),
+            (
+                vec![
+                    "ㄊㄚ", "ㄒㄧㄝˇ", "˙ㄉㄜ", "ㄈㄟ", "ㄔㄤˊ",
+                    "ㄐㄧㄥ", "ㄘㄞˇ", "˙ㄉㄜ", "ㄨㄣˊ", "ㄓㄤ",
+                ],
+                "他寫的非常精彩的文章",
+            ),
+            (
+                vec!["ㄇㄨˋ", "ㄑㄧㄢˊ", "ㄒㄧㄢˇ", "ㄖㄢˊ", "ㄇㄟˊ", "ㄧㄡˇ", "ㄨㄣˋ", "ㄊㄧˊ"],
+                "目前顯然沒有問題",
+            ),
+            (
+                vec![
+                    "ㄈㄤˊ", "ㄗㄞ", "ㄐㄧㄠˋ", "ㄩˋ", "ㄑㄧㄤˊ", "ㄉㄧㄠˋ",
+                    "ㄐㄧˊ", "ㄐㄧㄡˋ", "ㄏㄢˋ", "ㄗˋ", "ㄐㄧㄡˋ", "˙ㄉㄜ", "ㄋㄥˊ", "ㄌㄧˋ",
+                ],
+                "防災教育強調急救和自救的能力",
+            ),
+            (
+                vec![
+                    "ㄒㄧㄣ", "ㄖㄣˋ", "ㄩㄢˋ", "ㄓㄤˇ", "ㄗㄨㄛˊ", "ㄊㄧㄢ",
+                    "ㄓㄥˋ", "ㄕˋ", "ㄐㄧㄡˋ", "ㄖㄣˋ", "˙ㄌㄜ",
+                ],
+                "新任院長昨天正式就任了",
+            ),
+            (
+                vec![
+                    "ㄨㄛˇ", "˙ㄇㄣ", "ㄕˊ", "ㄔㄤˊ", "ㄏㄨˋ", "ㄒㄧㄤ",
+                    "ㄑㄧㄝ", "ㄘㄨㄛ", "ㄓㄨㄛˊ", "ㄇㄛˊ",
+                ],
+                "我們時常互相切磋琢磨",
+            ),
+            (
+                vec!["ㄕㄨㄤ", "ㄈㄤ", "ㄓㄢˇ", "ㄎㄞ", "ㄓㄥˋ", "ㄕˋ", "ㄘㄨㄛ", "ㄕㄤ"],
+                "雙方展開正式磋商",
+            ),
+            (
+                vec!["ㄍㄜˋ", "ㄨㄟˋ", "ㄉㄠˋ", "ㄧㄡˇ", "ㄑㄧㄥˇ", "ㄌㄧㄡˊ", "ㄅㄨˋ"],
+                "各位道友請留步",
+            ),
+            (
+                vec![
+                    "ㄊㄚ", "ㄑㄩˋ", "ㄧ", "ㄩㄢˋ", "ㄍㄨㄚˋ",
+                    "ㄈㄨˋ", "ㄎㄜ", "ㄇㄣˊ", "ㄓㄣˇ", "ㄗㄨㄛˋ", "ㄐㄧㄢˇ", "ㄔㄚˊ",
+                ],
+                "他去醫院掛婦科門診作檢查",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+    }
+
+    #[test]
+    fn test_zero_lexicon_liu_ke_xiang_and_round6_cases_261118() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        assert!(engine.lexicon.word_index.get("劉克襄").is_none());
+
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec![
+                    "ㄋㄢˊ", "ㄍㄨㄞˋ", "ㄌㄧㄡˊ", "ㄎㄜˋ", "ㄒㄧㄤ", "ㄌㄠˇ", "ㄕ",
+                    "ㄗㄞˋ", "ㄋㄚˋ", "˙ㄇㄜ", "ㄐㄧㄡˇ", "ㄧˇ", "ㄑㄧㄢˊ", "ㄐㄧㄡˋ",
+                    "ㄖㄣˋ", "ㄉㄧㄥˋ", "˙ㄌㄜ", "ㄕㄣˇ", "ㄅㄛˊ", "ㄧㄤˊ", "ㄕˋ",
+                    "ㄙㄨㄥˋ", "ㄍㄟˇ", "ㄊㄞˊ", "ㄨㄢ", "ㄗㄨㄟˋ", "ㄏㄠˇ", "˙ㄉㄜ", "ㄌㄧˇ", "ㄨˋ",
+                ],
+                "難怪劉克襄老師在那麼久以前就認定了沈伯洋是送給台灣最好的禮物",
+            ),
+            (
+                vec!["ㄗㄨㄛˋ", "ㄐㄧㄚ", "ㄌㄧㄡˊ", "ㄎㄜˋ", "ㄒㄧㄤ"],
+                "作家劉克襄",
+            ),
+            (
+                vec![
+                    "ㄓㄜˋ", "ㄕˋ", "ㄓ", "ㄇㄧㄥˊ", "ㄖㄣˊ", "ㄕˋ",
+                    "ㄉㄢˋ", "ㄖㄨˊ", "ㄍㄨㄛˇ", "ㄅㄨˊ", "ㄐㄧㄢˋ", "ㄖㄨˋ", "ㄘˊ", "ㄎㄨˋ",
+                ],
+                "這是知名人士但如果不建入詞庫",
+            ),
+            (
+                vec![
+                    "ㄓㄜˋ", "ㄕˋ", "ㄓ", "ㄇㄧㄥˊ", "ㄖㄣˊ", "ㄕˋ",
+                    "ㄉㄢˋ", "ㄖㄨˊ", "ㄍㄨㄛˇ", "ㄅㄨˋ", "ㄐㄧㄢˋ", "ㄖㄨˋ", "ㄘˊ", "ㄎㄨˋ",
+                ],
+                "這是知名人士但如果不建入詞庫",
+            ),
+            (
+                vec!["ㄋㄥˊ", "ㄈㄡˇ", "ㄅㄧㄢˋ", "ㄅㄧㄝˊ", "ㄉㄜˊ", "ㄔㄨ", "ㄌㄞˊ"],
+                "能否辨別得出來",
+            ),
+            (
+                vec!["ㄋㄥˊ", "ㄈㄡˇ", "ㄅㄧㄢˋ", "ㄅㄧㄝˊ", "˙ㄉㄜ", "ㄔㄨ", "ㄌㄞˊ"],
+                "能否辨別得出來",
+            ),
+            (
+                vec![
+                    "ㄅㄧˋ", "ㄐㄧㄥˋ", "ㄨㄛˇ", "ㄏㄡˋ", "ㄇㄧㄢˋ", "ㄏㄞˊ",
+                    "ㄍㄨˋ", "ㄧˋ", "ㄐㄧㄚ", "˙ㄌㄜ",
+                ],
+                "畢竟我後面還故意加了",
+            ),
+            (
+                vec![
+                    "ㄙㄨㄟ", "ㄖㄢˊ", "ㄇㄟˇ", "ㄍㄢˇ", "ㄖㄣˊ", "ㄖㄣˊ", "ㄍㄜˋ", "ㄧˋ",
+                    "ㄉㄢˋ", "ㄑㄩㄝˋ", "ㄕˊ", "ㄖㄥˊ", "ㄧㄡˇ", "ㄧˋ", "ㄒㄧㄝ",
+                    "ㄎㄜˋ", "ㄍㄨㄢ", "ㄅㄧㄠ", "ㄓㄨㄣˇ",
+                ],
+                "雖然美感人人各異但確實仍有一些客觀標準",
+            ),
+            (
+                vec![
+                    "ㄙㄨㄟ", "ㄖㄢˊ", "ㄅㄨˊ", "ㄐㄧㄢˋ", "ㄉㄜˊ", "ㄖㄣˊ", "ㄖㄣˊ", "ㄊㄨㄥˊ", "ㄧˋ",
+                    "ㄉㄢˋ", "ㄑㄩㄝˋ", "ㄕˊ", "ㄈㄣ", "ㄧㄡˇ", "ㄑㄩˋ",
+                ],
+                "雖然不見得人人同意但卻十分有趣",
+            ),
+            // Contrastive negative cases
+            (
+                vec![
+                    "ㄓㄨˇ", "ㄖㄣˊ", "ㄖㄜˋ", "ㄑㄧㄥˊ", "ㄌㄧㄡˊ", "ㄎㄜˋ",
+                    "ㄒㄧㄤˇ", "ㄩㄥˋ", "˙ㄌㄜ", "ㄨㄢˇ", "ㄘㄢ",
+                ],
+                "主人熱情留客享用了晚餐",
+            ),
+            (
+                vec![
+                    "ㄑㄧㄥˇ", "ㄗㄞˋ", "ㄓㄨㄥ", "ㄉㄨㄢ", "ㄐㄧ",
+                    "ㄐㄧㄢˋ", "ㄖㄨˋ", "ㄓˇ", "ㄌㄧㄥˋ", "ㄩˇ", "ㄇㄧˋ", "ㄇㄚˇ",
+                ],
+                "請在終端機鍵入指令與密碼",
+            ),
+            (
+                vec![
+                    "ㄨㄛˇ", "˙ㄉㄜ", "ㄧㄠˋ", "ㄕˇ", "ㄊㄨˊ", "ㄖㄢˊ",
+                    "ㄅㄨˊ", "ㄐㄧㄢˋ", "˙ㄌㄜ",
+                ],
+                "我的鑰匙突然不見了",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄧˇ", "ㄐㄧㄥ", "ㄆㄧㄥˊ", "ㄢ", "ㄏㄨㄟˊ", "ㄐㄧㄚ", "˙ㄌㄜ"],
+                "我已經平安回家了",
+            ),
+            (
+                vec!["ㄊㄚ", "˙ㄇㄣ", "ㄗㄨㄛˊ", "ㄊㄧㄢ", "ㄅㄢ", "ㄐㄧㄚ", "˙ㄌㄜ"],
+                "他們昨天搬家了",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+
+        // Comma-separated clause cases across both standard and hsu modes
+        let encode_syl_std = |syl: &crate::fsm::HsuSyllable| -> String {
+            let map: std::collections::HashMap<char, char> = [
+                ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
+                ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
+                ('ㄍ', 'e'), ('ㄎ', 'd'), ('ㄏ', 'c'),
+                ('ㄐ', 'r'), ('ㄑ', 'f'), ('ㄒ', 'v'),
+                ('ㄓ', '5'), ('ㄔ', 't'), ('ㄕ', 'g'), ('ㄖ', 'b'),
+                ('ㄗ', 'y'), ('ㄘ', 'h'), ('ㄙ', 'n'),
+                ('ㄧ', 'u'), ('ㄨ', 'j'), ('ㄩ', 'm'),
+                ('ㄚ', '8'), ('ㄛ', 'i'), ('ㄜ', 'k'), ('ㄝ', ','),
+                ('ㄞ', '9'), ('ㄟ', 'o'), ('ㄠ', 'l'), ('ㄡ', '.'),
+                ('ㄢ', '0'), ('ㄣ', 'p'), ('ㄤ', ';'), ('ㄥ', '/'),
+                ('ㄦ', '-'),
+            ]
+            .into_iter()
+            .collect();
+            let mut out = String::new();
+            for ch in syl.bopomofo_display().chars() {
+                if let Some(&k) = map.get(&ch) {
+                    out.push(k);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => '6', '3' => '3', '4' => '4', '5' => '7', _ => ' ',
+            };
+            out.push(tk);
+            out
+        };
+        let encode_syl_hsu = |syl: &crate::fsm::HsuSyllable| -> String {
+            let mut s = String::new();
+            if syl.initial.is_empty() && syl.medial.is_empty() {
+                let k = match syl.final_part.as_str() {
+                    "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                    "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                    "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                    _ => panic!("unknown hsu zero final {}", syl.final_part),
+                };
+                s.push(k);
+            } else {
+                if !syl.initial.is_empty() {
+                    let ik = match syl.initial.as_str() {
+                        "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                        "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                        "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                        "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                        _ => panic!("unknown hsu initial {}", syl.initial),
+                    };
+                    s.push(ik);
+                }
+                if !syl.medial.is_empty() {
+                    let mk = match syl.medial.as_str() {
+                        "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                        _ => panic!("unknown hsu medial {}", syl.medial),
+                    };
+                    s.push(mk);
+                }
+                if !syl.final_part.is_empty() {
+                    let fk = match syl.final_part.as_str() {
+                        "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                        "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                        _ => panic!("unknown hsu final {}", syl.final_part),
+                    };
+                    s.push(fk);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's', _ => ' ',
+            };
+            s.push(tk);
+            s
+        };
+        let comma_cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec![
+                    "ㄓㄜˋ", "ㄕˋ", "ㄓ", "ㄇㄧㄥˊ", "ㄖㄣˊ", "ㄕˋ", "，",
+                    "ㄉㄢˋ", "ㄖㄨˊ", "ㄍㄨㄛˇ", "ㄅㄨˊ", "ㄐㄧㄢˋ", "ㄖㄨˋ", "ㄘˊ", "ㄎㄨˋ",
+                ],
+                "這是知名人士，但如果不建入詞庫",
+            ),
+            (
+                vec![
+                    "ㄓㄜˋ", "ㄕˋ", "ㄓ", "ㄇㄧㄥˊ", "ㄖㄣˊ", "ㄕˋ", "，",
+                    "ㄉㄢˋ", "ㄖㄨˊ", "ㄍㄨㄛˇ", "ㄅㄨˋ", "ㄐㄧㄢˋ", "ㄖㄨˋ", "ㄘˊ", "ㄎㄨˋ",
+                ],
+                "這是知名人士，但如果不建入詞庫",
+            ),
+            (
+                vec![
+                    "ㄙㄨㄟ", "ㄖㄢˊ", "ㄇㄟˇ", "ㄍㄢˇ", "ㄖㄣˊ", "ㄖㄣˊ", "ㄍㄜˋ", "ㄧˋ", "，",
+                    "ㄉㄢˋ", "ㄑㄩㄝˋ", "ㄕˊ", "ㄖㄥˊ", "ㄧㄡˇ", "ㄧˋ", "ㄒㄧㄝ",
+                    "ㄎㄜˋ", "ㄍㄨㄢ", "ㄅㄧㄠ", "ㄓㄨㄣˇ",
+                ],
+                "雖然美感人人各異，但確實仍有一些客觀標準",
+            ),
+            (
+                vec![
+                    "ㄙㄨㄟ", "ㄖㄢˊ", "ㄅㄨˊ", "ㄐㄧㄢˋ", "ㄉㄜˊ", "ㄖㄣˊ", "ㄖㄣˊ", "ㄊㄨㄥˊ", "ㄧˋ", "，",
+                    "ㄉㄢˋ", "ㄑㄩㄝˋ", "ㄕˊ", "ㄈㄣ", "ㄧㄡˇ", "ㄑㄩˋ",
+                ],
+                "雖然不見得人人同意，但卻十分有趣",
+            ),
+        ];
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+            for (tokens, expected) in &comma_cases {
+                engine.reset_buffer();
+                engine.last_committed_word.clear();
+                let mut out = String::new();
+                for &tok in tokens {
+                    if tok == "，" {
+                        let r = if mode == "standard" {
+                            engine.process_key_str("Ctrl+,")
+                        } else {
+                            engine.process_key(',')
+                        };
+                        out.push_str(&r.committed_chunk);
+                    } else {
+                        let syl = crate::fsm::HsuSyllable::from_bopomofo_display(tok).expect(tok);
+                        let keys = if mode == "standard" {
+                            encode_syl_std(&syl)
+                        } else {
+                            encode_syl_hsu(&syl)
+                        };
+                        for ch in keys.chars() {
+                            let r = engine.process_key(ch);
+                            out.push_str(&r.committed_chunk);
+                        }
+                    }
+                }
+                out.push_str(&engine.get_display_text());
+                assert_eq!(out, *expected, "[{}] comma case failed", mode);
+            }
+        }
+    }
+
+    #[test]
+    fn test_zero_lexicon_shen_bo_yang_and_xianzai_shi_liwei_261118() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        assert!(engine.lexicon.word_index.get("沈伯洋").is_none());
+        assert!(engine.lexicon.word_index.get("劉克襄").is_none());
+
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec![
+                    "ㄕㄣˇ", "ㄅㄛˊ", "ㄧㄤˊ", "ㄕˋ", "ㄈㄡˇ", "ㄧㄝˇ", "ㄋㄥˊ",
+                    "ㄅㄧˇ", "ㄓㄠˋ", "ㄅㄢˋ", "ㄌㄧˇ",
+                ],
+                "沈伯洋是否也能比照辦理",
+            ),
+            (
+                vec!["ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄕˋ", "ㄌㄧˋ", "ㄨㄟˇ"],
+                "現在是立委",
+            ),
+            (
+                vec!["ㄨㄟˋ", "ㄌㄞˊ", "ㄏㄣˇ", "ㄎㄜˇ", "ㄋㄥˊ", "ㄕˋ", "ㄕˋ", "ㄓㄤˇ"],
+                "未來很可能是市長",
+            ),
+            (
+                vec![
+                    "ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄕˋ", "ㄌㄧˋ", "ㄨㄟˇ",
+                    "ㄨㄟˋ", "ㄌㄞˊ", "ㄏㄣˇ", "ㄎㄜˇ", "ㄋㄥˊ", "ㄕˋ", "ㄕˋ", "ㄓㄤˇ",
+                ],
+                "現在是立委未來很可能是市長",
+            ),
+            (
+                vec!["ㄌㄧˋ", "ㄨㄟˇ", "ㄕㄣˇ", "ㄅㄛˊ", "ㄧㄤˊ"],
+                "立委沈伯洋",
+            ),
+            (
+                vec!["ㄕㄣˇ", "ㄅㄛˊ", "ㄧㄤˊ", "ㄌㄧˋ", "ㄨㄟˇ"],
+                "沈伯洋立委",
+            ),
+            (
+                vec!["ㄕˋ", "ㄓㄤˇ", "ㄕㄣˇ", "ㄅㄛˊ", "ㄧㄤˊ"],
+                "市長沈伯洋",
+            ),
+            (
+                vec!["ㄕㄣˇ", "ㄅㄛˊ", "ㄧㄤˊ", "ㄕˋ", "ㄓㄤˇ"],
+                "沈伯洋市長",
+            ),
+            (
+                vec!["ㄕㄣˇ", "ㄅㄛˊ", "ㄧㄤˊ", "ㄐㄧㄠˋ", "ㄕㄡˋ"],
+                "沈伯洋教授",
+            ),
+            (
+                vec![
+                    "ㄋㄢˊ", "ㄍㄨㄞˋ", "ㄌㄧㄡˊ", "ㄎㄜˋ", "ㄒㄧㄤ", "ㄌㄠˇ", "ㄕ",
+                    "ㄗㄞˋ", "ㄋㄚˋ", "˙ㄇㄜ", "ㄐㄧㄡˇ", "ㄧˇ", "ㄑㄧㄢˊ", "ㄐㄧㄡˋ",
+                    "ㄖㄣˋ", "ㄉㄧㄥˋ", "˙ㄌㄜ", "ㄕㄣˇ", "ㄅㄛˊ", "ㄧㄤˊ", "ㄕˋ",
+                    "ㄙㄨㄥˋ", "ㄍㄟˇ", "ㄊㄞˊ", "ㄨㄢ", "ㄗㄨㄟˋ", "ㄏㄠˇ", "˙ㄉㄜ", "ㄌㄧˇ", "ㄨˋ",
+                ],
+                "難怪劉克襄老師在那麼久以前就認定了沈伯洋是送給台灣最好的禮物",
+            ),
+            (
+                vec![
+                    "ㄨㄟˋ", "ㄌㄞˊ", "ㄏㄨㄟˋ", "ㄧㄡˇ", "ㄍㄥˋ", "ㄉㄨㄛ",
+                    "ㄒㄩㄝˊ", "ㄓㄜˇ", "ㄘㄢ", "ㄓㄥˋ", "ㄧㄣ", "ㄨㄟˋ",
+                    "ㄕㄣˇ", "ㄅㄛˊ", "ㄧㄤˊ", "ㄗㄨㄛˋ", "˙ㄌㄜ", "ㄏㄣˇ", "ㄏㄠˇ", "˙ㄉㄜ", "ㄕˋ", "ㄈㄢˋ",
+                ],
+                "未來會有更多學者參政因為沈伯洋作了很好的示範",
+            ),
+            // Contrastive negative cases
+            (
+                vec![
+                    "ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄕˋ", "ㄑㄧㄥˊ", "ㄧˇ", "ㄐㄧㄥ",
+                    "ㄔㄨˇ", "ㄌㄧˇ", "ㄏㄠˇ", "˙ㄌㄜ",
+                ],
+                "現在事情已經處理好了",
+            ),
+            (
+                vec![
+                    "ㄇㄨˋ", "ㄑㄧㄢˊ", "ㄕˋ", "ㄕˊ", "ㄧˇ", "ㄐㄧㄥ",
+                    "ㄈㄟ", "ㄔㄤˊ", "ㄑㄧㄥ", "ㄔㄨˇ",
+                ],
+                "目前事實已經非常清楚",
+            ),
+            (
+                vec!["ㄑㄧㄥˇ", "ㄆㄧㄥˊ", "ㄕㄣˇ", "ㄅㄛˊ", "ㄘㄞˇ", "ㄓㄨㄥˋ", "ㄧˋ"],
+                "請評審博採眾議",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+
+        let encode_syl_std = |syl: &crate::fsm::HsuSyllable| -> String {
+            let map: std::collections::HashMap<char, char> = [
+                ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
+                ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
+                ('ㄍ', 'e'), ('ㄎ', 'd'), ('ㄏ', 'c'),
+                ('ㄐ', 'r'), ('ㄑ', 'f'), ('ㄒ', 'v'),
+                ('ㄓ', '5'), ('ㄔ', 't'), ('ㄕ', 'g'), ('ㄖ', 'b'),
+                ('ㄗ', 'y'), ('ㄘ', 'h'), ('ㄙ', 'n'),
+                ('ㄧ', 'u'), ('ㄨ', 'j'), ('ㄩ', 'm'),
+                ('ㄚ', '8'), ('ㄛ', 'i'), ('ㄜ', 'k'), ('ㄝ', ','),
+                ('ㄞ', '9'), ('ㄟ', 'o'), ('ㄠ', 'l'), ('ㄡ', '.'),
+                ('ㄢ', '0'), ('ㄣ', 'p'), ('ㄤ', ';'), ('ㄥ', '/'),
+                ('ㄦ', '-'),
+            ]
+            .into_iter()
+            .collect();
+            let mut out = String::new();
+            for ch in syl.bopomofo_display().chars() {
+                if let Some(&k) = map.get(&ch) {
+                    out.push(k);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => '6', '3' => '3', '4' => '4', '5' => '7', _ => ' ',
+            };
+            out.push(tk);
+            out
+        };
+        let encode_syl_hsu = |syl: &crate::fsm::HsuSyllable| -> String {
+            let mut s = String::new();
+            if syl.initial.is_empty() && syl.medial.is_empty() {
+                let k = match syl.final_part.as_str() {
+                    "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                    "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                    "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                    _ => panic!("unknown hsu zero final {}", syl.final_part),
+                };
+                s.push(k);
+            } else {
+                if !syl.initial.is_empty() {
+                    let ik = match syl.initial.as_str() {
+                        "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                        "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                        "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                        "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                        _ => panic!("unknown hsu initial {}", syl.initial),
+                    };
+                    s.push(ik);
+                }
+                if !syl.medial.is_empty() {
+                    let mk = match syl.medial.as_str() {
+                        "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                        _ => panic!("unknown hsu medial {}", syl.medial),
+                    };
+                    s.push(mk);
+                }
+                if !syl.final_part.is_empty() {
+                    let fk = match syl.final_part.as_str() {
+                        "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                        "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                        _ => panic!("unknown hsu final {}", syl.final_part),
+                    };
+                    s.push(fk);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's', _ => ' ',
+            };
+            s.push(tk);
+            s
+        };
+        let comma_cases: Vec<(Vec<&str>, &str)> = vec![(
+            vec![
+                "ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄕˋ", "ㄌㄧˋ", "ㄨㄟˇ", "，",
+                "ㄨㄟˋ", "ㄌㄞˊ", "ㄏㄣˇ", "ㄎㄜˇ", "ㄋㄥˊ", "ㄕˋ", "ㄕˋ", "ㄓㄤˇ",
+            ],
+            "現在是立委，未來很可能是市長",
+        )];
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+            for (tokens, expected) in &comma_cases {
+                engine.reset_buffer();
+                engine.last_committed_word.clear();
+                let mut out = String::new();
+                for &tok in tokens {
+                    if tok == "，" {
+                        let r = if mode == "standard" {
+                            engine.process_key_str("Ctrl+,")
+                        } else {
+                            engine.process_key(',')
+                        };
+                        out.push_str(&r.committed_chunk);
+                    } else {
+                        let syl = crate::fsm::HsuSyllable::from_bopomofo_display(tok).expect(tok);
+                        let keys = if mode == "standard" {
+                            encode_syl_std(&syl)
+                        } else {
+                            encode_syl_hsu(&syl)
+                        };
+                        for ch in keys.chars() {
+                            let r = engine.process_key(ch);
+                            out.push_str(&r.committed_chunk);
+                        }
+                    }
+                }
+                out.push_str(&engine.get_display_text());
+                assert_eq!(out, *expected, "[{}] comma case failed", mode);
+            }
+        }
+    }
+
+    #[test]
+    fn test_roster_onomastics_and_round8_cases_261118() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec![
+                    "ㄨㄛˇ", "ㄇㄣˊ", "ㄓㄜˋ", "ㄧˊ", "ㄉㄨㄟˋ", "˙ㄉㄜ", "ㄉㄨㄟˋ", "ㄩㄢˊ", "ㄧㄡˇ",
+                ],
+                "我們這一隊的隊員有",
+            ),
+            (
+                vec![
+                    "ㄓㄜˋ", "ㄒㄧㄝ", "ㄉㄡ", "ㄕˋ", "ㄨㄛˇ", "ㄓ", "ㄉㄠˋ", "˙ㄉㄜ",
+                    "ㄓㄣ", "ㄕˊ", "ㄒㄧㄥˋ", "ㄇㄧㄥˊ",
+                ],
+                "這些都是我知道的真實姓名",
+            ),
+            (
+                vec!["ㄓˇ", "ㄧㄠˋ", "ㄅㄨˊ", "ㄕˋ", "ㄉㄚˋ", "ㄒㄩㄥ"],
+                "只要不是大凶",
+            ),
+            (
+                vec![
+                    "ㄔㄨˊ", "˙ㄌㄜ", "ㄉㄚˋ", "ㄐㄧˊ", "ㄓ", "ㄨㄞˋ",
+                    "ㄓˇ", "ㄧㄠˋ", "ㄅㄨˊ", "ㄕˋ", "ㄉㄚˋ", "ㄒㄩㄥ",
+                ],
+                "除了大吉之外只要不是大凶",
+            ),
+            (
+                vec![
+                    "ㄌㄠˇ", "ㄅㄞˇ", "ㄒㄧㄥˋ", "ㄐㄩㄝˊ", "˙ㄉㄜ",
+                    "ㄐㄧㄠˋ", "ㄑㄧˇ", "ㄌㄞˊ", "ㄏㄠˇ", "ㄊㄧㄥ",
+                ],
+                "老百姓覺得叫起來好聽",
+            ),
+            (
+                vec!["ㄒㄧㄝˇ", "ㄑㄧˇ", "ㄌㄞˊ", "ㄏㄠˇ", "ㄎㄢˋ", "˙ㄉㄜ"],
+                "寫起來好看的",
+            ),
+            (
+                vec![
+                    "ㄒㄧㄝˇ", "ㄑㄧˇ", "ㄌㄞˊ", "ㄏㄠˇ", "ㄎㄢˋ", "˙ㄉㄜ",
+                    "ㄧㄝˇ", "ㄏㄨㄟˋ", "ㄘㄞˇ", "ㄩㄥˋ",
+                ],
+                "寫起來好看的也會採用",
+            ),
+            // Contrastives
+            (
+                vec![
+                    "ㄏㄨㄞˊ", "ㄧˊ", "ㄓㄜˋ", "ㄗㄜˊ", "ㄒㄧㄠ", "ㄒㄧˊ", "˙ㄉㄜ",
+                    "ㄓㄣ", "ㄕˊ", "ㄒㄧㄥˋ",
+                ],
+                "懷疑這則消息的真實性",
+            ),
+            (
+                vec![
+                    "ㄉㄨㄟˋ", "ㄩㄢˊ", "ㄧㄡˇ", "˙ㄉㄜ", "ㄓˋ", "ㄉㄨˋ",
+                    "ㄐㄧㄣˋ", "ㄒㄧㄥˊ", "ㄍㄞˇ", "ㄍㄜˊ",
+                ],
+                "對原有的制度進行改革",
+            ),
+            (
+                vec![
+                    "ㄓㄜˋ", "ㄐㄧㄤ", "ㄨㄟˋ", "ㄊㄞˊ", "ㄨㄢ",
+                    "ㄉㄞˋ", "ㄌㄞˊ", "ㄐㄧ", "ㄏㄨㄟˋ",
+                ],
+                "這將為台灣帶來機會",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄐㄧㄢˋ", "ㄧ", "ㄈㄨˊ", "ㄏㄠˇ", "ㄎㄢˋ", "ㄉㄜˊ", "ㄏㄣˇ"],
+                "這件衣服好看得很",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄐㄧㄢˋ", "ㄧ", "ㄈㄨˊ", "ㄏㄠˇ", "ㄎㄢˋ", "˙ㄉㄜ", "ㄏㄣˇ"],
+                "這件衣服好看得很",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        let encode_syl_std = |syl: &crate::fsm::HsuSyllable| -> String {
+            let map: std::collections::HashMap<char, char> = [
+                ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
+                ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
+                ('ㄍ', 'e'), ('ㄎ', 'd'), ('ㄏ', 'c'),
+                ('ㄐ', 'r'), ('ㄑ', 'f'), ('ㄒ', 'v'),
+                ('ㄓ', '5'), ('ㄔ', 't'), ('ㄕ', 'g'), ('ㄖ', 'b'),
+                ('ㄗ', 'y'), ('ㄘ', 'h'), ('ㄙ', 'n'),
+                ('ㄧ', 'u'), ('ㄨ', 'j'), ('ㄩ', 'm'),
+                ('ㄚ', '8'), ('ㄛ', 'i'), ('ㄜ', 'k'), ('ㄝ', ','),
+                ('ㄞ', '9'), ('ㄟ', 'o'), ('ㄠ', 'l'), ('ㄡ', '.'),
+                ('ㄢ', '0'), ('ㄣ', 'p'), ('ㄤ', ';'), ('ㄥ', '/'),
+                ('ㄦ', '-'),
+            ]
+            .into_iter()
+            .collect();
+            let mut out = String::new();
+            for ch in syl.bopomofo_display().chars() {
+                if let Some(&k) = map.get(&ch) {
+                    out.push(k);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => '6', '3' => '3', '4' => '4', '5' => '7', _ => ' ',
+            };
+            out.push(tk);
+            out
+        };
+        let encode_syl_hsu = |syl: &crate::fsm::HsuSyllable| -> String {
+            let mut s = String::new();
+            if syl.initial.is_empty() && syl.medial.is_empty() {
+                let k = match syl.final_part.as_str() {
+                    "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                    "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                    "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                    _ => panic!("unknown hsu zero final {}", syl.final_part),
+                };
+                s.push(k);
+            } else {
+                if !syl.initial.is_empty() {
+                    let ik = match syl.initial.as_str() {
+                        "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                        "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                        "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                        "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                        _ => panic!("unknown hsu initial {}", syl.initial),
+                    };
+                    s.push(ik);
+                }
+                if !syl.medial.is_empty() {
+                    let mk = match syl.medial.as_str() {
+                        "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                        _ => panic!("unknown hsu medial {}", syl.medial),
+                    };
+                    s.push(mk);
+                }
+                if !syl.final_part.is_empty() {
+                    let fk = match syl.final_part.as_str() {
+                        "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                        "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                        _ => panic!("unknown hsu final {}", syl.final_part),
+                    };
+                    s.push(fk);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's', _ => ' ',
+            };
+            s.push(tk);
+            s
+        };
+
+        let roster_cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec![
+                    "ㄨㄛˇ", "ㄇㄣˊ", "ㄓㄜˋ", "ㄧˊ", "ㄉㄨㄟˋ", "˙ㄉㄜ", "ㄉㄨㄟˋ", "ㄩㄢˊ", "ㄧㄡˇ", "：",
+                    "ㄘㄠˊ", "ㄧˇ", "ㄕ", "、",
+                    "ㄘㄠˊ", "ㄕㄥˋ", "ㄏㄥ", "、",
+                    "ㄆㄢ", "ㄐㄧㄤ", "ㄨㄟˋ", "、",
+                    "ㄆㄢ", "ㄌㄧˇ", "ㄚ", "ㄩˋ", "、",
+                    "ㄐㄧㄤ", "ㄓㄠˋ", "ㄕㄣ",
+                ],
+                "我們這一隊的隊員有：曹苡詩、曹聖亨、潘江衛、潘李阿玉、江兆申",
+            ),
+            (
+                vec![
+                    "ㄨㄛˇ", "ㄇㄣˊ", "ㄅㄢ", "˙ㄉㄜ", "ㄊㄨㄥˊ", "ㄒㄩㄝˊ", "ㄧㄡˇ", "：",
+                    "ㄘㄠˊ", "ㄧˇ", "ㄕ", "、",
+                    "ㄐㄧㄤ", "ㄓㄠˋ", "ㄕㄣ",
+                ],
+                "我們班的同學有：曹苡詩、江兆申",
+            ),
+            (
+                vec![
+                    "ㄏㄨㄢ", "ㄧㄥˊ", "ㄐㄧㄣ", "ㄊㄧㄢ", "˙ㄉㄜ", "ㄍㄨㄟˋ", "ㄅㄧㄣ", "：",
+                    "ㄆㄢ", "ㄐㄧㄤ", "ㄨㄟˋ", "、",
+                    "ㄆㄢ", "ㄌㄧˇ", "ㄚ", "ㄩˋ",
+                ],
+                "歡迎今天的貴賓：潘江衛、潘李阿玉",
+            ),
+            (
+                vec![
+                    "ㄨㄛˇ", "ㄌㄧㄤˇ", "˙ㄍㄜ", "ㄋㄩˇ", "ㄦˊ", "，",
+                    "ㄧˊ", "˙ㄍㄜ", "ㄘㄠˊ", "ㄏㄜˋ", "ㄩˇ", "，",
+                    "ㄧˊ", "˙ㄍㄜ", "ㄘㄠˊ", "ㄈㄟ", "ㄩˇ",
+                ],
+                "我兩個女兒，一個曹赫羽，一個曹非羽",
+            ),
+        ];
+
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+            for (tokens, expected) in &roster_cases {
+                engine.reset_buffer();
+                engine.last_committed_word.clear();
+                let mut out = String::new();
+                for &tok in tokens {
+                    if matches!(tok, "：" | "、" | "，") {
+                        let r = match (mode, tok) {
+                            ("standard", "：") => engine.process_key_str("Ctrl+Shift+;"),
+                            ("standard", "、") => engine.process_key_str("Ctrl+'"),
+                            ("standard", "，") => engine.process_key_str("Ctrl+,"),
+                            (_, "：") => engine.process_key(':'),
+                            (_, "、") => engine.process_key('\''),
+                            (_, "，") => engine.process_key(','),
+                            _ => unreachable!(),
+                        };
+                        out.push_str(&r.committed_chunk);
+                    } else {
+                        let syl = crate::fsm::HsuSyllable::from_bopomofo_display(tok).expect(tok);
+                        let keys = if mode == "standard" {
+                            encode_syl_std(&syl)
+                        } else {
+                            encode_syl_hsu(&syl)
+                        };
+                        for ch in keys.chars() {
+                            let r = engine.process_key(ch);
+                            out.push_str(&r.committed_chunk);
+                        }
+                    }
+                }
+                out.push_str(&engine.get_display_text());
+                assert_eq!(out, *expected, "[{}] roster case failed", mode);
+            }
+        }
+    }
+
+    #[test]
+    fn test_roster_multiline_unpunctuated_and_post_stop_261118() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+
+        let encode_syl_std = |syl: &crate::fsm::HsuSyllable| -> String {
+            let map: std::collections::HashMap<char, char> = [
+                ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
+                ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
+                ('ㄍ', 'e'), ('ㄎ', 'd'), ('ㄏ', 'c'),
+                ('ㄐ', 'r'), ('ㄑ', 'f'), ('ㄒ', 'v'),
+                ('ㄓ', '5'), ('ㄔ', 't'), ('ㄕ', 'g'), ('ㄖ', 'b'),
+                ('ㄗ', 'y'), ('ㄘ', 'h'), ('ㄙ', 'n'),
+                ('ㄧ', 'u'), ('ㄨ', 'j'), ('ㄩ', 'm'),
+                ('ㄚ', '8'), ('ㄛ', 'i'), ('ㄜ', 'k'), ('ㄝ', ','),
+                ('ㄞ', '9'), ('ㄟ', 'o'), ('ㄠ', 'l'), ('ㄡ', '.'),
+                ('ㄢ', '0'), ('ㄣ', 'p'), ('ㄤ', ';'), ('ㄥ', '/'),
+                ('ㄦ', '-'),
+            ]
+            .into_iter()
+            .collect();
+            let mut out = String::new();
+            for ch in syl.bopomofo_display().chars() {
+                if let Some(&k) = map.get(&ch) {
+                    out.push(k);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => '6', '3' => '3', '4' => '4', '5' => '7', _ => ' ',
+            };
+            out.push(tk);
+            out
+        };
+        let encode_syl_hsu = |syl: &crate::fsm::HsuSyllable| -> String {
+            let mut s = String::new();
+            if syl.initial.is_empty() && syl.medial.is_empty() {
+                let k = match syl.final_part.as_str() {
+                    "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                    "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                    "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                    _ => panic!("unknown hsu zero final {}", syl.final_part),
+                };
+                s.push(k);
+            } else {
+                if !syl.initial.is_empty() {
+                    let ik = match syl.initial.as_str() {
+                        "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                        "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                        "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                        "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                        _ => panic!("unknown hsu initial {}", syl.initial),
+                    };
+                    s.push(ik);
+                }
+                if !syl.medial.is_empty() {
+                    let mk = match syl.medial.as_str() {
+                        "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                        _ => panic!("unknown hsu medial {}", syl.medial),
+                    };
+                    s.push(mk);
+                }
+                if !syl.final_part.is_empty() {
+                    let fk = match syl.final_part.as_str() {
+                        "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                        "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                        _ => panic!("unknown hsu final {}", syl.final_part),
+                    };
+                    s.push(fk);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's', _ => ' ',
+            };
+            s.push(tk);
+            s
+        };
+
+        let type_tokens = |engine: &mut RuhiEngine, mode: &str, tokens: &[&str]| -> String {
+            let mut out = String::new();
+            for &tok in tokens {
+                if tok == "Enter" || tok == "Shift+Enter" {
+                    let r = engine.process_key_str(tok);
+                    out.push_str(&r.committed_chunk);
+                } else if matches!(tok, "：" | "、" | "，" | "。" | "！" | "？" | "；") {
+                    let r = match (mode, tok) {
+                        ("standard", "：") => engine.process_key_str("Ctrl+Shift+;"),
+                        ("standard", "、") => engine.process_key_str("Ctrl+'"),
+                        ("standard", "，") => engine.process_key_str("Ctrl+,"),
+                        ("standard", "。") => engine.process_key_str("Alt+."),
+                        ("standard", "！") => engine.process_key_str("Ctrl+1"),
+                        ("standard", "？") => engine.process_key_str("Ctrl+/"),
+                        ("standard", "；") => engine.process_key_str("Ctrl+;"),
+                        (_, "：") => engine.process_key(':'),
+                        (_, "、") => engine.process_key('\''),
+                        (_, "，") => engine.process_key(','),
+                        (_, "。") => engine.process_key('.'),
+                        (_, "！") => engine.process_key('!'),
+                        (_, "？") => engine.process_key('?'),
+                        (_, "；") => engine.process_key(';'),
+                        _ => unreachable!(),
+                    };
+                    out.push_str(&r.committed_chunk);
+                } else {
+                    let syl = crate::fsm::HsuSyllable::from_bopomofo_display(tok).expect(tok);
+                    let keys = if mode == "standard" {
+                        encode_syl_std(&syl)
+                    } else {
+                        encode_syl_hsu(&syl)
+                    };
+                    for ch in keys.chars() {
+                        let r = engine.process_key(ch);
+                        out.push_str(&r.committed_chunk);
+                    }
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            out
+        };
+
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        engine.symbols.map.insert("Alt+.".to_string(), "。".to_string());
+
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+
+            // 1a. Enter 逐行無標點名單（有「有」收尾）
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let enter_lines: &[(&[&str], &str)] = &[
+                (&["ㄨㄛˇ", "ㄇㄣˊ", "ㄓㄜˋ", "ㄧˊ", "ㄉㄨㄟˋ", "˙ㄉㄜ", "ㄉㄨㄟˋ", "ㄩㄢˊ", "ㄧㄡˇ", "Enter"], "我們這一隊的隊員有"),
+                (&["ㄘㄠˊ", "ㄧˇ", "ㄕ", "Enter"], "曹苡詩"),
+                (&["ㄘㄠˊ", "ㄕㄥˋ", "ㄏㄥ", "Enter"], "曹聖亨"),
+                (&["ㄆㄢ", "ㄐㄧㄤ", "ㄨㄟˋ", "Enter"], "潘江衛"),
+                (&["ㄆㄢ", "ㄌㄧˇ", "ㄚ", "ㄩˋ", "Enter"], "潘李阿玉"),
+                (&["ㄐㄧㄤ", "ㄓㄠˋ", "ㄕㄣ", "Enter"], "江兆申"),
+            ];
+            for (toks, exp) in enter_lines {
+                let got = type_tokens(&mut engine, mode, toks);
+                assert_eq!(got, *exp, "[{}] Enter roster line failed", mode);
+            }
+
+            // 1b. Enter 逐行無標點名單（無「有」／無冒號標題「隊員名單」）
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let enter_header_lines: &[(&[&str], &str)] = &[
+                (&["ㄉㄨㄟˋ", "ㄩㄢˊ", "ㄇㄧㄥˊ", "ㄉㄢ", "Enter"], "隊員名單"),
+                (&["ㄆㄢ", "ㄐㄧㄤ", "ㄨㄟˋ", "Enter"], "潘江衛"),
+                (&["ㄘㄠˊ", "ㄧˇ", "ㄕ", "Enter"], "曹苡詩"),
+            ];
+            for (toks, exp) in enter_header_lines {
+                let got = type_tokens(&mut engine, mode, toks);
+                assert_eq!(got, *exp, "[{}] Enter header roster line failed", mode);
+            }
+
+            // 2. Shift+Enter 單一 preedit 多行名單
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let shift_enter_toks: &[&str] = &[
+                "ㄏㄨㄢ", "ㄧㄥˊ", "ㄐㄧㄣ", "ㄊㄧㄢ", "˙ㄉㄜ", "ㄍㄨㄟˋ", "ㄅㄧㄣ", "Shift+Enter",
+                "ㄘㄠˊ", "ㄧˇ", "ㄕ", "Shift+Enter",
+                "ㄆㄢ", "ㄐㄧㄤ", "ㄨㄟˋ", "Shift+Enter",
+                "ㄆㄢ", "ㄌㄧˇ", "ㄚ", "ㄩˋ", "Shift+Enter",
+                "ㄐㄧㄤ", "ㄓㄠˋ", "ㄕㄣ",
+            ];
+            let got_multiline = type_tokens(&mut engine, mode, shift_enter_toks);
+            assert_eq!(
+                got_multiline,
+                "歡迎今天的貴賓\n曹苡詩\n潘江衛\n潘李阿玉\n江兆申",
+                "[{}] Shift+Enter multiline roster failed",
+                mode
+            );
+
+            // 3. 真實句末標點後延續與「陳之漢」零詞庫消歧序列
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let post_stop_seq: &[(&[&str], &str)] = &[
+                (&["ㄋㄧˇ", "ㄎㄢˋ", "ㄎㄢˋ", "，"], "你看看，"),
+                (&["ㄉㄡ", "ㄕˋ", "ㄒㄧㄝ", "ㄕㄣˊ", "˙ㄇㄜ", "ㄖㄣˊ", "ㄒㄩㄢˇ", "？"], "都是些什麼人選？"),
+                (&["ㄒㄩˊ", "ㄑㄧㄠˇ", "ㄒㄧㄣ", "！"], "徐巧芯！"),
+                (&["ㄓㄤ", "ㄑㄧˇ", "ㄎㄞˇ", "？"], "張啓楷？"),
+                (&["ㄨㄛˇ", "ㄓㄣ", "˙ㄉㄜ", "ㄏㄟ", "ㄖㄣˊ", "ㄨㄣˋ", "ㄏㄠˋ", "ㄚ", "。"], "我真的黑人問號啊。"),
+                (&["ㄏㄞˊ", "ㄧㄡˇ", "ㄕㄣˊ", "˙ㄇㄜ", "ㄏㄨㄤˊ", "ㄍㄨㄛˊ", "ㄔㄤ", "？"], "還有什麼黃國昌？"),
+                (&["ㄔㄣˊ", "ㄓ", "ㄏㄢˋ", "？"], "陳之漢？"),
+            ];
+            for (toks, exp) in post_stop_seq {
+                let got = type_tokens(&mut engine, mode, toks);
+                assert_eq!(got, *exp, "[{}] post-stop sequence failed", mode);
+            }
+
+            // 3b. 跨 ！ 。 ； ？ 連續名單延續與女兒性別導引
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let punct_cont_seq: &[(&[&str], &str)] = &[
+                (&["ㄐㄧㄝ", "ㄒㄧㄚˋ", "ㄌㄞˊ", "ㄏㄨㄢ", "ㄧㄥˊ", "ㄐㄧㄣ", "ㄊㄧㄢ", "˙ㄉㄜ", "ㄍㄨㄟˋ", "ㄅㄧㄣ", "！"], "接下來歡迎今天的貴賓！"),
+                (&["ㄘㄠˊ", "ㄧˇ", "ㄕ", "。"], "曹苡詩。"),
+                (&["ㄆㄢ", "ㄐㄧㄤ", "ㄨㄟˋ", "；"], "潘江衛；"),
+                (&["ㄆㄢ", "ㄌㄧˇ", "ㄚ", "ㄩˋ", "！"], "潘李阿玉！"),
+                (&["ㄐㄧㄤ", "ㄓㄠˋ", "ㄕㄣ", "？"], "江兆申？"),
+            ];
+            for (toks, exp) in punct_cont_seq {
+                let got = type_tokens(&mut engine, mode, toks);
+                assert_eq!(got, *exp, "[{}] punct continuation sequence failed", mode);
+            }
+
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            let daughters_seq: &[(&[&str], &str)] = &[
+                (&["ㄨㄛˇ", "ㄌㄧㄤˇ", "˙ㄍㄜ", "ㄋㄩˇ", "ㄦˊ", "。"], "我兩個女兒。"),
+                (&["ㄧˊ", "˙ㄍㄜ", "ㄘㄠˊ", "ㄏㄜˋ", "ㄩˇ", "。"], "一個曹赫羽。"),
+                (&["ㄧˊ", "˙ㄍㄜ", "ㄘㄠˊ", "ㄈㄟ", "ㄩˇ", "。"], "一個曹非羽。"),
+            ];
+            for (toks, exp) in daughters_seq {
+                let got = type_tokens(&mut engine, mode, toks);
+                assert_eq!(got, *exp, "[{}] daughters sequence failed", mode);
+            }
+
+            // 4. 自然退場與對照組保護（名單之後接續一般散文不得誤轉為人名）
+            let exit_contrastives: &[(&[&str], &str)] = &[
+                (&["ㄆㄢ", "ㄐㄧㄤ", "ㄨㄟˋ", "ㄊㄞˊ", "ㄨㄢ", "ㄉㄞˋ", "ㄌㄞˊ", "ㄐㄧ", "ㄏㄨㄟˋ", "Enter"], "潘將為台灣帶來機會"),
+                (&["ㄓㄜˋ", "ㄐㄧㄤ", "ㄨㄟˋ", "ㄊㄞˊ", "ㄨㄢ", "ㄉㄞˋ", "ㄌㄞˊ", "ㄐㄧ", "ㄏㄨㄟˋ", "Enter"], "這將為台灣帶來機會"),
+                (&["ㄐㄧㄣ", "ㄊㄧㄢ", "ㄉㄚˋ", "ㄐㄧㄚ", "ㄅㄧㄠˇ", "ㄒㄧㄢˋ", "˙ㄉㄜ", "ㄈㄟ", "ㄔㄤˊ", "ㄐㄧㄥ", "ㄘㄞˇ", "Enter"], "今天大家表現得非常精彩"),
+                (&["ㄨㄛˇ", "ㄐㄧㄣ", "ㄊㄧㄢ", "ㄑㄩˋ", "ㄇㄞˇ", "ㄘㄞˋ", "˙ㄌㄜ", "。"], "我今天去買菜了。"),
+                (&["ㄊㄧㄢ", "ㄑㄧˋ", "ㄓㄣ", "˙ㄉㄜ", "ㄏㄣˇ", "ㄅㄨˊ", "ㄘㄨㄛˋ", "。"], "天氣真的很不錯。"),
+            ];
+            for (toks, exp) in exit_contrastives {
+                let got = type_tokens(&mut engine, mode, toks);
+                assert_eq!(got, *exp, "[{}] contrastive / exit sentence failed", mode);
+            }
+            assert!(
+                !engine.last_committed_word.starts_with("__ROSTER"),
+                "[{}] two prose sentences should exit roster state, got {:?}",
+                mode,
+                engine.last_committed_word
+            );
+        }
+    }
+
+    #[test]
+    fn test_round10_nine_preparedness_and_ai_evolution_cases_261118() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            // 1. 飲用水備援物資
+            (
+                vec![
+                    "ㄧㄣˇ", "ㄩㄥˋ", "ㄕㄨㄟˇ", "ㄉㄤ", "ㄓㄣ", "ㄕˋ", "ㄉㄧˋ", "ㄧ",
+                    "ㄅㄟˋ", "ㄩㄢˊ", "ㄨˋ", "ㄗ",
+                ],
+                "飲用水當真是第一備援物資",
+            ),
+            (
+                vec![
+                    "ㄨㄛˇ", "ㄆㄧㄥˊ", "ㄔㄤˊ", "ㄉㄡ", "ㄧㄡˇ", "ㄕˊ", "ㄐㄧˇ", "ㄍㄨㄥ",
+                    "ㄕㄥ", "˙ㄉㄜ", "ㄧㄣˇ", "ㄩㄥˋ", "ㄕㄨㄟˇ", "ㄙㄨㄟˊ", "ㄕˊ", "ㄎㄜˇ",
+                    "ㄧˇ", "ㄧㄣˇ", "ㄩㄥˋ",
+                ],
+                "我平常都有十幾公升的飲用水隨時可以飲用",
+            ),
+            // 2. 水塔沒有被破壞／撐個兩三天
+            (
+                vec![
+                    "ㄐㄧㄚˇ", "ㄕㄜˋ", "ㄕㄨㄟˇ", "ㄊㄚˇ", "ㄇㄟˊ", "ㄧㄡˇ", "ㄅㄟˋ", "ㄆㄛˋ",
+                    "ㄏㄨㄞˋ", "˙ㄉㄜ", "ㄑㄧㄥˊ", "ㄎㄨㄤˋ", "ㄒㄧㄚˋ",
+                ],
+                "假設水塔沒有被破壞的情況下",
+            ),
+            (
+                vec![
+                    "ㄧˋ", "ㄅㄢ", "ㄩㄥˋ", "ㄕㄨㄟˇ", "ㄎㄜˇ", "ㄧˇ", "ㄔㄥ", "˙ㄍㄜ",
+                    "ㄌㄧㄤˇ", "ㄙㄢ", "ㄊㄧㄢ", "ㄕㄣˋ", "ㄓˋ", "ㄧˊ", "˙ㄍㄜ", "ㄒㄧㄥ",
+                    "ㄑㄧˊ", "ㄉㄡ", "ㄇㄟˊ", "ㄕㄣˊ", "˙ㄇㄜ", "ㄉㄚˋ", "ㄨㄣˋ", "ㄊㄧˊ",
+                ],
+                "一般用水可以撐個兩三天甚至一個星期都沒什麼大問題",
+            ),
+            // 3. 即開可食／急救藥物就慢慢累積了
+            (
+                vec![
+                    "ㄑㄧˊ", "ㄊㄚ", "ㄐㄧˊ", "ㄎㄞ", "ㄎㄜˇ", "ㄕˊ", "˙ㄉㄜ", "ㄘㄨㄣˊ",
+                    "ㄌㄧㄤˊ", "ㄍㄣ", "ㄐㄧ", "ㄅㄣˇ", "ㄐㄧˊ", "ㄐㄧㄡˋ", "ㄧㄠˋ", "ㄨˋ",
+                    "ㄐㄧㄡˋ", "ㄇㄢˋ", "ㄇㄢˋ", "ㄌㄟˇ", "ㄐㄧ", "˙ㄌㄜ",
+                ],
+                "其他即開可食的存糧跟基本急救藥物就慢慢累積了",
+            ),
+            // 4. 有的沒的事情（輕聲／陽平雙讀）
+            (
+                vec![
+                    "ㄇㄟˊ", "ㄒㄧㄤˇ", "ㄉㄠˋ", "ㄋㄚˊ", "ㄌㄞˊ", "ㄗㄨㄛˋ", "ㄧˋ", "ㄉㄨㄟ",
+                    "ㄧㄡˇ", "˙ㄉㄜ", "ㄇㄟˊ", "˙ㄉㄜ", "ㄕˋ", "ㄑㄧㄥˊ",
+                ],
+                "沒想到拿來做一堆有的沒的事情",
+            ),
+            (
+                vec![
+                    "ㄇㄟˊ", "ㄒㄧㄤˇ", "ㄉㄠˋ", "ㄋㄚˊ", "ㄌㄞˊ", "ㄗㄨㄛˋ", "ㄧˋ", "ㄉㄨㄟ",
+                    "ㄧㄡˇ", "ㄉㄜˊ", "ㄇㄟˊ", "˙ㄉㄜ", "ㄕˋ", "ㄑㄧㄥˊ",
+                ],
+                "沒想到拿來做一堆有的沒的事情",
+            ),
+            // 5. 橫空出世
+            (
+                vec![
+                    "ㄏㄨㄟˋ", "ㄧㄡˇ", "ㄍㄥˋ", "ㄌㄧˋ", "ㄏㄞˋ", "˙ㄉㄜ", "ㄐㄧㄚˋ", "ㄍㄡˋ",
+                    "ㄏㄥˊ", "ㄎㄨㄥ", "ㄔㄨ", "ㄕˋ", "˙ㄇㄚ",
+                ],
+                "會有更厲害的架構橫空出世嗎",
+            ),
+            // 6. 拉得更近了一點（輕聲／陽平雙讀）
+            (
+                vec![
+                    "ㄖㄤˋ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄩˇ", "ㄕㄤˋ", "ㄉㄧˋ", "ㄓ", "ㄐㄧㄢ",
+                    "˙ㄉㄜ", "ㄐㄩˋ", "ㄌㄧˊ", "ㄧㄡˋ", "ㄌㄚ", "˙ㄉㄜ", "ㄍㄥˋ", "ㄐㄧㄣˋ",
+                    "˙ㄌㄜ", "ㄧˋ", "ㄉㄧㄢˇ",
+                ],
+                "讓人類與上帝之間的距離又拉得更近了一點",
+            ),
+            (
+                vec![
+                    "ㄖㄤˋ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄩˇ", "ㄕㄤˋ", "ㄉㄧˋ", "ㄓ", "ㄐㄧㄢ",
+                    "˙ㄉㄜ", "ㄐㄩˋ", "ㄌㄧˊ", "ㄧㄡˋ", "ㄌㄚ", "ㄉㄜˊ", "ㄍㄥˋ", "ㄐㄧㄣˋ",
+                    "˙ㄌㄜ", "ㄧˋ", "ㄉㄧㄢˇ",
+                ],
+                "讓人類與上帝之間的距離又拉得更近了一點",
+            ),
+            // 7. 一隻蚊子／才造得出來（多音調雙讀）
+            (
+                vec![
+                    "ㄧˋ", "ㄓ", "ㄅㄨˋ", "ㄑㄧˇ", "ㄧㄢˇ", "˙ㄉㄜ", "ㄨㄣˊ", "˙ㄗ",
+                    "ㄈㄟ", "ㄍㄨㄛˋ", "ㄧㄢˇ", "ㄑㄧㄢˊ",
+                ],
+                "一隻不起眼的蚊子飛過眼前",
+            ),
+            (
+                vec![
+                    "ㄧ", "ㄓ", "ㄅㄨˋ", "ㄑㄧˇ", "ㄧㄢˇ", "˙ㄉㄜ", "ㄨㄣˊ", "ㄗˇ",
+                    "ㄈㄟ", "ㄍㄨㄛˋ", "ㄧㄢˇ", "ㄑㄧㄢˊ",
+                ],
+                "一隻不起眼的蚊子飛過眼前",
+            ),
+            (
+                vec![
+                    "ㄒㄧㄤˋ", "ㄓㄜˋ", "˙ㄇㄜ", "ㄒㄧㄠˇ", "˙ㄉㄜ", "ㄐㄧ", "ㄑㄧˋ", "ㄖㄣˊ",
+                ],
+                "像這麼小的機器人",
+            ),
+            (
+                vec![
+                    "ㄖㄣˊ", "ㄌㄟˋ", "ㄕㄣˊ", "˙ㄇㄜ", "ㄕˊ", "ㄏㄡˋ", "ㄘㄞˊ", "ㄗㄠˋ",
+                    "ㄉㄜˊ", "ㄔㄨ", "ㄌㄞˊ",
+                ],
+                "人類什麼時候才造得出來",
+            ),
+            (
+                vec![
+                    "ㄖㄣˊ", "ㄌㄟˋ", "ㄕㄣˊ", "˙ㄇㄜ", "ㄕˊ", "ㄏㄡˋ", "ㄘㄞˊ", "ㄗㄠˋ",
+                    "˙ㄉㄜ", "ㄔㄨ", "ㄌㄞˊ",
+                ],
+                "人類什麼時候才造得出來",
+            ),
+            // 8. 生命的演化
+            (
+                vec![
+                    "ㄕㄥ", "ㄇㄧㄥˋ", "˙ㄉㄜ", "ㄧㄢˇ", "ㄏㄨㄚˋ", "ㄅㄣˇ", "ㄌㄞˊ", "ㄐㄧㄡˋ",
+                    "ㄕˋ", "ㄒㄧㄤˋ", "ㄑㄧㄢˊ", "ㄇㄞˋ", "ㄐㄧㄣˋ", "ㄘㄞˊ", "ㄕˋ", "ㄓㄥˋ", "ㄉㄠˋ",
+                ],
+                "生命的演化本來就是向前邁進才是正道",
+            ),
+            // 9. 地球人類演化史
+            (
+                vec![
+                    "ㄓㄜˋ", "ㄔㄤˇ", "ㄉㄧˋ", "ㄑㄧㄡˊ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄧㄢˇ", "ㄏㄨㄚˋ",
+                    "ㄕˇ", "ㄅㄨˊ", "ㄍㄨㄛˋ", "ㄕˋ", "ㄕㄤˋ", "ㄉㄧˋ", "ㄨˊ", "ㄕㄨˋ",
+                    "ㄕˊ", "ㄧㄢˋ", "ㄓㄨㄥ", "˙ㄉㄜ", "ㄧˊ", "ㄉㄨㄢˋ", "ㄒㄧㄠˇ", "ㄒㄧㄠˇ",
+                    "ㄔㄚ", "ㄑㄩˇ", "ㄦˊ", "ㄧˇ",
+                ],
+                "這場地球人類演化史不過是上帝無數實驗中的一段小小插曲而已",
+            ),
+            // Contrastive cases
+            (
+                vec!["ㄨㄛˇ", "ㄧㄠˋ", "ㄧㄣˇ", "ㄩㄥˋ", "ㄓㄜˋ", "ㄆㄧㄢ", "ㄨㄣˊ", "ㄒㄧㄢˋ", "ㄗ", "ㄌㄧㄠˋ"],
+                "我要引用這篇文獻資料",
+            ),
+            (
+                vec!["ㄊㄧˊ", "ㄑㄧㄢˊ", "ㄓㄨㄣˇ", "ㄅㄟˋ", "ㄘㄞˊ", "ㄋㄥˊ", "ㄧㄡˇ", "ㄅㄟˋ", "ㄨˊ", "ㄏㄨㄢˋ"],
+                "提前準備才能有備無患",
+            ),
+            (
+                vec!["ㄊㄚ", "ㄇㄣˊ", "ㄅㄚˇ", "ㄕㄤ", "ㄏㄨㄢˋ", "ㄐㄧㄡˋ", "ㄔㄨ", "ㄌㄞˊ", "˙ㄌㄜ"],
+                "他們把傷患救出來了",
+            ),
+            (
+                vec!["ㄒㄧㄢ", "ㄕˋ", "ㄙㄨㄢˋ", "ㄉㄞˋ", "ㄎㄨㄢˇ", "ㄐㄧㄣ", "ㄜˊ"],
+                "先試算貸款金額",
+            ),
+            (
+                vec!["ㄑㄧㄢˊ", "ㄇㄧㄢˋ", "ㄌㄨˋ", "ㄎㄡˇ", "ㄑㄧㄥˇ", "ㄒㄧㄤˋ", "ㄧㄡˋ", "ㄓㄨㄢˇ"],
+                "前面路口請向右轉",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄇㄣˊ", "ㄧㄥ", "ㄍㄞ", "ㄍㄥˋ", "ㄐㄧㄣˋ", "ㄧˊ", "ㄅㄨˋ", "ㄊㄢˋ", "ㄊㄠˇ"],
+                "我們應該更進一步探討",
+            ),
+            (
+                vec!["ㄓㄨㄛ", "ㄕㄤˋ", "ㄧㄡˇ", "ㄧˋ", "ㄓ", "ㄑㄧㄢ", "ㄅㄧˇ"],
+                "桌上有一支鉛筆",
+            ),
+            (
+                vec!["ㄋㄨˇ", "ㄌㄧˋ", "ㄌㄟˇ", "ㄐㄧ", "ㄘㄞˊ", "ㄈㄨˋ"],
+                "努力累積財富",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+
+        // Mixed ASCII (GPU / AI) full-sentence keystroke cases in both standard & hsu
+        let encode_syl_std = |syl: &crate::fsm::HsuSyllable| -> String {
+            let map: std::collections::HashMap<char, char> = [
+                ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
+                ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
+                ('ㄍ', 'e'), ('ㄎ', 'd'), ('ㄏ', 'c'),
+                ('ㄐ', 'r'), ('ㄑ', 'f'), ('ㄒ', 'v'),
+                ('ㄓ', '5'), ('ㄔ', 't'), ('ㄕ', 'g'), ('ㄖ', 'b'),
+                ('ㄗ', 'y'), ('ㄘ', 'h'), ('ㄙ', 'n'),
+                ('ㄧ', 'u'), ('ㄨ', 'j'), ('ㄩ', 'm'),
+                ('ㄚ', '8'), ('ㄛ', 'i'), ('ㄜ', 'k'), ('ㄝ', ','),
+                ('ㄞ', '9'), ('ㄟ', 'o'), ('ㄠ', 'l'), ('ㄡ', '.'),
+                ('ㄢ', '0'), ('ㄣ', 'p'), ('ㄤ', ';'), ('ㄥ', '/'),
+                ('ㄦ', '-'),
+            ]
+            .into_iter()
+            .collect();
+            let mut out = String::new();
+            for ch in syl.bopomofo_display().chars() {
+                if let Some(&k) = map.get(&ch) {
+                    out.push(k);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => '6', '3' => '3', '4' => '4', '5' => '7', _ => ' ',
+            };
+            out.push(tk);
+            out
+        };
+        let encode_syl_hsu = |syl: &crate::fsm::HsuSyllable| -> String {
+            let mut s = String::new();
+            if syl.initial.is_empty() && syl.medial.is_empty() {
+                let k = match syl.final_part.as_str() {
+                    "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                    "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                    "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                    _ => panic!("unknown hsu zero final {}", syl.final_part),
+                };
+                s.push(k);
+            } else {
+                if !syl.initial.is_empty() {
+                    let ik = match syl.initial.as_str() {
+                        "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                        "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                        "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                        "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                        _ => panic!("unknown hsu initial {}", syl.initial),
+                    };
+                    s.push(ik);
+                }
+                if !syl.medial.is_empty() {
+                    let mk = match syl.medial.as_str() {
+                        "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                        _ => panic!("unknown hsu medial {}", syl.medial),
+                    };
+                    s.push(mk);
+                }
+                if !syl.final_part.is_empty() {
+                    let fk = match syl.final_part.as_str() {
+                        "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                        "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                        _ => panic!("unknown hsu final {}", syl.final_part),
+                    };
+                    s.push(fk);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's', _ => ' ',
+            };
+            s.push(tk);
+            s
+        };
+
+        enum MixedTok<'a> {
+            Ascii(&'a str),
+            Bpm(&'a str),
+        }
+        let mixed_cases: &[(&[MixedTok<'_>], &str)] = &[
+            (
+                &[
+                    MixedTok::Ascii("GPU"),
+                    MixedTok::Bpm("ㄓㄠˋ"), MixedTok::Bpm("ㄕㄨㄛ"), MixedTok::Bpm("ㄕˋ"),
+                    MixedTok::Bpm("ㄙㄨㄢˋ"), MixedTok::Bpm("ㄊㄨˊ"), MixedTok::Bpm("ㄩㄥˋ"),
+                    MixedTok::Bpm("˙ㄉㄜ"),
+                ],
+                "GPU照說是算圖用的",
+            ),
+            (
+                &[
+                    MixedTok::Bpm("ㄖㄨˊ"), MixedTok::Bpm("ㄍㄨㄛˇ"),
+                    MixedTok::Ascii("AI"),
+                    MixedTok::Bpm("ㄌㄞˊ"), MixedTok::Bpm("ㄕㄜˋ"), MixedTok::Bpm("ㄐㄧˋ"),
+                ],
+                "如果AI來設計",
+            ),
+            (
+                &[
+                    MixedTok::Bpm("ㄖㄣˊ"), MixedTok::Bpm("ㄌㄟˋ"),
+                    MixedTok::Bpm("ㄔㄨㄤˋ"), MixedTok::Bpm("ㄗㄠˋ"),
+                    MixedTok::Ascii("AI"),
+                    MixedTok::Bpm("ㄖㄤˋ"), MixedTok::Bpm("ㄖㄣˊ"), MixedTok::Bpm("ㄌㄟˋ"),
+                    MixedTok::Bpm("ㄩˇ"), MixedTok::Bpm("ㄕㄤˋ"), MixedTok::Bpm("ㄉㄧˋ"),
+                    MixedTok::Bpm("ㄓ"), MixedTok::Bpm("ㄐㄧㄢ"), MixedTok::Bpm("˙ㄉㄜ"),
+                    MixedTok::Bpm("ㄐㄩˋ"), MixedTok::Bpm("ㄌㄧˊ"), MixedTok::Bpm("ㄧㄡˋ"),
+                    MixedTok::Bpm("ㄌㄚ"), MixedTok::Bpm("˙ㄉㄜ"), MixedTok::Bpm("ㄍㄥˋ"),
+                    MixedTok::Bpm("ㄐㄧㄣˋ"), MixedTok::Bpm("˙ㄌㄜ"), MixedTok::Bpm("ㄧˋ"),
+                    MixedTok::Bpm("ㄉㄧㄢˇ"),
+                ],
+                "人類創造AI讓人類與上帝之間的距離又拉得更近了一點",
+            ),
+        ];
+
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+            for (toks, expected) in mixed_cases {
+                engine.reset_buffer();
+                engine.last_committed_word.clear();
+                let mut out = String::new();
+                for (idx, tok) in toks.iter().enumerate() {
+                    match tok {
+                        MixedTok::Ascii(s) => {
+                            for ch in s.chars() {
+                                let r = engine.process_key(ch);
+                                out.push_str(&r.committed_chunk);
+                            }
+                            // If standard mode is followed by a Bopomofo token whose first key is non-lowercase (e.g. '5' for ㄓ),
+                            // commit the acronym cleanly via Enter before resuming Bopomofo.
+                            if mode == "standard" {
+                                if let Some(MixedTok::Bpm(next_bpm)) = toks.get(idx + 1) {
+                                    let syl = crate::fsm::HsuSyllable::from_bopomofo_display(next_bpm).expect(next_bpm);
+                                    let next_keys = encode_syl_std(&syl);
+                                    if next_keys.chars().next().is_some_and(|c| !c.is_ascii_lowercase()) {
+                                        let r = engine.process_key('\n');
+                                        out.push_str(&r.committed_chunk);
+                                    }
+                                }
+                            }
+                        }
+                        MixedTok::Bpm(bpm) => {
+                            let syl = crate::fsm::HsuSyllable::from_bopomofo_display(bpm).expect(bpm);
+                            let keys = if mode == "standard" {
+                                encode_syl_std(&syl)
+                            } else {
+                                encode_syl_hsu(&syl)
+                            };
+                            for ch in keys.chars() {
+                                let r = engine.process_key(ch);
+                                out.push_str(&r.committed_chunk);
+                            }
+                        }
+                    }
+                }
+                out.push_str(&engine.get_display_text());
+                assert_eq!(out, *expected, "[{}] mixed ASCII case failed", mode);
+            }
+        }
+    }
+
+    #[test]
+    fn test_neon_welcome_homophone_constructions_and_contrasts_261119() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+
+        // 1. 使用者原句（含雙讀音 ㄉㄜˊ / ˙ㄉㄜ）與擴增正反對比（標準大千與許氏雙鍵盤模式）
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            // ── 使用者原句 ──
+            (
+                vec!["ㄏㄨㄢ", "ㄧㄥˊ", "ㄒㄧㄣ", "ㄔㄥˊ", "ㄩㄢˊ", "ㄕㄤˋ", "ㄒㄧㄢˋ"],
+                "歡迎新成員上線",
+            ),
+            (
+                vec!["ㄑㄧㄥˇ", "ㄘㄢ", "ㄓㄠˋ", "ㄧˇ", "ㄒㄧㄚˋ", "ㄨㄣˊ", "ㄐㄩˋ"],
+                "請參照以下文句",
+            ),
+            (
+                vec!["ㄧㄡˇ", "ㄉㄧㄢˇ", "ㄅㄣˇ", "ㄕˋ"],
+                "有點本事",
+            ),
+            (
+                vec!["ㄉㄢˋ", "ㄔㄨㄟ", "ㄋㄧㄡˊ", "ㄧㄝˇ", "ㄔㄨㄟ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄒㄩㄥ"],
+                "但吹牛也吹得很兇",
+            ),
+            (
+                vec!["ㄉㄢˋ", "ㄔㄨㄟ", "ㄋㄧㄡˊ", "ㄧㄝˇ", "ㄔㄨㄟ", "˙ㄉㄜ", "ㄏㄣˇ", "ㄒㄩㄥ"],
+                "但吹牛也吹得很兇",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄎㄢˋ", "ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄧㄥ", "ㄍㄞ", "ㄐㄧ", "ㄗㄨㄟˇ", "ㄅㄧㄢˋ", "ㄧㄚ", "ㄗㄨㄟˇ", "˙ㄌㄜ"],
+                "我看現在應該雞嘴變鴨嘴了",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄕˋ", "ㄨㄛˇ", "ㄓˋ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄅㄧㄠˇ", "ㄍㄜˊ"],
+                "這是我製作的表格",
+            ),
+            (
+                vec!["ㄐㄧˋ", "ㄖㄢˊ", "ㄧㄠˋ", "ㄉㄨㄛ", "ㄔ", "ㄌㄧㄤˇ", "ㄘㄢ"],
+                "既然要多吃兩餐",
+            ),
+            (
+                vec!["ㄧㄠˋ", "ㄨˋ", "ㄧㄥ", "ㄍㄞ", "ㄎㄜˇ", "ㄧˇ", "ㄗㄞˋ", "ㄈㄣ", "ㄙㄢˋ"],
+                "藥物應該可以再分散",
+            ),
+            // ── 擴增：上線／下線 vs. 上限／下限 ──
+            (
+                vec!["ㄒㄧㄣ", "ㄍㄨㄥ", "ㄋㄥˊ", "ㄐㄧˊ", "ㄐㄧㄤ", "ㄕㄤˋ", "ㄒㄧㄢˋ"],
+                "新功能即將上線",
+            ),
+            (
+                vec!["ㄈㄨˊ", "ㄨˋ", "ㄍㄤ", "ㄕㄤˋ", "ㄒㄧㄢˋ"],
+                "服務剛上線",
+            ),
+            (
+                vec!["ㄔㄢˇ", "ㄆㄧㄣˇ", "ㄓㄨㄣˇ", "ㄅㄟˋ", "ㄕㄤˋ", "ㄒㄧㄢˋ"],
+                "產品準備上線",
+            ),
+            (
+                vec!["ㄓㄨㄣˇ", "ㄅㄟˋ", "ㄒㄧㄚˋ", "ㄒㄧㄢˋ", "ㄒㄧㄡ", "ㄒㄧˊ"],
+                "準備下線休息",
+            ),
+            (
+                vec!["ㄖㄣˊ", "ㄕㄨˋ", "ㄇㄟˊ", "ㄧㄡˇ", "ㄕㄤˋ", "ㄒㄧㄢˋ"],
+                "人數沒有上限",
+            ),
+            (
+                vec!["ㄔㄠ", "ㄍㄨㄛˋ", "ㄐㄧㄣ", "ㄜˊ", "ㄕㄤˋ", "ㄒㄧㄢˋ"],
+                "超過金額上限",
+            ),
+            (
+                vec!["ㄊㄨˊ", "ㄆㄛˋ", "ㄐㄧㄚˋ", "ㄍㄜˊ", "ㄒㄧㄚˋ", "ㄒㄧㄢˋ"],
+                "突破價格下限",
+            ),
+            (
+                vec!["ㄕㄜˋ", "ㄉㄧㄥˋ", "ㄕㄤˋ", "ㄒㄧㄢˋ", "ㄓˊ"],
+                "設定上限值",
+            ),
+            // ── 擴增：照／意 + 以上以下 vs. 真實數值 ──
+            (
+                vec!["ㄑㄧㄥˇ", "ㄧ", "ㄓㄠˋ", "ㄧˇ", "ㄒㄧㄚˋ", "ㄅㄨˋ", "ㄗㄡˋ"],
+                "請依照以下步驟",
+            ),
+            (
+                vec!["ㄑㄧㄥˇ", "ㄗㄨㄣ", "ㄓㄠˋ", "ㄧˇ", "ㄒㄧㄚˋ", "ㄍㄨㄟ", "ㄉㄧㄥˋ"],
+                "請遵照以下規定",
+            ),
+            (
+                vec!["ㄑㄧㄥˇ", "ㄅㄧˇ", "ㄓㄠˋ", "ㄧˇ", "ㄒㄧㄚˋ", "ㄅㄢˋ", "ㄌㄧˇ"],
+                "請比照以下辦理",
+            ),
+            (
+                vec!["ㄑㄧㄥˇ", "ㄓㄨˋ", "ㄧˋ", "ㄧˇ", "ㄒㄧㄚˋ", "ㄕˋ", "ㄒㄧㄤˋ"],
+                "請注意以下事項",
+            ),
+            (
+                vec!["ㄊㄨㄥˊ", "ㄧˋ", "ㄧˇ", "ㄕㄤˋ", "ㄋㄟˋ", "ㄖㄨㄥˊ"],
+                "同意以上內容",
+            ),
+            (
+                vec!["ㄐㄧㄢˋ", "ㄧˋ", "ㄧˇ", "ㄒㄧㄚˋ", "ㄈㄤ", "ㄢˋ"],
+                "建議以下方案",
+            ),
+            (
+                vec!["ㄧˊ", "ㄓㄠˋ", "ㄧˇ", "ㄒㄧㄚˋ"],
+                "一兆以下",
+            ),
+            (
+                vec!["ㄌㄧㄤˇ", "ㄧˋ", "ㄧˇ", "ㄕㄤˋ"],
+                "兩億以上",
+            ),
+            (
+                vec!["ㄨˇ", "ㄨㄢˋ", "ㄧˇ", "ㄋㄟˋ"],
+                "五萬以內",
+            ),
+            // ── 擴增：本事／憑 vs. 本市／本是 ──
+            (
+                vec!["ㄇㄟˊ", "ㄕㄣˊ", "˙ㄇㄜ", "ㄅㄣˇ", "ㄕˋ"],
+                "沒什麼本事",
+            ),
+            (
+                vec!["ㄆㄧㄥˊ", "ㄅㄣˇ", "ㄕˋ", "ㄔ", "ㄈㄢˋ"],
+                "憑本事吃飯",
+            ),
+            (
+                vec!["ㄎㄠˋ", "ㄅㄣˇ", "ㄕˋ", "ㄓㄨㄢˋ", "ㄑㄧㄢˊ"],
+                "靠本事賺錢",
+            ),
+            (
+                vec!["ㄋㄚˊ", "ㄔㄨ", "ㄎㄢˋ", "ㄐㄧㄚ", "ㄅㄣˇ", "ㄕˋ"],
+                "拿出看家本事",
+            ),
+            (
+                vec!["ㄅㄣˇ", "ㄕˋ", "ㄓㄥˋ", "ㄈㄨˇ", "ㄍㄨㄥ", "ㄍㄠˋ"],
+                "本市政府公告",
+            ),
+            (
+                vec!["ㄅㄣˇ", "ㄕˋ", "ㄕˋ", "ㄇㄧㄣˊ", "ㄒㄧㄤˇ", "ㄧㄡˇ", "ㄧㄡ", "ㄏㄨㄟˋ"],
+                "本市市民享有優惠",
+            ),
+            (
+                vec!["ㄨㄟˋ", "ㄩˊ", "ㄅㄣˇ", "ㄕˋ", "ㄑㄩ"],
+                "位於本市區",
+            ),
+            (
+                vec!["ㄅㄣˇ", "ㄕˋ", "ㄊㄨㄥˊ", "ㄍㄣ", "ㄕㄥ"],
+                "本是同根生",
+            ),
+            // ── 擴增：兇／神／跌 vs. 兄／什麼／碟 ──
+            (
+                vec!["ㄉㄧㄝˊ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄒㄩㄥ"],
+                "跌得很兇",
+            ),
+            (
+                vec!["ㄔㄠˇ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄒㄩㄥ"],
+                "吵得很兇",
+            ),
+            (
+                vec!["ㄅㄨˊ", "ㄊㄞˋ", "ㄒㄩㄥ"],
+                "不太兇",
+            ),
+            (
+                vec!["ㄉㄨㄛ", "ㄒㄩㄥ", "ㄧㄡˋ", "ㄉㄨㄛ", "ㄒㄩㄥ"],
+                "多兇又多兇",
+            ),
+            (
+                vec!["ㄉㄡ", "ㄏㄣˇ", "ㄕㄣˊ"],
+                "都很神",
+            ),
+            (
+                vec!["ㄈㄟ", "ㄔㄤˊ", "ㄕㄣˊ"],
+                "非常神",
+            ),
+            (
+                vec!["ㄊㄞˋ", "ㄕㄣˊ", "˙ㄌㄜ"],
+                "太神了",
+            ),
+            (
+                vec!["ㄔㄠ", "ㄕㄣˊ", "˙ㄉㄜ"],
+                "超神的",
+            ),
+            (
+                vec!["ㄔㄨㄟ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄕㄣˊ"],
+                "吹得很神",
+            ),
+            (
+                vec!["ㄔㄨㄟ", "˙ㄉㄜ", "ㄏㄣˇ", "ㄕㄣˊ"],
+                "吹得很神",
+            ),
+            (
+                vec!["ㄕ", "ㄒㄩㄥ", "ㄏㄣˇ", "ㄑㄧㄤˊ"],
+                "師兄很強",
+            ),
+            (
+                vec!["ㄍㄜˋ", "ㄨㄟˋ", "ㄖㄣˊ", "ㄒㄩㄥ"],
+                "各位仁兄",
+            ),
+            (
+                vec!["ㄕㄣˊ", "˙ㄇㄜ", "ㄕˋ"],
+                "什麼事",
+            ),
+            (
+                vec!["ㄉㄨㄛ", "ㄕㄣˊ", "˙ㄇㄜ"],
+                "多什麼",
+            ),
+            // ── 擴增：雞嘴變鴨嘴／場站／機尾 vs. 變壓器／雞腿鴨肉 ──
+            (
+                vec!["ㄧㄚ", "ㄗㄨㄟˇ", "ㄕㄡˋ"],
+                "鴨嘴獸",
+            ),
+            (
+                vec!["ㄧㄚ", "ㄗㄨㄟˇ", "ㄐㄧㄚˊ"],
+                "鴨嘴夾",
+            ),
+            (
+                vec!["ㄍㄠ", "ㄧㄚ", "ㄅㄧㄢˋ", "ㄧㄚ", "ㄓㄢˋ"],
+                "高壓變壓站",
+            ),
+            (
+                vec!["ㄐㄧ", "ㄧˋ", "ㄏㄢˋ", "ㄐㄧ", "ㄨㄟˇ"],
+                "機翼和機尾",
+            ),
+            (
+                vec!["ㄅㄧㄢˋ", "ㄧㄚ", "ㄑㄧˋ", "ㄏㄨㄞˋ", "˙ㄌㄜ"],
+                "變壓器壞了",
+            ),
+            (
+                vec!["ㄐㄧ", "ㄊㄨㄟˇ", "ㄏㄢˋ", "ㄧㄚ", "ㄖㄡˋ"],
+                "雞腿和鴨肉",
+            ),
+            // ── 擴增：X作的 vs. 做的 ──
+            (
+                vec!["ㄓㄜˋ", "ㄕˋ", "ㄨㄛˇ", "ㄔㄨㄤˋ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄍㄜ", "ㄑㄩˇ"],
+                "這是我創作的歌曲",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄕˋ", "ㄨㄛˇ", "ㄒㄧㄝˇ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄨㄣˊ", "ㄓㄤ"],
+                "這是我寫作的文章",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄕˋ", "ㄨㄛˇ", "˙ㄇㄣ", "ㄏㄜˊ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄓㄨㄢ", "ㄢˋ"],
+                "這是我們合作的專案",
+            ),
+            (
+                vec!["ㄘㄠ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄅㄨˋ", "ㄗㄡˋ"],
+                "操作的步驟",
+            ),
+            (
+                vec!["ㄩㄣˋ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄈㄤ", "ㄕˋ"],
+                "運作的方式",
+            ),
+            (
+                vec!["ㄕˊ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄒㄧˋ", "ㄐㄧㄝˊ"],
+                "實作的細節",
+            ),
+            (
+                vec!["ㄍㄨㄥ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄋㄟˋ", "ㄖㄨㄥˊ"],
+                "工作的內容",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄕˋ", "ㄨㄛˇ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄅㄧㄠˇ", "ㄍㄜˊ"],
+                "這是我做的表格",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄕˋ", "ㄨㄛˇ", "ㄗˋ", "ㄐㄧˇ", "ㄗㄨㄛˋ", "˙ㄉㄜ"],
+                "這是我自己做的",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄕˋ", "ㄇㄚ", "˙ㄇㄚ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄘㄞˋ"],
+                "這是媽媽做的菜",
+            ),
+            (
+                vec!["ㄗㄨㄛˋ", "ㄧˊ", "ㄒㄧㄚˋ", "ㄕˊ", "ㄊㄡˊ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄧˇ", "˙ㄗ"],
+                "坐一下石頭做的椅子",
+            ),
+            // ── 擴增：餐 vs. 參 ──
+            (
+                vec!["ㄧˋ", "ㄊㄧㄢ", "ㄔ", "ㄙˋ", "ㄘㄢ"],
+                "一天吃四餐",
+            ),
+            (
+                vec!["ㄉㄨㄛ", "ㄔ", "ㄐㄧˇ", "ㄘㄢ"],
+                "多吃幾餐",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄘㄢ", "ㄔ", "ㄕㄣˊ", "˙ㄇㄜ"],
+                "這餐吃什麼",
+            ),
+            (
+                vec!["ㄇㄟˇ", "ㄘㄢ", "ㄉㄡ", "ㄧㄠˋ", "ㄔ"],
+                "每餐都要吃",
+            ),
+            (
+                vec!["ㄘㄢ", "ㄐㄧㄚ", "ㄌㄧㄤˇ", "ㄔㄤˇ", "ㄏㄨㄟˋ", "ㄧˋ"],
+                "參加兩場會議",
+            ),
+            (
+                vec!["ㄌㄧㄤˇ", "˙ㄍㄜ", "ㄘㄢ", "ㄕㄨˋ"],
+                "兩個參數",
+            ),
+            (
+                vec!["ㄇㄟˇ", "ㄘㄢ", "ㄩˇ", "ㄧˊ", "ㄘˋ"],
+                "每參與一次",
+            ),
+            // ── 擴增：可以再 vs. 可以在 ──
+            (
+                vec!["ㄎㄜˇ", "ㄧˇ", "ㄗㄞˋ", "ㄊㄠˇ", "ㄌㄨㄣˋ", "ㄎㄢˋ", "ㄎㄢˋ"],
+                "可以再討論看看",
+            ),
+            (
+                vec!["ㄎㄜˇ", "ㄧˇ", "ㄗㄞˋ", "ㄆㄧㄢˊ", "ㄧˊ", "ㄧˋ", "ㄉㄧㄢˇ"],
+                "可以再便宜一點",
+            ),
+            (
+                vec!["ㄎㄜˇ", "ㄧˇ", "ㄗㄞˋ", "ㄉㄨㄛ", "ㄔ", "ㄌㄧㄤˇ", "ㄘㄢ"],
+                "可以再多吃兩餐",
+            ),
+            (
+                vec!["ㄎㄜˇ", "ㄧˇ", "ㄗㄞˋ", "ㄊㄧㄠˊ", "ㄓㄥˇ"],
+                "可以再調整",
+            ),
+            (
+                vec!["ㄎㄜˇ", "ㄧˇ", "ㄗㄞˋ", "ㄐㄧㄚ", "ㄌㄧˇ", "ㄍㄨㄥ", "ㄗㄨㄛˋ"],
+                "可以在家裡工作",
+            ),
+            (
+                vec!["ㄎㄜˇ", "ㄧˇ", "ㄗㄞˋ", "ㄓㄜˋ", "ㄌㄧˇ", "ㄉㄥˇ", "ㄉㄞˋ"],
+                "可以在這裡等待",
+            ),
+            (
+                vec!["ㄎㄜˇ", "ㄧˇ", "ㄗㄞˋ", "ㄨㄤˇ", "ㄌㄨˋ", "ㄕㄤˋ", "ㄔㄚˊ", "ㄒㄩㄣˊ"],
+                "可以在網路上查詢",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+
+        // 2. 含中英混打（Claude / Gemini）原句雙鍵盤測試
+        let encode_syl_std = |syl: &crate::fsm::HsuSyllable| -> String {
+            let map: std::collections::HashMap<char, char> = [
+                ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
+                ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
+                ('ㄍ', 'e'), ('ㄎ', 'd'), ('ㄏ', 'c'),
+                ('ㄐ', 'r'), ('ㄑ', 'f'), ('ㄒ', 'v'),
+                ('ㄓ', '5'), ('ㄔ', 't'), ('ㄕ', 'g'), ('ㄖ', 'b'),
+                ('ㄗ', 'y'), ('ㄘ', 'h'), ('ㄙ', 'n'),
+                ('ㄧ', 'u'), ('ㄨ', 'j'), ('ㄩ', 'm'),
+                ('ㄚ', '8'), ('ㄛ', 'i'), ('ㄜ', 'k'), ('ㄝ', ','),
+                ('ㄞ', '9'), ('ㄟ', 'o'), ('ㄠ', 'l'), ('ㄡ', '.'),
+                ('ㄢ', '0'), ('ㄣ', 'p'), ('ㄤ', ';'), ('ㄥ', '/'),
+                ('ㄦ', '-'),
+            ]
+            .into_iter()
+            .collect();
+            let mut out = String::new();
+            for ch in syl.bopomofo_display().chars() {
+                if let Some(&k) = map.get(&ch) {
+                    out.push(k);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => '6', '3' => '3', '4' => '4', '5' => '7', _ => ' ',
+            };
+            out.push(tk);
+            out
+        };
+        let encode_syl_hsu = |syl: &crate::fsm::HsuSyllable| -> String {
+            let mut s = String::new();
+            if syl.initial.is_empty() && syl.medial.is_empty() {
+                let k = match syl.final_part.as_str() {
+                    "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                    "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                    "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                    _ => panic!("unknown hsu zero final {}", syl.final_part),
+                };
+                s.push(k);
+            } else {
+                if !syl.initial.is_empty() {
+                    let ik = match syl.initial.as_str() {
+                        "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                        "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                        "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                        "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                        _ => panic!("unknown hsu initial {}", syl.initial),
+                    };
+                    s.push(ik);
+                }
+                if !syl.medial.is_empty() {
+                    let mk = match syl.medial.as_str() {
+                        "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                        _ => panic!("unknown hsu medial {}", syl.medial),
+                    };
+                    s.push(mk);
+                }
+                if !syl.final_part.is_empty() {
+                    let fk = match syl.final_part.as_str() {
+                        "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                        "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                        _ => panic!("unknown hsu final {}", syl.final_part),
+                    };
+                    s.push(fk);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's', _ => ' ',
+            };
+            s.push(tk);
+            s
+        };
+
+        enum MixedTok<'a> {
+            Ascii(&'a str),
+            Bpm(&'a str),
+        }
+        let mixed_cases: &[(&[MixedTok<'_>], &str)] = &[
+            (
+                &[
+                    MixedTok::Bpm("ㄨㄤˇ"), MixedTok::Bpm("ㄌㄨˋ"), MixedTok::Bpm("ㄕㄤˋ"),
+                    MixedTok::Bpm("ㄧˋ"), MixedTok::Bpm("ㄉㄨㄟ"), MixedTok::Bpm("ㄔㄨㄟ"),
+                    MixedTok::Bpm("ㄆㄥˇ"),
+                    MixedTok::Ascii("Claude"),
+                    MixedTok::Bpm("ㄉㄨㄛ"), MixedTok::Bpm("ㄕㄣˊ"), MixedTok::Bpm("ㄧㄡˋ"),
+                    MixedTok::Bpm("ㄉㄨㄛ"), MixedTok::Bpm("ㄕㄣˊ"),
+                ],
+                "網路上一堆吹捧Claude多神又多神",
+            ),
+            (
+                &[
+                    MixedTok::Bpm("ㄔㄠˊ"), MixedTok::Bpm("ㄒㄧㄠˋ"),
+                    MixedTok::Ascii("Gemini"),
+                    MixedTok::Bpm("ㄕˋ"), MixedTok::Bpm("ㄕㄚˇ"), MixedTok::Bpm("ㄌㄨㄥˊ"),
+                    MixedTok::Bpm("˙ㄉㄜ"),
+                ],
+                "嘲笑Gemini是傻龍的",
+            ),
+        ];
+
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+            for (toks, expected) in mixed_cases {
+                engine.reset_buffer();
+                engine.last_committed_word.clear();
+                let mut out = String::new();
+                for tok in toks.iter() {
+                    match tok {
+                        MixedTok::Ascii(s) => {
+                            for ch in s.chars() {
+                                let r = engine.process_key(ch);
+                                out.push_str(&r.committed_chunk);
+                            }
+                            let r = engine.process_key('\n');
+                            out.push_str(&r.committed_chunk);
+                        }
+                        MixedTok::Bpm(bpm) => {
+                            let syl = crate::fsm::HsuSyllable::from_bopomofo_display(bpm).expect(bpm);
+                            let keys = if mode == "standard" {
+                                encode_syl_std(&syl)
+                            } else {
+                                encode_syl_hsu(&syl)
+                            };
+                            for ch in keys.chars() {
+                                let r = engine.process_key(ch);
+                                out.push_str(&r.committed_chunk);
+                            }
+                        }
+                    }
+                }
+                out.push_str(&engine.get_display_text());
+                assert_eq!(out, *expected, "[{}] mixed ASCII case failed", mode);
+            }
+        }
+    }
+
+    #[test]
+    fn test_eight_real_world_homophone_and_mixed_cases_261119() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+
+        // 1. 純中文原句與擴增正反對比（標準大千與許氏雙鍵盤模式）
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            // ── 使用者原句（純中文與主要子句）──
+            (
+                vec![
+                    "ㄒㄩ", "ㄧㄠˋ", "ㄓㄨㄛ", "ㄇㄧㄢˋ", "ㄅㄢˇ", "ㄘㄞˊ", "ㄋㄥˊ",
+                    "ㄓˋ", "ㄗㄨㄛˋ", "ㄋㄚˋ", "˙ㄍㄜ", "ㄧㄡˇ", "ㄑㄧㄢˊ", "ㄏㄡˋ",
+                    "ㄌㄧㄤˇ", "ㄕㄡˇ", "ㄍㄜ", "ㄉㄢˋ", "ㄔㄨ", "ㄉㄢˋ", "ㄖㄨˋ",
+                    "ㄔㄨㄥˊ", "ㄉㄧㄝˊ", "ㄅㄛˋ", "ㄈㄤˋ", "˙ㄉㄜ", "ㄅㄛˋ", "ㄈㄤˋ",
+                    "ㄑㄧㄥ", "ㄉㄢ",
+                ],
+                "需要桌面版才能製作那個有前後兩首歌淡出淡入重疊播放的播放清單",
+            ),
+            (
+                vec!["ㄑㄧˊ", "ㄕˊ", "ㄢˋ", "ㄒㄩ", "ㄈㄨˋ", "ㄈㄟˋ", "ㄘㄞˊ", "ㄕˋ", "ㄨㄤˊ", "ㄉㄠˋ", "˙ㄚ"],
+                "其實按需付費才是王道啊",
+            ),
+            (
+                vec!["ㄍㄚˋ", "ㄌㄧㄠˊ", "ㄏㄣˇ", "ㄅㄨˋ", "ㄒㄧㄥˊ"],
+                "尬聊很不行",
+            ),
+            (
+                vec!["ㄍㄨㄥ", "ㄗㄨㄛˋ", "ㄉㄜˊ", "ㄕˊ", "ㄈㄣ", "ㄩˊ", "ㄎㄨㄞˋ"],
+                "工作得十分愉快",
+            ),
+            (
+                vec!["ㄍㄨㄥ", "ㄗㄨㄛˋ", "˙ㄉㄜ", "ㄕˊ", "ㄈㄣ", "ㄩˊ", "ㄎㄨㄞˋ"],
+                "工作得十分愉快",
+            ),
+            (
+                vec!["ㄇㄨˋ", "ㄑㄧㄢˊ", "ㄗㄨㄟˋ", "ㄕㄨㄣˋ", "ㄒㄧㄣ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄍㄨㄟˋ", "ㄍㄨㄥ", "ㄙ", "ㄌㄨㄛ"],
+                "目前最順心的就貴公司囉",
+            ),
+            (
+                vec!["ㄌㄧㄥˋ", "ㄧˊ", "˙ㄍㄜ", "ㄓㄤˋ", "ㄏㄠˋ", "ㄐㄧ", "ㄅㄣˇ", "ㄕㄤˋ", "ㄐㄧㄡˋ", "ㄕˋ"],
+                "另一個帳號基本上就是",
+            ),
+            (
+                vec!["ㄗㄞˋ", "ㄩㄥˋ"],
+                "在用",
+            ),
+            (
+                vec!["ㄐㄧㄚ", "ㄗㄨˊ", "ㄕㄤˋ", "ㄒㄧㄢˋ", "ㄓ", "ㄏㄡˋ", "ㄍㄨㄥ", "ㄔㄥˊ", "ㄆㄧㄣˇ", "ㄓˊ", "ㄧㄡˇ", "ㄇㄧㄥˊ", "ㄒㄧㄢˇ", "˙ㄉㄜ", "ㄊㄧˊ", "ㄕㄥ"],
+                "家族上線之後工程品質有明顯的提升",
+            ),
+            (
+                vec![
+                    "ㄒㄧㄤˇ", "ㄕㄨㄛ", "ㄓㄜˋ", "ㄧㄤˋ", "ㄧˋ", "ㄌㄞˊ", "ㄓˇ", "ㄧㄠˋ",
+                    "ㄉㄨㄛ", "ㄉㄞˋ", "˙ㄍㄜ", "ㄐㄧㄡˇ", "ㄍㄨㄥ", "ㄍㄜˊ", "ㄐㄧㄢˋ", "ㄆㄢˊ",
+                    "ㄔㄨ", "ㄇㄣˊ", "ㄗㄞˋ", "ㄨㄞˋ", "ㄧㄝˇ", "ㄋㄥˊ", "ㄈㄟ", "ㄎㄨㄞˋ",
+                    "ㄕㄨ", "ㄖㄨˋ",
+                ],
+                "想說這樣一來只要多帶個九宮格鍵盤出門在外也能飛快輸入",
+            ),
+            // ── Family 1：前後 vs. 有錢 ──
+            (vec!["ㄧㄡˇ", "ㄑㄧㄢˊ", "ㄏㄡˋ", "ㄨㄣˊ"], "有前後文"),
+            (vec!["ㄧㄡˇ", "ㄑㄧㄢˊ", "ㄏㄡˋ", "ㄏㄨ", "ㄧㄥˋ"], "有前後呼應"),
+            (vec!["ㄧㄡˇ", "ㄑㄧㄢˊ", "ㄏㄡˋ", "ㄕㄨㄣˋ", "ㄒㄩˋ"], "有前後順序"),
+            (vec!["ㄧㄡˇ", "ㄑㄧㄢˊ", "ㄏㄡˋ", "ㄉㄨㄟˋ", "ㄓㄠˋ"], "有前後對照"),
+            (vec!["ㄧㄡˇ", "ㄑㄧㄢˊ", "ㄏㄡˋ", "ㄓ", "ㄈㄣ"], "有前後之分"),
+            (vec!["ㄧㄡˇ", "ㄑㄧㄢˊ", "ㄏㄡˋ", "ㄐㄧㄥˋ", "ㄊㄡˊ"], "有前後鏡頭"),
+            (vec!["ㄧㄡˇ", "ㄑㄧㄢˊ", "ㄏㄡˋ", "ㄇㄣˊ"], "有前後門"),
+            (vec!["ㄧㄡˇ", "ㄑㄧㄢˊ", "ㄏㄡˋ", "ㄗㄨㄛˋ"], "有前後座"),
+            (vec!["ㄧㄡˇ", "ㄑㄧㄢˊ", "ㄏㄡˋ", "ㄐㄧㄡˋ", "ㄅㄧㄢˋ", "˙ㄌㄜ"], "有錢後就變了"),
+            (vec!["ㄊㄚ", "ㄏㄣˇ", "ㄧㄡˇ", "ㄑㄧㄢˊ"], "他很有錢"),
+            (vec!["ㄏㄣˇ", "ㄧㄡˇ", "ㄑㄧㄢˊ", "ㄊㄨˊ"], "很有前途"),
+            // ── Family 2：按需/按量/按比例/按規定 vs. 案件/案量/按鍵 ──
+            (vec!["ㄢˋ", "ㄒㄩ", "ㄐㄧˋ", "ㄈㄟˋ"], "按需計費"),
+            (vec!["ㄢˋ", "ㄒㄩ", "ㄈㄣ", "ㄆㄟˋ"], "按需分配"),
+            (vec!["ㄢˋ", "ㄒㄩ", "ㄊㄧㄠˊ", "ㄓㄥˇ"], "按需調整"),
+            (vec!["ㄢˋ", "ㄒㄩ", "ㄗㄞˋ", "ㄖㄨˋ"], "按需載入"),
+            (vec!["ㄢˋ", "ㄌㄧㄤˋ", "ㄐㄧˋ", "ㄈㄟˋ"], "按量計費"),
+            (vec!["ㄢˋ", "ㄅㄧˇ", "ㄌㄧˋ", "ㄈㄣ", "ㄆㄟˋ"], "按比例分配"),
+            (vec!["ㄢˋ", "ㄍㄨㄟ", "ㄉㄧㄥˋ", "ㄅㄢˋ", "ㄌㄧˇ"], "按規定辦理"),
+            (vec!["ㄢˋ", "ㄐㄧㄢˋ", "ㄕㄣˇ", "ㄌㄧˇ"], "案件審理"),
+            (vec!["ㄅㄣˇ", "ㄢˋ", "ㄒㄩ", "ㄧㄠˋ", "ㄕㄣˇ", "ㄌㄧˇ"], "本案需要審理"),
+            (vec!["ㄢˋ", "ㄌㄧㄤˋ", "ㄊㄞˋ", "ㄉㄚˋ"], "案量太大"),
+            (vec!["ㄢˋ", "ㄐㄧㄢˋ", "ㄕㄜˋ", "ㄉㄧㄥˋ"], "按鍵設定"),
+            // ── Family 3：聊 vs. 療/僚 ──
+            (vec!["ㄅㄧㄝˊ", "ㄗㄞˋ", "ㄍㄚˋ", "ㄌㄧㄠˊ", "˙ㄌㄜ"], "別再尬聊了"),
+            (vec!["ㄙ", "ㄌㄧㄠˊ", "ㄧˊ", "ㄒㄧㄚˋ"], "私聊一下"),
+            (vec!["ㄑㄩㄣˊ", "ㄌㄧㄠˊ", "ㄏㄣˇ", "ㄖㄜˋ", "ㄋㄠˋ"], "群聊很熱鬧"),
+            (vec!["ㄆㄟˊ", "ㄌㄧㄠˊ", "ㄐㄧ", "ㄑㄧˋ", "ㄖㄣˊ"], "陪聊機器人"),
+            (vec!["ㄒㄧㄚ", "ㄌㄧㄠˊ", "ㄅㄢˋ", "ㄊㄧㄢ"], "瞎聊半天"),
+            (vec!["ㄌㄨㄢˋ", "ㄌㄧㄠˊ", "ㄧˋ", "ㄊㄨㄥ"], "亂聊一通"),
+            (vec!["ㄌㄧㄠˊ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄎㄞ", "ㄒㄧㄣ"], "聊得很開心"),
+            (vec!["ㄌㄧㄠˊ", "ㄅㄨˋ", "ㄌㄞˊ"], "聊不來"),
+            (vec!["ㄨˋ", "ㄌㄧˇ", "ㄓˋ", "ㄌㄧㄠˊ"], "物理治療"),
+            (vec!["ㄨㄢˊ", "ㄓㄥˇ", "ㄌㄧㄠˊ", "ㄔㄥˊ"], "完整療程"),
+            (vec!["ㄌㄧㄠˊ", "ㄒㄧㄠˋ", "ㄒㄧㄢˇ", "ㄓㄨˋ"], "療效顯著"),
+            (vec!["ㄒㄧㄣ", "ㄌㄧㄥˊ", "ㄌㄧㄠˊ", "ㄩˋ"], "心靈療癒"),
+            (vec!["ㄏㄨㄚˋ", "ㄌㄧㄠˊ", "ㄈㄨˋ", "ㄗㄨㄛˋ", "ㄩㄥˋ"], "化療副作用"),
+            // ── Family 4：X作得 vs. 做得 ──
+            (vec!["ㄏㄜˊ", "ㄗㄨㄛˋ", "ㄉㄜˊ", "ㄕˊ", "ㄈㄣ", "ㄩˊ", "ㄎㄨㄞˋ"], "合作得十分愉快"),
+            (vec!["ㄒㄧㄝˇ", "ㄗㄨㄛˋ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄌㄧㄡˊ", "ㄔㄤˋ"], "寫作得很流暢"),
+            (vec!["ㄔㄨㄤˋ", "ㄗㄨㄛˋ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄊㄡˊ", "ㄖㄨˋ"], "創作得很投入"),
+            (vec!["ㄘㄠ", "ㄗㄨㄛˋ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄕㄨㄣˋ", "ㄕㄡˇ"], "操作得很順手"),
+            (vec!["ㄩㄣˋ", "ㄗㄨㄛˋ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄨㄣˇ", "ㄉㄧㄥˋ"], "運作得很穩定"),
+            (vec!["ㄕˊ", "ㄗㄨㄛˋ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄨㄢˊ", "ㄓㄥˇ"], "實作得很完整"),
+            (vec!["ㄓˋ", "ㄗㄨㄛˋ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄐㄧㄥ", "ㄇㄟˇ"], "製作得很精美"),
+            (vec!["ㄗㄨㄛˋ", "ㄉㄜˊ", "ㄕˊ", "ㄈㄣ", "ㄩˊ", "ㄎㄨㄞˋ"], "做得十分愉快"),
+            (vec!["ㄋㄧˇ", "ㄗㄨㄛˋ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄅㄤˋ"], "你做得很棒"),
+            // ── Family 5：的就 vs. 的舊 ──
+            (vec!["ㄗㄨㄟˋ", "ㄇㄢˇ", "ㄧˋ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄓㄜˋ", "ㄐㄧㄚ"], "最滿意的就這家"),
+            (vec!["ㄗㄨㄟˋ", "ㄔㄤˊ", "ㄑㄩˋ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄋㄚˋ", "ㄐㄧㄢ"], "最常去的就那間"),
+            (vec!["ㄇㄨˋ", "ㄑㄧㄢˊ", "ㄋㄥˊ", "ㄩㄥˋ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄓㄜˋ", "ㄊㄠˋ"], "目前能用的就這套"),
+            (vec!["ㄗㄨㄟˋ", "ㄏㄠˇ", "ㄩㄥˋ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄋㄧˇ", "˙ㄇㄣ", "ㄐㄧㄚ"], "最好用的就你們家"),
+            (vec!["ㄨㄟˊ", "ㄧ", "ㄕㄥˋ", "ㄒㄧㄚˋ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄓㄜˋ", "ㄒㄧㄝ"], "唯一剩下的就這些"),
+            (vec!["ㄗㄨㄟˋ", "ㄈㄤˋ", "ㄒㄧㄣ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄊㄚ", "˙ㄌㄜ"], "最放心的就他了"),
+            (vec!["ㄗㄨㄟˋ", "ㄎㄜˇ", "ㄒㄧˊ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄕˋ", "ㄓㄜˋ", "˙ㄍㄜ"], "最可惜的就是這個"),
+            (vec!["ㄗㄨㄟˋ", "ㄕㄨㄣˋ", "ㄕㄡˇ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄓㄜˋ", "ㄎㄨㄢˇ"], "最順手的就這款"),
+            (vec!["ㄨㄛˇ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄉㄧㄢˋ", "ㄋㄠˇ"], "我的舊電腦"),
+            (vec!["ㄊㄚ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄔㄜ"], "他的舊車"),
+            (vec!["ㄐㄧㄚ", "ㄌㄧˇ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄓㄠˋ", "ㄆㄧㄢˋ"], "家裡的舊照片"),
+            (vec!["ㄧˇ", "ㄑㄧㄢˊ", "ㄇㄞˇ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄕㄨ"], "以前買的舊書"),
+            (vec!["ㄔㄞ", "ㄒㄧㄚˋ", "ㄌㄞˊ", "˙ㄉㄜ", "ㄐㄧㄡˋ", "ㄌㄧㄥˊ", "ㄐㄧㄢˋ"], "拆下來的舊零件"),
+            // ── Family 6a：帳號/帳戶/單位/會議/隊友 vs. 結個帳/結一個帳 ──
+            (vec!["ㄌㄧㄥˋ", "ㄧˊ", "˙ㄍㄜ", "ㄓㄤˋ", "ㄏㄠˋ"], "另一個帳號"),
+            (vec!["ㄌㄧㄥˋ", "ㄧˊ", "˙ㄍㄜ", "ㄓㄤˋ", "ㄏㄨˋ"], "另一個帳戶"),
+            (vec!["ㄌㄧㄥˋ", "ㄧˊ", "˙ㄍㄜ", "ㄉㄢ", "ㄨㄟˋ"], "另一個單位"),
+            (vec!["ㄌㄧㄥˋ", "ㄧˊ", "˙ㄍㄜ", "ㄏㄨㄟˋ", "ㄧˋ"], "另一個會議"),
+            (vec!["ㄌㄧㄥˋ", "ㄧˊ", "˙ㄍㄜ", "ㄉㄨㄟˋ", "ㄧㄡˇ"], "另一個隊友"),
+            (vec!["ㄏㄨㄢˋ", "˙ㄍㄜ", "ㄓㄤˋ", "ㄏㄠˋ"], "換個帳號"),
+            (vec!["ㄐㄧㄝˊ", "ㄧˊ", "˙ㄍㄜ", "ㄓㄤˋ"], "結一個帳"),
+            (vec!["ㄐㄧㄝˊ", "˙ㄍㄜ", "ㄓㄤˋ"], "結個帳"),
+            (vec!["ㄙㄨㄢˋ", "˙ㄍㄜ", "ㄓㄤˋ"], "算個帳"),
+            // ── Family 6b：在用 vs. 再用 ──
+            (vec!["ㄗㄞˋ", "ㄩㄥˋ", "ㄓㄜˋ", "ㄊㄠˋ", "ㄍㄨㄥ", "ㄐㄩˋ"], "在用這套工具"),
+            (vec!["ㄗㄞˋ", "ㄆㄠˇ", "ㄘㄜˋ", "ㄕˋ"], "在跑測試"),
+            (vec!["ㄗㄞˋ", "ㄎㄢˋ", "ㄨㄣˊ", "ㄐㄧㄢˋ"], "在看文件"),
+            (vec!["ㄕㄟˊ", "ㄗㄞˋ", "ㄩㄥˋ"], "誰在用"),
+            (vec!["ㄒㄧㄚˋ", "ㄘˋ", "ㄗㄞˋ", "ㄩㄥˋ"], "下次再用"),
+            (vec!["ㄉㄥˇ", "ㄧˊ", "ㄒㄧㄚˋ", "ㄗㄞˋ", "ㄩㄥˋ"], "等一下再用"),
+            (vec!["ㄍㄞˇ", "ㄊㄧㄢ", "ㄗㄞˋ", "ㄩㄥˋ"], "改天再用"),
+            (vec!["ㄒㄧㄢ", "ㄒㄧˇ", "ㄏㄠˇ", "ㄗㄞˋ", "ㄩㄥˋ"], "先洗好再用"),
+            (vec!["ㄎㄜˇ", "ㄧˇ", "ㄗㄞˋ", "ㄩㄥˋ", "ㄧˊ", "ㄘˋ"], "可以再用一次"),
+            (vec!["ㄇㄧㄥˊ", "ㄊㄧㄢ", "ㄗㄞˋ", "ㄩㄥˋ"], "明天再用"),
+            // ── Family 7：上線/下線之後 vs. 上限/下限之後 ──
+            (vec!["ㄒㄧㄣ", "ㄒㄧˋ", "ㄌㄧㄝˋ", "ㄕㄤˋ", "ㄒㄧㄢˋ", "ㄓ", "ㄏㄡˋ"], "新系列上線之後"),
+            (vec!["ㄊㄨㄢˊ", "ㄉㄨㄟˋ", "ㄒㄧㄚˋ", "ㄒㄧㄢˋ", "ㄓ", "ㄏㄡˋ"], "團隊下線之後"),
+            (vec!["ㄒㄧㄣ", "ㄇㄛˊ", "ㄒㄧㄥˊ", "ㄕㄤˋ", "ㄒㄧㄢˋ", "ㄓ", "ㄏㄡˋ"], "新模型上線之後"),
+            (vec!["ㄊㄨˊ", "ㄆㄛˋ", "ㄕㄤˋ", "ㄒㄧㄢˋ", "ㄓ", "ㄏㄡˋ"], "突破上限之後"),
+            (vec!["ㄉㄚˊ", "ㄉㄠˋ", "ㄕㄤˋ", "ㄒㄧㄢˋ", "ㄓ", "ㄏㄡˋ"], "達到上限之後"),
+            (vec!["ㄔㄠ", "ㄍㄨㄛˋ", "ㄕㄤˋ", "ㄒㄧㄢˋ", "ㄓ", "ㄏㄡˋ"], "超過上限之後"),
+            (vec!["ㄕㄜˋ", "ㄉㄧㄥˋ", "ㄒㄧㄚˋ", "ㄒㄧㄢˋ", "ㄓ", "ㄏㄡˋ"], "設定下限之後"),
+            // ── Family 8：多帶個 vs. 多代 & 現金 vs. 現今 ──
+            (vec!["ㄉㄨㄛ", "ㄉㄞˋ", "˙ㄍㄜ", "ㄐㄧㄢˋ", "ㄆㄢˊ"], "多帶個鍵盤"),
+            (vec!["ㄉㄨㄛ", "ㄉㄞˋ", "ㄧˊ", "˙ㄍㄜ", "ㄐㄧㄢˋ", "ㄆㄢˊ"], "多帶一個鍵盤"),
+            (vec!["ㄉㄨㄛ", "ㄉㄞˋ", "ㄧˊ", "ㄐㄧㄢˋ", "ㄨㄞˋ", "ㄊㄠˋ"], "多帶一件外套"),
+            (vec!["ㄉㄨㄛ", "ㄉㄞˋ", "ㄐㄧˇ", "ㄓㄤ", "ㄎㄚˇ", "ㄆㄧㄢˋ"], "多帶幾張卡片"),
+            (vec!["ㄉㄨㄛ", "ㄉㄞˋ", "ㄌㄧㄤˇ", "ㄆㄧㄥˊ", "ㄕㄨㄟˇ"], "多帶兩瓶水"),
+            (vec!["ㄉㄨㄛ", "ㄉㄞˋ", "ㄉㄧㄢˇ", "ㄒㄧㄢˋ", "ㄐㄧㄣ"], "多帶點現金"),
+            (vec!["ㄕㄠˇ", "ㄉㄞˋ", "ㄧˊ", "˙ㄍㄜ", "ㄅㄠ", "ㄅㄠ"], "少帶一個包包"),
+            (vec!["ㄕㄨㄣˋ", "ㄅㄧㄢˋ", "ㄉㄞˋ", "˙ㄍㄜ", "ㄩˇ", "ㄙㄢˇ"], "順便帶個雨傘"),
+            (vec!["ㄐㄧˋ", "˙ㄉㄜ", "ㄉㄞˋ", "˙ㄍㄜ", "ㄒㄧㄥˊ", "ㄉㄨㄥˋ", "ㄉㄧㄢˋ", "ㄩㄢˊ"], "記得帶個行動電源"),
+            (vec!["ㄓˇ", "ㄧㄠˋ", "ㄉㄞˋ", "˙ㄍㄜ", "ㄕㄡˇ", "ㄐㄧ"], "只要帶個手機"),
+            (vec!["ㄔㄨ", "ㄇㄣˊ", "ㄉㄞˋ", "˙ㄍㄜ", "ㄅㄧˇ", "ㄉㄧㄢˋ"], "出門帶個筆電"),
+            (vec!["ㄨㄤˋ", "ㄐㄧˋ", "ㄉㄞˋ", "ㄧㄠˋ", "ㄕˇ"], "忘記帶鑰匙"),
+            (vec!["ㄉㄨㄛ", "ㄉㄞˋ", "ㄊㄨㄥˊ", "ㄊㄤˊ"], "多代同堂"),
+            (vec!["ㄉㄨㄛ", "ㄉㄞˋ", "ㄔㄨㄢˊ", "ㄔㄥˊ"], "多代傳承"),
+            (vec!["ㄌㄧˋ", "ㄐㄧㄥ", "ㄉㄨㄛ", "ㄉㄞˋ"], "歷經多代"),
+            (vec!["ㄉㄨㄛ", "ㄉㄞˋ", "ㄐㄧ", "ㄒㄧㄥˊ"], "多代機型"),
+            (vec!["ㄒㄧㄚˋ", "ㄧˊ", "ㄉㄞˋ", "ㄇㄛˊ", "ㄒㄧㄥˊ"], "下一代模型"),
+            (vec!["ㄉㄧˋ", "ㄧ", "ㄉㄞˋ", "ㄔㄢˇ", "ㄆㄧㄣˇ"], "第一代產品"),
+            (vec!["ㄊㄧˋ", "ㄉㄞˋ", "ㄈㄤ", "ㄢˋ"], "替代方案"),
+            (vec!["ㄉㄞˋ", "ㄍㄡˋ", "ㄕㄤ", "ㄆㄧㄣˇ"], "代購商品"),
+            (vec!["ㄒㄧㄢˋ", "ㄐㄧㄣ", "ㄕㄜˋ", "ㄏㄨㄟˋ"], "現今社會"),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+
+        // 2. 含中英混打原句（Grok、AI、Google Antigravity、Gemini 4）雙鍵盤測試
+        let encode_syl_std = |syl: &crate::fsm::HsuSyllable| -> String {
+            let map: std::collections::HashMap<char, char> = [
+                ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
+                ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
+                ('ㄍ', 'e'), ('ㄎ', 'd'), ('ㄏ', 'c'),
+                ('ㄐ', 'r'), ('ㄑ', 'f'), ('ㄒ', 'v'),
+                ('ㄓ', '5'), ('ㄔ', 't'), ('ㄕ', 'g'), ('ㄖ', 'b'),
+                ('ㄗ', 'y'), ('ㄘ', 'h'), ('ㄙ', 'n'),
+                ('ㄧ', 'u'), ('ㄨ', 'j'), ('ㄩ', 'm'),
+                ('ㄚ', '8'), ('ㄛ', 'i'), ('ㄜ', 'k'), ('ㄝ', ','),
+                ('ㄞ', '9'), ('ㄟ', 'o'), ('ㄠ', 'l'), ('ㄡ', '.'),
+                ('ㄢ', '0'), ('ㄣ', 'p'), ('ㄤ', ';'), ('ㄥ', '/'),
+                ('ㄦ', '-'),
+            ]
+            .into_iter()
+            .collect();
+            let mut out = String::new();
+            for ch in syl.bopomofo_display().chars() {
+                if let Some(&k) = map.get(&ch) {
+                    out.push(k);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => '6', '3' => '3', '4' => '4', '5' => '7', _ => ' ',
+            };
+            out.push(tk);
+            out
+        };
+        let encode_syl_hsu = |syl: &crate::fsm::HsuSyllable| -> String {
+            let mut s = String::new();
+            if syl.initial.is_empty() && syl.medial.is_empty() {
+                let k = match syl.final_part.as_str() {
+                    "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                    "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                    "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                    _ => panic!("unknown hsu zero final {}", syl.final_part),
+                };
+                s.push(k);
+            } else {
+                if !syl.initial.is_empty() {
+                    let ik = match syl.initial.as_str() {
+                        "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                        "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                        "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                        "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                        _ => panic!("unknown hsu initial {}", syl.initial),
+                    };
+                    s.push(ik);
+                }
+                if !syl.medial.is_empty() {
+                    let mk = match syl.medial.as_str() {
+                        "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                        _ => panic!("unknown hsu medial {}", syl.medial),
+                    };
+                    s.push(mk);
+                }
+                if !syl.final_part.is_empty() {
+                    let fk = match syl.final_part.as_str() {
+                        "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                        "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                        _ => panic!("unknown hsu final {}", syl.final_part),
+                    };
+                    s.push(fk);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's', _ => ' ',
+            };
+            s.push(tk);
+            s
+        };
+
+        enum MixedTok<'a> {
+            Ascii(&'a str),
+            Bpm(&'a str),
+            Punct(char),
+        }
+        let mixed_cases: &[(&[MixedTok<'_>], &str)] = &[
+            (
+                &[
+                    MixedTok::Ascii("Grok"),
+                    MixedTok::Bpm("ㄍㄚˋ"), MixedTok::Bpm("ㄌㄧㄠˊ"),
+                    MixedTok::Bpm("ㄏㄣˇ"), MixedTok::Bpm("ㄅㄨˋ"), MixedTok::Bpm("ㄒㄧㄥˊ"),
+                ],
+                "Grok尬聊很不行",
+            ),
+            (
+                &[
+                    MixedTok::Bpm("ㄍㄣ"),
+                    MixedTok::Ascii("AI"),
+                    MixedTok::Bpm("ㄍㄨㄥ"), MixedTok::Bpm("ㄗㄨㄛˋ"), MixedTok::Bpm("ㄉㄜˊ"),
+                    MixedTok::Bpm("ㄕˊ"), MixedTok::Bpm("ㄈㄣ"), MixedTok::Bpm("ㄩˊ"), MixedTok::Bpm("ㄎㄨㄞˋ"),
+                ],
+                "跟AI工作得十分愉快",
+            ),
+            (
+                &[
+                    MixedTok::Bpm("ㄌㄧㄥˋ"), MixedTok::Bpm("ㄧˊ"), MixedTok::Bpm("˙ㄍㄜ"),
+                    MixedTok::Bpm("ㄓㄤˋ"), MixedTok::Bpm("ㄏㄠˋ"),
+                    MixedTok::Bpm("ㄐㄧ"), MixedTok::Bpm("ㄅㄣˇ"), MixedTok::Bpm("ㄕㄤˋ"),
+                    MixedTok::Bpm("ㄐㄧㄡˋ"), MixedTok::Bpm("ㄕˋ"),
+                    MixedTok::Ascii("Google Antigravity"),
+                    MixedTok::Bpm("ㄗㄞˋ"), MixedTok::Bpm("ㄩㄥˋ"),
+                ],
+                "另一個帳號基本上就是Google Antigravity在用",
+            ),
+            (
+                &[
+                    MixedTok::Ascii("Gemini 4"),
+                    MixedTok::Bpm("ㄐㄧㄚ"), MixedTok::Bpm("ㄗㄨˊ"),
+                    MixedTok::Bpm("ㄕㄤˋ"), MixedTok::Bpm("ㄒㄧㄢˋ"),
+                    MixedTok::Bpm("ㄓ"), MixedTok::Bpm("ㄏㄡˋ"),
+                    MixedTok::Punct(','),
+                    MixedTok::Bpm("ㄍㄨㄥ"), MixedTok::Bpm("ㄔㄥˊ"),
+                    MixedTok::Bpm("ㄆㄧㄣˇ"), MixedTok::Bpm("ㄓˊ"),
+                    MixedTok::Bpm("ㄧㄡˇ"), MixedTok::Bpm("ㄇㄧㄥˊ"), MixedTok::Bpm("ㄒㄧㄢˇ"),
+                    MixedTok::Bpm("˙ㄉㄜ"), MixedTok::Bpm("ㄊㄧˊ"), MixedTok::Bpm("ㄕㄥ"),
+                ],
+                "Gemini 4家族上線之後，工程品質有明顯的提升",
+            ),
+        ];
+
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+            for (toks, expected) in mixed_cases {
+                engine.reset_buffer();
+                engine.last_committed_word.clear();
+                let mut out = String::new();
+                for tok in toks.iter() {
+                    match tok {
+                        MixedTok::Ascii(s) => {
+                            for ch in s.chars() {
+                                let r = engine.process_key(ch);
+                                out.push_str(&r.committed_chunk);
+                            }
+                            let r = engine.process_key('\n');
+                            out.push_str(&r.committed_chunk);
+                        }
+                        MixedTok::Punct(ch) => {
+                            let r = if mode == "standard" && *ch == ',' {
+                                engine.process_key_str("Ctrl+,")
+                            } else {
+                                engine.process_key(*ch)
+                            };
+                            out.push_str(&r.committed_chunk);
+                        }
+                        MixedTok::Bpm(bpm) => {
+                            let syl = crate::fsm::HsuSyllable::from_bopomofo_display(bpm).expect(bpm);
+                            let keys = if mode == "standard" {
+                                encode_syl_std(&syl)
+                            } else {
+                                encode_syl_hsu(&syl)
+                            };
+                            for ch in keys.chars() {
+                                let r = engine.process_key(ch);
+                                out.push_str(&r.committed_chunk);
+                            }
+                        }
+                    }
+                }
+                out.push_str(&engine.get_display_text());
+                assert_eq!(out, *expected, "[{}] mixed ASCII case failed", mode);
+            }
+        }
+    }
+
+    #[test]
+    fn test_nine_real_world_round3_constructions_and_mixed_261119() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+
+        // 1. 第三輪九組實務語句與擴增正反對比（標準大千與許氏雙鍵盤模式）
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            // ── 使用者原句（純中文與子句）──
+            (
+                vec![
+                    "ㄋㄥˊ", "ㄈㄡˇ", "ㄊㄨㄥˊ", "ㄕˊ", "ㄌㄧㄢˊ", "ㄉㄧㄢˋ", "ㄕˋ",
+                    "ㄧㄥˊ", "ㄇㄨˋ", "ㄍㄣ", "ㄐㄧㄢˋ", "ㄆㄢˊ",
+                ],
+                "能否同時連電視螢幕跟鍵盤",
+            ),
+            (
+                vec!["ㄧㄥ", "ㄍㄞ", "ㄩㄥˋ", "ㄅㄨˊ", "ㄉㄠˋ", "ㄏㄨㄚˊ", "ㄕㄨˇ"],
+                "應該用不到滑鼠",
+            ),
+            (
+                vec!["ㄧㄥ", "ㄍㄞ", "ㄩㄥˋ", "ㄅㄨˋ", "ㄉㄠˋ", "ㄏㄨㄚˊ", "ㄕㄨˇ"],
+                "應該用不到滑鼠",
+            ),
+            (
+                vec!["ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄐㄧㄡˋ", "ㄎㄢˋ", "ㄖㄨㄢˇ", "ㄊㄧˇ", "ㄌㄞˊ", "ㄅㄨˋ", "ㄌㄞˊ", "˙ㄉㄜ", "ㄐㄧˊ"],
+                "現在就看軟體來不來得及",
+            ),
+            (
+                vec!["ㄧㄥˋ", "ㄊㄧˇ", "ㄓㄨㄣˇ", "ㄅㄟˋ", "ㄏㄠˇ", "˙ㄌㄜ"],
+                "硬體準備好了",
+            ),
+            (
+                vec!["ㄨㄢˋ", "ㄧ", "ㄨㄛˇ", "ㄅㄨˋ", "ㄒㄧㄠˇ", "ㄒㄧㄣ", "ㄨˋ", "ㄢˋ"],
+                "萬一我不小心誤按",
+            ),
+            (
+                vec!["ㄧㄥ", "ㄍㄞ", "ㄧㄝˇ", "ㄇㄟˊ", "ㄧㄡˇ", "ㄊㄞˋ", "ㄧㄢˊ", "ㄓㄨㄥˋ", "˙ㄉㄜ", "ㄏㄡˋ", "ㄍㄨㄛˇ"],
+                "應該也沒有太嚴重的後果",
+            ),
+            (
+                vec!["ㄈㄢˇ", "ㄓㄥˋ", "ㄨㄛˇ", "ㄉㄚˇ", "ㄗˋ", "ㄅㄣˇ", "ㄌㄞˊ", "ㄐㄧㄡˋ", "ㄏㄣˇ", "ㄎㄨㄞˋ"],
+                "反正我打字本來就很快",
+            ),
+            (
+                vec!["ㄕˊ", "ㄗㄞˋ", "ㄍㄥ", "ㄒㄧㄣ", "ㄐㄧㄡˋ", "ㄒㄧㄥˊ"],
+                "時再更新就行",
+            ),
+            (
+                vec!["ㄙㄨㄢˋ", "ㄕˋ", "ㄅㄨˋ", "ㄒㄧㄠˇ", "ㄒㄧㄣ", "ㄕㄨㄛ", "ㄔㄨ", "ㄒㄧㄣ", "ㄌㄧˇ", "˙ㄉㄜ", "ㄏㄨㄚˋ"],
+                "算是不小心說出心裡的話",
+            ),
+            (
+                vec!["ㄨㄟˊ", "ㄏㄨˋ", "ㄍㄜˋ", "ㄖㄣˊ", "ㄕㄤ", "ㄧㄝˋ", "ㄌㄧˋ", "ㄧˋ"],
+                "維護個人商業利益",
+            ),
+            (
+                vec!["ㄉㄨㄟˋ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄉㄡ", "ㄅㄨˊ", "ㄐㄧㄢˋ", "˙ㄉㄜ", "ㄈㄣ", "˙ㄉㄜ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"],
+                "對人類都不見得分得清楚了",
+            ),
+            (
+                vec!["ㄉㄨㄟˋ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄉㄡ", "ㄅㄨˊ", "ㄐㄧㄢˋ", "˙ㄉㄜ", "ㄈㄣ", "ㄉㄜˊ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"],
+                "對人類都不見得分得清楚了",
+            ),
+            (
+                vec!["ㄗㄨㄛˋ", "ㄅㄨˋ", "ㄔㄨ", "ㄅㄧˇ", "ㄗˋ", "ㄖㄢˊ", "ㄕㄨ", "ㄖㄨˋ", "ㄈㄚˇ", "ㄌㄧˋ", "ㄏㄞˋ", "˙ㄉㄜ", "ㄖㄨˊ", "ㄒㄧˇ"],
+                "做不出比自然輸入法厲害的如喜",
+            ),
+            (
+                vec!["ㄍㄢˇ", "ㄐㄩㄝˊ", "ㄐㄧㄡˋ", "ㄅㄧㄢˋ", "ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄕㄨㄤˇ", "˙ㄉㄜ"],
+                "感覺就變成做爽的",
+            ),
+            // ── Family 1：連電視／螢幕 vs. 聯電 ──
+            (vec!["ㄌㄧㄢˊ", "ㄉㄧㄢˋ", "ㄕˋ", "ㄧㄥˊ", "ㄇㄨˋ"], "連電視螢幕"),
+            (vec!["ㄊㄨㄥˊ", "ㄕˊ", "ㄌㄧㄢˊ", "ㄉㄧㄢˋ", "ㄕˋ"], "同時連電視"),
+            (vec!["ㄌㄧㄢˊ", "ㄉㄧㄢˋ", "ㄋㄠˇ", "ㄧㄥˊ", "ㄇㄨˋ"], "連電腦螢幕"),
+            (vec!["ㄌㄧㄢˊ", "ㄧㄥˊ", "ㄇㄨˋ", "ㄍㄣ", "ㄐㄧㄢˋ", "ㄆㄢˊ"], "連螢幕跟鍵盤"),
+            (vec!["ㄌㄧㄢˊ", "ㄉㄧㄢˋ", "ㄍㄨˇ", "ㄐㄧㄚˋ", "ㄕㄤˋ", "ㄓㄤˇ"], "聯電股價上漲"),
+            (vec!["ㄌㄧㄢˊ", "ㄉㄧㄢˋ", "ㄕˋ", "ㄧˋ", "ㄐㄧㄢ", "ㄍㄨㄥ", "ㄙ"], "聯電是一間公司"),
+            (vec!["ㄌㄧㄢˊ", "ㄉㄧㄢˋ", "ㄕˋ", "ㄏㄠˇ", "ㄍㄨㄥ", "ㄙ"], "聯電是好公司"),
+            (vec!["ㄌㄧㄢˊ", "ㄉㄧㄢˋ", "ㄕˋ", "ㄊㄞˊ", "ㄨㄢ", "ㄐㄧㄥ", "ㄩㄢˊ", "ㄉㄞˋ", "ㄍㄨㄥ"], "聯電是台灣晶圓代工"),
+            // ── Family 2：滑鼠 vs. 滑數 ──
+            (vec!["ㄅㄨˋ", "ㄒㄩ", "ㄧㄠˋ", "ㄏㄨㄚˊ", "ㄕㄨˇ"], "不需要滑鼠"),
+            (vec!["ㄇㄟˊ", "ㄧㄡˇ", "ㄏㄨㄚˊ", "ㄕㄨˇ"], "沒有滑鼠"),
+            (vec!["ㄇㄞˇ", "ㄏㄨㄚˊ", "ㄕㄨˇ"], "買滑鼠"),
+            (vec!["ㄏㄨㄚˊ", "ㄕㄨˇ", "ㄧㄡˊ", "ㄅㄧㄠ"], "滑鼠游標"),
+            (vec!["ㄔㄨˋ", "ㄎㄨㄥˋ", "ㄅㄢˇ", "ㄍㄣ", "ㄏㄨㄚˊ", "ㄕㄨˇ"], "觸控板跟滑鼠"),
+            (vec!["ㄒㄧㄚˋ", "ㄏㄨㄚˊ", "ㄕㄨˋ", "ㄘˋ"], "下滑數次"),
+            // ── Family 3：現在就V vs. 現在舊N ──
+            (vec!["ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄐㄧㄡˋ", "ㄎㄢˋ", "ㄐㄧㄝˊ", "ㄍㄨㄛˇ"], "現在就看結果"),
+            (vec!["ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄐㄧㄡˋ", "ㄇㄞˇ"], "現在就買"),
+            (vec!["ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄐㄧㄡˋ", "ㄎㄞ", "ㄕˇ"], "現在就開始"),
+            (vec!["ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄐㄧㄡˋ", "ㄘㄜˋ", "ㄕˋ"], "現在就測試"),
+            (vec!["ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄐㄧㄡˋ", "ㄕㄡˇ", "ㄐㄧ", "ㄏㄞˊ", "ㄋㄥˊ", "ㄩㄥˋ"], "現在舊手機還能用"),
+            (vec!["ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄐㄧㄡˋ", "ㄉㄧㄢˋ", "ㄋㄠˇ", "ㄏㄣˇ", "ㄇㄢˋ"], "現在舊電腦很慢"),
+            (vec!["ㄎㄢˋ", "ㄐㄧㄡˋ", "ㄓㄠˋ", "ㄆㄧㄢˋ"], "看舊照片"),
+            (vec!["ㄓㄥˇ", "ㄌㄧˇ", "ㄐㄧㄡˋ", "ㄗ", "ㄌㄧㄠˋ"], "整理舊資料"),
+            // ── Family 4：誤按／誤觸／誤刪… vs. 物理案件／文物案… ──
+            (vec!["ㄅㄨˋ", "ㄒㄧㄠˇ", "ㄒㄧㄣ", "ㄨˋ", "ㄔㄨˋ"], "不小心誤觸"),
+            (vec!["ㄅㄨˋ", "ㄒㄧㄠˇ", "ㄒㄧㄣ", "ㄨˋ", "ㄕㄢ"], "不小心誤刪"),
+            (vec!["ㄅㄨˋ", "ㄒㄧㄠˇ", "ㄒㄧㄣ", "ㄨˋ", "ㄉㄧㄢˇ"], "不小心誤點"),
+            (vec!["ㄅㄨˋ", "ㄒㄧㄠˇ", "ㄒㄧㄣ", "ㄨˋ", "ㄍㄨㄢ"], "不小心誤關"),
+            (vec!["ㄅㄨˋ", "ㄒㄧㄠˇ", "ㄒㄧㄣ", "ㄨˋ", "ㄈㄚ"], "不小心誤發"),
+            (vec!["ㄆㄚˋ", "ㄨˋ", "ㄢˋ", "ㄉㄠˋ"], "怕誤按到"),
+            (vec!["ㄅㄧˋ", "ㄇㄧㄢˇ", "ㄨˋ", "ㄢˋ"], "避免誤按"),
+            (vec!["ㄈㄤˊ", "ㄓˇ", "ㄨˋ", "ㄢˋ"], "防止誤按"),
+            (vec!["ㄖㄨㄥˊ", "ㄧˋ", "ㄨˋ", "ㄢˋ"], "容易誤按"),
+            (vec!["ㄨˋ", "ㄢˋ", "˙ㄌㄜ", "ㄑㄩˇ", "ㄒㄧㄠ", "ㄐㄧㄢˋ"], "誤按了取消鍵"),
+            (vec!["ㄨˋ", "ㄌㄧˇ", "ㄢˋ", "ㄐㄧㄢˋ"], "物理案件"),
+            (vec!["ㄕ", "ㄨˋ", "ㄓㄠ", "ㄌㄧㄥˇ"], "失物招領"),
+            (vec!["ㄨㄣˊ", "ㄨˋ", "ㄢˋ", "ㄉㄧㄠˋ", "ㄔㄚˊ"], "文物案調查"),
+            (vec!["ㄉㄨˊ", "ㄨˋ", "ㄢˋ", "ㄐㄧㄢˋ"], "毒物案件"),
+            // ── Family 5：時再V vs. 實在 ──
+            (vec!["ㄧㄡˇ", "ㄒㄩ", "ㄧㄠˋ", "ㄕˊ", "ㄗㄞˋ", "ㄍㄥ", "ㄒㄧㄣ"], "有需要時再更新"),
+            (vec!["ㄅㄧˋ", "ㄧㄠˋ", "ㄕˊ", "ㄗㄞˋ", "ㄍㄥ", "ㄒㄧㄣ"], "必要時再更新"),
+            (vec!["ㄧㄡˇ", "ㄎㄨㄥˋ", "ㄕˊ", "ㄗㄞˋ", "ㄍㄥ", "ㄒㄧㄣ"], "有空時再更新"),
+            (vec!["ㄧㄡˇ", "ㄎㄨㄥˋ", "ㄕˊ", "ㄗㄞˋ", "ㄕㄨㄛ"], "有空時再說"),
+            (vec!["ㄧㄡˇ", "ㄎㄨㄥˋ", "ㄕˊ", "ㄗㄞˋ", "ㄎㄢˋ"], "有空時再看"),
+            (vec!["ㄏㄨㄟˊ", "ㄐㄧㄚ", "ㄕˊ", "ㄗㄞˋ", "ㄔㄨˇ", "ㄌㄧˇ"], "回家時再處理"),
+            (vec!["ㄧㄡˇ", "ㄨㄣˋ", "ㄊㄧˊ", "ㄕˊ", "ㄗㄞˋ", "ㄏㄨㄟˊ", "ㄅㄠˋ"], "有問題時再回報"),
+            (vec!["ㄒㄧㄚˋ", "ㄗㄞˇ", "ㄕˊ", "ㄗㄞˋ", "ㄑㄩㄝˋ", "ㄖㄣˋ"], "下載時再確認"),
+            (vec!["ㄐㄧㄝˊ", "ㄓㄤˋ", "ㄕˊ", "ㄗㄞˋ", "ㄕˇ", "ㄩㄥˋ"], "結帳時再使用"),
+            (vec!["ㄔㄨ", "ㄇㄣˊ", "ㄕˊ", "ㄗㄞˋ", "ㄉㄞˋ"], "出門時再帶"),
+            (vec!["ㄎㄞ", "ㄏㄨㄟˋ", "ㄕˊ", "ㄗㄞˋ", "ㄊㄠˇ", "ㄌㄨㄣˋ"], "開會時再討論"),
+            (vec!["ㄕㄤˋ", "ㄒㄧㄢˋ", "ㄕˊ", "ㄗㄞˋ", "ㄊㄨㄥ", "ㄓ"], "上線時再通知"),
+            (vec!["ㄒㄩ", "ㄧㄠˋ", "ㄕˊ", "ㄗㄞˋ", "ㄒㄧㄚˋ", "ㄗㄞˇ", "ㄐㄧㄡˋ", "ㄒㄧㄥˊ"], "需要時再下載就行"),
+            (vec!["ㄕˊ", "ㄗㄞˋ", "ㄊㄞˋ", "ㄎㄨㄚ", "ㄓㄤ"], "實在太誇張"),
+            (vec!["ㄕˊ", "ㄗㄞˋ", "ㄇㄟˊ", "ㄅㄢˋ", "ㄈㄚˇ"], "實在沒辦法"),
+            (vec!["ㄕˊ", "ㄗㄞˋ", "ㄏㄣˇ", "ㄍㄢˇ", "ㄒㄧㄝˋ"], "實在很感謝"),
+            (vec!["ㄕˊ", "ㄗㄞˋ", "ㄅㄨˊ", "ㄘㄨㄛˋ"], "實在不錯"),
+            (vec!["ㄓㄜˋ", "ㄐㄧㄚ", "ㄉㄧㄢˋ", "ㄏㄣˇ", "ㄕˊ", "ㄗㄞˋ"], "這家店很實在"),
+            (vec!["ㄓㄜˋ", "ㄉㄨㄥ", "ㄒㄧ", "ㄕˊ", "ㄗㄞˋ", "ㄏㄠˇ", "ㄩㄥˋ"], "這東西實在好用"),
+            // ── Family 6：心裡的話／心裡 vs. 心理 ──
+            (vec!["ㄐㄧㄤˇ", "ㄔㄨ", "ㄒㄧㄣ", "ㄌㄧˇ", "˙ㄉㄜ", "ㄏㄨㄚˋ"], "講出心裡的話"),
+            (vec!["ㄘㄤˊ", "ㄗㄞˋ", "ㄒㄧㄣ", "ㄌㄧˇ", "˙ㄉㄜ", "ㄏㄨㄚˋ"], "藏在心裡的話"),
+            (vec!["ㄒㄧㄣ", "ㄌㄧˇ", "˙ㄉㄜ", "ㄏㄨㄚˋ"], "心裡的話"),
+            (vec!["ㄒㄧㄣ", "ㄌㄧˇ", "ㄊㄚˋ", "ㄕˊ"], "心裡踏實"),
+            (vec!["ㄒㄧㄣ", "ㄌㄧˇ", "ㄧㄡˇ", "ㄕㄨˋ"], "心裡有數"),
+            (vec!["ㄒㄧㄣ", "ㄌㄧˇ", "ㄗ", "ㄕㄤ"], "心理諮商"),
+            (vec!["ㄒㄧㄣ", "ㄌㄧˇ", "ㄒㄩㄝˊ"], "心理學"),
+            (vec!["ㄒㄧㄣ", "ㄌㄧˇ", "ㄓㄨㄤˋ", "ㄊㄞˋ"], "心理狀態"),
+            (vec!["ㄒㄧㄣ", "ㄌㄧˇ", "ㄧㄚ", "ㄌㄧˋ"], "心理壓力"),
+            (vec!["ㄒㄧㄣ", "ㄌㄧˇ", "˙ㄉㄜ", "ㄧㄚ", "ㄌㄧˋ"], "心理的壓力"),
+            (vec!["ㄒㄧㄣ", "ㄌㄧˇ", "˙ㄉㄜ", "ㄈㄨˋ", "ㄉㄢ"], "心理的負擔"),
+            // ── Family 7：個人商業利益／商業用途 vs. 個人傷* ──
+            (vec!["ㄍㄜˋ", "ㄖㄣˊ", "ㄕㄤ", "ㄧㄝˋ", "ㄌㄧˋ", "ㄧˋ"], "個人商業利益"),
+            (vec!["ㄅㄠˇ", "ㄏㄨˋ", "ㄕㄤ", "ㄧㄝˋ", "ㄌㄧˋ", "ㄧˋ"], "保護商業利益"),
+            (vec!["ㄕㄤ", "ㄧㄝˋ", "ㄇㄛˊ", "ㄕˋ"], "商業模式"),
+            (vec!["ㄕㄤ", "ㄧㄝˋ", "ㄐㄧ", "ㄇㄧˋ"], "商業機密"),
+            (vec!["ㄕㄤ", "ㄧㄝˋ", "ㄩㄥˋ", "ㄊㄨˊ"], "商業用途"),
+            (vec!["ㄍㄜˋ", "ㄖㄣˊ", "ㄕㄤ", "ㄎㄡˇ", "ㄔㄨˇ", "ㄌㄧˇ"], "個人傷口處理"),
+            (vec!["ㄉㄢ", "ㄒㄧㄣ", "ㄍㄜˋ", "ㄖㄣˊ", "ㄕㄡˋ", "ㄕㄤ"], "擔心個人受傷"),
+            // ── Family 8：V得清楚／V不清楚 vs. 處 ──
+            (vec!["ㄈㄣ", "˙ㄉㄜ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"], "分得清楚了"),
+            (vec!["ㄈㄣ", "ㄉㄜˊ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"], "分得清楚了"),
+            (vec!["ㄈㄣ", "ㄅㄨˋ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"], "分不清楚了"),
+            (vec!["ㄎㄢˋ", "˙ㄉㄜ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"], "看得清楚了"),
+            (vec!["ㄎㄢˋ", "ㄅㄨˋ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"], "看不清楚了"),
+            (vec!["ㄊㄧㄥ", "˙ㄉㄜ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"], "聽得清楚了"),
+            (vec!["ㄊㄧㄥ", "ㄅㄨˋ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"], "聽不清楚了"),
+            (vec!["ㄕㄨㄛ", "˙ㄉㄜ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"], "說得清楚了"),
+            (vec!["ㄐㄧㄤˇ", "˙ㄉㄜ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"], "講得清楚了"),
+            (vec!["ㄒㄧㄝˇ", "˙ㄉㄜ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄌㄜ"], "寫得清楚了"),
+            (vec!["ㄒㄧㄤˇ", "˙ㄉㄜ", "ㄑㄧㄥ", "ㄔㄨˇ"], "想得清楚"),
+            (vec!["ㄨㄣˋ", "ㄉㄜˊ", "ㄑㄧㄥ", "ㄔㄨˇ"], "問得清楚"),
+            (vec!["ㄔㄚˊ", "ㄉㄜˊ", "ㄑㄧㄥ", "ㄔㄨˇ"], "查得清楚"),
+            (vec!["ㄍㄠˇ", "ㄅㄨˋ", "ㄑㄧㄥ", "ㄔㄨˇ", "ㄓㄨㄤˋ", "ㄎㄨㄤˋ"], "搞不清楚狀況"),
+            (vec!["ㄈㄣ", "˙ㄉㄜ", "ㄑㄧㄥ", "ㄔㄨˇ", "˙ㄇㄚ"], "分得清楚嗎"),
+            (vec!["ㄑㄧㄥ", "ㄌㄧˇ", "ㄔㄨˇ", "ㄓˋ", "ㄨㄢˊ", "ㄔㄥˊ"], "清理處置完成"),
+            (vec!["ㄅㄧˇ", "ㄘˇ", "ㄒㄧㄤ", "ㄔㄨˇ", "ㄩˊ", "ㄎㄨㄞˋ"], "彼此相處愉快"),
+            // ── Family 9：變成做*／變成作* vs. 乘坐 ──
+            (vec!["ㄅㄧㄢˋ", "ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄕㄨㄤˇ", "˙ㄉㄜ"], "變成做爽的"),
+            (vec!["ㄅㄧㄢˋ", "ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄅㄞˊ", "ㄍㄨㄥ"], "變成做白工"),
+            (vec!["ㄅㄧㄢˋ", "ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄅㄨˋ", "ㄨㄢˊ"], "變成做不完"),
+            (vec!["ㄅㄧㄢˋ", "ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄇㄥˋ"], "變成做夢"),
+            (vec!["ㄅㄧㄢˋ", "ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄍㄨㄥ", "ㄧˋ"], "變成做公益"),
+            (vec!["ㄅㄧㄢˋ", "ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄈㄟˋ"], "變成作廢"),
+            (vec!["ㄅㄧㄢˋ", "ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄆㄧㄣˇ"], "變成作品"),
+            (vec!["ㄅㄧㄢˋ", "ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄧㄝˋ"], "變成作業"),
+            (vec!["ㄅㄧㄢˋ", "ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄨㄟˋ"], "變成座位"),
+            (vec!["ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄍㄨㄥ", "ㄔㄜ"], "乘坐公車"),
+            (vec!["ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄐㄧㄝˊ", "ㄩㄣˋ"], "乘坐捷運"),
+            (vec!["ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄍㄠ", "ㄊㄧㄝˇ"], "乘坐高鐵"),
+            (vec!["ㄔㄥˊ", "ㄗㄨㄛˋ", "ㄉㄧㄢˋ", "ㄊㄧ"], "乘坐電梯"),
+            (vec!["ㄇㄧㄢˇ", "ㄈㄟˋ", "ㄔㄥˊ", "ㄗㄨㄛˋ"], "免費乘坐"),
+            (vec!["ㄢ", "ㄑㄩㄢˊ", "ㄔㄥˊ", "ㄗㄨㄛˋ"], "安全乘坐"),
+            (vec!["ㄏㄨㄢ", "ㄧㄥˊ", "ㄔㄥˊ", "ㄗㄨㄛˋ"], "歡迎乘坐"),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+
+        // 2. 含中英混打原句（type c、APK）雙鍵盤測試
+        let encode_syl_std = |syl: &crate::fsm::HsuSyllable| -> String {
+            let map: std::collections::HashMap<char, char> = [
+                ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
+                ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
+                ('ㄍ', 'e'), ('ㄎ', 'd'), ('ㄏ', 'c'),
+                ('ㄐ', 'r'), ('ㄑ', 'f'), ('ㄒ', 'v'),
+                ('ㄓ', '5'), ('ㄔ', 't'), ('ㄕ', 'g'), ('ㄖ', 'b'),
+                ('ㄗ', 'y'), ('ㄘ', 'h'), ('ㄙ', 'n'),
+                ('ㄧ', 'u'), ('ㄨ', 'j'), ('ㄩ', 'm'),
+                ('ㄚ', '8'), ('ㄛ', 'i'), ('ㄜ', 'k'), ('ㄝ', ','),
+                ('ㄞ', '9'), ('ㄟ', 'o'), ('ㄠ', 'l'), ('ㄡ', '.'),
+                ('ㄢ', '0'), ('ㄣ', 'p'), ('ㄤ', ';'), ('ㄥ', '/'),
+                ('ㄦ', '-'),
+            ]
+            .into_iter()
+            .collect();
+            let mut out = String::new();
+            for ch in syl.bopomofo_display().chars() {
+                if let Some(&k) = map.get(&ch) {
+                    out.push(k);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => '6', '3' => '3', '4' => '4', '5' => '7', _ => ' ',
+            };
+            out.push(tk);
+            out
+        };
+        let encode_syl_hsu = |syl: &crate::fsm::HsuSyllable| -> String {
+            let mut s = String::new();
+            if syl.initial.is_empty() && syl.medial.is_empty() {
+                let k = match syl.final_part.as_str() {
+                    "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                    "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                    "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                    _ => panic!("unknown hsu zero final {}", syl.final_part),
+                };
+                s.push(k);
+            } else {
+                if !syl.initial.is_empty() {
+                    let ik = match syl.initial.as_str() {
+                        "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                        "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                        "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                        "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                        _ => panic!("unknown hsu initial {}", syl.initial),
+                    };
+                    s.push(ik);
+                }
+                if !syl.medial.is_empty() {
+                    let mk = match syl.medial.as_str() {
+                        "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                        _ => panic!("unknown hsu medial {}", syl.medial),
+                    };
+                    s.push(mk);
+                }
+                if !syl.final_part.is_empty() {
+                    let fk = match syl.final_part.as_str() {
+                        "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                        "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                        _ => panic!("unknown hsu final {}", syl.final_part),
+                    };
+                    s.push(fk);
+                }
+            }
+            let tk = match syl.tone {
+                '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's', _ => ' ',
+            };
+            s.push(tk);
+            s
+        };
+
+        enum MixedTok3<'a> {
+            Ascii(&'a str),
+            Bpm(&'a str),
+        }
+        let mixed_cases: &[(&[MixedTok3<'_>], &str)] = &[
+            (
+                &[
+                    MixedTok3::Bpm("ㄅㄨˋ"), MixedTok3::Bpm("ㄓ"), MixedTok3::Bpm("ㄉㄠˋ"),
+                    MixedTok3::Bpm("ㄕㄡˇ"), MixedTok3::Bpm("ㄐㄧ"), MixedTok3::Bpm("˙ㄉㄜ"),
+                    MixedTok3::Ascii("type c"),
+                    MixedTok3::Bpm("ㄋㄥˊ"), MixedTok3::Bpm("ㄈㄡˇ"),
+                    MixedTok3::Bpm("ㄊㄨㄥˊ"), MixedTok3::Bpm("ㄕˊ"),
+                    MixedTok3::Bpm("ㄌㄧㄢˊ"), MixedTok3::Bpm("ㄉㄧㄢˋ"), MixedTok3::Bpm("ㄕˋ"),
+                    MixedTok3::Bpm("ㄧㄥˊ"), MixedTok3::Bpm("ㄇㄨˋ"),
+                    MixedTok3::Bpm("ㄍㄣ"), MixedTok3::Bpm("ㄐㄧㄢˋ"), MixedTok3::Bpm("ㄆㄢˊ"),
+                ],
+                "不知道手機的type c能否同時連電視螢幕跟鍵盤",
+            ),
+            (
+                &[
+                    MixedTok3::Bpm("ㄨㄛˇ"), MixedTok3::Bpm("ㄧㄡˇ"), MixedTok3::Bpm("ㄒㄩ"),
+                    MixedTok3::Bpm("ㄧㄠˋ"), MixedTok3::Bpm("ㄒㄧㄣ"), MixedTok3::Bpm("˙ㄉㄜ"),
+                    MixedTok3::Ascii("APK"),
+                    MixedTok3::Bpm("ㄕˊ"), MixedTok3::Bpm("ㄗㄞˋ"),
+                    MixedTok3::Bpm("ㄍㄥ"), MixedTok3::Bpm("ㄒㄧㄣ"),
+                    MixedTok3::Bpm("ㄐㄧㄡˋ"), MixedTok3::Bpm("ㄒㄧㄥˊ"),
+                ],
+                "我有需要新的APK時再更新就行",
+            ),
+        ];
+
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+            for (toks, expected) in mixed_cases {
+                engine.reset_buffer();
+                engine.last_committed_word.clear();
+                let mut out = String::new();
+                for tok in toks.iter() {
+                    match tok {
+                        MixedTok3::Ascii(s) => {
+                            for ch in s.chars() {
+                                let r = engine.process_key(ch);
+                                out.push_str(&r.committed_chunk);
+                            }
+                            let r = engine.process_key('\n');
+                            out.push_str(&r.committed_chunk);
+                        }
+                        MixedTok3::Bpm(bpm) => {
+                            let syl = crate::fsm::HsuSyllable::from_bopomofo_display(bpm).expect(bpm);
+                            let keys = if mode == "standard" {
+                                encode_syl_std(&syl)
+                            } else {
+                                encode_syl_hsu(&syl)
+                            };
+                            for ch in keys.chars() {
+                                let r = engine.process_key(ch);
+                                out.push_str(&r.committed_chunk);
+                            }
+                        }
+                    }
+                }
+                out.push_str(&engine.get_display_text());
+                assert_eq!(out, *expected, "[{}] mixed ASCII case failed", mode);
+            }
+        }
+    }
+
+    #[test]
+    fn test_round4_eleven_real_world_aesthetic_and_daily_constructions_261120() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+
+        // 1. 連續無標點字句與正反對比回歸測試（Dual-mode: standard + hsu）
+        let dual_mode_cases: Vec<(Vec<&str>, &str)> = vec![
+            // 11 句使用者實戰句子（主要子句與輕重音變體）
+            (
+                vec![
+                    "ㄨㄟˋ", "ㄌㄞˊ", "ㄕˇ", "ㄩㄥˋ", "ㄓㄜˇ", "ㄎㄜˇ", "ㄋㄥˊ", "ㄌㄧㄢˊ",
+                    "ㄓㄜˋ", "˙ㄍㄜ", "ㄉㄡ", "ㄅㄨˊ", "ㄏㄨㄟˋ", "ㄓ", "ㄉㄠˋ",
+                ],
+                "未來使用者可能連這個都不會知道",
+            ),
+            (
+                vec![
+                    "ㄨㄟˋ", "ㄌㄞˊ", "ㄕˇ", "ㄩㄥˋ", "ㄓㄜˇ", "ㄎㄜˇ", "ㄋㄥˊ", "ㄌㄧㄢˊ",
+                    "ㄓㄜˋ", "˙ㄍㄜ", "ㄉㄡ", "ㄅㄨˋ", "ㄏㄨㄟˋ", "ㄓ", "ㄉㄠˋ",
+                ],
+                "未來使用者可能連這個都不會知道",
+            ),
+            (
+                vec![
+                    "ㄍㄨㄛˋ", "ㄑㄩˋ", "ㄨㄛˇ", "ㄖㄣˋ", "ㄕˋ", "˙ㄉㄜ", "ㄕㄜˋ", "ㄐㄧˋ",
+                    "ㄕ", "˙ㄇㄣ",
+                ],
+                "過去我認識的設計師們",
+            ),
+            (
+                vec![
+                    "ㄑㄧㄢˊ", "ㄓㄨㄢˋ", "ㄉㄜˊ", "ㄅㄧˇ", "ㄨㄛˇ", "ㄉㄨㄛ", "˙ㄉㄜ",
+                    "ㄉㄨㄛ", "ㄉㄜˊ", "ㄕˋ",
+                ],
+                "錢賺得比我多的多得是",
+            ),
+            (
+                vec![
+                    "ㄑㄧㄢˊ", "ㄓㄨㄢˋ", "˙ㄉㄜ", "ㄅㄧˇ", "ㄨㄛˇ", "ㄉㄨㄛ", "˙ㄉㄜ",
+                    "ㄉㄨㄛ", "ㄉㄜˊ", "ㄕˋ",
+                ],
+                "錢賺得比我多的多得是",
+            ),
+            (
+                vec![
+                    "ㄨㄛˇ", "ㄍㄤ", "ㄍㄤ", "ㄕㄨㄛ", "˙ㄉㄜ", "ㄒㄧㄢˋ", "ㄒㄧㄤˋ", "ㄓ",
+                    "ㄙㄨㄛˇ", "ㄧˇ", "ㄋㄥˊ", "ㄍㄡˋ", "ㄘㄨㄣˊ", "ㄗㄞˋ", "ㄏㄞˊ", "ㄧㄡˇ",
+                    "ㄧˊ", "˙ㄍㄜ", "ㄍㄨㄢ", "ㄐㄧㄢˋ", "ㄧㄣ", "ㄙㄨˋ",
+                ],
+                "我剛剛說的現象之所以能夠存在還有一個關鍵因素",
+            ),
+            (
+                vec![
+                    "ㄇㄟˇ", "ㄒㄩㄝˊ", "ㄓㄜˋ", "ㄏㄨㄟˊ", "ㄕˋ",
+                ],
+                "美學這回事",
+            ),
+            (
+                vec![
+                    "ㄏㄨㄟˋ", "ㄙㄨㄟˊ", "˙ㄓㄜ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄖㄣˋ", "ㄓ", "ㄩˇ",
+                    "ㄍㄢˇ", "ㄕㄡˋ", "˙ㄉㄜ", "ㄘㄥˊ", "ㄘˋ", "ㄦˊ", "ㄅㄧㄢˋ", "ㄏㄨㄚˋ",
+                ],
+                "會隨著人類認知與感受的層次而變化",
+            ),
+            (
+                vec![
+                    "ㄗㄞˋ", "ㄏㄞˊ", "ㄇㄟˊ", "ㄧㄡˇ", "ㄐㄩˋ", "ㄅㄟˋ", "ㄩˇ", "ㄖㄣˊ",
+                    "ㄌㄟˋ", "ㄒㄧㄤ", "ㄊㄨㄥˊ", "ㄍㄢˇ", "ㄓ", "ㄩˇ", "ㄧˋ", "ㄕˋ",
+                    "ㄐㄧㄝˊ", "ㄍㄡˋ", "ㄓ", "ㄑㄧㄢˊ",
+                ],
+                "在還沒有具備與人類相同感知與意識結構之前",
+            ),
+            (
+                vec![
+                    "ㄧㄝˇ", "ㄓˇ", "ㄋㄥˊ", "ㄙㄨㄟˊ", "ㄕㄨㄣˋ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄏㄨㄚˋ",
+                    "ㄏㄨˇ", "ㄌㄢˋ", "ㄦˊ", "ㄧˇ",
+                ],
+                "也只能隨順人類話虎爛而已",
+            ),
+            (
+                vec![
+                    "ㄉㄢˋ", "ㄉㄨㄟˋ", "ㄎㄜˋ", "ㄊㄧˇ", "ㄔㄢˇ", "ㄕㄥ", "ㄇㄟˇ", "ㄍㄢˇ",
+                    "ㄗㄨㄛˋ", "ㄩㄥˋ", "˙ㄉㄜ", "ㄓㄨˇ", "ㄊㄧˇ", "ㄉㄨㄛ", "ㄅㄢˋ", "ㄨˊ",
+                    "ㄈㄚˇ", "ㄕㄥ", "ㄌㄞˊ", "ㄐㄧㄡˋ", "ㄐㄩˋ", "ㄅㄟˋ", "ㄩˇ", "ㄇㄟˇ",
+                    "ㄒㄩㄝˊ", "˙ㄉㄜ", "ㄎㄜ", "ㄒㄩㄝˊ", "ㄑㄧˊ", "ㄆㄧㄥˊ", "˙ㄉㄜ",
+                    "ㄕㄨㄟˇ", "ㄓㄨㄣˇ",
+                ],
+                "但對客體產生美感作用的主體多半無法生來就具備與美學的科學齊平的水準",
+            ),
+            (
+                vec![
+                    "ㄧˋ", "ㄅㄢ", "ㄖㄣˊ", "ㄔㄤˊ", "ㄈㄢˋ", "˙ㄉㄜ", "ㄘㄨㄛˋ", "ㄨˋ",
+                    "ㄐㄧㄡˋ", "ㄕˋ", "ㄗˋ", "ㄧˇ", "ㄨㄟˊ", "ㄇㄟˇ", "ㄕˋ", "ㄓㄨˇ",
+                    "ㄍㄨㄢ", "˙ㄉㄜ",
+                ],
+                "一般人常犯的錯誤就是自以為美是主觀的",
+            ),
+            (
+                vec!["ㄌㄢˇ", "ㄉㄜˊ", "ㄌㄧˇ", "ㄏㄨㄟˋ"],
+                "懶得理會",
+            ),
+            (
+                vec!["ㄌㄢˇ", "˙ㄉㄜ", "ㄌㄧˇ", "ㄏㄨㄟˋ"],
+                "懶得理會",
+            ),
+            (
+                vec![
+                    "ㄉㄢˋ", "ㄧㄝˇ", "ㄅㄨˊ", "ㄕˋ", "ㄕㄟˊ", "ㄒㄧㄤˇ", "ㄎㄠˇ", "ㄉㄡ",
+                    "ㄎㄠˇ", "ㄉㄜˊ", "ㄕㄤˋ", "˙ㄉㄜ", "ㄏㄠˇ", "˙ㄇㄚ",
+                ],
+                "但也不是誰想考都考得上的好嗎",
+            ),
+            (
+                vec![
+                    "ㄉㄢˋ", "ㄧㄝˇ", "ㄅㄨˊ", "ㄕˋ", "ㄕㄟˊ", "ㄒㄧㄤˇ", "ㄎㄠˇ", "ㄉㄡ",
+                    "ㄎㄠˇ", "˙ㄉㄜ", "ㄕㄤˋ", "˙ㄉㄜ", "ㄏㄠˇ", "˙ㄇㄚ",
+                ],
+                "但也不是誰想考都考得上的好嗎",
+            ),
+            (
+                vec![
+                    "ㄧˋ", "ㄉㄨㄟ", "ㄔㄡˋ", "ㄘㄨㄥ", "ㄌㄢˋ", "ㄘㄠˇ", "ㄗˋ", "ㄧˇ",
+                    "ㄨㄟˊ", "ㄒㄩㄝˊ", "ㄎㄜ", "ㄇㄣˊ", "ㄎㄢˇ", "ㄉㄧ", "ㄊㄚ", "˙ㄇㄣ",
+                    "ㄐㄧㄡˋ", "ㄎㄠˇ", "ㄉㄜˊ", "ㄕㄤˋ", "˙ㄇㄚ",
+                ],
+                "一堆臭蔥爛草自以為學科門檻低他們就考得上嗎",
+            ),
+            (
+                vec![
+                    "ㄧˋ", "ㄉㄨㄟ", "ㄔㄡˋ", "ㄘㄨㄥ", "ㄌㄢˋ", "ㄘㄠˇ", "ㄗˋ", "ㄧˇ",
+                    "ㄨㄟˊ", "ㄒㄩㄝˊ", "ㄎㄜ", "ㄇㄣˊ", "ㄎㄢˇ", "ㄉㄧ", "ㄊㄚ", "˙ㄇㄣ",
+                    "ㄐㄧㄡˋ", "ㄎㄠˇ", "˙ㄉㄜ", "ㄕㄤˋ", "˙ㄇㄚ",
+                ],
+                "一堆臭蔥爛草自以為學科門檻低他們就考得上嗎",
+            ),
+            (
+                vec![
+                    "ㄧˊ", "ㄨㄟˋ", "ㄗㄞˋ", "ㄍㄨㄛˊ", "ㄓㄨㄥ", "ㄉㄢ", "ㄖㄣˋ", "ㄍㄨㄛˊ",
+                    "ㄨㄣˊ", "ㄌㄠˇ", "ㄕ", "˙ㄉㄜ", "ㄅㄧˇ", "ㄧㄡˇ", "ㄧㄥˋ", "ㄕˋ",
+                    "ㄅㄞˋ", "ㄊㄨㄛ", "ㄉㄤ", "ㄕˊ", "ㄑㄩˋ", "ㄒㄩㄝˊ", "ㄒㄧㄠˋ", "ㄕˊ",
+                    "ㄒㄧˊ", "˙ㄉㄜ", "ㄇㄟˇ", "ㄕㄨˋ", "ㄌㄠˇ", "ㄕ", "ㄕㄨㄣˋ", "ㄅㄧㄢˋ",
+                    "ㄓˇ", "ㄉㄠˇ", "ㄨㄛˇ", "ㄧˊ", "ㄒㄧㄚˋ",
+                ],
+                "一位在國中擔任國文老師的筆友硬是拜託當時去學校實習的美術老師順便指導我一下",
+            ),
+            (
+                vec![
+                    "ㄋㄧㄣˊ", "˙ㄉㄜ", "ㄏㄨㄟˊ", "ㄈㄨˋ", "ㄓㄣ", "˙ㄉㄜ", "ㄖㄤˋ", "ㄨㄛˇ",
+                    "ㄐㄩㄝˊ", "˙ㄉㄜ", "ㄋㄧㄢˋ", "ㄅㄟˇ", "ㄧˋ", "ㄉㄚˋ", "ㄏㄣˇ", "ㄇㄟˊ",
+                    "ㄩㄥˋ",
+                ],
+                "您的回覆真的讓我覺得念北藝大很沒用",
+            ),
+            // 反向防過擬合對比測試
+            (vec!["ㄔㄨˇ", "ㄕˋ", "ㄓ", "ㄉㄠˋ"], "處世之道"),
+            (vec!["ㄧㄤˇ", "ㄕㄥ", "ㄓ", "ㄉㄠˋ"], "養生之道"),
+            (vec!["ㄕㄥ", "ㄘㄨㄣˊ", "ㄓ", "ㄉㄠˋ"], "生存之道"),
+            (vec!["ㄨㄛˇ", "ㄖㄣˋ", "ㄨㄟˊ"], "我認為"),
+            (vec!["ㄨㄛˇ", "ㄖㄣˋ", "ㄊㄨㄥˊ"], "我認同"),
+            (vec!["ㄨㄛˇ", "ㄖㄣˋ", "˙ㄌㄜ"], "我認了"),
+            (vec!["ㄨㄛˇ", "ㄖㄣˋ", "ㄕㄨ"], "我認輸"),
+            (
+                vec!["ㄓ", "ㄑㄧㄢˊ", "ㄓㄨㄢˋ", "˙ㄌㄜ", "ㄏㄣˇ", "ㄉㄨㄛ", "ㄑㄧㄢˊ"],
+                "之前賺了很多錢",
+            ),
+            (
+                vec!["ㄉㄧㄢˋ", "ㄧㄥˇ", "ㄑㄧㄢˊ", "ㄓㄨㄢˋ", "˙ㄉㄜ", "ㄐㄩˋ", "ㄑㄧㄥˊ"],
+                "電影前傳的劇情",
+            ),
+            (
+                vec!["ㄙㄢ", "ㄊㄧㄢ", "ㄑㄧㄢˊ", "ㄓㄨㄢˋ", "˙ㄌㄜ", "ㄧˋ", "ㄅㄧˇ"],
+                "三天前賺了一筆",
+            ),
+            (vec!["ㄎㄢˋ", "˙ㄉㄜ", "ㄐㄧㄢˋ"], "看得見"),
+            (vec!["ㄎㄢˋ", "ㄉㄜˊ", "ㄐㄧㄢˋ"], "看得見"),
+            (vec!["ㄊㄧㄥ", "˙ㄉㄜ", "ㄐㄧㄢˋ"], "聽得見"),
+            (vec!["ㄊㄧㄥ", "ㄉㄜˊ", "ㄐㄧㄢˋ"], "聽得見"),
+            (vec!["ㄕㄨㄛ", "˙ㄉㄜ", "ㄏㄣˇ", "ㄑㄧㄥ", "ㄔㄨˇ"], "說得很清楚"),
+            (vec!["ㄕㄨㄛ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄑㄧㄥ", "ㄔㄨˇ"], "說得很清楚"),
+            (vec!["ㄒㄧㄝˇ", "˙ㄉㄜ", "ㄒㄧㄢˋ", "ㄒㄧㄤˋ"], "寫的現象"),
+            (vec!["ㄎㄢˋ", "˙ㄉㄜ", "ㄒㄧㄢˋ", "ㄒㄧㄤˋ"], "看的現象"),
+            (vec!["ㄋㄧˇ", "ㄙㄨㄟˊ", "ㄅㄧㄢˋ", "ㄊㄧㄠ", "ㄧˊ", "˙ㄍㄜ"], "你隨便挑一個"),
+            (
+                vec!["ㄙㄨㄟˊ", "˙ㄓㄜ", "ㄕˊ", "ㄉㄞˋ", "ㄦˊ", "ㄅㄧㄢˋ", "ㄏㄨㄚˋ"],
+                "隨著時代而變化",
+            ),
+            (
+                vec![
+                    "ㄙㄨㄟˊ", "˙ㄓㄜ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄖㄣˋ", "ㄓ", "ㄩˇ", "ㄍㄢˇ",
+                    "ㄕㄡˋ", "˙ㄉㄜ", "ㄘㄥˊ", "ㄘˋ", "ㄦˊ", "ㄍㄞˇ", "ㄅㄧㄢˋ",
+                ],
+                "隨著人類認知與感受的層次而改變",
+            ),
+            (vec!["ㄅㄟˋ", "ㄩˇ", "ㄌㄧㄣˊ", "ㄕ"], "被雨淋濕"),
+            (vec!["ㄑㄩㄢˊ", "ㄕㄣ", "ㄅㄟˋ", "ㄩˇ", "ㄌㄧㄣˊ", "ㄊㄡˋ"], "全身被雨淋透"),
+            (vec!["ㄩˇ", "ㄧˋ", "ㄐㄧㄝˊ", "ㄍㄡˋ", "ㄈㄣ", "ㄒㄧ"], "語意結構分析"),
+            (
+                vec!["ㄩˇ", "ㄧˋ", "ㄊㄧㄠˊ", "ㄓㄥˇ", "ㄍㄨㄥ", "ㄗㄨㄛˋ", "ㄕˋ"],
+                "語意調整工作室",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄐㄩˋ", "ㄏㄨㄚˋ", "˙ㄉㄜ", "ㄩˇ", "ㄧˋ", "ㄏㄣˇ", "ㄑㄧㄥ", "ㄔㄨˇ"],
+                "這句話的語意很清楚",
+            ),
+            (vec!["ㄑㄧˊ", "ㄆㄧㄥˊ", "ㄐㄩㄣ", "ㄕㄨㄟˇ", "ㄓㄨㄣˇ"], "其平均水準"),
+            (vec!["ㄑㄧˊ", "ㄆㄧㄥˊ", "ㄏㄥˊ", "ㄓㄨㄤˋ", "ㄊㄞˋ"], "其平衡狀態"),
+            (vec!["ㄏㄜ", "ㄧˋ", "ㄅㄟ", "ㄇㄟˇ", "ㄕˋ", "ㄎㄚ", "ㄈㄟ"], "喝一杯美式咖啡"),
+            (vec!["ㄇㄟˇ", "ㄕˋ", "ㄗㄨˊ", "ㄑㄧㄡˊ", "ㄅㄧˇ", "ㄙㄞˋ"], "美式足球比賽"),
+            (vec!["ㄇㄟˇ", "ㄕˋ", "ㄘㄢ", "ㄊㄧㄥ", "˙ㄉㄜ", "ㄏㄢˋ", "ㄅㄠˇ"], "美式餐廳的漢堡"),
+            (vec!["ㄐㄧㄚ", "ㄌㄧˇ", "ㄏㄨㄟˋ", "ㄧㄡˇ", "ㄎㄜˋ", "ㄖㄣˊ"], "家裡會有客人"),
+            (vec!["ㄒㄧㄣ", "ㄌㄧˇ", "ㄏㄨㄟˋ", "ㄋㄢˊ", "ㄍㄨㄛˋ"], "心裡會難過"),
+            (vec!["ㄅㄨˊ", "ㄧㄠˋ", "ㄌㄧˇ", "ㄏㄨㄟˋ", "ㄊㄚ"], "不要理會他"),
+            (vec!["ㄓㄢˇ", "ㄌㄢˇ", "˙ㄉㄜ", "ㄋㄟˋ", "ㄖㄨㄥˊ"], "展覽的內容"),
+            (vec!["ㄉㄠˋ", "ㄉㄜˊ", "ㄕㄤˋ", "ㄇㄟˊ", "ㄧㄡˇ", "ㄨㄣˋ", "ㄊㄧˊ"], "道德上沒有問題"),
+            (vec!["ㄎㄠˇ", "˙ㄉㄜ", "ㄕㄤˋ", "ㄘˋ", "ㄋㄚˋ", "ㄊㄧˊ"], "考的上次那題"),
+            (vec!["ㄨㄛˇ", "ㄎㄠˇ", "˙ㄉㄜ", "ㄎㄜ", "ㄇㄨˋ"], "我考的科目"),
+            (vec!["ㄆㄚˊ", "ㄉㄜˊ", "ㄕㄤˋ"], "爬得上"),
+            (vec!["ㄆㄚˊ", "˙ㄉㄜ", "ㄕㄤˋ"], "爬得上"),
+            (vec!["ㄊㄚ", "ㄈㄟ", "ㄔㄤˊ", "ㄘㄨㄥ", "ㄇㄧㄥˊ"], "他非常聰明"),
+            (vec!["ㄓㄜˋ", "ㄏㄞˊ", "˙ㄗ", "ㄏㄣˇ", "ㄘㄨㄥ", "ㄧㄥˇ"], "這孩子很聰穎"),
+            (vec!["ㄊㄧㄥ", "ㄌㄧˋ", "ㄕ", "ㄘㄨㄥ"], "聽力失聰"),
+            (
+                vec!["ㄑㄩˋ", "ㄒㄩㄝˊ", "ㄒㄧㄠˋ", "ㄕˊ", "ㄒㄧˊ", "ㄍㄨㄢˋ", "ㄗㄠˇ", "ㄑㄧˇ"],
+                "去學校時習慣早起",
+            ),
+            (
+                vec!["ㄔ", "ㄈㄢˋ", "ㄕˊ", "ㄕˊ", "ㄨˋ", "ㄉㄧㄠˋ", "ㄉㄧˋ", "ㄕㄤˋ"],
+                "吃飯時食物掉地上",
+            ),
+            (
+                vec!["ㄒㄧˋ", "ㄊㄨㄥˇ", "ㄏㄨㄟˊ", "ㄈㄨˋ", "ㄩㄢˊ", "ㄔㄤˇ", "ㄕㄜˋ", "ㄉㄧㄥˋ"],
+                "系統回復原廠設定",
+            ),
+            (vec!["ㄓㄨˊ", "ㄐㄧㄢˋ", "ㄏㄨㄟˊ", "ㄈㄨˋ", "ㄐㄧㄢˋ", "ㄎㄤ"], "逐漸回復健康"),
+            (vec!["ㄏㄨㄟˊ", "ㄈㄨˋ", "ㄩㄢˊ", "ㄓㄨㄤˋ"], "回復原狀"),
+            (vec!["ㄍㄢˇ", "ㄒㄧㄝˋ", "ㄋㄧㄣˊ", "˙ㄉㄜ", "ㄏㄨㄟˊ", "ㄈㄨˋ"], "感謝您的回覆"),
+        ];
+        assert_bopomofo_dual_mode_cases(&dual_mode_cases);
+
+        // 2. 完整標點與跨子句全句端到端測試（含標準大千與許氏雙鍵盤模式）
+        let encode_syl_std = |syl: &crate::fsm::HsuSyllable| -> String {
+            let mut s = String::new();
+            if !syl.initial.is_empty() {
+                s.push(match syl.initial.as_str() {
+                    "ㄅ" => '1', "ㄆ" => 'q', "ㄇ" => 'a', "ㄈ" => 'z', "ㄉ" => '2',
+                    "ㄊ" => 'w', "ㄋ" => 's', "ㄌ" => 'x', "ㄍ" => 'e', "ㄎ" => 'd',
+                    "ㄏ" => 'c', "ㄐ" => 'r', "ㄑ" => 'f', "ㄒ" => 'v', "ㄓ" => '5',
+                    "ㄔ" => 't', "ㄕ" => 'g', "ㄖ" => 'b', "ㄗ" => 'y', "ㄘ" => 'h',
+                    "ㄙ" => 'n', _ => panic!("unknown std initial {}", syl.initial),
+                });
+            }
+            if !syl.medial.is_empty() {
+                s.push(match syl.medial.as_str() {
+                    "ㄧ" => 'u', "ㄨ" => 'j', "ㄩ" => 'm',
+                    _ => panic!("unknown std medial {}", syl.medial),
+                });
+            }
+            if !syl.final_part.is_empty() {
+                s.push(match syl.final_part.as_str() {
+                    "ㄚ" => '8', "ㄛ" => 'i', "ㄜ" => 'k', "ㄝ" => ',', "ㄞ" => '9',
+                    "ㄟ" => 'o', "ㄠ" => 'l', "ㄡ" => '.', "ㄢ" => '0', "ㄣ" => 'p',
+                    "ㄤ" => ';', "ㄥ" => '/', "ㄦ" => '-',
+                    _ => panic!("unknown std final {}", syl.final_part),
+                });
+            }
+            s.push(match syl.tone {
+                '1' => ' ', '2' => '6', '3' => '3', '4' => '4', '5' => '7', _ => ' ',
+            });
+            s
+        };
+        let encode_syl_hsu = |syl: &crate::fsm::HsuSyllable| -> String {
+            let mut s = String::new();
+            if syl.initial.is_empty() && syl.medial.is_empty() {
+                s.push(match syl.final_part.as_str() {
+                    "ㄦ" | "ㄥ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm',
+                    "ㄣ" => 'n', "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o',
+                    "ㄝ" => 'e', "ㄟ" => 'a', "ㄤ" => 'k',
+                    _ => panic!("unknown hsu zero final {}", syl.final_part),
+                });
+            } else {
+                if !syl.initial.is_empty() {
+                    s.push(match syl.initial.as_str() {
+                        "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                        "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                        "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v',
+                        "ㄒ" | "ㄕ" => 'c', "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a',
+                        "ㄙ" => 's', _ => panic!("unknown hsu initial {}", syl.initial),
+                    });
+                }
+                if !syl.medial.is_empty() {
+                    s.push(match syl.medial.as_str() {
+                        "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                        _ => panic!("unknown hsu medial {}", syl.medial),
+                    });
+                }
+                if !syl.final_part.is_empty() {
+                    s.push(match syl.final_part.as_str() {
+                        "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                        "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                        _ => panic!("unknown hsu final {}", syl.final_part),
+                    });
+                }
+            }
+            s.push(match syl.tone {
+                '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's', _ => ' ',
+            });
+            s
+        };
+
+        let type_punct_sentence = |engine: &mut RuhiEngine, mode: &str, tokens: &[&str]| -> String {
+            engine.reset_buffer();
+            engine.last_committed_word.clear();
+            engine.active_geo_context.clear();
+            let mut out = String::new();
+            for &tok in tokens {
+                if matches!(tok, "：" | "、" | "，" | "。" | "！" | "？" | "；") {
+                    let r = match (mode, tok) {
+                        ("standard", "：") => engine.process_key_str("Ctrl+Shift+;"),
+                        ("standard", "、") => engine.process_key_str("Ctrl+'"),
+                        ("standard", "，") => engine.process_key_str("Ctrl+,"),
+                        ("standard", "。") => engine.process_key_str("Alt+."),
+                        ("standard", "！") => engine.process_key_str("Ctrl+1"),
+                        ("standard", "？") => engine.process_key_str("Ctrl+/"),
+                        ("standard", "；") => engine.process_key_str("Ctrl+;"),
+                        (_, "：") => engine.process_key(':'),
+                        (_, "、") => engine.process_key('\''),
+                        (_, "，") => engine.process_key(','),
+                        (_, "。") => engine.process_key('.'),
+                        (_, "！") => engine.process_key('!'),
+                        (_, "？") => engine.process_key('?'),
+                        (_, "；") => engine.process_key(';'),
+                        _ => unreachable!(),
+                    };
+                    out.push_str(&r.committed_chunk);
+                } else if matches!(tok, "「" | "」" | "AI") {
+                    if !engine.get_display_text().is_empty() {
+                        let r = engine.process_key_str("Enter");
+                        out.push_str(&r.committed_chunk);
+                    }
+                    out.push_str(tok);
+                    engine.last_committed_word = tok.to_string();
+                } else {
+                    let syl = crate::fsm::HsuSyllable::from_bopomofo_display(tok).expect(tok);
+                    let keys = if mode == "standard" {
+                        encode_syl_std(&syl)
+                    } else {
+                        encode_syl_hsu(&syl)
+                    };
+                    for ch in keys.chars() {
+                        let r = engine.process_key(ch);
+                        out.push_str(&r.committed_chunk);
+                    }
+                }
+            }
+            out.push_str(&engine.get_display_text());
+            out
+        };
+
+        let full_sentences: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec![
+                    "ㄨㄟˋ", "ㄌㄞˊ", "ㄕˇ", "ㄩㄥˋ", "ㄓㄜˇ", "ㄎㄜˇ", "ㄋㄥˊ", "ㄌㄧㄢˊ",
+                    "ㄓㄜˋ", "˙ㄍㄜ", "ㄉㄡ", "ㄅㄨˊ", "ㄏㄨㄟˋ", "ㄓ", "ㄉㄠˋ",
+                ],
+                "未來使用者可能連這個都不會知道",
+            ),
+            (
+                vec![
+                    "ㄍㄨㄛˋ", "ㄑㄩˋ", "ㄨㄛˇ", "ㄖㄣˋ", "ㄕˋ", "˙ㄉㄜ", "ㄕㄜˋ", "ㄐㄧˋ",
+                    "ㄕ", "˙ㄇㄣ", "，", "ㄑㄧㄢˊ", "ㄓㄨㄢˋ", "ㄉㄜˊ", "ㄅㄧˇ", "ㄨㄛˇ",
+                    "ㄉㄨㄛ", "˙ㄉㄜ", "ㄉㄨㄛ", "ㄉㄜˊ", "ㄕˋ", "。",
+                ],
+                "過去我認識的設計師們，錢賺得比我多的多得是。",
+            ),
+            (
+                vec![
+                    "ㄍㄨㄛˋ", "ㄑㄩˋ", "ㄨㄛˇ", "ㄖㄣˋ", "ㄕˋ", "˙ㄉㄜ", "ㄕㄜˋ", "ㄐㄧˋ",
+                    "ㄕ", "˙ㄇㄣ", "，", "ㄑㄧㄢˊ", "ㄓㄨㄢˋ", "˙ㄉㄜ", "ㄅㄧˇ", "ㄨㄛˇ",
+                    "ㄉㄨㄛ", "˙ㄉㄜ", "ㄉㄨㄛ", "ㄉㄜˊ", "ㄕˋ", "。",
+                ],
+                "過去我認識的設計師們，錢賺得比我多的多得是。",
+            ),
+            (
+                vec![
+                    "ㄨㄛˇ", "ㄍㄤ", "ㄍㄤ", "ㄕㄨㄛ", "˙ㄉㄜ", "ㄒㄧㄢˋ", "ㄒㄧㄤˋ", "ㄓ",
+                    "ㄙㄨㄛˇ", "ㄧˇ", "ㄋㄥˊ", "ㄍㄡˋ", "ㄘㄨㄣˊ", "ㄗㄞˋ", "ㄏㄞˊ", "ㄧㄡˇ",
+                    "ㄧˊ", "˙ㄍㄜ", "ㄍㄨㄢ", "ㄐㄧㄢˋ", "ㄧㄣ", "ㄙㄨˋ", "：", "ㄎㄜˋ", "ㄏㄨˋ",
+                    "ㄅㄨˋ", "ㄉㄨㄥˇ", "。",
+                ],
+                "我剛剛說的現象之所以能夠存在還有一個關鍵因素：客戶不懂。",
+            ),
+            (
+                vec![
+                    "ㄇㄟˇ", "ㄒㄩㄝˊ", "ㄓㄜˋ", "ㄏㄨㄟˊ", "ㄕˋ", "，", "ㄏㄨㄟˋ", "ㄙㄨㄟˊ",
+                    "˙ㄓㄜ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄖㄣˋ", "ㄓ", "ㄩˇ", "ㄍㄢˇ", "ㄕㄡˋ", "˙ㄉㄜ",
+                    "ㄘㄥˊ", "ㄘˋ", "ㄦˊ", "ㄅㄧㄢˋ", "ㄏㄨㄚˋ", "；", "AI", "ㄗㄞˋ", "ㄏㄞˊ",
+                    "ㄇㄟˊ", "ㄧㄡˇ", "ㄐㄩˋ", "ㄅㄟˋ", "ㄩˇ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄒㄧㄤ",
+                    "ㄊㄨㄥˊ", "ㄍㄢˇ", "ㄓ", "ㄩˇ", "ㄧˋ", "ㄕˋ", "ㄐㄧㄝˊ", "ㄍㄡˋ", "ㄓ",
+                    "ㄑㄧㄢˊ", "，", "ㄧㄝˇ", "ㄓˇ", "ㄋㄥˊ", "ㄙㄨㄟˊ", "ㄕㄨㄣˋ", "ㄖㄣˊ",
+                    "ㄌㄟˋ", "ㄏㄨㄚˋ", "ㄏㄨˇ", "ㄌㄢˋ", "ㄦˊ", "ㄧˇ", "。",
+                ],
+                "美學這回事，會隨著人類認知與感受的層次而變化；AI在還沒有具備與人類相同感知與意識結構之前，也只能隨順人類話虎爛而已。",
+            ),
+            (
+                vec![
+                    "ㄇㄟˇ", "ㄒㄩㄝˊ", "ㄅㄣˇ", "ㄕㄣ", "ㄑㄧˊ", "ㄕˊ", "ㄧㄝˇ", "ㄕˋ",
+                    "ㄎㄜ", "ㄒㄩㄝˊ", "，", "ㄉㄢˋ", "ㄉㄨㄟˋ", "ㄎㄜˋ", "ㄊㄧˇ", "ㄔㄢˇ",
+                    "ㄕㄥ", "ㄇㄟˇ", "ㄍㄢˇ", "ㄗㄨㄛˋ", "ㄩㄥˋ", "˙ㄉㄜ", "ㄓㄨˇ", "ㄊㄧˇ",
+                    "ㄉㄨㄛ", "ㄅㄢˋ", "ㄨˊ", "ㄈㄚˇ", "ㄕㄥ", "ㄌㄞˊ", "ㄐㄧㄡˋ", "ㄐㄩˋ",
+                    "ㄅㄟˋ", "ㄩˇ", "ㄇㄟˇ", "ㄒㄩㄝˊ", "˙ㄉㄜ", "ㄎㄜ", "ㄒㄩㄝˊ", "ㄑㄧˊ",
+                    "ㄆㄧㄥˊ", "˙ㄉㄜ", "ㄕㄨㄟˇ", "ㄓㄨㄣˇ", "，", "ㄖㄨˊ", "ㄍㄨㄛˇ", "ㄧㄡˋ",
+                    "ㄗˋ", "ㄧˇ", "ㄨㄟˊ", "ㄕˋ", "，", "ㄐㄧㄡˋ", "ㄩㄥˇ", "ㄩㄢˇ", "ㄅㄨˋ",
+                    "ㄎㄜˇ", "ㄋㄥˊ", "ㄧㄡˇ", "ㄕㄣˊ", "˙ㄇㄜ", "ㄇㄟˇ", "ㄏㄠˇ", "˙ㄉㄜ",
+                    "ㄙㄨˋ", "ㄧㄤˇ", "。",
+                ],
+                "美學本身其實也是科學，但對客體產生美感作用的主體多半無法生來就具備與美學的科學齊平的水準，如果又自以為是，就永遠不可能有什麼美好的素養。",
+            ),
+            (
+                vec![
+                    "ㄧˋ", "ㄅㄢ", "ㄖㄣˊ", "ㄔㄤˊ", "ㄈㄢˋ", "˙ㄉㄜ", "ㄘㄨㄛˋ", "ㄨˋ",
+                    "ㄐㄧㄡˋ", "ㄕˋ", "ㄗˋ", "ㄧˇ", "ㄨㄟˊ", "ㄇㄟˇ", "ㄕˋ", "ㄓㄨˇ",
+                    "ㄍㄨㄢ", "˙ㄉㄜ", "。",
+                ],
+                "一般人常犯的錯誤就是自以為美是主觀的。",
+            ),
+            (
+                vec!["ㄈㄥ", "ㄙㄨㄛˇ", "，", "ㄌㄢˇ", "ㄉㄜˊ", "ㄌㄧˇ", "ㄏㄨㄟˋ", "。"],
+                "封鎖，懶得理會。",
+            ),
+            (
+                vec!["ㄈㄥ", "ㄙㄨㄛˇ", "，", "ㄌㄢˇ", "˙ㄉㄜ", "ㄌㄧˇ", "ㄏㄨㄟˋ", "。"],
+                "封鎖，懶得理會。",
+            ),
+            (
+                vec![
+                    "ㄙㄨㄟ", "ㄖㄢˊ", "ㄋㄧㄢˋ", "ㄅㄟˇ", "ㄧˋ", "ㄉㄚˋ", "˙ㄉㄜ", "ㄖㄣˊ",
+                    "ㄇㄟˊ", "ㄧㄡˇ", "ㄏㄣˇ", "ㄊㄧㄢ", "ㄘㄞˊ", "，", "ㄉㄢˋ", "ㄧㄝˇ",
+                    "ㄅㄨˊ", "ㄕˋ", "ㄕㄟˊ", "ㄒㄧㄤˇ", "ㄎㄠˇ", "ㄉㄡ", "ㄎㄠˇ", "ㄉㄜˊ",
+                    "ㄕㄤˋ", "˙ㄉㄜ", "ㄏㄠˇ", "˙ㄇㄚ", "？",
+                ],
+                "雖然念北藝大的人沒有很天才，但也不是誰想考都考得上的好嗎？",
+            ),
+            (
+                vec![
+                    "ㄙㄨㄟ", "ㄖㄢˊ", "ㄋㄧㄢˋ", "ㄅㄟˇ", "ㄧˋ", "ㄉㄚˋ", "˙ㄉㄜ", "ㄖㄣˊ",
+                    "ㄇㄟˊ", "ㄧㄡˇ", "ㄏㄣˇ", "ㄊㄧㄢ", "ㄘㄞˊ", "，", "ㄉㄢˋ", "ㄧㄝˇ",
+                    "ㄅㄨˊ", "ㄕˋ", "ㄕㄟˊ", "ㄒㄧㄤˇ", "ㄎㄠˇ", "ㄉㄡ", "ㄎㄠˇ", "˙ㄉㄜ",
+                    "ㄕㄤˋ", "˙ㄉㄜ", "ㄏㄠˇ", "˙ㄇㄚ", "？",
+                ],
+                "雖然念北藝大的人沒有很天才，但也不是誰想考都考得上的好嗎？",
+            ),
+            (
+                vec![
+                    "ㄧˋ", "ㄉㄨㄟ", "ㄔㄡˋ", "ㄘㄨㄥ", "ㄌㄢˋ", "ㄘㄠˇ", "ㄗˋ", "ㄧˇ",
+                    "ㄨㄟˊ", "ㄒㄩㄝˊ", "ㄎㄜ", "ㄇㄣˊ", "ㄎㄢˇ", "ㄉㄧ", "ㄊㄚ", "˙ㄇㄣ",
+                    "ㄐㄧㄡˋ", "ㄎㄠˇ", "ㄉㄜˊ", "ㄕㄤˋ", "˙ㄇㄚ", "？",
+                ],
+                "一堆臭蔥爛草自以為學科門檻低他們就考得上嗎？",
+            ),
+            (
+                vec![
+                    "ㄧˋ", "ㄉㄨㄟ", "ㄔㄡˋ", "ㄘㄨㄥ", "ㄌㄢˋ", "ㄘㄠˇ", "ㄗˋ", "ㄧˇ",
+                    "ㄨㄟˊ", "ㄒㄩㄝˊ", "ㄎㄜ", "ㄇㄣˊ", "ㄎㄢˇ", "ㄉㄧ", "ㄊㄚ", "˙ㄇㄣ",
+                    "ㄐㄧㄡˋ", "ㄎㄠˇ", "˙ㄉㄜ", "ㄕㄤˋ", "˙ㄇㄚ", "？",
+                ],
+                "一堆臭蔥爛草自以為學科門檻低他們就考得上嗎？",
+            ),
+            (
+                vec![
+                    "ㄧˊ", "ㄨㄟˋ", "ㄗㄞˋ", "ㄍㄨㄛˊ", "ㄓㄨㄥ", "ㄉㄢ", "ㄖㄣˋ", "ㄍㄨㄛˊ",
+                    "ㄨㄣˊ", "ㄌㄠˇ", "ㄕ", "˙ㄉㄜ", "ㄅㄧˇ", "ㄧㄡˇ", "ㄧㄥˋ", "ㄕˋ",
+                    "ㄅㄞˋ", "ㄊㄨㄛ", "ㄉㄤ", "ㄕˊ", "ㄑㄩˋ", "ㄒㄩㄝˊ", "ㄒㄧㄠˋ", "ㄕˊ",
+                    "ㄒㄧˊ", "˙ㄉㄜ", "ㄇㄟˇ", "ㄕㄨˋ", "ㄌㄠˇ", "ㄕ", "「", "ㄕㄨㄣˋ",
+                    "ㄅㄧㄢˋ", "」", "ㄓˇ", "ㄉㄠˇ", "ㄨㄛˇ", "ㄧˊ", "ㄒㄧㄚˋ",
+                ],
+                "一位在國中擔任國文老師的筆友硬是拜託當時去學校實習的美術老師「順便」指導我一下",
+            ),
+            (
+                vec![
+                    "ㄙㄨㄢ", "ㄕㄣˊ", "˙ㄇㄜ", "ㄋㄧㄢˋ", "ㄅㄟˇ", "ㄧˋ", "ㄉㄚˋ", "ㄌㄧㄠˇ",
+                    "ㄅㄨˋ", "ㄑㄧˇ", "、", "ㄇㄟˊ", "ㄩㄥˋ", "ㄓ", "ㄌㄟˋ", "˙ㄉㄜ", "，",
+                    "ㄨㄛˇ", "ㄧㄝˇ", "ㄏㄣˇ", "ㄌㄧˇ", "ㄇㄠˋ", "˙ㄉㄜ", "ㄏㄨㄟˊ", "ㄉㄚˊ",
+                    "：", "「", "ㄕˋ", "，", "ㄋㄧㄣˊ", "˙ㄉㄜ", "ㄏㄨㄟˊ", "ㄈㄨˋ", "ㄓㄣ",
+                    "˙ㄉㄜ", "ㄖㄤˋ", "ㄨㄛˇ", "ㄐㄩㄝˊ", "˙ㄉㄜ", "ㄋㄧㄢˋ", "ㄅㄟˇ", "ㄧˋ",
+                    "ㄉㄚˋ", "ㄏㄣˇ", "ㄇㄟˊ", "ㄩㄥˋ", "。", "」",
+                ],
+                "酸什麼念北藝大了不起、沒用之類的，我也很禮貌的回答：「是，您的回覆真的讓我覺得念北藝大很沒用。」",
+            ),
+        ];
+
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        engine.symbols.map.insert("Alt+.".to_string(), "。".to_string());
+        for mode in ["standard", "hsu"] {
+            engine.set_keyboard_mode(mode);
+            for (tokens, expected) in &full_sentences {
+                let got = type_punct_sentence(&mut engine, mode, tokens);
+                assert_eq!(got, *expected, "[{}] full sentence failed", mode);
+            }
+        }
+    }
+
+    #[test]
+    fn test_round5_modal_xde_factorization_and_contrastives_261120() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            // 1. 全部 13 個 ModalXDe 詞彙（ㄉㄜˊ 與 ˙ㄉㄜ 雙變體 + 雙鍵盤模式）
+            (vec!["ㄨㄛˇ", "ㄐㄩㄝˊ", "ㄉㄜˊ", "ㄏㄣˇ", "ㄏㄠˇ"], "我覺得很好"),
+            (vec!["ㄨㄛˇ", "ㄐㄩㄝˊ", "˙ㄉㄜ", "ㄏㄣˇ", "ㄏㄠˇ"], "我覺得很好"),
+            (vec!["ㄓㄜˋ", "ㄐㄧㄢˋ", "ㄕˋ", "ㄓˊ", "ㄉㄜˊ", "ㄊㄠˇ", "ㄌㄨㄣˋ"], "這件事值得討論"),
+            (vec!["ㄓㄜˋ", "ㄐㄧㄢˋ", "ㄕˋ", "ㄓˊ", "˙ㄉㄜ", "ㄊㄠˇ", "ㄌㄨㄣˋ"], "這件事值得討論"),
+            (vec!["ㄨㄛˇ", "ㄐㄧˋ", "ㄉㄜˊ", "ㄊㄚ", "˙ㄉㄜ", "ㄇㄧㄥˊ", "ㄗˋ"], "我記得他的名字"),
+            (vec!["ㄨㄛˇ", "ㄐㄧˋ", "˙ㄉㄜ", "ㄊㄚ", "˙ㄉㄜ", "ㄇㄧㄥˊ", "ㄗˋ"], "我記得他的名字"),
+            (vec!["ㄋㄧˇ", "ㄉㄨㄥˇ", "ㄉㄜˊ", "ㄓㄜˋ", "˙ㄍㄜ", "ㄉㄠˋ", "ㄌㄧˇ"], "你懂得這個道理"),
+            (vec!["ㄋㄧˇ", "ㄉㄨㄥˇ", "˙ㄉㄜ", "ㄓㄜˋ", "˙ㄍㄜ", "ㄉㄠˋ", "ㄌㄧˇ"], "你懂得這個道理"),
+            (vec!["ㄨㄛˇ", "ㄅㄨˋ", "ㄒㄧㄠˇ", "ㄉㄜˊ", "ㄩㄢˊ", "ㄧㄣ"], "我不曉得原因"),
+            (vec!["ㄨㄛˇ", "ㄅㄨˋ", "ㄒㄧㄠˇ", "˙ㄉㄜ", "ㄩㄢˊ", "ㄧㄣ"], "我不曉得原因"),
+            (vec!["ㄊㄚ", "ㄕㄜˇ", "ㄉㄜˊ", "ㄏㄨㄚ", "ㄑㄧㄢˊ"], "他捨得花錢"),
+            (vec!["ㄊㄚ", "ㄕㄜˇ", "˙ㄉㄜ", "ㄏㄨㄚ", "ㄑㄧㄢˊ"], "他捨得花錢"),
+            (vec!["ㄨㄛˇ", "ㄖㄣˋ", "ㄉㄜˊ", "ㄋㄚˋ", "˙ㄍㄜ", "ㄖㄣˊ"], "我認得那個人"),
+            (vec!["ㄨㄛˇ", "ㄖㄣˋ", "˙ㄉㄜ", "ㄋㄚˋ", "˙ㄍㄜ", "ㄖㄣˊ"], "我認得那個人"),
+            (vec!["ㄓㄜˋ", "ㄒㄧㄢˇ", "ㄉㄜˊ", "ㄅㄨˋ", "ㄏㄜˊ", "ㄌㄧˇ"], "這顯得不合理"),
+            (vec!["ㄓㄜˋ", "ㄒㄧㄢˇ", "˙ㄉㄜ", "ㄅㄨˋ", "ㄏㄜˊ", "ㄌㄧˇ"], "這顯得不合理"),
+            (vec!["ㄒㄧㄢ", "ㄕㄨㄛ", "ㄇㄧㄢˇ", "ㄉㄜˊ", "ㄨˋ", "ㄏㄨㄟˋ"], "先說免得誤會"),
+            (vec!["ㄒㄧㄢ", "ㄕㄨㄛ", "ㄇㄧㄢˇ", "˙ㄉㄜ", "ㄨˋ", "ㄏㄨㄟˋ"], "先說免得誤會"),
+            (vec!["ㄕㄥˇ", "ㄉㄜˊ", "ㄇㄚˊ", "ㄈㄢˊ", "ㄉㄚˋ", "ㄐㄧㄚ"], "省得麻煩大家"),
+            (vec!["ㄕㄥˇ", "˙ㄉㄜ", "ㄇㄚˊ", "ㄈㄢˊ", "ㄉㄚˋ", "ㄐㄧㄚ"], "省得麻煩大家"),
+            (vec!["ㄓㄣ", "ㄕˋ", "ㄋㄢˊ", "ㄉㄜˊ", "ㄧˊ", "ㄐㄧㄢˋ"], "真是難得一見"),
+            (vec!["ㄓㄣ", "ㄕˋ", "ㄋㄢˊ", "˙ㄉㄜ", "ㄧˊ", "ㄐㄧㄢˋ"], "真是難得一見"),
+            (vec!["ㄊㄚ", "ㄌㄜˋ", "ㄉㄜˊ", "ㄑㄧㄥ", "ㄒㄧㄢˊ"], "他樂得清閒"),
+            (vec!["ㄊㄚ", "ㄌㄜˋ", "˙ㄉㄜ", "ㄑㄧㄥ", "ㄒㄧㄢˊ"], "他樂得清閒"),
+            (vec!["ㄨㄛˇ", "ㄌㄢˇ", "ㄉㄜˊ", "ㄌㄧˇ", "ㄏㄨㄟˋ", "ㄊㄚ"], "我懶得理會他"),
+            (vec!["ㄨㄛˇ", "ㄌㄢˇ", "˙ㄉㄜ", "ㄌㄧˇ", "ㄏㄨㄟˋ", "ㄊㄚ"], "我懶得理會他"),
+            (vec!["ㄊㄚ", "ㄅㄨˋ", "ㄕㄜˇ", "ㄉㄜˊ", "ㄏㄨㄚ", "ㄑㄧㄢˊ"], "他不捨得花錢"),
+            (vec!["ㄊㄚ", "ㄅㄨˋ", "ㄕㄜˇ", "˙ㄉㄜ", "ㄏㄨㄚ", "ㄑㄧㄢˊ"], "他不捨得花錢"),
+            (vec!["ㄅㄨˋ", "ㄉㄨㄥˇ", "ㄉㄜˊ", "ㄓㄣ", "ㄒㄧˊ"], "不懂得珍惜"),
+            (vec!["ㄅㄨˋ", "ㄉㄨㄥˇ", "˙ㄉㄜ", "ㄓㄣ", "ㄒㄧˊ"], "不懂得珍惜"),
+
+            // 2. 使用者 12 句對比測試 + 延伸防過擬合對比組
+            (vec!["ㄆㄧㄥˊ", "ㄍㄢˇ", "ㄐㄩㄝˊ", "˙ㄉㄜ", "ㄕˋ", "ㄑㄧㄥˊ"], "憑感覺的事情"),
+            (vec!["ㄆㄧㄥˊ", "ㄐㄩㄣ", "ㄓˊ", "˙ㄉㄜ", "ㄐㄧˋ", "ㄙㄨㄢˋ"], "平均值的計算"),
+            (vec!["ㄧㄠˋ", "ㄐㄧˋ", "˙ㄉㄜ", "ㄕˋ", "ㄑㄧㄥˊ", "ㄓㄣ", "ㄉㄨㄛ"], "要記的事情真多"),
+            (vec!["ㄅㄨˋ", "ㄉㄨㄥˇ", "˙ㄉㄜ", "ㄧㄠˋ", "ㄨㄣˋ"], "不懂的要問"),
+            (vec!["ㄆㄛˋ", "ㄒㄧㄠˇ", "˙ㄉㄜ", "ㄋㄚˋ", "ㄧˊ", "ㄎㄜˋ"], "破曉的那一刻"),
+            (vec!["ㄌㄧㄥˋ", "ㄖㄣˊ", "ㄅㄨˋ", "ㄕㄜˇ", "˙ㄉㄜ", "ㄒㄧㄥˊ", "ㄨㄟˊ"], "令人不捨的行為"),
+            (vec!["ㄘㄨㄛˋ", "ㄖㄣˋ", "˙ㄉㄜ", "ㄉㄨㄟˋ", "ㄒㄧㄤˋ"], "錯認的對象"),
+            (vec!["ㄇㄧㄥˊ", "ㄒㄧㄢˇ", "˙ㄉㄜ", "ㄘㄨㄛˋ", "ㄨˋ"], "明顯的錯誤"),
+            (vec!["ㄗㄨㄥˇ", "ㄕˋ", "ㄋㄢˊ", "ㄇㄧㄢˇ", "˙ㄉㄜ"], "總是難免的"),
+            (vec!["ㄊㄞˊ", "ㄨㄢ", "ㄕㄥˇ", "˙ㄉㄜ", "ㄕˊ", "ㄉㄞˋ"], "台灣省的時代"),
+            (vec!["ㄧㄡˇ", "ㄕㄣˊ", "˙ㄇㄜ", "ㄋㄢˊ", "˙ㄉㄜ"], "有什麼難的"),
+            (vec!["ㄎㄨㄞˋ", "ㄌㄜˋ", "˙ㄉㄜ", "ㄕˋ"], "快樂的事"),
+            (vec!["ㄊㄡ", "ㄌㄢˇ", "˙ㄉㄜ", "ㄐㄧㄝˋ", "ㄎㄡˇ"], "偷懶的藉口"),
+            (vec!["ㄓㄢˇ", "ㄌㄢˇ", "˙ㄉㄜ", "ㄋㄟˋ", "ㄖㄨㄥˊ"], "展覽的內容"),
+            (vec!["ㄗㄠˋ", "ㄔㄥˊ", "ㄅㄨˋ", "ㄒㄧㄠˇ", "˙ㄉㄜ", "ㄧㄥˇ", "ㄒㄧㄤˇ"], "造成不小的影響"),
+            (vec!["ㄧˊ", "˙ㄍㄜ", "ㄒㄧㄠˇ", "˙ㄉㄜ", "ㄏㄜˊ", "˙ㄗ"], "一個小的盒子"),
+            (vec!["ㄋㄧˇ", "ㄉㄨㄥˇ", "˙ㄉㄜ", "ㄕˋ", "ㄑㄧㄥˊ"], "你懂的事情"),
+            (vec!["ㄧㄠˋ", "ㄐㄧˋ", "˙ㄉㄜ", "ㄔㄥˊ", "ㄈㄣˋ"], "藥劑的成分"),
+            (vec!["ㄓㄜˋ", "ㄐㄧㄢˋ", "ㄕˋ", "ㄓㄣ", "˙ㄉㄜ", "ㄕˋ"], "這件事真的是"),
+            (vec!["ㄧㄡˇ", "˙ㄉㄜ", "ㄕˋ"], "有的是"),
+
+            // 3. 邁向 / 賣相 與 收為 / 微詞 實戰句與對比組
+            (
+                vec![
+                    "ㄎㄢˋ", "ㄌㄞˊ", "ㄖㄨˊ", "ㄒㄧˇ", "ㄕㄨ", "ㄖㄨˋ", "ㄈㄚˇ",
+                    "ㄇㄞˋ", "ㄒㄧㄤˋ", "ㄧˊ", "˙ㄍㄜ", "ㄒㄧㄣ", "˙ㄉㄜ", "ㄎㄜ", "ㄒㄩㄝˊ",
+                    "ㄐㄧㄝ", "ㄉㄨㄢˋ",
+                ],
+                "看來如喜輸入法邁向一個新的科學階段",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄆㄢˊ", "ㄘㄞˋ", "˙ㄉㄜ", "ㄇㄞˋ", "ㄒㄧㄤˋ", "ㄅㄨˊ", "ㄘㄨㄛˋ"],
+                "這盤菜的賣相不錯",
+            ),
+            (
+                vec![
+                    "ㄙㄨㄟ", "ㄖㄢˊ", "ㄐㄧㄠˋ", "ㄩˋ", "ㄅㄨˋ", "ㄐㄧㄤ", "ㄘˇ",
+                    "ㄕㄡ", "ㄨㄟˊ", "ㄘˊ", "ㄏㄨㄟˋ",
+                ],
+                "雖然教育部將此收為詞彙",
+            ),
+            (
+                vec![
+                    "ㄉㄚˋ", "ㄐㄧㄚ", "ㄉㄨㄟˋ", "ㄓㄜˋ", "ㄐㄧㄢˋ", "ㄕˋ",
+                    "ㄆㄛˇ", "ㄧㄡˇ", "ㄨㄟˊ", "ㄘˊ",
+                ],
+                "大家對這件事頗有微詞",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+    }
+
+    #[test]
+    fn test_round6_s5_strategy_and_seven_live_fixes_261120() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec![
+                    "ㄐㄧㄡˋ", "ㄧ", "ㄐㄩˋ", "ㄎㄜ", "ㄒㄩㄝˊ", "ㄊㄨㄥˇ", "ㄐㄧˋ",
+                    "˙ㄉㄜ", "ㄐㄧㄝˊ", "ㄍㄨㄛˇ", "ㄓㄨˊ", "ㄅㄨˋ", "ㄊㄨㄟ", "ㄐㄧㄣˋ",
+                ],
+                "就依據科學統計的結果逐步推進",
+            ),
+            (
+                vec!["ㄧ", "ㄐㄩˋ", "ㄏㄣˇ", "ㄆㄨˇ", "ㄊㄨㄥ", "˙ㄉㄜ", "ㄏㄨㄚˋ"],
+                "一句很普通的話",
+            ),
+            (
+                vec![
+                    "ㄑㄧˋ", "˙ㄉㄜ", "ㄧˊ", "ㄐㄩˋ", "ㄏㄨㄚˋ", "ㄉㄡ", "ㄕㄨㄛ",
+                    "ㄅㄨˋ", "ㄔㄨ", "ㄌㄞˊ",
+                ],
+                "氣得一句話都說不出來",
+            ),
+            (
+                vec!["ㄨㄣˊ", "ㄧㄢˊ", "ㄨㄣˊ", "ㄕㄨ", "ㄖㄨˋ", "ㄅㄨˋ", "ㄔㄨ", "ㄘㄨㄛˋ"],
+                "文言文輸入不出錯",
+            ),
+            (
+                vec!["ㄕㄜˋ", "ㄉㄧㄥˋ", "ㄨㄤˇ", "ㄌㄨˋ", "ㄕㄨ", "ㄖㄨˋ", "ㄅㄨˋ", "ㄏㄠˋ"],
+                "設定網路輸入埠號",
+            ),
+            (
+                vec![
+                    "ㄅㄨˊ", "ㄍㄨㄛˋ", "ㄕˋ", "ㄍㄞ", "ㄏㄢˋ", "ㄗˋ", "˙ㄉㄜ",
+                    "ㄔㄤˊ", "ㄐㄧㄢˋ", "ㄌㄧㄢˊ", "ㄐㄧㄝˊ",
+                ],
+                "不過是該漢字的常見連結",
+            ),
+            (
+                vec![
+                    "ㄒㄧㄢ", "ㄆㄠˇ", "ㄧˊ", "ㄒㄧㄚˋ", "ㄊㄨㄥˇ", "ㄐㄧˋ", "ㄧˇ",
+                    "ㄑㄩㄝˋ", "ㄉㄧㄥˋ", "ㄌㄧˋ", "ㄅㄧˋ", "ㄉㄜˊ", "ㄕ",
+                ],
+                "先跑一下統計以確定利弊得失",
+            ),
+            (
+                vec!["ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄧˇ", "ㄑㄩㄝˋ", "ㄉㄧㄥˋ", "ㄨㄢˊ", "ㄔㄥˊ"],
+                "現在已確定完成",
+            ),
+            (
+                vec!["ㄏㄢˋ", "ㄗˋ", "ㄒㄧˋ", "ㄊㄨㄥˇ", "˙ㄉㄜ", "ㄩㄢˊ", "ㄒㄧㄥˊ"],
+                "漢字系統的原型",
+            ),
+            (
+                vec!["ㄏㄨㄚˋ", "ㄧˊ", "˙ㄍㄜ", "ㄩㄢˊ", "ㄒㄧㄥˊ"],
+                "畫一個圓形",
+            ),
+            (
+                vec![
+                    "ㄌㄧㄤˋ", "ㄗˇ", "ㄐㄧˋ", "ㄙㄨㄢˋ", "ㄐㄧ", "ㄩˇ", "ㄕㄣˊ",
+                    "ㄐㄧㄥ", "ㄒㄧㄥˊ", "ㄊㄞˋ", "ㄐㄧㄥ", "ㄆㄧㄢˋ",
+                ],
+                "量子計算機與神經形態晶片",
+            ),
+            (
+                vec![
+                    "ㄎㄨㄚˋ", "ㄩˋ", "ㄩˇ", "ㄙㄨˋ", "ㄧㄣ", "ㄕˋ", "ㄈㄣ", "ㄐㄧㄝˇ",
+                    "ㄊㄨㄛˋ", "ㄆㄨ", "ㄇㄛˊ", "ㄒㄧㄥˊ",
+                ],
+                "跨域語素因式分解拓撲模型",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+    }
+
+    #[test]
+    fn test_round7_route_c_classical_register_prototype_261120() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+        let engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        let dag_builder = crate::router::LatticeDAG::new(&engine.lexicon);
+
+        let detect_auto_active = |bpms: &[&str]| -> bool {
+            let syls: Vec<crate::fsm::HsuSyllable> = bpms
+                .iter()
+                .map(|b| crate::fsm::HsuSyllable::from_bopomofo_display(b).expect(b))
+                .collect();
+            let dag = dag_builder.build_dag(&syls, true);
+            crate::router::ClassicalRegisterProfile::detect(
+                crate::router::ClassicalRegisterMode::Auto,
+                syls.len(),
+                &dag,
+            )
+            .active
+        };
+
+        // 1. Auto 偵測正向啟動驗證（文言句式）
+        let classical_detect_cases: &[&[&str]] = &[
+            // 知之為知之不知為不知是知也
+            &["ㄓ", "ㄓ", "ㄨㄟˊ", "ㄓ", "ㄓ", "ㄅㄨˋ", "ㄓ", "ㄨㄟˊ", "ㄅㄨˋ", "ㄓ", "ㄕˋ", "ㄓ", "ㄧㄝˇ"],
+            // 道可道非常道名可名非常名
+            &["ㄉㄠˋ", "ㄎㄜˇ", "ㄉㄠˋ", "ㄈㄟ", "ㄔㄤˊ", "ㄉㄠˋ", "ㄇㄧㄥˊ", "ㄎㄜˇ", "ㄇㄧㄥˊ", "ㄈㄟ", "ㄔㄤˊ", "ㄇㄧㄥˊ"],
+            // 生於憂患而死於安樂
+            &["ㄕㄥ", "ㄩˊ", "ㄧㄡ", "ㄏㄨㄢˋ", "ㄦˊ", "ㄙˇ", "ㄩˊ", "ㄢ", "ㄌㄜˋ"],
+            // 己所不欲勿施於人
+            &["ㄐㄧˇ", "ㄙㄨㄛˇ", "ㄅㄨˋ", "ㄩˋ", "ㄨˋ", "ㄕ", "ㄩˊ", "ㄖㄣˊ"],
+            // 學而不思則罔思而不學則殆
+            &["ㄒㄩㄝˊ", "ㄦˊ", "ㄅㄨˋ", "ㄙ", "ㄗㄜˊ", "ㄨㄤˇ", "ㄙ", "ㄦˊ", "ㄅㄨˋ", "ㄒㄩㄝˊ", "ㄗㄜˊ", "ㄉㄞˋ"],
+        ];
+        for bpms in classical_detect_cases {
+            assert!(
+                detect_auto_active(bpms),
+                "預期 Auto 應啟動文言單字語境：{:?}",
+                bpms
+            );
+        }
+
+        // 2. Auto 偵測否定條件驗證（現代白話句式不得誤啟動）
+        let modern_veto_cases: &[&[&str]] = &[
+            // 我們今天需要設定網路輸入埠號
+            &["ㄨㄛˇ", "˙ㄇㄣ", "ㄐㄧㄣ", "ㄊㄧㄢ", "ㄒㄩ", "ㄧㄠˋ", "ㄕㄜˋ", "ㄉㄧㄥˋ", "ㄨㄤˇ", "ㄌㄨˋ", "ㄕㄨ", "ㄖㄨˋ", "ㄅㄨˋ", "ㄏㄠˋ"],
+            // 不過是該漢字的常見連結
+            &["ㄅㄨˊ", "ㄍㄨㄛˋ", "ㄕˋ", "ㄍㄞ", "ㄏㄢˋ", "ㄗˋ", "˙ㄉㄜ", "ㄔㄤˊ", "ㄐㄧㄢˋ", "ㄌㄧㄢˊ", "ㄐㄧㄝˊ"],
+            // 就依據科學統計的結果逐步推進
+            &["ㄐㄧㄡˋ", "ㄧ", "ㄐㄩˋ", "ㄎㄜ", "ㄒㄩㄝˊ", "ㄊㄨㄥˇ", "ㄐㄧˋ", "˙ㄉㄜ", "ㄐㄧㄝˊ", "ㄍㄨㄛˇ", "ㄓㄨˊ", "ㄅㄨˋ", "ㄊㄨㄟ", "ㄐㄧㄣˋ"],
+            // 我有需要新的（APK時再更新就行）
+            &["ㄨㄛˇ", "ㄧㄡˇ", "ㄒㄩ", "ㄧㄠˋ", "ㄒㄧㄣ", "˙ㄉㄜ", "ㄕˊ", "ㄗㄞˋ", "ㄍㄥ", "ㄒㄧㄣ", "ㄐㄧㄡˋ", "ㄒㄧㄥˊ"],
+        ];
+        for bpms in modern_veto_cases {
+            assert!(
+                !detect_auto_active(bpms),
+                "現代白話語境不應啟動 Auto 文言模式：{:?}",
+                bpms
+            );
+        }
+
+        // 3. Auto 與 ClassicalExplicit 端到端鍵盤輸入解碼驗證
+        let classical_eval_cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec!["ㄓ", "ㄓ", "ㄨㄟˊ", "ㄓ", "ㄓ", "ㄅㄨˋ", "ㄓ", "ㄨㄟˊ", "ㄅㄨˋ", "ㄓ", "ㄕˋ", "ㄓ", "ㄧㄝˇ"],
+                "知之為知之不知為不知是知也",
+            ),
+            (
+                vec!["ㄉㄠˋ", "ㄎㄜˇ", "ㄉㄠˋ", "ㄈㄟ", "ㄔㄤˊ", "ㄉㄠˋ", "ㄇㄧㄥˊ", "ㄎㄜˇ", "ㄇㄧㄥˊ", "ㄈㄟ", "ㄔㄤˊ", "ㄇㄧㄥˊ"],
+                "道可道非常道名可名非常名",
+            ),
+            (
+                vec!["ㄐㄧˇ", "ㄙㄨㄛˇ", "ㄅㄨˋ", "ㄩˋ", "ㄨˋ", "ㄕ", "ㄩˊ", "ㄖㄣˊ"],
+                "己所不欲勿施於人",
+            ),
+            (
+                vec!["ㄊㄧㄢ", "ㄐㄧㄤ", "ㄐㄧㄤˋ", "ㄉㄚˋ", "ㄖㄣˋ", "ㄩˊ", "ㄙ", "ㄖㄣˊ", "ㄧㄝˇ"],
+                "天將降大任於斯人也",
+            ),
+            (
+                vec!["ㄕㄥ", "ㄩˊ", "ㄧㄡ", "ㄏㄨㄢˋ", "ㄦˊ", "ㄙˇ", "ㄩˊ", "ㄢ", "ㄌㄜˋ"],
+                "生於憂患而死於安樂",
+            ),
+            (
+                vec!["ㄨㄣ", "ㄍㄨˋ", "ㄦˊ", "ㄓ", "ㄒㄧㄣ", "ㄎㄜˇ", "ㄧˇ", "ㄨㄟˊ", "ㄕ", "ㄧˇ"],
+                "溫故而知新可以為師矣",
+            ),
+            (
+                vec!["ㄒㄩㄝˊ", "ㄦˊ", "ㄅㄨˋ", "ㄙ", "ㄗㄜˊ", "ㄨㄤˇ", "ㄙ", "ㄦˊ", "ㄅㄨˋ", "ㄒㄩㄝˊ", "ㄗㄜˊ", "ㄉㄞˋ"],
+                "學而不思則罔思而不學則殆",
+            ),
+            (
+                vec!["ㄑㄧㄥ", "ㄔㄨ", "ㄩˊ", "ㄌㄢˊ", "ㄦˊ", "ㄕㄥˋ", "ㄩˊ", "ㄌㄢˊ"],
+                "青出於藍而勝於藍",
+            ),
+            (
+                vec!["ㄖㄣˊ", "ㄓㄜˇ", "ㄐㄧㄢˋ", "ㄖㄣˊ", "ㄓˋ", "ㄓㄜˇ", "ㄐㄧㄢˋ", "ㄓˋ"],
+                "仁者見仁智者見智",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases_with_classical_mode(
+            crate::router::ClassicalRegisterMode::Auto,
+            &classical_eval_cases,
+        );
+        assert_bopomofo_dual_mode_cases_with_classical_mode(
+            crate::router::ClassicalRegisterMode::ClassicalExplicit,
+            &classical_eval_cases,
+        );
+
+        let explicit_eval_cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec!["ㄕㄨㄟˇ", "ㄋㄥˊ", "ㄗㄞˋ", "ㄓㄡ", "ㄧˋ", "ㄋㄥˊ", "ㄈㄨˋ", "ㄓㄡ"],
+                "水能載舟亦能覆舟",
+            ),
+            (
+                vec!["ㄇㄧㄣˊ", "ㄨㄟˊ", "ㄍㄨㄟˋ", "ㄕㄜˋ", "ㄐㄧˋ", "ㄘˋ", "ㄓ", "ㄐㄩㄣ", "ㄨㄟˊ", "ㄑㄧㄥ"],
+                "民為貴社稷次之君為輕",
+            ),
+            (
+                vec!["ㄕ", "ㄓ", "ㄏㄠˊ", "ㄌㄧˊ", "ㄇㄧㄡˋ", "ㄧˇ", "ㄑㄧㄢ", "ㄌㄧˇ"],
+                "失之毫釐謬以千里",
+            ),
+            (
+                vec!["ㄔㄣˊ", "ㄅㄣˇ", "ㄅㄨˋ", "ㄧ", "ㄍㄨㄥ", "ㄍㄥ", "ㄩˊ", "ㄋㄢˊ", "ㄧㄤˊ"],
+                "臣本布衣躬耕於南陽",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases_with_classical_mode(
+            crate::router::ClassicalRegisterMode::ClassicalExplicit,
+            &explicit_eval_cases,
+        );
+
+        let modern_guard_cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec!["ㄨㄛˇ", "˙ㄇㄣ", "ㄐㄧㄣ", "ㄊㄧㄢ", "ㄒㄩ", "ㄧㄠˋ", "ㄕㄜˋ", "ㄉㄧㄥˋ", "ㄨㄤˇ", "ㄌㄨˋ", "ㄕㄨ", "ㄖㄨˋ", "ㄅㄨˋ", "ㄏㄠˋ"],
+                "我們今天需要設定網路輸入埠號",
+            ),
+            (
+                vec!["ㄅㄨˊ", "ㄍㄨㄛˋ", "ㄕˋ", "ㄍㄞ", "ㄏㄢˋ", "ㄗˋ", "˙ㄉㄜ", "ㄔㄤˊ", "ㄐㄧㄢˋ", "ㄌㄧㄢˊ", "ㄐㄧㄝˊ"],
+                "不過是該漢字的常見連結",
+            ),
+            (
+                vec!["ㄐㄧㄡˋ", "ㄧ", "ㄐㄩˋ", "ㄎㄜ", "ㄒㄩㄝˊ", "ㄊㄨㄥˇ", "ㄐㄧˋ", "˙ㄉㄜ", "ㄐㄧㄝˊ", "ㄍㄨㄛˇ", "ㄓㄨˊ", "ㄅㄨˋ", "ㄊㄨㄟ", "ㄐㄧㄣˋ"],
+                "就依據科學統計的結果逐步推進",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases_with_classical_mode(
+            crate::router::ClassicalRegisterMode::Auto,
+            &modern_guard_cases,
+        );
+    }
+
+    #[test]
+    fn test_round8_nine_live_constructions_and_contrasts_261120() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            // 1. 「時可以關閉」vs 對照「功能已關閉／他口渴已久」
+            (
+                vec!["ㄕˇ", "ㄩㄥˋ", "ㄓㄜˇ", "ㄐㄩㄝˊ", "˙ㄉㄜ", "ㄏㄣˇ", "ㄗㄠ", "ㄍㄠ", "ㄕˊ", "ㄎㄜˇ", "ㄧˇ", "ㄍㄨㄢ", "ㄅㄧˋ"],
+                "使用者覺得很糟糕時可以關閉",
+            ),
+            (
+                vec!["ㄍㄨㄥ", "ㄋㄥˊ", "ㄧˇ", "ㄍㄨㄢ", "ㄅㄧˋ"],
+                "功能已關閉",
+            ),
+            (
+                vec!["ㄊㄚ", "ㄎㄡˇ", "ㄎㄜˇ", "ㄧˇ", "ㄐㄧㄡˇ"],
+                "他口渴已久",
+            ),
+            // 2. 「檔案建立日期／由新到舊」（含 ㄉㄤˇ／ㄉㄤˋ 音讀）vs 對照「這個按鍵很靈敏」
+            (
+                vec!["ㄨㄛˇ", "ㄗㄨㄟˋ", "ㄒㄩ", "ㄧㄠˋ", "˙ㄉㄜ", "ㄕˋ", "ㄉㄤˇ", "ㄢˋ", "ㄐㄧㄢˋ", "ㄌㄧˋ", "ㄖˋ", "ㄑㄧˊ", "ㄧㄡˊ", "ㄒㄧㄣ", "ㄉㄠˋ", "ㄐㄧㄡˋ"],
+                "我最需要的是檔案建立日期由新到舊",
+            ),
+            (
+                vec!["ㄉㄤˋ", "ㄢˋ", "ㄐㄧㄢˋ", "ㄌㄧˋ", "ㄖˋ", "ㄑㄧˊ", "ㄧㄡˊ", "ㄒㄧㄣ", "ㄉㄠˋ", "ㄐㄧㄡˋ"],
+                "檔案建立日期由新到舊",
+            ),
+            (
+                vec!["ㄓㄜˋ", "˙ㄍㄜ", "ㄢˋ", "ㄐㄧㄢˋ", "ㄏㄣˇ", "ㄌㄧㄥˊ", "ㄇㄧㄣˇ"],
+                "這個按鍵很靈敏",
+            ),
+            // 3. 「已到貨」vs 對照「他已經到或者還沒來」
+            (
+                vec!["ㄧˇ", "ㄉㄠˋ", "ㄏㄨㄛˋ", "ㄈㄟ", "ㄔㄤˊ", "ㄍㄢˇ", "ㄒㄧㄝˋ"],
+                "已到貨非常感謝",
+            ),
+            (
+                vec!["ㄊㄚ", "ㄧˇ", "ㄐㄧㄥ", "ㄉㄠˋ", "ㄏㄨㄛˋ", "ㄓㄜˇ", "ㄏㄞˊ", "ㄇㄟˊ", "ㄌㄞˊ"],
+                "他已經到或者還沒來",
+            ),
+            // 4. 「這不是我的假設」（含 ㄅㄨˊ／ㄅㄨˋ）vs 對照「這部電影很精彩／這部是好電影」
+            (
+                vec!["ㄓㄜˋ", "ㄅㄨˊ", "ㄕˋ", "ㄨㄛˇ", "˙ㄉㄜ", "ㄐㄧㄚˇ", "ㄕㄜˋ"],
+                "這不是我的假設",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄅㄨˋ", "ㄕˋ", "ㄨㄛˇ", "˙ㄉㄜ", "ㄐㄧㄚˇ", "ㄕㄜˋ"],
+                "這不是我的假設",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄅㄨˋ", "ㄉㄧㄢˋ", "ㄧㄥˇ", "ㄏㄣˇ", "ㄐㄧㄥ", "ㄘㄞˇ"],
+                "這部電影很精彩",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄅㄨˋ", "ㄕˋ", "ㄏㄠˇ", "ㄉㄧㄢˋ", "ㄧㄥˇ"],
+                "這部是好電影",
+            ),
+            // 5. 「要作出一個正確的語言消長動畫應該不難」vs 對照「他坐在位子上」
+            (
+                vec!["ㄓㄠˋ", "ㄌㄧˇ", "ㄕㄨㄛ", "ㄋㄧㄣˊ", "ㄧㄠˋ", "ㄗㄨㄛˋ", "ㄔㄨ", "ㄧˊ", "˙ㄍㄜ", "ㄓㄥˋ", "ㄑㄩㄝˋ", "˙ㄉㄜ", "ㄩˇ", "ㄧㄢˊ", "ㄒㄧㄠ", "ㄓㄤˇ", "ㄉㄨㄥˋ", "ㄏㄨㄚˋ", "ㄧㄥ", "ㄍㄞ", "ㄅㄨˋ", "ㄋㄢˊ"],
+                "照理說您要作出一個正確的語言消長動畫應該不難",
+            ),
+            (
+                vec!["ㄊㄚ", "ㄗㄨㄛˋ", "ㄗㄞˋ", "ㄨㄟˋ", "˙ㄗ", "ㄕㄤˋ"],
+                "他坐在位子上",
+            ),
+            // 6. 「傳統影片是死的若是做成互動網頁應該更讚」vs 對照「他展現了誓死的決心」
+            (
+                vec!["ㄔㄨㄢˊ", "ㄊㄨㄥˇ", "ㄧㄥˇ", "ㄆㄧㄢˋ", "ㄕˋ", "ㄙˇ", "˙ㄉㄜ", "ㄖㄨㄛˋ", "ㄕˋ", "ㄗㄨㄛˋ", "ㄔㄥˊ", "ㄏㄨˋ", "ㄉㄨㄥˋ", "ㄨㄤˇ", "ㄧㄝˋ", "ㄧㄥ", "ㄍㄞ", "ㄍㄥˋ", "ㄗㄢˋ"],
+                "傳統影片是死的若是做成互動網頁應該更讚",
+            ),
+            (
+                vec!["ㄊㄚ", "ㄓㄢˇ", "ㄒㄧㄢˋ", "˙ㄌㄜ", "ㄕˋ", "ㄙˇ", "˙ㄉㄜ", "ㄐㄩㄝˊ", "ㄒㄧㄣ"],
+                "他展現了誓死的決心",
+            ),
+            // 7. 「根本也不需要我花半毛錢」vs 對照「這朵花的花瓣很美」
+            (
+                vec!["ㄍㄣ", "ㄅㄣˇ", "ㄧㄝˇ", "ㄅㄨˋ", "ㄒㄩ", "ㄧㄠˋ", "ㄨㄛˇ", "ㄏㄨㄚ", "ㄅㄢˋ", "ㄇㄠˊ", "ㄑㄧㄢˊ"],
+                "根本也不需要我花半毛錢",
+            ),
+            (
+                vec!["ㄓㄜˋ", "ㄉㄨㄛˇ", "ㄏㄨㄚ", "˙ㄉㄜ", "ㄏㄨㄚ", "ㄅㄢˋ", "ㄏㄣˇ", "ㄇㄟˇ"],
+                "這朵花的花瓣很美",
+            ),
+            // 8. 「感謝那問個很實在的問題」vs 對照「他很實在地點出核心」
+            (
+                vec!["ㄍㄢˇ", "ㄒㄧㄝˋ", "ㄋㄚˋ", "ㄨㄣˋ", "˙ㄍㄜ", "ㄏㄣˇ", "ㄕˊ", "ㄗㄞˋ", "˙ㄉㄜ", "ㄨㄣˋ", "ㄊㄧˊ"],
+                "感謝那問個很實在的問題",
+            ),
+            (
+                vec!["ㄊㄚ", "ㄏㄣˇ", "ㄕˊ", "ㄗㄞˋ", "˙ㄉㄜ", "ㄉㄧㄢˇ", "ㄔㄨ", "ㄏㄜˊ", "ㄒㄧㄣ"],
+                "他很實在地點出核心",
+            ),
+            // 9. 「現在要買台正經的掃描器還真難」vs 對照「最近國際政經局勢變化很大」
+            (
+                vec!["ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄧㄠˋ", "ㄇㄞˇ", "ㄊㄞˊ", "ㄓㄥˋ", "ㄐㄧㄥ", "˙ㄉㄜ", "ㄙㄠˇ", "ㄇㄧㄠˊ", "ㄑㄧˋ", "ㄏㄞˊ", "ㄓㄣ", "ㄋㄢˊ"],
+                "現在要買台正經的掃描器還真難",
+            ),
+            (
+                vec!["ㄗㄨㄟˋ", "ㄐㄧㄣˋ", "ㄍㄨㄛˊ", "ㄐㄧˋ", "ㄓㄥˋ", "ㄐㄧㄥ", "ㄐㄩˊ", "ㄕˋ", "ㄅㄧㄢˋ", "ㄏㄨㄚˋ", "ㄏㄣˇ", "ㄉㄚˋ"],
+                "最近國際政經局勢變化很大",
+            ),
+        ];
+
+        assert_bopomofo_dual_mode_cases_with_classical_mode(
+            crate::router::ClassicalRegisterMode::Auto,
+            &cases,
         );
     }
 }

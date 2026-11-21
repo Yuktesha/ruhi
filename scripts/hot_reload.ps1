@@ -69,6 +69,9 @@ foreach ($t in $targetPaths) {
 }
 
 $updatedCount = 0
+$patchedProcs = [System.Collections.Generic.List[string]]::new()
+$skippedAbiProcs = [System.Collections.Generic.List[string]]::new()
+$abiExportMissing = $false
 
 # 4. 執行核心熱替換程序（以 try-finally 鐵律絕對守護 ctfmon 生命週期）
 try {
@@ -627,7 +630,8 @@ public class RuhiLiveBridge {
             }
 
             if ($newAbiHash -eq 0) {
-                Write-Host "  [警告] 新建置 DLL 缺少 ruhi_tsf_abi_layout_hash 驗證匯出，略過跨程序虛擬函式表熱修補；新開啟應用程式將自動載入新版。" -ForegroundColor Yellow
+                $abiExportMissing = $true
+                Write-Host "  [提示] 新建置 DLL 缺少 ruhi_tsf_abi_layout_hash 驗證匯出，略過跨程序虛擬函式表熱修補；新開啟應用程式將自動載入新版。" -ForegroundColor Yellow
             } else {
                 $curSession = (Get-Process -Id $PID).SessionId
                 $versionedLeaf = Split-Path -Leaf $versionedDll
@@ -637,12 +641,13 @@ public class RuhiLiveBridge {
                         $oldMods = @($proc.Modules | Where-Object { $_.ModuleName -like "ruhi_tsf*.dll" -and $_.ModuleName -ne $versionedLeaf })
                         if ($oldMods.Count -gt 0) {
                             $compatibleMods = @()
+                            $incompatibleMods = @()
                             foreach ($om in $oldMods) {
                                 $oldHash = [RuhiLiveBridge]::GetAbiLayoutHash($om.FileName)
                                 if ($oldHash -eq $newAbiHash) {
                                     $compatibleMods += $om
                                 } else {
-                                    Write-Host ("  [警告] 程序 {0} (PID={1}) 所載入之舊版 {2} ABI 雜湊不相符 (old={3}, new={4})，為確保記憶體安全已略過熱修補，請重新啟動該應用程式。" -f $proc.ProcessName, $proc.Id, $om.ModuleName, $oldHash, $newAbiHash) -ForegroundColor Yellow
+                                    $incompatibleMods += $om
                                 }
                             }
                             if ($compatibleMods.Count -gt 0) {
@@ -656,11 +661,20 @@ public class RuhiLiveBridge {
                                             [RuhiLiveBridge]::PatchModuleDllGetClassObject($proc.Id, $om.BaseAddress, $newAddr) | Out-Null
                                             [RuhiLiveBridge]::PatchModuleVtables($proc.Id, $om.BaseAddress, $newMod.BaseAddress) | Out-Null
                                         }
+                                        $patchedProcs.Add("$($proc.ProcessName) (PID=$($proc.Id))")
                                     }
                                 }
+                            } elseif ($incompatibleMods.Count -gt 0) {
+                                $skippedAbiProcs.Add("$($proc.ProcessName) (PID=$($proc.Id)，舊模組 $($incompatibleMods.Count) 份)")
                             }
                         }
                     } catch {}
+                }
+                if ($skippedAbiProcs.Count -gt 0) {
+                    Write-Host "  [提示] 因核心結構體 ABI 雜湊變更 (new=$newAbiHash)，為確保記憶體安全已略過以下 $($skippedAbiProcs.Count) 個執行中程序（重啟後即可載入新版）：" -ForegroundColor Yellow
+                    foreach ($sp in $skippedAbiProcs) {
+                        Write-Host "        - $sp" -ForegroundColor DarkYellow
+                    }
                 }
             }
         }
@@ -669,14 +683,27 @@ public class RuhiLiveBridge {
         [RuhiLiveBridge]::PurgeLegacyTrayIcons()
     } catch {}
 
-    Write-Host "  [4/4] 已安全重啟文字服務框架監聽 (ctfmon) 並完成全進程無感熱切換！" -ForegroundColor Green
+    if ($skippedAbiProcs.Count -eq 0 -and -not $abiExportMissing) {
+        Write-Host "  [4/4] 已安全重啟文字服務框架監聽 (ctfmon) 並完成全進程無感熱切換！" -ForegroundColor Green
+    } else {
+        Write-Host "  [4/4] 已完成新版 DLL 部署與詞庫廣播，並安全重啟文字服務框架監聽 (ctfmon)！" -ForegroundColor Green
+    }
 }
 
 Write-Host ""
 Write-Host "========================================================" -ForegroundColor Cyan
 if ($updatedCount -gt 0) {
-    Write-Host "  【大功告成！】最新版本 DLL 與完整詞庫已成功熱替換完成！" -ForegroundColor Green
-    Write-Host "  ★ 已啟用 InprocServer32 版本化熱加載，所有現有視窗免重啟即可生效！" -ForegroundColor Yellow
+    if ($skippedAbiProcs.Count -eq 0 -and -not $abiExportMissing) {
+        Write-Host "  【大功告成！】最新版本 DLL 與完整詞庫已成功熱替換完成！" -ForegroundColor Green
+        Write-Host "  ★ 已啟用 InprocServer32 版本化熱加載，所有現有視窗免重啟即可生效！" -ForegroundColor Yellow
+    } else {
+        Write-Host "  【部署完成！】最新版本 DLL 與完整詞庫已成功更新並切換註冊表！" -ForegroundColor Green
+        if ($abiExportMissing) {
+            Write-Host "  ★ 新開視窗將直接載入新版 DLL；因缺少 ABI 雜湊匯出，執行中程序需重啟後套用。" -ForegroundColor Yellow
+        } else {
+            Write-Host "  ★ 新開視窗已立即生效；上述 $($skippedAbiProcs.Count) 個既有程序需重啟（或重新登入 Windows）後方可套用新版引擎。" -ForegroundColor Yellow
+        }
+    }
 } else {
     Write-Host "  【提示】未更新任何目標，請檢查權限或建置輸出。" -ForegroundColor Yellow
 }

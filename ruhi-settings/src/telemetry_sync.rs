@@ -923,13 +923,18 @@ impl TelemetrySyncClient {
             out.push('\n');
         }
         let mut added = 0;
+        let cjk_len = |s: &str| -> usize {
+            s.chars()
+                .filter(|&c| ('\u{3400}'..='\u{9fff}').contains(&c) || ('\u{f900}'..='\u{faff}').contains(&c))
+                .count()
+        };
         for r in rules {
             let prev = r.get("prev").and_then(Value::as_str).unwrap_or("").trim();
             let next = r.get("next").and_then(Value::as_str).unwrap_or("").trim();
-            let score = r.get("score").and_then(Value::as_f64).unwrap_or(26.0);
+            let score = r.get("score").and_then(Value::as_f64).unwrap_or(26.0).clamp(-35.0, 35.0);
             let kind = r.get("kind").and_then(Value::as_str).unwrap_or("collocation");
             let cmt = r.get("comment").and_then(Value::as_str).unwrap_or("Tailcat");
-            if prev.is_empty() || next.is_empty() {
+            if prev.is_empty() || next.is_empty() || cjk_len(prev) >= 4 || cjk_len(next) >= 4 {
                 continue;
             }
             if !existing_pairs.contains(&(prev.to_string(), next.to_string())) {
