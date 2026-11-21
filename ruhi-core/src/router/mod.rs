@@ -11,6 +11,7 @@ pub mod onomastics;
 pub mod classical_register;
 pub mod ngram_lm;
 pub mod cache_lm;
+pub mod discourse_reranker;
 
 pub use lattice::{LatticeDAG, LatticeNode};
 pub use viterbi::{LatticeBackwardProfile, MultiCharBonusPolicy, ViterbiRouter};

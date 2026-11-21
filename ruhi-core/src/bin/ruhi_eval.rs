@@ -4922,6 +4922,162 @@ fn evaluate_longkan_mode(
     })
 }
 
+fn run_nbest_oracle_benchmark(
+    base_engine: &RuhiEngine,
+    compiled: &[CompiledSentence],
+    set_name: &str,
+    top_k: usize,
+) -> Value {
+    let n_threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(16);
+    let chunk_size = (compiled.len() + n_threads - 1) / n_threads.max(1);
+
+    struct OracleRec {
+        chars: usize,
+        top1_errors: usize,
+        oracle_errors: usize,
+        top1_exact: bool,
+        oracle_exact: bool,
+        pron_err_top1: bool,
+        pron_err_oracle_hit: bool,
+        latency_us: f64,
+    }
+
+    let chunks: Vec<Vec<OracleRec>> = std::thread::scope(|s| {
+        let mut handles = Vec::new();
+        for chunk in compiled.chunks(chunk_size.max(1)) {
+            let mut worker = base_engine.clone();
+            handles.push(s.spawn(move || {
+                let mut out = Vec::with_capacity(chunk.len());
+                let dag_builder = LatticeDAG::new(&worker.lexicon);
+                for cs in chunk {
+                    let t0 = Instant::now();
+                    let dag = dag_builder.build_dag(&cs.syllables, true);
+                    let nbest = worker.router.solve_nbest_paths(
+                        cs.syllables.len(),
+                        &dag,
+                        Some(&mut worker.transitions),
+                        top_k,
+                    );
+                    let (top1_nodes, _) = worker.router.solve_best_path(
+                        cs.syllables.len(),
+                        &dag,
+                        Some(&mut worker.transitions),
+                    );
+                    let elapsed_us = t0.elapsed().as_secs_f64() * 1_000_000.0;
+                    let gold = &cs.item.text;
+                    let chars = gold.chars().count();
+                    let top1_pred: String = top1_nodes.iter().map(|n| n.word.as_str()).collect();
+                    let top1_errors = char_levenshtein(&top1_pred, gold);
+                    let top1_exact = top1_errors == 0;
+
+                    let mut oracle_errors = top1_errors;
+                    let mut oracle_exact = top1_exact;
+                    for (cand_nodes, _) in &nbest {
+                        let cand_str: String = cand_nodes.iter().map(|n| n.word.as_str()).collect();
+                        let e = char_levenshtein(&cand_str, gold);
+                        if e < oracle_errors {
+                            oracle_errors = e;
+                        }
+                        if e == 0 {
+                            oracle_exact = true;
+                        }
+                    }
+
+                    let mut pron_err_top1 = false;
+                    if !top1_exact && top1_pred.chars().count() == chars {
+                        pron_err_top1 = top1_pred.chars().zip(gold.chars()).any(|(p, g)| {
+                            p != g && matches!(p, '他' | '她' | '它' | '牠') && matches!(g, '他' | '她' | '它' | '牠')
+                        });
+                    }
+                    let pron_err_oracle_hit = if pron_err_top1 {
+                        nbest.iter().any(|(cand_nodes, _)| {
+                            let s: String = cand_nodes.iter().map(|n| n.word.as_str()).collect();
+                            char_levenshtein(&s, gold) < top1_errors
+                        })
+                    } else {
+                        false
+                    };
+
+                    out.push(OracleRec {
+                        chars,
+                        top1_errors,
+                        oracle_errors,
+                        top1_exact,
+                        oracle_exact,
+                        pron_err_top1,
+                        pron_err_oracle_hit,
+                        latency_us: elapsed_us,
+                    });
+                }
+                out
+            }));
+        }
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+
+    let mut total_chars = 0usize;
+    let mut top1_err_sum = 0usize;
+    let mut oracle_err_sum = 0usize;
+    let mut top1_exact_cnt = 0usize;
+    let mut oracle_exact_cnt = 0usize;
+    let mut err_sentences = 0usize;
+    let mut oracle_recovered_exact = 0usize;
+    let mut pron_err_cnt = 0usize;
+    let mut pron_oracle_hit_cnt = 0usize;
+    let mut latencies = Vec::with_capacity(compiled.len());
+
+    for part in chunks {
+        for r in part {
+            total_chars += r.chars;
+            top1_err_sum += r.top1_errors;
+            oracle_err_sum += r.oracle_errors;
+            if r.top1_exact {
+                top1_exact_cnt += 1;
+            } else {
+                err_sentences += 1;
+                if r.oracle_exact {
+                    oracle_recovered_exact += 1;
+                }
+            }
+            if r.oracle_exact {
+                oracle_exact_cnt += 1;
+            }
+            if r.pron_err_top1 {
+                pron_err_cnt += 1;
+                if r.pron_err_oracle_hit {
+                    pron_oracle_hit_cnt += 1;
+                }
+            }
+            latencies.push(r.latency_us);
+        }
+    }
+
+    let n_sent = compiled.len().max(1);
+    json!({
+        "dataset": set_name,
+        "top_k": top_k,
+        "total_sentences": compiled.len(),
+        "total_chars": total_chars,
+        "top1_char_errors": top1_err_sum,
+        "top1_cer_percent": format!("{:.2}%", (top1_err_sum as f64 / total_chars.max(1) as f64) * 100.0),
+        "top1_exact_match": top1_exact_cnt,
+        "top1_sentence_accuracy_percent": format!("{:.2}%", (top1_exact_cnt as f64 / n_sent as f64) * 100.0),
+        "oracle_char_errors": oracle_err_sum,
+        "oracle_cer_percent": format!("{:.2}%", (oracle_err_sum as f64 / total_chars.max(1) as f64) * 100.0),
+        "oracle_exact_match": oracle_exact_cnt,
+        "oracle_sentence_accuracy_percent": format!("{:.2}%", (oracle_exact_cnt as f64 / n_sent as f64) * 100.0),
+        "erroneous_top1_sentences": err_sentences,
+        "oracle_exact_recall_on_top1_errors_percent": format!("{:.2}%", (oracle_recovered_exact as f64 / err_sentences.max(1) as f64) * 100.0),
+        "pronoun_error_sentences": pron_err_cnt,
+        "pronoun_oracle_improved_sentences": pron_oracle_hit_cnt,
+        "pronoun_oracle_recall_percent": format!("{:.2}%", (pron_oracle_hit_cnt as f64 / pron_err_cnt.max(1) as f64) * 100.0),
+        "nbest_latency_us": summarize_latency_us(&mut latencies),
+    })
+}
+
 fn run_longkan_benchmark(root: &Path) -> serde_json::Value {
     let data_dir = root.join("ruhi_lexicon").join("data");
     let t0 = Instant::now();
@@ -4990,6 +5146,7 @@ fn main() {
     let mut ngram_only = false;
     let mut do_gate = false;
     let mut init_gate_baseline = false;
+    let mut do_nbest_oracle = false;
     let mut commit_override: Option<String> = None;
 
     let mut i = 1;
@@ -5049,6 +5206,10 @@ fn main() {
             }
             "--ngram-only" => {
                 ngram_only = true;
+                i += 1;
+            }
+            "--nbest-oracle" => {
+                do_nbest_oracle = true;
                 i += 1;
             }
             _ => {
@@ -5170,6 +5331,22 @@ fn main() {
             std::process::exit(1);
         }
         let rep = run_perceptron_calibration(&engine, &compiled, &root, ngram_only);
+        if let Some(ref p) = out_path {
+            if let Some(parent) = p.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(p, serde_json::to_string_pretty(&rep).unwrap());
+        }
+        println!("{}", serde_json::to_string_pretty(&rep).unwrap());
+        return;
+    }
+
+    if do_nbest_oracle {
+        if set_name == "test" || set_name == "typing_tw" {
+            eprintln!("錯誤：嚴禁在盲測集 ({}.tsv) 上執行 N-Best Oracle 分析！", set_name);
+            std::process::exit(1);
+        }
+        let rep = run_nbest_oracle_benchmark(&engine, &compiled, &set_name, 16);
         if let Some(ref p) = out_path {
             if let Some(parent) = p.parent() {
                 let _ = fs::create_dir_all(parent);

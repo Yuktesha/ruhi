@@ -550,6 +550,15 @@ impl Default for ViterbiRouter {
     }
 }
 
+#[derive(Clone)]
+struct ForwardTrellisState {
+    node: LatticeNode,
+    score: f64,
+    prev_boundary: usize,
+    prev_state_idx: usize,
+    incoming: Vec<(usize, usize, f64)>,
+}
+
 impl ViterbiRouter {
     pub fn new() -> Self {
         Self::default()
@@ -606,26 +615,100 @@ impl ViterbiRouter {
             return (Vec::new(), 0.0);
         }
 
-        #[derive(Clone)]
-        struct TrellisState {
-            node: LatticeNode,
-            score: f64,
-            prev_boundary: usize,
-            prev_state_idx: usize,
+        let want_discourse = n_syllables >= 4
+            && !transitions
+                .as_deref()
+                .is_some_and(|eng| eng.is_rule_disabled("discourse_reranker"))
+            && super::discourse_reranker::dag_has_third_person_pronoun(dag);
+
+        let (trellis, classical_active) =
+            self.run_forward_trellis(n_syllables, dag, &mut transitions, prefix_word, want_discourse);
+
+        if want_discourse && !classical_active {
+            let nbest = Self::extract_nbest_from_trellis(&trellis, n_syllables, 16);
+            if !nbest.is_empty() {
+                return super::discourse_reranker::rerank_nbest(nbest);
+            }
         }
 
-        let mut trellis: Vec<Vec<TrellisState>> = vec![Vec::new(); n_syllables + 1];
+        let mut best_nodes = Vec::new();
+        if let Some((best_idx, best_state)) = trellis[n_syllables]
+            .iter()
+            .enumerate()
+            .max_by(|a, b| {
+                a.1.score
+                    .partial_cmp(&b.1.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| b.0.cmp(&a.0))
+            })
+        {
+            let final_score = best_state.score;
+            let mut cur_boundary = n_syllables;
+            let mut cur_idx = best_idx;
+
+            while cur_boundary > 0 {
+                let state = &trellis[cur_boundary][cur_idx];
+                best_nodes.push(state.node.clone());
+                let next_b = state.prev_boundary;
+                let next_i = state.prev_state_idx;
+                cur_boundary = next_b;
+                cur_idx = next_i;
+            }
+
+            best_nodes.reverse();
+            (best_nodes, final_score)
+        } else {
+            (Vec::new(), 0.0)
+        }
+    }
+
+    pub fn solve_nbest_paths(
+        &self,
+        n_syllables: usize,
+        dag: &HashMap<usize, Vec<LatticeNode>>,
+        transitions: Option<&mut super::transitions::TransitionEngine>,
+        top_k: usize,
+    ) -> Vec<(Vec<LatticeNode>, f64)> {
+        self.solve_nbest_paths_with_prefix(n_syllables, dag, transitions, None, top_k)
+    }
+
+    pub fn solve_nbest_paths_with_prefix(
+        &self,
+        n_syllables: usize,
+        dag: &HashMap<usize, Vec<LatticeNode>>,
+        mut transitions: Option<&mut super::transitions::TransitionEngine>,
+        prefix_word: Option<&str>,
+        top_k: usize,
+    ) -> Vec<(Vec<LatticeNode>, f64)> {
+        if n_syllables == 0 || top_k == 0 {
+            return Vec::new();
+        }
+        let (trellis, _) =
+            self.run_forward_trellis(n_syllables, dag, &mut transitions, prefix_word, true);
+        Self::extract_nbest_from_trellis(&trellis, n_syllables, top_k)
+    }
+
+    fn run_forward_trellis(
+        &self,
+        n_syllables: usize,
+        dag: &HashMap<usize, Vec<LatticeNode>>,
+        transitions: &mut Option<&mut super::transitions::TransitionEngine>,
+        prefix_word: Option<&str>,
+        collect_nbest_edges: bool,
+    ) -> (Vec<Vec<ForwardTrellisState>>, bool) {
+        let mut trellis: Vec<Vec<ForwardTrellisState>> = vec![Vec::new(); n_syllables + 1];
         let raw_prefix = prefix_word.unwrap_or("");
         let (geo_ctx_prefix, initial_word) = match raw_prefix.rsplit_once('\t') {
             Some((geo_ctx, last_w)) => (geo_ctx, last_w),
             None => ("", raw_prefix),
         };
         let dummy = LatticeNode::new(0, 0, initial_word, 1, "");
-        trellis[0].push(TrellisState {
+        trellis[0].push(ForwardTrellisState {
             node: dummy,
             score: 0.0,
             prev_boundary: 0,
             prev_state_idx: 0,
+            incoming: Vec::new(),
         });
 
         if let Some(ref mut eng) = transitions {
@@ -834,7 +917,12 @@ impl ViterbiRouter {
                     let is_coord_conj = matches!(node.word.as_str(), "與" | "和" | "或");
                     let mut best_incoming_score = -f64::INFINITY;
                     let mut best_prev_idx = 0;
-                    let mut coord_candidates: Vec<(f64, usize)> = Vec::new();
+                    let mut coord_candidates: Vec<(f64, usize, f64)> = Vec::new();
+                    let mut nbest_edges: Vec<(f64, usize, f64)> = if collect_nbest_edges {
+                        Vec::with_capacity(trellis_past[i].len().min(32))
+                    } else {
+                        Vec::new()
+                    };
 
                     for (prev_idx, prev_state) in trellis_past[i].iter().enumerate() {
                         let prev2_word = if !prev_state.node.word.is_empty()
@@ -1018,8 +1106,14 @@ impl ViterbiRouter {
                             + classical_trans
                             + ngram_trans
                             + self_score;
-                        if is_coord_conj && total > -f64::INFINITY {
-                            coord_candidates.push((total, prev_idx));
+                        if total > -f64::INFINITY {
+                            let edge_score = total - prev_state.score;
+                            if is_coord_conj {
+                                coord_candidates.push((total, prev_idx, edge_score));
+                            }
+                            if collect_nbest_edges {
+                                nbest_edges.push((total, prev_idx, edge_score));
+                            }
                         }
                         if total > best_incoming_score {
                             best_incoming_score = total;
@@ -1030,15 +1124,32 @@ impl ViterbiRouter {
                     let future_slot = &mut trellis_future[j - (i + 1)];
                     if is_coord_conj && !coord_candidates.is_empty() {
                         coord_candidates.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-                        for (score, prev_idx) in coord_candidates.into_iter().take(4) {
-                            future_slot.push(TrellisState {
+                        for (score, prev_idx, edge_score) in coord_candidates.into_iter().take(4) {
+                            future_slot.push(ForwardTrellisState {
                                 node: node.clone(),
                                 score,
                                 prev_boundary: i,
                                 prev_state_idx: prev_idx,
+                                incoming: if collect_nbest_edges {
+                                    vec![(i, prev_idx, edge_score)]
+                                } else {
+                                    Vec::new()
+                                },
                             });
                         }
                     } else if best_incoming_score > -f64::INFINITY {
+                        let top_edges: Vec<(usize, usize, f64)> = if collect_nbest_edges {
+                            nbest_edges.sort_by(|a, b| {
+                                b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
+                            });
+                            nbest_edges
+                                .into_iter()
+                                .take(6)
+                                .map(|(_, pidx, es)| (i, pidx, es))
+                                .collect()
+                        } else {
+                            Vec::new()
+                        };
                         // 若同一邊界已有相同字詞，保留最高分前驅路徑
                         if let Some(existing) = future_slot.iter_mut().find(|s| s.node.word == node.word) {
                             if best_incoming_score > existing.score {
@@ -1047,12 +1158,34 @@ impl ViterbiRouter {
                                 existing.prev_state_idx = best_prev_idx;
                                 existing.node = node.clone();
                             }
+                            if collect_nbest_edges {
+                                for (pb, ps, es) in top_edges {
+                                    if let Some(slot_e) = existing
+                                        .incoming
+                                        .iter_mut()
+                                        .find(|e| e.0 == pb && e.1 == ps)
+                                    {
+                                        if es > slot_e.2 {
+                                            slot_e.2 = es;
+                                        }
+                                    } else {
+                                        existing.incoming.push((pb, ps, es));
+                                    }
+                                }
+                                existing.incoming.sort_by(|a, b| {
+                                    let sa = trellis_past[a.0][a.1].score + a.2;
+                                    let sb = trellis_past[b.0][b.1].score + b.2;
+                                    sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
+                                });
+                                existing.incoming.truncate(6);
+                            }
                         } else {
-                            future_slot.push(TrellisState {
+                            future_slot.push(ForwardTrellisState {
                                 node: node.clone(),
                                 score: best_incoming_score,
                                 prev_boundary: i,
                                 prev_state_idx: best_prev_idx,
+                                incoming: top_edges,
                             });
                         }
                     }
@@ -1066,35 +1199,133 @@ impl ViterbiRouter {
             }
         }
 
-        let mut best_nodes = Vec::new();
-        if let Some((best_idx, best_state)) = trellis[n_syllables]
-            .iter()
-            .enumerate()
-            .max_by(|a, b| {
-                a.1.score
-                    .partial_cmp(&b.1.score)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| b.0.cmp(&a.0))
-            })
-        {
-            let final_score = best_state.score;
-            let mut cur_boundary = n_syllables;
-            let mut cur_idx = best_idx;
+        (trellis, classical.active)
+    }
 
-            while cur_boundary > 0 {
-                let state = &trellis[cur_boundary][cur_idx];
-                best_nodes.push(state.node.clone());
-                let next_b = state.prev_boundary;
-                let next_i = state.prev_state_idx;
-                cur_boundary = next_b;
-                cur_idx = next_i;
+    fn extract_nbest_from_trellis(
+        trellis: &[Vec<ForwardTrellisState>],
+        n_syllables: usize,
+        top_k: usize,
+    ) -> Vec<(Vec<LatticeNode>, f64)> {
+        use std::cmp::Ordering;
+        use std::collections::{BinaryHeap, HashSet};
+
+        #[derive(Clone)]
+        struct AStarItem {
+            f_score: f64,
+            g_suffix: f64,
+            boundary: usize,
+            state_idx: usize,
+            rev_states: Vec<(usize, usize)>,
+        }
+        impl PartialEq for AStarItem {
+            fn eq(&self, other: &Self) -> bool {
+                self.f_score.total_cmp(&other.f_score) == Ordering::Equal
+                    && self.g_suffix.total_cmp(&other.g_suffix) == Ordering::Equal
+                    && self.boundary == other.boundary
+                    && self.state_idx == other.state_idx
+            }
+        }
+        impl Eq for AStarItem {}
+        impl Ord for AStarItem {
+            fn cmp(&self, other: &Self) -> Ordering {
+                self.f_score
+                    .total_cmp(&other.f_score)
+                    .then_with(|| self.g_suffix.total_cmp(&other.g_suffix))
+                    .then_with(|| other.boundary.cmp(&self.boundary))
+                    .then_with(|| other.state_idx.cmp(&self.state_idx))
+            }
+        }
+        impl PartialOrd for AStarItem {
+            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        if n_syllables == 0 || top_k == 0 || trellis.get(n_syllables).is_none_or(|v| v.is_empty()) {
+            return Vec::new();
+        }
+
+        const MAX_ASTAR_POPS: usize = 2048;
+        let mut heap = BinaryHeap::new();
+        for (s_idx, st) in trellis[n_syllables].iter().enumerate() {
+            if st.score.is_finite() {
+                heap.push(AStarItem {
+                    f_score: st.score,
+                    g_suffix: 0.0,
+                    boundary: n_syllables,
+                    state_idx: s_idx,
+                    rev_states: Vec::new(),
+                });
+            }
+        }
+
+        let mut results: Vec<(Vec<LatticeNode>, f64)> = Vec::with_capacity(top_k);
+        let mut seen_surface: HashSet<String> = HashSet::with_capacity(top_k * 2);
+        let mut pops = 0usize;
+
+        while let Some(item) = heap.pop() {
+            if pops >= MAX_ASTAR_POPS || results.len() >= top_k {
+                break;
+            }
+            pops += 1;
+
+            if item.boundary == 0 {
+                let mut path = Vec::with_capacity(item.rev_states.len());
+                let mut surf = String::new();
+                for &(b, s) in item.rev_states.iter().rev() {
+                    let node = &trellis[b][s].node;
+                    surf.push_str(&node.word);
+                    path.push(node.clone());
+                }
+                if seen_surface.insert(surf) {
+                    results.push((path, item.g_suffix));
+                }
+                continue;
             }
 
-            best_nodes.reverse();
-            (best_nodes, final_score)
-        } else {
-            (Vec::new(), 0.0)
+            let st = &trellis[item.boundary][item.state_idx];
+            let mut next_rev = item.rev_states;
+            next_rev.push((item.boundary, item.state_idx));
+
+            if st.incoming.is_empty() {
+                if st.prev_boundary < item.boundary {
+                    let pb = st.prev_boundary;
+                    let ps = st.prev_state_idx;
+                    let edge_score = st.score - trellis[pb][ps].score;
+                    let child_g = item.g_suffix + edge_score;
+                    let child_f = child_g + trellis[pb][ps].score;
+                    if child_f.is_finite() {
+                        heap.push(AStarItem {
+                            f_score: child_f,
+                            g_suffix: child_g,
+                            boundary: pb,
+                            state_idx: ps,
+                            rev_states: next_rev,
+                        });
+                    }
+                }
+            } else {
+                for &(pb, ps, edge_score) in &st.incoming {
+                    if pb >= item.boundary {
+                        continue;
+                    }
+                    let child_g = item.g_suffix + edge_score;
+                    let child_f = child_g + trellis[pb][ps].score;
+                    if child_f.is_finite() {
+                        heap.push(AStarItem {
+                            f_score: child_f,
+                            g_suffix: child_g,
+                            boundary: pb,
+                            state_idx: ps,
+                            rev_states: next_rev.clone(),
+                        });
+                    }
+                }
+            }
         }
+
+        results
     }
 
     pub fn get_candidate_alternatives(&self, dag: &HashMap<usize, Vec<LatticeNode>>, start_idx: usize) -> Vec<String> {
@@ -1611,5 +1842,56 @@ mod tests {
 
         let _ = std::fs::remove_file(&tsv_path);
         let _ = std::fs::remove_file(&bin_path);
+    }
+
+    #[test]
+    fn test_backward_astar_nbest_top1_equivalence_and_pronoun_candidates_261122() {
+        let router = ViterbiRouter::default();
+        let mut eng = crate::router::transitions::TransitionEngine::new();
+        eng.disabled_rules.insert("discourse_reranker".to_string());
+
+        let mut dag: HashMap<usize, Vec<LatticeNode>> = HashMap::new();
+        dag.insert(0, vec![LatticeNode::new(0, 1, "是", 600, "ㄕˋ"), LatticeNode::new(0, 1, "事", 300, "ㄕˋ")]);
+        dag.insert(1, vec![
+            LatticeNode::new(1, 2, "他", 500, "ㄊㄚ"),
+            LatticeNode::new(1, 2, "她", 490, "ㄊㄚ"),
+            LatticeNode::new(1, 2, "它", 480, "ㄊㄚ"),
+            LatticeNode::new(1, 2, "牠", 420, "ㄊㄚ"),
+        ]);
+        dag.insert(2, vec![LatticeNode::new(2, 3, "們", 700, "˙ㄇㄣ")]);
+        dag.insert(3, vec![
+            LatticeNode::new(3, 5, "意思", 900, "ㄧˋ ˙ㄙ"),
+            LatticeNode::new(3, 4, "意", 120, "ㄧˋ"),
+        ]);
+        dag.insert(4, vec![LatticeNode::new(4, 5, "思", 120, "˙ㄙ")]);
+
+        let (best_path, best_score) = router.solve_best_path(5, &dag, Some(&mut eng));
+        let nbest = router.solve_nbest_paths(5, &dag, Some(&mut eng), 16);
+        assert!(!nbest.is_empty());
+        assert!(
+            (nbest[0].1 - best_score).abs() < 1e-9,
+            "nbest[0] score ({}) must equal Viterbi Top-1 ({})",
+            nbest[0].1,
+            best_score
+        );
+        let best_str: String = best_path.iter().map(|n| n.word.as_str()).collect();
+        let nbest0_str: String = nbest[0].0.iter().map(|n| n.word.as_str()).collect();
+        assert_eq!(nbest0_str, best_str);
+
+        let mut seen = std::collections::HashSet::new();
+        for i in 0..nbest.len() {
+            let s: String = nbest[i].0.iter().map(|n| n.word.as_str()).collect();
+            assert!(seen.insert(s), "nbest must contain unique surface paths");
+            if i > 0 {
+                assert!(
+                    nbest[i - 1].1 >= nbest[i].1 - 1e-9,
+                    "nbest scores must be monotonically non-increasing"
+                );
+            }
+        }
+        assert!(seen.contains("是他們意思"));
+        assert!(seen.contains("是她們意思"));
+        assert!(seen.contains("是它們意思"));
+        assert!(seen.contains("是牠們意思"));
     }
 }

@@ -23874,4 +23874,81 @@ mod tests {
             &cases,
         );
     }
+
+    #[test]
+    fn test_v09_backward_astar_nbest_and_discourse_reranker_261122() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec!["ㄊㄚ", "ㄧㄥ", "ㄍㄞ", "ㄨㄟˋ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄕㄜˋ", "ㄏㄨㄟˋ", "ㄘㄨㄥˊ", "ㄕˋ", "ㄨˊ", "ㄙ", "˙ㄉㄜ", "ㄈㄨˊ", "ㄨˋ"],
+                "他應該為人類社會從事無私的服務",
+            ),
+            (
+                vec!["ㄊㄚ", "ㄕˋ", "ㄍㄜˋ", "ㄨˊ", "ㄔㄤˊ", "˙ㄉㄜ", "ㄕˋ", "ㄐㄧㄝˋ"],
+                "它是個無常的世界",
+            ),
+            (
+                vec!["ㄊㄚ", "ㄙㄨㄟˊ", "˙ㄓㄜ", "ㄖㄣˊ", "ㄌㄟˋ", "ㄓˋ", "ㄌㄧˋ", "˙ㄉㄜ", "ㄈㄚ", "ㄓㄢˇ", "ㄦˊ", "ㄈㄚ", "ㄓㄢˇ"],
+                "它隨著人類智力的發展而發展",
+            ),
+            (
+                vec!["ㄊㄚ", "˙ㄉㄜ", "ㄧㄡ", "ㄉㄧㄢˇ", "ㄅㄧˇ", "ㄋㄧˇ", "ㄇㄣˊ", "ㄉㄨㄛ"],
+                "他的優點比你們多",
+            ),
+            (
+                vec!["ㄊㄚ", "˙ㄉㄜ", "ㄒㄧㄣ", "ㄗㄨㄛˋ", "ㄆㄧㄣˇ"],
+                "他的新作品",
+            ),
+            (
+                vec!["ㄊㄚ", "ㄗㄞˋ", "ㄘㄜˋ", "ㄕˋ", "ㄒㄧㄣ", "ㄍㄨㄥ", "ㄋㄥˊ"],
+                "他在測試新功能",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases_inner(
+            crate::router::ClassicalRegisterMode::Auto,
+            "",
+            &cases,
+        );
+
+        let mort_bpms = [
+            "ㄨㄛˇ", "˙ㄇㄣ", "ㄧˇ", "ㄨㄟˊ", "ㄊㄚ", "ㄙˇ", "˙ㄌㄜ", "ㄅㄚˇ", "ㄊㄚ", "ㄙㄨㄥˋ",
+            "ㄐㄧㄣˋ", "ㄏㄨㄛˇ", "ㄗㄤˋ", "ㄔㄤˇ", "ㄕㄠ", "˙ㄌㄜ", "ㄏㄨㄛˋ", "ㄅㄚˇ", "ㄊㄚ",
+            "ㄇㄞˊ", "˙ㄌㄜ",
+        ];
+        let syls: Vec<crate::fsm::HsuSyllable> = mort_bpms
+            .iter()
+            .map(|s| crate::fsm::HsuSyllable::from_bopomofo_display(s).unwrap())
+            .collect();
+
+        let mut eng_on = RuhiEngine::new();
+        eng_on.router.classical_mode = crate::router::ClassicalRegisterMode::Auto;
+        let dag_on = crate::router::LatticeDAG::new(&eng_on.lexicon).build_dag(&syls, true);
+        let (path_on, _) =
+            eng_on
+                .router
+                .solve_best_path(syls.len(), &dag_on, Some(&mut eng_on.transitions));
+        let out_on: String = path_on.iter().map(|n| n.word.as_str()).collect();
+        assert!(
+            out_on.contains("把他送進火葬場燒了或把他埋了"),
+            "discourse_reranker should flip 把它 -> 把他 under human mortality context, got: {}",
+            out_on
+        );
+
+        let mut eng_off = RuhiEngine::new();
+        eng_off.router.classical_mode = crate::router::ClassicalRegisterMode::Auto;
+        eng_off
+            .transitions
+            .disabled_rules
+            .insert("discourse_reranker".to_string());
+        let dag_off = crate::router::LatticeDAG::new(&eng_off.lexicon).build_dag(&syls, true);
+        let (path_off, _) =
+            eng_off
+                .router
+                .solve_best_path(syls.len(), &dag_off, Some(&mut eng_off.transitions));
+        let out_off: String = path_off.iter().map(|n| n.word.as_str()).collect();
+        assert!(
+            out_off.contains("把它送進火葬場燒了或把它埋了"),
+            "disabling discourse_reranker should restore raw Viterbi Top-1, got: {}",
+            out_off
+        );
+    }
 }
