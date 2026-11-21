@@ -18392,13 +18392,42 @@ impl TransitionEngine {
                 )
             };
             let is_proto_cue = |w: &str| {
-                matches!(
+                if matches!(
                     w,
                     "系統" | "軟體" | "程式" | "設計" | "語言" | "漢字" | "概念" | "理論"
                         | "產品" | "架構" | "模型" | "模式" | "工具" | "介面" | "開發" | "功能"
                         | "版本" | "專案" | "測試" | "實驗" | "草圖" | "樣本" | "雛形" | "實作"
                         | "打造" | "建立" | "驗證" | "機" | "版"
-                )
+                ) {
+                    return true;
+                }
+                if w.bytes().any(|b| b.is_ascii_alphabetic()) {
+                    let low = w.to_ascii_lowercase();
+                    if low
+                        .split(|c: char| !c.is_ascii_alphanumeric() && c != '+')
+                        .any(|tok| {
+                            matches!(
+                                tok,
+                                "python" | "rust" | "java" | "javascript" | "typescript"
+                                    | "golang" | "swift" | "kotlin" | "ruby" | "php"
+                                    | "react" | "vue" | "node" | "docker" | "linux"
+                                    | "figma" | "api" | "sdk" | "cli" | "gui" | "app"
+                                    | "web" | "mvp" | "poc" | "tsf" | "c++" | "code"
+                            )
+                        })
+                    {
+                        return true;
+                    }
+                }
+                w.starts_with('版')
+                    || w.ends_with('版')
+                    || (w.chars().count() >= 3
+                        && [
+                            "版", "系統", "軟體", "程式", "開發", "專案", "架構", "模型",
+                            "介面", "工具", "功能", "測試", "設計",
+                        ]
+                        .iter()
+                        .any(|kw| w.contains(kw)))
             };
             let has_geo = ctx.prefix_words.iter().rev().take(6).any(|&w| is_geo_cue(w))
                 || right_nodes.iter().any(|m| is_geo_cue(&m.word));

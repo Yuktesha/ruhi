@@ -683,6 +683,52 @@ impl ViterbiRouter {
                     let classical_node = classical.node_score_delta(node, n_syllables) * w_class;
                     let self_score = freq_score + length_bonus + classical_node;
 
+                    let shatters_core_len2_at_start = word_len_u == 1
+                        && backward.max_len2_weight_at[i] >= 500
+                        && node.word.chars().next().is_some_and(|ch| {
+                            nodes
+                                .iter()
+                                .any(|m| m.length() >= 2 && m.weight >= 500 && !m.word.starts_with(ch))
+                        });
+                    let shatters_strong_left_len2 = word_len_u == 1
+                        && i >= 1
+                        && matches!(
+                            node.word.as_str(),
+                            "時" | "中" | "裡" | "內" | "上" | "下" | "外"
+                        )
+                        && node.word.chars().next().is_some_and(|ch| {
+                            dag.get(&(i - 1)).is_some_and(|prev_ns| {
+                                prev_ns.iter().any(|m| {
+                                    m.length() == 2
+                                        && m.end_idx == j
+                                        && m.weight >= 450
+                                        && !m.word.ends_with(ch)
+                                })
+                            })
+                        });
+                    let max_v_le_weight =
+                        if node.word == "了" && i >= 2 && !backward.is_clause_tail[j] {
+                            dag.get(&(i - 1)).map_or(0, |prev_ns| {
+                                prev_ns
+                                    .iter()
+                                    .filter(|m| {
+                                        m.length() == 2
+                                            && m.end_idx == j
+                                            && m.word.ends_with('了')
+                                            && !matches!(
+                                                m.word.as_str(),
+                                                "為了" | "除了" | "罷了" | "算了" | "免了"
+                                                    | "得了" | "好了" | "夠了"
+                                            )
+                                    })
+                                    .map(|m| m.weight)
+                                    .max()
+                                    .unwrap_or(0)
+                            })
+                        } else {
+                            0
+                        };
+
                     let is_coord_conj = matches!(node.word.as_str(), "與" | "和" | "或");
                     let mut best_incoming_score = -f64::INFINITY;
                     let mut best_prev_idx = 0;
@@ -777,12 +823,32 @@ impl ViterbiRouter {
                                         &prev_state.node.bopomofo,
                                     )
                                 };
-                                let mut b = engine.calculate_transition_bonus_prechecked(
+                                let edge_ctx = super::transitions::TransitionEdgeCtx {
+                                    is_clause_tail: backward.is_clause_tail[j],
+                                    prev2_word,
+                                    shatters_core_len2_at_start,
+                                    shatters_strong_left_len2,
+                                    shatters_strong_v_le: max_v_le_weight > 0
+                                        && prev_state.node.length() == 2
+                                        && max_v_le_weight > prev_state.node.weight,
+                                };
+                                let mut b = engine.calculate_transition_bonus_with_ctx(
                                     curr_archaic || p_arch,
                                     &prev_state.node.word,
                                     &prev_state.node.bopomofo,
                                     &node.word,
                                     &node.bopomofo,
+                                    edge_ctx,
+                                );
+                                b += engine.eval_functional_collocation_guards(
+                                    prev2_word,
+                                    &prev_state.node.word,
+                                    &node.word,
+                                    &node.bopomofo,
+                                    i,
+                                    j,
+                                    dag,
+                                    &backward,
                                 );
 
                                 b += engine.calculate_vo_lookback_bonus(lookback_slice, &node.word);
@@ -813,7 +879,7 @@ impl ViterbiRouter {
                                 }
                                 b
                             } else {
-                                engine.calculate_hierarchical_construction_bonus_with_ctxs(
+                                let mut b = engine.calculate_hierarchical_construction_bonus_with_ctxs(
                                     &[],
                                     empty_geo_ctx.as_ref(),
                                     None,
@@ -822,7 +888,18 @@ impl ViterbiRouter {
                                     j,
                                     dag,
                                     &backward,
-                                )
+                                );
+                                b += engine.eval_functional_collocation_guards(
+                                    None,
+                                    "",
+                                    &node.word,
+                                    &node.bopomofo,
+                                    i,
+                                    j,
+                                    dag,
+                                    &backward,
+                                );
+                                b
                             }
                         } else {
                             0.0

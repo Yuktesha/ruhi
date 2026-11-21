@@ -414,6 +414,15 @@ impl Default for TransitionEngine {
     }
 }
 
+#[derive(Clone, Copy, Default)]
+pub(crate) struct TransitionEdgeCtx<'a> {
+    pub is_clause_tail: bool,
+    pub prev2_word: Option<&'a str>,
+    pub shatters_core_len2_at_start: bool,
+    pub shatters_strong_left_len2: bool,
+    pub shatters_strong_v_le: bool,
+}
+
 impl TransitionEngine {
     pub fn new() -> Self {
         Self::default()
@@ -4969,14 +4978,14 @@ impl TransitionEngine {
             name: "anti_yingyu_after_language_verb".to_string(),
         });
 
-        // 28. 全稱限定詞構式（各種 / 各類 / 各項 / 各個 / 各式 ➔ 實詞名詞）與防碎裂約束（嚴禁拆碎為「個種」、「間粒」）：
+        // 28. 全稱限定詞構式（各種 / 各類 / 各項 / 各個 / 各式 ➔ 複合實詞）與防碎裂約束（嚴禁拆碎為「個種」、「間粒」）：
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(vec![
                 "各種".to_string(), "各類".to_string(), "各項".to_string(),
                 "各個".to_string(), "各式".to_string(), "各家".to_string(),
                 "各界".to_string(), "各國".to_string(), "各地".to_string(),
             ]),
-            curr_pattern: WordPattern::ContentWord,
+            curr_pattern: WordPattern::CompoundContentWord,
             bonus: 24.0,
             name: "universal_determiner_content_noun".to_string(),
         });
@@ -6229,6 +6238,8 @@ impl TransitionEngine {
             || rule_name.contains("anti_")
         {
             "family_morph_phonetic_guard"
+        } else if rule_name == "func_double_adv_jiu_zhi" {
+            "family_core_syntax"
         } else {
             "family_core_syntax"
         }
@@ -6435,6 +6446,222 @@ impl TransitionEngine {
         curr_word: &str,
         curr_bopomofo: &str,
     ) -> f64 {
+        self.calculate_transition_bonus_with_ctx(
+            is_archaic,
+            prev_word,
+            prev_bopomofo,
+            curr_word,
+            curr_bopomofo,
+            TransitionEdgeCtx::default(),
+        )
+    }
+
+    #[inline]
+    fn is_explicit_temporal_event_verb(w: &str) -> bool {
+        matches!(
+            w,
+            "工作" | "開車" | "吃飯" | "開發" | "處理" | "執行" | "使用" | "操作"
+                | "移動" | "離開" | "睡覺" | "上班" | "下班" | "開會" | "聊天" | "閱讀"
+                | "討論" | "學習" | "思考" | "測試" | "編譯" | "編輯" | "登入" | "啟動"
+                | "安裝" | "更新" | "購物" | "點餐" | "付款" | "運動" | "跑步" | "旅行"
+                | "旅遊" | "比賽" | "演出" | "上課" | "考試" | "服務" | "查詢" | "輸入"
+                | "切換" | "設計" | "規劃" | "寫作" | "創作" | "製作" | "研究" | "分析"
+                | "檢查" | "確認"
+        )
+    }
+
+    #[inline]
+    fn is_shijian_event_left(w: &str) -> bool {
+        matches!(
+            w,
+            "此" | "該" | "某" | "這起" | "那起" | "一起" | "某起" | "該起"
+                | "這項" | "那項" | "一項" | "該項" | "這個" | "那個" | "重大"
+                | "突發" | "社會" | "歷史" | "政治" | "暴力" | "意外" | "爭議"
+                | "危機" | "醜聞" | "系統" | "觸發" | "點擊" | "按鍵" | "滑鼠"
+                | "鍵盤" | "輸入" | "的"
+        )
+    }
+
+    #[inline]
+    fn has_shijian_classifier_np(
+        end_idx: usize,
+        dag: &HashMap<usize, Vec<super::lattice::LatticeNode>>,
+    ) -> bool {
+        dag.get(&end_idx).is_some_and(|ns| {
+            ns.iter().any(|m| {
+                let is_direct_head = matches!(
+                    m.word.as_str(),
+                    "好事" | "壞事" | "大事" | "小事" | "蠢事" | "難事" | "美事"
+                        | "樂事" | "怪事" | "奇事" | "要事" | "幸事" | "苦事" | "煩事"
+                        | "傻事" | "事" | "事情" | "衣服" | "作品" | "禮物" | "工具"
+                );
+                if is_direct_head {
+                    return true;
+                }
+                if m.weight < 50 || m.word == "的" {
+                    return false;
+                }
+                let has_de_head = |pos: usize| -> bool {
+                    dag.get(&pos).is_some_and(|after_m| {
+                        after_m.iter().any(|de| {
+                            de.word == "的"
+                                && dag.get(&de.end_idx).is_some_and(|heads| {
+                                    heads.iter().any(|h| {
+                                        matches!(
+                                            h.word.as_str(),
+                                            "事" | "事情" | "衣服" | "作品" | "禮物" | "工具"
+                                        )
+                                    })
+                                })
+                        })
+                    })
+                };
+                if has_de_head(m.end_idx) {
+                    return true;
+                }
+                dag.get(&m.end_idx).is_some_and(|m2s| {
+                    m2s.iter()
+                        .any(|m2| m2.weight >= 50 && m2.word != "的" && has_de_head(m2.end_idx))
+                })
+            })
+        })
+    }
+
+    #[inline]
+    fn is_jiuzhi_locative_context(
+        left_w: &str,
+        end_idx: usize,
+        dag: &HashMap<usize, Vec<super::lattice::LatticeNode>>,
+        backward: &super::viterbi::LatticeBackwardProfile,
+    ) -> bool {
+        if backward.is_clause_tail.get(end_idx).copied().unwrap_or(false) {
+            return true;
+        }
+        if matches!(
+            left_w,
+            "的" | "在" | "到" | "於" | "原" | "老" | "古" | "把" | "學校" | "醫院"
+                | "車站" | "工廠" | "市場" | "戲院" | "銀行" | "大樓" | "官邸" | "總部"
+                | "園區" | "分館" | "本部" | "校區" | "廠區" | "公所" | "教堂"
+                | "廟宇" | "劇院" | "球場" | "機場" | "港口" | "保留" | "拆除" | "改建"
+                | "重建" | "位於" | "遷離" | "搬離" | "重回" | "回到" | "前往" | "參觀"
+        ) || (left_w.chars().count() >= 2
+            && left_w.ends_with([
+                '校', '廠', '站', '館', '院', '樓', '堂', '寺', '廟', '府', '園', '場', '居',
+                '宅', '宮', '堡', '城', '港', '塔',
+            ]))
+        {
+            return true;
+        }
+        dag.get(&end_idx).is_some_and(|ns| {
+            ns.iter().any(|m| {
+                matches!(
+                    m.word.as_str(),
+                    "的" | "上" | "裡" | "內" | "中" | "旁" | "附近" | "一帶" | "周邊"
+                        | "周圍" | "改建" | "重建" | "拆除" | "拆遷" | "保留" | "保存"
+                        | "活化" | "開發" | "規劃" | "整修" | "修繕" | "閒置" | "荒廢"
+                        | "位於" | "坐落" | "座落" | "變成" | "成為" | "轉型" | "如今"
+                        | "現在" | "目前" | "已經" | "已" | "將" | "還" | "仍" | "原本"
+                        | "原為" | "正是"
+                )
+            })
+        })
+    }
+
+    #[inline]
+    fn has_jiuzhi_right_predicate(
+        end_idx: usize,
+        dag: &HashMap<usize, Vec<super::lattice::LatticeNode>>,
+    ) -> bool {
+        dag.get(&end_idx).is_some_and(|ns| {
+            ns.iter().any(|m| {
+                m.weight >= 100
+                    && (matches!(
+                        m.word.as_str(),
+                        "是" | "有" | "能" | "會" | "要" | "想" | "可" | "敢" | "肯" | "配"
+                            | "剩" | "差" | "缺" | "不" | "沒" | "沒有" | "不能" | "不會"
+                            | "不要" | "不想" | "適合" | "喜歡" | "想要" | "希望" | "願意"
+                            | "記得" | "覺得" | "知道" | "相信" | "關心" | "在乎" | "重視"
+                            | "強調" | "注重" | "專注" | "追求" | "依賴" | "依靠" | "仰賴"
+                            | "剩下" | "留下" | "需要" | "必須" | "應該" | "可以" | "能夠"
+                            | "值得" | "懂得" | "顧著" | "忙著" | "想著" | "看著" | "聽著"
+                            | "說著" | "做著" | "拿著" | "帶著" | "等著" | "靠著" | "憑著"
+                            | "為了" | "因為" | "看到" | "聽到" | "想到" | "找到" | "拿到"
+                            | "得到" | "做到" | "用到" | "買到" | "吃到" | "學到" | "遇到"
+                            | "碰到" | "看" | "說" | "做" | "用" | "拿" | "買" | "吃" | "玩"
+                            | "學" | "寫" | "聽" | "給" | "讓" | "被" | "靠" | "憑" | "管"
+                            | "顧" | "懂" | "怕" | "愛" | "恨" | "留" | "待" | "走" | "來"
+                            | "去" | "住" | "等" | "找" | "問" | "開" | "關" | "放" | "送"
+                            | "帶" | "選" | "挑" | "記" | "忘" | "信" | "求" | "講" | "談"
+                            | "穿" | "喝" | "睡" | "跑" | "跳" | "哭" | "笑" | "一" | "兩"
+                            | "三" | "四" | "五" | "六" | "七" | "八" | "九" | "十" | "幾"
+                            | "半" | "少" | "多" | "這" | "那"
+                    ) || WordPattern::is_numeric_token(&m.word)
+                        || m.word.starts_with('一'))
+            })
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn eval_functional_collocation_guards(
+        &mut self,
+        prev2_word: Option<&str>,
+        prev_word: &str,
+        curr_word: &str,
+        curr_bopomofo: &str,
+        _start_idx: usize,
+        end_idx: usize,
+        dag: &HashMap<usize, Vec<super::lattice::LatticeNode>>,
+        backward: &super::viterbi::LatticeBackwardProfile,
+    ) -> f64 {
+        let mut bonus = 0.0;
+
+        // Guard A: 繫詞＋量詞「是+件 / 是件」vs 名詞「事件 / 識見 / 試件」
+        if curr_bopomofo == "ㄕˋ ㄐㄧㄢˋ" && !Self::is_shijian_event_left(prev_word) {
+            if Self::has_shijian_classifier_np(end_idx, dag) {
+                let raw = if curr_word == "是件" { 16.0 } else { -18.0 };
+                bonus += self.apply_rule_score("func_copula_shijian_classifier", raw);
+            }
+        } else if prev_word == "是"
+            && curr_word == "件"
+            && (curr_bopomofo.is_empty() || curr_bopomofo == "ㄐㄧㄢˋ")
+            && !Self::is_shijian_event_left(prev2_word.unwrap_or(""))
+        {
+            if Self::has_shijian_classifier_np(end_idx, dag) {
+                bonus += self.apply_rule_score("func_copula_shijian_classifier", 18.0);
+            }
+        }
+
+        // Guard B: 副詞連用「就只」vs 處所名詞「舊址」（他們就只適合… / 回到學校舊址）
+        if curr_word == "舊址" {
+            if !Self::is_jiuzhi_locative_context(prev_word, end_idx, dag, backward)
+                && Self::has_jiuzhi_right_predicate(end_idx, dag)
+            {
+                bonus += self.apply_rule_score("func_double_adv_jiu_zhi", -16.0);
+            }
+        } else if prev_word == "就"
+            && curr_word == "只"
+            && (curr_bopomofo.is_empty() || curr_bopomofo == "ㄓˇ")
+        {
+            let left_before_jiu = prev2_word.unwrap_or("");
+            if !Self::is_jiuzhi_locative_context(left_before_jiu, end_idx, dag, backward)
+                && Self::has_jiuzhi_right_predicate(end_idx, dag)
+            {
+                bonus += self.apply_rule_score("func_double_adv_jiu_zhi", 14.0);
+            }
+        }
+
+        bonus
+    }
+
+    pub(crate) fn calculate_transition_bonus_with_ctx(
+        &mut self,
+        is_archaic: bool,
+        prev_word: &str,
+        prev_bopomofo: &str,
+        curr_word: &str,
+        curr_bopomofo: &str,
+        edge_ctx: TransitionEdgeCtx<'_>,
+    ) -> f64 {
         // ── 破音字古音與孤例隔離層 (Archaic & Isolated Polyphonic Isolation Layer) ──
         if is_archaic {
             return self.apply_rule_score("guard_archaic_polyphonic", -35.0);
@@ -6453,17 +6680,22 @@ impl TransitionEngine {
                 || Self::is_mismatched_bigram_polyphone(curr_word, curr_bopomofo);
             if let Some(&score) = self.user_nested.get(prev_word).and_then(|m| m.get(curr_word)) {
                 if !(score > 0.0 && poly_mismatch) {
+                    let effective_score = if score > 12.0 && edge_ctx.shatters_core_len2_at_start {
+                        12.0
+                    } else {
+                        score
+                    };
                     if self.active_trace.is_some() || !self.disabled_rules.is_empty() {
-                        let rid = if score >= 0.0 {
+                        let rid = if effective_score >= 0.0 {
                             format!("user_bigram_pos:{}->{}", prev_word, curr_word)
                         } else {
                             format!("user_bigram_neg:{}->{}", prev_word, curr_word)
                         };
-                        bonus += self.apply_rule_score(&rid, score);
-                    } else if score >= 0.0 {
-                        bonus += self.apply_rule_score("user_bigram_pos", score);
+                        bonus += self.apply_rule_score(&rid, effective_score);
+                    } else if effective_score >= 0.0 {
+                        bonus += self.apply_rule_score("user_bigram_pos", effective_score);
                     } else {
-                        bonus += self.apply_rule_score("user_bigram_neg", score);
+                        bonus += self.apply_rule_score("user_bigram_neg", effective_score);
                     }
                 }
             }
@@ -6611,10 +6843,35 @@ impl TransitionEngine {
                         continue;
                     }
                     // 防「處/楚/儲/礎 (ㄔㄨˇ) + 裡 (ㄌㄧˇ)」冒領方位詞 postpositional_locative 加分而拆碎雙字動詞「處理」
-                    if rule.name == "postpositional_locative"
-                        && curr_word == "裡"
-                        && prev_bopomofo == "ㄔㄨˇ"
+                    if rule.name == "postpositional_locative" {
+                        if curr_word == "裡" && prev_bopomofo == "ㄔㄨˇ" {
+                            continue;
+                        }
+                        if edge_ctx.shatters_strong_left_len2 {
+                            continue;
+                        }
+                        if super::viterbi::is_narrow_transparent_derived(prev_word)
+                            && !matches!(prev_word, "我家" | "我國" | "我方" | "你家" | "他家" | "她家")
+                        {
+                            continue;
+                        }
+                    }
+                    // 防句尾通用「的+是」過度延伸至開放類名物化構造（保留焦點繫詞動詞與主題評述引導語＋的是）
+                    if rule.name == "de_shi_copula"
+                        && edge_ctx.is_clause_tail
+                        && !matches!(
+                            edge_ctx.prev2_word.unwrap_or(""),
+                            "真" | "有" | "說" | "講" | "要" | "需要" | "想要" | "問"
+                                | "奇妙" | "重要" | "有趣" | "奇怪" | "特別" | "關鍵"
+                                | "幸運" | "遺憾" | "可惜" | "神奇" | "微妙" | "驚人"
+                                | "意外" | "慶幸" | "諷刺" | "好笑" | "難得" | "顯然"
+                                | "肯定" | "確定" | "必然"
+                        )
                     {
+                        continue;
+                    }
+                    // 防體標記「了」於「花+了 / 吃+了」已成詞處重複加權而壓倒整詞邊界
+                    if rule.name == "aspect_marker" && edge_ctx.shatters_strong_v_le {
                         continue;
                     }
                     // 防「但／卻／但卻／不過／可是」等轉折／並列連詞冒領時間從句 `temporal_event_shi` 加分而拆碎「確實／事實」
@@ -6731,7 +6988,10 @@ impl TransitionEngine {
                         "所有", "在此", "用在", "並非", "二個", "兩個", "每一", "每個", "一個", "這個", "那個",
                         "哪個", "任何", "各種", "其他", "某些", "同時", "當時", "那時", "有時", "平時", "何時", "儘速",
                     ];
-                    if non_temporal_prev.contains(&prev_word) {
+                    if non_temporal_prev.contains(&prev_word)
+                        || (edge_ctx.shatters_strong_left_len2
+                            && !Self::is_explicit_temporal_event_verb(prev_word))
+                    {
                         continue;
                     }
                 }
@@ -6814,6 +7074,13 @@ impl TransitionEngine {
 
         if let Some((ridx, rscore)) = matched_rule {
             bonus += self.apply_grammar_rule_score(ridx, rscore);
+        } else if !self.is_rule_disabled("aspect_object")
+            && prev_word.ends_with('了')
+            && prev_word.chars().count() == 2
+            && (prev_bopomofo.is_empty() || prev_bopomofo.contains("˙ㄌㄜ"))
+            && WordPattern::Nominal.matches(curr_word, &self.function_words)
+        {
+            bonus += self.apply_rule_score("aspect_object", 8.0);
         }
 
         // ── 形態學與音韻特徵動態守門規則 (Morphological & Phonetic Guards) ──
