@@ -3613,10 +3613,22 @@ pub fn run_classical_benchmark(
     })
 }
 
+#[inline]
+fn default_feature_weight(k: &str) -> f64 {
+    if k.starts_with("ngram_") || k == "coord_he_huo_prior" {
+        0.0
+    } else {
+        1.0
+    }
+}
+
 /// 線性特徵安全邊界（Trust-Region Bounds，保護構式雙字詞與既有單元測試不退化）
 fn feature_bounds(k: &str) -> (f64, f64) {
     match k {
         "coord_he_huo_prior" => (0.0, 0.20),
+        "ngram_word_bi" => (0.0, 0.35),
+        "ngram_char_bi" => (0.0, 0.10),
+        "ngram_char_tri" => (0.0, 0.30),
         "multi_char_len" | "cohesion_len3" | "cohesion_len4" => (0.98, 1.05),
         "freq_ln_char1" => (1.02, 1.0845),
         "freq_ln_compound" => (1.0845, 1.15),
@@ -3631,36 +3643,59 @@ fn feature_bounds(k: &str) -> (f64, f64) {
 }
 
 /// 關鍵金絲雀語句驗證（保證回歸單元測試 100% 綠燈）
-fn check_canary_sentences(engine: &RuhiEngine, cand_w: &HashMap<String, f64>) -> bool {
+fn check_canary_sentences(engine: &RuhiEngine, cand_w: &HashMap<String, f64>) -> Result<(), String> {
     let mut worker = engine.clone();
     worker.transitions.feature_weights = cand_w.clone();
-    let canaries = [
-        ("eef gmf kif", "也感慨"),
-        ("eef gmf kij", "也感慨"),
-        ("z lewjvxflefdscdfn txhfdkj", "資料處理得十分妥當"),
-        ("hidzijceo gifvldcjmyf", "還在修改程式碼"),
-        ("cm ckjdshojcuefhidzijcerjggsmadxmdmadlewf", "山上的厚雪還在下個沒完沒了"),
-        ("nyflefcu ewjbk mkdjeojvujnyflef", "哪裡需要幫忙就去哪裡"),
-        ("je lxldcjjxl jljvu hgdcemjlefe lendhgde lxjcdsm hwj", "基隆市中正區和憲里一鄰和一路十三號"),
-        ("tidbafcjdrjm vu hxrdcl lef 11 lendjxl cewj dxl lxj sj dxmj 295 hwj ", "台北市大安區華聲里11鄰忠孝東路四段295號"),
-    ];
-    for (keys, expected) in &canaries {
-        worker.reset_buffer();
-        worker.last_committed_word.clear();
-        worker.active_geo_context.clear();
+    let run_case = |w: &mut RuhiEngine, keys: &str, expected: &str, trim_out: bool| -> Result<(), String> {
+        w.reset_buffer();
+        w.last_committed_word.clear();
+        w.active_geo_context.clear();
         let mut out = String::new();
         for c in keys.chars() {
-            let r = worker.process_key(c);
+            let r = w.process_key(c);
             if !r.committed_chunk.is_empty() {
                 out.push_str(&r.committed_chunk);
             }
         }
-        out.push_str(&worker.get_display_text());
-        if out != *expected {
-            return false;
+        out.push_str(&w.get_display_text());
+        let actual_cmp = if trim_out { out.trim() } else { out.as_str() };
+        if actual_cmp == expected {
+            Ok(())
+        } else {
+            Err(format!("expected={} actual={}", expected, actual_cmp))
         }
+    };
+
+    let hsu_canaries = [
+        ("eef gmf kif", "也感慨", false),
+        ("eef gmf kij", "也感慨", false),
+        ("z lewjvxflefdscdfn txhfdkj", "資料處理得十分妥當", false),
+        ("hidzijceo gifvldcjmyf", "還在修改程式碼", false),
+        ("cm ckjdshojcuefhidzijcerjggsmadxmdmadlewf", "山上的厚雪還在下個沒完沒了", false),
+        ("nyflefcu ewjbk mkdjeojvujnyflef", "哪裡需要幫忙就去哪裡", false),
+        ("je lxldcjjxl jljvu hgdcemjlefe lendhgde lxjcdsm hwj", "基隆市中正區和憲里一鄰和一路十三號", false),
+        ("tidbafcjdrjm vu hxrdcl lef 11 lendjxl cewj dxl lxj sj dxmj 295 hwj ", "台北市大安區華聲里11鄰忠孝東路四段295號", false),
+        ("ty zijagjcjcen gxl nld", "他在測試新功能", true),
+        ("ty dscen zxhjpenf", "他的新作品", true),
+        ("xd xnd rxld ", "吳玟蓉", true),
+        ("jeoflxldcn cxafbxjven jo jee 37Khwj", "九龍深水埗欽州街37K號", true),
+        ("has", "嘿", true),
+    ];
+    for &(keys, expected, trim_out) in &hsu_canaries {
+        run_case(&mut worker, keys, expected, trim_out)?;
     }
-    true
+
+    worker.set_keyboard_mode("standard");
+    let std_canaries = [
+        ("t03qup35jp31o4g;4vu04", "產品準備上線"),
+        ("up3fu3ru62845j4u4", "引起極大注意"),
+        ("ji3u3ru/ qu/60 cjo6ru8 xk7", "我已經平安回家了"),
+    ];
+    for &(keys, expected) in &std_canaries {
+        run_case(&mut worker, keys, expected, false)?;
+    }
+    worker.set_keyboard_mode("hsu");
+    Ok(())
 }
 
 /// 平行快速評估候選特徵權重映射
@@ -3730,10 +3765,76 @@ fn eval_candidate_weights(
         tot_fixed += fix;
         tot_broken += brk;
     }
-    if !check_canary_sentences(base_engine, cand_w) {
+    if let Err(reason) = check_canary_sentences(base_engine, cand_w) {
+        let wb = cand_w.get("ngram_word_bi").copied().unwrap_or(0.0);
+        let cb = cand_w.get("ngram_char_bi").copied().unwrap_or(0.0);
+        let ct = cand_w.get("ngram_char_tri").copied().unwrap_or(0.0);
+        println!(
+            "  [CanaryVeto] ct={:.2} wb={:.2} cb={:.2} | errs={} ex={} fix={} brk={} | {}",
+            ct, wb, cb, tot_errs, tot_exact, tot_fixed, tot_broken, reason
+        );
         tot_broken += 99999;
     }
     (tot_errs, tot_exact, tot_fixed, tot_broken)
+}
+
+/// Stage 0 座標網格暖啟動單軸掃描輔助函式
+#[allow(clippy::too_many_arguments)]
+fn stage0_sweep_feature(
+    pass_label: &str,
+    k: &str,
+    grid: &[f64],
+    base_engine: &RuhiEngine,
+    compiled: &[CompiledSentence],
+    dags: &[HashMap<usize, Vec<ruhi::router::LatticeNode>>],
+    init_exact_flags: &[bool],
+    best_weights: &mut HashMap<String, f64>,
+    best_errors: &mut usize,
+    best_exact: &mut usize,
+    stage0_steps: &mut Vec<Value>,
+) {
+    let (lo, hi) = feature_bounds(k);
+    let base_val = best_weights
+        .get(k)
+        .copied()
+        .unwrap_or(default_feature_weight(k));
+    for &raw_cand in grid {
+        let cand_val = ((raw_cand.clamp(lo, hi)) * 10000.0).round() / 10000.0;
+        if (cand_val - base_val).abs() < 1e-6 {
+            continue;
+        }
+        let mut cand_w = best_weights.clone();
+        cand_w.insert(k.to_string(), cand_val);
+        let (c_errors, c_exact, c_fixed, c_broken) =
+            eval_candidate_weights(base_engine, &cand_w, compiled, dags, init_exact_flags);
+        if (c_errors < *best_errors || (c_errors == *best_errors && c_exact > *best_exact))
+            && c_broken <= c_fixed
+        {
+            let cur_base = best_weights
+                .get(k)
+                .copied()
+                .unwrap_or(default_feature_weight(k));
+            println!(
+                "  [Stage0:{}] {}: {:.4} -> {:.4} (錯誤數 {} -> {}, 正確率 {} -> {}, fix={}, brk={})",
+                pass_label, k, cur_base, cand_val, *best_errors, c_errors, *best_exact, c_exact, c_fixed, c_broken
+            );
+            stage0_steps.push(json!({
+                "pass": pass_label,
+                "feature": k,
+                "old_val": cur_base,
+                "new_val": cand_val,
+                "old_errors": *best_errors,
+                "new_errors": c_errors,
+                "old_exact": *best_exact,
+                "new_exact": c_exact,
+                "fixed": c_fixed,
+                "broken": c_broken,
+            }));
+            *best_errors = c_errors;
+            *best_exact = c_exact;
+            best_weights.insert(k.to_string(), cand_val);
+        }
+    }
 }
 
 /// 執行平均結構化感知機 (Averaged Structured Perceptron) 權重校準 (`--calibrate`)
@@ -3741,6 +3842,7 @@ pub fn run_perceptron_calibration(
     base_engine: &RuhiEngine,
     compiled: &[CompiledSentence],
     root: &Path,
+    ngram_only: bool,
 ) -> Value {
     println!(
         "[Calibration] 正在對 {} 句開發集執行強制對齊 (Forced Alignment) 與特徵擷取...",
@@ -3772,6 +3874,9 @@ pub fn run_perceptron_calibration(
         "family_conjunction_discourse",
         "family_morph_phonetic_guard",
         "family_core_syntax",
+        "ngram_word_bi",
+        "ngram_char_bi",
+        "ngram_char_tri",
     ];
 
     // 代數恆等溫啟動 (Warm-Start Algebraic Identity Initialization)
@@ -3794,7 +3899,9 @@ pub fn run_perceptron_calibration(
                     .or_else(|| base_fw.get("construction_hierarchical_matrix"))
                     .copied()
                     .unwrap_or(1.0),
-                "coord_he_huo_prior" => base_fw.get(k).copied().unwrap_or(0.0),
+                _ if k.starts_with("ngram_") || k == "coord_he_huo_prior" => {
+                    base_fw.get(k).copied().unwrap_or(0.0)
+                }
                 _ => base_fw.get(k).copied().unwrap_or(1.0),
             };
             (k.to_string(), val)
@@ -3905,183 +4012,293 @@ pub fn run_perceptron_calibration(
         compiled.len()
     );
 
+    let mut best_weights = w0.clone();
+    let mut best_errors = init_errors;
+    let mut best_exact = init_exact_count;
+    let mut stage0_steps = Vec::new();
+
+    if base_engine.transitions.ngram_lm.is_some() {
+        println!("[Calibration] 進入 Stage 0: 統計 N-gram 特徵多尺度網格暖啟動...");
+        stage0_sweep_feature(
+            "0a",
+            "ngram_char_tri",
+            &[0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30],
+            base_engine,
+            compiled,
+            &dags,
+            &init_exact_flags,
+            &mut best_weights,
+            &mut best_errors,
+            &mut best_exact,
+            &mut stage0_steps,
+        );
+        stage0_sweep_feature(
+            "0b",
+            "ngram_word_bi",
+            &[0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35],
+            base_engine,
+            compiled,
+            &dags,
+            &init_exact_flags,
+            &mut best_weights,
+            &mut best_errors,
+            &mut best_exact,
+            &mut stage0_steps,
+        );
+        stage0_sweep_feature(
+            "0c",
+            "ngram_char_bi",
+            &[0.0, 0.02, 0.05, 0.10],
+            base_engine,
+            compiled,
+            &dags,
+            &init_exact_flags,
+            &mut best_weights,
+            &mut best_errors,
+            &mut best_exact,
+            &mut stage0_steps,
+        );
+        if !ngram_only {
+            stage0_sweep_feature(
+                "0d",
+                "multi_char_len",
+                &[0.98, 0.995, 1.0113, 1.03],
+                base_engine,
+                compiled,
+                &dags,
+                &init_exact_flags,
+                &mut best_weights,
+                &mut best_errors,
+                &mut best_exact,
+                &mut stage0_steps,
+            );
+        }
+
+        let refine_passes: &[(&str, &[f64])] = if ngram_only {
+            &[
+                ("0e-p1", &[-0.08, -0.04, -0.02, 0.02, 0.04, 0.08]),
+                ("0e-p2", &[-0.02, -0.01, 0.01, 0.02]),
+            ]
+        } else {
+            &[("0e", &[-0.25, -0.1, -0.05, 0.05, 0.1, 0.25])]
+        };
+        for &(pass_tag, offsets) in refine_passes {
+            for &k in &["ngram_char_tri", "ngram_word_bi", "ngram_char_bi"] {
+                let cur = best_weights.get(k).copied().unwrap_or(0.0);
+                let grid: Vec<f64> = offsets.iter().map(|&d| cur + d).collect();
+                stage0_sweep_feature(
+                    pass_tag,
+                    k,
+                    &grid,
+                    base_engine,
+                    compiled,
+                    &dags,
+                    &init_exact_flags,
+                    &mut best_weights,
+                    &mut best_errors,
+                    &mut best_exact,
+                    &mut stage0_steps,
+                );
+            }
+        }
+    }
+
     // Stage A: 10 輪洗牌損失增強 AdaGrad 平均結構化感知機
-    let mut w = w0.clone();
+    let w0_stage_a = best_weights.clone();
+    let mut w = w0_stage_a.clone();
     let mut w_sum: HashMap<String, f64> =
         feature_keys.iter().map(|&k| (k.to_string(), 0.0)).collect();
     let mut grad_sq: HashMap<String, f64> =
         feature_keys.iter().map(|&k| (k.to_string(), 1.0)).collect();
     let mut total_steps = 0f64;
 
-    let mut best_weights = w0.clone();
-    let mut best_errors = init_errors;
-    let mut best_exact = init_exact_count;
     let mut epoch_history = Vec::new();
+    let mut coordinate_polish_steps = Vec::new();
 
-    let mut work_engine = base_engine.clone();
+    if !ngram_only {
+        let mut work_engine = base_engine.clone();
 
-    let epochs = 10;
-    for ep in 1..=epochs {
-        let mut rng = XorShift64::new(20261111 + ep as u64);
-        let mut indices: Vec<usize> = (0..compiled.len()).collect();
-        rng.shuffle(&mut indices);
+        let epochs = 10;
+        for ep in 1..=epochs {
+            let mut rng = XorShift64::new(20261111 + ep as u64);
+            let mut indices: Vec<usize> = (0..compiled.len()).collect();
+            rng.shuffle(&mut indices);
 
-        let eta = 0.012 / (ep as f64).sqrt();
-        let mut updates_in_epoch = 0usize;
+            let eta = 0.012 / (ep as f64).sqrt();
+            let mut updates_in_epoch = 0usize;
 
-        for &idx in &indices {
-            let Some((_, ref g_feats)) = gold_paths[idx] else {
-                continue;
-            };
-            work_engine.transitions.feature_weights = w.clone();
-            let cs = &compiled[idx];
-            let (pred_nodes, _) = work_engine.router.solve_best_path(
-                cs.syllables.len(),
-                &dags[idx],
-                Some(&mut work_engine.transitions),
-            );
-            let pred_str: String = pred_nodes.iter().map(|n| n.word.as_str()).collect();
-            if pred_str != cs.item.text {
-                let err_scale = (char_levenshtein(&pred_str, &cs.item.text) as f64).sqrt().min(3.0);
-                let (p_feats, _) = work_engine.router.extract_path_features_and_triggers(
-                    &pred_nodes,
+            for &idx in &indices {
+                let Some((_, ref g_feats)) = gold_paths[idx] else {
+                    continue;
+                };
+                work_engine.transitions.feature_weights = w.clone();
+                let cs = &compiled[idx];
+                let (pred_nodes, _) = work_engine.router.solve_best_path(
+                    cs.syllables.len(),
                     &dags[idx],
-                    &mut work_engine.transitions,
+                    Some(&mut work_engine.transitions),
                 );
+                let pred_str: String = pred_nodes.iter().map(|n| n.word.as_str()).collect();
+                if pred_str != cs.item.text {
+                    let err_scale = (char_levenshtein(&pred_str, &cs.item.text) as f64).sqrt().min(3.0);
+                    let (p_feats, _) = work_engine.router.extract_path_features_and_triggers(
+                        &pred_nodes,
+                        &dags[idx],
+                        &mut work_engine.transitions,
+                    );
+                    for &k in &feature_keys {
+                        let gv = g_feats.get(k).copied().unwrap_or(0.0);
+                        let pv = p_feats.get(k).copied().unwrap_or(0.0);
+                        let diff = (gv - pv).clamp(-40.0, 40.0);
+                        if diff.abs() > 1e-9 {
+                            let eta_k = if k.starts_with("ngram_") {
+                                0.06 / (ep as f64).sqrt()
+                            } else {
+                                eta
+                            };
+                            let g = (diff / 15.0) * err_scale;
+                            let gsq = grad_sq.entry(k.to_string()).or_insert(1.0);
+                            *gsq += g * g;
+                            let def_w = default_feature_weight(k);
+                            let cur_w = w.get(k).copied().unwrap_or(def_w);
+                            let w_init = w0_stage_a.get(k).copied().unwrap_or(def_w);
+                            let (lo, hi) = feature_bounds(k);
+                            let next_w = (cur_w + eta_k * g / gsq.sqrt() - 0.02 * eta_k * (cur_w - w_init)).clamp(lo, hi);
+                            w.insert(k.to_string(), next_w);
+                        }
+                    }
+                    updates_in_epoch += 1;
+                }
+                total_steps += 1.0;
                 for &k in &feature_keys {
-                    let gv = g_feats.get(k).copied().unwrap_or(0.0);
-                    let pv = p_feats.get(k).copied().unwrap_or(0.0);
-                    let diff = (gv - pv).clamp(-40.0, 40.0);
-                    if diff.abs() > 1e-9 {
-                        let g = (diff / 15.0) * err_scale;
-                        let gsq = grad_sq.entry(k.to_string()).or_insert(1.0);
-                        *gsq += g * g;
-                        let cur_w = w.get(k).copied().unwrap_or(1.0);
-                        let w_init = w0.get(k).copied().unwrap_or(1.0);
-                        let (lo, hi) = feature_bounds(k);
-                        let next_w = (cur_w + eta * g / gsq.sqrt() - 0.02 * eta * (cur_w - w_init)).clamp(lo, hi);
-                        w.insert(k.to_string(), next_w);
+                    *w_sum.entry(k.to_string()).or_insert(0.0) += w.get(k).copied().unwrap_or(default_feature_weight(k));
+                }
+            }
+
+            let avg_w: HashMap<String, f64> = feature_keys
+                .iter()
+                .map(|&k| {
+                    let v = if total_steps > 0.0 {
+                        w_sum.get(k).copied().unwrap_or(0.0) / total_steps
+                    } else {
+                        w0_stage_a.get(k).copied().unwrap_or(default_feature_weight(k))
+                    };
+                    (k.to_string(), (v * 10000.0).round() / 10000.0)
+                })
+                .collect();
+
+            let (ep_errors, ep_exact, fixed_vs_init, broken_vs_init) = eval_candidate_weights(
+                base_engine,
+                &avg_w,
+                compiled,
+                &dags,
+                &init_exact_flags,
+            );
+
+            let ep_cer = ep_errors as f64 / total_chars.max(1) as f64;
+            let ep_ser = ep_exact as f64 / compiled.len().max(1) as f64;
+            println!(
+                "[Calibration] Epoch {}/{}: updates={}, dev CER={:.2}% ({} errors, fixed={}, broken={}), SER={:.2}%",
+                ep,
+                epochs,
+                updates_in_epoch,
+                ep_cer * 100.0,
+                ep_errors,
+                fixed_vs_init,
+                broken_vs_init,
+                ep_ser * 100.0
+            );
+
+            epoch_history.push(json!({
+                "epoch": ep,
+                "updates": updates_in_epoch,
+                "dev_cer": ep_cer,
+                "dev_cer_percent": format!("{:.2}%", ep_cer * 100.0),
+                "dev_char_errors": ep_errors,
+                "dev_exact_matches": ep_exact,
+                "fixed_vs_init": fixed_vs_init,
+                "broken_vs_init": broken_vs_init,
+                "dev_sentence_accuracy_percent": format!("{:.2}%", ep_ser * 100.0),
+                "averaged_weights": avg_w
+            }));
+
+            if (ep_errors < best_errors || (ep_errors == best_errors && ep_exact > best_exact))
+                && broken_vs_init <= fixed_vs_init
+            {
+                best_errors = ep_errors;
+                best_exact = ep_exact;
+                best_weights = avg_w;
+            }
+        }
+
+        // Stage B: 雙輪特徵座標軸精細拋光 (Coordinate Line-Search Refinement)
+        println!(
+            "[Calibration] 進入 Stage B: 雙輪特徵座標軸精細拋光 (Coordinate Line-Search Refinement)，基準錯誤數: {}",
+            best_errors
+        );
+        let deltas = [-0.03, -0.015, -0.006, 0.006, 0.015, 0.03];
+
+        for pass in 1..=2 {
+            println!("[Calibration] Coordinate Polish Pass {}/2...", pass);
+            for &k in &feature_keys {
+                let base_val = best_weights
+                    .get(k)
+                    .copied()
+                    .unwrap_or(default_feature_weight(k));
+                let (lo, hi) = feature_bounds(k);
+                let deltas_k: &[f64] = if k.starts_with("ngram_") {
+                    &[-0.25, -0.10, -0.04, 0.04, 0.10, 0.25]
+                } else {
+                    &deltas
+                };
+
+                for &d in deltas_k {
+                    let cand_val = ((base_val + d).clamp(lo, hi) * 10000.0).round() / 10000.0;
+                    if (cand_val - base_val).abs() < 1e-6 {
+                        continue;
+                    }
+                    let mut cand_w = best_weights.clone();
+                    cand_w.insert(k.to_string(), cand_val);
+
+                    let (c_errors, c_exact, c_fixed, c_broken) = eval_candidate_weights(
+                        base_engine,
+                        &cand_w,
+                        compiled,
+                        &dags,
+                        &init_exact_flags,
+                    );
+
+                    if (c_errors < best_errors || (c_errors == best_errors && c_exact > best_exact))
+                        && c_broken <= c_fixed
+                    {
+                        println!(
+                            "  [Polish] 特徵 {}: {:.4} -> {:.4} (錯誤數 {} -> {}, 正確率 {} -> {}, fix={}, brk={})",
+                            k, base_val, cand_val, best_errors, c_errors, best_exact, c_exact, c_fixed, c_broken
+                        );
+                        coordinate_polish_steps.push(json!({
+                            "pass": pass,
+                            "feature": k,
+                            "old_val": base_val,
+                            "new_val": cand_val,
+                            "old_errors": best_errors,
+                            "new_errors": c_errors,
+                            "old_exact": best_exact,
+                            "new_exact": c_exact,
+                            "fixed": c_fixed,
+                            "broken": c_broken
+                        }));
+                        best_errors = c_errors;
+                        best_exact = c_exact;
+                        best_weights.insert(k.to_string(), cand_val);
                     }
                 }
-                updates_in_epoch += 1;
-            }
-            total_steps += 1.0;
-            for &k in &feature_keys {
-                *w_sum.entry(k.to_string()).or_insert(0.0) += w.get(k).copied().unwrap_or(1.0);
             }
         }
-
-        let avg_w: HashMap<String, f64> = feature_keys
-            .iter()
-            .map(|&k| {
-                let v = if total_steps > 0.0 {
-                    w_sum.get(k).copied().unwrap_or(total_steps) / total_steps
-                } else {
-                    w0.get(k).copied().unwrap_or(1.0)
-                };
-                (k.to_string(), (v * 10000.0).round() / 10000.0)
-            })
-            .collect();
-
-        let (ep_errors, ep_exact, fixed_vs_init, broken_vs_init) = eval_candidate_weights(
-            base_engine,
-            &avg_w,
-            compiled,
-            &dags,
-            &init_exact_flags,
-        );
-
-        let ep_cer = ep_errors as f64 / total_chars.max(1) as f64;
-        let ep_ser = ep_exact as f64 / compiled.len().max(1) as f64;
+    } else {
         println!(
-            "[Calibration] Epoch {}/{}: updates={}, dev CER={:.2}% ({} errors, fixed={}, broken={}), SER={:.2}%",
-            ep,
-            epochs,
-            updates_in_epoch,
-            ep_cer * 100.0,
-            ep_errors,
-            fixed_vs_init,
-            broken_vs_init,
-            ep_ser * 100.0
+            "[Calibration] --ngram-only 模式：鎖定 24 項既有規則權重，完成 N-gram 三權重優化（錯誤數 {}）",
+            best_errors
         );
-
-        epoch_history.push(json!({
-            "epoch": ep,
-            "updates": updates_in_epoch,
-            "dev_cer": ep_cer,
-            "dev_cer_percent": format!("{:.2}%", ep_cer * 100.0),
-            "dev_char_errors": ep_errors,
-            "dev_exact_matches": ep_exact,
-            "fixed_vs_init": fixed_vs_init,
-            "broken_vs_init": broken_vs_init,
-            "dev_sentence_accuracy_percent": format!("{:.2}%", ep_ser * 100.0),
-            "averaged_weights": avg_w
-        }));
-
-        if (ep_errors < best_errors || (ep_errors == best_errors && ep_exact > best_exact))
-            && broken_vs_init <= fixed_vs_init
-        {
-            best_errors = ep_errors;
-            best_exact = ep_exact;
-            best_weights = avg_w;
-        }
-    }
-
-    // Stage B: 雙輪特徵座標軸精細拋光 (Coordinate Line-Search Refinement)
-    println!(
-        "[Calibration] 進入 Stage B: 雙輪特徵座標軸精細拋光 (Coordinate Line-Search Refinement)，基準錯誤數: {}",
-        best_errors
-    );
-    let mut coordinate_polish_steps = Vec::new();
-    let deltas = [-0.03, -0.015, -0.006, 0.006, 0.015, 0.03];
-
-    for pass in 1..=2 {
-        println!("[Calibration] Coordinate Polish Pass {}/2...", pass);
-        for &k in &feature_keys {
-            let base_val = best_weights.get(k).copied().unwrap_or(1.0);
-            let (lo, hi) = feature_bounds(k);
-
-            for &d in &deltas {
-                let cand_val = ((base_val + d).clamp(lo, hi) * 10000.0).round() / 10000.0;
-                if (cand_val - base_val).abs() < 1e-6 {
-                    continue;
-                }
-                let mut cand_w = best_weights.clone();
-                cand_w.insert(k.to_string(), cand_val);
-
-                let (c_errors, c_exact, c_fixed, c_broken) = eval_candidate_weights(
-                    base_engine,
-                    &cand_w,
-                    compiled,
-                    &dags,
-                    &init_exact_flags,
-                );
-
-                if (c_errors < best_errors || (c_errors == best_errors && c_exact > best_exact))
-                    && c_broken <= c_fixed
-                {
-                    println!(
-                        "  [Polish] 特徵 {}: {:.4} -> {:.4} (錯誤數 {} -> {}, 正確率 {} -> {}, fix={}, brk={})",
-                        k, base_val, cand_val, best_errors, c_errors, best_exact, c_exact, c_fixed, c_broken
-                    );
-                    coordinate_polish_steps.push(json!({
-                        "pass": pass,
-                        "feature": k,
-                        "old_val": base_val,
-                        "new_val": cand_val,
-                        "old_errors": best_errors,
-                        "new_errors": c_errors,
-                        "old_exact": best_exact,
-                        "new_exact": c_exact,
-                        "fixed": c_fixed,
-                        "broken": c_broken
-                    }));
-                    best_errors = c_errors;
-                    best_exact = c_exact;
-                    best_weights.insert(k.to_string(), cand_val);
-                }
-            }
-        }
     }
 
     // 寫出最佳權重至 feature_weights.tsv
@@ -4095,7 +4312,10 @@ pub fn run_perceptron_calibration(
     tsv_lines.push(format!("freq_ln\t{f_legacy:.4}"));
 
     for &k in &feature_keys {
-        let val = best_weights.get(k).copied().unwrap_or(1.0);
+        let val = best_weights
+            .get(k)
+            .copied()
+            .unwrap_or(default_feature_weight(k));
         tsv_lines.push(format!("{k}\t{val:.4}"));
     }
 
@@ -4136,6 +4356,7 @@ pub fn run_perceptron_calibration(
         "unreachable_gold_sentences": unreachable_count,
         "unreachable_gold_ratio": format!("{:.2}%", (unreachable_count as f64 / compiled.len().max(1) as f64) * 100.0),
         "best_weights": best_weights,
+        "stage0_ngram_warmstart_steps": stage0_steps,
         "epoch_history": epoch_history,
         "coordinate_polish_steps": coordinate_polish_steps
     })
@@ -4766,6 +4987,7 @@ fn main() {
     let mut do_classical_bench = false;
     let mut prune_harmful = false;
     let mut do_calibrate = false;
+    let mut ngram_only = false;
     let mut do_gate = false;
     let mut init_gate_baseline = false;
     let mut commit_override: Option<String> = None;
@@ -4823,6 +5045,10 @@ fn main() {
             }
             "--calibrate" => {
                 do_calibrate = true;
+                i += 1;
+            }
+            "--ngram-only" => {
+                ngram_only = true;
                 i += 1;
             }
             _ => {
@@ -4943,7 +5169,7 @@ fn main() {
             eprintln!("錯誤：嚴禁在盲測集 ({}.tsv) 上執行權重校準！", set_name);
             std::process::exit(1);
         }
-        let rep = run_perceptron_calibration(&engine, &compiled, &root);
+        let rep = run_perceptron_calibration(&engine, &compiled, &root, ngram_only);
         if let Some(ref p) = out_path {
             if let Some(parent) = p.parent() {
                 let _ = fs::create_dir_all(parent);

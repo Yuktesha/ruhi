@@ -5,6 +5,60 @@ use std::collections::HashMap;
 use super::lattice::LatticeNode;
 use super::morpheme_ontology::{MorphemeClass, MorphemeMask256, MorphemeOntology};
 
+const NGRAM_WORD_BI_FLOOR: f64 = -5.5;
+const NGRAM_CHAR_PER_CHAR_FLOOR: f64 = -5.0;
+const NGRAM_ONO_WB_NEUTRAL: f64 = -3.5;
+const NGRAM_ONO_CHAR_NEUTRAL_PER_CHAR: f64 = -2.5;
+
+#[inline]
+fn clip_ngram_char_pair(raw_cb: f64, raw_ct: f64, char_len: usize) -> (f64, f64) {
+    let floor = NGRAM_CHAR_PER_CHAR_FLOOR * (char_len as f64);
+    (raw_cb.max(floor), raw_ct.max(floor))
+}
+
+#[inline]
+fn is_single_tier_a_surname(w: &str) -> bool {
+    let mut it = w.chars();
+    matches!((it.next(), it.next()), (Some(c), None) if super::onomastics::is_tier_a_surname(c))
+}
+
+#[inline]
+#[allow(clippy::too_many_arguments)]
+fn is_onomastic_edge_active(
+    ono_enabled: bool,
+    lookback_slice: &[&str],
+    ono_ctx: Option<&super::onomastics::OnomasticPrefixCtx>,
+    backward: &LatticeBackwardProfile,
+    node: &LatticeNode,
+    prev_w: &str,
+    prev2_w: Option<&str>,
+    dag: &HashMap<usize, Vec<LatticeNode>>,
+    session_given_names: &std::collections::HashSet<String>,
+) -> bool {
+    if !ono_enabled || node.length() > 2 {
+        return false;
+    }
+    let maybe_ono = is_single_tier_a_surname(prev_w)
+        || prev2_w.is_some_and(is_single_tier_a_surname)
+        || session_given_names.contains(&node.word)
+        || (!session_given_names.is_empty() && prev_w.chars().count() == 1 && node.length() == 1);
+    if !maybe_ono {
+        return false;
+    }
+    super::onomastics::score_onomastic_bonus_with_ctx(
+        lookback_slice,
+        ono_ctx,
+        Some(backward),
+        &node.word,
+        &node.bopomofo,
+        node.end_idx,
+        dag,
+        session_given_names,
+    )
+    .abs()
+        > 1e-9
+}
+
 /// 詞網格後向動態規劃預掃描輪廓 (`LatticeBackwardProfile`)
 /// 於前向束搜尋啟動前，以線性時間 $O(E)$ 自句尾 `n_syllables` 向句首反向計算：
 /// 1. 每個音節邊界 `pos` 之最佳後綴路徑位勢 `beta_score[pos]`；
@@ -448,7 +502,19 @@ impl ViterbiRouter {
             }
 
             if let Some(nodes) = dag.get(&i) {
-                let (w_freq_c1, w_freq_cmp, w_mchar, w_coh3, w_coh4, w_coord_yu, w_coord_he, w_class) = if let Some(ref eng) = transitions {
+                let (
+                    w_freq_c1,
+                    w_freq_cmp,
+                    w_mchar,
+                    w_coh3,
+                    w_coh4,
+                    w_coord_yu,
+                    w_coord_he,
+                    w_class,
+                    w_ng_wb,
+                    w_ng_cb,
+                    w_ng_ct,
+                ) = if let Some(ref eng) = transitions {
                     (
                         eng.feature_weights
                             .get("freq_ln_char1")
@@ -466,9 +532,25 @@ impl ViterbiRouter {
                         eng.feature_weights.get("coord_prior").copied().unwrap_or(1.0),
                         eng.feature_weights.get("coord_he_huo_prior").copied().unwrap_or(0.0),
                         eng.feature_weights.get("classical_register").copied().unwrap_or(1.0),
+                        eng.feature_weights.get("ngram_word_bi").copied().unwrap_or(0.0),
+                        eng.feature_weights.get("ngram_char_bi").copied().unwrap_or(0.0),
+                        eng.feature_weights.get("ngram_char_tri").copied().unwrap_or(0.0),
                     )
                 } else {
-                    (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0)
+                    (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0)
+                };
+                let initial_has_cjk = initial_word
+                    .chars()
+                    .any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c));
+                let allow_ngram = (n_syllables >= 3 || (n_syllables >= 2 && initial_has_cjk))
+                    && !classical.active;
+                let ngram_lm_ref = if allow_ngram {
+                    transitions
+                        .as_ref()
+                        .filter(|eng| !eng.is_rule_disabled("ngram_lm"))
+                        .and_then(|eng| eng.ngram_lm.as_ref().cloned())
+                } else {
+                    None
                 };
 
                 let (trellis_past, trellis_future) = trellis.split_at_mut(i + 1);
@@ -623,6 +705,68 @@ impl ViterbiRouter {
                             n_syllables,
                             dag,
                         ) * w_class;
+                        let lb_count = if prev_idx < 32 { lookback_lens[prev_idx] } else { 0 };
+                        let single_prev = [prev_state.node.word.as_str()];
+                        let lookback_slice: &[&str] = if !prev_state.node.word.is_empty() {
+                            if prev_idx < 32 {
+                                &lookback_bufs[prev_idx][MAX_LOOKBACK - lb_count..MAX_LOOKBACK]
+                            } else {
+                                &single_prev
+                            }
+                        } else {
+                            &[]
+                        };
+                        let ono_edge_active = if ngram_lm_ref.is_some() {
+                            if let Some(ref eng) = transitions {
+                                let octx = if !prev_state.node.word.is_empty() && prev_idx < 32 {
+                                    Some(&ono_ctxs[prev_idx])
+                                } else {
+                                    None
+                                };
+                                is_onomastic_edge_active(
+                                    ono_enabled,
+                                    lookback_slice,
+                                    octx,
+                                    &backward,
+                                    node,
+                                    &prev_state.node.word,
+                                    prev2_word,
+                                    dag,
+                                    &eng.session_given_names,
+                                )
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        };
+                        let ngram_trans = if let Some(ref lm) = ngram_lm_ref {
+                            if !ono_edge_active {
+                                let mut ng = 0.0;
+                                if w_ng_wb.abs() > 1e-12 {
+                                    let wb = lm
+                                        .score_word_bigram(&prev_state.node.word, &node.word)
+                                        .max(NGRAM_WORD_BI_FLOOR);
+                                    ng += w_ng_wb * wb;
+                                }
+                                if w_ng_cb.abs() > 1e-12 || w_ng_ct.abs() > 1e-12 {
+                                    let (raw_cb, raw_ct) = lm.score_char_boundary(
+                                        prev2_word,
+                                        &prev_state.node.word,
+                                        &node.word,
+                                    );
+                                    let (cb, ct) = clip_ngram_char_pair(raw_cb, raw_ct, word_len_u);
+                                    ng += w_ng_cb * cb + w_ng_ct * ct;
+                                }
+                                ng
+                            } else {
+                                let c_neutral =
+                                    NGRAM_ONO_CHAR_NEUTRAL_PER_CHAR * (word_len_u as f64);
+                                w_ng_wb * NGRAM_ONO_WB_NEUTRAL + (w_ng_cb + w_ng_ct) * c_neutral
+                            }
+                        } else {
+                            0.0
+                        };
                         let trans_bonus = if let Some(ref mut engine) = transitions {
                             if !prev_state.node.word.is_empty() {
                                 let p_arch = if prev_idx < 32 {
@@ -641,12 +785,6 @@ impl ViterbiRouter {
                                     &node.bopomofo,
                                 );
 
-                                let lb_count = if prev_idx < 32 { lookback_lens[prev_idx] } else { 0 };
-                                let lookback_slice = if prev_idx < 32 {
-                                    &lookback_bufs[prev_idx][MAX_LOOKBACK - lb_count..MAX_LOOKBACK]
-                                } else {
-                                    &[prev_state.node.word.as_str()]
-                                };
                                 b += engine.calculate_vo_lookback_bonus(lookback_slice, &node.word);
                                 let gctx = if prev_idx < 32 {
                                     geo_ctxs[prev_idx].as_ref()
@@ -690,7 +828,11 @@ impl ViterbiRouter {
                             0.0
                         };
 
-                        let total = prev_state.score + trans_bonus + classical_trans + self_score;
+                        let total = prev_state.score
+                            + trans_bonus
+                            + classical_trans
+                            + ngram_trans
+                            + self_score;
                         if is_coord_conj && total > -f64::INFINITY {
                             coord_candidates.push((total, prev_idx));
                         }
@@ -868,6 +1010,13 @@ impl ViterbiRouter {
         );
 
         let mut prefix_words: Vec<&str> = Vec::with_capacity(path.len());
+        let ono_enabled = !transitions.is_rule_disabled("onomastics");
+        let allow_ngram = n_syl >= 3 && !classical.active;
+        let ngram_lm_ref = if allow_ngram && !transitions.is_rule_disabled("ngram_lm") {
+            transitions.ngram_lm.clone()
+        } else {
+            None
+        };
         for (idx, node) in path.iter().enumerate() {
             let c_node = classical.node_score_delta(node, n_syl);
             let prev_w = if idx > 0 { path[idx - 1].word.as_str() } else { "" };
@@ -878,6 +1027,35 @@ impl ViterbiRouter {
                 *features.entry("classical_register".to_string()).or_insert(0.0) += c_total;
             }
             let word_len_u = node.length();
+            if let Some(ref lm) = ngram_lm_ref {
+                let lb_start = prefix_words.len().saturating_sub(24);
+                let lb_slice = &prefix_words[lb_start..];
+                let ono_active = is_onomastic_edge_active(
+                    ono_enabled,
+                    lb_slice,
+                    None,
+                    &backward,
+                    node,
+                    prev_w,
+                    prev2_w,
+                    dag,
+                    &transitions.session_given_names,
+                );
+                let (wb, cb, ct) = if !ono_active {
+                    let wb = lm
+                        .score_word_bigram(prev_w, &node.word)
+                        .max(NGRAM_WORD_BI_FLOOR);
+                    let (raw_cb, raw_ct) = lm.score_char_boundary(prev2_w, prev_w, &node.word);
+                    let (cb, ct) = clip_ngram_char_pair(raw_cb, raw_ct, word_len_u);
+                    (wb, cb, ct)
+                } else {
+                    let c_neutral = NGRAM_ONO_CHAR_NEUTRAL_PER_CHAR * (word_len_u as f64);
+                    (NGRAM_ONO_WB_NEUTRAL, c_neutral, c_neutral)
+                };
+                *features.entry("ngram_word_bi".to_string()).or_insert(0.0) += wb;
+                *features.entry("ngram_char_bi".to_string()).or_insert(0.0) += cb;
+                *features.entry("ngram_char_tri".to_string()).or_insert(0.0) += ct;
+            }
             let word_len = word_len_u as f64;
             let is_session_name = transitions.session_given_names.contains(&node.word);
             let base_weight = (std::cmp::max(1, node.weight)) as f64;
@@ -1084,5 +1262,128 @@ mod tests {
             dot,
             (best_score - dot).abs()
         );
+    }
+
+    #[test]
+    fn test_ngram_lm_dot_product_equivalence_261121() {
+        let mut tsv_path = std::env::temp_dir();
+        tsv_path.push(format!("ruhi_ngram_viterbi_dp_{}.tsv", std::process::id()));
+        let mut bin_path = std::env::temp_dir();
+        bin_path.push(format!("ruhi_ngram_viterbi_dp_{}.bin", std::process::id()));
+
+        let tsv_data = concat!(
+            "WU\t<s>\t-9.0\t-0.1\n",
+            "WU\t<unk>\t-8.5\t0.0\n",
+            "WU\t台灣\t-2.1\t-0.2\n",
+            "WU\t台\t-3.2\t-0.3\n",
+            "WU\t灣\t-3.4\t-0.3\n",
+            "WU\t語音\t-2.4\t-0.2\n",
+            "WB\t<s>\t台灣\t-1.4\n",
+            "WB\t台灣\t語音\t-1.6\n",
+            "CU\t<s>\t-9.0\t-0.1\n",
+            "CU\t<unk>\t-8.5\t0.0\n",
+            "CU\t台\t-2.0\t-0.2\n",
+            "CU\t灣\t-2.3\t-0.2\n",
+            "CU\t語\t-2.1\t-0.2\n",
+            "CU\t音\t-2.2\t-0.2\n",
+            "CB\t<s>\t台\t-1.3\t-0.15\n",
+            "CB\t台\t灣\t-0.4\t-0.1\n",
+            "CB\t灣\t語\t-1.9\t-0.2\n",
+            "CB\t語\t音\t-0.6\t-0.1\n",
+            "CT\t<s>\t台\t灣\t-0.35\n",
+            "CT\t台\t灣\t語\t-1.2\n",
+            "CT\t灣\t語\t音\t-0.45\n",
+        );
+        std::fs::write(&tsv_path, tsv_data).unwrap();
+        crate::router::ngram_lm::compile_arpa_tsv_to_bin(&tsv_path, &bin_path).unwrap();
+
+        let router = ViterbiRouter::default();
+        let mut eng = crate::router::transitions::TransitionEngine::new();
+        eng.disabled_rules.remove("ngram_lm");
+        eng.load_ngram_lm_bin(&bin_path).unwrap();
+        eng.feature_weights.insert("freq_ln_char1".to_string(), 1.04);
+        eng.feature_weights.insert("freq_ln_compound".to_string(), 1.09);
+        eng.feature_weights.insert("multi_char_len".to_string(), 0.97);
+        eng.feature_weights.insert("ngram_word_bi".to_string(), 1.2);
+        eng.feature_weights.insert("ngram_char_bi".to_string(), 0.8);
+        eng.feature_weights.insert("ngram_char_tri".to_string(), 1.5);
+
+        let mut dag: HashMap<usize, Vec<LatticeNode>> = HashMap::new();
+        dag.insert(0, vec![
+            LatticeNode::new(0, 2, "台灣", 800, "ㄊㄞˊ ㄨㄢ"),
+            LatticeNode::new(0, 1, "台", 400, "ㄊㄞˊ"),
+        ]);
+        dag.insert(1, vec![
+            LatticeNode::new(1, 2, "灣", 350, "ㄨㄢ"),
+        ]);
+        dag.insert(2, vec![
+            LatticeNode::new(2, 4, "語音", 700, "ㄩˇ ㄧㄣ"),
+        ]);
+
+        let (path, best_score) = router.solve_best_path(4, &dag, Some(&mut eng));
+        let joined: String = path.iter().map(|n| n.word.as_str()).collect();
+        assert_eq!(joined, "台灣語音");
+
+        let (feats, _) = router.extract_path_features_and_triggers(&path, &dag, &mut eng);
+        assert!(feats.get("ngram_word_bi").copied().unwrap_or(0.0) < 0.0);
+        assert!(feats.get("ngram_char_bi").copied().unwrap_or(0.0) < 0.0);
+        assert!(feats.get("ngram_char_tri").copied().unwrap_or(0.0) < 0.0);
+
+        let dot: f64 = feats
+            .iter()
+            .map(|(k, v)| {
+                let def = if k.starts_with("ngram_") || k == "coord_he_huo_prior" {
+                    0.0
+                } else {
+                    1.0
+                };
+                v * eng.feature_weights.get(k).copied().unwrap_or(def)
+            })
+            .sum();
+        assert!(
+            (best_score - dot).abs() < 1e-9,
+            "ngram best_score ({}) != dot product ({}), diff = {}",
+            best_score,
+            dot,
+            (best_score - dot).abs()
+        );
+
+        let mut eng_disabled = eng.clone();
+        eng_disabled.disabled_rules.insert("ngram_lm".to_string());
+        let (_p_dis, score_dis) = router.solve_best_path(4, &dag, Some(&mut eng_disabled));
+
+        let mut eng_none = eng.clone();
+        eng_none.ngram_lm = None;
+        let (_p_none, score_none) = router.solve_best_path(4, &dag, Some(&mut eng_none));
+
+        assert!(
+            (score_dis - score_none).abs() < 1e-12,
+            "disabling ngram_lm ({}) should equal ngram_lm = None ({})",
+            score_dis,
+            score_none
+        );
+
+        // Guard 1: 2-syllable context-free DAG must NOT invoke N-gram
+        let mut dag2: HashMap<usize, Vec<LatticeNode>> = HashMap::new();
+        dag2.insert(0, vec![
+            LatticeNode::new(0, 2, "台灣", 800, "ㄊㄞˊ ㄨㄢ"),
+            LatticeNode::new(0, 1, "台", 400, "ㄊㄞˊ"),
+        ]);
+        dag2.insert(1, vec![
+            LatticeNode::new(1, 2, "灣", 350, "ㄨㄢ"),
+        ]);
+        let (path2, _) = router.solve_best_path(2, &dag2, Some(&mut eng));
+        let (feats2, _) = router.extract_path_features_and_triggers(&path2, &dag2, &mut eng);
+        assert_eq!(feats2.get("ngram_word_bi").copied().unwrap_or(0.0), 0.0);
+
+        // Guard 2: ClassicalExplicit mode must NOT invoke modern N-gram
+        let mut router_cls = router.clone();
+        router_cls.classical_mode = super::super::classical_register::ClassicalRegisterMode::ClassicalExplicit;
+        let (path_cls, _) = router_cls.solve_best_path(4, &dag, Some(&mut eng));
+        let (feats_cls, _) = router_cls.extract_path_features_and_triggers(&path_cls, &dag, &mut eng);
+        assert_eq!(feats_cls.get("ngram_word_bi").copied().unwrap_or(0.0), 0.0);
+
+        let _ = std::fs::remove_file(&tsv_path);
+        let _ = std::fs::remove_file(&bin_path);
     }
 }

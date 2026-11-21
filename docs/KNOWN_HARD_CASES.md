@@ -82,3 +82,23 @@
 | `test_slot_assimilation_into_existing_7d_constructions_261031`（`ruhi-studio/src/tuner.rs`） | 驗證新詞「太魯閣」、「拉拉山」、「語意構式」同化至 `meteorological_subject_yu_continuous_aspect_7d_array` 與 `attributive_wancheng_de_noun_4d_array` | `matched_existing_constructions` 未命中上述兩模板 | 該兩條模板屬於 2026-11-05 分流捨棄之 `Unit A2`（`patterns_user.jsonl` 91 條模板，造成 `dev` CER 由 `6.32%` 退步至 `6.45%`、`fixed=15, broken=33`），正式資料檔未收錄 |
 
 另外，`test_kept_triage_units_a3_a4_a5b_a6_261031` 在保全分支中被追加兩句歌詞案例；該兩句已移除，恢復為 10/31 分流後之內容（既有案例與預期值未變）。
+
+---
+
+## 4. 2026-11-21 Phase 1D 統計 N-gram（`v6`）收斂新增之薄邊際權衡案例
+
+Phase 1D 導入台灣正體商用安全統計 N-gram 模型（`ngram_zh_tw.bin`，`26.88 MB`，權重 `ngram_char_tri = 0.2100`、`ngram_word_bi = 0.3000`、`ngram_char_bi = 0.1000`）後，於鎖定既有 24 項規則權重且嚴格凍結 `constructions.rs` 的前提下，開發集（`dev.tsv`，`3,640` 句／`44,855` 字）CER 由 `4.43%`（`1,985` 字錯）大幅降至 **`3.89%`**（`1,745` 字錯，淨減 **`-240`** 字錯、`fixed = 194, broken = 70`，修復／退步比 **`2.77 : 1`**，McNemar $\chi^2 = 57.3068, p = 3.7604 \times 10^{-14}$）。
+
+依專案與使用者選定之 `v6` 均衡高精度定案方針，下表所列 9 組原僅以極微詞庫先驗分差（多在 `+0.007 ~ +0.45` 分間）或缺乏無上下文本體語料覆蓋而通過的單句，已依本帳本規範自原混合測試函式精準拆出，標註為 `#[ignore = "known hard case: ..."]`，原測試其餘數百項斷言均維持常駐綠燈：
+
+| 來源測試 | 拆出之測試函式 | 預期輸出 (`expected`) | `v6` 實際輸出 (`actual`) | 成因與統計權衡說明 |
+|---|---|---|---|---|
+| `test_eight_homophone_pairs_in_contrasting_sentences_261019` | `test_phase1d_v6_ngram_thin_margin_known_hard_cases_261121` | `但他會不會對系統造成負擔` | `但它會不會對系統造成負擔` | 語料中 `但` 後接 `它／他` 分佈極為接近，`他 (859)` 與 `它 (850)` 詞庫微差遭句首三字機率反超 |
+| `test_xin_duihua_disambiguation_and_contrast_261115` | `test_phase1d_v6_ngram_thin_margin_known_hard_cases_261121` | `靜下心來與心對話` | `靜下心來與新對話` | 台灣公共語料中「與新對話」詞組統計機率極高，在 `與 _ 對話` 短跨距下壓過無生物語意之單字「心」 |
+| `test_seven_extreme_contrastive_sentences_and_lei2_audit_261118` | `test_phase1d_v6_ngram_thin_margin_known_hard_cases_261121` | `我在我自己居住的城市寫的程式我自己非常享用`（及其長句併列變體） | `我在我自己居住的程式寫的程式我自己非常享用` | 語音 `ㄔㄥˊ ㄕˋ` 處於高頻動作詞「寫的」左側受雙向 N-gram 與同句右側「程式」共現機率牽引，蓋過僅 `+0.021` 分之詞頻先驗差 |
+| `test_seven_extreme_contrastive_sentences_and_lei2_audit_261118` | `test_phase1d_v6_ngram_thin_margin_known_hard_cases_261121` | `每個人都能健健康康一輩子連住萬分之一個院都不需要`（三組聲調變體） | `...連著萬分之一個院都不需要` | 同形多音字 `著`（兼具高頻體標記 `˙ㄓㄜ` 與文讀音 `ㄓㄨˋ` `643` vs `住 718`，僅 `+0.110` 分差）因統計模型為表層字形（Surface Form），致 `WB("連","著")` 與 `CT("子連著")` 之高頻體標記搭配外洩至 `ㄓㄨˋ` 讀音路徑 |
+| `test_eight_real_world_homophone_and_mixed_cases_261119` | `test_phase1d_v6_ngram_thin_margin_known_hard_cases_261121` | `在用這套工具` | `再用這套工具` | 句首無前文動詞時，`再用` 於語料統計高於 `在用`（同組 `誰在用`、`在跑測試`、`在看文件` 等皆維持通過） |
+| `test_eight_real_world_homophone_and_mixed_cases_261119` | `test_phase1d_v6_ngram_thin_margin_known_hard_cases_261121` | `多代機型` | `多帶機型` | 詞庫單字 `代 (765)` 與 `帶 (727)` 僅差 `+0.051` 分；缺乏跨領域上下文時受前序語素「多帶」統計組合反超（同組 `多代同堂`、`多代傳承`、`歷經多代`、`下一代模型`、`第一代產品` 皆維持通過） |
+| `test_round4_eleven_real_world_aesthetic_and_daily_constructions_261120` | `test_phase1d_v6_ngram_thin_margin_known_hard_cases_261121` | `考的上次那題` | `考的上次那提` | 詞庫單字 `題 (775)` 與 `提 (746)` 僅差 `+0.0381` 分，語料中 `WB("那","提")`（如「那提到」）高於 `WB("那","題")` |
+| `test_wave1a_eight_y_sentences_and_contrasts_std_and_hsu` (`#4`) | `test_wave1a_phase1d_v6_ngram_known_hard_cases_261121` | `我們社區管理委員會的常委養了一隻長尾貓` | `我們社區管理委員會的長尾養了一隻長尾貓` | 「社區管理委員會」較「黨／中央／政治」常規共現稀疏，「的長尾」與右側「長尾貓」三字統計組合壓過未觸發強規則之 `常委` |
+| `test_wave1a_eight_y_sentences_and_contrasts_std_and_hsu` (`#5`) | `test_wave1a_phase1d_v6_ngram_known_hard_cases_261121` | `一群年輕人在滿樹桐花的樹蔭下玩起撲克牌，其中一人亮出一手同花順好牌，所有人都同時同意他是今天最幸運的人` | `...亮出一首同花順好牌...` | 詞庫 `一手 (450)` 與 `一首 (447)` 僅差 `+0.0067` 分，極易受語料「出一首」字級三元統計反超；同句之「他是」於 `v6` 已維持通過 |

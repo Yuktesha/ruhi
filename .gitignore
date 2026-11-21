@@ -121,6 +121,12 @@ ruhi_lexicon/data/longkan.bin
 scripts/data/longkan.bin
 data/longkan.bin
 
+# 台灣正體統計 N-gram 二進位記憶體映射檔（由 `scripts/train_ngram_lm.py` 與 `ruhi_ngbin` 產生，不入 Git 版控）
+**/ngram_zh_tw.bin
+ruhi_lexicon/data/ngram_zh_tw.bin
+scripts/data/ngram_zh_tw.bin
+data/ngram_zh_tw.bin
+
 /user_word_events.jsonl
 /.last_bg_telemetry_spawn
 ruhi_lexicon/data/homophone_context_profiles.json

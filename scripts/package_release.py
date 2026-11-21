@@ -155,6 +155,10 @@ def main():
     if lk_bin.is_file():
         shutil.copy2(lk_bin, release_data / "longkan.bin")
 
+    ng_bin = root / "ruhi_lexicon" / "data" / "ngram_zh_tw.bin"
+    if ng_bin.is_file():
+        shutil.copy2(ng_bin, release_data / "ngram_zh_tw.bin")
+
     # 複製設定範本（不含個人設定與雲端 Webhook 網址；安裝程式會以範本建立 config.json / settings_config.json）
     for f in ["settings_config.example.json", "config.example.json"]:
         for cand in [root / "installer" / f, root / f]:

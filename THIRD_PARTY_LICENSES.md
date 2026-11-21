@@ -113,3 +113,25 @@
 | `serde` / `serde_json` | MIT OR Apache-2.0 | 零拷貝資料序列化與 JSON 配置檔解析 |
 | `bincode` | MIT | 高效二進位資料編解碼 |
 | `memchr` | Unlicense OR MIT | 極速字串與位元組序列搜尋 |
+
+---
+
+## 8. 台灣正體統計 N-gram 語言模型訓練語料與字表 (`ngram_zh_tw.bin`)
+
+`ruhi_lexicon/data/ngram_zh_tw.bin`（`RLNG0001` 格式，由 `scripts/train_ngram_lm.py` 與 `ruhi_ngbin` 建置）僅採用可商用且無 ShareAlike／NonCommercial／中國大陸意識形態審查之授權安全語料與純度字表：
+
+| 來源資料集 / 字表 | 授權條款 | 專案用途 |
+| :--- | :--- | :--- |
+| `HuggingFaceFW/fineweb-2` (`cmn_Hani` `.tw` 網域子集) | ODC-BY-1.0 | 台灣繁體網路文章統計語料 |
+| `openfun/ivod-fine-tune` | CC-BY-4.0 | 立法院公開口語逐字稿語料 |
+| `openfun/tw-ly-interpellation` | CC-BY-4.0 | 立法院書面質詢文書語料 |
+| `openfun/tw-ly-bill` | CC-BY-4.0 | 立法院議案與條文說明語料 |
+| `twinkle-ai/tw-reasoning-instruct-50k` / `tw-math-reasoning-2k` | MIT | 現代台灣繁體問答與推理語料 |
+| `twinkle-ai/tw-function-call-reasoning-10k` | CC-BY-4.0 | 台灣繁體工具調用推理語料 |
+| `lianghsun/tw-processed-law-article` | CC-BY-4.0 | 台灣正式法規條文語料 |
+| `lianghsun/tw-processed-law-ctx` | Apache-2.0 | 台灣法規條文語境語料 |
+| `taiwan-corpora/twfilter-tables` | OGDL-Taiwan-1.0 / Apache-2.0 / MIT | 台灣正體字表與兩岸用語純度過濾規則 |
+
+依上述授權條款特此聲明並致謝：
+* **數位發展部，CNS11643中文標準交換碼全字庫網站**
+* **OpenCC — https://github.com/BYVoid/OpenCC, Apache License 2.0**

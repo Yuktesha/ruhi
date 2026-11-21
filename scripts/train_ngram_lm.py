@@ -359,7 +359,7 @@ class LexiconSegmenter:
             wlen = len(w)
             if wlen == 1:
                 self.seg_scores[w] = math.log(max(1, wt))
-            elif wlen == 2 and wt >= 90:
+            elif wlen == 2 and wt >= 90 and not is_narrow_transparent_derived(w):
                 self.seg_scores[w] = math.log(max(1, wt)) + effective_multi_char_bonus_s5(w, 2, wt)
             elif 3 <= wlen <= 4 and (
                 (wt >= 250 and not any(c in "的得地" for c in w)) or (w in LEXICALIZED_3)
@@ -1296,6 +1296,9 @@ def run_self_test_seg(lexicon_path: str | Path) -> int:
         ("我想要去台北吃牛肉麵", ["我", "想要", "去", "台北", "吃", "牛肉麵"]),
         ("台灣軟體工程師建立檔案", ["台灣", "軟體", "工程師", "建立", "檔案"]),
         ("中華民國憲法規定", ["中華民國", "憲法", "規定"]),
+        ("他在開發初期", ["他", "在", "開發初期"]),
+        ("它在開發初期", ["它", "在", "開發初期"]),
+        ("他的新作品", ["他", "的", "新作品"]),
     ]
     failed = 0
     for text, expected in cases:

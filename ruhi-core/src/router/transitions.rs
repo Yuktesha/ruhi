@@ -310,6 +310,8 @@ pub struct TransitionEngine {
     pub last_check_instant: Option<std::time::Instant>,
     /// 跨句 Session 識別與採集之 2 字人名快取
     pub session_given_names: HashSet<String>,
+    /// 選配唯讀記憶體映射統計 N-gram 語言模型（`ngram_zh_tw.bin`，未載入時為 `None`）
+    pub ngram_lm: Option<std::sync::Arc<super::ngram_lm::NgramLanguageModel>>,
 }
 
 impl TransitionEngine {
@@ -405,6 +407,7 @@ impl Default for TransitionEngine {
             patterns_last_modified: None,
             last_check_instant: None,
             session_given_names: HashSet::new(),
+            ngram_lm: None,
         };
         engine.init_builtin_knowledge();
         engine
@@ -6340,6 +6343,13 @@ impl TransitionEngine {
             }
         }
         Ok(count)
+    }
+
+    /// 載入唯讀記憶體映射統計 N-gram 模型（`RLNG0001`）
+    pub fn load_ngram_lm_bin<P: AsRef<Path>>(&mut self, path: P) -> Result<(), std::io::Error> {
+        let lm = super::ngram_lm::NgramLanguageModel::open(path.as_ref())?;
+        self.ngram_lm = Some(std::sync::Arc::new(lm));
+        Ok(())
     }
 
     #[inline(always)]
