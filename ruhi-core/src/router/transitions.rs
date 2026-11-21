@@ -427,6 +427,9 @@ pub(crate) struct TransitionEdgeCtx<'a> {
     pub shatters_core_len2_at_start: bool,
     pub shatters_strong_left_len2: bool,
     pub shatters_strong_v_le: bool,
+    pub shatters_left_len2_300: bool,
+    pub shatters_prev_left_len2: bool,
+    pub next_is_true_numeral_unit: bool,
 }
 
 impl TransitionEngine {
@@ -467,7 +470,7 @@ impl TransitionEngine {
             "不", "沒", "很", "都", "也", "就", "才", "再", "又", "還",
             "已", "正", "將", "會", "能", "可", "要", "該", "應", "未", "曾",
             // 代詞
-            "我", "你", "妳", "他", "她", "它", "牠", "祂", "我們", "你們", "他們", "她們", "它們", "牠們",
+            "我", "你", "妳", "他", "她", "它", "牠", "祂", "我們", "你們", "妳們", "他們", "她們", "它們", "牠們", "祂們",
             "這", "那", "這個", "那個", "什麼", "甚麼", "誰", "哪", "每",
             // 量詞
             "個", "位", "隻", "條", "把", "次", "回",
@@ -1118,7 +1121,7 @@ impl TransitionEngine {
             "幾", "多", "半", "百", "千", "萬",
         ];
         let classifiers = vec![
-            "個", "位", "隻", "條", "把", "次", "回", "種", "件", "份", "句",
+            "個", "位", "隻", "條", "把", "次", "回", "種", "件", "份", "句", "篇",
             "本", "張", "塊", "間", "棟", "輛", "台", "架", "支", "枝",
             "朵", "匹", "頭", "尾", "顆", "粒", "片", "杯", "碗", "盤",
             "部", "座", "所", "家", "款", "項", "套", "組", "段", "幢",
@@ -1578,7 +1581,7 @@ impl TransitionEngine {
         let indefinite_num_classifiers = vec![
             "一個", "一種", "一件", "一位", "一項", "一場", "一段", "一套", "一部", "一座",
             "一門", "一雙", "一對", "一筆", "一份", "一條", "一張", "一本", "一隻", "一顆",
-            "一粒", "一棟", "一間", "一輛", "一台", "一架", "一班", "一支", "一片", "一杯",
+            "一粒", "一棟", "一間", "一輛", "一台", "一架", "一支", "一片", "一杯",
             "一碗", "一盤", "一瓶", "一盒", "一包", "一袋", "一箱", "一束", "一朵", "一棵",
             "一株", "一頭", "一匹", "一群", "一類", "一樣", "這", "那", "這個", "那個",
         ];
@@ -2472,7 +2475,7 @@ impl TransitionEngine {
     /// 初始化方位詞構式、關聯副詞、補語構式與「象/相/像」消歧義規則 (Constructions & Xiang Disambiguation)
     pub(crate) fn init_construction_and_xiang_rules(&mut self) {
         let classifiers = vec![
-            "個", "位", "隻", "條", "把", "次", "回", "種", "件", "份", "句",
+            "個", "位", "隻", "條", "把", "次", "回", "種", "件", "份", "句", "篇",
             "本", "張", "塊", "間", "棟", "輛", "台", "架", "支", "枝",
             "朵", "匹", "頭", "尾", "顆", "粒", "片", "杯", "碗", "盤",
             "部", "座", "所", "家", "款", "項", "套", "組", "段", "幢",
@@ -3000,7 +3003,7 @@ impl TransitionEngine {
         let indefinite_num_classifiers = vec![
             "一個", "一種", "一件", "一位", "一項", "一場", "一段", "一套", "一部", "一座",
             "一門", "一雙", "一對", "一筆", "一份", "一條", "一張", "一本", "一隻", "一顆",
-            "一粒", "一棟", "一間", "一輛", "一台", "一架", "一班", "一支", "一片", "一杯",
+            "一粒", "一棟", "一間", "一輛", "一台", "一架", "一支", "一片", "一杯",
             "一碗", "一盤", "一瓶", "一盒", "一包", "一袋", "一箱", "一束", "一朵", "一棵",
             "一株", "一頭", "一匹", "一群", "一類", "一樣", "這", "那", "這個", "那個",
         ];
@@ -4005,13 +4008,13 @@ impl TransitionEngine {
 
         // 6. 「詞 (語言詞彙/詩詞) vs 辭 (辭職/推辭/修辭)」雙向分流：
         let ci2_lexical_modifiers = vec![
-            "新", "舊", "單", "複", "雙字", "三字", "四字", "長", "短", "名", "動", "形容",
-            "副", "介", "連", "助", "嘆", "量", "代", "數", "實", "虛", "同音", "多音",
+            "新", "舊", "單", "複", "雙字", "三字", "四字", "名", "動", "形容",
+            "副", "介", "連", "助", "嘆", "量", "代", "數", "虛", "同音", "多音",
             "破音", "近義", "同義", "反義", "生僻", "冷僻", "罕見", "常用", "高頻", "低頻",
             "關鍵", "敏感", "專有", "專業", "外來", "方言", "主", "謂", "賓", "定", "狀",
-            "補", "語", "字", "組", "造", "選", "拆", "分", "斷", "歌", "詩", "宋", "唐",
-            "填", "台", "臺", "講", "說", "一", "個", "這", "那", "每個", "這個", "那個",
-            "類", "延伸", "衍生", "同類", "各類", "這類", "那類", "假",
+            "補", "字", "組", "造", "選", "拆", "分", "斷", "歌", "詩", "宋", "唐",
+            "填", "台", "臺",
+            "延伸", "衍生", "同類", "各類", "這類", "那類", "假",
         ];
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::OneOf(ci2_lexical_modifiers.into_iter().map(|s| s.to_string()).collect()),
@@ -4026,7 +4029,7 @@ impl TransitionEngine {
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::Exact("詞".to_string()),
             curr_pattern: WordPattern::OneOf(ci2_lexical_heads.iter().map(|s| s.to_string()).collect()),
-            bonus: 28.0,
+            bonus: 16.0,
             name: "ci2_lexical_compound_head".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
@@ -5932,6 +5935,7 @@ impl TransitionEngine {
                                 matches!(
                                     w.as_str(),
                                     "與" | "和" | "及" | "或" | "跟" | "的" | "之" | "得" | "到" | "不"
+                                        | "一下" | "個" | "一頓" | "一趟" | "一個"
                                 )
                             });
                             let right_is_middle_de_particle = i + 1 < raw_slots.len().saturating_sub(1)
@@ -6858,7 +6862,7 @@ impl TransitionEngine {
                         if curr_word == "裡" && prev_bopomofo == "ㄔㄨˇ" {
                             continue;
                         }
-                        if edge_ctx.shatters_strong_left_len2 {
+                        if edge_ctx.shatters_strong_left_len2 || edge_ctx.shatters_core_len2_at_start {
                             continue;
                         }
                         if super::viterbi::is_narrow_transparent_derived(prev_word)
@@ -6866,6 +6870,48 @@ impl TransitionEngine {
                         {
                             continue;
                         }
+                    }
+                    if rule.name == "postpositional_locative_before_adverb_or_verb"
+                        && edge_ctx.shatters_left_len2_300
+                    {
+                        continue;
+                    }
+                    if rule.name == "verb_bu_potential" && edge_ctx.shatters_left_len2_300 {
+                        continue;
+                    }
+                    if rule.name == "negation" && edge_ctx.shatters_prev_left_len2 {
+                        continue;
+                    }
+                    if rule.name == "modal_auxiliary_preposition_bridge"
+                        && edge_ctx.shatters_prev_left_len2
+                    {
+                        continue;
+                    }
+                    if rule.name == "numeral_classifier"
+                        && (edge_ctx.shatters_left_len2_300
+                            || edge_ctx.shatters_core_len2_at_start
+                            || matches!(prev_word, "百" | "千" | "萬")
+                            || (prev_word == "十"
+                                && curr_word == "所"
+                                && matches!(edge_ctx.prev2_word.unwrap_or(""), "那" | "這")))
+                    {
+                        continue;
+                    }
+                    if rule.name == "demonstrative_numeral"
+                        && curr_word == "十"
+                        && edge_ctx.shatters_left_len2_300
+                        && !edge_ctx.next_is_true_numeral_unit
+                    {
+                        continue;
+                    }
+                    if matches!(
+                        rule.name.as_str(),
+                        "lexical_or_poetic_ci2" | "ci2_lexical_compound_head"
+                    ) && (edge_ctx.shatters_core_len2_at_start
+                        || edge_ctx.shatters_left_len2_300
+                        || edge_ctx.shatters_prev_left_len2)
+                    {
+                        continue;
                     }
                     // 防句尾通用「的+是」過度延伸至開放類名物化構造（保留焦點繫詞動詞與主題評述引導語＋的是）
                     if rule.name == "de_shi_copula"
@@ -6974,21 +7020,26 @@ impl TransitionEngine {
                     }
                 }
 
-                // 4. 程度副詞修飾單字時，必須為可分級形容詞
-                if rule.name == "degree_adv_content_adj" && curr_word.chars().count() == 1 {
-                    let gradable_adjectives = [
-                        "好", "大", "小", "多", "少", "快", "慢", "長", "短", "高", "低", "美", "難", "新", "舊",
-                        "貴", "熱", "冷", "棒", "讚", "累", "忙", "深", "淺", "厚", "薄", "紅", "黑", "白", "早",
-                        "晚", "遠", "近", "差", "重", "輕", "硬", "軟", "甜", "苦", "鹹", "香", "痛", "純", "真",
-                        "假", "準", "穩", "省", "狂", "狠", "凶", "兇", "酷", "爽", "爛", "雷",
-                        "神", "猛", "慘", "扯", "嗆", "強", "亮", "緊", "擠", "窄", "吵", "髒", "亂", "臭",
-                        "酸", "辣", "濃", "淡", "鬆", "肥", "瘦", "胖", "矮", "弱", "暗", "鮮", "乾", "濕",
-                        "滑", "脆", "酥", "傻", "笨", "呆", "乖", "衰", "毒", "妙", "巧", "靈", "精", "潮",
-                        "俗", "宅", "萌", "暖", "涼", "燙", "冰", "閒", "睏", "餓", "飽", "渴", "癢", "暈",
-                        "慌", "急", "煩", "悶", "糟", "久",
-                    ];
-                    if !gradable_adjectives.contains(&curr_word) {
+                // 4. 程度副詞修飾單字時，必須為可分級形容詞，且前驅不得因拆碎強雙字詞（如「氣態/液態」）而成孤立單字
+                if rule.name == "degree_adv_content_adj" {
+                    if edge_ctx.shatters_prev_left_len2 {
                         continue;
+                    }
+                    if curr_word.chars().count() == 1 {
+                        let gradable_adjectives = [
+                            "好", "大", "小", "多", "少", "快", "慢", "長", "短", "高", "低", "美", "難", "新", "舊",
+                            "貴", "熱", "冷", "棒", "讚", "累", "忙", "深", "淺", "厚", "薄", "紅", "黑", "白", "早",
+                            "晚", "遠", "近", "差", "重", "輕", "硬", "軟", "甜", "苦", "鹹", "香", "痛", "純", "真",
+                            "假", "準", "穩", "省", "狂", "狠", "凶", "兇", "酷", "爽", "爛", "雷",
+                            "神", "猛", "慘", "扯", "嗆", "強", "亮", "緊", "擠", "窄", "吵", "髒", "亂", "臭",
+                            "酸", "辣", "濃", "淡", "鬆", "肥", "瘦", "胖", "矮", "弱", "暗", "鮮", "乾", "濕",
+                            "滑", "脆", "酥", "傻", "笨", "呆", "乖", "衰", "毒", "妙", "巧", "靈", "精", "潮",
+                            "俗", "宅", "萌", "暖", "涼", "燙", "冰", "閒", "睏", "餓", "飽", "渴", "癢", "暈",
+                            "慌", "急", "煩", "悶", "糟", "久",
+                        ];
+                        if !gradable_adjectives.contains(&curr_word) {
+                            continue;
+                        }
                     }
                 }
 
@@ -7007,14 +7058,20 @@ impl TransitionEngine {
                     }
                 }
 
-                // 6. 句末疑問／語氣助詞讀音錨定：排除非語氣詞之破音讀法（嗎ㄇㄚˇ=嗎啡、囉ㄌㄨㄛˊ=囉嗦、呢ㄋㄧˊ=毛呢/呢喃、呀ㄒㄧㄚ=呀然、嘛ㄇㄚˊ=幹嘛、耶ㄧㄝˊ=耶穌）
-                if rule.name == "sentence_final_particle"
-                    && ((curr_word == "嗎" && curr_bopomofo.contains('ˇ'))
-                        || (curr_word == "囉" && curr_bopomofo.contains('ˊ'))
-                        || (curr_word == "呢" && curr_bopomofo.starts_with("ㄋㄧ"))
-                        || (curr_word == "呀" && curr_bopomofo.starts_with('ㄒ'))
-                        || (curr_word == "嘛" && curr_bopomofo.contains('ˊ'))
-                        || (curr_word == "耶" && curr_bopomofo.contains('ˊ')))
+                // 6. 句末疑問／語氣助詞讀音錨定：排除非語氣詞之破音讀法（嗎ㄇㄚˇ=嗎啡、囉ㄌㄨㄛˊ=囉嗦、呢ㄋㄧˊ=毛呢/呢喃、呀ㄒㄧㄚ=呀然、嘛ㄇㄚˊ=幹嘛、耶ㄧㄝˊ=耶穌、一聲吧ㄅㄚ句中數詞「八」）
+                if matches!(
+                    rule.name.as_str(),
+                    "sentence_final_particle" | "affirmative_or_modal_sentence_final_particle"
+                ) && ((curr_word == "嗎" && curr_bopomofo.contains('ˇ'))
+                    || (curr_word == "囉" && curr_bopomofo.contains('ˊ'))
+                    || (curr_word == "呢" && curr_bopomofo.starts_with("ㄋㄧ"))
+                    || (curr_word == "呀" && curr_bopomofo.starts_with('ㄒ'))
+                    || (curr_word == "嘛" && curr_bopomofo.contains('ˊ'))
+                    || (curr_word == "耶" && curr_bopomofo.contains('ˊ'))
+                    || (curr_word == "吧"
+                        && !curr_bopomofo.is_empty()
+                        && !curr_bopomofo.contains('˙')
+                        && (!edge_ctx.is_clause_tail || edge_ctx.shatters_core_len2_at_start)))
                 {
                     continue;
                 }

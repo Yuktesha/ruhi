@@ -16,6 +16,148 @@ fn clip_ngram_char_pair(raw_cb: f64, raw_ct: f64, char_len: usize) -> (f64, f64)
     (raw_cb.max(floor), raw_ct.max(floor))
 }
 
+struct NodeEdgeGuards {
+    shatters_core_len2_at_start: bool,
+    shatters_strong_left_len2: bool,
+    shatters_left_len2_300_if_prev_len1: bool,
+    next_is_true_numeral_unit: bool,
+    max_v_le_weight: u32,
+}
+
+#[inline]
+fn is_true_numeral_unit_word(w: &str) -> bool {
+    matches!(
+        w,
+        "年" | "月" | "天" | "日" | "歲" | "分" | "秒" | "萬" | "億"
+            | "幾" | "多" | "餘" | "個" | "位" | "名" | "人" | "隻" | "條"
+            | "張" | "本" | "件" | "次" | "回" | "種" | "項" | "組" | "套"
+            | "台" | "輛" | "棟" | "間" | "家" | "座" | "篇" | "頁" | "行"
+            | "步" | "點" | "倍" | "成" | "折" | "元" | "塊" | "坪" | "度"
+            | "公升" | "公斤" | "公尺" | "公里" | "分鐘" | "小時"
+    )
+}
+
+fn compute_node_edge_guards(
+    node: &LatticeNode,
+    nodes_at_start: &[LatticeNode],
+    dag: &HashMap<usize, Vec<LatticeNode>>,
+    backward: &LatticeBackwardProfile,
+) -> NodeEdgeGuards {
+    let i = node.start_idx;
+    let j = node.end_idx;
+    let word_len_u = node.length();
+
+    let shatters_core_len2_at_start = word_len_u == 1
+        && backward.max_len2_weight_at.get(i).copied().unwrap_or(0) >= 500
+        && node.word.chars().next().is_some_and(|ch| {
+            nodes_at_start
+                .iter()
+                .any(|m| m.length() >= 2 && m.weight >= 500 && !m.word.starts_with(ch))
+        });
+
+    let mut shatters_strong_left_len2 = false;
+    let mut shatters_left_len2_300_if_prev_len1 = false;
+    if word_len_u == 1 && i >= 1 {
+        if let Some(ch) = node.word.chars().next() {
+            if let Some(prev_ns) = dag.get(&(i - 1)) {
+                let check_strong_pos = matches!(
+                    node.word.as_str(),
+                    "時" | "中" | "裡" | "內" | "上" | "下" | "外"
+                );
+                for m in prev_ns {
+                    if m.length() == 2 && m.end_idx == j && !m.word.ends_with(ch) {
+                        if m.weight >= 300 {
+                            shatters_left_len2_300_if_prev_len1 = true;
+                        }
+                        if check_strong_pos && m.weight >= 450 {
+                            shatters_strong_left_len2 = true;
+                        }
+                        if shatters_left_len2_300_if_prev_len1
+                            && (!check_strong_pos || shatters_strong_left_len2)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let next_is_true_numeral_unit = node.word == "十"
+        && dag
+            .get(&j)
+            .is_some_and(|next_ns| next_ns.iter().any(|m| is_true_numeral_unit_word(&m.word)));
+
+    let max_v_le_weight = if node.word == "了" && i >= 2 && !backward.is_clause_tail_at(j) {
+        dag.get(&(i - 1)).map_or(0, |prev_ns| {
+            prev_ns
+                .iter()
+                .filter(|m| {
+                    m.length() == 2
+                        && m.end_idx == j
+                        && m.word.ends_with('了')
+                        && !matches!(
+                            m.word.as_str(),
+                            "為了" | "除了" | "罷了" | "算了" | "免了"
+                                | "得了" | "好了" | "夠了"
+                        )
+                })
+                .map(|m| m.weight)
+                .max()
+                .unwrap_or(0)
+        })
+    } else {
+        0
+    };
+
+    NodeEdgeGuards {
+        shatters_core_len2_at_start,
+        shatters_strong_left_len2,
+        shatters_left_len2_300_if_prev_len1,
+        next_is_true_numeral_unit,
+        max_v_le_weight,
+    }
+}
+
+#[inline]
+fn build_transition_edge_ctx<'a>(
+    guards: &NodeEdgeGuards,
+    node: &LatticeNode,
+    prev_node: &LatticeNode,
+    prev2_word: Option<&'a str>,
+    dag: &HashMap<usize, Vec<LatticeNode>>,
+    backward: &LatticeBackwardProfile,
+) -> super::transitions::TransitionEdgeCtx<'a> {
+    let i = node.start_idx;
+    let j = node.end_idx;
+    let prev_len = prev_node.length();
+    let min_prev_wt = if prev_node.word == "太" { 100 } else { 300 };
+    let shatters_prev_left_len2 = prev_len == 1
+        && i >= 2
+        && prev_node.word.chars().next().is_some_and(|pch| {
+            dag.get(&(i - 2)).is_some_and(|prev2_ns| {
+                prev2_ns.iter().any(|m| {
+                    m.length() == 2
+                        && m.end_idx == i
+                        && m.weight >= min_prev_wt
+                        && !m.word.ends_with(pch)
+                })
+            })
+        });
+    super::transitions::TransitionEdgeCtx {
+        is_clause_tail: backward.is_clause_tail_at(j),
+        prev2_word,
+        shatters_core_len2_at_start: guards.shatters_core_len2_at_start,
+        shatters_strong_left_len2: guards.shatters_strong_left_len2,
+        shatters_strong_v_le: guards.max_v_le_weight > 0
+            && prev_len == 2
+            && guards.max_v_le_weight > prev_node.weight,
+        shatters_left_len2_300: guards.shatters_left_len2_300_if_prev_len1 && prev_len == 1,
+        shatters_prev_left_len2,
+        next_is_true_numeral_unit: guards.next_is_true_numeral_unit,
+    }
+}
+
 #[inline]
 fn is_single_tier_a_surname(w: &str) -> bool {
     let mut it = w.chars();
@@ -687,51 +829,7 @@ impl ViterbiRouter {
                     let classical_node = classical.node_score_delta(node, n_syllables) * w_class;
                     let self_score = freq_score + length_bonus + classical_node;
 
-                    let shatters_core_len2_at_start = word_len_u == 1
-                        && backward.max_len2_weight_at[i] >= 500
-                        && node.word.chars().next().is_some_and(|ch| {
-                            nodes
-                                .iter()
-                                .any(|m| m.length() >= 2 && m.weight >= 500 && !m.word.starts_with(ch))
-                        });
-                    let shatters_strong_left_len2 = word_len_u == 1
-                        && i >= 1
-                        && matches!(
-                            node.word.as_str(),
-                            "時" | "中" | "裡" | "內" | "上" | "下" | "外"
-                        )
-                        && node.word.chars().next().is_some_and(|ch| {
-                            dag.get(&(i - 1)).is_some_and(|prev_ns| {
-                                prev_ns.iter().any(|m| {
-                                    m.length() == 2
-                                        && m.end_idx == j
-                                        && m.weight >= 450
-                                        && !m.word.ends_with(ch)
-                                })
-                            })
-                        });
-                    let max_v_le_weight =
-                        if node.word == "了" && i >= 2 && !backward.is_clause_tail[j] {
-                            dag.get(&(i - 1)).map_or(0, |prev_ns| {
-                                prev_ns
-                                    .iter()
-                                    .filter(|m| {
-                                        m.length() == 2
-                                            && m.end_idx == j
-                                            && m.word.ends_with('了')
-                                            && !matches!(
-                                                m.word.as_str(),
-                                                "為了" | "除了" | "罷了" | "算了" | "免了"
-                                                    | "得了" | "好了" | "夠了"
-                                            )
-                                    })
-                                    .map(|m| m.weight)
-                                    .max()
-                                    .unwrap_or(0)
-                            })
-                        } else {
-                            0
-                        };
+                    let node_guards = compute_node_edge_guards(node, nodes, dag, &backward);
 
                     let is_coord_conj = matches!(node.word.as_str(), "與" | "和" | "或");
                     let mut best_incoming_score = -f64::INFINITY;
@@ -827,15 +925,14 @@ impl ViterbiRouter {
                                         &prev_state.node.bopomofo,
                                     )
                                 };
-                                let edge_ctx = super::transitions::TransitionEdgeCtx {
-                                    is_clause_tail: backward.is_clause_tail[j],
+                                let edge_ctx = build_transition_edge_ctx(
+                                    &node_guards,
+                                    node,
+                                    &prev_state.node,
                                     prev2_word,
-                                    shatters_core_len2_at_start,
-                                    shatters_strong_left_len2,
-                                    shatters_strong_v_le: max_v_le_weight > 0
-                                        && prev_state.node.length() == 2
-                                        && max_v_le_weight > prev_state.node.weight,
-                                };
+                                    dag,
+                                    &backward,
+                                );
                                 let mut b = engine.calculate_transition_bonus_with_ctx(
                                     curr_archaic || p_arch,
                                     &prev_state.node.word,
@@ -1170,11 +1267,42 @@ impl ViterbiRouter {
 
             if idx > 0 {
                 let prev_node = &path[idx - 1];
-                let _ = transitions.calculate_transition_bonus(
+                let nodes_at_start = dag
+                    .get(&node.start_idx)
+                    .map(|v| v.as_slice())
+                    .unwrap_or(&[]);
+                let node_guards = compute_node_edge_guards(node, nodes_at_start, dag, &backward);
+                let edge_ctx = build_transition_edge_ctx(
+                    &node_guards,
+                    node,
+                    prev_node,
+                    prev2_w,
+                    dag,
+                    &backward,
+                );
+                let curr_archaic =
+                    super::archaic_table::is_archaic_polyphonic(&node.word, &node.bopomofo);
+                let prev_archaic = super::archaic_table::is_archaic_polyphonic(
+                    &prev_node.word,
+                    &prev_node.bopomofo,
+                );
+                let _ = transitions.calculate_transition_bonus_with_ctx(
+                    curr_archaic || prev_archaic,
                     &prev_node.word,
                     &prev_node.bopomofo,
                     &node.word,
                     &node.bopomofo,
+                    edge_ctx,
+                );
+                let _ = transitions.eval_functional_collocation_guards(
+                    prev2_w,
+                    &prev_node.word,
+                    &node.word,
+                    &node.bopomofo,
+                    node.start_idx,
+                    node.end_idx,
+                    dag,
+                    &backward,
                 );
                 let lb_start = prefix_words.len().saturating_sub(12);
                 let lb_slice = &prefix_words[lb_start..];
@@ -1199,6 +1327,16 @@ impl ViterbiRouter {
                     &[],
                     &node.word,
                     &node.bopomofo,
+                    node.end_idx,
+                    dag,
+                    &backward,
+                );
+                let _ = transitions.eval_functional_collocation_guards(
+                    None,
+                    "",
+                    &node.word,
+                    &node.bopomofo,
+                    node.start_idx,
                     node.end_idx,
                     dag,
                     &backward,

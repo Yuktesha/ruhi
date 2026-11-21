@@ -1098,10 +1098,45 @@ impl TransitionEngine {
                 | "棟" | "輛" | "台" | "架" | "支" | "枝" | "朵" | "匹" | "頭" | "尾" | "顆"
                 | "粒" | "片" | "杯" | "碗" | "盤" | "部" | "座" | "所" | "家" | "款" | "項"
                 | "套" | "組" | "段" | "幢" | "艘" | "幅" | "首" | "尊" | "面" | "扇" | "門"
-                | "臺" | "冊" | "堂" | "種"
+                | "臺" | "冊" | "堂" | "種" | "篇"
         ) {
-            let prev2_is_num_or_dem = WordPattern::is_numeric_token(prev2_word)
+            let prev2_is_num_or_dem = (WordPattern::is_numeric_token(prev2_word)
+                && !matches!(prev2_word, "百" | "千" | "萬" | "億" | "兆"))
                 || matches!(prev2_word, "這" | "那" | "哪" | "每" | "各" | "某" | "幾" | "兩" | "半");
+            let shatters_left_num_cls_pair = ctx.start_idx >= 2
+                && ctx.prev_char_len == 1
+                && prev2_word.chars().count() == 1
+                && ctx.dag.get(&(ctx.start_idx - 2)).is_some_and(|ns| {
+                    ns.iter().any(|m| {
+                        m.length() == 2
+                            && m.end_idx == ctx.start_idx
+                            && m.weight >= 300
+                            && !(m.word.starts_with(prev2_word) && m.word.ends_with(prev_word))
+                    })
+                });
+            let is_suo_place = matches!(
+                curr_word,
+                "學校" | "大學" | "學院" | "中學" | "小學" | "醫院" | "診所" | "機關"
+                    | "機構" | "中心" | "房子" | "住宅" | "教堂" | "監獄" | "研究所"
+                    | "派出所" | "事務所" | "公所"
+            );
+            let cls_semantic_ok = match prev_word {
+                "部" => matches!(
+                    curr_word,
+                    "電影" | "影片" | "戲" | "劇" | "電視劇" | "小說" | "書" | "著作"
+                        | "作品" | "經典" | "法典" | "法律" | "法案" | "車" | "汽車"
+                        | "轎車" | "機車" | "卡車" | "公車" | "機器" | "電腦" | "手機"
+                        | "電話" | "電梯"
+                ),
+                "班" => matches!(
+                    curr_word,
+                    "公車" | "客運" | "列車" | "火車" | "捷運" | "高鐵" | "班機"
+                        | "飛機" | "船" | "渡輪" | "校車" | "專車" | "車" | "學生"
+                        | "同學" | "人馬" | "士兵" | "戰士" | "幹部" | "兵"
+                ),
+                "所" => is_suo_place,
+                _ => true,
+            };
             let curr_is_bare_classifier_or_num = matches!(
                 curr_word,
                 "個" | "位" | "隻" | "條" | "把" | "次" | "回" | "種" | "件" | "份" | "句" | "本"
@@ -1109,7 +1144,7 @@ impl TransitionEngine {
                     | "頭" | "尾" | "顆" | "粒" | "片" | "杯" | "碗" | "盤" | "部" | "座" | "所"
                     | "家" | "款" | "項" | "套" | "組" | "段" | "幢" | "艘" | "幅" | "首" | "尊"
                     | "面" | "扇" | "門" | "臺" | "冊" | "堂" | "列" | "班" | "口" | "堆" | "批"
-                    | "群" | "雙" | "對" | "副"
+                    | "群" | "雙" | "對" | "副" | "篇"
             ) || WordPattern::is_numeric_token(curr_word);
             let curr_is_valid_np_head = curr_word.chars().count() >= 2
                 || matches!(
@@ -1119,6 +1154,8 @@ impl TransitionEngine {
                         | "船" | "牛" | "馬" | "羊" | "豬" | "雞"
                 );
             if prev2_is_num_or_dem
+                && !shatters_left_num_cls_pair
+                && cls_semantic_ok
                 && curr_is_valid_np_head
                 && !self.function_words.contains(curr_word)
                 && !curr_is_bare_classifier_or_num
@@ -4977,23 +5014,66 @@ impl TransitionEngine {
         let prev_word = ctx.prev_word;
         // 25. `C17` 對象介詞構式 `[向] + [主管/老師/老闆/大家/政府/法院/客戶/他/你/我] + [反映/報告/說明/道歉/請教/學習/提出]` vs. 量詞「項」：
         if matches!(curr_word, "向" | "項" | "像" | "相") {
+            let shatters_left_xiang_compound = ctx.prev_char_len == 1
+                && ctx.start_idx >= 1
+                && dag.get(&(ctx.start_idx - 1)).is_some_and(|ns| {
+                    ns.iter().any(|m| {
+                        m.length() == 2
+                            && m.end_idx == end_idx
+                            && m.weight >= 350
+                            && m.word.ends_with('像')
+                    })
+                });
+            let is_comm_after_target = |pos: usize| -> bool {
+                dag.get(&pos).is_some_and(|vs| {
+                    vs.iter().any(|v| {
+                        matches!(
+                            v.word.as_str(),
+                            "反映" | "反應" | "報告" | "說明" | "解釋" | "道歉" | "致歉"
+                                | "請教" | "請益" | "請問" | "學習" | "討教" | "求教"
+                                | "求助" | "求證" | "提出" | "表達" | "傾訴" | "訴說"
+                                | "告白" | "致敬" | "致謝" | "感謝" | "問" | "借"
+                        )
+                    })
+                })
+            };
+            let mut target_has_comm_verb = false;
             let next_is_target_person_or_org = dag
                 .get(&end_idx)
                 .map(|ns| {
-                    ns.iter().any(|m| {
-                        matches!(
+                    let mut matched = false;
+                    for m in ns {
+                        if matches!(
                             m.word.as_str(),
                             "主管" | "老師" | "老闆" | "長官" | "警察" | "法院" | "政府" | "大家"
                                 | "客戶" | "公司" | "學校" | "外界" | "社會" | "大眾" | "媒體"
                                 | "父母" | "朋友" | "對方" | "他" | "她" | "你" | "您" | "我" | "我們"
-                        )
-                    })
+                        ) {
+                            matched = true;
+                            if is_comm_after_target(m.end_idx) {
+                                target_has_comm_verb = true;
+                            }
+                        }
+                    }
+                    matched
                 })
                 .unwrap_or(false);
-            if next_is_target_person_or_org && !WordPattern::is_numeric_token(prev_word) && !matches!(prev_word, "這" | "那" | "哪" | "每" | "各") {
+            let skip_for_like_compound = shatters_left_xiang_compound && !target_has_comm_verb;
+            let like_adv_guard = curr_word == "像"
+                && matches!(
+                    prev_word,
+                    "就" | "好" | "正" | "很" | "真" | "不" | "更" | "越" | "太" | "挺"
+                        | "頗" | "最" | "略" | "還" | "也" | "都" | "可以" | "能" | "簡直"
+                        | "幾乎" | "彷彿" | "宛如"
+                );
+            if next_is_target_person_or_org
+                && !skip_for_like_compound
+                && !WordPattern::is_numeric_token(prev_word)
+                && !matches!(prev_word, "這" | "那" | "哪" | "每" | "各")
+            {
                 if curr_word == "向" {
                     bonus += 34.0;
-                } else {
+                } else if !like_adv_guard {
                     bonus -= 28.0;
                 }
             }
