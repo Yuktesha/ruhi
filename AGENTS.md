@@ -76,4 +76,5 @@
 ## 5. 跨世代代理調度與常駐交接入口
 
 - 模型選派一律遵循 [`C:\ATGprjs\AGENTS.md`](file:///c:/ATGprjs/AGENTS.md) 之**能力層級分派與動態查詢規範**（單一獨立子代理使用抽象能力層級參數；多代理協作板先以 `swarm(action: "models", all: true)` 動態查詢當代高速／高性價比模型系列，嚴禁寫死特定世代模型代號或將模型版號鎖死於交接檔名）。
+- **雲端算力入口（Google Colab CLI）**：本機 `PATH` 已配置 `colab`（`C:\Users\Yuktesha\.local\bin\colab.exe`），供 [`scripts/train_ngram_lm.py`](file:///c:/ATGprjs/ruhi/scripts/train_ngram_lm.py) 大規模口語／生活語料訓練、`RLNG0002` 詞三元編譯及 `v1.0` 輕量神經重排模型訓練／量化之用；執行完畢下載產物後必須以 `colab stop` 清除執行個體。
 - 專案最新狀態快照、基準數據、已驗證進度與後續待辦事項，統一維護於常駐交接文件 [`docs/RUHI_HANDOVER_CURRENT.md`](file:///c:/ATGprjs/ruhi/docs/RUHI_HANDOVER_CURRENT.md)。

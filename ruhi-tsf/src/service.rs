@@ -2255,10 +2255,16 @@ impl RuhiTextService {
             }
         }
 
+        let engine_arc = Arc::new(Mutex::new(engine));
+        {
+            let mut eng = engine_arc.lock().unwrap_or_else(|e| e.into_inner());
+            eng.bind_user_cache_lm_path(&paths.sandbox_dir.join("user_cache_lm.tsv"));
+        }
+
         Self {
             thread_mgr: Arc::new(Mutex::new(None)),
             client_id,
-            engine: Arc::new(Mutex::new(engine)),
+            engine: engine_arc,
             composition: Arc::new(Mutex::new(None)),
             thread_mgr_sink_cookie: Arc::new(Mutex::new(0)),
             langbar_item: Arc::new(Mutex::new(None)),
@@ -2352,7 +2358,11 @@ impl RuhiTextService {
         }
         engine.longkan.table.configure_data_dir(&paths.data_dir);
 
-        *self.engine.lock().unwrap_or_else(|e| e.into_inner()) = engine;
+        {
+            let mut eng = self.engine.lock().unwrap_or_else(|e| e.into_inner());
+            *eng = engine;
+            eng.bind_user_cache_lm_path(&paths.sandbox_dir.join("user_cache_lm.tsv"));
+        }
         {
             let mut cw_guard = self.candidate_window.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(existing_cw) = cw_guard.as_mut() {

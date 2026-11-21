@@ -495,6 +495,10 @@ impl ViterbiRouter {
             n_syllables,
             dag,
         );
+        let cache_lm_snap = transitions
+            .as_deref()
+            .filter(|eng| !eng.is_rule_disabled("cache_lm"))
+            .and_then(|eng| super::cache_lm::snapshot_if_non_empty(eng.cache_lm_key()));
 
         for i in 0..n_syllables {
             if trellis[i].is_empty() {
@@ -905,8 +909,15 @@ impl ViterbiRouter {
                             0.0
                         };
 
+                        let cache_bonus = if let Some(ref clm) = cache_lm_snap {
+                            clm.score_edge(&prev_state.node.word, &node.word, j, n_syllables, dag)
+                        } else {
+                            0.0
+                        };
+
                         let total = prev_state.score
                             + trans_bonus
+                            + cache_bonus
                             + classical_trans
                             + ngram_trans
                             + self_score;

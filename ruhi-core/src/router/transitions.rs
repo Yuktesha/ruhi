@@ -414,6 +414,12 @@ impl Default for TransitionEngine {
     }
 }
 
+impl Drop for TransitionEngine {
+    fn drop(&mut self) {
+        super::cache_lm::remove_key(self.cache_lm_key());
+    }
+}
+
 #[derive(Clone, Copy, Default)]
 pub(crate) struct TransitionEdgeCtx<'a> {
     pub is_clause_tail: bool,
@@ -426,6 +432,11 @@ pub(crate) struct TransitionEdgeCtx<'a> {
 impl TransitionEngine {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    #[inline]
+    pub(crate) fn cache_lm_key(&self) -> usize {
+        self as *const Self as usize
     }
 
     /// 初始化內建的漢語核心語法規則（模組化分層載入）

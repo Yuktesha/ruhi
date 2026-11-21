@@ -9202,6 +9202,21 @@ impl RuhiEngine {
         self.build_response("backspace", "")
     }
 
+    /// 綁定局部上下文線上學習快取語言模型（`user_cache_lm.tsv`）之儲存路徑
+    pub fn bind_user_cache_lm_path(&mut self, path: &std::path::Path) {
+        crate::router::cache_lm::bind_path_for_key(self.transitions.cache_lm_key(), path);
+    }
+
+    /// 立即將已更動之局部上下文線上學習快取寫入磁碟（原子寫入）
+    pub fn flush_user_cache_lm(&mut self) {
+        crate::router::cache_lm::flush_if_dirty_for_key(self.transitions.cache_lm_key());
+    }
+
+    /// 清除目前引擎實例之局部上下文線上學習快取
+    pub fn clear_user_cache_lm(&mut self) {
+        crate::router::cache_lm::clear_for_key(self.transitions.cache_lm_key());
+    }
+
     pub fn record_revision(&mut self, bopomofo: &str, rejected: &str, accepted: &str, prev_context: &str, next_context: &str) {
         if rejected.is_empty() || accepted.is_empty() || rejected == accepted {
             return;
@@ -9220,6 +9235,15 @@ impl RuhiEngine {
                 return;
             }
         }
+
+        crate::router::cache_lm::record_correction_for_key(
+            self.transitions.cache_lm_key(),
+            prev_context,
+            rejected,
+            accepted,
+            next_context,
+            now,
+        );
 
         self.pending_revisions.push(RevisionRecord {
             timestamp: now,
@@ -9247,6 +9271,17 @@ impl RuhiEngine {
             && raw_s != cor_s;
 
         if has_sentence_diff {
+            let now_ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            crate::router::cache_lm::record_sentence_span_diffs_for_key(
+                self.transitions.cache_lm_key(),
+                raw_s,
+                cor_s,
+                now_ts,
+            );
+
             let full_err = format!("{}{}", raw_s, trailing_punct);
             let full_cor = format!("{}{}", cor_s, trailing_punct);
             let full_bpmf: String = self
@@ -9258,12 +9293,8 @@ impl RuhiEngine {
                 .join(" ");
 
             if self.pending_revisions.is_empty() {
-                let now = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_secs())
-                    .unwrap_or(0);
                 self.pending_revisions.push(RevisionRecord {
-                    timestamp: now,
+                    timestamp: now_ts,
                     bopomofo: full_bpmf,
                     rejected: raw_s.to_string(),
                     accepted: cor_s.to_string(),
@@ -9286,6 +9317,7 @@ impl RuhiEngine {
         if self.has_pending_revisions() {
             let _ = self.save_pending_revisions_to_file(None);
         }
+        crate::router::cache_lm::flush_if_dirty_for_key(self.transitions.cache_lm_key());
     }
 
     pub fn has_pending_revisions(&self) -> bool {
@@ -18949,21 +18981,8 @@ mod tests {
         assert_bopomofo_dual_mode_cases_inner(classical_mode, "", cases);
     }
 
-    fn assert_bopomofo_dual_mode_cases_inner(
-        classical_mode: crate::router::ClassicalRegisterMode,
-        prev_committed: &str,
-        cases: &[(Vec<&str>, &str)],
-    ) {
-        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("data");
-        if !data_dir.join("lexicon_core.tsv").exists() {
-            return;
-        }
-        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
-        engine.set_classical_mode(classical_mode);
-
-        let bopomofo_to_std_keys = |syllables: &[&str]| -> String {
+    fn bopomofo_to_keys_for_mode(mode: &str, syllables: &[&str]) -> String {
+        if mode == "standard" {
             let map: std::collections::HashMap<char, char> = [
                 ('ㄅ', '1'), ('ㄆ', 'q'), ('ㄇ', 'a'), ('ㄈ', 'z'),
                 ('ㄉ', '2'), ('ㄊ', 'w'), ('ㄋ', 's'), ('ㄌ', 'x'),
@@ -18997,76 +19016,95 @@ mod tests {
                 }
                 out.push(tone);
             }
-            out
-        };
+            return out;
+        }
 
-        let bopomofo_to_hsu_keys = |bpms: &[&str]| -> String {
-            let mut s = String::new();
-            for b in bpms {
-                let syl = crate::fsm::HsuSyllable::from_bopomofo_display(b).expect(b);
-                if syl.initial.is_empty() && syl.medial.is_empty() {
-                    let k = match syl.final_part.as_str() {
-                        "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
-                        "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
-                        "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
-                        _ => panic!("unknown hsu zero final {}", syl.final_part),
-                    };
-                    s.push(k);
-                } else {
-                    if !syl.initial.is_empty() {
-                        let ik = match syl.initial.as_str() {
-                            "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
-                            "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
-                            "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
-                            "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
-                            _ => panic!("unknown hsu initial {}", syl.initial),
-                        };
-                        s.push(ik);
-                    }
-                    if !syl.medial.is_empty() {
-                        let mk = match syl.medial.as_str() {
-                            "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
-                            _ => panic!("unknown hsu medial {}", syl.medial),
-                        };
-                        s.push(mk);
-                    }
-                    if !syl.final_part.is_empty() {
-                        let fk = match syl.final_part.as_str() {
-                            "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
-                            "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
-                            "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
-                            _ => panic!("unknown hsu final {}", syl.final_part),
-                        };
-                        s.push(fk);
-                    }
-                }
-                let tk = match syl.tone {
-                    '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's',
-                    _ => ' ',
+        let mut s = String::new();
+        for b in syllables {
+            let syl = crate::fsm::HsuSyllable::from_bopomofo_display(b).expect(b);
+            if syl.initial.is_empty() && syl.medial.is_empty() {
+                let k = match syl.final_part.as_str() {
+                    "ㄦ" => 'l', "ㄜ" => 'g', "ㄛ" => 'h', "ㄢ" => 'm', "ㄣ" => 'n',
+                    "ㄚ" => 'y', "ㄞ" => 'i', "ㄠ" => 'w', "ㄡ" => 'o', "ㄝ" => 'e',
+                    "ㄟ" => 'a', "ㄤ" => 'k', "ㄥ" => 'l',
+                    _ => panic!("unknown hsu zero final {}", syl.final_part),
                 };
-                s.push(tk);
+                s.push(k);
+            } else {
+                if !syl.initial.is_empty() {
+                    let ik = match syl.initial.as_str() {
+                        "ㄅ" => 'b', "ㄆ" => 'p', "ㄇ" => 'm', "ㄈ" => 'f', "ㄉ" => 'd',
+                        "ㄊ" => 't', "ㄋ" => 'n', "ㄌ" => 'l', "ㄍ" => 'g', "ㄎ" => 'k',
+                        "ㄏ" => 'h', "ㄐ" | "ㄓ" => 'j', "ㄑ" | "ㄔ" => 'v', "ㄒ" | "ㄕ" => 'c',
+                        "ㄖ" => 'r', "ㄗ" => 'z', "ㄘ" => 'a', "ㄙ" => 's',
+                        _ => panic!("unknown hsu initial {}", syl.initial),
+                    };
+                    s.push(ik);
+                }
+                if !syl.medial.is_empty() {
+                    let mk = match syl.medial.as_str() {
+                        "ㄧ" => 'e', "ㄨ" => 'x', "ㄩ" => 'u',
+                        _ => panic!("unknown hsu medial {}", syl.medial),
+                    };
+                    s.push(mk);
+                }
+                if !syl.final_part.is_empty() {
+                    let fk = match syl.final_part.as_str() {
+                        "ㄚ" => 'y', "ㄛ" => 'h', "ㄜ" => 'g', "ㄝ" => 'e', "ㄞ" => 'i',
+                        "ㄟ" => 'a', "ㄠ" => 'w', "ㄡ" => 'o', "ㄢ" => 'm', "ㄣ" => 'n',
+                        "ㄤ" => 'k', "ㄥ" | "ㄦ" => 'l',
+                        _ => panic!("unknown hsu final {}", syl.final_part),
+                    };
+                    s.push(fk);
+                }
             }
-            s
-        };
+            let tk = match syl.tone {
+                '1' => ' ', '2' => 'd', '3' => 'f', '4' => 'j', '5' => 's',
+                _ => ' ',
+            };
+            s.push(tk);
+        }
+        s
+    }
+
+    fn decode_bopomofo_on_engine(
+        engine: &mut RuhiEngine,
+        mode: &str,
+        prev_committed: &str,
+        syllables: &[&str],
+    ) -> (String, String) {
+        engine.set_keyboard_mode(mode);
+        let keys = bopomofo_to_keys_for_mode(mode, syllables);
+        engine.reset_buffer();
+        engine.last_committed_word = prev_committed.to_string();
+        let mut committed = String::new();
+        for ch in keys.chars() {
+            let resp = engine.process_key(ch);
+            if !resp.committed_chunk.is_empty() {
+                committed.push_str(&resp.committed_chunk);
+            }
+        }
+        (keys, format!("{}{}", committed, engine.get_display_text()))
+    }
+
+    fn assert_bopomofo_dual_mode_cases_inner(
+        classical_mode: crate::router::ClassicalRegisterMode,
+        prev_committed: &str,
+        cases: &[(Vec<&str>, &str)],
+    ) {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        engine.set_classical_mode(classical_mode);
 
         for mode in ["standard", "hsu"] {
-            engine.set_keyboard_mode(mode);
             for (bpms, expected) in cases {
-                let keys = if mode == "standard" {
-                    bopomofo_to_std_keys(bpms)
-                } else {
-                    bopomofo_to_hsu_keys(bpms)
-                };
-                engine.reset_buffer();
-                engine.last_committed_word = prev_committed.to_string();
-                let mut committed = String::new();
-                for ch in keys.chars() {
-                    let resp = engine.process_key(ch);
-                    if !resp.committed_chunk.is_empty() {
-                        committed.push_str(&resp.committed_chunk);
-                    }
-                }
-                let actual = format!("{}{}", committed, engine.get_display_text());
+                let (keys, actual) =
+                    decode_bopomofo_on_engine(&mut engine, mode, prev_committed, bpms);
                 assert_eq!(
                     actual, *expected,
                     "[{}] prev=`{}` 鍵位 {} 解碼失敗，預期『{}』，實際『{}』",
@@ -23609,5 +23647,124 @@ mod tests {
             "重建，",
             &ye_hua_after_comma,
         );
+    }
+
+    #[test]
+    fn test_v08_contextual_cache_lm_online_learning_and_isolation() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        let jin_qing_zhuo_can = ["ㄐㄧㄣˇ", "ㄑㄧㄥˇ", "ㄓㄨㄛˊ", "ㄘㄢ"];
+        let jin_ji = ["ㄐㄧㄣˇ", "ㄐㄧˊ"];
+        let kan_zhe = ["ㄎㄢˋ", "˙ㄓㄜ"];
+
+        // 1. 學習前預設為「僅請著參」；學習一次後在標準大千與許氏模式皆立即輸出「謹請卓參」
+        for mode in ["standard", "hsu"] {
+            let (_, before) =
+                decode_bopomofo_on_engine(&mut engine, mode, "", &jin_qing_zhuo_can);
+            assert_eq!(before, "僅請著參", "[{}] pre-learn should be 僅請著參", mode);
+        }
+
+        engine.record_revision("ㄐㄧㄣˇ", "僅", "謹", "", "請");
+        engine.record_revision("ㄓㄨㄛˊ", "著", "卓", "請", "參");
+
+        for mode in ["standard", "hsu"] {
+            let (_, after) =
+                decode_bopomofo_on_engine(&mut engine, mode, "", &jin_qing_zhuo_can);
+            assert_eq!(after, "謹請卓參", "[{}] post-learn should flip to 謹請卓參", mode);
+
+            // 2. 嚴守局部上下文隔離：絕不汙染「緊急」與「看著」
+            let (_, jj) = decode_bopomofo_on_engine(&mut engine, mode, "", &jin_ji);
+            assert_eq!(jj, "緊急", "[{}] 緊急 must stay 緊急", mode);
+            let (_, kz) = decode_bopomofo_on_engine(&mut engine, mode, "", &kan_zhe);
+            assert_eq!(kz, "看著", "[{}] 看著 must stay 看著", mode);
+        }
+
+        // 3. 多字跨界學習（舊址 -> 就只）不干擾對比正例「回到學校舊址」
+        let span_syls = [
+            "ㄊㄚ", "ㄇㄣˊ", "ㄩㄢˊ", "ㄅㄣˇ", "ㄐㄧㄡˋ", "ㄓˇ",
+            "ㄅㄠˇ", "ㄌㄧㄡˊ", "ㄓㄜˋ", "ㄈㄣˋ", "ㄗ", "ㄌㄧㄠˋ",
+        ];
+        let (_, before_span) =
+            decode_bopomofo_on_engine(&mut engine, "standard", "", &span_syls);
+        assert_eq!(before_span, "他們原本舊址保留這份資料");
+
+        let now = crate::router::cache_lm::current_unix_secs();
+        crate::router::cache_lm::record_sentence_span_diffs_for_key(
+            engine.transitions.cache_lm_key(),
+            "他們原本舊址保留這份資料",
+            "他們原本就只保留這份資料",
+            now,
+        );
+        for mode in ["standard", "hsu"] {
+            let (_, after_span) =
+                decode_bopomofo_on_engine(&mut engine, mode, "", &span_syls);
+            assert_eq!(
+                after_span, "他們原本就只保留這份資料",
+                "[{}] span diff should flip 舊址->就只",
+                mode
+            );
+
+            let (_, loc_stay) = decode_bopomofo_on_engine(
+                &mut engine,
+                mode,
+                "",
+                &["ㄏㄨㄟˊ", "ㄉㄠˋ", "ㄒㄩㄝˊ", "ㄒㄧㄠˋ", "ㄐㄧㄡˋ", "ㄓˇ"],
+            );
+            assert_eq!(loc_stay, "回到學校舊址", "[{}] 回到學校舊址 must stay intact", mode);
+        }
+
+        // 4. 偏好反轉：同一語境改回「著」應迅速覆寫先前強化
+        engine.record_revision("ㄓㄨㄛˊ", "卓", "著", "請", "參");
+        engine.record_revision("ㄓㄨㄛˊ", "卓", "著", "請", "參");
+        let (_, reversed) =
+            decode_bopomofo_on_engine(&mut engine, "standard", "", &jin_qing_zhuo_can);
+        assert_eq!(reversed, "謹請著參");
+
+        // 再恢復「卓」以便驗證持久化
+        engine.record_revision("ㄓㄨㄛˊ", "著", "卓", "請", "參");
+        engine.record_revision("ㄓㄨㄛˊ", "著", "卓", "請", "參");
+        let (_, restored) =
+            decode_bopomofo_on_engine(&mut engine, "standard", "", &jin_qing_zhuo_can);
+        assert_eq!(restored, "謹請卓參");
+
+        // 5. 規則停用開關驗證
+        engine.transitions.disabled_rules.insert("cache_lm".to_string());
+        let (_, disabled_out) =
+            decode_bopomofo_on_engine(&mut engine, "standard", "", &jin_qing_zhuo_can);
+        assert_eq!(disabled_out, "僅請著參");
+        engine.transitions.disabled_rules.remove("cache_lm");
+
+        // 6. 跨執行個體磁碟持久化驗證
+        let tmp_path = std::env::temp_dir().join(format!(
+            "ruhi_engine_cache_lm_e2e_{}.tsv",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&tmp_path);
+
+        engine.bind_user_cache_lm_path(&tmp_path);
+        engine.record_revision("ㄐㄧㄣˇ", "僅", "謹", "", "請");
+        engine.record_revision("ㄓㄨㄛˊ", "著", "卓", "請", "參");
+        engine.flush_user_cache_lm();
+        assert!(tmp_path.exists());
+
+        let mut engine2 = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        engine2.bind_user_cache_lm_path(&tmp_path);
+        for mode in ["standard", "hsu"] {
+            let (_, loaded_out) =
+                decode_bopomofo_on_engine(&mut engine2, mode, "", &jin_qing_zhuo_can);
+            assert_eq!(
+                loaded_out, "謹請卓參",
+                "[{}] persisted cache_lm must work immediately in new engine",
+                mode
+            );
+        }
+        drop(engine2);
+        drop(engine);
+        let _ = std::fs::remove_file(&tmp_path);
     }
 }
