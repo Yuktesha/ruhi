@@ -141,8 +141,8 @@ def main():
                 "cargo",
                 "run",
                 "--release",
-                "-p",
-                "ruhi-core",
+                "--manifest-path",
+                str(root / "ruhi-core" / "Cargo.toml"),
                 "--bin",
                 "ruhi_lkbin",
                 "--",
@@ -156,8 +156,19 @@ def main():
         shutil.copy2(lk_bin, release_data / "longkan.bin")
 
     ng_bin = root / "ruhi_lexicon" / "data" / "ngram_zh_tw.bin"
-    if ng_bin.is_file():
-        shutil.copy2(ng_bin, release_data / "ngram_zh_tw.bin")
+    if not ng_bin.is_file():
+        raise FileNotFoundError(
+            f"錯誤：缺少必要語言模型二進位檔 {ng_bin}，無法封裝完整發布包。"
+        )
+    shutil.copy2(ng_bin, release_data / "ngram_zh_tw.bin")
+    for bin_label, bin_path in [
+        ("longkan.bin", release_data / "longkan.bin"),
+        ("ngram_zh_tw.bin", release_data / "ngram_zh_tw.bin"),
+    ]:
+        if bin_path.is_file():
+            mb = bin_path.stat().st_size / (1024 * 1024)
+            digest = calculate_sha256(bin_path)
+            print(f"    [資源驗證] {bin_label}: {mb:.2f} MB | SHA256={digest}")
 
     # 複製設定範本（不含個人設定與雲端 Webhook 網址；安裝程式會以範本建立 config.json / settings_config.json）
     for f in ["settings_config.example.json", "config.example.json"]:
@@ -166,13 +177,17 @@ def main():
                 shutil.copy2(cand, release_dir / f)
                 break
 
-    # 建立乾淨的使用者自建詞庫初始檔頭（不散布開發者個人學習詞）
+    # 建立乾淨的使用者自建詞庫與情境快取語言模型初始檔頭（不散布開發者個人學習紀錄）
     (release_dir / "user_dict.tsv").write_text(
         "# RuhI (如喜) 使用者自建詞庫 (word\\tbopomofo\\tweight\\tcontext)\n",
         encoding="utf-8",
     )
+    (release_dir / "user_cache_lm.tsv").write_text(
+        "# ruhi user_cache_lm v1\n# kind\tleft\tword\tright\tstrength\tlast_ts\thits\n",
+        encoding="utf-8",
+    )
 
-    # 複製安裝與啟動腳本
+    # 複製安裝與啟動腳本，並強制查核 Windows PowerShell 5.1 所需之 UTF-8 BOM 編碼
     for script_name in [
         "一鍵安裝.ps1",
         "一鍵解除安裝.ps1",
@@ -181,6 +196,11 @@ def main():
     ]:
         src_s = root / "scripts" / script_name
         if src_s.exists():
+            raw_head = src_s.read_bytes()[:3]
+            if raw_head != b"\xef\xbb\xbf":
+                raise ValueError(
+                    f"錯誤：PowerShell 腳本 {src_s} 缺少 UTF-8 BOM (EF BB BF)，違反 PS 5.1 相容規範！"
+                )
             shutil.copy2(src_s, release_dir / script_name)
 
     # 複製文件（與 installer/ruhi_setup.iss 之使用者文件清單一致）

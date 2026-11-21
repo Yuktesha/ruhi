@@ -54,6 +54,12 @@ Write-Host "  [1/5] 配置安全性存取清單 (ACL: ALL_APPLICATION_PACKAGES �
 try {
     & icacls "$installDir" /grant "*S-1-15-2-1:(OI)(CI)RX" /T /Q 2>$null | Out-Null
     & icacls "$installDir" /grant "Users:(OI)(CI)RX" /T /Q 2>$null | Out-Null
+    $dataDir = Join-Path $installDir "data"
+    if (Test-Path $dataDir) { & icacls "$dataDir" /grant "Users:(OI)(CI)M" /T /Q 2>$null | Out-Null }
+    foreach ($rwFile in @("config.json", "settings_config.json", "user_dict.tsv", "user_cache_lm.tsv")) {
+        $rwPath = Join-Path $installDir $rwFile
+        if (Test-Path $rwPath) { & icacls "$rwPath" /grant "Users:M" /Q 2>$null | Out-Null }
+    }
 } catch {}
 
 # ── 4. 步驟 2：暫停文字服務框架（防檔案鎖定） ──

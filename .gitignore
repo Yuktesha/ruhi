@@ -65,6 +65,9 @@ scripts/_cfg/
 /ruhi.ico
 scripts/ruhi.ico
 /user_dict.tsv
+/user_cache_lm.tsv
+scripts/user_cache_lm.tsv
+dist/user_cache_lm.tsv
 /templates.tsv
 /deleted_dict.tsv
 /hot_reload.ps1

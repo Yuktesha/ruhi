@@ -454,7 +454,7 @@ impl ContextualCacheLm {
             return;
         };
         if let Some(parent) = path.parent() {
-            if !parent.as_os_str().is_empty() && fs::create_dir_all(parent).is_err() {
+            if !parent.as_os_str().is_empty() && !parent.exists() && fs::create_dir_all(parent).is_err() {
                 return;
             }
         }
@@ -497,9 +497,11 @@ impl ContextualCacheLm {
         let tmp_path = path.with_file_name(format!("{}.tmp.{}", file_name, std::process::id()));
         if fs::write(&tmp_path, buf.as_bytes()).is_err() {
             let _ = fs::remove_file(&tmp_path);
-            return;
-        }
-        if fs::rename(&tmp_path, path).is_err() {
+            // 當執行期位於受保護目錄（如 Program Files，目錄僅 RX 但 user_cache_lm.tsv 具 Users:M 修改權）時，回退至直接覆寫目標檔案
+            if fs::write(path, buf.as_bytes()).is_err() {
+                return;
+            }
+        } else if fs::rename(&tmp_path, path).is_err() {
             if fs::copy(&tmp_path, path).is_err() {
                 let _ = fs::remove_file(&tmp_path);
                 return;
@@ -711,6 +713,42 @@ pub fn snapshot_if_non_empty(key: usize) -> Option<CacheLmSnapshot> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_flush_direct_overwrite_fallback_when_tmp_creation_fails() {
+        let dir = std::env::temp_dir().join(format!("ruhi_cache_lm_fallback_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("user_cache_lm.tsv");
+        fs::write(
+            &target,
+            "# ruhi user_cache_lm v1\n# kind\tleft\tword\tright\tstrength\tlast_ts\thits\n",
+        )
+        .unwrap();
+
+        // 預先將同名 .tmp.<pid> 佔為目錄，模擬 Program Files 受保護目錄下無法建立暫存檔的情境
+        let tmp_blocker = dir.join(format!("user_cache_lm.tsv.tmp.{}", std::process::id()));
+        fs::create_dir_all(&tmp_blocker).unwrap();
+
+        let mut lm = ContextualCacheLm::default();
+        lm.load_from_path(&target);
+        let now = current_unix_secs().max(1_700_000_000);
+        lm.record_correction("方向", "棋", "其", "實", now);
+        assert!(lm.dirty);
+
+        lm.flush_if_dirty();
+        assert!(!lm.dirty, "direct overwrite fallback should clear dirty flag");
+
+        let mut reloaded = ContextualCacheLm::default();
+        reloaded.load_from_path(&target);
+        let key = ("向".to_string(), "其".to_string(), "實".to_string());
+        assert!(
+            reloaded.tables.trigrams.get(&key).map(|e| e.strength > 0.0).unwrap_or(false),
+            "reloaded cache should contain saved correction entry"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn test_exponential_decay_and_preference_reversal() {

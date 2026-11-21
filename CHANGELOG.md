@@ -1,5 +1,14 @@
 # 如喜（RuhI）通用智慧型輸入法 — 改版說明 (Changelog)
 
+## v0.8.0 (2026-11-22)
+
+### 🧠 個人化情境快取語言模型（Contextual Cache LM）與統計轉移系統性純化
+- **線上情境修正學習（`ContextualCacheLm`）**：新增支援 30 天（正向）／7 天（負向）指數衰減之上下文（左一字＋詞＋右一字）快取模型（`user_cache_lm.tsv`），與 `user_dict.tsv` 嚴格隔離不汙染全域詞庫；並實作受保護目錄（`Program Files\RuhI`）無法寫入暫存檔時之原地覆寫回退機制，以及對應 `.gitignore`、安裝包 initial header 與最小權限 `Users:M` ACL 配置。
+- **語料驅動反事實消融純化（Ablation-Driven Purification）**：
+  - 擴充 `TransitionEdgeCtx` 與 `NodeEdgeGuards`，為 `numeral_classifier`、`demonstrative_numeral`、`postpositional_locative`、`verb_bu_potential`、`modal_auxiliary_preposition_bridge`、`degree_adv_content_adj`、`lexical_or_poetic_ci2`、`ci2_lexical_compound_head`、`eval_res_topo_06_duo_degree_quant`、`slot_d029` 與句中一聲語氣助詞「吧」加入雙向詞長／高頻雙字詞保護機制，抑制過度強佔造成之詞界碎裂。
+  - 補全功能詞表與量詞（`妳們`、`祂們`、`篇`），將 2-gram `user_chain` 展開排除過度泛化短語，並移除驗證負效之遷移項目（`慢慢\t的`、`把\t牠`）。
+- **評估指標進步**：`dev.tsv` 基準字元錯誤率（CER）由 `3.89%`（1,745/44,855）顯著降至 `3.72%`（1,669/44,855，減少 76 處錯誤），整句完全正確率由 `71.18%`（2,591/3,640）提升至 `72.28%`（2,631/3,640，McNemar $\chi^2 = 82.51, p = 1.07 \times 10^{-19}$）。
+
 ## v0.7.1 (2026-10-29)
 
 ### 📜 全面回歸純粹開源（100% Apache License 2.0）與龍龕引擎架構強化
