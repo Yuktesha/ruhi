@@ -9244,6 +9244,7 @@ impl RuhiEngine {
             next_context,
             now,
         );
+        crate::router::cache_lm::flush_if_dirty_for_key(self.transitions.cache_lm_key());
 
         self.pending_revisions.push(RevisionRecord {
             timestamp: now,

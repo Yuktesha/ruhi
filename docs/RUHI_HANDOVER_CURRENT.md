@@ -112,7 +112,7 @@
 > 里程碑以品質實證為準，不設固定日曆期限壓力；各階段之間視實測需求彈性釋出 `0.8.x`～`0.9.x` 中間版本。
 
 ### 1. **`v0.8` 階段（進行中）：個人化記憶與統計底盤封裝釋出**
-- **已落地核心項目**：局部上下文線上學習 [`cache_lm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/cache_lm.rs)（Contextual `Cache LM` ＋ 被拒路徑短期負向懲罰）已完成整合與單元／整合驗證，並嚴守零 COM ABI 異動（可透過 `hot_reload.ps1` 免登出更新）。
+- **已完成實作項目**：局部上下文線上學習 [`cache_lm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/cache_lm.rs)（Contextual `Cache LM` ＋ 被拒路徑短期負向懲罰）已完成整合與單元／整合驗證，並嚴守零 COM ABI 異動（可透過 `hot_reload.ps1` 免登出更新）。
 - **待辦清單**：
   - **Phase 2（詞庫／變調與維護清潔）**：檢視盲測統計彙總暴露之高頻通用誤差型態（如 `它／他`、`臺／台`）於非構式通用規則／詞庫層面之純化空間（嚴守 `constructions.rs` 凍結政策）。
   - **Phase 3（Windows 打包與一鍵安裝驗證）**：檢查並實測 [`scripts/package_release.py`](file:///c:/ATGprjs/ruhi/scripts/package_release.py)、[`scripts/hot_reload.ps1`](file:///c:/ATGprjs/ruhi/scripts/hot_reload.ps1) 與 [`一鍵安裝.ps1`](file:///c:/ATGprjs/ruhi/一鍵安裝.ps1) 納入 `ngram_zh_tw.bin` 後之完整打包、熱重載與實機輸入體驗，推進 `v0.8` 釋出。
