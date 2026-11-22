@@ -719,11 +719,16 @@ mod tests {
     #[test]
     fn test_longkan_simplest_component_and_hsu_friendly() {
         let mut engine = LongkanEngine::new();
-        // 1. 龍: lnln, liln, yeln; lxl2
-        for code in ["lnln ", "liln ", "yeln ", "lxl2 "] {
+        // 1. 龍: lnln, liln, yeln 首選「龍」；lxl2 依結構代數 龍(lxl)×2 首選「龖」，「龍」列於候選
+        for code in ["lnln ", "liln ", "yeln "] {
             let resp = type_seq(&mut engine, code);
             assert_eq!(resp.committed_chunk, "龍", "Failed on 龍 code: {}", code);
         }
+        assert_eq!(type_seq(&mut engine, "lxl2 ").committed_chunk, "龖", "Failed on 龖 code: lxl2 ");
+        assert!(
+            engine.table.lookup("lxl2").iter().any(|e| e.text == "龍"),
+            "Expected 龍 in lxl2 candidates"
+        );
         // 2. 龕: holn; hgln
         for code in ["holn ", "hgln "] {
             let resp = type_seq(&mut engine, code);

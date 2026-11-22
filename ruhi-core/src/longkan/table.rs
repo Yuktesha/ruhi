@@ -470,6 +470,12 @@ impl LongkanTable {
         if let Some(d) = configured_dir {
             search_dirs.push(d.to_path_buf());
         }
+        #[cfg(test)]
+        {
+            search_dirs.push(
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../ruhi_lexicon/data"),
+            );
+        }
         if let Ok(appdata) = std::env::var("APPDATA") {
             search_dirs.push(PathBuf::from(&appdata).join("RuhI").join("data"));
             search_dirs.push(PathBuf::from(&appdata).join("Ruhi").join("data"));

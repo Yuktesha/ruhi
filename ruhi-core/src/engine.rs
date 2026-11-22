@@ -18770,7 +18770,10 @@ mod tests {
 
     #[test]
     fn test_symbol_tree_navigation_box_drawing_tab_lookup_and_moe_dual_track_261117() {
-        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("data");
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("ruhi_lexicon")
+            .join("data");
         let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
         engine.set_keyboard_mode("hsu");
         engine.candidate_quick_key = "1234".to_string();
