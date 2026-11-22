@@ -6,11 +6,11 @@
 > **「如雲行水流自在歡喜」**  
 > **RuhI**（**R**esponsive **U**niversal **H**uman **I**nput，梵語字根 *Ruh / Rūhi* 意為「萌芽、生長、向上攀升」），是一款面向 Windows 10/11 與 Linux、完全採用純 Rust 打造的次世代自適應通用人本輸入法與語意調校系統。
 
-[![Version](https://img.shields.io/badge/version-v0.7.1-blue.svg)]()
+[![Version](https://img.shields.io/badge/version-v0.9.0-blue.svg)]()
 [![Rust](https://img.shields.io/badge/language-Rust%202021-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2011%2F10%20%7C%20Linux%20(Fcitx5)-blue.svg)]()
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-201%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-311%20passed-brightgreen.svg)]()
 [![LINE OpenChat](https://img.shields.io/badge/LINE%20%E7%A4%BE%E7%BE%A4-%E5%A6%82%E5%96%9C%E9%80%9A%E7%94%A8%E6%99%BA%E6%85%A7%E5%9E%8B%E8%BC%B8%E5%85%A5%E6%B3%95-00C300.svg)](https://line.me/ti/g2/iyLVoHye-Ho49K9SzQBaftTgFzej7stw9S1jSw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default)
 
 </div>
@@ -21,7 +21,7 @@
 
 傳統輸入法常讓人陷入兩難：**打注音／拼音時，遇到不會念的生僻字就卡住；打倉頡／字形碼時，又得死背複雜的字根表，而且不同輸入法之間切換繁瑣、各打各的。**
 
-**如喜（RuhI）通用智慧型輸入法** 把最常用的各種輸入方式整合進**同一個智慧輸入座**，並在 `v0.7.1` 帶來兩大突破：
+**如喜（RuhI）通用智慧型輸入法** 把最常用的各種輸入方式整合進**同一個智慧輸入座**，並持續演進至 `v0.9.0`：
 
 ### 1. 🐉 整合創新「龍龕形音輸入法」—— 免背字根，看外型或念偏旁就能打出任何漢字
 > **龍龕以形聲結構（形符＋聲符讀音）為核心，相容注音雙拼與漢語拼音，免切換模式即可以部件讀音組字，並提供輸入座內的事後部件融合。**  

@@ -1368,8 +1368,8 @@ mod tests {
             ("zh-TW", "thai", false),
         ];
         for (lang, kb, caps) in cases {
-            let copy = build_about_copy(lang, kb, caps, "0.8.0");
-            assert!(copy.version_line.contains("0.8.0"));
+            let copy = build_about_copy(lang, kb, caps, "0.9.0");
+            assert!(copy.version_line.contains("0.9.0"));
             let all = format!(
                 "{}\n{}\n{}\n{}\n{}",
                 copy.window_title, copy.heading, copy.subtitle, copy.motto_title, copy.motto_body

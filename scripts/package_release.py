@@ -204,7 +204,7 @@ def main():
             shutil.copy2(src_s, release_dir / script_name)
 
     # 複製文件（與 installer/ruhi_setup.iss 之使用者文件清單一致）
-    for doc in ["LICENSE", "README.md", "CHANGELOG.md"]:
+    for doc in ["LICENSE", "THIRD_PARTY_LICENSES.md", "README.md", "CHANGELOG.md"]:
         if (root / doc).exists():
             shutil.copy2(root / doc, release_dir / doc)
 

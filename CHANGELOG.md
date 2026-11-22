@@ -1,13 +1,49 @@
 # 如喜（RuhI）通用智慧型輸入法 — 改版說明 (Changelog)
 
+## v0.9.0 (2026-11-22)
+
+### 🚀 語篇 N-Best 搜尋、近億字台灣口語詞三元語言模型與系統主題介面
+- **Forward-Viterbi ＋ Backward-A\* N-Best（`K=16`）與純 Rust 雙向語篇代詞重排序（[`discourse_reranker.rs`](ruhi-core/src/router/discourse_reranker.rs)）**：
+  - 於動態規劃詞網格精確收集前向分數並執行反向 A\* 搜尋（`MAX_ASTAR_POPS = 2048`），產出不重複 Top-16 整句候選（開發集 Oracle 上界 CER 達 **`1.52%`**／整句完全命中率 **`87.66%`**）。
+  - 針對有生／器物主語進行第三人稱代詞（`他／她／它／牠`）雙向指代一致化重排序（於 `ruhi_eval` 新增 `--nbest-oracle`）；僅重排階段即將 `dev.tsv` 錯字由 `1,669`（`3.72%`）降至 **`1,635`**（**`3.65%`**，淨修 25 句、零迴歸，McNemar $\chi^2 = 23.04, p = 1.59 \times 10^{-6}$）。
+- **台灣口語語料擴充、`RLNG0002` 詞三元（Word Trigram）升級與索引外提加速**：
+  - 擴充 `scripts/train_ngram_lm.py` 納入 `common_voice_25_zh-TW`、`coco-caption-zh_tw-val` 與 `agentlans/traditional-chinese`，合計 **12 組商用安全台灣正體語料（`99,215,460` 清潔字元）**，並對 `9,456` 筆評估集執行雜湊排重排除 `193` 筆重疊。
+  - 實作向下相容 `RLNG0002` 唯讀 `mmap` 格式（`50.34 MB`、詞表 `144,000`、`WB=2,200,000`、`WT=1,500,000`、`CB=750,000`、`CT=1,600,000`；權重 `WB=0.3500 / WT=0.1400 / CB=0.0500 / CT=0.3000`），並於 `viterbi.rs` 外提前導狀態與節點詞彙索引，將 `p95` 延遲由 `31.088 ms` 降至 **`20.580 ms`**（`p50 = 7.561 ms`）。
+  - 開發集（`dev.tsv`，3,640 句／44,855 字）基準字元錯誤率（CER）由 `v0.8.0` **`3.72%`**（`1,669` 字錯）進一步降至 **`3.49%`**（**`1,566` 字錯，淨減 `-103` 字錯**），整句完全命中率升至 **`73.96%`**（`2,692 / 3,640` 句，McNemar $\chi^2 = 29.7521, p = 4.92 \times 10^{-8}$），五大文體全面改善（`civic_public` `2.32%` / `daily_dialogue` `2.77%` / `literary_narrative` `3.62%` / `moe_idiom_context` `2.30%` / `tech_doc` `7.30%`）。
+- **系統深淺色自適應「關於如喜」對話框與品牌視覺更新（`7050986`）**：
+  - 新增 [`about_dialog.rs`](ruhi-tsf/src/about_dialog.rs)，依 Windows 系統及 `config.json` 設定自動切換深／淺色調色盤與原生 DWM 標題列，內嵌 `ruhi_icon_128x128.rle1` 與 `A Solid GUI Studio` 雙主題品牌標誌（`studio_logo_640x100.rle3`），同步整合至 `ruhi-settings` 並精簡品牌標語「如雲行水流自在歡喜」。
+- **合規封裝、CI 調整與無統計模型回退測試防護**：
+  - 安裝包與攜帶包納入 [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md)，完整標示 12 組語料與辭典之授權歸屬。
+  - `.github/workflows/release.yml` 改為 `workflow_dispatch`（避免缺乏不入版控之 `ngram_zh_tw.bin` 導致自動觸發失敗），並於 `ruhi-core` 測試補齊無 `ngram_lm` 環境（如潔淨 GitHub CI）之條件防護。
+
+---
+
 ## v0.8.0 (2026-11-22)
 
-### 🧠 個人化情境快取語言模型（Contextual Cache LM）與統計轉移系統性純化
-- **線上情境修正學習（`ContextualCacheLm`）**：新增支援 30 天（正向）／7 天（負向）指數衰減之上下文（左一字＋詞＋右一字）快取模型（`user_cache_lm.tsv`），與 `user_dict.tsv` 嚴格隔離不汙染全域詞庫；並實作受保護目錄（`Program Files\RuhI`）無法寫入暫存檔時之原地覆寫回退機制，以及對應 `.gitignore`、安裝包 initial header 與最小權限 `Users:M` ACL 配置。
-- **語料驅動反事實消融純化（Ablation-Driven Purification）**：
-  - 擴充 `TransitionEdgeCtx` 與 `NodeEdgeGuards`，為 `numeral_classifier`、`demonstrative_numeral`、`postpositional_locative`、`verb_bu_potential`、`modal_auxiliary_preposition_bridge`、`degree_adv_content_adj`、`lexical_or_poetic_ci2`、`ci2_lexical_compound_head`、`eval_res_topo_06_duo_degree_quant`、`slot_d029` 與句中一聲語氣助詞「吧」加入雙向詞長／高頻雙字詞保護機制，抑制過度強佔造成之詞界碎裂。
-  - 補全功能詞表與量詞（`妳們`、`祂們`、`篇`），將 2-gram `user_chain` 展開排除過度泛化短語，並移除驗證負效之遷移項目（`慢慢\t的`、`把\t牠`）。
-- **評估指標進步**：`dev.tsv` 基準字元錯誤率（CER）由 `3.89%`（1,745/44,855）顯著降至 `3.72%`（1,669/44,855，減少 76 處錯誤），整句完全正確率由 `71.18%`（2,591/3,640）提升至 `72.28%`（2,631/3,640，McNemar $\chi^2 = 82.51, p = 1.07 \times 10^{-19}$）。
+### 📊 選字準確率大幅躍進（`v0.7.0 ➔ v0.8.0` 累計 79 筆提交）
+- **開發集（`dev.tsv`，3,640 句／44,855 字）**：CER 由 `v0.7.0` **`6.52%`**（`2,924` 字錯）大幅降至 **`3.72%`**（**`1,669` 字錯，淨減 `1,255` 字錯，相對降幅 `42.9%`**）；整句完全命中率由 **`55.44%`** 躍升至 **`72.28%`**（`2,631 / 3,640` 句）。
+- **盲測集確認無過擬合**：啟用統計底盤後，`test.tsv` CER 相對下降 **`14.2%`**（`5.45% → 4.68%`），外部日常語料 `typing_tw.tsv` 相對下降 **`15.2%`**（`11.29% → 9.58%`）。
+
+### 📜 全面回歸 100% Apache 2.0 純開源與龍龕 `RLKB0001` 加速
+- 撤回 `v0.7.0` 專有授權宣告（含 `v0.7.1` 變更並於本版正式對外公開），全體程式碼回歸 **Apache License 2.0**；移除試用計數、裝置指紋與通行碼驗證模組，並移除 GPLv2 `ids.txt`（100% 改用 Unicode Unihan）。
+- 實作龍龕 `RLKB0001` 唯讀記憶體映射（`longkan.bin`，`0.09~0.14 ms` 載入、`< 0.5 ms` 熱路徑查詢），並擴充常見姓氏部件拆解與跨模式 `Shift+← + Tab` 部件融合。
+
+### 🧠 個人化情境快取語言模型、統計 N-gram 底盤與系統性純化
+- **台灣正體商用安全統計 N-gram 底盤（`RLNG0001`，`26.88 MB`）**：以 9 組商用安全台灣正體語料（`7,077 萬`字）訓練唯讀 `mmap` 模型，整合詞二元與字二／三元並搭配短詞、文言與人名三層邊界防護。
+- **線上情境修正學習（`ContextualCacheLm`）**：新增支援 30 天（正向）／7 天（負向）指數衰減之上下文（左一字＋詞＋右一字）快取模型（`user_cache_lm.tsv`），與 `user_dict.tsv` 嚴格隔離不汙染全域詞庫；並實作受保護目錄（`Program Files\RuhI`）無法寫入暫存檔時之原地覆寫回退機制，以及對應 `.gitignore`、安裝包初始檔頭與最小權限 `Users:M` ACL 配置。
+- **語素本體、48 音節長句、3+3 郵遞區號與反事實消融純化**：
+  - 統一標準三欄核心詞庫 `lexicon_core.tsv`、建立 107 類 256-bit `MorphemeOntology` 與 `lint_scoring_rules.py`（`|score| <= 35` 與 0 未解碰撞）。
+  - 擴展聯合重估視窗至 **48 音節**（`28 + 20`、`MAX_LOOKBACK = 24`），支援台灣官方 **3+3 郵遞區號**與省略區里門牌地址喚醒、康熙筆畫姓氏與自訂人名尊稱／親屬稱謂自動投射。
+  - 擴充 `TransitionEdgeCtx` 與 `NodeEdgeGuards` 雙向詞長／高頻雙字詞保護機制，抑制過度強佔造成之詞界碎裂；補全功能詞表與量詞（`妳們`、`祂們`、`篇`），將 2-gram `user_chain` 展開排除過度泛化短語，並移除驗證負效之遷移項目（`慢慢\t的`、`把\t牠`）。`dev.tsv` 相較 `Phase 1D`（`3.89%`）再減少 `76` 處錯字（McNemar $\chi^2 = 82.51, p = 1.07 \times 10^{-19}$）。
+
+### 🌐 多模式解耦、泛歐語「三大支柱」與操作一致化
+- 抽離獨立原生設定中心 `ruhi-settings`（套用 `rud()` 自適應介面與樹狀符號表）；解除許氏注音強制綁定，全 10 種鍵盤模式皆可單一獨立掛載並支援 `Caps Lock = "none"`。
+- 將阿南達瑪迦梵語分離為可選詞包（`sa_am`，預設關閉）；實作泛歐語三大支柱（語境句法與縮略語雙向 `Tab` 補完、空白後下詞聯想、非破壞性空白鍵勘誤與單鍵還原）與 L2 外國人友善音韻近似引擎。
+- 統一全 10 模式 `` ` `` / `~` 切換邏輯、新增反斜線字面轉義（`\``、`\\`、`\~`）、字形模式（倉頡／行列／四角）組字碼中段 `Tab` 前綴補完與中文離合動賓語境聯想。
+
+### 🛠️ Windows TSF 系統穩定性與相容性體檢
+- 修復 Windows 11 記事本（`RichEditD2DPT`）多行與 `Ctrl+Enter` 送出游標錯位、無組字狀態 `Ctrl+V` 等全體快捷鍵直通放行、多螢幕負座標定位、雙軌密碼欄保護、Win32 `AltGr` 對應及 `Enter`/`Tab` 互斥鎖死鎖。
+- 強化 COM FFI `catch_unwind`、`Drop` 資源清理與 `LAYER_B_ABI_EPOCH = 2` 熱重載守門機制；納入 `ruhi-android` 初期伴隨預覽骨架。
 
 ## v0.7.1 (2026-10-29)
 

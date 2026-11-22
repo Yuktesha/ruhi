@@ -1,9 +1,9 @@
 name: Ruhi Release
 
+# 自 v0.8.0 起，正式發布包須封裝由 Google Colab 訓練且不入 Git 版控之 ngram_zh_tw.bin（RLNG0002, 50.34 MB），
+# 故改為手動觸發保留流程範本，正式版本統一於本機執行 scripts/package_release.py ＋ Inno Setup ＋ gh release create 發布。
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-release:

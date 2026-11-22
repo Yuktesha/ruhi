@@ -1,6 +1,6 @@
 [package]
 name = "ruhi-settings"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2021"
 authors = ["A Solid GUI Studio (龜鋼A工作室)"]
 description = "RuhI（如喜）輸入法 — 原生 Rust 現代化偏好設定中心"
