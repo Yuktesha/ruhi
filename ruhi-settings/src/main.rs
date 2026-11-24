@@ -3028,6 +3028,81 @@ impl RuhiStudioApp {
         ui.add_space(10.0);
 
         ui.group(|ui| {
+            ui.heading("輕量神經語言模型重排序 (RLNM0001 Sidecar・選配)");
+            ui.add_space(6.0);
+
+            let has_model = [
+                self.root_dir.join("ruhi_lexicon").join("data").join("rlnm_zh_tw.bin"),
+                self.root_dir.join("data").join("rlnm_zh_tw.bin"),
+                self.root_dir.join("dist").join("data").join("rlnm_zh_tw.bin"),
+            ]
+            .into_iter()
+            .find(|p| p.is_file());
+            let has_exe = [
+                self.root_dir.join("ruhi_reranker.exe"),
+                self.root_dir.join("dist").join("ruhi_reranker.exe"),
+                self.root_dir
+                    .join("ruhi-core")
+                    .join("target")
+                    .join("release")
+                    .join("ruhi_reranker.exe"),
+            ]
+            .into_iter()
+            .any(|p| p.is_file());
+
+            let status_text = match (has_model, has_exe) {
+                (Some(mp), true) => {
+                    let mb = std::fs::metadata(&mp)
+                        .map(|m| m.len() as f64 / (1024.0 * 1024.0))
+                        .unwrap_or(0.0);
+                    format!("狀態：已偵測 RLNM0001 模型 ({:.2} MB) 與 ruhi_reranker.exe，開啟後自動無視窗常駐。", mb)
+                }
+                (Some(_), false) => "狀態：已偵測模型檔，尚未編譯或部署 ruhi_reranker.exe（開啟時會自動安全退回離線引擎）。".to_string(),
+                (None, _) => "狀態：尚未安裝 rlnm_zh_tw.bin 模型檔（可先停用或待下載模型後啟用）。".to_string(),
+            };
+            ui.label(egui::RichText::new(status_text).color(palette.fg_muted.to_egui()));
+            ui.add_space(4.0);
+
+            if two_tier_checkbox(
+                ui,
+                &mut self.settings.grammar.enable_neural_reranker,
+                "啟用神經語言模型重排序（Named Pipe 選配）",
+                "針對 4 字以上多候選同音句子以 RLNM0001 進行重排，逾時立即無縫回退原離線解碼結果。",
+                &palette,
+            ) {
+                self.auto_save_settings_quiet();
+            }
+
+            if self.settings.grammar.enable_neural_reranker {
+                ui.add_space(6.0);
+                let mut params_changed = false;
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("逾時上限 (ms)：");
+                    let mut tmo = self.settings.grammar.neural_reranker_timeout_ms as i32;
+                    if ui.add(egui::Slider::new(&mut tmo, 10..=50)).changed() {
+                        self.settings.grammar.neural_reranker_timeout_ms = tmo as u16;
+                        params_changed = true;
+                    }
+                    ui.add_space(12.0);
+                    ui.label("融合權重 λ：");
+                    let mut lam = self.settings.grammar.neural_reranker_lambda as f32;
+                    if ui
+                        .add(egui::Slider::new(&mut lam, 0.10..=1.20).fixed_decimals(2))
+                        .changed()
+                    {
+                        self.settings.grammar.neural_reranker_lambda = lam as f64;
+                        params_changed = true;
+                    }
+                });
+                if params_changed {
+                    self.auto_save_settings_quiet();
+                }
+            }
+        });
+
+        ui.add_space(10.0);
+
+        ui.group(|ui| {
             ui.heading("詞庫主權與熱重載");
             ui.add_space(6.0);
 

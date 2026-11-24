@@ -1,5 +1,5 @@
 ﻿# 如喜 (RuhI) 強制品質閘門腳本 (Quality Gate)
-# 依序執行：cargo test --release (ruhi-core) -> cargo test (ruhi-settings) -> cargo build --release (ruhi-tsf) -> ruhi_eval --gate
+# 依序執行：cargo test --release --lib (ruhi-core) -> cargo test (ruhi-settings) -> cargo build --release (ruhi-tsf) -> ruhi_eval --gate
 # 任一步失敗即中止，並以非 0 狀態碼結束。本腳本無需系統管理員權限。
 
 $ErrorActionPreference = "Stop"
@@ -10,14 +10,23 @@ $RuhiTsfDir = Join-Path $RepoRoot "ruhi-tsf"
 $BaselinePath = Join-Path $RepoRoot "eval_reports\dev_gate_baseline.json"
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "[Quality Gate 1/4] 執行 ruhi-core 單元測試 (cargo test --release)..." -ForegroundColor Cyan
+Write-Host "[Quality Gate 1/4] 執行 ruhi-core 單元測試 (cargo test --release --lib)..." -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Push-Location $RuhiCoreDir
 try {
-    & cargo test --release
+    & cargo test --release --lib
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[Quality Gate 失敗] ruhi-core 單元測試未通過 (ExitCode=$LASTEXITCODE)。" -ForegroundColor Red
         exit $LASTEXITCODE
+    }
+    if (Get-Process -Name ruhi_reranker -ErrorAction SilentlyContinue) {
+        Write-Host "[Quality Gate 1/4] 偵測到 ruhi_reranker.exe 正在背景執行，略過會重建執行檔的 --tests 整合目標以避免檔案鎖定。" -ForegroundColor Yellow
+    } else {
+        & cargo test --release --tests
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[Quality Gate 失敗] ruhi-core 整合測試未通過 (ExitCode=$LASTEXITCODE)。" -ForegroundColor Red
+            exit $LASTEXITCODE
+        }
     }
 } finally {
     Pop-Location

@@ -17,10 +17,12 @@ use super::lattice::LatticeNode;
 use super::rlnm::{RlnmKvCache, RlnmModel};
 
 pub const DEFAULT_PIPE_NAME: &str = r"\\.\pipe\RuhI_NeuralReranker_v1";
+pub const SINGLETON_MUTEX_NAME: &str = r"Local\RuhI_NeuralReranker_Singleton_v1";
 pub const REQ_MAGIC: &[u8; 4] = b"RNQ1";
 pub const RESP_MAGIC: &[u8; 4] = b"RNR1";
 pub const MAX_IPC_FRAME_BYTES: usize = 1_048_576;
 const CONNECT_FAIL_BACKOFF_MS: u64 = 2_000;
+const SPAWN_COOLDOWN_SECS: u64 = 30;
 
 #[derive(Debug, Clone)]
 pub struct NeuralRerankerConfig {
@@ -52,6 +54,9 @@ struct RuntimeState {
     cfg: NeuralRerankerConfig,
     in_process_model: Option<Arc<RlnmModel>>,
     last_pipe_failure: Option<Instant>,
+    exe_path: Option<std::path::PathBuf>,
+    model_path: Option<std::path::PathBuf>,
+    last_spawn_attempt: Option<Instant>,
 }
 
 static STATE: OnceLock<RwLock<RuntimeState>> = OnceLock::new();
@@ -67,8 +72,64 @@ fn state() -> &'static RwLock<RuntimeState> {
             cfg: NeuralRerankerConfig::default(),
             in_process_model: None,
             last_pipe_failure: None,
+            exe_path: None,
+            model_path: None,
+            last_spawn_attempt: None,
         })
     })
+}
+
+pub fn set_sidecar_paths(
+    exe_path: Option<std::path::PathBuf>,
+    model_path: Option<std::path::PathBuf>,
+) {
+    if let Ok(mut g) = state().write() {
+        g.exe_path = exe_path;
+        g.model_path = model_path;
+    }
+}
+
+pub fn is_sidecar_running() -> bool {
+    win_pipe_client::is_singleton_mutex_present()
+}
+
+pub fn ensure_sidecar_running_async() -> bool {
+    let (enabled, exe_opt, model_opt, in_cooldown) = match state().read() {
+        Ok(g) => {
+            let cooldown = g
+                .last_spawn_attempt
+                .is_some_and(|t| t.elapsed() < Duration::from_secs(SPAWN_COOLDOWN_SECS));
+            (g.cfg.enabled, g.exe_path.clone(), g.model_path.clone(), cooldown)
+        }
+        Err(_) => return false,
+    };
+    if !enabled {
+        return false;
+    }
+    let (Some(exe), Some(model)) = (exe_opt, model_opt) else {
+        return false;
+    };
+    if !exe.is_file() || !model.is_file() {
+        return false;
+    }
+    if is_sidecar_running() {
+        return true;
+    }
+    if in_cooldown {
+        return false;
+    }
+    {
+        let Ok(mut g) = state().write() else {
+            return false;
+        };
+        if let Some(t) = g.last_spawn_attempt {
+            if t.elapsed() < Duration::from_secs(SPAWN_COOLDOWN_SECS) {
+                return false;
+            }
+        }
+        g.last_spawn_attempt = Some(Instant::now());
+    }
+    win_pipe_client::spawn_windowless_sidecar(&exe, &model)
 }
 
 pub fn set_runtime_config(enabled: bool, lambda: f64, timeout_ms: u16) {
@@ -212,8 +273,9 @@ pub fn decode_response(payload: &[u8]) -> Option<(u64, u8, Vec<f32>)> {
 
 #[cfg(target_os = "windows")]
 mod win_pipe_client {
-    use super::MAX_IPC_FRAME_BYTES;
+    use super::{MAX_IPC_FRAME_BYTES, SINGLETON_MUTEX_NAME};
     use std::ffi::c_void;
+    use std::path::Path;
     use std::time::{Duration, Instant};
 
     const GENERIC_READ: u32 = 0x8000_0000;
@@ -224,6 +286,39 @@ mod win_pipe_client {
     const ERROR_IO_PENDING: u32 = 997;
     const ERROR_PIPE_BUSY: u32 = 231;
     const WAIT_OBJECT_0: u32 = 0;
+    const SYNCHRONIZE: u32 = 0x0010_0000;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    const STARTF_USESHOWWINDOW: u32 = 0x0000_0001;
+
+    #[repr(C)]
+    struct StartupInfoW {
+        cb: u32,
+        lp_reserved: *mut u16,
+        lp_desktop: *mut u16,
+        lp_title: *mut u16,
+        dw_x: u32,
+        dw_y: u32,
+        dw_x_size: u32,
+        dw_y_size: u32,
+        dw_x_count_chars: u32,
+        dw_y_count_chars: u32,
+        dw_fill_attribute: u32,
+        dw_flags: u32,
+        w_show_window: u16,
+        cb_reserved2: u16,
+        lp_reserved2: *mut u8,
+        h_std_input: isize,
+        h_std_output: isize,
+        h_std_error: isize,
+    }
+
+    #[repr(C)]
+    struct ProcessInformation {
+        h_process: isize,
+        h_thread: isize,
+        dw_process_id: u32,
+        dw_thread_id: u32,
+    }
 
     #[repr(C)]
     struct Overlapped {
@@ -277,6 +372,93 @@ mod win_pipe_client {
         fn CancelIoEx(hFile: isize, lpOverlapped: *mut Overlapped) -> i32;
         fn CloseHandle(hObject: isize) -> i32;
         fn GetLastError() -> u32;
+        fn OpenMutexW(dwDesiredAccess: u32, bInheritHandle: i32, lpName: *const u16) -> isize;
+        fn CreateProcessW(
+            lpApplicationName: *const u16,
+            lpCommandLine: *mut u16,
+            lpProcessAttributes: *const c_void,
+            lpThreadAttributes: *const c_void,
+            bInheritHandles: i32,
+            dwCreationFlags: u32,
+            lpEnvironment: *const c_void,
+            lpCurrentDirectory: *const u16,
+            lpStartupInfo: *const StartupInfoW,
+            lpProcessInformation: *mut ProcessInformation,
+        ) -> i32;
+    }
+
+    pub fn is_singleton_mutex_present() -> bool {
+        let mut wide: Vec<u16> = SINGLETON_MUTEX_NAME.encode_utf16().collect();
+        wide.push(0);
+        let h = unsafe { OpenMutexW(SYNCHRONIZE, 0, wide.as_ptr()) };
+        if h != 0 {
+            unsafe {
+                CloseHandle(h);
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn spawn_windowless_sidecar(exe: &Path, model: &Path) -> bool {
+        let mut cmd_wide: Vec<u16> = format!("\"{}\" --model \"{}\"", exe.display(), model.display())
+            .encode_utf16()
+            .collect();
+        cmd_wide.push(0);
+        let si = StartupInfoW {
+            cb: std::mem::size_of::<StartupInfoW>() as u32,
+            lp_reserved: core::ptr::null_mut(),
+            lp_desktop: core::ptr::null_mut(),
+            lp_title: core::ptr::null_mut(),
+            dw_x: 0,
+            dw_y: 0,
+            dw_x_size: 0,
+            dw_y_size: 0,
+            dw_x_count_chars: 0,
+            dw_y_count_chars: 0,
+            dw_fill_attribute: 0,
+            dw_flags: STARTF_USESHOWWINDOW,
+            w_show_window: 0,
+            cb_reserved2: 0,
+            lp_reserved2: core::ptr::null_mut(),
+            h_std_input: 0,
+            h_std_output: 0,
+            h_std_error: 0,
+        };
+        let mut pi = ProcessInformation {
+            h_process: 0,
+            h_thread: 0,
+            dw_process_id: 0,
+            dw_thread_id: 0,
+        };
+        let ok = unsafe {
+            CreateProcessW(
+                core::ptr::null(),
+                cmd_wide.as_mut_ptr(),
+                core::ptr::null(),
+                core::ptr::null(),
+                0,
+                CREATE_NO_WINDOW,
+                core::ptr::null(),
+                core::ptr::null(),
+                &si,
+                &mut pi,
+            )
+        };
+        if ok != 0 {
+            unsafe {
+                if pi.h_thread != 0 {
+                    CloseHandle(pi.h_thread);
+                }
+                if pi.h_process != 0 {
+                    CloseHandle(pi.h_process);
+                }
+            }
+            true
+        } else {
+            false
+        }
     }
 
     struct HandleGuard(isize);
@@ -462,8 +644,18 @@ mod win_pipe_client {
 
 #[cfg(not(target_os = "windows"))]
 mod win_pipe_client {
+    use std::path::Path;
+
     pub fn query_named_pipe(_pipe_name: &str, _req_framed: &[u8], _timeout_ms: u16) -> Option<Vec<u8>> {
         None
+    }
+
+    pub fn is_singleton_mutex_present() -> bool {
+        false
+    }
+
+    pub fn spawn_windowless_sidecar(_exe: &Path, _model: &Path) -> bool {
+        false
     }
 }
 
@@ -481,6 +673,7 @@ fn score_via_pipe(cfg: &NeuralRerankerConfig, prefix: &str, cands: &[&str]) -> O
     let framed = encode_request(req_id, cfg.timeout_ms, prefix, cands);
     let payload_opt = win_pipe_client::query_named_pipe(&cfg.pipe_name, &framed, cfg.timeout_ms);
     let Some(payload) = payload_opt else {
+        let _ = ensure_sidecar_running_async();
         if let Ok(mut g) = state().write() {
             g.last_pipe_failure = Some(Instant::now());
         }
@@ -622,5 +815,17 @@ mod tests {
         // 還原預設關閉狀態
         set_pipe_name_for_test(DEFAULT_PIPE_NAME);
         set_runtime_config(false, 0.5, 15);
+    }
+
+    #[test]
+    fn test_sidecar_paths_and_missing_binary_safe_noop() {
+        set_runtime_config(true, 0.5, 25);
+        set_sidecar_paths(
+            Some(std::path::PathBuf::from(r"C:\__ruhi_nonexistent__\ruhi_reranker.exe")),
+            Some(std::path::PathBuf::from(r"C:\__ruhi_nonexistent__\rlnm_zh_tw.bin")),
+        );
+        assert!(!ensure_sidecar_running_async());
+        set_sidecar_paths(None, None);
+        set_runtime_config(false, 0.5, 25);
     }
 }

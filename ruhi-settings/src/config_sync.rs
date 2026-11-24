@@ -263,10 +263,27 @@ pub struct GrammarSettings {
     /// 文言單字語體引擎模式（`"auto"` 預設自動偵測 / `"off"` 停用 / `"explicit"` 手動強制開啟）
     #[serde(default = "default_classical_mode")]
     pub classical_mode: String,
+    /// 選配輕量神經語言模型重排序（RLNM0001 Sidecar）
+    #[serde(default)]
+    pub enable_neural_reranker: bool,
+    /// 神經重排分數混合權重 $\lambda$
+    #[serde(default = "default_neural_reranker_lambda")]
+    pub neural_reranker_lambda: f64,
+    /// 神經重排 IPC 逾時上限（毫秒）
+    #[serde(default = "default_neural_reranker_timeout_ms")]
+    pub neural_reranker_timeout_ms: u16,
 }
 
 pub fn default_classical_mode() -> String {
     "auto".to_string()
+}
+
+pub fn default_neural_reranker_lambda() -> f64 {
+    0.50
+}
+
+pub fn default_neural_reranker_timeout_ms() -> u16 {
+    25
 }
 
 pub fn normalize_classical_mode(raw: &str) -> String {
@@ -290,6 +307,9 @@ impl Default for GrammarSettings {
             enable_hot_reload: true,
             studio_access_tier: default_studio_access_tier(),
             classical_mode: default_classical_mode(),
+            enable_neural_reranker: false,
+            neural_reranker_lambda: default_neural_reranker_lambda(),
+            neural_reranker_timeout_ms: default_neural_reranker_timeout_ms(),
         }
     }
 }
@@ -759,6 +779,15 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
         if let Some(v) = gr.get("classical_mode").and_then(Value::as_str) {
             settings.grammar.classical_mode = normalize_classical_mode(v);
         }
+        if let Some(v) = gr.get("enable_neural_reranker").and_then(Value::as_bool) {
+            settings.grammar.enable_neural_reranker = v;
+        }
+        if let Some(v) = gr.get("neural_reranker_lambda").and_then(Value::as_f64) {
+            settings.grammar.neural_reranker_lambda = v.clamp(0.1, 2.0);
+        }
+        if let Some(v) = gr.get("neural_reranker_timeout_ms").and_then(Value::as_u64) {
+            settings.grammar.neural_reranker_timeout_ms = (v.clamp(5, 100)) as u16;
+        }
     }
 
     if let Some(ai) = val.get("ai_and_privacy").and_then(Value::as_object) {
@@ -954,6 +983,15 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
     if let Some(v) = map.get("classical_mode").and_then(Value::as_str) {
         settings.grammar.classical_mode = normalize_classical_mode(v);
     }
+    if let Some(v) = map.get("enable_neural_reranker").and_then(Value::as_bool) {
+        settings.grammar.enable_neural_reranker = v;
+    }
+    if let Some(v) = map.get("neural_reranker_lambda").and_then(Value::as_f64) {
+        settings.grammar.neural_reranker_lambda = v.clamp(0.1, 2.0);
+    }
+    if let Some(v) = map.get("neural_reranker_timeout_ms").and_then(Value::as_u64) {
+        settings.grammar.neural_reranker_timeout_ms = (v.clamp(5, 100)) as u16;
+    }
 }
 
 /// 確保目前預設鍵盤模式一定包含在 `enabled_keyboard_modes` 清單中
@@ -1019,6 +1057,8 @@ pub fn mount_single_keyboard_mode_only(settings: &mut RuhiSettings, code: &str) 
 pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), String> {
     ensure_keyboard_modes_consistent(settings);
     settings.grammar.classical_mode = normalize_classical_mode(&settings.grammar.classical_mode);
+    settings.grammar.neural_reranker_lambda = settings.grammar.neural_reranker_lambda.clamp(0.1, 2.0);
+    settings.grammar.neural_reranker_timeout_ms = settings.grammar.neural_reranker_timeout_ms.clamp(5, 100);
 
     let pretty_settings = serde_json::to_string_pretty(settings)
         .map_err(|e| format!("序列化 settings_config.json 失敗: {e}"))?;
@@ -1226,6 +1266,18 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
         map.insert(
             "classical_mode".to_string(),
             json!(settings.grammar.classical_mode),
+        );
+        map.insert(
+            "enable_neural_reranker".to_string(),
+            json!(settings.grammar.enable_neural_reranker),
+        );
+        map.insert(
+            "neural_reranker_lambda".to_string(),
+            json!(settings.grammar.neural_reranker_lambda),
+        );
+        map.insert(
+            "neural_reranker_timeout_ms".to_string(),
+            json!(settings.grammar.neural_reranker_timeout_ms),
         );
 
         if let Ok(s) = serde_json::to_string_pretty(&Value::Object(map)) {
@@ -1441,6 +1493,42 @@ mod tests {
         fs::write(tmp_dir.join("config.json"), r#"{"classical_mode":"off"}"#).unwrap();
         let overridden = load_settings(&tmp_dir);
         assert_eq!(overridden.grammar.classical_mode, "off");
+
+        let _ = fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn test_neural_reranker_config_sync_roundtrip_261125() {
+        let tmp_dir = std::env::temp_dir().join(format!(
+            "ruhi_neural_cfg_sync_test_{}_{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        ));
+        let _ = fs::create_dir_all(&tmp_dir);
+
+        let initial = load_settings(&tmp_dir);
+        assert!(!initial.grammar.enable_neural_reranker);
+        assert!((initial.grammar.neural_reranker_lambda - 0.50).abs() < 1e-6);
+        assert_eq!(initial.grammar.neural_reranker_timeout_ms, 25);
+
+        let mut s = initial;
+        s.grammar.enable_neural_reranker = true;
+        s.grammar.neural_reranker_lambda = 5.0;
+        s.grammar.neural_reranker_timeout_ms = 500;
+        save_settings(&tmp_dir, &mut s).unwrap();
+        assert!((s.grammar.neural_reranker_lambda - 2.0).abs() < 1e-6);
+        assert_eq!(s.grammar.neural_reranker_timeout_ms, 100);
+
+        let flat: Value =
+            serde_json::from_str(&fs::read_to_string(tmp_dir.join("config.json")).unwrap())
+                .unwrap();
+        assert_eq!(flat.get("enable_neural_reranker"), Some(&json!(true)));
+        assert_eq!(flat.get("neural_reranker_timeout_ms"), Some(&json!(100)));
+
+        let reloaded = load_settings(&tmp_dir);
+        assert!(reloaded.grammar.enable_neural_reranker);
+        assert!((reloaded.grammar.neural_reranker_lambda - 2.0).abs() < 1e-6);
+        assert_eq!(reloaded.grammar.neural_reranker_timeout_ms, 100);
 
         let _ = fs::remove_dir_all(&tmp_dir);
     }

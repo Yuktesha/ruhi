@@ -1267,6 +1267,36 @@ impl RuhiPaths {
     }
 }
 
+fn resolve_sidecar_paths(paths: &RuhiPaths) -> (Option<std::path::PathBuf>, Option<std::path::PathBuf>) {
+    let exe = [
+        paths.sandbox_dir.join("ruhi_reranker.exe"),
+        paths.sandbox_dir.join("dist").join("ruhi_reranker.exe"),
+        paths
+            .sandbox_dir
+            .join("ruhi-core")
+            .join("target")
+            .join("release")
+            .join("ruhi_reranker.exe"),
+    ]
+    .into_iter()
+    .find(|p| p.is_file());
+
+    let model = [
+        paths.data_dir.join("rlnm_zh_tw.bin"),
+        paths.sandbox_dir.join("data").join("rlnm_zh_tw.bin"),
+        paths
+            .sandbox_dir
+            .join("ruhi_lexicon")
+            .join("data")
+            .join("rlnm_zh_tw.bin"),
+        paths.sandbox_dir.join("dist").join("data").join("rlnm_zh_tw.bin"),
+    ]
+    .into_iter()
+    .find(|p| p.is_file());
+
+    (exe, model)
+}
+
 pub fn load_ruhi_config(paths: &RuhiPaths) -> RuhiConfig {
     let now = std::time::Instant::now();
     if let Ok(lock) = LAST_CONFIG_CHECK.lock() {
@@ -1311,6 +1341,11 @@ pub fn load_ruhi_config(paths: &RuhiPaths) -> RuhiConfig {
                         ruhi::router::neural_reranker::set_runtime_config(
                             enabled, lambda, timeout_ms,
                         );
+                        let (exe_p, model_p) = resolve_sidecar_paths(paths);
+                        ruhi::router::neural_reranker::set_sidecar_paths(exe_p, model_p);
+                        if enabled {
+                            let _ = ruhi::router::neural_reranker::ensure_sidecar_running_async();
+                        }
                     }
                     if let Ok(mut lock) = LAST_CONFIG_CHECK.lock() {
                         *lock = Some((now, mtime, cfg.clone()));
@@ -1325,16 +1360,33 @@ pub fn load_ruhi_config(paths: &RuhiPaths) -> RuhiConfig {
 }
 
 pub fn save_ruhi_config(paths: &RuhiPaths, config: &RuhiConfig) {
-    if let Ok(json) = serde_json::to_string_pretty(config) {
+    if let Ok(new_val) = serde_json::to_value(config) {
         let mut targets = vec![
             paths.config.clone(),
             paths.sandbox_dir.join("scripts").join("config.json"),
             paths.sandbox_dir.join("dist").join("config.json"),
         ];
         targets.dedup();
+        let fallback_base = std::fs::read_to_string(&paths.config)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+            .and_then(|v| v.as_object().cloned());
         for t in &targets {
             if t == &paths.config || t.exists() {
-                let _ = std::fs::write(t, &json);
+                let mut merged = std::fs::read_to_string(t)
+                    .ok()
+                    .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+                    .and_then(|v| v.as_object().cloned())
+                    .or_else(|| fallback_base.clone())
+                    .unwrap_or_default();
+                if let Some(new_obj) = new_val.as_object() {
+                    for (k, v) in new_obj {
+                        merged.insert(k.clone(), v.clone());
+                    }
+                }
+                if let Ok(json) = serde_json::to_string_pretty(&serde_json::Value::Object(merged)) {
+                    let _ = std::fs::write(t, &json);
+                }
             }
         }
         invalidate_config_cache();
@@ -11602,5 +11654,59 @@ mod tests {
             eng.router.classical_mode,
             ruhi::router::ClassicalRegisterMode::Auto
         );
+    }
+
+    #[test]
+    fn test_save_ruhi_config_preserves_neural_reranker_fields_261125() {
+        let tmp_dir = std::env::temp_dir().join(format!(
+            "ruhi_tsf_cfg_merge_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let cfg_path = tmp_dir.join("config.json");
+        std::fs::write(
+            &cfg_path,
+            serde_json::to_string_pretty(&serde_json::json!({
+                "enable_neural_reranker": true,
+                "neural_reranker_lambda": 0.5,
+                "neural_reranker_timeout_ms": 25,
+                "custom_token": "keep_me"
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let mut paths = RuhiPaths::resolve();
+        paths.sandbox_dir = tmp_dir.clone();
+        paths.config = cfg_path.clone();
+
+        let mut cfg = RuhiConfig::default();
+        cfg.font_size = 44;
+        save_ruhi_config(&paths, &cfg);
+
+        let saved: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&cfg_path).unwrap()).unwrap();
+        assert_eq!(saved.get("font_size").and_then(|v| v.as_i64()), Some(44));
+        assert_eq!(
+            saved.get("enable_neural_reranker").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            saved.get("neural_reranker_lambda").and_then(|v| v.as_f64()),
+            Some(0.5)
+        );
+        assert_eq!(
+            saved
+                .get("neural_reranker_timeout_ms")
+                .and_then(|v| v.as_u64()),
+            Some(25)
+        );
+        assert_eq!(
+            saved.get("custom_token").and_then(|v| v.as_str()),
+            Some("keep_me")
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
     }
 }

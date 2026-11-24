@@ -2,8 +2,9 @@
 param(
     [string]$ModelPath = "",
     [string]$PipeName = "\\.\pipe\RuhI_NeuralReranker_v1",
-    [int]$Threads = 4,
-    [switch]$Bench
+    [int]$Threads = 8,
+    [switch]$Bench,
+    [switch]$Hidden
 )
 
 $ErrorActionPreference = "Stop"
@@ -37,6 +38,12 @@ if ([string]::IsNullOrWhiteSpace($ModelPath) -or -not (Test-Path $ModelPath)) {
 $ArgsList = @("--model", $ModelPath, "--pipe", $PipeName, "--threads", $Threads.ToString())
 if ($Bench) {
     $ArgsList += "--bench"
+}
+
+if ($Hidden -and -not $Bench) {
+    Start-Process -FilePath $ExePath -ArgumentList $ArgsList -WindowStyle Hidden
+    Write-Host ("已在背景靜默啟動如喜神經重排服務（執行緒：{0}）：{1}" -f $Threads, $PipeName)
+    exit 0
 }
 
 Write-Host ("啟動如喜神經語言模型重排服務：{0}" -f $ExePath)
