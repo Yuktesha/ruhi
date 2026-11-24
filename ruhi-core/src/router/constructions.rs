@@ -2092,7 +2092,15 @@ impl TransitionEngine {
             && (Self::is_pseudo_cleft_focus_verb(curr_word)
                 || Self::is_repeatable_action_verb(curr_word))
         {
-            bonus += 20.0;
+            let shatters_start_len2 = ctx.curr_char_len == 1
+                && dag.get(&ctx.start_idx).is_some_and(|ns| {
+                    ns.iter().any(|m| {
+                        m.length() >= 2 && m.weight >= 450 && !m.word.starts_with(curr_word)
+                    })
+                });
+            if !shatters_start_len2 {
+                bonus += 20.0;
+            }
         }
         bonus
     }
@@ -7801,6 +7809,18 @@ impl TransitionEngine {
                 });
                 if left_is_verbal || right_is_formed_obj {
                     if curr_word == "形成" { bonus += 26.0; } else { bonus -= 22.0; }
+                } else if curr_word == "行程" {
+                    let left_is_itinerary_strict = matches!(
+                        prev_word,
+                        "取消" | "安排" | "規劃" | "排定" | "調整" | "變更" | "延後" | "順延"
+                            | "縮短" | "改期" | "原定" | "既定" | "這趟" | "此行" | "今日" | "明日"
+                            | "出差" | "旅遊" | "旅行" | "參訪" | "考察" | "環島"
+                    );
+                    let left_is_dir_trip_tail = right_nodes_31_5.is_empty()
+                        && matches!(prev_word, "南下" | "北上" | "出國" | "返台" | "返鄉");
+                    if left_is_itinerary_strict || left_is_dir_trip_tail {
+                        bonus += 12.0;
+                    }
                 }
             }
         bonus

@@ -1292,6 +1292,26 @@ pub fn load_ruhi_config(paths: &RuhiPaths) -> RuhiConfig {
                         "Loaded config from {:?}: punct_mode={}, quick_key={}",
                         paths.config, cfg.punctuation_commit_mode, cfg.candidate_quick_key
                     ));
+                    if let Ok(raw) = serde_json::from_str::<serde_json::Value>(&content) {
+                        let env_default =
+                            ruhi::router::neural_reranker::NeuralRerankerConfig::default();
+                        let enabled = raw
+                            .get("enable_neural_reranker")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(env_default.enabled);
+                        let lambda = raw
+                            .get("neural_reranker_lambda")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(env_default.lambda);
+                        let timeout_ms = raw
+                            .get("neural_reranker_timeout_ms")
+                            .and_then(|v| v.as_u64())
+                            .map(|v| v.min(u16::MAX as u64) as u16)
+                            .unwrap_or(env_default.timeout_ms);
+                        ruhi::router::neural_reranker::set_runtime_config(
+                            enabled, lambda, timeout_ms,
+                        );
+                    }
                     if let Ok(mut lock) = LAST_CONFIG_CHECK.lock() {
                         *lock = Some((now, mtime, cfg.clone()));
                     }

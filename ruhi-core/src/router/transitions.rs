@@ -5597,6 +5597,22 @@ impl TransitionEngine {
             bonus: 28.0,
             name: "conjunction_er_before_degree_adverb_dafu".to_string(),
         });
+        // 系統狀態與配額重置動詞 × 狀態／配額受事賓語（選詞語意選擇限制：保護「重置額度／重置密碼」不致因 OOV 落後「重製」）
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(vec![
+                "重置".to_string(), "重設".to_string(), "恢復".to_string(),
+                "設定".to_string(), "調整".to_string(), "扣減".to_string(),
+                "消耗".to_string(), "釋放".to_string(), "分配".to_string(),
+                "清空".to_string(),
+            ]),
+            curr_pattern: WordPattern::OneOf(vec![
+                "額度".to_string(), "配額".to_string(), "密碼".to_string(),
+                "帳號".to_string(), "權限".to_string(), "預設".to_string(),
+                "上限".to_string(), "計數".to_string(),
+            ]),
+            bonus: 8.0,
+            name: "vo_state_reset_quota_object".to_string(),
+        });
     }
 
     /// 重建語法規則雙向倒排索引（加速 40~80 倍，O(1) 精準規則定位）
@@ -6616,6 +6632,32 @@ impl TransitionEngine {
         })
     }
 
+    #[inline]
+    fn is_clause_initial_yi3_perfective_verb(w: &str) -> bool {
+        matches!(
+            w,
+            "取消" | "寄出" | "收到" | "抵達" | "核准" | "出貨" | "受理" | "送出" | "預約"
+                | "報名" | "延期" | "終止" | "生效" | "過期" | "額滿" | "售完" | "開通" | "結帳"
+                | "付款" | "退款" | "發送" | "備份" | "重置" | "登出" | "登入" | "暫停" | "上線"
+                | "下架" | "簽收" | "領取" | "歸還"
+        )
+    }
+
+    #[inline]
+    fn is_followed_by_wei_frame(
+        end_idx: usize,
+        dag: &HashMap<usize, Vec<super::lattice::LatticeNode>>,
+    ) -> bool {
+        dag.get(&end_idx).is_some_and(|ns| {
+            ns.iter().any(|m| {
+                matches!(
+                    m.word.as_str(),
+                    "為" | "為主" | "為重" | "為由" | "為目的" | "為目標"
+                )
+            })
+        })
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn eval_functional_collocation_guards(
         &mut self,
@@ -6623,7 +6665,7 @@ impl TransitionEngine {
         prev_word: &str,
         curr_word: &str,
         curr_bopomofo: &str,
-        _start_idx: usize,
+        start_idx: usize,
         end_idx: usize,
         dag: &HashMap<usize, Vec<super::lattice::LatticeNode>>,
         backward: &super::viterbi::LatticeBackwardProfile,
@@ -6662,6 +6704,23 @@ impl TransitionEngine {
                 && Self::has_jiuzhi_right_predicate(end_idx, dag)
             {
                 bonus += self.apply_rule_score("func_double_adv_jiu_zhi", 14.0);
+            }
+        }
+
+        // Guard C: 無前文句首完成時相副詞「已」＋完成／事件動詞（句首無法起目的連詞「以」，並避開「以…為…」框架）
+        if start_idx == 1 && prev_word == "已" {
+            let no_prior_clause = prev2_word.map_or(true, |w| {
+                w.is_empty()
+                    || matches!(
+                        w,
+                        "，" | "。" | "；" | "！" | "？" | "：" | "、" | "," | "." | ";" | "!" | "?"
+                    )
+            });
+            if no_prior_clause
+                && Self::is_clause_initial_yi3_perfective_verb(curr_word)
+                && !Self::is_followed_by_wei_frame(end_idx, dag)
+            {
+                bonus += self.apply_rule_score("func_clause_initial_yi3_perfective_verb", 6.0);
             }
         }
 

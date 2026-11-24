@@ -130,6 +130,12 @@ ruhi_lexicon/data/ngram_zh_tw.bin
 scripts/data/ngram_zh_tw.bin
 data/ngram_zh_tw.bin
 
+# v1.0 輕量神經重排序 INT8 二進位檔（由 `scripts/train_neural_reranker.py` 產生，不入 Git 版控）
+**/rlnm_zh_tw.bin
+ruhi_lexicon/data/rlnm_zh_tw.bin
+scripts/data/rlnm_zh_tw.bin
+data/rlnm_zh_tw.bin
+
 /user_word_events.jsonl
 /.last_bg_telemetry_spawn
 ruhi_lexicon/data/homophone_context_profiles.json

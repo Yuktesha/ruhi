@@ -12,6 +12,8 @@ pub mod classical_register;
 pub mod ngram_lm;
 pub mod cache_lm;
 pub mod discourse_reranker;
+pub mod rlnm;
+pub mod neural_reranker;
 
 pub use lattice::{LatticeDAG, LatticeNode};
 pub use viterbi::{LatticeBackwardProfile, MultiCharBonusPolicy, ViterbiRouter};

@@ -33,6 +33,10 @@ path = "src/bin/ruhi_lkbin.rs"
 name = "ruhi_ngbin"
 path = "src/bin/ruhi_ngbin.rs"
 
+[[bin]]
+name = "ruhi_reranker"
+path = "src/bin/ruhi_reranker.rs"
+
 [profile.dev]
 debug = 0
 strip = "debuginfo"

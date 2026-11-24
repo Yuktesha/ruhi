@@ -5101,6 +5101,158 @@ fn run_nbest_oracle_benchmark(
     })
 }
 
+/// 匯出 dev 開發集 Top-K N-Best 候選與基準分數至 JSONL，供 v1.0 神經重排序離線校準使用
+fn dump_nbest_jsonl(
+    base_engine: &RuhiEngine,
+    compiled: &[CompiledSentence],
+    top_k: usize,
+    out_path: &Path,
+) -> Value {
+    use ruhi::router::classical_register::ClassicalRegisterProfile;
+    use ruhi::router::discourse_reranker::{
+        dag_has_third_person_pronoun, score_discourse_sentence, RERANK_SCORE_MARGIN,
+    };
+    use std::io::{BufWriter, Write};
+
+    let n_threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(16);
+    let chunk_size = (compiled.len() + n_threads - 1) / n_threads.max(1);
+
+    let chunks: Vec<Vec<(String, usize, usize, bool, bool)>> = std::thread::scope(|s| {
+        let mut handles = Vec::new();
+        for chunk in compiled.chunks(chunk_size.max(1)) {
+            let mut worker = base_engine.clone();
+            handles.push(s.spawn(move || {
+                let mut out = Vec::with_capacity(chunk.len());
+                let dag_builder = LatticeDAG::new(&worker.lexicon);
+                for cs in chunk {
+                    let dag = dag_builder.build_dag(&cs.syllables, true);
+                    let nbest = worker.router.solve_nbest_paths(
+                        cs.syllables.len(),
+                        &dag,
+                        Some(&mut worker.transitions),
+                        top_k,
+                    );
+                    let (top1_nodes, _) = worker.router.solve_best_path(
+                        cs.syllables.len(),
+                        &dag,
+                        Some(&mut worker.transitions),
+                    );
+                    let top1_pred: String = top1_nodes.iter().map(|n| n.word.as_str()).collect();
+                    let gold = &cs.item.text;
+                    let chars = gold.chars().count();
+                    let top1_errors = char_levenshtein(&top1_pred, gold);
+
+                    let classical_active = ClassicalRegisterProfile::detect(
+                        worker.router.classical_mode,
+                        cs.syllables.len(),
+                        &dag,
+                    )
+                    .active;
+                    let apply_discourse = cs.syllables.len() >= 4
+                        && !classical_active
+                        && !worker.transitions.is_rule_disabled("discourse_reranker")
+                        && dag_has_third_person_pronoun(&dag);
+
+                    let raw_top1_sc = nbest.first().map(|(_, sc)| *sc).unwrap_or(0.0);
+                    let mut cands: Vec<(String, f64)> = nbest
+                        .iter()
+                        .map(|(nodes, base_sc)| {
+                            let txt: String = nodes.iter().map(|n| n.word.as_str()).collect();
+                            let adj = if apply_discourse && (raw_top1_sc - *base_sc) <= RERANK_SCORE_MARGIN {
+                                *base_sc + score_discourse_sentence(nodes)
+                            } else {
+                                *base_sc
+                            };
+                            (txt, adj)
+                        })
+                        .collect();
+                    cands.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+                    let mut oracle_errors = top1_errors;
+                    let mut oracle_exact = top1_errors == 0;
+                    let cand_json: Vec<Value> = cands
+                        .iter()
+                        .map(|(txt, sc)| {
+                            let e = char_levenshtein(txt, gold);
+                            if e < oracle_errors {
+                                oracle_errors = e;
+                            }
+                            if e == 0 {
+                                oracle_exact = true;
+                            }
+                            json!({
+                                "text": txt,
+                                "base_score": sc,
+                            })
+                        })
+                        .collect();
+
+                    let line_val = json!({
+                        "id": cs.item.id,
+                        "category": cs.item.category,
+                        "gold": gold,
+                        "top1": top1_pred,
+                        "candidates": cand_json,
+                    });
+                    out.push((
+                        serde_json::to_string(&line_val).unwrap(),
+                        chars,
+                        top1_errors,
+                        top1_errors == 0,
+                        oracle_exact,
+                    ));
+                }
+                out
+            }));
+        }
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+
+    if let Some(parent) = out_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let file = fs::File::create(out_path)
+        .unwrap_or_else(|e| panic!("無法建立 N-Best 輸出檔 {}: {}", out_path.display(), e));
+    let mut writer = BufWriter::new(file);
+
+    let mut total_sentences = 0usize;
+    let mut total_chars = 0usize;
+    let mut top1_err_sum = 0usize;
+    let mut top1_exact_cnt = 0usize;
+    let mut oracle_exact_cnt = 0usize;
+
+    for part in chunks {
+        for (line, chars, t_err, t_exact, o_exact) in part {
+            writeln!(writer, "{}", line).unwrap();
+            total_sentences += 1;
+            total_chars += chars;
+            top1_err_sum += t_err;
+            if t_exact {
+                top1_exact_cnt += 1;
+            }
+            if o_exact {
+                oracle_exact_cnt += 1;
+            }
+        }
+    }
+    writer.flush().unwrap();
+
+    json!({
+        "dataset": "dev",
+        "out_path": out_path.display().to_string(),
+        "top_k": top_k,
+        "total_sentences": total_sentences,
+        "total_chars": total_chars,
+        "top1_char_errors": top1_err_sum,
+        "top1_cer_percent": format!("{:.2}%", (top1_err_sum as f64 / total_chars.max(1) as f64) * 100.0),
+        "top1_exact_match": top1_exact_cnt,
+        "oracle_exact_match": oracle_exact_cnt,
+    })
+}
+
 fn run_longkan_benchmark(root: &Path) -> serde_json::Value {
     let data_dir = root.join("ruhi_lexicon").join("data");
     let t0 = Instant::now();
@@ -5178,6 +5330,9 @@ fn main() {
     let mut do_gate = false;
     let mut init_gate_baseline = false;
     let mut do_nbest_oracle = false;
+    let mut dump_nbest_path: Option<PathBuf> = None;
+    let mut neural_rerank_path: Option<PathBuf> = None;
+    let mut neural_lambda: f64 = 0.50;
     let mut commit_override: Option<String> = None;
 
     let mut i = 1;
@@ -5245,6 +5400,21 @@ fn main() {
             "--nbest-oracle" => {
                 do_nbest_oracle = true;
                 i += 1;
+            }
+            "--dump-nbest" if i + 1 < args.len() => {
+                dump_nbest_path = Some(PathBuf::from(&args[i + 1]));
+                i += 2;
+            }
+            "--neural-rerank" if i + 1 < args.len() => {
+                neural_rerank_path = Some(PathBuf::from(&args[i + 1]));
+                i += 2;
+            }
+            "--neural-lambda" if i + 1 < args.len() => {
+                neural_lambda = args[i + 1].parse::<f64>().unwrap_or_else(|_| {
+                    eprintln!("錯誤：無效的 --neural-lambda 數值 `{}`", args[i + 1]);
+                    std::process::exit(1);
+                });
+                i += 2;
             }
             _ => {
                 i += 1;
@@ -5389,6 +5559,37 @@ fn main() {
         }
         println!("{}", serde_json::to_string_pretty(&rep).unwrap());
         return;
+    }
+
+    if let Some(ref dump_path) = dump_nbest_path {
+        if set_name != "dev" {
+            eprintln!(
+                "錯誤：--dump-nbest 僅允許搭配 `--set dev` 使用，嚴禁匯出 `{}.tsv` 原文！",
+                set_name
+            );
+            std::process::exit(1);
+        }
+        let rep = dump_nbest_jsonl(&engine, &compiled, 16, dump_path);
+        println!("{}", serde_json::to_string_pretty(&rep).unwrap());
+        return;
+    }
+
+    if let Some(ref model_path) = neural_rerank_path {
+        if set_name != "dev" {
+            eprintln!(
+                "錯誤：--neural-rerank 僅允許搭配 `--set dev` 使用，嚴禁對 `{}.tsv` 執行實驗性重排評估！",
+                set_name
+            );
+            std::process::exit(1);
+        }
+        let model = ruhi::router::rlnm::RlnmModel::open(model_path).unwrap_or_else(|e| {
+            eprintln!("無法載入 RLNM0001 模型 `{}`: {}", model_path.display(), e);
+            std::process::exit(1);
+        });
+        ruhi::router::neural_reranker::set_in_process_model(
+            Some(std::sync::Arc::new(model)),
+            neural_lambda,
+        );
     }
 
     // 評估語料不公開：輸出報告預設不含句子原文；僅 dev 集可加 `--with-text` 於本機做錯誤分析（test 與 typing_tw 集一律遮蔽）

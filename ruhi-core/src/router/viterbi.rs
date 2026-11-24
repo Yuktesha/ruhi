@@ -146,11 +146,29 @@ fn build_transition_edge_ctx<'a>(
                 })
             })
         });
+    let shatters_homophone_locative_len2 = node.length() == 1
+        && prev_len == 1
+        && i >= 1
+        && matches!(
+            node.word.as_str(),
+            "時" | "中" | "裡" | "內" | "上" | "下" | "外"
+        )
+        && prev_node.word.chars().next().is_some_and(|pch| {
+            dag.get(&(i - 1)).is_some_and(|prev_ns| {
+                prev_ns.iter().any(|m| {
+                    m.length() == 2
+                        && m.end_idx == j
+                        && m.weight >= 450
+                        && !m.word.starts_with(pch)
+                })
+            })
+        });
     super::transitions::TransitionEdgeCtx {
         is_clause_tail: backward.is_clause_tail_at(j),
         prev2_word,
         shatters_core_len2_at_start: guards.shatters_core_len2_at_start,
-        shatters_strong_left_len2: guards.shatters_strong_left_len2,
+        shatters_strong_left_len2: guards.shatters_strong_left_len2
+            || shatters_homophone_locative_len2,
         shatters_strong_v_le: guards.max_v_le_weight > 0
             && prev_len == 2
             && guards.max_v_le_weight > prev_node.weight,
@@ -622,14 +640,49 @@ impl ViterbiRouter {
                 .as_deref()
                 .is_some_and(|eng| eng.is_rule_disabled("discourse_reranker"))
             && super::discourse_reranker::dag_has_third_person_pronoun(dag);
+        let want_neural = n_syllables >= 4
+            && !transitions
+                .as_deref()
+                .is_some_and(|eng| eng.is_rule_disabled("neural_reranker"))
+            && super::neural_reranker::is_enabled_for_syllables(n_syllables);
+        let want_nbest = want_discourse || want_neural;
 
         let (trellis, classical_active) =
-            self.run_forward_trellis(n_syllables, dag, &mut transitions, prefix_word, want_discourse);
+            self.run_forward_trellis(n_syllables, dag, &mut transitions, prefix_word, want_nbest);
 
-        if want_discourse && !classical_active {
-            let nbest = Self::extract_nbest_from_trellis(&trellis, n_syllables, 16);
+        if want_nbest && !classical_active {
+            let mut nbest = Self::extract_nbest_from_trellis(&trellis, n_syllables, 16);
             if !nbest.is_empty() {
-                return super::discourse_reranker::rerank_nbest(nbest);
+                if want_discourse && !want_neural {
+                    return super::discourse_reranker::rerank_nbest(nbest);
+                }
+                if want_discourse {
+                    let raw_top1 = nbest
+                        .iter()
+                        .map(|(_, s)| *s)
+                        .fold(f64::NEG_INFINITY, f64::max);
+                    for (nodes, sc) in &mut nbest {
+                        if raw_top1 - *sc <= super::discourse_reranker::RERANK_SCORE_MARGIN {
+                            *sc += super::discourse_reranker::score_discourse_sentence(nodes);
+                        }
+                    }
+                    nbest.sort_by(|a, b| {
+                        b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                }
+                if want_neural {
+                    let clean_prefix = prefix_word
+                        .map(|p| p.rsplit_once('\t').map(|(_, w)| w).unwrap_or(p))
+                        .filter(|w| !w.is_empty());
+                    if let Some(pair) =
+                        super::neural_reranker::rerank_nbest_if_enabled(clean_prefix, &nbest)
+                    {
+                        return pair;
+                    }
+                }
+                if want_discourse {
+                    return nbest.into_iter().next().unwrap_or((Vec::new(), 0.0));
+                }
             }
         }
 
