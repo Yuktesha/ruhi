@@ -428,6 +428,7 @@ impl RlnmModel {
         need_logits: bool,
         pool: Option<&RlnmThreadPool>,
     ) {
+        cache.cached_prefix_toks.clear();
         let d = self.cfg.d_model;
         let f = self.cfg.d_ff;
         let n_heads = self.cfg.n_heads;
@@ -853,6 +854,20 @@ impl RlnmModel {
         cache: &mut RlnmKvCache,
         pool: Option<&RlnmThreadPool>,
     ) -> Vec<f32> {
+        self.score_candidates_trie_detailed(prefix, candidates, cache, pool)
+            .into_iter()
+            .map(|(total_lp, _)| total_lp)
+            .collect()
+    }
+
+    /// 以字元前綴樹（Trie）與跨請求前綴 KV-Cache 精確平行計算每個候選之 `(total_logp, min_edge_logp)`
+    pub fn score_candidates_trie_detailed(
+        &self,
+        prefix: &str,
+        candidates: &[&str],
+        cache: &mut RlnmKvCache,
+        pool: Option<&RlnmThreadPool>,
+    ) -> Vec<(f32, f32)> {
         let n = candidates.len();
         if n == 0 {
             return Vec::new();
@@ -882,7 +897,10 @@ impl RlnmModel {
         if 1 + pref_ids.len() + max_cand_len > max_len {
             return candidates
                 .iter()
-                .map(|&c| self.score_candidate(prefix, c, pool))
+                .map(|&c| {
+                    let sc = self.score_candidate(prefix, c, pool);
+                    (sc, sc)
+                })
                 .collect();
         }
 
@@ -908,122 +926,420 @@ impl RlnmModel {
             nodes[cur].terminates.push(cand_idx);
         }
 
-        let mut out_scores = vec![0.0f32; n];
-        for &ci in &nodes[0].terminates {
-            out_scores[ci] = 0.0;
-        }
+        let mut out_scores = vec![(0.0f32, 0.0f32); n];
         if nodes[0].children.is_empty() {
             return out_scores;
         }
 
-        // 2. 攤平前置語境與非葉節點（拓撲順序），建立唯一批次 `0..M` 與祖先索引表
         let p_len = pref_ids.len();
-        let mut batch_toks: Vec<u32> = Vec::with_capacity(1 + p_len + nodes.len());
-        let mut batch_parent: Vec<Option<usize>> = Vec::with_capacity(1 + p_len + nodes.len());
-        let mut batch_pos: Vec<usize> = Vec::with_capacity(1 + p_len + nodes.len());
-        let mut batch_trie: Vec<usize> = Vec::with_capacity(1 + p_len + nodes.len());
+        let p_total = 1 + p_len;
+        let mut full_pref_toks = Vec::with_capacity(p_total);
+        full_pref_toks.push(BOS_ID);
+        full_pref_toks.extend_from_slice(&pref_ids);
 
-        batch_toks.push(BOS_ID);
-        batch_parent.push(None);
-        batch_pos.push(0);
-        batch_trie.push(usize::MAX);
-        for (j, &pid) in pref_ids.iter().enumerate() {
-            batch_toks.push(pid);
-            batch_parent.push(Some(j));
-            batch_pos.push(j + 1);
-            batch_trie.push(usize::MAX);
-        }
-        let start_logit = p_len;
-        batch_trie[start_logit] = 0;
+        // 2. 依拓撲順序攤平候選非葉節點（不含已快取之前綴區段）
+        let mut cand_toks: Vec<u32> = Vec::with_capacity(nodes.len());
+        let mut cand_parent: Vec<Option<usize>> = Vec::with_capacity(nodes.len());
+        let mut cand_pos: Vec<usize> = Vec::with_capacity(nodes.len());
+        let mut cand_trie: Vec<usize> = Vec::with_capacity(nodes.len());
 
-        let mut bfs_queue: std::collections::VecDeque<(usize, usize)> = std::collections::VecDeque::new();
-        bfs_queue.push_back((start_logit, 0));
-        while let Some((p_batch, t_idx)) = bfs_queue.pop_front() {
-            let p_depth = batch_pos[p_batch];
+        let mut bfs_queue: std::collections::VecDeque<(Option<usize>, usize, usize)> =
+            std::collections::VecDeque::new();
+        bfs_queue.push_back((None, 0, p_total));
+        while let Some((p_u, t_idx, depth)) = bfs_queue.pop_front() {
             for &(ctok, c_trie) in &nodes[t_idx].children {
                 if !nodes[c_trie].children.is_empty() {
-                    let b_idx = batch_toks.len();
-                    batch_toks.push(ctok);
-                    batch_parent.push(Some(p_batch));
-                    batch_pos.push(p_depth + 1);
-                    batch_trie.push(c_trie);
-                    bfs_queue.push_back((b_idx, c_trie));
+                    let u = cand_toks.len();
+                    cand_toks.push(ctok);
+                    cand_parent.push(p_u);
+                    cand_pos.push(depth);
+                    cand_trie.push(c_trie);
+                    bfs_queue.push_back((Some(u), c_trie, depth + 1));
                 }
             }
         }
+        let m_cand = cand_toks.len();
 
-        let m_batch = batch_toks.len();
-        let mut anc_offsets: Vec<usize> = Vec::with_capacity(m_batch + 1);
-        let mut anc_list: Vec<usize> = Vec::with_capacity(m_batch * 12);
-        anc_offsets.push(0);
-        for u in 0..m_batch {
-            let start = anc_list.len();
-            if let Some(p) = batch_parent[u] {
-                let p0 = anc_offsets[p];
-                let p1 = anc_offsets[p + 1];
-                anc_list.extend_from_within(p0..p1);
-            }
-            anc_list.push(u);
-            debug_assert_eq!(anc_list.len() - start, batch_pos[u] + 1);
-            anc_offsets.push(anc_list.len());
-        }
-
-        // 3. 擴充共用批次工作緩衝區並執行一次載入 Embedding + N 層樹狀批次前向
         let d = self.cfg.d_model;
         let f = self.cfg.d_ff;
         let vocab_size = self.cfg.vocab_size;
-        let bws = &mut cache.bws;
-        bws.ensure_capacity(m_batch, d, f, vocab_size);
-
-        for (u, &tok) in batch_toks.iter().enumerate() {
-            self.load_token_embedding(tok, &mut bws.x[u * d..(u + 1) * d]);
-        }
-
+        let kv_stride = self.cfg.max_seq_len * d;
         let use_pool = pool.filter(|p| p.num_workers() > 1);
-        for layer in &self.layers {
+
+        let mut node_lp = vec![0.0f32; nodes.len()];
+        let mut node_min_lp = vec![f32::INFINITY; nodes.len()];
+        node_min_lp[0] = 0.0;
+
+        let prefix_hit = cache.cached_prefix_toks == full_pref_toks
+            && cache.cached_prefix_logits.len() == vocab_size
+            && cache.k_cache.len() >= self.layers.len() * kv_stride
+            && cache.v_cache.len() >= self.layers.len() * kv_stride;
+
+        if prefix_hit {
+            // 路徑 A：前綴 KV 與起點 Logits 快取命中 — 根節點子邊直接查表、僅就 m_cand 候選節點前向計算
+            for &(ctok, c_trie) in &nodes[0].children {
+                let edge_lp = cache.cached_prefix_logits[ctok as usize];
+                node_lp[c_trie] = edge_lp;
+                node_min_lp[c_trie] = edge_lp;
+            }
+            if m_cand > 0 {
+                let mut anc_offsets: Vec<usize> = Vec::with_capacity(m_cand + 1);
+                let mut anc_list: Vec<usize> = Vec::with_capacity(m_cand * (p_total + 8));
+                anc_offsets.push(0);
+                for u in 0..m_cand {
+                    if let Some(p) = cand_parent[u] {
+                        let p0 = anc_offsets[p];
+                        let p1 = anc_offsets[p + 1];
+                        anc_list.extend_from_within(p0..p1);
+                    } else {
+                        anc_list.extend(0..p_total);
+                    }
+                    anc_list.push(p_total + u);
+                    anc_offsets.push(anc_list.len());
+                }
+
+                let kv_rows = p_total + m_cand;
+                let bws = &mut cache.bws;
+                bws.ensure_capacity(kv_rows, d, f, vocab_size);
+
+                for (u, &tok) in cand_toks.iter().enumerate() {
+                    self.load_token_embedding(tok, &mut bws.x[u * d..(u + 1) * d]);
+                }
+
+                for (li, layer) in self.layers.iter().enumerate() {
+                    for u in 0..m_cand {
+                        self.rmsnorm(
+                            &bws.x[u * d..(u + 1) * d],
+                            layer.off_attn_norm,
+                            &mut bws.h[u * d..(u + 1) * d],
+                        );
+                    }
+
+                    let k_pref_off = li * kv_stride;
+                    bws.k[..p_total * d]
+                        .copy_from_slice(&cache.k_cache[k_pref_off..k_pref_off + p_total * d]);
+                    bws.v[..p_total * d]
+                        .copy_from_slice(&cache.v_cache[k_pref_off..k_pref_off + p_total * d]);
+
+                    if let Some(p) = use_pool {
+                        p.parallel_gemm_qkv(
+                            self,
+                            layer.wq,
+                            layer.wk,
+                            layer.wv,
+                            &bws.h[..m_cand * d],
+                            &mut bws.q[..m_cand * d],
+                            &mut bws.k[p_total * d..kv_rows * d],
+                            &mut bws.v[p_total * d..kv_rows * d],
+                            m_cand,
+                        );
+                    } else {
+                        self.gemm_range(layer.wq, &bws.h[..m_cand * d], m_cand, 0, d, &mut bws.q[..m_cand * d], d);
+                        self.gemm_range(
+                            layer.wk,
+                            &bws.h[..m_cand * d],
+                            m_cand,
+                            0,
+                            d,
+                            &mut bws.k[p_total * d..kv_rows * d],
+                            d,
+                        );
+                        self.gemm_range(
+                            layer.wv,
+                            &bws.h[..m_cand * d],
+                            m_cand,
+                            0,
+                            d,
+                            &mut bws.v[p_total * d..kv_rows * d],
+                            d,
+                        );
+                    }
+
+                    for (u, &pos) in cand_pos.iter().enumerate() {
+                        self.apply_rope(&mut bws.q[u * d..(u + 1) * d], pos);
+                        self.apply_rope(
+                            &mut bws.k[(p_total + u) * d..(p_total + u + 1) * d],
+                            pos,
+                        );
+                    }
+
+                    if let Some(p) = use_pool {
+                        if m_cand >= 4 {
+                            p.parallel_tree_attn(
+                                self,
+                                &bws.q[..m_cand * d],
+                                &bws.k[..kv_rows * d],
+                                &bws.v[..kv_rows * d],
+                                &mut bws.attn_out[..m_cand * d],
+                                &anc_offsets,
+                                &anc_list,
+                                m_cand,
+                                kv_rows,
+                            );
+                        } else {
+                            self.tree_attn_range(
+                                &bws.q[..m_cand * d],
+                                &bws.k[..kv_rows * d],
+                                &bws.v[..kv_rows * d],
+                                &mut bws.attn_out[..m_cand * d],
+                                &anc_offsets,
+                                &anc_list,
+                                0,
+                                m_cand,
+                            );
+                        }
+                    } else {
+                        self.tree_attn_range(
+                            &bws.q[..m_cand * d],
+                            &bws.k[..kv_rows * d],
+                            &bws.v[..kv_rows * d],
+                            &mut bws.attn_out[..m_cand * d],
+                            &anc_offsets,
+                            &anc_list,
+                            0,
+                            m_cand,
+                        );
+                    }
+
+                    self.gemm_all(
+                        layer.wo,
+                        &bws.attn_out[..m_cand * d],
+                        m_cand,
+                        &mut bws.h[..m_cand * d],
+                        d,
+                        use_pool,
+                    );
+                    for i in 0..m_cand * d {
+                        bws.x[i] += bws.h[i];
+                    }
+
+                    for u in 0..m_cand {
+                        self.rmsnorm(
+                            &bws.x[u * d..(u + 1) * d],
+                            layer.off_ffn_norm,
+                            &mut bws.h[u * d..(u + 1) * d],
+                        );
+                    }
+
+                    if let Some(p) = use_pool {
+                        p.parallel_gemm_gate_up(
+                            self,
+                            layer.w_gate,
+                            layer.w_up,
+                            &bws.h[..m_cand * d],
+                            &mut bws.gate[..m_cand * f],
+                            &mut bws.up[..m_cand * f],
+                            m_cand,
+                        );
+                    } else {
+                        self.gemm_range(
+                            layer.w_gate,
+                            &bws.h[..m_cand * d],
+                            m_cand,
+                            0,
+                            f,
+                            &mut bws.gate[..m_cand * f],
+                            f,
+                        );
+                        self.gemm_range(
+                            layer.w_up,
+                            &bws.h[..m_cand * d],
+                            m_cand,
+                            0,
+                            f,
+                            &mut bws.up[..m_cand * f],
+                            f,
+                        );
+                    }
+
+                    for i in 0..m_cand * f {
+                        let g = bws.gate[i];
+                        let sig = 1.0f32 / (1.0f32 + (-g.clamp(-60.0, 60.0)).exp());
+                        bws.gate[i] = (g * sig) * bws.up[i];
+                    }
+
+                    self.gemm_all(
+                        layer.w_down,
+                        &bws.gate[..m_cand * f],
+                        m_cand,
+                        &mut bws.h[..m_cand * d],
+                        d,
+                        use_pool,
+                    );
+                    for i in 0..m_cand * d {
+                        bws.x[i] += bws.h[i];
+                    }
+                }
+
+                bws.ensure_logit_capacity(m_cand, d, vocab_size);
+                for u in 0..m_cand {
+                    self.rmsnorm(
+                        &bws.x[u * d..(u + 1) * d],
+                        self.off_norm_final,
+                        &mut bws.h_logits[u * d..(u + 1) * d],
+                    );
+                }
+
+                const LOGIT_CHUNK: usize = 64;
+                let mut c0 = 0usize;
+                while c0 < m_cand {
+                    let c1 = (c0 + LOGIT_CHUNK).min(m_cand);
+                    let clen = c1 - c0;
+                    self.gemm_all(
+                        self.tok_emb,
+                        &bws.h_logits[c0 * d..c1 * d],
+                        clen,
+                        &mut bws.logits_chunk[..clen * vocab_size],
+                        vocab_size,
+                        use_pool,
+                    );
+                    for local_i in 0..clen {
+                        let u = c0 + local_i;
+                        let t_idx = cand_trie[u];
+                        let logits_row =
+                            &bws.logits_chunk[local_i * vocab_size..(local_i + 1) * vocab_size];
+                        let mut max_v = f32::NEG_INFINITY;
+                        for &v in logits_row {
+                            if v > max_v {
+                                max_v = v;
+                            }
+                        }
+                        let mut sum_exp = 0.0f64;
+                        for &v in logits_row {
+                            sum_exp += ((v - max_v) as f64).exp();
+                        }
+                        let lse = (max_v as f64) + sum_exp.ln();
+                        let base_lp = node_lp[t_idx];
+                        let base_min = node_min_lp[t_idx];
+                        for &(ctok, c_trie) in &nodes[t_idx].children {
+                            let edge_lp = ((logits_row[ctok as usize] as f64) - lse) as f32;
+                            node_lp[c_trie] = base_lp + edge_lp;
+                            node_min_lp[c_trie] = base_min.min(edge_lp);
+                        }
+                    }
+                    c0 = c1;
+                }
+            }
+        } else {
+            // 路徑 B：前綴快取未命中 — 計算完整前綴＋候選 Trie 並同步填充 k_cache / v_cache / cached_prefix_logits
+            cache.cached_prefix_toks.clear();
+            let m_batch = p_total + m_cand;
+            let mut batch_toks: Vec<u32> = Vec::with_capacity(m_batch);
+            let mut batch_parent: Vec<Option<usize>> = Vec::with_capacity(m_batch);
+            let mut batch_pos: Vec<usize> = Vec::with_capacity(m_batch);
+            let mut batch_trie: Vec<usize> = Vec::with_capacity(m_batch);
+
+            for (j, &tok) in full_pref_toks.iter().enumerate() {
+                batch_toks.push(tok);
+                batch_parent.push(if j == 0 { None } else { Some(j - 1) });
+                batch_pos.push(j);
+                batch_trie.push(usize::MAX);
+            }
+            let start_logit = p_len;
+            batch_trie[start_logit] = 0;
+
+            for u in 0..m_cand {
+                batch_toks.push(cand_toks[u]);
+                let parent_batch = match cand_parent[u] {
+                    Some(pu) => p_total + pu,
+                    None => start_logit,
+                };
+                batch_parent.push(Some(parent_batch));
+                batch_pos.push(cand_pos[u]);
+                batch_trie.push(cand_trie[u]);
+            }
+
+            let mut anc_offsets: Vec<usize> = Vec::with_capacity(m_batch + 1);
+            let mut anc_list: Vec<usize> = Vec::with_capacity(m_batch * 12);
+            anc_offsets.push(0);
             for u in 0..m_batch {
-                self.rmsnorm(
-                    &bws.x[u * d..(u + 1) * d],
-                    layer.off_attn_norm,
-                    &mut bws.h[u * d..(u + 1) * d],
-                );
+                let start = anc_list.len();
+                if let Some(p) = batch_parent[u] {
+                    let p0 = anc_offsets[p];
+                    let p1 = anc_offsets[p + 1];
+                    anc_list.extend_from_within(p0..p1);
+                }
+                anc_list.push(u);
+                debug_assert_eq!(anc_list.len() - start, batch_pos[u] + 1);
+                anc_offsets.push(anc_list.len());
             }
 
-            if let Some(p) = use_pool {
-                p.parallel_gemm_qkv(
-                    self,
-                    layer.wq,
-                    layer.wk,
-                    layer.wv,
-                    &bws.h[..m_batch * d],
-                    &mut bws.q[..m_batch * d],
-                    &mut bws.k[..m_batch * d],
-                    &mut bws.v[..m_batch * d],
-                    m_batch,
-                );
-            } else {
-                self.gemm_range(layer.wq, &bws.h[..m_batch * d], m_batch, 0, d, &mut bws.q[..m_batch * d], d);
-                self.gemm_range(layer.wk, &bws.h[..m_batch * d], m_batch, 0, d, &mut bws.k[..m_batch * d], d);
-                self.gemm_range(layer.wv, &bws.h[..m_batch * d], m_batch, 0, d, &mut bws.v[..m_batch * d], d);
+            let bws = &mut cache.bws;
+            bws.ensure_capacity(m_batch, d, f, vocab_size);
+
+            for (u, &tok) in batch_toks.iter().enumerate() {
+                self.load_token_embedding(tok, &mut bws.x[u * d..(u + 1) * d]);
             }
 
-            for (u, &pos) in batch_pos.iter().enumerate() {
-                self.apply_rope(&mut bws.q[u * d..(u + 1) * d], pos);
-                self.apply_rope(&mut bws.k[u * d..(u + 1) * d], pos);
-            }
+            let can_store_kv = p_total <= self.cfg.max_seq_len
+                && cache.k_cache.len() >= self.layers.len() * kv_stride
+                && cache.v_cache.len() >= self.layers.len() * kv_stride;
 
-            if let Some(p) = use_pool {
-                if m_batch >= 4 {
-                    p.parallel_tree_attn(
+            for (li, layer) in self.layers.iter().enumerate() {
+                for u in 0..m_batch {
+                    self.rmsnorm(
+                        &bws.x[u * d..(u + 1) * d],
+                        layer.off_attn_norm,
+                        &mut bws.h[u * d..(u + 1) * d],
+                    );
+                }
+
+                if let Some(p) = use_pool {
+                    p.parallel_gemm_qkv(
                         self,
-                        &bws.q[..m_batch * d],
-                        &bws.k[..m_batch * d],
-                        &bws.v[..m_batch * d],
-                        &mut bws.attn_out[..m_batch * d],
-                        &anc_offsets,
-                        &anc_list,
+                        layer.wq,
+                        layer.wk,
+                        layer.wv,
+                        &bws.h[..m_batch * d],
+                        &mut bws.q[..m_batch * d],
+                        &mut bws.k[..m_batch * d],
+                        &mut bws.v[..m_batch * d],
                         m_batch,
                     );
+                } else {
+                    self.gemm_range(layer.wq, &bws.h[..m_batch * d], m_batch, 0, d, &mut bws.q[..m_batch * d], d);
+                    self.gemm_range(layer.wk, &bws.h[..m_batch * d], m_batch, 0, d, &mut bws.k[..m_batch * d], d);
+                    self.gemm_range(layer.wv, &bws.h[..m_batch * d], m_batch, 0, d, &mut bws.v[..m_batch * d], d);
+                }
+
+                for (u, &pos) in batch_pos.iter().enumerate() {
+                    self.apply_rope(&mut bws.q[u * d..(u + 1) * d], pos);
+                    self.apply_rope(&mut bws.k[u * d..(u + 1) * d], pos);
+                }
+
+                if can_store_kv {
+                    let k_pref_off = li * kv_stride;
+                    cache.k_cache[k_pref_off..k_pref_off + p_total * d]
+                        .copy_from_slice(&bws.k[..p_total * d]);
+                    cache.v_cache[k_pref_off..k_pref_off + p_total * d]
+                        .copy_from_slice(&bws.v[..p_total * d]);
+                }
+
+                if let Some(p) = use_pool {
+                    if m_batch >= 4 {
+                        p.parallel_tree_attn(
+                            self,
+                            &bws.q[..m_batch * d],
+                            &bws.k[..m_batch * d],
+                            &bws.v[..m_batch * d],
+                            &mut bws.attn_out[..m_batch * d],
+                            &anc_offsets,
+                            &anc_list,
+                            m_batch,
+                            m_batch,
+                        );
+                    } else {
+                        self.tree_attn_range(
+                            &bws.q[..m_batch * d],
+                            &bws.k[..m_batch * d],
+                            &bws.v[..m_batch * d],
+                            &mut bws.attn_out[..m_batch * d],
+                            &anc_offsets,
+                            &anc_list,
+                            0,
+                            m_batch,
+                        );
+                    }
                 } else {
                     self.tree_attn_range(
                         &bws.q[..m_batch * d],
@@ -1036,143 +1352,146 @@ impl RlnmModel {
                         m_batch,
                     );
                 }
-            } else {
-                self.tree_attn_range(
-                    &bws.q[..m_batch * d],
-                    &bws.k[..m_batch * d],
-                    &bws.v[..m_batch * d],
-                    &mut bws.attn_out[..m_batch * d],
-                    &anc_offsets,
-                    &anc_list,
-                    0,
+
+                self.gemm_all(
+                    layer.wo,
+                    &bws.attn_out[..m_batch * d],
                     m_batch,
+                    &mut bws.h[..m_batch * d],
+                    d,
+                    use_pool,
                 );
+                for i in 0..m_batch * d {
+                    bws.x[i] += bws.h[i];
+                }
+
+                for u in 0..m_batch {
+                    self.rmsnorm(
+                        &bws.x[u * d..(u + 1) * d],
+                        layer.off_ffn_norm,
+                        &mut bws.h[u * d..(u + 1) * d],
+                    );
+                }
+
+                if let Some(p) = use_pool {
+                    p.parallel_gemm_gate_up(
+                        self,
+                        layer.w_gate,
+                        layer.w_up,
+                        &bws.h[..m_batch * d],
+                        &mut bws.gate[..m_batch * f],
+                        &mut bws.up[..m_batch * f],
+                        m_batch,
+                    );
+                } else {
+                    self.gemm_range(
+                        layer.w_gate,
+                        &bws.h[..m_batch * d],
+                        m_batch,
+                        0,
+                        f,
+                        &mut bws.gate[..m_batch * f],
+                        f,
+                    );
+                    self.gemm_range(
+                        layer.w_up,
+                        &bws.h[..m_batch * d],
+                        m_batch,
+                        0,
+                        f,
+                        &mut bws.up[..m_batch * f],
+                        f,
+                    );
+                }
+
+                for i in 0..m_batch * f {
+                    let g = bws.gate[i];
+                    let sig = 1.0f32 / (1.0f32 + (-g.clamp(-60.0, 60.0)).exp());
+                    bws.gate[i] = (g * sig) * bws.up[i];
+                }
+
+                self.gemm_all(
+                    layer.w_down,
+                    &bws.gate[..m_batch * f],
+                    m_batch,
+                    &mut bws.h[..m_batch * d],
+                    d,
+                    use_pool,
+                );
+                for i in 0..m_batch * d {
+                    bws.x[i] += bws.h[i];
+                }
             }
 
-            self.gemm_all(
-                layer.wo,
-                &bws.attn_out[..m_batch * d],
-                m_batch,
-                &mut bws.h[..m_batch * d],
-                d,
-                use_pool,
-            );
-            for i in 0..m_batch * d {
-                bws.x[i] += bws.h[i];
-            }
-
-            for u in 0..m_batch {
+            let n_logit = m_batch - start_logit;
+            bws.ensure_logit_capacity(n_logit, d, vocab_size);
+            for (idx, u) in (start_logit..m_batch).enumerate() {
                 self.rmsnorm(
                     &bws.x[u * d..(u + 1) * d],
-                    layer.off_ffn_norm,
-                    &mut bws.h[u * d..(u + 1) * d],
+                    self.off_norm_final,
+                    &mut bws.h_logits[idx * d..(idx + 1) * d],
                 );
             }
 
-            if let Some(p) = use_pool {
-                p.parallel_gemm_gate_up(
-                    self,
-                    layer.w_gate,
-                    layer.w_up,
-                    &bws.h[..m_batch * d],
-                    &mut bws.gate[..m_batch * f],
-                    &mut bws.up[..m_batch * f],
-                    m_batch,
+            const LOGIT_CHUNK: usize = 64;
+            let mut c0 = 0usize;
+            while c0 < n_logit {
+                let c1 = (c0 + LOGIT_CHUNK).min(n_logit);
+                let clen = c1 - c0;
+                self.gemm_all(
+                    self.tok_emb,
+                    &bws.h_logits[c0 * d..c1 * d],
+                    clen,
+                    &mut bws.logits_chunk[..clen * vocab_size],
+                    vocab_size,
+                    use_pool,
                 );
-            } else {
-                self.gemm_range(
-                    layer.w_gate,
-                    &bws.h[..m_batch * d],
-                    m_batch,
-                    0,
-                    f,
-                    &mut bws.gate[..m_batch * f],
-                    f,
-                );
-                self.gemm_range(
-                    layer.w_up,
-                    &bws.h[..m_batch * d],
-                    m_batch,
-                    0,
-                    f,
-                    &mut bws.up[..m_batch * f],
-                    f,
-                );
-            }
-
-            for i in 0..m_batch * f {
-                let g = bws.gate[i];
-                let sig = 1.0f32 / (1.0f32 + (-g.clamp(-60.0, 60.0)).exp());
-                bws.gate[i] = (g * sig) * bws.up[i];
-            }
-
-            self.gemm_all(
-                layer.w_down,
-                &bws.gate[..m_batch * f],
-                m_batch,
-                &mut bws.h[..m_batch * d],
-                d,
-                use_pool,
-            );
-            for i in 0..m_batch * d {
-                bws.x[i] += bws.h[i];
-            }
-        }
-
-        // 4. 分塊（CHUNK=64）執行最終 RMSNorm + `lm_head` 並沿 Trie 拓撲順序累積邊機率
-        let n_logit = m_batch - start_logit;
-        bws.ensure_logit_capacity(n_logit, d, vocab_size);
-        for (idx, u) in (start_logit..m_batch).enumerate() {
-            self.rmsnorm(
-                &bws.x[u * d..(u + 1) * d],
-                self.off_norm_final,
-                &mut bws.h_logits[idx * d..(idx + 1) * d],
-            );
-        }
-
-        let mut node_lp = vec![0.0f32; nodes.len()];
-        const LOGIT_CHUNK: usize = 64;
-        let mut c0 = 0usize;
-        while c0 < n_logit {
-            let c1 = (c0 + LOGIT_CHUNK).min(n_logit);
-            let clen = c1 - c0;
-            self.gemm_all(
-                self.tok_emb,
-                &bws.h_logits[c0 * d..c1 * d],
-                clen,
-                &mut bws.logits_chunk[..clen * vocab_size],
-                vocab_size,
-                use_pool,
-            );
-            for local_i in 0..clen {
-                let u = start_logit + c0 + local_i;
-                let t_idx = batch_trie[u];
-                let logits_row =
-                    &bws.logits_chunk[local_i * vocab_size..(local_i + 1) * vocab_size];
-                let mut max_v = f32::NEG_INFINITY;
-                for &v in logits_row {
-                    if v > max_v {
-                        max_v = v;
+                for local_i in 0..clen {
+                    let u = start_logit + c0 + local_i;
+                    let t_idx = batch_trie[u];
+                    let logits_row =
+                        &bws.logits_chunk[local_i * vocab_size..(local_i + 1) * vocab_size];
+                    let mut max_v = f32::NEG_INFINITY;
+                    for &v in logits_row {
+                        if v > max_v {
+                            max_v = v;
+                        }
+                    }
+                    let mut sum_exp = 0.0f64;
+                    for &v in logits_row {
+                        sum_exp += ((v - max_v) as f64).exp();
+                    }
+                    let lse = (max_v as f64) + sum_exp.ln();
+                    if u == start_logit && can_store_kv {
+                        cache.cached_prefix_logits.resize(vocab_size, 0.0);
+                        for v_id in 0..vocab_size {
+                            cache.cached_prefix_logits[v_id] =
+                                ((logits_row[v_id] as f64) - lse) as f32;
+                        }
+                    }
+                    let base_lp = node_lp[t_idx];
+                    let base_min = node_min_lp[t_idx];
+                    for &(ctok, c_trie) in &nodes[t_idx].children {
+                        let edge_lp = ((logits_row[ctok as usize] as f64) - lse) as f32;
+                        node_lp[c_trie] = base_lp + edge_lp;
+                        node_min_lp[c_trie] = if t_idx == 0 {
+                            edge_lp
+                        } else {
+                            base_min.min(edge_lp)
+                        };
                     }
                 }
-                let mut sum_exp = 0.0f64;
-                for &v in logits_row {
-                    sum_exp += ((v - max_v) as f64).exp();
-                }
-                let lse = (max_v as f64) + sum_exp.ln();
-                let base_lp = node_lp[t_idx];
-                for &(ctok, c_trie) in &nodes[t_idx].children {
-                    let edge_lp = ((logits_row[ctok as usize] as f64) - lse) as f32;
-                    node_lp[c_trie] = base_lp + edge_lp;
-                }
+                c0 = c1;
             }
-            c0 = c1;
+            if can_store_kv {
+                cache.cached_prefix_toks = full_pref_toks;
+            }
         }
 
         for (t_idx, nd) in nodes.iter().enumerate() {
-            let lp = node_lp[t_idx];
+            let pair = (node_lp[t_idx], node_min_lp[t_idx]);
             for &ci in &nd.terminates {
-                out_scores[ci] = lp;
+                out_scores[ci] = pair;
             }
         }
         out_scores
@@ -1183,6 +1502,8 @@ impl RlnmModel {
         RlnmKvCache {
             k_cache: vec![0.0; kv_len],
             v_cache: vec![0.0; kv_len],
+            cached_prefix_toks: Vec::new(),
+            cached_prefix_logits: Vec::new(),
             ws: WorkSpace {
                 x: vec![0.0; self.cfg.d_model],
                 h: vec![0.0; self.cfg.d_model],
@@ -1272,6 +1593,8 @@ impl BatchWorkSpace {
 pub struct RlnmKvCache {
     k_cache: Vec<f32>,
     v_cache: Vec<f32>,
+    cached_prefix_toks: Vec<u32>,
+    cached_prefix_logits: Vec<f32>,
     ws: WorkSpace,
     bws: BatchWorkSpace,
 }
@@ -1333,6 +1656,7 @@ enum TaskKind {
         anc_off_ptr: *const usize,
         anc_list_ptr: *const usize,
         batch: usize,
+        kv_rows: usize,
         anc_total: usize,
     },
 }
@@ -1565,6 +1889,7 @@ impl RlnmThreadPool {
                 anc_off_ptr,
                 anc_list_ptr,
                 batch,
+                kv_rows,
                 anc_total,
             } => {
                 let u0 = (batch * tid) / total_workers;
@@ -1572,8 +1897,8 @@ impl RlnmThreadPool {
                 if u1 > u0 {
                     let d = model.cfg.d_model;
                     let q = unsafe { std::slice::from_raw_parts(q_ptr, batch * d) };
-                    let k = unsafe { std::slice::from_raw_parts(k_ptr, batch * d) };
-                    let v = unsafe { std::slice::from_raw_parts(v_ptr, batch * d) };
+                    let k = unsafe { std::slice::from_raw_parts(k_ptr, kv_rows * d) };
+                    let v = unsafe { std::slice::from_raw_parts(v_ptr, kv_rows * d) };
                     let out = unsafe { std::slice::from_raw_parts_mut(out_ptr, batch * d) };
                     let anc_off = unsafe { std::slice::from_raw_parts(anc_off_ptr, batch + 1) };
                     let anc_list = unsafe { std::slice::from_raw_parts(anc_list_ptr, anc_total) };
@@ -1747,6 +2072,7 @@ impl RlnmThreadPool {
         anc_off: &[usize],
         anc_list: &[usize],
         batch: usize,
+        kv_rows: usize,
     ) {
         self.run_task(
             model,
@@ -1758,6 +2084,7 @@ impl RlnmThreadPool {
                 anc_off_ptr: anc_off.as_ptr(),
                 anc_list_ptr: anc_list.as_ptr(),
                 batch,
+                kv_rows,
                 anc_total: anc_list.len(),
             },
         );
@@ -2285,9 +2612,16 @@ unsafe fn dot_i8_f32_avx2_fma(q: &[i8], x: &[f32]) -> f32 {
 mod tests {
     use super::*;
 
-    fn build_synthetic_rlnm(path: &Path, vocab: &[&str], d_model: usize, n_layers: usize, n_heads: usize, d_ff: usize) {
+    fn build_synthetic_rlnm_with_max_seq(
+        path: &Path,
+        vocab: &[&str],
+        d_model: usize,
+        n_layers: usize,
+        n_heads: usize,
+        d_ff: usize,
+        max_seq_len: usize,
+    ) {
         let vocab_size = vocab.len();
-        let max_seq_len = 32usize;
         let mut payload = Vec::new();
         let append_aligned = |pay: &mut Vec<u8>, bytes: &[u8]| -> u64 {
             let off = (RLNM_HEADER_BYTES + pay.len()) as u64;
@@ -2371,6 +2705,74 @@ mod tests {
         let mut full = hdr;
         full.extend_from_slice(&payload);
         std::fs::write(path, full).unwrap();
+    }
+
+    fn build_synthetic_rlnm(path: &Path, vocab: &[&str], d_model: usize, n_layers: usize, n_heads: usize, d_ff: usize) {
+        build_synthetic_rlnm_with_max_seq(path, vocab, d_model, n_layers, n_heads, d_ff, 32);
+    }
+
+    #[test]
+    fn test_rlnm_prefix_kv_cache_exact_parity_and_invalidation_261125() {
+        let dir = std::env::temp_dir().join(format!("ruhi_rlnm_prefkv_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let bin_path = dir.join("syn_prefkv.bin");
+
+        let vocab = [
+            "<pad>", "<bos>", "<eos>", "<unk>", "我", "們", "在", "再", "補", "上", "三", "句",
+            "這", "裡", "今", "天", "早", "已", "取", "消", "南", "下", "行", "程", "旅", "，",
+            "新", "買", "的", "伺", "服", "器", "效", "能", "穩", "定", "它", "他", "每", "都",
+        ];
+        build_synthetic_rlnm_with_max_seq(&bin_path, &vocab, 40, 2, 4, 64, 96);
+        let model = RlnmModel::open(&bin_path).expect("synthetic RLNM with max_seq=96 should load");
+        let pool = RlnmThreadPool::new(4);
+        let mut cache = model.alloc_kv_cache();
+
+        // 1. 涵蓋空前綴、短前綴、40 字跨句前綴、快取命中與切換前綴失效
+        let long_prefix: String = "今天我們早已取消南下行程，新買的伺服器效能穩定而且今天我們早已取消南下行程，新買的".chars().take(40).collect();
+        assert_eq!(long_prefix.chars().count(), 40);
+        let cands = ["再補上三句", "在補上三句", "我們在這裡", "它"];
+
+        for pref in ["", "我們", long_prefix.as_str(), "今天"] {
+            let refs: Vec<f32> = cands
+                .iter()
+                .map(|&c| model.score_candidate(pref, c, None))
+                .collect();
+            let miss_det = model.score_candidates_trie_detailed(pref, &cands, &mut cache, Some(&pool));
+            let hit_det = model.score_candidates_trie_detailed(pref, &cands, &mut cache, Some(&pool));
+            let short_only = model.score_candidates_trie_detailed(pref, &["它", "他"], &mut cache, Some(&pool));
+            let short_refs = [
+                model.score_candidate(pref, "它", None),
+                model.score_candidate(pref, "他", None),
+            ];
+
+            for i in 0..cands.len() {
+                assert!(
+                    (miss_det[i].0 - refs[i]).abs() < 1e-4,
+                    "miss parity mismatch for pref=`{}` cand=`{}`: {} vs {}",
+                    pref, cands[i], miss_det[i].0, refs[i]
+                );
+                assert!(
+                    (hit_det[i].0 - refs[i]).abs() < 1e-4,
+                    "hit parity mismatch for pref=`{}` cand=`{}`: {} vs {}",
+                    pref, cands[i], hit_det[i].0, refs[i]
+                );
+                assert!(
+                    (miss_det[i].1 - hit_det[i].1).abs() < 1e-5,
+                    "min_edge_lp miss vs hit drift: {} vs {}",
+                    miss_det[i].1, hit_det[i].1
+                );
+            }
+            assert!((short_only[0].0 - short_refs[0]).abs() < 1e-4);
+            assert!((short_only[1].0 - short_refs[1]).abs() < 1e-4);
+        }
+
+        // step_token 必須自動清除快取標籤
+        model.step_token(&mut cache, 0, BOS_ID, false, None);
+        assert!(cache.cached_prefix_toks.is_empty());
+
+        drop(model);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -651,38 +651,69 @@ impl ViterbiRouter {
             self.run_forward_trellis(n_syllables, dag, &mut transitions, prefix_word, want_nbest);
 
         if want_nbest && !classical_active {
-            let nbest_k = if want_neural && n_syllables >= 15 { 32 } else { 16 };
-            let mut nbest = Self::extract_nbest_from_trellis(&trellis, n_syllables, nbest_k);
-            if !nbest.is_empty() {
-                if want_discourse && !want_neural {
-                    return super::discourse_reranker::rerank_nbest(nbest);
-                }
-                if want_discourse {
-                    let raw_top1 = nbest
-                        .iter()
-                        .map(|(_, s)| *s)
-                        .fold(f64::NEG_INFINITY, f64::max);
-                    for (nodes, sc) in &mut nbest {
-                        if raw_top1 - *sc <= super::discourse_reranker::RERANK_SCORE_MARGIN {
-                            *sc += super::discourse_reranker::score_discourse_sentence(nodes);
+            if want_neural {
+                let astar_k = if n_syllables >= 15 { 16 } else { 12 };
+                let total_k = if n_syllables >= 15 { 40 } else { 28 };
+                let mut nbest = Self::extract_diverse_nbest_from_trellis(
+                    &trellis,
+                    n_syllables,
+                    astar_k,
+                    total_k,
+                );
+                if !nbest.is_empty() {
+                    let mut discourse_deltas: Vec<f64> = vec![0.0; nbest.len()];
+                    if want_discourse {
+                        let raw_top1 = nbest
+                            .iter()
+                            .map(|(_, s)| *s)
+                            .fold(f64::NEG_INFINITY, f64::max);
+                        let mut combined: Vec<(Vec<LatticeNode>, f64, f64)> = nbest
+                            .into_iter()
+                            .map(|(nodes, sc)| {
+                                let dd = if raw_top1 - sc
+                                    <= super::discourse_reranker::RERANK_SCORE_MARGIN
+                                {
+                                    super::discourse_reranker::score_discourse_sentence(&nodes)
+                                } else {
+                                    0.0
+                                };
+                                (nodes, sc + dd, dd)
+                            })
+                            .collect();
+                        combined.sort_by(|a, b| {
+                            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+                        });
+                        nbest = Vec::with_capacity(combined.len());
+                        discourse_deltas = Vec::with_capacity(combined.len());
+                        for (nodes, adj, dd) in combined {
+                            nbest.push((nodes, adj));
+                            discourse_deltas.push(dd);
                         }
                     }
-                    nbest.sort_by(|a, b| {
-                        b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-                    });
-                }
-                if want_neural {
                     let clean_prefix = prefix_word
                         .map(|p| p.rsplit_once('\t').map(|(_, w)| w).unwrap_or(p))
                         .filter(|w| !w.is_empty());
                     if let Some(pair) =
-                        super::neural_reranker::rerank_nbest_if_enabled(clean_prefix, &nbest)
+                        super::neural_reranker::rerank_nbest_if_enabled_with_discourse(
+                            clean_prefix,
+                            &nbest,
+                            if want_discourse {
+                                Some(&discourse_deltas)
+                            } else {
+                                None
+                            },
+                        )
                     {
                         return pair;
                     }
+                    if want_discourse {
+                        return nbest.into_iter().next().unwrap_or((Vec::new(), 0.0));
+                    }
                 }
-                if want_discourse {
-                    return nbest.into_iter().next().unwrap_or((Vec::new(), 0.0));
+            } else if want_discourse {
+                let nbest = Self::extract_nbest_from_trellis(&trellis, n_syllables, 16);
+                if !nbest.is_empty() {
+                    return super::discourse_reranker::rerank_nbest(nbest);
                 }
             }
         }
@@ -742,6 +773,23 @@ impl ViterbiRouter {
         let (trellis, _) =
             self.run_forward_trellis(n_syllables, dag, &mut transitions, prefix_word, true);
         Self::extract_nbest_from_trellis(&trellis, n_syllables, top_k)
+    }
+
+    pub fn solve_diverse_nbest_paths_with_prefix(
+        &self,
+        n_syllables: usize,
+        dag: &HashMap<usize, Vec<LatticeNode>>,
+        mut transitions: Option<&mut super::transitions::TransitionEngine>,
+        prefix_word: Option<&str>,
+        astar_k: usize,
+        max_total_k: usize,
+    ) -> Vec<(Vec<LatticeNode>, f64)> {
+        if n_syllables == 0 || max_total_k == 0 {
+            return Vec::new();
+        }
+        let (trellis, _) =
+            self.run_forward_trellis(n_syllables, dag, &mut transitions, prefix_word, true);
+        Self::extract_diverse_nbest_from_trellis(&trellis, n_syllables, astar_k, max_total_k)
     }
 
     fn run_forward_trellis(
@@ -1466,6 +1514,163 @@ impl ViterbiRouter {
         results
     }
 
+    /// 結合 Backward-A* 核心路徑與 O(E) 反向維特比 DP 逐音節位置多樣化繞道注入，防止單一高歧義位置壟斷全部候選槽位
+    fn extract_diverse_nbest_from_trellis(
+        trellis: &[Vec<ForwardTrellisState>],
+        n_syllables: usize,
+        astar_k: usize,
+        max_total_k: usize,
+    ) -> Vec<(Vec<LatticeNode>, f64)> {
+        use std::collections::HashSet;
+
+        let mut results = Self::extract_nbest_from_trellis(trellis, n_syllables, astar_k);
+        if results.is_empty() || max_total_k <= results.len() {
+            return results;
+        }
+        let top1_score = results[0].1;
+        let mut seen_surface: HashSet<String> = results
+            .iter()
+            .map(|(nodes, _)| nodes.iter().map(|n| n.word.as_str()).collect())
+            .collect();
+
+        // 1. O(E) 反向維特比 DP 計算每個 (boundary, state_idx) 往終點之最佳後綴分數與下一狀態
+        let mut back_score: Vec<Vec<f64>> = trellis
+            .iter()
+            .map(|states| vec![f64::NEG_INFINITY; states.len()])
+            .collect();
+        let mut back_next: Vec<Vec<Option<(usize, usize)>>> = trellis
+            .iter()
+            .map(|states| vec![None; states.len()])
+            .collect();
+
+        for (s_idx, st) in trellis[n_syllables].iter().enumerate() {
+            if st.score.is_finite() {
+                back_score[n_syllables][s_idx] = 0.0;
+            }
+        }
+
+        for b in (1..=n_syllables).rev() {
+            for s in 0..trellis[b].len() {
+                let cur_back = back_score[b][s];
+                if !cur_back.is_finite() {
+                    continue;
+                }
+                let st = &trellis[b][s];
+                if st.incoming.is_empty() {
+                    if st.prev_boundary < b {
+                        let pb = st.prev_boundary;
+                        let ps = st.prev_state_idx;
+                        let edge_sc = st.score - trellis[pb][ps].score;
+                        let cand_sc = cur_back + edge_sc;
+                        if cand_sc.is_finite() && cand_sc > back_score[pb][ps] {
+                            back_score[pb][ps] = cand_sc;
+                            back_next[pb][ps] = Some((b, s));
+                        }
+                    }
+                } else {
+                    for &(pb, ps, edge_sc) in &st.incoming {
+                        if pb >= b {
+                            continue;
+                        }
+                        let cand_sc = cur_back + edge_sc;
+                        if cand_sc.is_finite() && cand_sc > back_score[pb][ps] {
+                            back_score[pb][ps] = cand_sc;
+                            back_next[pb][ps] = Some((b, s));
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. 依起始音節 start_idx 分桶，每個位置保留最多 3 個不同詞形的最高分繞道路徑
+        let mut per_pos: Vec<Vec<(f64, usize, usize)>> = vec![Vec::new(); n_syllables];
+        for b in 1..=n_syllables {
+            for s in 0..trellis[b].len() {
+                let f_sc = trellis[b][s].score;
+                let b_sc = back_score[b][s];
+                if !f_sc.is_finite() || !b_sc.is_finite() {
+                    continue;
+                }
+                let full_sc = f_sc + b_sc;
+                if top1_score - full_sc > 30.0 {
+                    continue;
+                }
+                let pos = trellis[b][s].node.start_idx.min(n_syllables - 1);
+                per_pos[pos].push((full_sc, b, s));
+            }
+        }
+
+        let mut all_detours: Vec<(f64, usize, usize)> = Vec::with_capacity(n_syllables * 3);
+        for bucket in &mut per_pos {
+            bucket.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            let mut kept_words: Vec<&str> = Vec::with_capacity(3);
+            for &(sc, b, s) in bucket.iter() {
+                let w = trellis[b][s].node.word.as_str();
+                if !kept_words.contains(&w) {
+                    kept_words.push(w);
+                    all_detours.push((sc, b, s));
+                    if kept_words.len() >= 3 {
+                        break;
+                    }
+                }
+            }
+        }
+
+        all_detours.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        for (full_sc, det_b, det_s) in all_detours {
+            if results.len() >= max_total_k {
+                break;
+            }
+            // 前段：由 (det_b, det_s) 依最佳前導狀態回溯至 0
+            let mut pref_rev: Vec<LatticeNode> = Vec::new();
+            let mut cb = det_b;
+            let mut cs = det_s;
+            while cb > 0 {
+                let st = &trellis[cb][cs];
+                pref_rev.push(st.node.clone());
+                if st.prev_boundary >= cb {
+                    break;
+                }
+                let pb = st.prev_boundary;
+                let ps = st.prev_state_idx;
+                cb = pb;
+                cs = ps;
+            }
+            if cb != 0 {
+                continue;
+            }
+
+            let mut path: Vec<LatticeNode> = pref_rev.into_iter().rev().collect();
+
+            // 後段：由 (det_b, det_s) 依 back_next 前進至 n_syllables
+            let mut fb = det_b;
+            let mut fs = det_s;
+            while fb < n_syllables {
+                let Some((nb, ns)) = back_next[fb][fs] else {
+                    break;
+                };
+                if nb <= fb {
+                    break;
+                }
+                path.push(trellis[nb][ns].node.clone());
+                fb = nb;
+                fs = ns;
+            }
+            if fb != n_syllables {
+                continue;
+            }
+
+            let surf: String = path.iter().map(|n| n.word.as_str()).collect();
+            if seen_surface.insert(surf) {
+                results.push((path, full_sc));
+            }
+        }
+
+        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        results
+    }
+
     pub fn get_candidate_alternatives(&self, dag: &HashMap<usize, Vec<LatticeNode>>, start_idx: usize) -> Vec<String> {
         if let Some(nodes) = dag.get(&start_idx) {
             let mut sorted = nodes.clone();
@@ -2122,5 +2327,49 @@ mod tests {
 
         let _ = std::fs::remove_file(&tsv_path);
         let _ = std::fs::remove_file(&bin_path);
+    }
+
+    #[test]
+    fn test_diverse_trellis_detour_prevents_single_position_starvation_261125() {
+        let router = ViterbiRouter::default();
+        let mut dag: HashMap<usize, Vec<LatticeNode>> = HashMap::new();
+
+        // 前段位置 0..2：製造 16 個微差同音候選意圖壟斷單純 A* 槽位
+        let mut pos0 = Vec::new();
+        for idx in 0..16u32 {
+            let ch = char::from_u32(0x4E00 + idx).unwrap().to_string();
+            pos0.push(LatticeNode::new(0, 1, &ch, 800 - idx, "ㄧ"));
+        }
+        dag.insert(0, pos0);
+        dag.insert(1, vec![LatticeNode::new(1, 3, "今天", 900, "ㄐㄧㄣ ㄊㄧㄢ")]);
+        // 後段位置 3..5：正解替換詞與Top-1分差約 5.0（正常情況會被前段 16 個微差組合擠出 A* K=12）
+        dag.insert(
+            3,
+            vec![
+                LatticeNode::new(3, 5, "旅途", 700, "ㄌㄩˇ ㄊㄨˊ"),
+                LatticeNode::new(3, 5, "旅程", 500, "ㄌㄩˇ ㄔㄥˊ"),
+            ],
+        );
+
+        let top1_best: String = router
+            .solve_best_path(5, &dag, None)
+            .0
+            .iter()
+            .map(|n| n.word.as_str())
+            .collect();
+        let diverse = router.solve_diverse_nbest_paths_with_prefix(5, &dag, None, None, 12, 28);
+        assert!(!diverse.is_empty());
+        let div_top1: String = diverse[0].0.iter().map(|n| n.word.as_str()).collect();
+        assert_eq!(div_top1, top1_best, "diverse Top-1 must preserve exact Viterbi Top-1");
+
+        let surfaces: Vec<String> = diverse
+            .iter()
+            .map(|(nodes, _)| nodes.iter().map(|n| n.word.as_str()).collect())
+            .collect();
+        assert!(
+            surfaces.iter().any(|s| s.ends_with("旅程")),
+            "expected downstream alternative `旅程` to survive single-position starvation: {:?}",
+            surfaces
+        );
     }
 }

@@ -213,6 +213,56 @@ fn run_benchmark(model: &RlnmModel, pool: &RlnmThreadPool) {
         p95,
         max_ms
     );
+
+    // [bench #8 prefix-kv-cache] 量測 36 字跨句前綴首次失誤 (Cold Miss) vs. 命中快取 (Warm Hit)
+    let cross_prefix = "這台新買的伺服器效能非常穩定而且散熱表現也很優秀，所以";
+    let cross_cands: Vec<&str> = vec![
+        "它每天都可以穩定運作",
+        "他每天都可以穩定運作",
+        "她每天都可以穩定運作",
+        "牠每天都可以穩定運作",
+        "它每天都可靠穩定運作",
+        "他每天都可靠穩定運作",
+        "她每天都可靠穩定運作",
+        "它每天都可以文定運作",
+        "他每天都可以文定運作",
+        "它每天逗可以穩定運作",
+        "他每天逗可以穩定運作",
+        "她每天逗可以穩定運作",
+        "牠每天逗可以穩定運作",
+        "它沒天都可以穩定運作",
+        "他沒天都可以穩定運作",
+        "它每天都可以穩錠運作",
+    ];
+    let mut kv_test_cache = model.alloc_kv_cache();
+    let t_cold = Instant::now();
+    let sc_cold = model.score_candidates_trie(cross_prefix, &cross_cands, &mut kv_test_cache, Some(pool));
+    let cold_ms = t_cold.elapsed().as_secs_f64() * 1000.0;
+
+    let t_warm = Instant::now();
+    let sc_warm = model.score_candidates_trie(cross_prefix, &cross_cands, &mut kv_test_cache, Some(pool));
+    let warm_ms = t_warm.elapsed().as_secs_f64() * 1000.0;
+
+    let max_drift = sc_cold
+        .iter()
+        .zip(sc_warm.iter())
+        .map(|(a, b)| (a - b).abs())
+        .fold(0.0f32, f32::max);
+    assert!(
+        max_drift < 1e-4,
+        "prefix KV cache parity drift exceeded tolerance: {}",
+        max_drift
+    );
+    println!(
+        "  [bench #8 prefix-kv-cache] prefix_chars={} | cold_miss={:.2} ms | warm_hit={:.2} ms | speedup={:.2}x | max_drift={:.2e} | 它({:.3}) vs 他({:.3})",
+        cross_prefix.chars().count(),
+        cold_ms,
+        warm_ms,
+        cold_ms / warm_ms.max(0.001),
+        max_drift,
+        sc_warm[0],
+        sc_warm[1]
+    );
 }
 
 #[cfg(target_os = "windows")]

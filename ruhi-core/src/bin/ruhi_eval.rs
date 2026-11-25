@@ -4950,6 +4950,7 @@ fn run_nbest_oracle_benchmark(
     compiled: &[CompiledSentence],
     set_name: &str,
     top_k: usize,
+    diverse_nbest: bool,
 ) -> Value {
     let n_threads = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -4978,12 +4979,25 @@ fn run_nbest_oracle_benchmark(
                 for cs in chunk {
                     let t0 = Instant::now();
                     let dag = dag_builder.build_dag(&cs.syllables, true);
-                    let nbest = worker.router.solve_nbest_paths(
-                        cs.syllables.len(),
-                        &dag,
-                        Some(&mut worker.transitions),
-                        top_k,
-                    );
+                    let nbest = if diverse_nbest {
+                        let astar_k = if cs.syllables.len() >= 15 { 16 } else { 12 };
+                        let max_k = top_k.max(if cs.syllables.len() >= 15 { 40 } else { 28 });
+                        worker.router.solve_diverse_nbest_paths_with_prefix(
+                            cs.syllables.len(),
+                            &dag,
+                            Some(&mut worker.transitions),
+                            None,
+                            astar_k,
+                            max_k,
+                        )
+                    } else {
+                        worker.router.solve_nbest_paths(
+                            cs.syllables.len(),
+                            &dag,
+                            Some(&mut worker.transitions),
+                            top_k,
+                        )
+                    };
                     let (top1_nodes, _) = worker.router.solve_best_path(
                         cs.syllables.len(),
                         &dag,
@@ -5136,6 +5150,7 @@ fn run_nbest_oracle_benchmark(
     json!({
         "dataset": set_name,
         "top_k": top_k,
+        "diverse_nbest": diverse_nbest,
         "total_sentences": compiled.len(),
         "total_chars": total_chars,
         "top1_char_errors": top1_err_sum,
@@ -5156,11 +5171,13 @@ fn run_nbest_oracle_benchmark(
     })
 }
 
-/// 匯出 dev 開發集 Top-K N-Best 候選與基準分數至 JSONL，供 v1.0 神經重排序離線校準使用
+/// 匯出 dev 開發集 Top-K N-Best 候選與結構／神經特徵至 JSONL，供 v1.0 神經重排序 5 折交叉驗證使用
 fn dump_nbest_jsonl(
     base_engine: &RuhiEngine,
     compiled: &[CompiledSentence],
     top_k: usize,
+    diverse_nbest: bool,
+    neural_model: Option<&std::sync::Arc<ruhi::router::rlnm::RlnmModel>>,
     out_path: &Path,
 ) -> Value {
     use ruhi::router::classical_register::ClassicalRegisterProfile;
@@ -5168,6 +5185,16 @@ fn dump_nbest_jsonl(
         dag_has_third_person_pronoun, score_discourse_sentence, RERANK_SCORE_MARGIN,
     };
     use std::io::{BufWriter, Write};
+
+    struct CandDumpRow {
+        text: String,
+        base_score: f64,
+        word_count: usize,
+        single_char_count: usize,
+        min_node_weight: u32,
+        avg_node_weight: f64,
+        discourse_delta: f64,
+    }
 
     let n_threads = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -5179,17 +5206,32 @@ fn dump_nbest_jsonl(
         let mut handles = Vec::new();
         for chunk in compiled.chunks(chunk_size.max(1)) {
             let mut worker = base_engine.clone();
+            let model_ref = neural_model;
             handles.push(s.spawn(move || {
+                let mut kv_cache = model_ref.map(|m| m.alloc_kv_cache());
                 let mut out = Vec::with_capacity(chunk.len());
                 let dag_builder = LatticeDAG::new(&worker.lexicon);
                 for cs in chunk {
                     let dag = dag_builder.build_dag(&cs.syllables, true);
-                    let nbest = worker.router.solve_nbest_paths(
-                        cs.syllables.len(),
-                        &dag,
-                        Some(&mut worker.transitions),
-                        top_k,
-                    );
+                    let nbest = if diverse_nbest {
+                        let astar_k = if cs.syllables.len() >= 15 { 16 } else { 12 };
+                        let max_k = top_k.max(if cs.syllables.len() >= 15 { 40 } else { 28 });
+                        worker.router.solve_diverse_nbest_paths_with_prefix(
+                            cs.syllables.len(),
+                            &dag,
+                            Some(&mut worker.transitions),
+                            None,
+                            astar_k,
+                            max_k,
+                        )
+                    } else {
+                        worker.router.solve_nbest_paths(
+                            cs.syllables.len(),
+                            &dag,
+                            Some(&mut worker.transitions),
+                            top_k,
+                        )
+                    };
                     let (top1_nodes, _) = worker.router.solve_best_path(
                         cs.syllables.len(),
                         &dag,
@@ -5212,36 +5254,83 @@ fn dump_nbest_jsonl(
                         && dag_has_third_person_pronoun(&dag);
 
                     let raw_top1_sc = nbest.first().map(|(_, sc)| *sc).unwrap_or(0.0);
-                    let mut cands: Vec<(String, f64)> = nbest
+                    let mut cands: Vec<CandDumpRow> = nbest
                         .iter()
                         .map(|(nodes, base_sc)| {
                             let txt: String = nodes.iter().map(|n| n.word.as_str()).collect();
-                            let adj = if apply_discourse && (raw_top1_sc - *base_sc) <= RERANK_SCORE_MARGIN {
-                                *base_sc + score_discourse_sentence(nodes)
+                            let d_delta =
+                                if apply_discourse && (raw_top1_sc - *base_sc) <= RERANK_SCORE_MARGIN {
+                                    score_discourse_sentence(nodes)
+                                } else {
+                                    0.0
+                                };
+                            let adj = *base_sc + d_delta;
+                            let word_count = nodes.len();
+                            let single_char_count = nodes
+                                .iter()
+                                .filter(|n| n.word.chars().count() == 1)
+                                .count();
+                            let min_node_weight =
+                                nodes.iter().map(|n| n.weight).min().unwrap_or(0);
+                            let avg_node_weight = if word_count == 0 {
+                                0.0
                             } else {
-                                *base_sc
+                                nodes.iter().map(|n| n.weight as f64).sum::<f64>()
+                                    / (word_count as f64)
                             };
-                            (txt, adj)
+                            CandDumpRow {
+                                text: txt,
+                                base_score: adj,
+                                word_count,
+                                single_char_count,
+                                min_node_weight,
+                                avg_node_weight,
+                                discourse_delta: d_delta,
+                            }
                         })
                         .collect();
-                    cands.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                    cands.sort_by(|a, b| {
+                        b.base_score
+                            .partial_cmp(&a.base_score)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+
+                    let neural_pairs: Option<Vec<(f32, f32)>> =
+                        if let (Some(m), Some(cache)) = (model_ref, kv_cache.as_mut()) {
+                            let refs: Vec<&str> = cands.iter().map(|c| c.text.as_str()).collect();
+                            Some(m.score_candidates_trie_detailed("", &refs, cache, None))
+                        } else {
+                            None
+                        };
 
                     let mut oracle_errors = top1_errors;
                     let mut oracle_exact = top1_errors == 0;
                     let cand_json: Vec<Value> = cands
                         .iter()
-                        .map(|(txt, sc)| {
-                            let e = char_levenshtein(txt, gold);
+                        .enumerate()
+                        .map(|(idx, c)| {
+                            let e = char_levenshtein(&c.text, gold);
                             if e < oracle_errors {
                                 oracle_errors = e;
                             }
                             if e == 0 {
                                 oracle_exact = true;
                             }
-                            json!({
-                                "text": txt,
-                                "base_score": sc,
-                            })
+                            let mut obj = serde_json::Map::new();
+                            obj.insert("text".to_string(), json!(c.text));
+                            obj.insert("base_score".to_string(), json!(c.base_score));
+                            obj.insert("word_count".to_string(), json!(c.word_count));
+                            obj.insert("single_char_count".to_string(), json!(c.single_char_count));
+                            obj.insert("min_node_weight".to_string(), json!(c.min_node_weight));
+                            obj.insert("avg_node_weight".to_string(), json!(c.avg_node_weight));
+                            obj.insert("discourse_delta".to_string(), json!(c.discourse_delta));
+                            if let Some(ref pairs) = neural_pairs {
+                                if let Some(&(nlp, min_nlp)) = pairs.get(idx) {
+                                    obj.insert("neural_logp".to_string(), json!(nlp));
+                                    obj.insert("neural_min_char_logp".to_string(), json!(min_nlp));
+                                }
+                            }
+                            Value::Object(obj)
                         })
                         .collect();
 
@@ -5385,10 +5474,11 @@ fn main() {
     let mut do_gate = false;
     let mut init_gate_baseline = false;
     let mut do_nbest_oracle = false;
+    let mut diverse_nbest = false;
     let mut top_k: usize = 16;
     let mut dump_nbest_path: Option<PathBuf> = None;
     let mut neural_rerank_path: Option<PathBuf> = None;
-    let mut neural_lambda: f64 = 0.50;
+    let mut neural_lambda: f64 = 2.25;
     let mut neural_margin: Option<f64> = None;
     let mut neural_max_trie_nodes: Option<usize> = None;
     let mut confirm_final_blind_test = false;
@@ -5458,6 +5548,10 @@ fn main() {
             }
             "--nbest-oracle" => {
                 do_nbest_oracle = true;
+                i += 1;
+            }
+            "--diverse-nbest" => {
+                diverse_nbest = true;
                 i += 1;
             }
             "--top-k" if i + 1 < args.len() => {
@@ -5636,7 +5730,7 @@ fn main() {
             eprintln!("錯誤：嚴禁在盲測集 ({}.tsv) 上執行 N-Best Oracle 分析！", set_name);
             std::process::exit(1);
         }
-        let rep = run_nbest_oracle_benchmark(&engine, &compiled, &set_name, top_k);
+        let rep = run_nbest_oracle_benchmark(&engine, &compiled, &set_name, top_k, diverse_nbest);
         if let Some(ref p) = out_path {
             if let Some(parent) = p.parent() {
                 let _ = fs::create_dir_all(parent);
@@ -5655,7 +5749,13 @@ fn main() {
             );
             std::process::exit(1);
         }
-        let rep = dump_nbest_jsonl(&engine, &compiled, top_k, dump_path);
+        let dump_model = neural_rerank_path.as_ref().map(|model_path| {
+            std::sync::Arc::new(ruhi::router::rlnm::RlnmModel::open(model_path).unwrap_or_else(|e| {
+                eprintln!("無法載入 RLNM0001 模型 `{}`: {}", model_path.display(), e);
+                std::process::exit(1);
+            }))
+        });
+        let rep = dump_nbest_jsonl(&engine, &compiled, top_k, diverse_nbest, dump_model.as_ref(), dump_path);
         println!("{}", serde_json::to_string_pretty(&rep).unwrap());
         return;
     }

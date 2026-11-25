@@ -2704,6 +2704,8 @@ impl RuhiEngine {
         } else {
             None
         };
+        let _neural_ctx_guard =
+            crate::router::neural_reranker::ScopedContextPrefix::for_engine(self as *const Self as usize);
         let (nodes, _) =
             self.router
                 .solve_best_path_with_prefix(syls.len(), &dag, Some(&mut self.transitions), prefix);
@@ -3064,6 +3066,7 @@ impl RuhiEngine {
     }
 
     pub fn record_committed(&mut self, text: &str) {
+        crate::router::neural_reranker::push_committed_context(self as *const Self as usize, text);
         let ended_with_newline = text.ends_with('\n') || text.ends_with('\r');
         let prev_roster_tag: Option<&'static str> =
             if self.last_committed_word.starts_with("__ROSTER_F__\t") {
@@ -8487,6 +8490,8 @@ impl RuhiEngine {
         } else {
             None
         };
+        let _neural_ctx_guard =
+            crate::router::neural_reranker::ScopedContextPrefix::for_engine(self as *const Self as usize);
         let (nodes, _) = self.router.solve_best_path_with_prefix(syls.len(), &dag, Some(&mut self.transitions), prefix);
         let is_std_unmatched_headcode_en = is_standard_headcode_stream
             && syls.len() >= 3
@@ -24152,5 +24157,76 @@ mod tests {
             ),
         ];
         assert_bopomofo_dual_mode_cases(&cases);
+    }
+
+    #[test]
+    fn test_cross_sentence_prefix_context_disambiguates_pronoun_261125() {
+        use crate::router::neural_reranker::{
+            clear_committed_context, get_committed_context, push_committed_context,
+            ScopedContextPrefix, MAX_CROSS_SENTENCE_PREFIX_CHARS,
+        };
+
+        let fake_id: usize = 0xDEAD_BEEF_1234;
+        clear_committed_context(fake_id);
+        push_committed_context(fake_id, "這台新買的伺服器效能非常穩定，");
+        push_committed_context(fake_id, "而且散熱也很好，");
+        let ctx1 = get_committed_context(fake_id).expect("context should be recorded");
+        assert!(ctx1.ends_with("而且散熱也很好，"));
+
+        // 超過 48 字應自動裁切保留尾端 48 字
+        push_committed_context(
+            fake_id,
+            "我們在機房連續壓測了三十天都沒有當機也沒有出現任何過熱告警訊號。",
+        );
+        let ctx2 = get_committed_context(fake_id).unwrap();
+        assert_eq!(ctx2.chars().count(), MAX_CROSS_SENTENCE_PREFIX_CHARS);
+
+        // 段落雙換行或空白換行應清空前文，避免跨主題汙染
+        push_committed_context(fake_id, "\n\n");
+        assert!(get_committed_context(fake_id).is_none());
+
+        // ScopedContextPrefix 巢狀 RAII 驗證
+        push_committed_context(fake_id, "前面一句話");
+        {
+            let _outer = ScopedContextPrefix::for_engine(fake_id);
+            {
+                let _inner = ScopedContextPrefix::with_prefix(Some("內層臨時語境"));
+            }
+        }
+        clear_committed_context(fake_id);
+
+        // 若本機存在實際模型檔，實測 36+ 字跨句前文確能正確區辨「它／他」
+        let model_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("ruhi_lexicon")
+            .join("data")
+            .join("rlnm_zh_tw.bin");
+        if model_path.is_file() {
+            let model = crate::router::rlnm::RlnmModel::open(&model_path).unwrap();
+            let mut cache = model.alloc_kv_cache();
+            let cands = ["它現在依然十分可靠", "他現在依然十分可靠"];
+            let s_thing = model.score_candidates_trie(
+                "這台新買的伺服器效能非常穩定而且散熱表現也很優秀，所以",
+                &cands,
+                &mut cache,
+                None,
+            );
+            assert!(
+                s_thing[0] > s_thing[1],
+                "expected 它 > 他 given server prefix: {:?}",
+                s_thing
+            );
+            let s_person = model.score_candidates_trie(
+                "這位資深的工程師經驗非常豐富而且待人非常親切，所以",
+                &cands,
+                &mut cache,
+                None,
+            );
+            assert!(
+                s_person[1] > s_person[0],
+                "expected 他 > 它 given engineer prefix: {:?}",
+                s_person
+            );
+        }
     }
 }

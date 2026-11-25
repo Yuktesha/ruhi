@@ -23,6 +23,8 @@ pub const RESP_MAGIC: &[u8; 4] = b"RNR1";
 pub const MAX_IPC_FRAME_BYTES: usize = 1_048_576;
 const CONNECT_FAIL_BACKOFF_MS: u64 = 2_000;
 const SPAWN_COOLDOWN_SECS: u64 = 30;
+pub const MAX_CROSS_SENTENCE_PREFIX_CHARS: usize = 48;
+const MAX_TRACKED_CONTEXT_ENGINES: usize = 64;
 
 #[derive(Debug, Clone)]
 pub struct NeuralRerankerConfig {
@@ -62,10 +64,130 @@ struct RuntimeState {
 }
 
 static STATE: OnceLock<RwLock<RuntimeState>> = OnceLock::new();
+static ENGINE_COMMITTED_CONTEXT: OnceLock<RwLock<HashMap<usize, String>>> = OnceLock::new();
 static NEXT_REQ_ID: AtomicU64 = AtomicU64::new(1);
 
 thread_local! {
     static TLS_INPROC_CACHES: RefCell<HashMap<usize, RlnmKvCache>> = RefCell::new(HashMap::new());
+    static TLS_SCOPED_PREFIX: RefCell<Option<String>> = const { RefCell::new(None) };
+}
+
+fn context_map() -> &'static RwLock<HashMap<usize, String>> {
+    ENGINE_COMMITTED_CONTEXT.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+fn trim_last_chars(s: &str, max_chars: usize) -> String {
+    let total = s.chars().count();
+    if total <= max_chars {
+        s.to_string()
+    } else {
+        s.chars().skip(total - max_chars).collect()
+    }
+}
+
+/// 依字元邊界去重疊合併 `a`（既有長前文）與 `b`（最近單詞），並裁切至最多 `max_chars` 字
+fn merge_prefix_with_overlap(a: &str, b: &str, max_chars: usize) -> String {
+    if a.is_empty() {
+        return trim_last_chars(b, max_chars);
+    }
+    if b.is_empty() || a.ends_with(b) {
+        return trim_last_chars(a, max_chars);
+    }
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let max_k = a_chars.len().min(b_chars.len());
+    let mut overlap = 0usize;
+    for k in (1..=max_k).rev() {
+        if a_chars[a_chars.len() - k..] == b_chars[..k] {
+            overlap = k;
+            break;
+        }
+    }
+    let mut merged = String::with_capacity(a.len() + b.len());
+    merged.push_str(a);
+    for &ch in &b_chars[overlap..] {
+        merged.push(ch);
+    }
+    trim_last_chars(&merged, max_chars)
+}
+
+/// 紀錄 `engine_id` 剛送出的跨句前文（旁表維持 `RuhiEngine` ABI 不變；連續換行／段落清空時重置）
+pub fn push_committed_context(engine_id: usize, text: &str) {
+    let is_para_break = text.contains("\n\n")
+        || text.contains("\r\n\r\n")
+        || (text.trim().is_empty() && (text.contains('\n') || text.contains('\r')));
+    let Ok(mut map) = context_map().write() else {
+        return;
+    };
+    if is_para_break {
+        map.remove(&engine_id);
+        return;
+    }
+    let clean: String = text
+        .chars()
+        .filter(|&c| !c.is_control() && c != '\t')
+        .collect();
+    if clean.is_empty() {
+        return;
+    }
+    if !map.contains_key(&engine_id) && map.len() >= MAX_TRACKED_CONTEXT_ENGINES {
+        map.clear();
+    }
+    let entry = map.entry(engine_id).or_default();
+    let merged = if entry.ends_with(&clean) {
+        trim_last_chars(entry, MAX_CROSS_SENTENCE_PREFIX_CHARS)
+    } else {
+        let mut s = String::with_capacity(entry.len() + clean.len());
+        s.push_str(entry);
+        s.push_str(&clean);
+        trim_last_chars(&s, MAX_CROSS_SENTENCE_PREFIX_CHARS)
+    };
+    *entry = merged;
+}
+
+pub fn clear_committed_context(engine_id: usize) {
+    if let Ok(mut map) = context_map().write() {
+        map.remove(&engine_id);
+    }
+}
+
+pub fn get_committed_context(engine_id: usize) -> Option<String> {
+    context_map()
+        .read()
+        .ok()
+        .and_then(|m| m.get(&engine_id).cloned())
+        .filter(|s| !s.is_empty())
+}
+
+/// 執行緒區域 RAII 前文守衛，使 `viterbi.rs` 透過現行介面自動取得跨句前文而不更動公開簽章
+pub struct ScopedContextPrefix {
+    prev: Option<String>,
+}
+
+impl ScopedContextPrefix {
+    pub fn for_engine(engine_id: usize) -> Self {
+        Self::with_prefix(get_committed_context(engine_id).as_deref())
+    }
+
+    pub fn with_prefix(prefix: Option<&str>) -> Self {
+        let next = prefix
+            .map(|s| trim_last_chars(s, MAX_CROSS_SENTENCE_PREFIX_CHARS))
+            .filter(|s| !s.is_empty());
+        let prev = TLS_SCOPED_PREFIX.with(|cell| cell.borrow_mut().replace(next.unwrap_or_default()));
+        if TLS_SCOPED_PREFIX.with(|cell| cell.borrow().as_deref() == Some("")) {
+            TLS_SCOPED_PREFIX.with(|cell| *cell.borrow_mut() = None);
+        }
+        Self { prev }
+    }
+}
+
+impl Drop for ScopedContextPrefix {
+    fn drop(&mut self) {
+        let prev = self.prev.take();
+        TLS_SCOPED_PREFIX.with(|cell| {
+            *cell.borrow_mut() = prev;
+        });
+    }
 }
 
 fn state() -> &'static RwLock<RuntimeState> {
@@ -709,7 +831,7 @@ impl PrefixTrieBudget {
     fn new(prefix: &str) -> Self {
         Self {
             children: vec![Vec::new()],
-            base_prefix_nodes: 1 + prefix.chars().count(),
+            base_prefix_nodes: 1 + prefix.chars().count().min(16),
         }
     }
 
@@ -787,11 +909,190 @@ pub fn select_candidates_with_trie_budget(
     (kept, budget.current_nodes())
 }
 
-/// 若已啟用（且在行程內模型或背景 Sidecar 可回應於逾時限制內），以 `base_score + lambda * neural_logp` 重排競爭候選；
+/// D1-B 5 折交叉驗證校準之結構融合加分（無須變更 IPC 協定，隨 `lambda` 平滑縮放）
+#[inline]
+pub fn structural_fusion_bonus(nodes: &[LatticeNode], discourse_delta: f64, lambda: f64) -> f64 {
+    if nodes.is_empty() || lambda <= 0.0 {
+        return 0.0;
+    }
+    let scale = (lambda / 2.25).clamp(0.0, 2.0);
+    let wc = nodes.len() as f64;
+    let single_char = nodes.iter().filter(|n| n.word.chars().count() == 1).count() as f64;
+    let min_w = nodes.iter().map(|n| n.weight).min().unwrap_or(0) as f64;
+    let avg_w = nodes.iter().map(|n| n.weight as f64).sum::<f64>() / wc;
+    scale
+        * (-0.0545 * wc
+            - 0.2223 * single_char
+            + 1.7879 * min_w.max(0.0).ln_1p()
+            + 5.5713 * avg_w.max(0.0).ln_1p()
+            + 2.3295 * discourse_delta)
+}
+
+#[derive(Debug, Clone)]
+struct DisjointIsland {
+    diff_start: usize,
+    diff_end: usize,
+    replacement_nodes: Vec<LatticeNode>,
+    base_delta: f64,
+    disc_delta: f64,
+    gain: f64,
+}
+
+/// 抽取候選 `cand` 相對於 `p_star` 之單一連續差異區間 `[diff_start, diff_end)`；若屬多段分散或整句替換則回傳 `None`
+fn extract_single_diff_island(
+    p_star: &[LatticeNode],
+    cand: &[LatticeNode],
+    base_delta: f64,
+    disc_delta: f64,
+    gain: f64,
+) -> Option<DisjointIsland> {
+    let n_syl = p_star.last().map(|n| n.end_idx).unwrap_or(0);
+    if n_syl == 0 || cand.last().map(|n| n.end_idx) != Some(n_syl) {
+        return None;
+    }
+    let eq_node = |a: &LatticeNode, b: &LatticeNode| -> bool {
+        a.start_idx == b.start_idx && a.end_idx == b.end_idx && a.word == b.word
+    };
+    let mut pref = 0usize;
+    while pref < p_star.len() && pref < cand.len() && eq_node(&p_star[pref], &cand[pref]) {
+        pref += 1;
+    }
+    let mut suff = 0usize;
+    while pref + suff < p_star.len()
+        && pref + suff < cand.len()
+        && eq_node(
+            &p_star[p_star.len() - 1 - suff],
+            &cand[cand.len() - 1 - suff],
+        )
+    {
+        suff += 1;
+    }
+    let p_end_idx = p_star.len() - suff;
+    let c_end_idx = cand.len() - suff;
+    if pref >= p_end_idx || pref >= c_end_idx {
+        return None;
+    }
+    let diff_start = p_star[pref].start_idx;
+    let diff_end = p_star[p_end_idx - 1].end_idx;
+    if cand[pref].start_idx != diff_start || cand[c_end_idx - 1].end_idx != diff_end {
+        return None;
+    }
+    if diff_start >= diff_end || (diff_end - diff_start) >= n_syl {
+        return None;
+    }
+    Some(DisjointIsland {
+        diff_start,
+        diff_end,
+        replacement_nodes: cand[pref..c_end_idx].to_vec(),
+        base_delta,
+        disc_delta,
+        gain,
+    })
+}
+
+/// D2-B 互不重疊多島重組：於基準 `P*` 上貪婪拼接最多 3 組互不重疊（且間隔 >= 1 音節）之已改善區間，
+/// 回傳 `(重組節點序列, 估計基準分數累加, 估計語篇分數累加)`。
+pub fn try_build_disjoint_multi_island_recombination(
+    p_star: &[LatticeNode],
+    p_star_base: f64,
+    p_star_disc: f64,
+    improved_candidates: &[(&[LatticeNode], f64, f64, f64)],
+) -> Option<(Vec<LatticeNode>, f64, f64)> {
+    let n_syl = p_star.last().map(|n| n.end_idx).unwrap_or(0);
+    if n_syl < 4 || improved_candidates.len() < 2 {
+        return None;
+    }
+
+    let mut islands: Vec<DisjointIsland> = improved_candidates
+        .iter()
+        .filter_map(|&(nodes, c_base, c_disc, gain)| {
+            if gain <= 0.5 {
+                return None;
+            }
+            extract_single_diff_island(p_star, nodes, c_base - p_star_base, c_disc - p_star_disc, gain)
+        })
+        .collect();
+
+    if islands.len() < 2 {
+        return None;
+    }
+    islands.sort_by(|a, b| {
+        b.gain
+            .partial_cmp(&a.gain)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let mut picked: Vec<DisjointIsland> = Vec::with_capacity(3);
+    for isl in islands {
+        let disjoint = picked.iter().all(|p| {
+            isl.diff_end + 1 <= p.diff_start || p.diff_end + 1 <= isl.diff_start
+        });
+        if disjoint {
+            picked.push(isl);
+            if picked.len() >= 3 {
+                break;
+            }
+        }
+    }
+    if picked.len() < 2 {
+        return None;
+    }
+    picked.sort_by_key(|p| p.diff_start);
+
+    let mut recomb_nodes: Vec<LatticeNode> = Vec::with_capacity(p_star.len() + 4);
+    let mut est_base = p_star_base;
+    let mut est_disc = p_star_disc;
+    let mut p_idx = 0usize;
+    let mut i_idx = 0usize;
+
+    while p_idx < p_star.len() {
+        if i_idx < picked.len() && p_star[p_idx].start_idx == picked[i_idx].diff_start {
+            let isl = &picked[i_idx];
+            recomb_nodes.extend(isl.replacement_nodes.iter().cloned());
+            est_base += isl.base_delta;
+            est_disc += isl.disc_delta;
+            while p_idx < p_star.len() && p_star[p_idx].start_idx < isl.diff_end {
+                p_idx += 1;
+            }
+            i_idx += 1;
+        } else {
+            recomb_nodes.push(p_star[p_idx].clone());
+            p_idx += 1;
+        }
+    }
+    if i_idx != picked.len() {
+        return None;
+    }
+
+    // 驗證合成節點序列完整無斷層涵蓋 `0..n_syl`
+    let mut cur_pos = 0usize;
+    for nd in &recomb_nodes {
+        if nd.start_idx != cur_pos || nd.end_idx <= nd.start_idx {
+            return None;
+        }
+        cur_pos = nd.end_idx;
+    }
+    if cur_pos != n_syl {
+        return None;
+    }
+
+    Some((recomb_nodes, est_base, est_disc))
+}
+
+/// 若已啟用（且在行程內模型或背景 Sidecar 可回應於逾時限制內），以多特徵結構＋神經分數重排競爭候選（含 D2-B 多島重組）；
 /// 否則回傳 `None` 讓呼端無縫沿用既定 Top-1 結果。
 pub fn rerank_nbest_if_enabled(
     prefix_word: Option<&str>,
     candidates: &[(Vec<LatticeNode>, f64)],
+) -> Option<(Vec<LatticeNode>, f64)> {
+    rerank_nbest_if_enabled_with_discourse(prefix_word, candidates, None)
+}
+
+/// 支援傳入語篇代詞重排加分之神經重排序介面（D1-B ＋ D2-B）
+pub fn rerank_nbest_if_enabled_with_discourse(
+    prefix_word: Option<&str>,
+    candidates: &[(Vec<LatticeNode>, f64)],
+    discourse_deltas: Option<&[f64]>,
 ) -> Option<(Vec<LatticeNode>, f64)> {
     if candidates.len() < 2 {
         return None;
@@ -807,6 +1108,7 @@ pub fn rerank_nbest_if_enabled(
     if cfg.lambda <= 0.0 {
         return None;
     }
+    let eff_lambda = cfg.lambda * (2.3024 / 2.25);
 
     // 依基礎分數由高至低排序索引，確保高分候選優先佔用 Trie 節點延遲預算
     let mut ordered: Vec<usize> = (0..candidates.len()).collect();
@@ -817,7 +1119,16 @@ pub fn rerank_nbest_if_enabled(
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    let prefix_clean = prefix_word.unwrap_or("");
+    let scoped_prefix = TLS_SCOPED_PREFIX.with(|cell| cell.borrow().clone());
+    let prefix_storage: String = match scoped_prefix.as_deref() {
+        Some(sc) if !sc.is_empty() => merge_prefix_with_overlap(
+            sc,
+            prefix_word.unwrap_or(""),
+            MAX_CROSS_SENTENCE_PREFIX_CHARS,
+        ),
+        _ => prefix_word.unwrap_or("").to_string(),
+    };
+    let prefix_clean = prefix_storage.as_str();
     let top1_score = candidates[ordered[0]].1;
     let mut active_indices = Vec::with_capacity(candidates.len());
     let mut cand_texts: Vec<String> = Vec::with_capacity(candidates.len());
@@ -844,8 +1155,8 @@ pub fn rerank_nbest_if_enabled(
     }
 
     let cand_refs: Vec<&str> = cand_texts.iter().map(|s| s.as_str()).collect();
-    let neural_scores = if let Some(model) = inproc_opt {
-        let model_key = Arc::as_ptr(&model) as usize;
+    let neural_scores = if let Some(ref model) = inproc_opt {
+        let model_key = Arc::as_ptr(model) as usize;
         TLS_INPROC_CACHES.with(|cell| {
             let mut map = cell.borrow_mut();
             let cache = map.entry(model_key).or_insert_with(|| model.alloc_kv_cache());
@@ -859,24 +1170,83 @@ pub fn rerank_nbest_if_enabled(
         return None;
     }
 
+    let mut best_pos = 0usize;
     let mut best_idx = active_indices[0];
     let mut best_total = f64::NEG_INFINITY;
-    for (&cand_idx, &nl_sc) in active_indices.iter().zip(neural_scores.iter()) {
-        if !nl_sc.is_finite() {
-            continue;
-        }
-        let total = candidates[cand_idx].1 + cfg.lambda * (nl_sc as f64);
+    let mut pass1_totals: Vec<f64> = Vec::with_capacity(active_indices.len());
+    for (pos, (&cand_idx, &nl_sc)) in active_indices.iter().zip(neural_scores.iter()).enumerate() {
+        let disc_d = discourse_deltas.and_then(|v| v.get(cand_idx).copied()).unwrap_or(0.0);
+        let total = if nl_sc.is_finite() {
+            candidates[cand_idx].1
+                + eff_lambda * (nl_sc as f64)
+                + structural_fusion_bonus(&candidates[cand_idx].0, disc_d, cfg.lambda)
+        } else {
+            f64::NEG_INFINITY
+        };
+        pass1_totals.push(total);
         if total > best_total {
             best_total = total;
             best_idx = cand_idx;
+            best_pos = pos;
         }
     }
 
-    if best_total > f64::NEG_INFINITY {
-        Some((candidates[best_idx].0.clone(), best_total))
-    } else {
-        None
+    if best_total == f64::NEG_INFINITY {
+        return None;
     }
+
+    // D2-B：若有多個互不重疊區間同時勝過 P*，合成重組候選並僅執行 1 次輕量 2 候選複評（善用前綴 KV 快取）
+    let p_star_idx = active_indices[0];
+    let p_star_total = pass1_totals[0];
+    let p_star_disc = discourse_deltas.and_then(|v| v.get(p_star_idx).copied()).unwrap_or(0.0);
+    if p_star_total.is_finite() {
+        let mut improved: Vec<(&[LatticeNode], f64, f64, f64)> = Vec::new();
+        for (pos, &cand_idx) in active_indices.iter().enumerate().skip(1) {
+            let tot = pass1_totals[pos];
+            if tot > p_star_total + 0.5 {
+                let c_disc = discourse_deltas.and_then(|v| v.get(cand_idx).copied()).unwrap_or(0.0);
+                improved.push((
+                    &candidates[cand_idx].0,
+                    candidates[cand_idx].1,
+                    c_disc,
+                    tot - p_star_total,
+                ));
+            }
+        }
+        if let Some((recomb_nodes, recomb_base, recomb_disc)) = try_build_disjoint_multi_island_recombination(
+            &candidates[p_star_idx].0,
+            candidates[p_star_idx].1,
+            p_star_disc,
+            &improved,
+        ) {
+            let recomb_text: String = recomb_nodes.iter().map(|n| n.word.as_str()).collect();
+            if !cand_texts.iter().any(|t| t == &recomb_text) {
+                let pair_refs = [cand_texts[best_pos].as_str(), recomb_text.as_str()];
+                let pair_scores = if let Some(ref model) = inproc_opt {
+                    let model_key = Arc::as_ptr(model) as usize;
+                    Some(TLS_INPROC_CACHES.with(|cell| {
+                        let mut map = cell.borrow_mut();
+                        let cache = map.entry(model_key).or_insert_with(|| model.alloc_kv_cache());
+                        model.score_candidates_trie(prefix_clean, &pair_refs, cache, None)
+                    }))
+                } else {
+                    score_via_pipe(&cfg, prefix_clean, &pair_refs)
+                };
+                if let Some(scores) = pair_scores {
+                    if scores.len() == 2 && scores[1].is_finite() {
+                        let recomb_total = recomb_base
+                            + eff_lambda * (scores[1] as f64)
+                            + structural_fusion_bonus(&recomb_nodes, recomb_disc, cfg.lambda);
+                        if recomb_total > best_total {
+                            return Some((recomb_nodes, recomb_total));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Some((candidates[best_idx].0.clone(), best_total))
 }
 
 #[cfg(test)]
@@ -990,5 +1360,61 @@ mod tests {
             tiny_kept.push(c);
         }
         assert_eq!(tiny_kept.len(), 2);
+    }
+
+    #[test]
+    fn test_disjoint_multi_island_recombination_helper_261125() {
+        let mk = |s: usize, e: usize, w: &str| LatticeNode::new(s, e, w, 400, "");
+        // P* = "在補上 這台 以取消 南下 行程" (total syllables = 10)
+        let p_star = vec![
+            mk(0, 1, "在"),
+            mk(1, 3, "補上"),
+            mk(3, 5, "這台"),
+            mk(5, 8, "以取消"),
+            mk(8, 10, "行程"),
+        ];
+        // Island 1: "在" -> "再" ([0, 1))
+        let c1 = vec![
+            mk(0, 1, "再"),
+            mk(1, 3, "補上"),
+            mk(3, 5, "這台"),
+            mk(5, 8, "以取消"),
+            mk(8, 10, "行程"),
+        ];
+        // Island 2: "以取消" -> "已取消" ([5, 8))
+        let c2 = vec![
+            mk(0, 1, "在"),
+            mk(1, 3, "補上"),
+            mk(3, 5, "這台"),
+            mk(5, 8, "已取消"),
+            mk(8, 10, "行程"),
+        ];
+        // 重疊對比：涵蓋 [0, 3) 與 Island 1 重疊，必須被拒絕（若僅傳 c1 + overlap，不得合成）
+        let c_overlap = vec![
+            mk(0, 3, "再捕尚"),
+            mk(3, 5, "這台"),
+            mk(5, 8, "以取消"),
+            mk(8, 10, "行程"),
+        ];
+
+        let res = try_build_disjoint_multi_island_recombination(
+            &p_star,
+            100.0,
+            0.0,
+            &[(&c1, 98.0, 0.0, 4.0), (&c2, 97.5, 1.0, 3.5)],
+        )
+        .expect("two disjoint islands separated by >=1 syllable should recombine");
+        let text: String = res.0.iter().map(|n| n.word.as_str()).collect();
+        assert_eq!(text, "再補上這台已取消行程");
+        assert!((res.1 - 95.5).abs() < 1e-6);
+        assert!((res.2 - 1.0).abs() < 1e-6);
+
+        let rej = try_build_disjoint_multi_island_recombination(
+            &p_star,
+            100.0,
+            0.0,
+            &[(&c1, 98.0, 0.0, 4.0), (&c_overlap, 97.0, 0.0, 3.0)],
+        );
+        assert!(rej.is_none(), "overlapping diff islands must not recombine");
     }
 }
