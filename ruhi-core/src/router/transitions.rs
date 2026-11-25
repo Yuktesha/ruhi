@@ -417,6 +417,7 @@ impl Default for TransitionEngine {
 impl Drop for TransitionEngine {
     fn drop(&mut self) {
         super::cache_lm::remove_key(self.cache_lm_key());
+        super::topic_cache::remove_key(self.cache_lm_key());
     }
 }
 

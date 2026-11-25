@@ -181,6 +181,19 @@ impl ScopedContextPrefix {
     }
 }
 
+/// 組合執行緒區域跨句前文與緊鄰前詞（供語篇重排與神經重排共用，維持最多 48 字）
+pub fn effective_context_prefix(prefix_word: Option<&str>) -> String {
+    let scoped = TLS_SCOPED_PREFIX.with(|cell| cell.borrow().clone());
+    match scoped.as_deref() {
+        Some(sc) if !sc.is_empty() => merge_prefix_with_overlap(
+            sc,
+            prefix_word.unwrap_or(""),
+            MAX_CROSS_SENTENCE_PREFIX_CHARS,
+        ),
+        _ => prefix_word.unwrap_or("").to_string(),
+    }
+}
+
 impl Drop for ScopedContextPrefix {
     fn drop(&mut self) {
         let prev = self.prev.take();
@@ -928,6 +941,27 @@ pub fn structural_fusion_bonus(nodes: &[LatticeNode], discourse_delta: f64, lamb
             + 2.3295 * discourse_delta)
 }
 
+/// 神經重排序總分融合（含語篇、個人糾正保護與文件主題詞快取；當 `cache_delta == 0` 且 `topic_delta == 0` 時與原式完全等價）
+#[inline]
+pub fn compute_fused_candidate_score(
+    base_score: f64,
+    neural_logp: f64,
+    nodes: &[LatticeNode],
+    discourse_delta: f64,
+    cache_delta: f64,
+    topic_delta: f64,
+    lambda: f64,
+) -> f64 {
+    let eff_lambda = lambda * (2.3024 / 2.25);
+    let cache_scale = ((eff_lambda - 1.0) * 0.45).clamp(0.0, 2.5);
+    let topic_scale = ((eff_lambda - 1.0) * 0.20).clamp(0.0, 1.0);
+    base_score
+        + eff_lambda * neural_logp
+        + structural_fusion_bonus(nodes, discourse_delta, lambda)
+        + cache_scale * cache_delta
+        + topic_scale * topic_delta
+}
+
 #[derive(Debug, Clone)]
 struct DisjointIsland {
     diff_start: usize,
@@ -1094,6 +1128,17 @@ pub fn rerank_nbest_if_enabled_with_discourse(
     candidates: &[(Vec<LatticeNode>, f64)],
     discourse_deltas: Option<&[f64]>,
 ) -> Option<(Vec<LatticeNode>, f64)> {
+    rerank_nbest_if_enabled_with_context(prefix_word, candidates, discourse_deltas, None, None)
+}
+
+/// 支援傳入語篇代詞、個人線上快取保護及文件主題快取之完整神經重排序介面
+pub fn rerank_nbest_if_enabled_with_context(
+    prefix_word: Option<&str>,
+    candidates: &[(Vec<LatticeNode>, f64)],
+    discourse_deltas: Option<&[f64]>,
+    cache_lm_snap: Option<&super::cache_lm::CacheLmSnapshot>,
+    topic_cache_snap: Option<&super::topic_cache::TopicCacheSnapshot>,
+) -> Option<(Vec<LatticeNode>, f64)> {
     if candidates.len() < 2 {
         return None;
     }
@@ -1108,7 +1153,6 @@ pub fn rerank_nbest_if_enabled_with_discourse(
     if cfg.lambda <= 0.0 {
         return None;
     }
-    let eff_lambda = cfg.lambda * (2.3024 / 2.25);
 
     // 依基礎分數由高至低排序索引，確保高分候選優先佔用 Trie 節點延遲預算
     let mut ordered: Vec<usize> = (0..candidates.len()).collect();
@@ -1119,15 +1163,7 @@ pub fn rerank_nbest_if_enabled_with_discourse(
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    let scoped_prefix = TLS_SCOPED_PREFIX.with(|cell| cell.borrow().clone());
-    let prefix_storage: String = match scoped_prefix.as_deref() {
-        Some(sc) if !sc.is_empty() => merge_prefix_with_overlap(
-            sc,
-            prefix_word.unwrap_or(""),
-            MAX_CROSS_SENTENCE_PREFIX_CHARS,
-        ),
-        _ => prefix_word.unwrap_or("").to_string(),
-    };
+    let prefix_storage = effective_context_prefix(prefix_word);
     let prefix_clean = prefix_storage.as_str();
     let top1_score = candidates[ordered[0]].1;
     let mut active_indices = Vec::with_capacity(candidates.len());
@@ -1176,10 +1212,20 @@ pub fn rerank_nbest_if_enabled_with_discourse(
     let mut pass1_totals: Vec<f64> = Vec::with_capacity(active_indices.len());
     for (pos, (&cand_idx, &nl_sc)) in active_indices.iter().zip(neural_scores.iter()).enumerate() {
         let disc_d = discourse_deltas.and_then(|v| v.get(cand_idx).copied()).unwrap_or(0.0);
+        let cache_d = cache_lm_snap
+            .map_or(0.0, |clm| clm.score_sentence(&candidates[cand_idx].0, prefix_word));
+        let topic_d = topic_cache_snap
+            .map_or(0.0, |tc| tc.score_sentence(&candidates[cand_idx].0));
         let total = if nl_sc.is_finite() {
-            candidates[cand_idx].1
-                + eff_lambda * (nl_sc as f64)
-                + structural_fusion_bonus(&candidates[cand_idx].0, disc_d, cfg.lambda)
+            compute_fused_candidate_score(
+                candidates[cand_idx].1,
+                nl_sc as f64,
+                &candidates[cand_idx].0,
+                disc_d,
+                cache_d,
+                topic_d,
+                cfg.lambda,
+            )
         } else {
             f64::NEG_INFINITY
         };
@@ -1234,9 +1280,19 @@ pub fn rerank_nbest_if_enabled_with_discourse(
                 };
                 if let Some(scores) = pair_scores {
                     if scores.len() == 2 && scores[1].is_finite() {
-                        let recomb_total = recomb_base
-                            + eff_lambda * (scores[1] as f64)
-                            + structural_fusion_bonus(&recomb_nodes, recomb_disc, cfg.lambda);
+                        let recomb_cache = cache_lm_snap
+                            .map_or(0.0, |clm| clm.score_sentence(&recomb_nodes, prefix_word));
+                        let recomb_topic = topic_cache_snap
+                            .map_or(0.0, |tc| tc.score_sentence(&recomb_nodes));
+                        let recomb_total = compute_fused_candidate_score(
+                            recomb_base,
+                            scores[1] as f64,
+                            &recomb_nodes,
+                            recomb_disc,
+                            recomb_cache,
+                            recomb_topic,
+                            cfg.lambda,
+                        );
                         if recomb_total > best_total {
                             return Some((recomb_nodes, recomb_total));
                         }
@@ -1416,5 +1472,41 @@ mod tests {
             &[(&c1, 98.0, 0.0, 4.0), (&c_overlap, 97.0, 0.0, 3.0)],
         );
         assert!(rej.is_none(), "overlapping diff islands must not recombine");
+    }
+
+    #[test]
+    fn test_fused_candidate_score_invariance_and_cache_topic_protection() {
+        let mk = |s: usize, e: usize, w: &str| LatticeNode::new(s, e, w, 450, "");
+        let nodes_a = vec![mk(0, 1, "請"), mk(1, 2, "卓"), mk(2, 3, "參")];
+        let nodes_b = vec![mk(0, 1, "請"), mk(1, 2, "著"), mk(2, 3, "參")];
+
+        // 1. cache_delta=0 且 topic_delta=0 時與原線性公式位元等價
+        let lambda = 6.0;
+        let eff_lambda = lambda * (2.3024 / 2.25);
+        let nl = -5.5;
+        let expected_plain = 100.0 + eff_lambda * nl + structural_fusion_bonus(&nodes_a, 1.5, lambda);
+        let actual_plain = compute_fused_candidate_score(100.0, nl, &nodes_a, 1.5, 0.0, 0.0, lambda);
+        assert!((actual_plain - expected_plain).abs() < 1e-12);
+
+        // 2. 使用者個人糾正（cache_delta=+18 vs -14）在 lambda=6.0 下必須穩勝強烈神經偏好（Δlogp = -8.0）
+        let score_user_fix = compute_fused_candidate_score(
+            118.0, -10.0, &nodes_a, 0.0, 18.0, 0.0, lambda,
+        );
+        let score_rejected = compute_fused_candidate_score(
+            86.0, -2.0, &nodes_b, 0.0, -14.0, 0.0, lambda,
+        );
+        assert!(
+            score_user_fix > score_rejected,
+            "user cache correction ({score_user_fix:.2}) must beat strong neural preference ({score_rejected:.2}) at lambda=6.0"
+        );
+
+        // 3. 文件主題詞快取加權應具界且有效提升復現專詞
+        let s_with_topic = compute_fused_candidate_score(
+            100.0, -4.0, &nodes_a, 0.0, 0.0, 5.5, lambda,
+        );
+        let s_no_topic = compute_fused_candidate_score(
+            100.0, -4.0, &nodes_a, 0.0, 0.0, 0.0, lambda,
+        );
+        assert!((s_with_topic - s_no_topic - 5.5).abs() < 1e-9);
     }
 }

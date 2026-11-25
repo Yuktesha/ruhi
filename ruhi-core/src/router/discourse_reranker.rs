@@ -140,6 +140,12 @@ const HUMAN_PREDICATE_CUES: &[&str] = &[
     "看著書", "看書", "啟蒙", "攜帶", "抓住", "平和",
 ];
 
+/// 有生主體專屬生理／狀態謂語（人類與動物皆可，但無生事物「它」不適用；僅用於阻擋跨句無生先行詞誤導）
+const ANIMATE_PREDICATE_CUES: &[&str] = &[
+    "在睡", "沒睡", "睡覺", "睡著", "睡了", "睡醒", "醒了", "很餓", "好餓", "吃飽", "肚子餓",
+    "曬太陽",
+];
+
 const HUMAN_MORTALITY_ANTECEDENTS: &[&str] = &["死了", "去世", "過世", "死者", "遺體"];
 const BURIAL_DISPOSAL_PREDS: &[&str] = &["火葬", "火葬場", "埋了"];
 
@@ -164,6 +170,117 @@ const INANIMATE_ANTECEDENTS: &[&str] = &[
     "香蕉皮", "音根", "子音", "客體", "物質",
 ];
 
+/// 跨句前文補充無生／技術載體先行詞，供跨句「它」指代消歧使用（僅限具體器物／軟體／媒體載體，排除廣泛抽象名詞以免誤傷下句）
+const CROSS_SENTENCE_INANIMATE_CUES: &[&str] = &[
+    "伺服器", "資料庫", "演算法", "框架", "套件", "模組", "服務", "引擎", "輸入法", "晶片",
+    "硬碟", "記憶體", "螢幕", "鍵盤", "滑鼠", "耳機", "相機", "汽車", "車輛", "大樓", "建築",
+    "電影", "遊戲", "咖啡", "藥物", "專案", "程式碼", "網站", "網頁", "系統", "軟體", "硬體",
+    "工具", "檔案", "裝置", "設備", "機器", "電腦", "手機", "程式", "產品", "文章", "書籍",
+    "電池",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PrefixAntecedent {
+    Animal,
+    Female,
+    Male,
+    Inanimate,
+}
+
+#[inline]
+fn max_end_pos(text: &str, patterns: &[&str], best: &mut Option<usize>) {
+    for &pat in patterns {
+        if let Some(pos) = text.rfind(pat) {
+            let end = pos + pat.len();
+            if best.map_or(true, |b| end > b) {
+                *best = Some(end);
+            }
+        }
+    }
+}
+
+/// 由跨句前文右側最近位置掃描顯性實體先行詞，並防止「其他」或「馬路／牛肉麵」誤觸發
+fn detect_latest_prefix_antecedent(prefix_text: &str) -> Option<PrefixAntecedent> {
+    if prefix_text.trim().is_empty() {
+        return None;
+    }
+    let mut animal_pos: Option<usize> = None;
+    let mut female_pos: Option<usize> = None;
+    let mut male_pos: Option<usize> = None;
+    let mut inanimate_pos: Option<usize> = None;
+
+    max_end_pos(prefix_text, ANIMAL_SUBSTR_CUES, &mut animal_pos);
+    max_end_pos(prefix_text, &["牠"], &mut animal_pos);
+
+    max_end_pos(prefix_text, FEMALE_GENERAL_CUES, &mut female_pos);
+    max_end_pos(prefix_text, FEMALE_SPOUSE_CUES, &mut female_pos);
+    max_end_pos(prefix_text, &["她"], &mut female_pos);
+
+    max_end_pos(prefix_text, MALE_CUES, &mut male_pos);
+
+    max_end_pos(prefix_text, CROSS_SENTENCE_INANIMATE_CUES, &mut inanimate_pos);
+    max_end_pos(prefix_text, &["它"], &mut inanimate_pos);
+
+    let chars: Vec<(usize, char)> = prefix_text.char_indices().collect();
+    for i in 0..chars.len() {
+        let (byte_idx, ch) = chars[i];
+        // 量詞錨定動物名詞檢出（例如「一隻狗」、「一隻小黑貓」、「那匹馬」），避免「馬路／牛肉麵」誤判
+        if matches!(
+            ch,
+            '一' | '二' | '兩' | '三' | '四' | '五' | '六' | '七' | '八' | '九' | '十' | '這' | '那' | '每'
+        ) {
+            if let Some(&(_, cls)) = chars.get(i + 1) {
+                if matches!(cls, '隻' | '匹' | '頭') {
+                    for k in (i + 2)..chars.len().min(i + 6) {
+                        let (k_byte, k_ch) = chars[k];
+                        if !('\u{4E00}'..='\u{9FFF}').contains(&k_ch) {
+                            break;
+                        }
+                        let mut tok_buf = [0u8; 4];
+                        let tok_str: &str = k_ch.encode_utf8(&mut tok_buf);
+                        if ANIMAL_EXACT_TOKENS.contains(&tok_str) {
+                            let end = k_byte + k_ch.len_utf8();
+                            if animal_pos.map_or(true, |b| end > b) {
+                                animal_pos = Some(end);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        // 獨立「他」先行詞（排除「其他／吉他／他山之石／他人」等複合構詞誤觸發）
+        if ch == '他' {
+            let prev_c = i.checked_sub(1).map(|j| chars[j].1);
+            let next_c = chars.get(i + 1).map(|&(_, c)| c);
+            if !matches!(prev_c, Some('其' | '吉' | '利' | '排' | '無'))
+                && !matches!(next_c, Some('山' | '鄉' | '日' | '處' | '國' | '人' | '者'))
+            {
+                let end = byte_idx + ch.len_utf8();
+                if male_pos.map_or(true, |b| end > b) {
+                    male_pos = Some(end);
+                }
+            }
+        }
+    }
+
+    // 同位置平手優先序：Animal > Female > Inanimate > Male
+    let mut best: Option<(usize, u8, PrefixAntecedent)> = None;
+    for (pos_opt, prio, kind) in [
+        (animal_pos, 4u8, PrefixAntecedent::Animal),
+        (female_pos, 3u8, PrefixAntecedent::Female),
+        (inanimate_pos, 2u8, PrefixAntecedent::Inanimate),
+        (male_pos, 1u8, PrefixAntecedent::Male),
+    ] {
+        if let Some(pos) = pos_opt {
+            if best.map_or(true, |(bp, bpr, _)| pos > bp || (pos == bp && prio > bpr)) {
+                best = Some((pos, prio, kind));
+            }
+        }
+    }
+    best.map(|(_, _, k)| k)
+}
+
 fn contains_any_substr(text: &str, patterns: &[&str]) -> bool {
     patterns.iter().any(|&p| text.contains(p))
 }
@@ -174,9 +291,19 @@ fn starts_with_any(text: &str, prefixes: &[&str]) -> bool {
 
 /// 計算單一候選詞路徑之雙向代詞／有生性語篇評分（已限幅於 `[-6.0, +6.0]`）
 pub fn score_discourse_sentence(nodes: &[LatticeNode]) -> f64 {
+    score_discourse_sentence_with_prefix(nodes, "")
+}
+
+/// 結合跨句前文先行詞之雙向代詞／有生性語篇評分（已限幅於 `[-6.0, +6.0]`）
+pub fn score_discourse_sentence_with_prefix(nodes: &[LatticeNode], prefix_text: &str) -> f64 {
     if nodes.is_empty() {
         return 0.0;
     }
+    let prefix_ant = if prefix_text.is_empty() {
+        None
+    } else {
+        detect_latest_prefix_antecedent(prefix_text)
+    };
 
     let mut pron_indices: Vec<(usize, PronounKind)> = Vec::new();
     let mut surface = String::new();
@@ -437,6 +564,9 @@ pub fn score_discourse_sentence(nodes: &[LatticeNode]) -> f64 {
             human_evidence += 2.0;
         }
         let has_left_inanimate_antecedent = contains_any_substr(&left_full, INANIMATE_ANTECEDENTS);
+        let is_animate_pred = !is_de_poss
+            && (contains_any_substr(&right_ctx, ANIMATE_PREDICATE_CUES)
+                || contains_any_substr(&pred_window, ANIMATE_PREDICATE_CUES));
         if has_left_inanimate_antecedent
             && human_evidence < 0.5
             && !copula_human_np
@@ -444,6 +574,53 @@ pub fn score_discourse_sentence(nodes: &[LatticeNode]) -> f64 {
             && !has_male
         {
             it_evidence += 1.4;
+        }
+
+        // 若本句無顯性局部先行詞且有跨句先行詞，補上溫和跨句有生性／性別先驗（不蓋過局部人類、有生或無生謂語）
+        if let Some(p_ant) = prefix_ant {
+            if !has_animal_for_p && !has_female && !has_male {
+                match p_ant {
+                    PrefixAntecedent::Animal => {
+                        if !copula_human_np && human_evidence < 0.5 && it_evidence < 0.5 {
+                            match p_kind {
+                                PronounKind::Animal => total_score += 5.0,
+                                PronounKind::It | PronounKind::He | PronounKind::She => {
+                                    total_score -= 2.5;
+                                }
+                            }
+                            continue;
+                        }
+                    }
+                    PrefixAntecedent::Female => {
+                        if !copula_inanimate_np && it_evidence < 0.5 {
+                            match p_kind {
+                                PronounKind::She => total_score += 2.0,
+                                PronounKind::He => total_score -= 0.8,
+                                PronounKind::It | PronounKind::Animal => total_score -= 1.0,
+                            }
+                        }
+                    }
+                    PrefixAntecedent::Male => {
+                        if !copula_inanimate_np && it_evidence < 0.5 {
+                            match p_kind {
+                                PronounKind::He => total_score += 1.4,
+                                PronounKind::She => total_score -= 1.0,
+                                PronounKind::It | PronounKind::Animal => total_score -= 0.8,
+                            }
+                        }
+                    }
+                    PrefixAntecedent::Inanimate => {
+                        if !copula_human_np
+                            && human_evidence < 0.5
+                            && !has_left_inanimate_antecedent
+                            && !is_animate_pred
+                            && !is_de_poss
+                        {
+                            it_evidence += 2.0;
+                        }
+                    }
+                }
+            }
         }
 
         if it_evidence > human_evidence + 0.5 {
@@ -470,6 +647,14 @@ pub fn score_discourse_sentence(nodes: &[LatticeNode]) -> f64 {
 
 /// 自 Backward-A* Top-N 候選中以雙向語篇評分重排序並回傳勝出路徑與分數
 pub fn rerank_nbest(candidates: Vec<(Vec<LatticeNode>, f64)>) -> (Vec<LatticeNode>, f64) {
+    rerank_nbest_with_prefix(candidates, "")
+}
+
+/// 結合跨句前文線索自 Backward-A* Top-N 候選中執行雙向語篇重排序
+pub fn rerank_nbest_with_prefix(
+    candidates: Vec<(Vec<LatticeNode>, f64)>,
+    prefix_text: &str,
+) -> (Vec<LatticeNode>, f64) {
     let Some(first) = candidates.first() else {
         return (Vec::new(), 0.0);
     };
@@ -481,7 +666,7 @@ pub fn rerank_nbest(candidates: Vec<(Vec<LatticeNode>, f64)>) -> (Vec<LatticeNod
         if top1_score - *base_score > RERANK_SCORE_MARGIN {
             continue;
         }
-        let delta = score_discourse_sentence(nodes);
+        let delta = score_discourse_sentence_with_prefix(nodes, prefix_text);
         let combined = *base_score + delta;
         if combined > best_combined {
             best_combined = combined;
@@ -491,7 +676,7 @@ pub fn rerank_nbest(candidates: Vec<(Vec<LatticeNode>, f64)>) -> (Vec<LatticeNod
 
     for (idx, (nodes, base_score)) in candidates.into_iter().enumerate() {
         if idx == best_idx {
-            let adjusted = base_score + score_discourse_sentence(&nodes);
+            let adjusted = base_score + score_discourse_sentence_with_prefix(&nodes, prefix_text);
             return (nodes, adjusted);
         }
     }
@@ -609,5 +794,96 @@ mod tests {
         let (winner, _) = rerank_nbest(vec![(high.clone(), 0.0), (low.clone(), -15.0)]);
         let w_str: String = winner.iter().map(|n| n.word.as_str()).collect();
         assert_eq!(w_str, "妻子告訴他這件事");
+    }
+
+    #[test]
+    fn test_cross_sentence_entity_tracking_and_false_positive_guards() {
+        // 1. 跨句無生技術載體（「伺服器」 -> 「它」）
+        let it_srv = mk(&["它", "現在", "依然", "十分", "可靠"]);
+        let he_srv = mk(&["他", "現在", "依然", "十分", "可靠"]);
+        assert!(
+            score_discourse_sentence_with_prefix(&it_srv, "這台新買的伺服器效能非常穩定。")
+                > score_discourse_sentence_with_prefix(&he_srv, "這台新買的伺服器效能非常穩定。"),
+            "cross-sentence 伺服器 must favor 它 over 他"
+        );
+
+        // 2. 跨句陰性稱謂（「妹妹」 -> 「她」）
+        let she_sis = mk(&["她", "帶了", "很多", "伴手禮"]);
+        let he_sis = mk(&["他", "帶了", "很多", "伴手禮"]);
+        assert!(
+            score_discourse_sentence_with_prefix(&she_sis, "我妹妹剛從日本回來。")
+                > score_discourse_sentence_with_prefix(&he_sis, "我妹妹剛從日本回來。"),
+            "cross-sentence 妹妹 must favor 她 over 他"
+        );
+
+        // 3. 跨句動物（「小花貓」 -> 「牠」）
+        let anim_cat = mk(&["牠", "每天", "都", "在", "陽台", "曬太陽"]);
+        let he_cat = mk(&["他", "每天", "都", "在", "陽台", "曬太陽"]);
+        assert!(
+            score_discourse_sentence_with_prefix(&anim_cat, "鄰居養了一隻小花貓。")
+                > score_discourse_sentence_with_prefix(&he_cat, "鄰居養了一隻小花貓。"),
+            "cross-sentence 小花貓 must favor 牠 over 他"
+        );
+
+        // 4. 防誤判防護：「其他伺服器」不得將「他」視為男性；「馬路／牛肉麵」不得觸發動物
+        assert!(
+            score_discourse_sentence_with_prefix(&it_srv, "其他伺服器的效能很穩。")
+                > score_discourse_sentence_with_prefix(&he_srv, "其他伺服器的效能很穩。"),
+            "其他 must NOT register as Male antecedent"
+        );
+        assert_eq!(
+            detect_latest_prefix_antecedent("我走過馬路去買牛肉麵。"),
+            None,
+            "馬路／牛肉麵 must NOT falsely trigger Animal"
+        );
+
+        // 5. 局部人類認知／言語謂語優先權：「她說這支手機很好用」不被前句「手機」反向覆寫
+        let she_local = mk(&["她", "說", "這支", "手機", "很好用"]);
+        let it_local = mk(&["它", "說", "這支", "手機", "很好用"]);
+        assert!(
+            score_discourse_sentence_with_prefix(&she_local, "姊姊買了一台新手機。")
+                > score_discourse_sentence_with_prefix(&it_local, "姊姊買了一台新手機。"),
+            "local human speech predicate 說 must still beat cross-sentence inanimate antecedent"
+        );
+
+        // 6. 話題轉移近鄰優先（「妹妹」 -> 「伺服器」 -> 以最新「伺服器」為主）
+        let it_shift = mk(&["它", "運作", "非常", "穩定"]);
+        let she_shift = mk(&["她", "運作", "非常", "穩定"]);
+        assert!(
+            score_discourse_sentence_with_prefix(
+                &it_shift,
+                "我妹妹剛從日本回來。她買了一台新伺服器。",
+            ) > score_discourse_sentence_with_prefix(
+                &she_shift,
+                "我妹妹剛從日本回來。她買了一台新伺服器。",
+            ),
+            "most recent antecedent (伺服器) must win on topic shift"
+        );
+
+        // 7. 有生謂語防護：「還在睡」（即使拆為「還」「在」「睡」單字節點）不得被前句無生事物翻為「它還在睡」，動物前提仍保留「牠還在睡」
+        let he_sleep = mk(&["他", "還", "在", "睡"]);
+        let it_sleep = mk(&["它", "還", "在", "睡"]);
+        let anim_sleep = mk(&["牠", "還", "在", "睡"]);
+        assert!(
+            score_discourse_sentence_with_prefix(&he_sleep, "這台新買的伺服器效能非常穩定。")
+                >= score_discourse_sentence_with_prefix(&it_sleep, "這台新買的伺服器效能非常穩定。"),
+            "animate predicate 在睡 must NOT be flipped to 它 by preceding inanimate noun"
+        );
+        assert!(
+            score_discourse_sentence_with_prefix(&anim_sleep, "鄰居養了一隻小花貓。")
+                > score_discourse_sentence_with_prefix(&he_sleep, "鄰居養了一隻小花貓。"),
+            "animal antecedent 小花貓 must still favor 牠還在睡 over 他還在睡"
+        );
+
+        // 8. 領屬雙向防護：「他的反應很快」不被前句設備或抽象詞彙翻為「它的反應很快」
+        let he_react = mk(&["他", "的", "反應", "很快"]);
+        let it_react = mk(&["它", "的", "反應", "很快"]);
+        for pref in ["這台新買的伺服器效能非常穩定。", "而不需要建立一堆假詞彙。"] {
+            assert!(
+                score_discourse_sentence_with_prefix(&he_react, pref)
+                    >= score_discourse_sentence_with_prefix(&it_react, pref),
+                "possessive 他的反應很快 must NOT be flipped by prefix {pref}"
+            );
+        }
     }
 }

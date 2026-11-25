@@ -32,6 +32,7 @@ const BIGRAM_NEG_DELTA: f64 = -3.0;
 const BIGRAM_NEG_CAP: f64 = -6.0;
 
 const EDGE_TOTAL_CLAMP: f64 = 18.0;
+const SENTENCE_TOTAL_CLAMP: f64 = 32.0;
 const MAX_ENTRIES_PER_TABLE: usize = 2048;
 const PRUNE_MIN_ABS_STRENGTH: f64 = 0.25;
 const RELOAD_THROTTLE_SECS: u64 = 2;
@@ -617,6 +618,60 @@ impl CacheLmSnapshot {
 
         score.clamp(-EDGE_TOTAL_CLAMP, EDGE_TOTAL_CLAMP)
     }
+
+    /// 計算整條候選路徑之精確語境 Cache LM 保護總分（供神經重排序後防覆寫使用），限幅於 `[-32.0, +32.0]`
+    pub fn score_sentence(&self, nodes: &[LatticeNode], prefix_word: Option<&str>) -> f64 {
+        let mut total = 0.0;
+        for (idx, node) in nodes.iter().enumerate() {
+            if !self.tables.known_words.contains(&node.word) {
+                continue;
+            }
+            let prev_w = if idx == 0 {
+                prefix_word
+                    .and_then(|p| p.rsplit('\t').next())
+                    .unwrap_or("")
+            } else {
+                nodes[idx - 1].word.as_str()
+            };
+            let left_ch = last_cjk_char(prev_w);
+            let right_ch = if idx + 1 < nodes.len() {
+                first_cjk_char(&nodes[idx + 1].word)
+            } else {
+                String::new()
+            };
+
+            let mut node_score = 0.0;
+            if !left_ch.is_empty() {
+                if let Some(entry) = self
+                    .tables
+                    .left_bigrams
+                    .get(&(left_ch.clone(), node.word.clone()))
+                {
+                    node_score += decayed_strength(entry, self.now_secs);
+                }
+            }
+            if !left_ch.is_empty() || !right_ch.is_empty() {
+                if let Some(entry) = self.tables.trigrams.get(&(
+                    left_ch,
+                    node.word.clone(),
+                    right_ch.clone(),
+                )) {
+                    node_score += decayed_strength(entry, self.now_secs);
+                }
+            }
+            if !right_ch.is_empty() {
+                if let Some(entry) = self
+                    .tables
+                    .right_bigrams
+                    .get(&(node.word.clone(), right_ch))
+                {
+                    node_score += decayed_strength(entry, self.now_secs);
+                }
+            }
+            total += node_score.clamp(-EDGE_TOTAL_CLAMP, EDGE_TOTAL_CLAMP);
+        }
+        total.clamp(-SENTENCE_TOTAL_CLAMP, SENTENCE_TOTAL_CLAMP)
+    }
 }
 
 pub fn bind_path_for_key(key: usize, path: &Path) {
@@ -845,5 +900,39 @@ mod tests {
         remove_key(key_w);
         remove_key(key_r);
         let _ = fs::remove_file(&tmp);
+    }
+
+    #[test]
+    fn test_score_sentence_protects_accepted_and_penalizes_rejected_in_context() {
+        let key = 0xDEAD_BEEF_0005usize;
+        remove_key(key);
+        let now = current_unix_secs();
+        record_correction_for_key(key, "請", "著", "卓", "參", now);
+        let snap = snapshot_if_non_empty(key).expect("snapshot should exist");
+
+        let mk = |words: &[&str]| -> Vec<LatticeNode> {
+            let mut pos = 0usize;
+            words
+                .iter()
+                .map(|&w| {
+                    let len = w.chars().count().max(1);
+                    let n = LatticeNode::new(pos, pos + len, w, 400, "");
+                    pos += len;
+                    n
+                })
+                .collect()
+        };
+
+        let acc = mk(&["請", "卓", "參"]);
+        let rej = mk(&["請", "著", "參"]);
+        let unrelated = mk(&["我", "卓", "越"]);
+
+        let s_acc = snap.score_sentence(&acc, None);
+        let s_rej = snap.score_sentence(&rej, None);
+        let s_unrel = snap.score_sentence(&unrelated, None);
+        assert!(s_acc > 10.0, "accepted score should be strongly positive, got {s_acc}");
+        assert!(s_rej < -5.0, "rejected score should be negative, got {s_rej}");
+        assert_eq!(s_unrel, 0.0, "unrelated context must stay 0.0");
+        remove_key(key);
     }
 }

@@ -1878,6 +1878,17 @@ fn is_archaic_polyphone(word: &str, bpm: &str) -> bool {
         self.word_index.contains_key(word)
     }
 
+    /// 檢查詞彙是否收錄於永久詞庫（排除執行期暫時註冊之 `ephemeral_given_name` 個人名字）
+    pub fn has_persistent_word(&self, word: &str) -> bool {
+        self.word_index.get(word).is_some_and(|indices| {
+            indices.iter().any(|&idx| {
+                self.entries
+                    .get(idx)
+                    .is_some_and(|e| e.note != "ephemeral_given_name")
+            })
+        })
+    }
+
     /// 取得許氏鍵盤同一按鍵所映射之全套獨立注音符號（供單獨輸出 `ㄐ`, `ㄑ`, `ㄒ`, `ㄍ`, `ㄌ`, `ㄏ`, `ㄇ`, `ㄋ` 等注音符號使用）
     pub fn get_hsu_bopomofo_symbols(bpm_or_ch: &str) -> Vec<String> {
         let trimmed = bpm_or_ch.trim();

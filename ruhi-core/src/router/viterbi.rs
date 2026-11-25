@@ -651,6 +651,19 @@ impl ViterbiRouter {
             self.run_forward_trellis(n_syllables, dag, &mut transitions, prefix_word, want_nbest);
 
         if want_nbest && !classical_active {
+            let cache_lm_snap = transitions
+                .as_deref()
+                .filter(|eng| !eng.is_rule_disabled("cache_lm"))
+                .and_then(|eng| super::cache_lm::snapshot_if_non_empty(eng.cache_lm_key()));
+            let topic_cache_snap = transitions
+                .as_deref()
+                .filter(|eng| !eng.is_rule_disabled("topic_cache"))
+                .and_then(|eng| super::topic_cache::snapshot_if_non_empty(eng.cache_lm_key()));
+            let clean_prefix = prefix_word
+                .map(|p| p.rsplit_once('\t').map(|(_, w)| w).unwrap_or(p))
+                .filter(|w| !w.is_empty());
+            let ctx_prefix = super::neural_reranker::effective_context_prefix(clean_prefix);
+
             if want_neural {
                 let astar_k = if n_syllables >= 15 { 16 } else { 12 };
                 let total_k = if n_syllables >= 15 { 40 } else { 28 };
@@ -673,7 +686,10 @@ impl ViterbiRouter {
                                 let dd = if raw_top1 - sc
                                     <= super::discourse_reranker::RERANK_SCORE_MARGIN
                                 {
-                                    super::discourse_reranker::score_discourse_sentence(&nodes)
+                                    super::discourse_reranker::score_discourse_sentence_with_prefix(
+                                        &nodes,
+                                        &ctx_prefix,
+                                    )
                                 } else {
                                     0.0
                                 };
@@ -690,11 +706,8 @@ impl ViterbiRouter {
                             discourse_deltas.push(dd);
                         }
                     }
-                    let clean_prefix = prefix_word
-                        .map(|p| p.rsplit_once('\t').map(|(_, w)| w).unwrap_or(p))
-                        .filter(|w| !w.is_empty());
                     if let Some(pair) =
-                        super::neural_reranker::rerank_nbest_if_enabled_with_discourse(
+                        super::neural_reranker::rerank_nbest_if_enabled_with_context(
                             clean_prefix,
                             &nbest,
                             if want_discourse {
@@ -702,6 +715,8 @@ impl ViterbiRouter {
                             } else {
                                 None
                             },
+                            cache_lm_snap.as_ref(),
+                            topic_cache_snap.as_ref(),
                         )
                     {
                         return pair;
@@ -713,7 +728,10 @@ impl ViterbiRouter {
             } else if want_discourse {
                 let nbest = Self::extract_nbest_from_trellis(&trellis, n_syllables, 16);
                 if !nbest.is_empty() {
-                    return super::discourse_reranker::rerank_nbest(nbest);
+                    return super::discourse_reranker::rerank_nbest_with_prefix(
+                        nbest,
+                        &ctx_prefix,
+                    );
                 }
             }
         }
@@ -828,6 +846,10 @@ impl ViterbiRouter {
             .as_deref()
             .filter(|eng| !eng.is_rule_disabled("cache_lm"))
             .and_then(|eng| super::cache_lm::snapshot_if_non_empty(eng.cache_lm_key()));
+        let topic_cache_snap = transitions
+            .as_deref()
+            .filter(|eng| !eng.is_rule_disabled("topic_cache"))
+            .and_then(|eng| super::topic_cache::snapshot_if_non_empty(eng.cache_lm_key()));
 
         for i in 0..n_syllables {
             if trellis[i].is_empty() {
@@ -1059,7 +1081,10 @@ impl ViterbiRouter {
                         0.0
                     };
                     let classical_node = classical.node_score_delta(node, n_syllables) * w_class;
-                    let self_score = freq_score + length_bonus + classical_node;
+                    let topic_bonus = topic_cache_snap
+                        .as_ref()
+                        .map_or(0.0, |tc| tc.score_word(&node.word));
+                    let self_score = freq_score + length_bonus + classical_node + topic_bonus;
 
                     let node_guards = compute_node_edge_guards(node, nodes, dag, &backward);
                     let (curr_lm_id, curr_lm_uni) = if need_word_ng {

@@ -11,6 +11,7 @@ pub mod onomastics;
 pub mod classical_register;
 pub mod ngram_lm;
 pub mod cache_lm;
+pub mod topic_cache;
 pub mod discourse_reranker;
 pub mod rlnm;
 pub mod neural_reranker;

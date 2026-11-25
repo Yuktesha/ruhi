@@ -3065,8 +3065,70 @@ impl RuhiEngine {
         }
     }
 
+    /// 自已送出文字切出符合 2–4 字實詞標準且收錄於永久詞庫之連續漢字詞塊（排除執行期個人名字，且不跨標點或非漢字邊界）
+    fn extract_topic_tokens_from_text(&self, text: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut run: Vec<char> = Vec::new();
+        let flush_run = |run: &mut Vec<char>,
+                         out: &mut Vec<String>,
+                         lex: &LexiconManager,
+                         session_names: &std::collections::HashSet<String>| {
+            let mut pos = 0usize;
+            while pos < run.len() {
+                let mut matched_len = 0usize;
+                let max_len = 4.min(run.len() - pos);
+                for len in (2..=max_len).rev() {
+                    let cand: String = run[pos..pos + len].iter().collect();
+                    if lex.has_persistent_word(&cand) {
+                        if !session_names.contains(&cand)
+                            && crate::router::topic_cache::is_valid_topic_token(&cand)
+                        {
+                            out.push(cand);
+                        }
+                        matched_len = len;
+                        break;
+                    }
+                }
+                pos += if matched_len > 0 { matched_len } else { 1 };
+            }
+            run.clear();
+        };
+        for ch in text.chars() {
+            if ('\u{4E00}'..='\u{9FFF}').contains(&ch) {
+                run.push(ch);
+            } else if !run.is_empty() {
+                flush_run(
+                    &mut run,
+                    &mut out,
+                    &self.lexicon,
+                    &self.transitions.session_given_names,
+                );
+            }
+        }
+        if !run.is_empty() {
+            flush_run(
+                &mut run,
+                &mut out,
+                &self.lexicon,
+                &self.transitions.session_given_names,
+            );
+        }
+        out
+    }
+
     pub fn record_committed(&mut self, text: &str) {
-        crate::router::neural_reranker::push_committed_context(self as *const Self as usize, text);
+        let eng_id = self as *const Self as usize;
+        crate::router::neural_reranker::push_committed_context(eng_id, text);
+        let cache_key = self.transitions.cache_lm_key();
+        let is_para_break = text.contains("\n\n")
+            || text.contains("\r\n\r\n")
+            || (text.trim().is_empty() && (text.contains('\n') || text.contains('\r')));
+        if is_para_break {
+            crate::router::topic_cache::clear_for_key(cache_key);
+        } else {
+            let topic_tokens = self.extract_topic_tokens_from_text(text);
+            crate::router::topic_cache::record_tokens_for_key(cache_key, &topic_tokens);
+        }
         let ended_with_newline = text.ends_with('\n') || text.ends_with('\r');
         let prev_roster_tag: Option<&'static str> =
             if self.last_committed_word.starts_with("__ROSTER_F__\t") {
@@ -24409,5 +24471,186 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_wave_a_v0961_topic_cross_sentence_and_cache_protection_e2e() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        let eng_id = &engine as *const RuhiEngine as usize;
+        let cache_key = engine.transitions.cache_lm_key();
+
+        let decode_bpms = |eng: &mut RuhiEngine, bpms: &[&str]| -> String {
+            let syls: Vec<crate::fsm::HsuSyllable> = bpms
+                .iter()
+                .map(|s| crate::fsm::HsuSyllable::from_bopomofo_display(s).unwrap())
+                .collect();
+            let dag = LatticeDAG::new(&eng.lexicon).build_dag(&syls, true);
+            let eid = eng as *const RuhiEngine as usize;
+            let _guard = crate::router::neural_reranker::ScopedContextPrefix::for_engine(eid);
+            let (nodes, _) = eng.router.solve_best_path_with_prefix(
+                syls.len(),
+                &dag,
+                Some(&mut eng.transitions),
+                None,
+            );
+            nodes.iter().map(|n| n.word.as_str()).collect()
+        };
+
+        // 1. 文件主題突發快取：送出主題句後自動擷取實詞並提權，換段 ("\n\n") 即清空
+        crate::router::neural_reranker::clear_committed_context(eng_id);
+        crate::router::topic_cache::clear_for_key(cache_key);
+        engine.record_committed("我們今天深入探討超微與量子運算架構。");
+        let tc_snap = crate::router::topic_cache::snapshot_if_non_empty(cache_key)
+            .expect("topic cache must harvest content words from committed text");
+        assert!(tc_snap.score_word("量子") > 0.0 || tc_snap.score_word("架構") > 0.0);
+        assert_eq!(tc_snap.score_word("我們"), 0.0);
+        assert_eq!(tc_snap.score_word("今天"), 0.0);
+
+        engine.record_committed("\n\n");
+        assert!(crate::router::topic_cache::snapshot_if_non_empty(cache_key).is_none());
+        assert!(crate::router::neural_reranker::get_committed_context(eng_id).is_none());
+
+        // 2. 跨句有生性／性別代詞追蹤（離線 Viterbi ＋ 語篇重排）
+        engine.record_committed("這台新買的伺服器效能非常穩定。");
+        let s_it = decode_bpms(
+            &mut engine,
+            &["ㄊㄚ", "ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄧ", "ㄖㄢˊ", "ㄕˊ", "ㄈㄣ", "ㄎㄜˇ", "ㄎㄠˋ"],
+        );
+        assert_eq!(s_it, "它現在依然十分可靠");
+
+        engine.record_committed("\n\n");
+        engine.record_committed("我妹妹剛從日本回來。");
+        let s_she = decode_bpms(
+            &mut engine,
+            &["ㄊㄚ", "ㄉㄞˋ", "ㄌㄜ˙", "ㄏㄣˇ", "ㄉㄨㄛ", "ㄅㄢˋ", "ㄕㄡˇ", "ㄌㄧˇ"],
+        );
+        assert_eq!(s_she, "她帶了很多伴手禮");
+
+        engine.record_committed("\n\n");
+        engine.record_committed("鄰居養了一隻小花貓。");
+        let s_anim = decode_bpms(
+            &mut engine,
+            &["ㄊㄚ", "ㄇㄟˇ", "ㄊㄧㄢ", "ㄉㄡ", "ㄗㄞˋ", "ㄧㄤˊ", "ㄊㄞˊ", "ㄕㄞˋ", "ㄊㄞˋ", "ㄧㄤˊ"],
+        );
+        assert_eq!(s_anim, "牠每天都在陽台曬太陽");
+
+        // 3. 若本機存在 rlnm_zh_tw.bin，端對端實測神經模型於 lambda=6.0 下之跨句與個人糾正保護
+        let model_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("ruhi_lexicon")
+            .join("data")
+            .join("rlnm_zh_tw.bin");
+        if model_path.is_file() {
+            let model = crate::router::rlnm::RlnmModel::open(&model_path).unwrap();
+            let mut kv_cache = model.alloc_kv_cache();
+            let lambda = 6.0f64;
+
+            // (a) 跨句實體在 lambda=6.0 下配合 score_discourse_sentence_with_prefix 正確維持「它／她」
+            engine.record_committed("\n\n");
+            engine.record_committed("這台新買的伺服器效能非常穩定。");
+            let bpms_it = ["ㄊㄚ", "ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄧ", "ㄖㄢˊ", "ㄕˊ", "ㄈㄣ", "ㄎㄜˇ", "ㄎㄠˋ"];
+            let syls_it: Vec<crate::fsm::HsuSyllable> = bpms_it
+                .iter()
+                .map(|s| crate::fsm::HsuSyllable::from_bopomofo_display(s).unwrap())
+                .collect();
+            let dag_it = LatticeDAG::new(&engine.lexicon).build_dag(&syls_it, true);
+            let nbest_it = engine.router.solve_diverse_nbest_paths_with_prefix(
+                syls_it.len(),
+                &dag_it,
+                Some(&mut engine.transitions),
+                None,
+                16,
+                28,
+            );
+            let ctx_prefix = {
+                let _g = crate::router::neural_reranker::ScopedContextPrefix::for_engine(eng_id);
+                crate::router::neural_reranker::effective_context_prefix(None)
+            };
+            let cand_texts_it: Vec<String> = nbest_it
+                .iter()
+                .map(|(ns, _)| ns.iter().map(|n| n.word.as_str()).collect())
+                .collect();
+            let refs_it: Vec<&str> = cand_texts_it.iter().map(|s| s.as_str()).collect();
+            let nl_it = model.score_candidates_trie(&ctx_prefix, &refs_it, &mut kv_cache, None);
+            let mut best_it = String::new();
+            let mut best_it_sc = f64::NEG_INFINITY;
+            for (idx, (ns, base_sc)) in nbest_it.iter().enumerate() {
+                let dd = crate::router::discourse_reranker::score_discourse_sentence_with_prefix(
+                    ns, &ctx_prefix,
+                );
+                let tot = crate::router::neural_reranker::compute_fused_candidate_score(
+                    *base_sc + dd,
+                    nl_it[idx] as f64,
+                    ns,
+                    dd,
+                    0.0,
+                    0.0,
+                    lambda,
+                );
+                if tot > best_it_sc {
+                    best_it_sc = tot;
+                    best_it = cand_texts_it[idx].clone();
+                }
+            }
+            assert_eq!(best_it, "它現在依然十分可靠");
+
+            // (b) 個人糾正保護：於「剛剛買的 [文具->文句]」錄入使用者手動改字後，lambda=6.0 絕不覆寫
+            engine.record_committed("\n\n");
+            let now = crate::router::cache_lm::current_unix_secs();
+            crate::router::cache_lm::record_correction_for_key(
+                cache_key, "的", "文具", "文句", "", now,
+            );
+            let clm_snap = crate::router::cache_lm::snapshot_if_non_empty(cache_key)
+                .expect("cache_lm snapshot must exist after user correction");
+            let bpms_wj = ["ㄨㄛˇ", "ㄍㄤ", "ㄍㄤ", "ㄇㄞˇ", "ㄉㄜ˙", "ㄨㄣˊ", "ㄐㄩˋ"];
+            let syls_wj: Vec<crate::fsm::HsuSyllable> = bpms_wj
+                .iter()
+                .map(|s| crate::fsm::HsuSyllable::from_bopomofo_display(s).unwrap())
+                .collect();
+            let dag_wj = LatticeDAG::new(&engine.lexicon).build_dag(&syls_wj, true);
+            let nbest_wj = engine.router.solve_diverse_nbest_paths_with_prefix(
+                syls_wj.len(),
+                &dag_wj,
+                Some(&mut engine.transitions),
+                None,
+                16,
+                28,
+            );
+            let cand_texts_wj: Vec<String> = nbest_wj
+                .iter()
+                .map(|(ns, _)| ns.iter().map(|n| n.word.as_str()).collect())
+                .collect();
+            let refs_wj: Vec<&str> = cand_texts_wj.iter().map(|s| s.as_str()).collect();
+            let nl_wj = model.score_candidates_trie("", &refs_wj, &mut kv_cache, None);
+            let mut best_wj = String::new();
+            let mut best_wj_sc = f64::NEG_INFINITY;
+            for (idx, (ns, base_sc)) in nbest_wj.iter().enumerate() {
+                let cd = clm_snap.score_sentence(ns, None);
+                let tot = crate::router::neural_reranker::compute_fused_candidate_score(
+                    *base_sc,
+                    nl_wj[idx] as f64,
+                    ns,
+                    0.0,
+                    cd,
+                    0.0,
+                    lambda,
+                );
+                if tot > best_wj_sc {
+                    best_wj_sc = tot;
+                    best_wj = cand_texts_wj[idx].clone();
+                }
+            }
+            assert_eq!(
+                best_wj, "我剛剛買的文句",
+                "post-neural cache_lm protection must preserve manual fix 我剛剛買的文句 at lambda=6.0"
+            );
+            crate::router::cache_lm::clear_for_key(cache_key);
+        }
+
+        crate::router::neural_reranker::clear_committed_context(eng_id);
+        crate::router::topic_cache::clear_for_key(cache_key);
     }
 }
