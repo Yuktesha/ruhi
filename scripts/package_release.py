@@ -84,6 +84,7 @@ def main():
     # 1. 來源路徑檢查
     tsf_dll = root / "ruhi-tsf" / "target" / "release" / "ruhi_tsf.dll"
     core_dll = root / "ruhi-core" / "target" / "release" / "ruhi.dll"
+    reranker_exe = root / "ruhi-core" / "target" / "release" / "ruhi_reranker.exe"
     settings_exe_candidates = [
         root / "ruhi-settings" / "target" / "release" / "ruhi-settings.exe",
         root / "ruhi-settings.exe",
@@ -98,6 +99,10 @@ def main():
         raise FileNotFoundError(
             f"找不到發布版 DLL: {core_dll}，請先執行 cargo build --release！"
         )
+    if not reranker_exe.exists():
+        raise FileNotFoundError(
+            f"找不到發布版重排器執行檔: {reranker_exe}，請先執行 cargo build --release --manifest-path ruhi-core\\Cargo.toml --bin ruhi_reranker！"
+        )
 
     # 2. PE 導入表審核
     verify_pe_imports(tsf_dll)
@@ -107,9 +112,10 @@ def main():
         shutil.rmtree(release_dir)
     release_dir.mkdir(parents=True, exist_ok=True)
 
-    # 複製核心二進位檔與圖示 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi-settings.exe)
+    # 複製核心二進位檔與圖示 (100% Pure Rust: ruhi_tsf.dll, ruhi.dll, ruhi_reranker.exe, ruhi-settings.exe)
     shutil.copy2(tsf_dll, release_dir / "ruhi_tsf.dll")
     shutil.copy2(core_dll, release_dir / "ruhi.dll")
+    shutil.copy2(reranker_exe, release_dir / "ruhi_reranker.exe")
     if settings_exe:
         shutil.copy2(settings_exe, release_dir / "ruhi-settings.exe")
         shutil.copy2(settings_exe, root / "ruhi-settings.exe")
@@ -161,9 +167,16 @@ def main():
             f"錯誤：缺少必要語言模型二進位檔 {ng_bin}，無法封裝完整發布包。"
         )
     shutil.copy2(ng_bin, release_data / "ngram_zh_tw.bin")
+    rlnm_bin = root / "ruhi_lexicon" / "data" / "rlnm_zh_tw.bin"
+    if not rlnm_bin.is_file():
+        raise FileNotFoundError(
+            f"錯誤：缺少選配神經語言模型二進位檔 {rlnm_bin}，無法封裝完整 v1.0 發布包。"
+        )
+    shutil.copy2(rlnm_bin, release_data / "rlnm_zh_tw.bin")
     for bin_label, bin_path in [
         ("longkan.bin", release_data / "longkan.bin"),
         ("ngram_zh_tw.bin", release_data / "ngram_zh_tw.bin"),
+        ("rlnm_zh_tw.bin", release_data / "rlnm_zh_tw.bin"),
     ]:
         if bin_path.is_file():
             mb = bin_path.stat().st_size / (1024 * 1024)
@@ -192,6 +205,7 @@ def main():
         "一鍵安裝.ps1",
         "一鍵解除安裝.ps1",
         "run_settings.ps1",
+        "run_reranker.ps1",
         "hot_reload.ps1",
     ]:
         src_s = root / "scripts" / script_name
@@ -219,6 +233,8 @@ def main():
         "RUHI_WESTERN_INPUT_AND_MIXED_TYPING_BLUEPRINT.md",
         "RUHI_KOREAN_RR_HANDOVER.md",
         "RUHI_FOUR_CORNER_NUMPAD_SPEC.md",
+        "RUHI_V1_NEURAL_RERANKER_SPEC.md",
+        "RUHI_V1_BENCHMARK_REPORT.md",
         "ruhi_interactive_workbench.html",
     ]:
         src_doc = root / "docs" / doc_name

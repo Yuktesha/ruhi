@@ -1,5 +1,21 @@
 # 如喜（RuhI）通用智慧型輸入法 — 改版說明 (Changelog)
 
+## v0.9.5 (2026-11-25) — 選配輕量神經重排首發里程碑（正式 v1.0.0 將續推 Stage D1–D4 精進）
+
+### 🧠 選配純 Rust 離線輕量神經重排（`RLNM0001`）、長句自適應 `K=32` 與顯著精度躍進
+- **純 Rust INT8 離線因果字元 Transformer（`RuhI-CharLM-v1` / `RLNM0001`，`21.79 MB`）**：
+  - 實作 [`rlnm.rs`](ruhi-core/src/router/rlnm.rs)、[`neural_reranker.rs`](ruhi-core/src/router/neural_reranker.rs) 與獨立單例側車 [`ruhi_reranker.exe`](ruhi-core/src/bin/ruhi_reranker.rs)：以樹狀共前綴批次 GEMM（AVX-512F 4x4 / AVX2+FMA 2x4 ＋無鎖自旋池）搭配 Named Pipe 本地通訊與 `CREATE_NO_WINDOW` 按需自動啟動、`25 ms` 硬逾時自動降級回退，嚴格保持 COM ABI（`LAYER_B_ABI_EPOCH = 2`）零異動與零 GPU 依賴。
+  - 預設採選配關閉（`enable_neural_reranker: false`），可於安裝程式或 `ruhi-settings` 偏好設定中心一鍵啟用，並自訂混合權重 $\lambda$（預設 `2.25`）。
+- **長句自適應 `K=32`、前綴樹節點預算與全量冷啟動重訓**：
+  - [`viterbi.rs`](ruhi-core/src/router/viterbi.rs) 於啟用神經重排且輸入達 `15` 音節以上時自動擴展至 `Top-32`（`MAX_ASTAR_POPS = 4096`，Oracle 上界命中率 `88.27% -> 89.59%`）；加入 `PrefixTrieBudget`（`max_trie_nodes = 200`）將 8 執行緒實測維持在 `p50 = 9.81 ms / p95 = 20.72 ms`。
+  - 於 Google Colab A100 以 **103,159,629** 清潔字元與 `40%` `<bos>` 冷啟動切片重訓並匯出 `rlnm_zh_tw.bin`（`corpus_fingerprint = 0x6f6ff534ce904c9b`），消除短前綴倒掛並修正 7/7 基準對比句。
+- **全面客觀實證（[`docs/RUHI_V1_BENCHMARK_REPORT.md`](docs/RUHI_V1_BENCHMARK_REPORT.md)）**：
+  - **開發集 `dev.tsv`**（3,640 句／44,855 字）：CER 由 `v0.9.0` **`3.49%`**（`1,566` 字錯）降至 **`2.92%`**（**`1,309` 字錯，淨減 `-256` 字錯** vs `v0.9.5` 離線基準），整句完全命中率升至 **`78.05%`**（`2,841 / 3,640` 句）。
+  - **單次盲測 `test.tsv`**（1,560 句／19,058 字）：CER 由離線基準 `4.36%` 降至 **`3.52%`**（淨減 `-160` 字錯，相對降幅 **`19.25%`**，McNemar $\chi^2 = 44.0549, p = 3.210 \times 10^{-11}$）。
+  - **單次外部盲測 `typing_tw.tsv`**（4,256 句／48,911 字）：CER 由離線基準 `9.01%` 降至 **`7.84%`**（淨減 `-572` 字錯，相對降幅 **`12.98%`**）。
+
+---
+
 ## v0.9.0 (2026-11-22)
 
 ### 🚀 語篇 N-Best 搜尋、近億字台灣口語詞三元語言模型與系統主題介面

@@ -2,11 +2,11 @@
   "compat_feeds": {
     "1": "https://raw.githubusercontent.com/Yuktesha/ruhi/main/ruhi_lexicon/data/tailcat_official_feed.json"
   },
-  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v0.9.0/RuhI_Setup_v0.9.0.exe",
-  "latest_version": "0.9.0",
+  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v0.9.5/RuhI_Setup_v0.9.5.exe",
+  "latest_version": "0.9.5",
   "min_compat_version": "0.4.0",
   "protocol": "RUHI_TAILCAT_FEDERATED_SEMANTIC_V1",
-  "release_notes": "RuhI v0.9.0：(1) 新增 Forward-Viterbi＋Backward-A* Top-16 候選搜尋與純 Rust 雙向語篇代詞（他／她／它／牠）重排序；(2) 擴充至 12 組商用安全台灣正體口語與書面語料（9,921 萬清潔字元），升級 RLNG0002 詞三元統計語言模型（50.34 MB）並透過索引外提將 P95 延遲壓低至 20.58 ms，開發集 CER 降至 3.49%、整句命中率升至 73.96%；(3) 承襲 v0.8.0 個人化局部上下文線上學習（Cache LM）、100% Apache 2.0 純開源回歸與泛歐三大支柱；(4) 新增系統深淺色自適應「關於如喜」對話框與 A Solid GUI Studio 雙主題品牌標誌。",
+  "release_notes": "RuhI v0.9.5：(1) 新增選配純 Rust INT8 離線輕量神經語言重排器 ruhi_reranker.exe ＋ RLNM0001（21.79 MB，無須 GPU、25 ms 硬逾時安全回退，預設關閉可於設定或安裝程式一鍵啟用）；(2) 長句（≥15 音節）自適應 Top-32 A* 搜尋與 200 節點前綴樹延遲預算（8 執行緒實測 p50=9.81 ms / p95=20.72 ms），並以 1.03 億字商用安全台灣繁體語料冷啟動重訓模型；(3) 實證開發集 dev.tsv CER 降至 2.92%（整句命中 78.05%），單次盲測 test.tsv 相對降幅 19.25%（4.36%→3.52%）、typing_tw.tsv 相對降幅 12.98%（9.01%→7.84%）。",
   "telemetry_intake_url": "https://script.google.com/macros/s/AKfycbzH-n5YhBFSUPZUiUWfZXw46qp9OYliLlnijGmHMpIs4F0Ve_2ZM6k2mNpeoSnU6NMt/exec",
   "rules": [
     {

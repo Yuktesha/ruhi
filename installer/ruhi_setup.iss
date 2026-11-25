@@ -2,7 +2,7 @@
 ; 符合 Windows 10 / 11 64 位元純 TSF 與 Win32 全生態相容性規範 (TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC)
 
 #define MyAppName "RuhI 如喜通用智慧型輸入法"
-#define MyAppVersion "0.9.0"
+#define MyAppVersion "0.9.5"
 #define MyAppPublisher "RuhOS Community"
 #define MyAppURL "https://github.com/Yuktesha/ruhi"
 #define MyAppExeName "ruhi-settings.exe"
@@ -34,6 +34,7 @@ Name: "chinesetraditional"; MessagesFile: "ChineseTraditional.isl"
 
 [Tasks]
 Name: "telemetry_consent"; Description: "同意在手動改字時記錄匿名對照句，並經啟發式個資過濾後依設定週期回傳至官方雲端語料表以協助優化語意（預設不勾選，隨時可於設定中心更改）"; Flags: unchecked
+Name: "enable_neural_reranker"; Description: "啟用選配離線輕量神經語言重排（RLNM0001，約 21.8 MB、純 CPU 運作無須顯示卡，預設不勾選，可隨時於設定中心切換）"; Flags: unchecked
 
 #define StageDir "..\dist\RuhI_v" + MyAppVersion + "_Windows_x64"
 
@@ -42,6 +43,7 @@ Name: "telemetry_consent"; Description: "同意在手動改字時記錄匿名對
 Source: "{#StageDir}\ruhi_tsf.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
 Source: "{#StageDir}\ruhi.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
 Source: "{#StageDir}\ruhi-settings.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\ruhi_reranker.exe"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
 Source: "{#StageDir}\ruhi.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 ; 完整詞庫與轉移引力資料
@@ -58,6 +60,7 @@ Source: "{#StageDir}\user_cache_lm.tsv"; DestDir: "{app}"; Flags: ignoreversion 
 ; 管理與日常熱重載工具
 Source: "{#StageDir}\run_settings.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\hot_reload.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\run_reranker.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\一鍵安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\一鍵解除安裝.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -75,6 +78,8 @@ Source: "{#StageDir}\docs\RUHI_KOREAN_RR_HANDOVER.md"; DestDir: "{app}\docs"; Fl
 Source: "{#StageDir}\docs\RUHI_FOUR_CORNER_NUMPAD_SPEC.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "{#StageDir}\docs\ruhi_interactive_workbench.html"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "{#StageDir}\docs\TSF_WIN32_COMPATIBILITY_AND_INSTALLER_SPEC.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#StageDir}\docs\RUHI_V1_NEURAL_RERANKER_SPEC.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#StageDir}\docs\RUHI_V1_BENCHMARK_REPORT.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\如喜輸入法偏好設定"; Filename: "{app}\ruhi-settings.exe"; WorkingDir: "{app}"
@@ -95,6 +100,7 @@ end;
 procedure StopCtfmon();
 begin
   ExecCmd('taskkill.exe', '/f /im ctfmon.exe');
+  ExecCmd('taskkill.exe', '/f /im ruhi_reranker.exe');
   Sleep(300);
 end;
 
@@ -169,6 +175,12 @@ begin
       ExecCmd('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -Command "$p=''' + AppDir + '\config.json''; if(Test-Path $p){$j=Get-Content $p -Raw -Encoding UTF8|ConvertFrom-Json; $j|Add-Member -NotePropertyName telemetry_consent -NotePropertyValue $true -Force; $j|ConvertTo-Json -Depth 5|Set-Content $p -Encoding UTF8}"')
     else
       ExecCmd('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -Command "$p=''' + AppDir + '\config.json''; if(Test-Path $p){$j=Get-Content $p -Raw -Encoding UTF8|ConvertFrom-Json; $j|Add-Member -NotePropertyName telemetry_consent -NotePropertyValue $false -Force; $j|ConvertTo-Json -Depth 5|Set-Content $p -Encoding UTF8}"');
+
+    // 5b. 依據使用者安裝時勾選之選配輕量神經重排寫入 config.json (enable_neural_reranker / lambda / timeout_ms)
+    if WizardIsTaskSelected('enable_neural_reranker') then
+      ExecCmd('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -Command "$p=''' + AppDir + '\config.json''; if(Test-Path $p){$j=Get-Content $p -Raw -Encoding UTF8|ConvertFrom-Json; $j|Add-Member -NotePropertyName enable_neural_reranker -NotePropertyValue $true -Force; if(-not $j.PSObject.Properties[''neural_reranker_lambda'']){$j|Add-Member -NotePropertyName neural_reranker_lambda -NotePropertyValue 2.25 -Force}; if(-not $j.PSObject.Properties[''neural_reranker_timeout_ms'']){$j|Add-Member -NotePropertyName neural_reranker_timeout_ms -NotePropertyValue 25 -Force}; $j|ConvertTo-Json -Depth 5|Set-Content $p -Encoding UTF8}"')
+    else
+      ExecCmd('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -Command "$p=''' + AppDir + '\config.json''; if(Test-Path $p){$j=Get-Content $p -Raw -Encoding UTF8|ConvertFrom-Json; $j|Add-Member -NotePropertyName enable_neural_reranker -NotePropertyValue $false -Force; if(-not $j.PSObject.Properties[''neural_reranker_lambda'']){$j|Add-Member -NotePropertyName neural_reranker_lambda -NotePropertyValue 2.25 -Force}; if(-not $j.PSObject.Properties[''neural_reranker_timeout_ms'']){$j|Add-Member -NotePropertyName neural_reranker_timeout_ms -NotePropertyValue 25 -Force}; $j|ConvertTo-Json -Depth 5|Set-Content $p -Encoding UTF8}"');
 
     // 6. 重新喚起文字服務框架
     StartCtfmon();

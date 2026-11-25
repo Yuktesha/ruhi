@@ -135,6 +135,10 @@
 | `lianghsun/tw-processed-law-ctx` | Apache-2.0 | 台灣法規條文語境語料 |
 | `taiwan-corpora/twfilter-tables` | OGDL-Taiwan-1.0 / Apache-2.0 / MIT | 台灣正體字表與兩岸用語純度過濾規則 |
 
+### `rlnm_zh_tw.bin`（選配 `v1.0` 輕量神經語言模型，Apache-2.0 權重／同源商用安全語料）
+- **訓練語料規模與授權**：與 `ngram_zh_tw.bin` 同源採集上述商用安全（Apache-2.0 / MIT / CC-BY-4.0 / CC0）台灣繁體來源（`v0.9.5` 實機訓練成功匯聚其中 11 組可用來源合計 **`103,159,629`** 清潔字元、`11,108,601` 句段），並於訓練前對內部與外部評估集完成雜湊去重。
+- **權重授權**：`RuhI-CharLM-v1` 模型架構、訓練腳本（[`scripts/train_neural_reranker.py`](scripts/train_neural_reranker.py)）與量化後權重檔 `rlnm_zh_tw.bin` 均依 Apache License 2.0 隨本專案授權釋出。
+
 依上述授權條款特此聲明並致謝：
 * **數位發展部，CNS11643中文標準交換碼全字庫網站**
 * **OpenCC — https://github.com/BYVoid/OpenCC, Apache License 2.0**
