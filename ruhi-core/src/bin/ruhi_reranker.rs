@@ -7,7 +7,8 @@
 // - `--once`：僅服務 1 筆請求後安全退出（供自動化 Named Pipe 端到端測試驗證）。
 
 use ruhi::router::neural_reranker::{
-    decode_request, encode_response, select_candidates_with_trie_budget, NeuralRerankerConfig,
+    decode_request, encode_response, resolve_sibling_r2l_model_path,
+    score_candidates_bidirectional, select_candidates_with_trie_budget, NeuralRerankerConfig,
     DEFAULT_PIPE_NAME, MAX_IPC_FRAME_BYTES,
 };
 use ruhi::router::rlnm::{RlnmModel, RlnmThreadPool};
@@ -44,8 +45,13 @@ fn resolve_default_model_path() -> Option<PathBuf> {
     None
 }
 
-fn run_benchmark(model: &RlnmModel, pool: &RlnmThreadPool) {
+fn run_benchmark(
+    model: &RlnmModel,
+    r2l_model: Option<&RlnmModel>,
+    pool: &RlnmThreadPool,
+) {
     let mut cache = model.alloc_kv_cache();
+    let mut r2l_cache = r2l_model.map(|m| m.alloc_kv_cache());
     let bench_cases: Vec<(&str, Vec<&str>)> = vec![
         (
             "",
@@ -173,7 +179,15 @@ fn run_benchmark(model: &RlnmModel, pool: &RlnmThreadPool) {
     ];
 
     // 暖機 1 次確保 mmap 與快取頁完成載入
-    let _ = model.score_candidates_trie(bench_cases[0].0, &bench_cases[0].1, &mut cache, Some(pool));
+    let _ = score_candidates_bidirectional(
+        model,
+        r2l_model,
+        bench_cases[0].0,
+        &bench_cases[0].1,
+        &mut cache,
+        r2l_cache.as_mut(),
+        Some(pool),
+    );
     let max_trie_nodes = NeuralRerankerConfig::default().max_trie_nodes;
 
     let mut latencies_ms = Vec::new();
@@ -183,7 +197,15 @@ fn run_benchmark(model: &RlnmModel, pool: &RlnmThreadPool) {
                 select_candidates_with_trie_budget(pref, cands, max_trie_nodes);
             let active_cands: Vec<&str> = kept_indices.iter().map(|&i| cands[i]).collect();
             let t0 = Instant::now();
-            let scores = model.score_candidates_trie(pref, &active_cands, &mut cache, Some(pool));
+            let scores = score_candidates_bidirectional(
+                model,
+                r2l_model,
+                pref,
+                &active_cands,
+                &mut cache,
+                r2l_cache.as_mut(),
+                Some(pool),
+            );
             let ms = t0.elapsed().as_secs_f64() * 1000.0;
             latencies_ms.push(ms);
             if round == 0 {
@@ -205,9 +227,16 @@ fn run_benchmark(model: &RlnmModel, pool: &RlnmThreadPool) {
     let p50 = latencies_ms[n / 2];
     let p95 = latencies_ms[((n as f64 * 0.95).ceil() as usize).saturating_sub(1).min(n - 1)];
     let max_ms = latencies_ms[n - 1];
+    let total_workers = pool.num_workers();
+    let mode_str = if r2l_model.is_some() {
+        "bidirectional"
+    } else {
+        "l2r-only"
+    };
     println!(
-        "[ruhi_reranker --bench] workers={} | n={} | p50={:.2} ms | p95={:.2} ms | max={:.2} ms",
-        pool.num_workers(),
+        "[ruhi_reranker --bench] mode={} | workers={} | n={} | p50={:.2} ms | p95={:.2} ms | max={:.2} ms",
+        mode_str,
+        total_workers,
         n,
         p50,
         p95,
@@ -235,12 +264,29 @@ fn run_benchmark(model: &RlnmModel, pool: &RlnmThreadPool) {
         "它每天都可以穩錠運作",
     ];
     let mut kv_test_cache = model.alloc_kv_cache();
+    let mut r2l_test_cache = r2l_model.map(|m| m.alloc_kv_cache());
     let t_cold = Instant::now();
-    let sc_cold = model.score_candidates_trie(cross_prefix, &cross_cands, &mut kv_test_cache, Some(pool));
+    let sc_cold = score_candidates_bidirectional(
+        model,
+        r2l_model,
+        cross_prefix,
+        &cross_cands,
+        &mut kv_test_cache,
+        r2l_test_cache.as_mut(),
+        Some(pool),
+    );
     let cold_ms = t_cold.elapsed().as_secs_f64() * 1000.0;
 
     let t_warm = Instant::now();
-    let sc_warm = model.score_candidates_trie(cross_prefix, &cross_cands, &mut kv_test_cache, Some(pool));
+    let sc_warm = score_candidates_bidirectional(
+        model,
+        r2l_model,
+        cross_prefix,
+        &cross_cands,
+        &mut kv_test_cache,
+        r2l_test_cache.as_mut(),
+        Some(pool),
+    );
     let warm_ms = t_warm.elapsed().as_secs_f64() * 1000.0;
 
     let max_drift = sc_cold
@@ -406,6 +452,7 @@ mod win_server {
     pub fn serve_pipe(
         pipe_name: &str,
         model: &RlnmModel,
+        r2l_model: Option<&RlnmModel>,
         pool: &RlnmThreadPool,
         once: bool,
     ) -> Result<(), String> {
@@ -464,18 +511,29 @@ mod win_server {
         let mut wide_pipe: Vec<u16> = pipe_name.encode_utf16().collect();
         wide_pipe.push(0);
         let mut cache = model.alloc_kv_cache();
+        let mut r2l_cache = r2l_model.map(|m| m.alloc_kv_cache());
         // 預熱 BatchWorkSpace 與 mmap 權重分頁，避免首次按鍵推論觸發冷頁延遲
-        let _ = model.score_candidates_trie(
+        let _ = score_candidates_bidirectional(
+            model,
+            r2l_model,
             "",
             &["已取消南下行程", "以取消南下行程"],
             &mut cache,
+            r2l_cache.as_mut(),
             Some(pool),
         );
 
+        let total_workers = pool.num_workers();
+        let mode_str = if r2l_model.is_some() {
+            "bidirectional"
+        } else {
+            "l2r-only"
+        };
         println!(
-            "[ruhi_reranker] 已就緒: pipe={}, workers={}, vocab={}",
+            "[ruhi_reranker] 已就緒: pipe={}, mode={}, workers={}, vocab={}",
             pipe_name,
-            pool.num_workers(),
+            mode_str,
+            total_workers,
             model.cfg.vocab_size
         );
 
@@ -509,10 +567,13 @@ mod win_server {
                             if let Some((req_id, _tmo, prefix, cands)) = decode_request(&payload) {
                                 let cand_refs: Vec<&str> =
                                     cands.iter().map(|s| s.as_str()).collect();
-                                let scores = model.score_candidates_trie(
+                                let scores = score_candidates_bidirectional(
+                                    model,
+                                    r2l_model,
                                     &prefix,
                                     &cand_refs,
                                     &mut cache,
+                                    r2l_cache.as_mut(),
                                     Some(pool),
                                 );
                                 let resp = encode_response(req_id, 0, &scores);
@@ -536,6 +597,8 @@ mod win_server {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let mut model_path: Option<PathBuf> = None;
+    let mut model_r2l_path: Option<PathBuf> = None;
+    let mut no_r2l = false;
     let mut pipe_name = DEFAULT_PIPE_NAME.to_string();
     let mut threads: Option<usize> = None;
     let mut do_bench = false;
@@ -547,6 +610,14 @@ fn main() {
             "--model" if i + 1 < args.len() => {
                 model_path = Some(PathBuf::from(&args[i + 1]));
                 i += 2;
+            }
+            "--model-r2l" if i + 1 < args.len() => {
+                model_r2l_path = Some(PathBuf::from(&args[i + 1]));
+                i += 2;
+            }
+            "--no-r2l" => {
+                no_r2l = true;
+                i += 1;
             }
             "--pipe" if i + 1 < args.len() => {
                 pipe_name = args[i + 1].clone();
@@ -587,18 +658,45 @@ fn main() {
         t0.elapsed().as_secs_f64() * 1000.0
     );
 
+    let resolved_r2l = if no_r2l {
+        None
+    } else {
+        model_r2l_path.or_else(|| resolve_sibling_r2l_model_path(&resolved_model))
+    };
+    let r2l_model = resolved_r2l.as_ref().map(|r2l_p| {
+        let tr = Instant::now();
+        let m = RlnmModel::open(r2l_p).unwrap_or_else(|e| {
+            eprintln!("[錯誤] 無法載入 R2L RLNM0001 模型 {}: {}", r2l_p.display(), e);
+            std::process::exit(1);
+        });
+        println!(
+            "[ruhi_reranker] 載入 R2L 伴隨模型 {} ({:.2} MB) 耗時 {:.2} ms",
+            r2l_p.display(),
+            std::fs::metadata(r2l_p).map(|md| md.len() as f64 / (1024.0 * 1024.0)).unwrap_or(0.0),
+            tr.elapsed().as_secs_f64() * 1000.0
+        );
+        m
+    });
+
     let default_threads = std::thread::available_parallelism()
         .map(|n| (n.get() / 2).clamp(2, 8))
         .unwrap_or(4);
-    let pool = RlnmThreadPool::new(threads.unwrap_or(default_threads));
+    let total_workers = threads.unwrap_or(default_threads).max(1);
+    let pool = RlnmThreadPool::new(total_workers);
 
     if do_bench {
-        run_benchmark(&model, &pool);
+        run_benchmark(&model, r2l_model.as_ref(), &pool);
         return;
     }
 
     #[cfg(target_os = "windows")]
-    if let Err(e) = win_server::serve_pipe(&pipe_name, &model, &pool, do_once) {
+    if let Err(e) = win_server::serve_pipe(
+        &pipe_name,
+        &model,
+        r2l_model.as_ref(),
+        &pool,
+        do_once,
+    ) {
         eprintln!("[錯誤] Named Pipe 服務失敗: {}", e);
         std::process::exit(1);
     }

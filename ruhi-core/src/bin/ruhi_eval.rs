@@ -5684,6 +5684,8 @@ fn main() {
     let mut dump_train_nbest: Option<(PathBuf, PathBuf)> = None;
     let mut max_train_sents: usize = 300_000;
     let mut neural_rerank_path: Option<PathBuf> = None;
+    let mut neural_rerank_r2l_path: Option<PathBuf> = None;
+    let mut no_r2l = false;
     let mut neural_lambda: f64 = 4.5;
     let mut neural_margin: Option<f64> = None;
     let mut neural_max_trie_nodes: Option<usize> = None;
@@ -5785,6 +5787,14 @@ fn main() {
             "--neural-rerank" if i + 1 < args.len() => {
                 neural_rerank_path = Some(PathBuf::from(&args[i + 1]));
                 i += 2;
+            }
+            "--neural-rerank-r2l" if i + 1 < args.len() => {
+                neural_rerank_r2l_path = Some(PathBuf::from(&args[i + 1]));
+                i += 2;
+            }
+            "--no-r2l" => {
+                no_r2l = true;
+                i += 1;
             }
             "--neural-lambda" if i + 1 < args.len() => {
                 neural_lambda = args[i + 1].parse::<f64>().unwrap_or_else(|_| {
@@ -5999,6 +6009,24 @@ fn main() {
             Some(std::sync::Arc::new(model)),
             neural_lambda,
         );
+        let r2l_resolved = if no_r2l {
+            None
+        } else {
+            neural_rerank_r2l_path
+                .clone()
+                .or_else(|| ruhi::router::neural_reranker::resolve_sibling_r2l_model_path(model_path))
+        };
+        if let Some(ref r2l_p) = r2l_resolved {
+            let r2l_model = ruhi::router::rlnm::RlnmModel::open(r2l_p).unwrap_or_else(|e| {
+                eprintln!("無法載入 R2L RLNM0001 模型 `{}`: {}", r2l_p.display(), e);
+                std::process::exit(1);
+            });
+            ruhi::router::neural_reranker::set_in_process_r2l_model(Some(std::sync::Arc::new(
+                r2l_model,
+            )));
+        } else {
+            ruhi::router::neural_reranker::set_in_process_r2l_model(None);
+        }
         ruhi::router::neural_reranker::set_tuning_overrides(
             neural_margin,
             neural_max_trie_nodes,

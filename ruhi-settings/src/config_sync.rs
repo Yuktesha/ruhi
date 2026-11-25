@@ -283,7 +283,7 @@ pub fn default_neural_reranker_lambda() -> f64 {
 }
 
 pub fn default_neural_reranker_timeout_ms() -> u16 {
-    25
+    35
 }
 
 pub fn normalize_classical_mode(raw: &str) -> String {
@@ -1509,7 +1509,7 @@ mod tests {
         let initial = load_settings(&tmp_dir);
         assert!(!initial.grammar.enable_neural_reranker);
         assert!((initial.grammar.neural_reranker_lambda - 4.5).abs() < 1e-6);
-        assert_eq!(initial.grammar.neural_reranker_timeout_ms, 25);
+        assert_eq!(initial.grammar.neural_reranker_timeout_ms, 35);
 
         let mut s = initial;
         s.grammar.enable_neural_reranker = true;

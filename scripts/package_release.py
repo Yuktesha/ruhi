@@ -173,10 +173,14 @@ def main():
             f"錯誤：缺少選配神經語言模型二進位檔 {rlnm_bin}，無法封裝完整 v1.0 發布包。"
         )
     shutil.copy2(rlnm_bin, release_data / "rlnm_zh_tw.bin")
+    rlnm_r2l_bin = root / "ruhi_lexicon" / "data" / "rlnm_zh_tw_r2l.bin"
+    if rlnm_r2l_bin.is_file():
+        shutil.copy2(rlnm_r2l_bin, release_data / "rlnm_zh_tw_r2l.bin")
     for bin_label, bin_path in [
         ("longkan.bin", release_data / "longkan.bin"),
         ("ngram_zh_tw.bin", release_data / "ngram_zh_tw.bin"),
         ("rlnm_zh_tw.bin", release_data / "rlnm_zh_tw.bin"),
+        ("rlnm_zh_tw_r2l.bin", release_data / "rlnm_zh_tw_r2l.bin"),
     ]:
         if bin_path.is_file():
             mb = bin_path.stat().st_size / (1024 * 1024)

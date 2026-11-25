@@ -1,5 +1,22 @@
 # 如喜（RuhI）通用智慧型輸入法 — 改版說明 (Changelog)
 
+## v0.9.6.4 (2026-11-26) — 雙向（L2R + R2L）神經重排與 Top-8 後綴 Trie 級聯架構
+
+### 🧠 開發集神經重排錯字再降 **`-93` 字**（`2.40% ➔ 2.19%`、`984` 錯字），整句完全命中率躍升至 **`82.80%`**（`3,014 / 3,640` 句）
+- **`C6-R2L-32k` 逆向伴隨神經語言模型訓練與部署**：
+  - 使用 `C6` 同源超純淨多領域台灣正體語料反轉行內字序並維持 `64` 行跨句逆序脈絡（`18,661,133` 句段／`171,653,218` 字元），於 Google Colab A100 以 `batch_size = 128`、`cold_start_ratio = 0.50` 完成 `32,000` 步預訓練並匯出 `rlnm_zh_tw_r2l.bin`（`22,847,208` 位元組、`payload_fnv64 = 0xae811525a1c68037`、`SHA-256 = A53FB9ECFF2258B4E06E939B0FE7E3F59CA078C0A1C21D8459E2C0EFF3C6B6DA`）；訓練後已執行 `colab stop` 釋放遠端運算個體（`0` 活躍工作階段）。
+  - 同步更新 [`.gitignore`](.gitignore) 與 [`package_release.py`](scripts/package_release.py)（支援隨附封裝選配 `rlnm_zh_tw_r2l.bin`）。
+- **單一執行緒池 Top-8 / 120 節點後綴 Trie 級聯混合（[`neural_reranker.rs`](ruhi-core/src/router/neural_reranker.rs) / [`ruhi_reranker.rs`](ruhi-core/src/bin/ruhi_reranker.rs)）**：
+  - 實作 `score_candidates_bidirectional` 與前文長度自適應權重混合（無前文冷啟動 `R2L = 0.50`、具前文 `R2L = 0.35`）。
+  - 為避免長句尾字變異造成反轉後綴 Trie 失去字首共享而拉升尾端延遲，設計單一 8 執行緒池**兩段式級聯策略**：先由 L2R 完成全數入圍候選評分，再僅針對「首選＋依 L2R 分數由高至低挑選之 `Top-8` 候選（`MAX_R2L_CANDS = 8`）並受 `MAX_R2L_TRIE_NODES = 120` 後綴節點上限約束」執行 R2L 評分，未進入級聯的長尾候選則依已評分集合之 `mean_delta` 平移校準分數。
+  - 同步於 [`neural_reranker.rs`](ruhi-core/src/router/neural_reranker.rs) 與 [`config_sync.rs`](ruhi-settings/src/config_sync.rs) 將預設側車逾時由 `25 ms` 調升為 **`35 ms`**，並於 [`ruhi_eval.rs`](ruhi-core/src/bin/ruhi_eval.rs) 新增 `--neural-rerank-r2l` / `--no-r2l` 參數及於 [`ruhi_reranker.rs`](ruhi-core/src/bin/ruhi_reranker.rs) 新增 `--model-r2l` / `--no-r2l` 參數。
+- **開發集 `dev.tsv` 與側車效能實測**：
+  - **純 Rust 雙向級聯神經重排（`lambda = 4.5`）**：錯字降至 **`984 / 44,855`（`2.19%` CER）**，較 `v0.9.6.3` 淨減 **`-93`** 字錯、較離線基準（`1,551`）淨減 **`-567`** 字錯（相對降幅 **`36.56%`**）；整句完全命中率躍升至 **`82.80%`**（**`3,014 / 3,640` 句**，較 `v0.9.6.3` 淨增 **`+68`** 句；五大文體錯字數：`civic_public = 155`、`daily_dialogue = 149`、`literary_narrative = 175`、`moe_idiom_context = 135`、`tech_doc = 370`）。
+  - **側車推論基準（`ruhi_reranker --bench --threads 8`）**：`mode = bidirectional`、`workers = 8`、`n = 14` 全量實測 **`p50 = 10.84 ms` / `p95 = 27.59 ms` / `max = 27.59 ms`**（`#8` 27 字跨句前文快取 `1.26x` 加速、`max_drift = 0.00e0`）。
+  - **完整品質驗證**：離線品質閘門 `dev --gate` **`PASS`**（`1,551 / 44,855 = 3.46%`、`2,697 / 3,640 = 74.09%`）；`ruhi-core --lib` **`288 passed; 0 failed; 9 ignored`**（含 `test_bidirectional_blend_weights_and_real_model_if_present_261126`）、`ruhi-tsf --lib` **`31 passed; 0 failed`**、`ruhi-settings` **`9+1 passed; 0 failed`**、`lint_scoring_rules.py --full` **`0` 違規**。
+
+---
+
 ## v0.9.6.3 (2026-11-26) — 純淨多領域重訓練神經重排（`C6-L2R-32k`）與 `lambda = 4.5` 校準
 
 ### 🧠 開發集神經重排錯字再降 **`-77` 字**（`2.57% ➔ 2.40%`、`1,077` 錯字），整句完全命中率突破 **`80.93%`**

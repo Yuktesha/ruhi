@@ -14,7 +14,7 @@ use std::sync::{Arc, OnceLock, RwLock};
 use std::time::{Duration, Instant};
 
 use super::lattice::LatticeNode;
-use super::rlnm::{RlnmKvCache, RlnmModel};
+use super::rlnm::{RlnmKvCache, RlnmModel, RlnmThreadPool};
 
 pub const DEFAULT_PIPE_NAME: &str = r"\\.\pipe\RuhI_NeuralReranker_v1";
 pub const SINGLETON_MUTEX_NAME: &str = r"Local\RuhI_NeuralReranker_Singleton_v1";
@@ -25,6 +25,115 @@ const CONNECT_FAIL_BACKOFF_MS: u64 = 2_000;
 const SPAWN_COOLDOWN_SECS: u64 = 30;
 pub const MAX_CROSS_SENTENCE_PREFIX_CHARS: usize = 48;
 const MAX_TRACKED_CONTEXT_ENGINES: usize = 64;
+pub const DEFAULT_R2L_WEIGHT_COLD: f32 = 0.50;
+pub const DEFAULT_R2L_WEIGHT_WITH_PREFIX: f32 = 0.35;
+pub const MAX_R2L_CANDS: usize = 8;
+pub const MAX_R2L_TRIE_NODES: usize = 120;
+
+#[inline]
+pub fn r2l_blend_weight(prefix: &str) -> f32 {
+    if prefix.is_empty() {
+        DEFAULT_R2L_WEIGHT_COLD
+    } else {
+        DEFAULT_R2L_WEIGHT_WITH_PREFIX
+    }
+}
+
+pub fn resolve_sibling_r2l_model_path(l2r_path: &std::path::Path) -> Option<std::path::PathBuf> {
+    let p = l2r_path.parent()?.join("rlnm_zh_tw_r2l.bin");
+    p.is_file().then_some(p)
+}
+
+/// 雙向（L2R + R2L）前綴／後綴 Trie 級聯評分與前文自適應混合（Top-8 / 120-Node R2L 級聯）
+pub fn score_candidates_bidirectional(
+    l2r: &RlnmModel,
+    r2l: Option<&RlnmModel>,
+    prefix: &str,
+    cands: &[&str],
+    l2r_cache: &mut RlnmKvCache,
+    r2l_cache: Option<&mut RlnmKvCache>,
+    pool: Option<&RlnmThreadPool>,
+) -> Vec<f32> {
+    let l2r_scores = l2r.score_candidates_trie(prefix, cands, l2r_cache, pool);
+    let (Some(r2l_m), Some(r2l_c)) = (r2l, r2l_cache) else {
+        return l2r_scores;
+    };
+    if cands.is_empty() {
+        return l2r_scores;
+    }
+
+    let mut prio_indices: Vec<usize> = Vec::with_capacity(cands.len().min(MAX_R2L_CANDS));
+    prio_indices.push(0);
+    let mut rest_indices: Vec<usize> = (1..cands.len()).collect();
+    rest_indices.sort_by(|&a, &b| {
+        let sa = l2r_scores[a];
+        let sb = l2r_scores[b];
+        match (sa.is_finite(), sb.is_finite()) {
+            (true, true) => sb
+                .partial_cmp(&sa)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.cmp(&b)),
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            (false, false) => a.cmp(&b),
+        }
+    });
+    for idx in rest_indices {
+        if prio_indices.len() >= MAX_R2L_CANDS {
+            break;
+        }
+        prio_indices.push(idx);
+    }
+
+    let rev_prio_owned: Vec<String> = prio_indices
+        .iter()
+        .map(|&idx| cands[idx].chars().rev().collect())
+        .collect();
+    let rev_prio_refs: Vec<&str> = rev_prio_owned.iter().map(|s| s.as_str()).collect();
+    let (selected_sub_indices, _) =
+        select_candidates_with_trie_budget("", &rev_prio_refs, MAX_R2L_TRIE_NODES);
+    if selected_sub_indices.is_empty() {
+        return l2r_scores;
+    }
+    let rev_budget_refs: Vec<&str> = selected_sub_indices
+        .iter()
+        .map(|&sub_idx| rev_prio_refs[sub_idx])
+        .collect();
+    let r2l_sub_scores = r2l_m.score_candidates_trie("", &rev_budget_refs, r2l_c, pool);
+
+    let mut r2l_by_cand: Vec<Option<f32>> = vec![None; cands.len()];
+    let mut delta_sum: f64 = 0.0;
+    let mut delta_count: usize = 0;
+    for (&sub_idx, &s_r2l) in selected_sub_indices.iter().zip(r2l_sub_scores.iter()) {
+        let cand_idx = prio_indices[sub_idx];
+        let s_l2r = l2r_scores[cand_idx];
+        if s_r2l.is_finite() && s_l2r.is_finite() {
+            r2l_by_cand[cand_idx] = Some(s_r2l);
+            delta_sum += (s_r2l - s_l2r) as f64;
+            delta_count += 1;
+        }
+    }
+    let mean_delta: f32 = if delta_count > 0 {
+        (delta_sum / delta_count as f64) as f32
+    } else {
+        0.0
+    };
+
+    let w = r2l_blend_weight(prefix);
+    l2r_scores
+        .into_iter()
+        .enumerate()
+        .map(|(idx, sl)| {
+            if !sl.is_finite() {
+                sl
+            } else if let Some(sr) = r2l_by_cand[idx] {
+                (1.0 - w) * sl + w * sr
+            } else {
+                sl + w * mean_delta
+            }
+        })
+        .collect()
+}
 
 #[derive(Debug, Clone)]
 pub struct NeuralRerankerConfig {
@@ -45,7 +154,7 @@ impl Default for NeuralRerankerConfig {
         Self {
             enabled: env_enabled,
             lambda: 4.5,
-            timeout_ms: 25,
+            timeout_ms: 35,
             pipe_name: DEFAULT_PIPE_NAME.to_string(),
             min_syllables: 4,
             score_margin: 25.0,
@@ -57,6 +166,7 @@ impl Default for NeuralRerankerConfig {
 struct RuntimeState {
     cfg: NeuralRerankerConfig,
     in_process_model: Option<Arc<RlnmModel>>,
+    in_process_r2l_model: Option<Arc<RlnmModel>>,
     last_pipe_failure: Option<Instant>,
     exe_path: Option<std::path::PathBuf>,
     model_path: Option<std::path::PathBuf>,
@@ -69,6 +179,7 @@ static NEXT_REQ_ID: AtomicU64 = AtomicU64::new(1);
 
 thread_local! {
     static TLS_INPROC_CACHES: RefCell<HashMap<usize, RlnmKvCache>> = RefCell::new(HashMap::new());
+    static TLS_INPROC_R2L_CACHES: RefCell<HashMap<usize, RlnmKvCache>> = RefCell::new(HashMap::new());
     static TLS_SCOPED_PREFIX: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
@@ -208,6 +319,7 @@ fn state() -> &'static RwLock<RuntimeState> {
         RwLock::new(RuntimeState {
             cfg: NeuralRerankerConfig::default(),
             in_process_model: None,
+            in_process_r2l_model: None,
             last_pipe_failure: None,
             exe_path: None,
             model_path: None,
@@ -291,8 +403,17 @@ pub fn set_in_process_model(model: Option<Arc<RlnmModel>>, lambda: f64) {
     if let Ok(mut g) = state().write() {
         g.cfg.enabled = model.is_some();
         g.cfg.lambda = lambda.clamp(0.0, 10.0);
+        if model.is_none() {
+            g.in_process_r2l_model = None;
+        }
         g.in_process_model = model;
         g.last_pipe_failure = None;
+    }
+}
+
+pub fn set_in_process_r2l_model(model: Option<Arc<RlnmModel>>) {
+    if let Ok(mut g) = state().write() {
+        g.in_process_r2l_model = model;
     }
 }
 
@@ -1143,12 +1264,16 @@ pub fn rerank_nbest_if_enabled_with_context(
         return None;
     }
 
-    let (cfg, inproc_opt) = {
+    let (cfg, inproc_opt, inproc_r2l_opt) = {
         let g = state().read().ok()?;
         if !g.cfg.enabled {
             return None;
         }
-        (g.cfg.clone(), g.in_process_model.clone())
+        (
+            g.cfg.clone(),
+            g.in_process_model.clone(),
+            g.in_process_r2l_model.clone(),
+        )
     };
     if cfg.lambda <= 0.0 {
         return None;
@@ -1196,7 +1321,26 @@ pub fn rerank_nbest_if_enabled_with_context(
         TLS_INPROC_CACHES.with(|cell| {
             let mut map = cell.borrow_mut();
             let cache = map.entry(model_key).or_insert_with(|| model.alloc_kv_cache());
-            model.score_candidates_trie(prefix_clean, &cand_refs, cache, None)
+            if let Some(ref r2l_model) = inproc_r2l_opt {
+                let r2l_key = Arc::as_ptr(r2l_model) as usize;
+                TLS_INPROC_R2L_CACHES.with(|rcell| {
+                    let mut rmap = rcell.borrow_mut();
+                    let rcache = rmap
+                        .entry(r2l_key)
+                        .or_insert_with(|| r2l_model.alloc_kv_cache());
+                    score_candidates_bidirectional(
+                        model,
+                        Some(r2l_model.as_ref()),
+                        prefix_clean,
+                        &cand_refs,
+                        cache,
+                        Some(rcache),
+                        None,
+                    )
+                })
+            } else {
+                model.score_candidates_trie(prefix_clean, &cand_refs, cache, None)
+            }
         })
     } else {
         score_via_pipe(&cfg, prefix_clean, &cand_refs)?
@@ -1273,7 +1417,26 @@ pub fn rerank_nbest_if_enabled_with_context(
                     Some(TLS_INPROC_CACHES.with(|cell| {
                         let mut map = cell.borrow_mut();
                         let cache = map.entry(model_key).or_insert_with(|| model.alloc_kv_cache());
-                        model.score_candidates_trie(prefix_clean, &pair_refs, cache, None)
+                        if let Some(ref r2l_model) = inproc_r2l_opt {
+                            let r2l_key = Arc::as_ptr(r2l_model) as usize;
+                            TLS_INPROC_R2L_CACHES.with(|rcell| {
+                                let mut rmap = rcell.borrow_mut();
+                                let rcache = rmap
+                                    .entry(r2l_key)
+                                    .or_insert_with(|| r2l_model.alloc_kv_cache());
+                                score_candidates_bidirectional(
+                                    model,
+                                    Some(r2l_model.as_ref()),
+                                    prefix_clean,
+                                    &pair_refs,
+                                    cache,
+                                    Some(rcache),
+                                    None,
+                                )
+                            })
+                        } else {
+                            model.score_candidates_trie(prefix_clean, &pair_refs, cache, None)
+                        }
                     }))
                 } else {
                     score_via_pipe(&cfg, prefix_clean, &pair_refs)
@@ -1508,5 +1671,75 @@ mod tests {
             100.0, -4.0, &nodes_a, 0.0, 0.0, 0.0, lambda,
         );
         assert!((s_with_topic - s_no_topic - 5.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_bidirectional_blend_weights_and_real_model_if_present_261126() {
+        assert!((r2l_blend_weight("") - 0.50).abs() < 1e-6);
+        assert!((r2l_blend_weight("伺服器") - 0.35).abs() < 1e-6);
+
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("ruhi_lexicon")
+            .join("data");
+        let l2r_path = data_dir.join("rlnm_zh_tw.bin");
+        let r2l_path = data_dir.join("rlnm_zh_tw_r2l.bin");
+        if l2r_path.is_file() && r2l_path.is_file() {
+            let l2r = RlnmModel::open(&l2r_path).unwrap();
+            let r2l = RlnmModel::open(&r2l_path).unwrap();
+            let mut l2r_cache = l2r.alloc_kv_cache();
+            let mut r2l_cache = r2l.alloc_kv_cache();
+
+            let cold_cands = ["武士社會", "五世社會", "一原子有一核心", "一元子有一核心"];
+            let bi_cold = score_candidates_bidirectional(
+                &l2r,
+                Some(&r2l),
+                "",
+                &cold_cands,
+                &mut l2r_cache,
+                Some(&mut r2l_cache),
+                None,
+            );
+            let s_l2r_cold = l2r.score_candidates_trie("", &cold_cands, &mut l2r_cache, None);
+            let rev_cands: Vec<String> = cold_cands.iter().map(|s| s.chars().rev().collect()).collect();
+            let rev_refs: Vec<&str> = rev_cands.iter().map(|s| s.as_str()).collect();
+            let s_r2l_cold = r2l.score_candidates_trie("", &rev_refs, &mut r2l_cache, None);
+            for i in 0..cold_cands.len() {
+                assert!(bi_cold[i].is_finite());
+                let exp = 0.50 * s_l2r_cold[i] + 0.50 * s_r2l_cold[i];
+                assert!((bi_cold[i] - exp).abs() < 1e-5);
+            }
+            assert!(
+                bi_cold[0] > bi_cold[1],
+                "武士社會 ({:.3}) must outrank 五世社會 ({:.3})",
+                bi_cold[0],
+                bi_cold[1]
+            );
+            assert!(
+                bi_cold[2] > bi_cold[3],
+                "一原子有一核心 ({:.3}) must outrank 一元子有一核心 ({:.3})",
+                bi_cold[2],
+                bi_cold[3]
+            );
+
+            let pref_cands = ["已取消南下旅程", "以取消南下旅程"];
+            let bi_pref = score_candidates_bidirectional(
+                &l2r,
+                Some(&r2l),
+                "今天",
+                &pref_cands,
+                &mut l2r_cache,
+                Some(&mut r2l_cache),
+                None,
+            );
+            let s_l2r_pref = l2r.score_candidates_trie("今天", &pref_cands, &mut l2r_cache, None);
+            let rev_pref: Vec<String> = pref_cands.iter().map(|s| s.chars().rev().collect()).collect();
+            let rev_pref_refs: Vec<&str> = rev_pref.iter().map(|s| s.as_str()).collect();
+            let s_r2l_pref = r2l.score_candidates_trie("", &rev_pref_refs, &mut r2l_cache, None);
+            for i in 0..pref_cands.len() {
+                let exp = 0.65 * s_l2r_pref[i] + 0.35 * s_r2l_pref[i];
+                assert!((bi_pref[i] - exp).abs() < 1e-5);
+            }
+        }
     }
 }

@@ -135,6 +135,10 @@ data/ngram_zh_tw.bin
 ruhi_lexicon/data/rlnm_zh_tw.bin
 scripts/data/rlnm_zh_tw.bin
 data/rlnm_zh_tw.bin
+**/rlnm_zh_tw_r2l.bin
+ruhi_lexicon/data/rlnm_zh_tw_r2l.bin
+scripts/data/rlnm_zh_tw_r2l.bin
+data/rlnm_zh_tw_r2l.bin
 
 /user_word_events.jsonl
 /.last_bg_telemetry_spawn
