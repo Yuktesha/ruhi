@@ -279,7 +279,7 @@ pub fn default_classical_mode() -> String {
 }
 
 pub fn default_neural_reranker_lambda() -> f64 {
-    0.50
+    2.25
 }
 
 pub fn default_neural_reranker_timeout_ms() -> u16 {
@@ -783,7 +783,7 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
             settings.grammar.enable_neural_reranker = v;
         }
         if let Some(v) = gr.get("neural_reranker_lambda").and_then(Value::as_f64) {
-            settings.grammar.neural_reranker_lambda = v.clamp(0.1, 2.0);
+            settings.grammar.neural_reranker_lambda = v.clamp(0.1, 4.0);
         }
         if let Some(v) = gr.get("neural_reranker_timeout_ms").and_then(Value::as_u64) {
             settings.grammar.neural_reranker_timeout_ms = (v.clamp(5, 100)) as u16;
@@ -987,7 +987,7 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
         settings.grammar.enable_neural_reranker = v;
     }
     if let Some(v) = map.get("neural_reranker_lambda").and_then(Value::as_f64) {
-        settings.grammar.neural_reranker_lambda = v.clamp(0.1, 2.0);
+        settings.grammar.neural_reranker_lambda = v.clamp(0.1, 4.0);
     }
     if let Some(v) = map.get("neural_reranker_timeout_ms").and_then(Value::as_u64) {
         settings.grammar.neural_reranker_timeout_ms = (v.clamp(5, 100)) as u16;
@@ -1057,7 +1057,7 @@ pub fn mount_single_keyboard_mode_only(settings: &mut RuhiSettings, code: &str) 
 pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), String> {
     ensure_keyboard_modes_consistent(settings);
     settings.grammar.classical_mode = normalize_classical_mode(&settings.grammar.classical_mode);
-    settings.grammar.neural_reranker_lambda = settings.grammar.neural_reranker_lambda.clamp(0.1, 2.0);
+    settings.grammar.neural_reranker_lambda = settings.grammar.neural_reranker_lambda.clamp(0.1, 4.0);
     settings.grammar.neural_reranker_timeout_ms = settings.grammar.neural_reranker_timeout_ms.clamp(5, 100);
 
     let pretty_settings = serde_json::to_string_pretty(settings)
@@ -1508,7 +1508,7 @@ mod tests {
 
         let initial = load_settings(&tmp_dir);
         assert!(!initial.grammar.enable_neural_reranker);
-        assert!((initial.grammar.neural_reranker_lambda - 0.50).abs() < 1e-6);
+        assert!((initial.grammar.neural_reranker_lambda - 2.25).abs() < 1e-6);
         assert_eq!(initial.grammar.neural_reranker_timeout_ms, 25);
 
         let mut s = initial;
@@ -1516,7 +1516,7 @@ mod tests {
         s.grammar.neural_reranker_lambda = 5.0;
         s.grammar.neural_reranker_timeout_ms = 500;
         save_settings(&tmp_dir, &mut s).unwrap();
-        assert!((s.grammar.neural_reranker_lambda - 2.0).abs() < 1e-6);
+        assert!((s.grammar.neural_reranker_lambda - 4.0).abs() < 1e-6);
         assert_eq!(s.grammar.neural_reranker_timeout_ms, 100);
 
         let flat: Value =
@@ -1527,7 +1527,7 @@ mod tests {
 
         let reloaded = load_settings(&tmp_dir);
         assert!(reloaded.grammar.enable_neural_reranker);
-        assert!((reloaded.grammar.neural_reranker_lambda - 2.0).abs() < 1e-6);
+        assert!((reloaded.grammar.neural_reranker_lambda - 4.0).abs() < 1e-6);
         assert_eq!(reloaded.grammar.neural_reranker_timeout_ms, 100);
 
         let _ = fs::remove_dir_all(&tmp_dir);

@@ -629,7 +629,7 @@ class _CorpusTextSink:
 def prepare_clean_corpus_txt(
     out_corpus_txt: Path,
     dev_hashes_path: Path,
-    target_chars: int = 80_000_000,
+    target_chars: int = 125_000_000,
     fineweb_timeout_sec: int = 600,
     max_trad_zh_docs: int = 250_000,
 ) -> dict[str, Any]:
@@ -696,6 +696,14 @@ def prepare_clean_corpus_txt(
             "ODC-BY",
             cap=20_000_000,
             max_docs=max_trad_zh_docs,
+        )
+
+    print("[corpus] 各語料來源清潔字數統計彙總:", flush=True)
+    for src_key, src_info in ingestor.source_stats.items():
+        print(
+            f"  [corpus summary] {src_key}: status={src_info.get('status')} "
+            f"docs={src_info.get('docs_scanned', 0):,} clean_chars={src_info.get('clean_chars', 0):,}",
+            flush=True,
         )
 
     return {
@@ -900,38 +908,103 @@ def encode_corpus_to_uint16_bin(
     vocab: list[str],
     out_bin: Path,
     val_fraction: float = 0.01,
-) -> tuple[Path, Path, int]:
-    """將清洗純文字語料打包為 train/val uint16 token 陣列（句段間以 <eos><bos> 分隔）。"""
+    seed: int = 20261124,
+    block_size: int = 8,
+) -> dict[str, Any]:
+    """將清洗純文字語料按微區塊洗牌後打包為 train/val uint16 token 陣列與 <bos> 句界索引。"""
     c2i = {ch: i for i, ch in enumerate(vocab)}
+    lines: list[str] = []
+    with open(corpus_txt, "r", encoding="utf-8") as fin:
+        for line in fin:
+            s = line.strip()
+            if s:
+                lines.append(s)
+
+    blocks = [lines[i : i + block_size] for i in range(0, len(lines), block_size)]
+    rng = np.random.default_rng(seed)
+    perm = rng.permutation(len(blocks))
+
     train_path = out_bin.with_suffix(".train.u16")
     val_path = out_bin.with_suffix(".val.u16")
+    train_bos_path = out_bin.with_suffix(".train_bos.i64")
+    train_lens_path = out_bin.with_suffix(".train_lens.u16")
+    val_bos_path = out_bin.with_suffix(".val_bos.i64")
+    val_lens_path = out_bin.with_suffix(".val_lens.u16")
+
+    val_mod = max(2, int(round(1.0 / max(val_fraction, 1e-4))))
     buf_tr: list[int] = []
     buf_va: list[int] = []
+    bos_tr: list[int] = []
+    lens_tr: list[int] = []
+    bos_va: list[int] = []
+    lens_va: list[int] = []
+    off_tr = 0
+    off_va = 0
     total_tokens = 0
 
-    with open(corpus_txt, "r", encoding="utf-8") as fin, open(train_path, "wb") as ftr, open(
-        val_path, "wb"
-    ) as fva:
-        for line_idx, line in enumerate(fin):
-            s = line.strip()
-            if not s:
-                continue
-            toks = [BOS_ID] + [c2i.get(ch, UNK_ID) for ch in s] + [EOS_ID]
-            total_tokens += len(toks)
-            is_val = (line_idx % int(round(1.0 / max(val_fraction, 1e-4)))) == 0
-            dst = buf_va if is_val else buf_tr
-            dst.extend(toks)
+    with (
+        open(train_path, "wb") as ftr,
+        open(val_path, "wb") as fva,
+        open(train_bos_path, "wb") as fbtr,
+        open(train_lens_path, "wb") as fltr,
+        open(val_bos_path, "wb") as fbva,
+        open(val_lens_path, "wb") as flva,
+    ):
+        for out_block_idx, orig_idx in enumerate(perm):
+            blk = blocks[int(orig_idx)]
+            is_val = (out_block_idx % val_mod) == 0
+            dst_tok = buf_va if is_val else buf_tr
+            dst_bos = bos_va if is_val else bos_tr
+            dst_lens = lens_va if is_val else lens_tr
+
+            for s in blk:
+                toks = [BOS_ID] + [c2i.get(ch, UNK_ID) for ch in s] + [EOS_ID]
+                tlen = len(toks)
+                total_tokens += tlen
+                if is_val:
+                    dst_bos.append(off_va)
+                    off_va += tlen
+                else:
+                    dst_bos.append(off_tr)
+                    off_tr += tlen
+                dst_lens.append(tlen)
+                dst_tok.extend(toks)
+
             if len(buf_tr) >= 1_000_000:
                 np.asarray(buf_tr, dtype=np.uint16).tofile(ftr)
                 buf_tr.clear()
+                np.asarray(bos_tr, dtype=np.int64).tofile(fbtr)
+                bos_tr.clear()
+                np.asarray(lens_tr, dtype=np.uint16).tofile(fltr)
+                lens_tr.clear()
             if len(buf_va) >= 200_000:
                 np.asarray(buf_va, dtype=np.uint16).tofile(fva)
                 buf_va.clear()
+                np.asarray(bos_va, dtype=np.int64).tofile(fbva)
+                bos_va.clear()
+                np.asarray(lens_va, dtype=np.uint16).tofile(flva)
+                lens_va.clear()
+
         if buf_tr:
             np.asarray(buf_tr, dtype=np.uint16).tofile(ftr)
+            np.asarray(bos_tr, dtype=np.int64).tofile(fbtr)
+            np.asarray(lens_tr, dtype=np.uint16).tofile(fltr)
         if buf_va:
             np.asarray(buf_va, dtype=np.uint16).tofile(fva)
-    return train_path, val_path, total_tokens
+            np.asarray(bos_va, dtype=np.int64).tofile(fbva)
+            np.asarray(lens_va, dtype=np.uint16).tofile(flva)
+
+    return {
+        "train_path": train_path,
+        "val_path": val_path,
+        "train_bos_path": train_bos_path,
+        "train_lens_path": train_lens_path,
+        "val_bos_path": val_bos_path,
+        "val_lens_path": val_lens_path,
+        "total_tokens": total_tokens,
+        "total_clauses": len(lines),
+        "block_size": block_size,
+    }
 
 
 def run_torch_training(args: argparse.Namespace) -> int:
@@ -940,16 +1013,18 @@ def run_torch_training(args: argparse.Namespace) -> int:
 
     RuhICharLM = _build_torch_model_class()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device.type == "cuda":
+        torch.set_float32_matmul_precision("high")
     use_bf16 = (
         device.type == "cuda"
-        and torch.cuda.get_device_capability(0)[0] >= 8
+        and (args.bf16 or torch.cuda.get_device_capability(0)[0] >= 8)
         and torch.cuda.is_bf16_supported()
     )
     use_amp = device.type == "cuda"
     amp_dtype = torch.bfloat16 if use_bf16 else torch.float16
     use_scaler = use_amp and not use_bf16
     scaler = torch.amp.GradScaler("cuda", enabled=use_scaler)
-    print(f"[train] device={device}, use_amp={use_amp}, amp_dtype={amp_dtype}, use_scaler={use_scaler}", flush=True)
+    print(f"[train] device={device}, use_amp={use_amp}, amp_dtype={amp_dtype}, use_scaler={use_scaler}, cold_start_ratio={args.cold_start_ratio:.2f}", flush=True)
 
     corpus_txt = Path(args.corpus_txt)
     if not corpus_txt.is_file():
@@ -971,11 +1046,17 @@ def run_torch_training(args: argparse.Namespace) -> int:
 
     work_dir = Path(args.work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
-    train_u16, val_u16, total_toks = encode_corpus_to_uint16_bin(corpus_txt, vocab, work_dir / "tokens")
-    train_mm = np.memmap(train_u16, dtype=np.uint16, mode="r")
-    val_mm = np.memmap(val_u16, dtype=np.uint16, mode="r")
+    enc = encode_corpus_to_uint16_bin(corpus_txt, vocab, work_dir / "tokens", seed=args.seed)
+    total_toks = enc["total_tokens"]
+    block_size = enc["block_size"]
+    train_mm = np.memmap(enc["train_path"], dtype=np.uint16, mode="r")
+    val_mm = np.memmap(enc["val_path"], dtype=np.uint16, mode="r")
+    train_bos = np.memmap(enc["train_bos_path"], dtype=np.int64, mode="r")
+    train_lens = np.memmap(enc["train_lens_path"], dtype=np.uint16, mode="r")
+    val_bos = np.memmap(enc["val_bos_path"], dtype=np.int64, mode="r")
+    val_lens = np.memmap(enc["val_lens_path"], dtype=np.uint16, mode="r")
     print(
-        f"[tokens] total={total_toks:,} | train={len(train_mm):,} | val={len(val_mm):,}",
+        f"[tokens] total={total_toks:,} | clauses={enc['total_clauses']:,} | train={len(train_mm):,} ({len(train_bos):,} clauses) | val={len(val_mm):,} ({len(val_bos):,} clauses)",
         flush=True,
     )
 
@@ -1009,10 +1090,57 @@ def run_torch_training(args: argparse.Namespace) -> int:
     rng = np.random.default_rng(args.seed)
     seq_len = args.max_seq_len
 
-    def sample_batch(mm: np.memmap, bsz: int) -> tuple[torch.Tensor, torch.Tensor]:
-        starts = rng.integers(0, len(mm) - seq_len - 1, size=bsz)
+    train_valid_bos = np.asarray(train_bos[train_bos <= (len(train_mm) - seq_len - 1)], dtype=np.int64)
+    val_valid_bos = np.asarray(val_bos[val_bos <= (len(val_mm) - seq_len - 1)], dtype=np.int64)
+
+    def sample_packed_batch(mm: np.memmap, valid_bos: np.ndarray, bsz: int) -> tuple[torch.Tensor, torch.Tensor]:
+        if len(valid_bos) > 0:
+            sel = rng.integers(0, len(valid_bos), size=bsz)
+            starts = valid_bos[sel]
+        else:
+            starts = rng.integers(0, max(1, len(mm) - seq_len - 1), size=bsz)
         x_np = np.stack([mm[s : s + seq_len] for s in starts]).astype(np.int64)
         y_np = np.stack([mm[s + 1 : s + 1 + seq_len] for s in starts]).astype(np.int64)
+        return torch.from_numpy(x_np).to(device), torch.from_numpy(y_np).to(device)
+
+    def sample_cold_batch(
+        mm: np.memmap, bos_arr: np.memmap, lens_arr: np.memmap, bsz: int
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        n_clauses = len(bos_arr)
+        idxs = rng.integers(0, n_clauses, size=bsz)
+        seqs: list[np.ndarray] = []
+        max_t = 2
+        half_bsz = bsz // 2
+        for bi, raw_idx in enumerate(idxs):
+            idx = int(raw_idx)
+            b0 = int(bos_arr[idx])
+            l0 = int(lens_arr[idx])
+            # 前半批次：單句冷啟動 [BOS] + clause + [EOS]；後半批次：雙句前綴對齊 [BOS] + c1 + c2 + [EOS]
+            if bi >= half_bsz and (idx + 1) < n_clauses and (idx // block_size) == ((idx + 1) // block_size):
+                b1 = int(bos_arr[idx + 1])
+                l1 = int(lens_arr[idx + 1])
+                if l0 + l1 - 2 <= seq_len + 1:
+                    c1 = mm[b0 : b0 + l0 - 1]
+                    c2 = mm[b1 + 1 : b1 + l1]
+                    seq = np.concatenate([c1, c2])
+                else:
+                    seq = mm[b0 : b0 + l0]
+            else:
+                seq = mm[b0 : b0 + l0]
+            if len(seq) > seq_len + 1:
+                seq = seq[: seq_len + 1]
+            seqs.append(seq)
+            if len(seq) - 1 > max_t:
+                max_t = len(seq) - 1
+
+        max_t = min(max_t, seq_len)
+        x_np = np.full((bsz, max_t), PAD_ID, dtype=np.int64)
+        y_np = np.full((bsz, max_t), -100, dtype=np.int64)
+        for bi, seq in enumerate(seqs):
+            eff = min(len(seq) - 1, max_t)
+            if eff > 0:
+                x_np[bi, :eff] = seq[:eff]
+                y_np[bi, :eff] = seq[1 : 1 + eff]
         return torch.from_numpy(x_np).to(device), torch.from_numpy(y_np).to(device)
 
     def lr_for_step(step: int) -> float:
@@ -1033,10 +1161,13 @@ def run_torch_training(args: argparse.Namespace) -> int:
         optimizer.zero_grad(set_to_none=True)
         loss_accum = 0.0
         for _ in range(args.grad_accum):
-            xb, yb = sample_batch(train_mm, args.batch_size)
+            if args.cold_start_ratio > 0.0 and rng.random() < args.cold_start_ratio:
+                xb, yb = sample_cold_batch(train_mm, train_bos, train_lens, args.batch_size)
+            else:
+                xb, yb = sample_packed_batch(train_mm, train_valid_bos, args.batch_size)
             with torch.amp.autocast(device_type=device.type, dtype=amp_dtype, enabled=use_amp):
                 logits = model(xb)
-                loss = F.cross_entropy(logits.view(-1, len(vocab)), yb.view(-1))
+                loss = F.cross_entropy(logits.view(-1, len(vocab)), yb.view(-1), ignore_index=-100)
                 loss_scaled = loss / args.grad_accum
             if use_scaler:
                 scaler.scale(loss_scaled).backward()
@@ -1059,15 +1190,25 @@ def run_torch_training(args: argparse.Namespace) -> int:
 
         if (step + 1) % args.eval_every == 0 or (step + 1) == args.max_steps:
             model.eval()
-            val_losses = []
+            val_packed = []
+            val_cold = []
             with torch.no_grad():
                 for _ in range(16):
-                    xv, yv = sample_batch(val_mm, args.batch_size)
+                    xv, yv = sample_packed_batch(val_mm, val_valid_bos, args.batch_size)
                     with torch.amp.autocast(device_type=device.type, dtype=amp_dtype, enabled=use_amp):
-                        vl = F.cross_entropy(model(xv).view(-1, len(vocab)), yv.view(-1))
-                    val_losses.append(float(vl))
-            mean_val = sum(val_losses) / len(val_losses)
-            print(f"[val step {step + 1:6d}] val_loss={mean_val:.4f} ppl={math.exp(min(mean_val, 20.0)):.2f}", flush=True)
+                        vl = F.cross_entropy(model(xv).view(-1, len(vocab)), yv.view(-1), ignore_index=-100)
+                    val_packed.append(float(vl))
+                    xc, yc = sample_cold_batch(val_mm, val_bos, val_lens, args.batch_size)
+                    with torch.amp.autocast(device_type=device.type, dtype=amp_dtype, enabled=use_amp):
+                        vc = F.cross_entropy(model(xc).view(-1, len(vocab)), yc.view(-1), ignore_index=-100)
+                    val_cold.append(float(vc))
+            mean_packed = sum(val_packed) / len(val_packed)
+            mean_cold = sum(val_cold) / len(val_cold)
+            print(
+                f"[val step {step + 1:6d}] val_packed_loss={mean_packed:.4f} packed_ppl={math.exp(min(mean_packed, 20.0)):.2f} "
+                f"| val_cold_loss={mean_cold:.4f} cold_ppl={math.exp(min(mean_cold, 20.0)):.2f}",
+                flush=True,
+            )
             torch.save(
                 {"step": step + 1, "model": model.state_dict(), "optimizer": optimizer.state_dict(), "vocab": vocab, "cfg": model.cfg},
                 ckpt_path,
@@ -1221,7 +1362,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--out-bin", default="outputs/rlnm_zh_tw.bin", help="輸出 RLNM0001 INT8 模型路徑")
     ap.add_argument("--eval-nbest", help="訓練後對指定 dev N-Best JSONL 執行重排校準")
 
-    ap.add_argument("--target-chars", type=int, default=80_000_000)
+    ap.add_argument("--target-chars", type=int, default=125_000_000)
     ap.add_argument("--fineweb-timeout-sec", type=int, default=600)
     ap.add_argument("--max-trad-zh-docs", type=int, default=250_000)
 
@@ -1238,6 +1379,8 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--warmup-steps", type=int, default=500)
     ap.add_argument("--lr", type=float, default=4e-4)
     ap.add_argument("--weight-decay", type=float, default=0.1)
+    ap.add_argument("--cold-start-ratio", type=float, default=0.40, help="冷啟動單句／雙句前綴對齊訓練批次比例")
+    ap.add_argument("--bf16", action="store_true", help="於支援 Ampere+ 的 GPU 強制啟用 BF16 混合精度")
     ap.add_argument("--log-every", type=int, default=100)
     ap.add_argument("--eval-every", type=int, default=1000)
     ap.add_argument("--seed", type=int, default=20261124)

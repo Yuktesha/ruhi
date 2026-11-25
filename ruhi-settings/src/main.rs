@@ -3087,7 +3087,7 @@ impl RuhiStudioApp {
                     ui.label("融合權重 λ：");
                     let mut lam = self.settings.grammar.neural_reranker_lambda as f32;
                     if ui
-                        .add(egui::Slider::new(&mut lam, 0.10..=1.20).fixed_decimals(2))
+                        .add(egui::Slider::new(&mut lam, 0.10..=4.00).fixed_decimals(2))
                         .changed()
                     {
                         self.settings.grammar.neural_reranker_lambda = lam as f64;

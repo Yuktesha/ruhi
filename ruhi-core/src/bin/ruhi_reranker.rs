@@ -7,7 +7,8 @@
 // - `--once`：僅服務 1 筆請求後安全退出（供自動化 Named Pipe 端到端測試驗證）。
 
 use ruhi::router::neural_reranker::{
-    decode_request, encode_response, DEFAULT_PIPE_NAME, MAX_IPC_FRAME_BYTES,
+    decode_request, encode_response, select_candidates_with_trie_budget, NeuralRerankerConfig,
+    DEFAULT_PIPE_NAME, MAX_IPC_FRAME_BYTES,
 };
 use ruhi::router::rlnm::{RlnmModel, RlnmThreadPool};
 use std::path::{Path, PathBuf};
@@ -95,23 +96,103 @@ fn run_benchmark(model: &RlnmModel, pool: &RlnmThreadPool) {
                 "結果寧這裡又更新模型", "結果您這裏又更新模型", "結果您這裡又更新模行", "結果您這裡幼更新模型",
             ],
         ),
+        (
+            "",
+            vec![
+                "此刻視力模糊難以便是滑鼠底下大概只有",
+                "此刻視力模糊難以辨識滑鼠底下大概只有",
+                "此刻視力模糊難以變是滑鼠底下大概只有",
+                "此刻視力模糊難以辨是滑鼠底下大概只有",
+                "此刻視力模糊難以遍是滑鼠底下大概只有",
+                "此刻視力模糊難以辯是滑鼠底下大概只有",
+                "此刻視力模糊難以便市滑鼠底下大概只有",
+                "此刻視力模糊難以辨室滑鼠底下大概只有",
+                "此刻視力模糊難以辨世滑鼠底下大概只有",
+                "此刻視力模糊難以辨式滑鼠底下大概只有",
+                "此刻視力模糊難以辨示滑鼠底下大概只有",
+                "此刻視力模糊難以便試滑鼠底下大概只有",
+                "此刻視力模糊難以編是滑鼠底下大概只有",
+                "此刻事例模糊難以便是滑鼠底下大概只有",
+                "此刻事理模糊難以辨識滑鼠底下大概只有",
+                "此刻視力魔胡難以辨識滑鼠底下大概只有",
+                "此刻視力磨糊難以辨識滑鼠底下大概只有",
+                "此刻視力模糊難以辨識化屬底下大概只有",
+                "此刻視力模糊難以辨識畫書底下大概只有",
+                "此刻視力模糊難以辨識滑鼠底夏大概只有",
+                "此刻視力模糊難以辨識滑鼠低下大概只有",
+                "此刻視力模糊難以辨識滑鼠底下大改只有",
+                "此刻視力模糊難以辨識滑鼠底下大該只有",
+                "此刻視力模糊難以辨識滑鼠底下大蓋只有",
+                "此刻視力模糊難以辨識滑鼠底下大概止有",
+                "此刻視力模糊難以辨識滑鼠底下大概只有",
+                "此刻視力模糊難以便是化屬底下大概只有",
+                "此刻視力模糊難以辨識滑鼠低夏大概只有",
+                "此刻視力模糊難以辨識滑鼠地夏大概只有",
+                "此課視力模糊難以辨識滑鼠底下大概只有",
+                "刺客視力模糊難以辨識滑鼠底下大概只有",
+                "此刻試力模糊難以辨識滑鼠底下大概只有",
+            ],
+        ),
+        (
+            "",
+            vec![
+                "今天下午會議結束之後我們一起去吃晚餐再回家吧",
+                "今天下午會議結束之後我們一起去吃晚餐在回家吧",
+                "今天下午會議結束之後我們一起取吃晚餐再回家吧",
+                "今天下午會議結束之厚我們一起去吃晚餐再回家吧",
+                "今天下午會議接束之後我們一起去吃晚餐再回家吧",
+                "今天下午會義結束之後我們一起去吃晚餐再回家吧",
+                "今天下霧會議結束之後我們一起去吃晚餐再回家吧",
+                "今天下午會議結束之後我門一起去吃晚餐再回家吧",
+                "今天下午會議結束之後我們一啟去吃晚餐再回家吧",
+                "今天下午會議結束之後我們一起去吃碗餐再回家吧",
+                "今天下午會議結束之後我們一起去吃晚參再回家吧",
+                "今天下午會議結束之後我們一起去吃晚餐再回佳吧",
+                "今天下午會議結束之後我們一起去吃晚餐再回加吧",
+                "今天下午會議結束之後我們一起去吃晚餐再回嘉吧",
+                "今天下午會議結束之後我們一起去吃晚餐在回佳吧",
+                "今天下午會議結束之後我們一起去持晚餐再回家吧",
+                "今天下午會議界束之後我們一起去吃晚餐再回家吧",
+                "今天下午匯議結束之後我們一起去吃晚餐再回家吧",
+                "今天下午繪議結束之後我們一起去吃晚餐再回家吧",
+                "今天下午會議結束隻後我們一起去吃晚餐再回家吧",
+                "今天下午會議結束知後我們一起去吃晚餐再回家吧",
+                "今天下午會議結束枝後我們一起去吃晚餐再回家吧",
+                "今天下午會議結束之後我們以起去吃晚餐再回家吧",
+                "今天下午會議結束之後我們已起去吃晚餐再回家吧",
+                "今天下午會議結束之後我們一起去吃晩餐再回家吧",
+                "今天下午會議結束之後我們一起去吃晚餐再會家吧",
+                "今天下午會議結束之後我們一起去吃晚餐再灰家吧",
+                "今天下午會議結束之後我們一起去吃晚餐再回家巴",
+                "今天下午會議結束之後我們一起去吃晚餐再回家八",
+                "今天下午會議結束之後我們一起去吃晚餐再回家把",
+                "今天下物會議結束之後我們一起去吃晚餐再回家吧",
+                "今天夏午會議結束之後我們一起去吃晚餐再回家吧",
+            ],
+        ),
     ];
 
     // 暖機 1 次確保 mmap 與快取頁完成載入
     let _ = model.score_candidates_trie(bench_cases[0].0, &bench_cases[0].1, &mut cache, Some(pool));
+    let max_trie_nodes = NeuralRerankerConfig::default().max_trie_nodes;
 
     let mut latencies_ms = Vec::new();
     for round in 0..2 {
         for (idx, (pref, cands)) in bench_cases.iter().enumerate() {
+            let (kept_indices, trie_nodes) =
+                select_candidates_with_trie_budget(pref, cands, max_trie_nodes);
+            let active_cands: Vec<&str> = kept_indices.iter().map(|&i| cands[i]).collect();
             let t0 = Instant::now();
-            let scores = model.score_candidates_trie(pref, cands, &mut cache, Some(pool));
+            let scores = model.score_candidates_trie(pref, &active_cands, &mut cache, Some(pool));
             let ms = t0.elapsed().as_secs_f64() * 1000.0;
             latencies_ms.push(ms);
             if round == 0 {
                 println!(
-                    "  [bench #{}] k={} | top2=({:.3}, {:.3}) | {:.2} ms",
+                    "  [bench #{}] kept={}/{} trie_nodes={} | top2=({:.3}, {:.3}) | {:.2} ms",
                     idx + 1,
+                    active_cands.len(),
                     cands.len(),
+                    trie_nodes,
                     scores[0],
                     scores[1],
                     ms

@@ -651,7 +651,8 @@ impl ViterbiRouter {
             self.run_forward_trellis(n_syllables, dag, &mut transitions, prefix_word, want_nbest);
 
         if want_nbest && !classical_active {
-            let mut nbest = Self::extract_nbest_from_trellis(&trellis, n_syllables, 16);
+            let nbest_k = if want_neural && n_syllables >= 15 { 32 } else { 16 };
+            let mut nbest = Self::extract_nbest_from_trellis(&trellis, n_syllables, nbest_k);
             if !nbest.is_empty() {
                 if want_discourse && !want_neural {
                     return super::discourse_reranker::rerank_nbest(nbest);
@@ -1383,7 +1384,7 @@ impl ViterbiRouter {
             return Vec::new();
         }
 
-        const MAX_ASTAR_POPS: usize = 2048;
+        const MAX_ASTAR_POPS: usize = 4096;
         let mut heap = BinaryHeap::new();
         for (s_idx, st) in trellis[n_syllables].iter().enumerate() {
             if st.score.is_finite() {

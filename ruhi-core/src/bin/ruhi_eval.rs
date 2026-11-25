@@ -5052,6 +5052,23 @@ fn run_nbest_oracle_benchmark(
     let mut pron_oracle_hit_cnt = 0usize;
     let mut latencies = Vec::with_capacity(compiled.len());
 
+    #[derive(Default, Clone, Copy)]
+    struct BucketAgg {
+        sentences: usize,
+        chars: usize,
+        top1_err: usize,
+        oracle_err: usize,
+        top1_exact: usize,
+        oracle_exact: usize,
+    }
+    let bucket_defs: [(&str, usize, usize); 4] = [
+        ("1-7", 1, 7),
+        ("8-14", 8, 14),
+        ("15-24", 15, 24),
+        ("25+", 25, usize::MAX),
+    ];
+    let mut bucket_aggs = [BucketAgg::default(); 4];
+
     for part in chunks {
         for r in part {
             total_chars += r.chars;
@@ -5075,7 +5092,44 @@ fn run_nbest_oracle_benchmark(
                 }
             }
             latencies.push(r.latency_us);
+
+            for (bi, &(_, lo, hi)) in bucket_defs.iter().enumerate() {
+                if r.chars >= lo && r.chars <= hi {
+                    let b = &mut bucket_aggs[bi];
+                    b.sentences += 1;
+                    b.chars += r.chars;
+                    b.top1_err += r.top1_errors;
+                    b.oracle_err += r.oracle_errors;
+                    if r.top1_exact {
+                        b.top1_exact += 1;
+                    }
+                    if r.oracle_exact {
+                        b.oracle_exact += 1;
+                    }
+                    break;
+                }
+            }
         }
+    }
+
+    let mut by_length_bucket = serde_json::Map::new();
+    for (bi, &(label, _, _)) in bucket_defs.iter().enumerate() {
+        let b = bucket_aggs[bi];
+        by_length_bucket.insert(
+            label.to_string(),
+            json!({
+                "sentences": b.sentences,
+                "chars": b.chars,
+                "top1_char_errors": b.top1_err,
+                "top1_cer_percent": format!("{:.2}%", (b.top1_err as f64 / b.chars.max(1) as f64) * 100.0),
+                "oracle_char_errors": b.oracle_err,
+                "oracle_cer_percent": format!("{:.2}%", (b.oracle_err as f64 / b.chars.max(1) as f64) * 100.0),
+                "top1_exact_match": b.top1_exact,
+                "top1_exact_percent": format!("{:.2}%", (b.top1_exact as f64 / b.sentences.max(1) as f64) * 100.0),
+                "oracle_exact_match": b.oracle_exact,
+                "oracle_exact_percent": format!("{:.2}%", (b.oracle_exact as f64 / b.sentences.max(1) as f64) * 100.0),
+            }),
+        );
     }
 
     let n_sent = compiled.len().max(1);
@@ -5097,6 +5151,7 @@ fn run_nbest_oracle_benchmark(
         "pronoun_error_sentences": pron_err_cnt,
         "pronoun_oracle_improved_sentences": pron_oracle_hit_cnt,
         "pronoun_oracle_recall_percent": format!("{:.2}%", (pron_oracle_hit_cnt as f64 / pron_err_cnt.max(1) as f64) * 100.0),
+        "by_length_bucket": by_length_bucket,
         "nbest_latency_us": summarize_latency_us(&mut latencies),
     })
 }
@@ -5330,9 +5385,13 @@ fn main() {
     let mut do_gate = false;
     let mut init_gate_baseline = false;
     let mut do_nbest_oracle = false;
+    let mut top_k: usize = 16;
     let mut dump_nbest_path: Option<PathBuf> = None;
     let mut neural_rerank_path: Option<PathBuf> = None;
     let mut neural_lambda: f64 = 0.50;
+    let mut neural_margin: Option<f64> = None;
+    let mut neural_max_trie_nodes: Option<usize> = None;
+    let mut confirm_final_blind_test = false;
     let mut commit_override: Option<String> = None;
 
     let mut i = 1;
@@ -5401,6 +5460,13 @@ fn main() {
                 do_nbest_oracle = true;
                 i += 1;
             }
+            "--top-k" if i + 1 < args.len() => {
+                top_k = args[i + 1].parse::<usize>().unwrap_or_else(|_| {
+                    eprintln!("錯誤：無效的 --top-k 數值 `{}`", args[i + 1]);
+                    std::process::exit(1);
+                }).clamp(1, 128);
+                i += 2;
+            }
             "--dump-nbest" if i + 1 < args.len() => {
                 dump_nbest_path = Some(PathBuf::from(&args[i + 1]));
                 i += 2;
@@ -5415,6 +5481,26 @@ fn main() {
                     std::process::exit(1);
                 });
                 i += 2;
+            }
+            "--neural-margin" if i + 1 < args.len() => {
+                let v = args[i + 1].parse::<f64>().unwrap_or_else(|_| {
+                    eprintln!("錯誤：無效的 --neural-margin 數值 `{}`", args[i + 1]);
+                    std::process::exit(1);
+                });
+                neural_margin = Some(v);
+                i += 2;
+            }
+            "--neural-max-trie-nodes" if i + 1 < args.len() => {
+                let v = args[i + 1].parse::<usize>().unwrap_or_else(|_| {
+                    eprintln!("錯誤：無效的 --neural-max-trie-nodes 數值 `{}`", args[i + 1]);
+                    std::process::exit(1);
+                });
+                neural_max_trie_nodes = Some(v);
+                i += 2;
+            }
+            "--confirm-final-blind-test" => {
+                confirm_final_blind_test = true;
+                i += 1;
             }
             _ => {
                 i += 1;
@@ -5550,7 +5636,7 @@ fn main() {
             eprintln!("錯誤：嚴禁在盲測集 ({}.tsv) 上執行 N-Best Oracle 分析！", set_name);
             std::process::exit(1);
         }
-        let rep = run_nbest_oracle_benchmark(&engine, &compiled, &set_name, 16);
+        let rep = run_nbest_oracle_benchmark(&engine, &compiled, &set_name, top_k);
         if let Some(ref p) = out_path {
             if let Some(parent) = p.parent() {
                 let _ = fs::create_dir_all(parent);
@@ -5569,15 +5655,15 @@ fn main() {
             );
             std::process::exit(1);
         }
-        let rep = dump_nbest_jsonl(&engine, &compiled, 16, dump_path);
+        let rep = dump_nbest_jsonl(&engine, &compiled, top_k, dump_path);
         println!("{}", serde_json::to_string_pretty(&rep).unwrap());
         return;
     }
 
     if let Some(ref model_path) = neural_rerank_path {
-        if set_name != "dev" {
+        if set_name != "dev" && !confirm_final_blind_test {
             eprintln!(
-                "錯誤：--neural-rerank 僅允許搭配 `--set dev` 使用，嚴禁對 `{}.tsv` 執行實驗性重排評估！",
+                "錯誤：--neural-rerank 僅允許搭配 `--set dev` 使用，嚴禁對 `{}.tsv` 執行實驗性重排評估！（定案後單次盲測須加 `--confirm-final-blind-test`）",
                 set_name
             );
             std::process::exit(1);
@@ -5589,6 +5675,10 @@ fn main() {
         ruhi::router::neural_reranker::set_in_process_model(
             Some(std::sync::Arc::new(model)),
             neural_lambda,
+        );
+        ruhi::router::neural_reranker::set_tuning_overrides(
+            neural_margin,
+            neural_max_trie_nodes,
         );
     }
 

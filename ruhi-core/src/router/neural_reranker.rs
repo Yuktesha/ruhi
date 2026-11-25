@@ -32,6 +32,7 @@ pub struct NeuralRerankerConfig {
     pub pipe_name: String,
     pub min_syllables: usize,
     pub score_margin: f64,
+    pub max_trie_nodes: usize,
 }
 
 impl Default for NeuralRerankerConfig {
@@ -41,11 +42,12 @@ impl Default for NeuralRerankerConfig {
             .unwrap_or(false);
         Self {
             enabled: env_enabled,
-            lambda: 0.50,
-            timeout_ms: 15,
+            lambda: 2.25,
+            timeout_ms: 25,
             pipe_name: DEFAULT_PIPE_NAME.to_string(),
             min_syllables: 4,
-            score_margin: 15.0,
+            score_margin: 25.0,
+            max_trie_nodes: 200,
         }
     }
 }
@@ -156,6 +158,17 @@ pub fn set_in_process_model(model: Option<Arc<RlnmModel>>, lambda: f64) {
         g.cfg.lambda = lambda.clamp(0.0, 10.0);
         g.in_process_model = model;
         g.last_pipe_failure = None;
+    }
+}
+
+pub fn set_tuning_overrides(score_margin: Option<f64>, max_trie_nodes: Option<usize>) {
+    if let Ok(mut g) = state().write() {
+        if let Some(m) = score_margin {
+            g.cfg.score_margin = m.clamp(0.0, 200.0);
+        }
+        if let Some(n) = max_trie_nodes {
+            g.cfg.max_trie_nodes = n.clamp(2, 4096);
+        }
     }
 }
 
@@ -686,6 +699,94 @@ fn score_via_pipe(cfg: &NeuralRerankerConfig, prefix: &str, cands: &[&str]) -> O
     Some(scores)
 }
 
+/// 漸進式字元前綴樹非葉節點統計器（對齊 `rlnm.rs::score_candidates_trie` 批次張量維度 `m_batch`）
+struct PrefixTrieBudget {
+    children: Vec<Vec<(char, usize)>>,
+    base_prefix_nodes: usize,
+}
+
+impl PrefixTrieBudget {
+    fn new(prefix: &str) -> Self {
+        Self {
+            children: vec![Vec::new()],
+            base_prefix_nodes: 1 + prefix.chars().count(),
+        }
+    }
+
+    #[inline]
+    fn current_nodes(&self) -> usize {
+        self.base_prefix_nodes + self.children.len().saturating_sub(1)
+    }
+
+    /// 計算插入 `cand`（僅前 `L - 1` 字元為非葉節點）所新增之節點數
+    fn count_additional_nodes(&self, cand: &str) -> usize {
+        let len = cand.chars().count();
+        if len <= 1 {
+            return 0;
+        }
+        let mut cur = 0usize;
+        let mut diverged = false;
+        let mut added = 0usize;
+        for ch in cand.chars().take(len - 1) {
+            if !diverged {
+                if let Some(&(_, next_idx)) = self.children[cur].iter().find(|&&(c, _)| c == ch) {
+                    cur = next_idx;
+                    continue;
+                }
+                diverged = true;
+            }
+            added += 1;
+        }
+        added
+    }
+
+    fn insert(&mut self, cand: &str) {
+        let len = cand.chars().count();
+        if len <= 1 {
+            return;
+        }
+        let mut cur = 0usize;
+        for ch in cand.chars().take(len - 1) {
+            if let Some(&(_, next_idx)) = self.children[cur].iter().find(|&&(c, _)| c == ch) {
+                cur = next_idx;
+            } else {
+                let next_idx = self.children.len();
+                self.children.push(Vec::new());
+                self.children[cur].push((ch, next_idx));
+                cur = next_idx;
+            }
+        }
+    }
+}
+
+/// 估算給定前文與候選清單於 `RlnmModel::score_candidates_trie` 中所需之非葉節點總數（含 `<bos>` 與 `prefix`）
+pub fn estimate_trie_non_leaf_nodes(prefix: &str, cands: &[&str]) -> usize {
+    let mut budget = PrefixTrieBudget::new(prefix);
+    for &c in cands {
+        budget.insert(c);
+    }
+    budget.current_nodes()
+}
+
+/// 依 `max_trie_nodes` 預算由前至後漸進篩選候選子集（保底保留前 2 名），回傳 `(入選索引, 實際非葉節點數)`
+pub fn select_candidates_with_trie_budget(
+    prefix: &str,
+    cands: &[&str],
+    max_trie_nodes: usize,
+) -> (Vec<usize>, usize) {
+    let mut budget = PrefixTrieBudget::new(prefix);
+    let mut kept = Vec::with_capacity(cands.len());
+    for (idx, &c) in cands.iter().enumerate() {
+        let extra = budget.count_additional_nodes(c);
+        if kept.len() >= 2 && budget.current_nodes() + extra > max_trie_nodes {
+            continue;
+        }
+        budget.insert(c);
+        kept.push(idx);
+    }
+    (kept, budget.current_nodes())
+}
+
 /// 若已啟用（且在行程內模型或背景 Sidecar 可回應於逾時限制內），以 `base_score + lambda * neural_logp` 重排競爭候選；
 /// 否則回傳 `None` 讓呼端無縫沿用既定 Top-1 結果。
 pub fn rerank_nbest_if_enabled(
@@ -707,22 +808,42 @@ pub fn rerank_nbest_if_enabled(
         return None;
     }
 
-    let top1_score = candidates.iter().map(|(_, s)| *s).fold(f64::NEG_INFINITY, f64::max);
+    // 依基礎分數由高至低排序索引，確保高分候選優先佔用 Trie 節點延遲預算
+    let mut ordered: Vec<usize> = (0..candidates.len()).collect();
+    ordered.sort_by(|&a, &b| {
+        candidates[b]
+            .1
+            .partial_cmp(&candidates[a].1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let prefix_clean = prefix_word.unwrap_or("");
+    let top1_score = candidates[ordered[0]].1;
     let mut active_indices = Vec::with_capacity(candidates.len());
     let mut cand_texts: Vec<String> = Vec::with_capacity(candidates.len());
-    for (idx, (nodes, sc)) in candidates.iter().enumerate() {
-        if top1_score - *sc <= cfg.score_margin {
-            active_indices.push(idx);
-            let txt: String = nodes.iter().map(|n| n.word.as_str()).collect();
-            cand_texts.push(txt);
+    let mut trie_budget = PrefixTrieBudget::new(prefix_clean);
+
+    for idx in ordered {
+        let (nodes, sc) = &candidates[idx];
+        if top1_score - *sc > cfg.score_margin {
+            break;
         }
+        let txt: String = nodes.iter().map(|n| n.word.as_str()).collect();
+        let extra = trie_budget.count_additional_nodes(&txt);
+        if active_indices.len() >= 2
+            && trie_budget.current_nodes() + extra > cfg.max_trie_nodes
+        {
+            continue;
+        }
+        trie_budget.insert(&txt);
+        active_indices.push(idx);
+        cand_texts.push(txt);
     }
     if active_indices.len() < 2 {
         return None;
     }
 
     let cand_refs: Vec<&str> = cand_texts.iter().map(|s| s.as_str()).collect();
-    let prefix_clean = prefix_word.unwrap_or("");
     let neural_scores = if let Some(model) = inproc_opt {
         let model_key = Arc::as_ptr(&model) as usize;
         TLS_INPROC_CACHES.with(|cell| {
@@ -827,5 +948,47 @@ mod tests {
         assert!(!ensure_sidecar_running_async());
         set_sidecar_paths(None, None);
         set_runtime_config(false, 0.5, 25);
+    }
+
+    #[test]
+    fn test_trie_node_budget_caps_long_candidates_safely_261125() {
+        // 驗證多組高度分歧長句在 max_trie_nodes 預算下仍至少保留 Top-2 且總非葉節點數不超標
+        let prefix = "我們";
+        let cands = [
+            "此刻視力模糊難以便是滑鼠底下大概只有",
+            "此刻視力模糊難以辨識滑鼠底下大概只有",
+            "斯客事理模式難以便是化屬地夏大改只有",
+            "思科事例模胡難以便是畫書底夏大該只有",
+            "私課試力磨糊難以便是話術底霞大蓋只有",
+        ];
+        let full_nodes = estimate_trie_non_leaf_nodes(prefix, &cands);
+        assert!(full_nodes > 50);
+
+        let mut budget = PrefixTrieBudget::new(prefix);
+        let mut kept: Vec<&str> = Vec::new();
+        let max_nodes = 45usize;
+        for &c in &cands {
+            let extra = budget.count_additional_nodes(c);
+            if kept.len() >= 2 && budget.current_nodes() + extra > max_nodes {
+                continue;
+            }
+            budget.insert(c);
+            kept.push(c);
+        }
+        assert!(kept.len() >= 2 && kept.len() < cands.len());
+        assert!(budget.current_nodes() <= max_nodes);
+
+        // 即使 max_nodes 極小，前 2 名候選仍應保底入選以維持比較資格
+        let mut tiny_budget = PrefixTrieBudget::new(prefix);
+        let mut tiny_kept: Vec<&str> = Vec::new();
+        for &c in &cands {
+            let extra = tiny_budget.count_additional_nodes(c);
+            if tiny_kept.len() >= 2 && tiny_budget.current_nodes() + extra > 10 {
+                continue;
+            }
+            tiny_budget.insert(c);
+            tiny_kept.push(c);
+        }
+        assert_eq!(tiny_kept.len(), 2);
     }
 }
