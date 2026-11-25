@@ -2,11 +2,11 @@
   "compat_feeds": {
     "1": "https://raw.githubusercontent.com/Yuktesha/ruhi/main/ruhi_lexicon/data/tailcat_official_feed.json"
   },
-  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v0.9.5/RuhI_Setup_v0.9.5.exe",
-  "latest_version": "0.9.5",
+  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v1.0.0/RuhI_Setup_v1.0.0.exe",
+  "latest_version": "1.0.0",
   "min_compat_version": "0.4.0",
   "protocol": "RUHI_TAILCAT_FEDERATED_SEMANTIC_V1",
-  "release_notes": "RuhI v0.9.5：(1) 新增選配純 Rust INT8 離線輕量神經語言重排器 ruhi_reranker.exe ＋ RLNM0001（21.79 MB，無須 GPU、25 ms 硬逾時安全回退，預設關閉可於設定或安裝程式一鍵啟用）；(2) 長句（≥15 音節）自適應 Top-32 A* 搜尋與 200 節點前綴樹延遲預算（8 執行緒實測 p50=9.81 ms / p95=20.72 ms），並以 1.03 億字商用安全台灣繁體語料冷啟動重訓模型；(3) 實證開發集 dev.tsv CER 降至 2.92%（整句命中 78.05%），單次盲測 test.tsv 相對降幅 19.25%（4.36%→3.52%）、typing_tw.tsv 相對降幅 12.98%（9.01%→7.84%）。",
+  "release_notes": "RuhI v1.0.0：(1) 新增跨句已送出前文（最高 48 字元）KV 快取與零 IPC 變更 5 折交叉驗證七特徵融合（Stage D1）；(2) 實作 O(E) 前後向多樣化繞道注入與不相交多島並聯重組（Stage D2），將 N-Best Oracle CER 推進至 0.93%；(3) 完成雙階段超參數校準與 D3 模型實證比較，保留 C5 RLNM0001 模型並將預設混合權重定案為 lambda = 6.0，開發集 dev.tsv CER 降至 2.60%（整句命中 79.73%）；(4) 定案後單次盲測驗證 test.tsv 相對降幅 29.60%（4.36%→3.07%，McNemar p=3.45e-16）、typing_tw.tsv 相對降幅 21.46%（9.01%→7.08%）。",
   "telemetry_intake_url": "https://script.google.com/macros/s/AKfycbzH-n5YhBFSUPZUiUWfZXw46qp9OYliLlnijGmHMpIs4F0Ve_2ZM6k2mNpeoSnU6NMt/exec",
   "rules": [
     {
