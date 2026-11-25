@@ -24653,4 +24653,126 @@ mod tests {
         crate::router::neural_reranker::clear_committed_context(eng_id);
         crate::router::topic_cache::clear_for_key(cache_key);
     }
+
+    #[test]
+    fn test_wave_b_v0962_modern_taiwanese_and_tech_lexicon() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec![
+                    "ㄉㄨㄛ", "ㄍㄨㄥ", "ㄈㄟ", "ㄊㄨㄥˊ", "ㄅㄨˋ", "ㄓˊ", "ㄒㄧㄥˊ", "ㄒㄩˋ",
+                    "ㄩˇ", "ㄏㄢˊ", "ㄕˋ", "ㄎㄨˋ",
+                ],
+                "多工非同步執行緒與函式庫",
+            ),
+            (
+                vec![
+                    "ㄕㄣˊ", "ㄐㄧㄥ", "ㄨㄤˇ", "ㄌㄨˋ", "ㄇㄛˊ", "ㄒㄧㄥˊ", "ㄒㄩㄣˋ", "ㄌㄧㄢˋ",
+                    "ㄩˇ", "ㄔㄨㄥˊ", "ㄆㄞˊ", "ㄒㄩˋ",
+                ],
+                "神經網路模型訓練與重排序",
+            ),
+            (
+                vec![
+                    "ㄍㄨㄤ", "ㄎㄜˋ", "ㄐㄧ", "ㄩˇ", "ㄅㄢˋ", "ㄉㄠˇ", "ㄊㄧˇ", "ㄍㄨㄥ", "ㄧㄥˋ",
+                    "ㄌㄧㄢˋ",
+                ],
+                "光刻機與半導體供應鏈",
+            ),
+            (
+                vec![
+                    "ㄕˇ", "ㄩㄥˋ", "ㄧˋ", "ㄎㄚˇ", "ㄊㄨㄥ", "ㄏㄨㄛˋ", "ㄒㄧㄥˊ", "ㄉㄨㄥˋ", "ㄓ",
+                    "ㄈㄨˋ", "ㄒㄧㄤˇ", "ㄧㄡˇ", "ㄇㄧㄢˇ", "ㄩㄣˋ", "ㄧㄡ", "ㄏㄨㄟˋ",
+                ],
+                "使用一卡通或行動支付享有免運優惠",
+            ),
+            (
+                vec![
+                    "ㄊㄨㄟ", "ㄐㄧㄣˋ", "ㄐㄧㄥˋ", "ㄌㄧㄥˊ", "ㄊㄢˋ", "ㄆㄞˊ", "ㄩˇ", "ㄔㄤˊ",
+                    "ㄓㄠˋ", "ㄕㄜˋ", "ㄓㄞˊ", "ㄓㄥˋ", "ㄘㄜˋ",
+                ],
+                "推進淨零碳排與長照社宅政策",
+            ),
+            (
+                vec![
+                    "ㄙ", "ㄒㄩㄣˋ", "ㄒㄧㄠˇ", "ㄅㄧㄢ", "ㄒㄩㄣˊ", "ㄨㄣˋ", "ㄑㄩ", "ㄎㄨㄞˋ",
+                    "ㄌㄧㄢˋ", "ㄒㄧㄣ", "ㄍㄨㄥ", "ㄋㄥˊ",
+                ],
+                "私訊小編詢問區塊鏈新功能",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+
+        let model_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("ruhi_lexicon")
+            .join("data")
+            .join("rlnm_zh_tw.bin");
+        if model_path.is_file() {
+            let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("data");
+            let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+            let model = crate::router::rlnm::RlnmModel::open(&model_path).unwrap();
+            let mut kv_cache = model.alloc_kv_cache();
+            let lambda = 6.0f64;
+
+            for (bpms, expected) in &cases {
+                let syls: Vec<crate::fsm::HsuSyllable> = bpms
+                    .iter()
+                    .map(|s| crate::fsm::HsuSyllable::from_bopomofo_display(s).unwrap())
+                    .collect();
+                let dag = LatticeDAG::new(&engine.lexicon).build_dag(&syls, true);
+                let top_k = if syls.len() >= 15 { 32 } else { 16 };
+                let nbest = engine.router.solve_diverse_nbest_paths_with_prefix(
+                    syls.len(),
+                    &dag,
+                    Some(&mut engine.transitions),
+                    None,
+                    top_k,
+                    top_k,
+                );
+                assert!(!nbest.is_empty());
+                let top1_sc = nbest[0].1;
+                let mut filtered = Vec::new();
+                for (nodes, sc) in &nbest {
+                    if top1_sc - *sc <= 25.0 {
+                        let txt: String = nodes.iter().map(|n| n.word.as_str()).collect();
+                        filtered.push((nodes, *sc, txt));
+                    }
+                }
+                let raw_refs: Vec<&str> = filtered.iter().map(|(_, _, t)| t.as_str()).collect();
+                let (kept_pos, _) =
+                    crate::router::neural_reranker::select_candidates_with_trie_budget(
+                        "",
+                        &raw_refs,
+                        200,
+                    );
+                let kept_refs: Vec<&str> = kept_pos.iter().map(|&p| raw_refs[p]).collect();
+                let nl_scores = model.score_candidates_trie("", &kept_refs, &mut kv_cache, None);
+                let mut best_txt = String::new();
+                let mut best_sc = f64::NEG_INFINITY;
+                for (si, &fp) in kept_pos.iter().enumerate() {
+                    let (nodes, base_sc, ref txt) = filtered[fp];
+                    let tot = crate::router::neural_reranker::compute_fused_candidate_score(
+                        base_sc,
+                        nl_scores[si] as f64,
+                        nodes,
+                        0.0,
+                        0.0,
+                        0.0,
+                        lambda,
+                    );
+                    if tot > best_sc {
+                        best_sc = tot;
+                        best_txt = txt.clone();
+                    }
+                }
+                assert_eq!(
+                    &best_txt, expected,
+                    "[neural lambda=6.0 Wave B] 預期『{}』，實際『{}』",
+                    expected, best_txt
+                );
+            }
+        }
+    }
 }
