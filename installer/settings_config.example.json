@@ -46,7 +46,7 @@
     "enable_colloquial_biases": true,
     "enable_hot_reload": true,
     "enable_neural_reranker": false,
-    "neural_reranker_lambda": 2.25,
+    "neural_reranker_lambda": 6.0,
     "neural_reranker_timeout_ms": 25
   },
   "ai_and_privacy": {

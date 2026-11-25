@@ -5478,7 +5478,7 @@ fn main() {
     let mut top_k: usize = 16;
     let mut dump_nbest_path: Option<PathBuf> = None;
     let mut neural_rerank_path: Option<PathBuf> = None;
-    let mut neural_lambda: f64 = 2.25;
+    let mut neural_lambda: f64 = 6.0;
     let mut neural_margin: Option<f64> = None;
     let mut neural_max_trie_nodes: Option<usize> = None;
     let mut confirm_final_blind_test = false;

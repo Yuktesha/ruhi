@@ -13,7 +13,7 @@
   "enable_array30_coach": false,
   "enable_mixed_english": true,
   "enable_neural_reranker": false,
-  "neural_reranker_lambda": 2.25,
+  "neural_reranker_lambda": 6.0,
   "neural_reranker_timeout_ms": 25,
   "enabled_keyboard_modes": [
     "hsu",

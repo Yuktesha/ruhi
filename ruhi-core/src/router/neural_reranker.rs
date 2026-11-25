@@ -44,7 +44,7 @@ impl Default for NeuralRerankerConfig {
             .unwrap_or(false);
         Self {
             enabled: env_enabled,
-            lambda: 2.25,
+            lambda: 6.0,
             timeout_ms: 25,
             pipe_name: DEFAULT_PIPE_NAME.to_string(),
             min_syllables: 4,

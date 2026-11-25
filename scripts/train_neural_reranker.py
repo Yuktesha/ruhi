@@ -629,9 +629,9 @@ class _CorpusTextSink:
 def prepare_clean_corpus_txt(
     out_corpus_txt: Path,
     dev_hashes_path: Path,
-    target_chars: int = 125_000_000,
-    fineweb_timeout_sec: int = 600,
-    max_trad_zh_docs: int = 250_000,
+    target_chars: int = 190_000_000,
+    fineweb_timeout_sec: int = 900,
+    max_trad_zh_docs: int = 500_000,
 ) -> dict[str, Any]:
     scripts_dir = Path(__file__).resolve().parent
     if str(scripts_dir) not in sys.path:
@@ -646,11 +646,11 @@ def prepare_clean_corpus_txt(
         sink = _CorpusTextSink(f)
         ingestor = tnl.CorpusIngestor(purity, sink, target_chars, fineweb_timeout_sec)
 
-        ingestor.run_fineweb_tw(cap=40_000_000)
+        ingestor.run_fineweb_tw(cap=70_000_000)
         ingestor.run_common_voice_tw(cap=5_000_000)
         ingestor.run_auto_repo_source("tw_chinese_chat", "lianghsun/tw-chinese-chat", "MIT", cap=15_000_000)
         ingestor.run_auto_repo_source("coco_caption_zh_tw_val", "lianghsun/coco-caption-zh_tw-val", "CC-BY-4.0", cap=3_000_000)
-        ingestor.run_ivod(cap=14_000_000)
+        ingestor.run_ivod(cap=20_000_000)
         ingestor.run_ly_interpellation(cap=4_000_000)
         ingestor.run_ly_bill(cap=2_000_000)
         ingestor.run_parquet_source(
@@ -658,7 +658,7 @@ def prepare_clean_corpus_txt(
             "twinkle-ai/tw-reasoning-instruct-50k",
             "data/datasets.parquet",
             "MIT",
-            cap=10_000_000,
+            cap=20_000_000,
             preferred_cols=("input", "output", "think"),
         )
         ingestor.run_parquet_source(
@@ -694,7 +694,7 @@ def prepare_clean_corpus_txt(
             "traditional_chinese_odc",
             "agentlans/traditional-chinese",
             "ODC-BY",
-            cap=20_000_000,
+            cap=35_000_000,
             max_docs=max_trad_zh_docs,
         )
 
@@ -1007,6 +1007,269 @@ def encode_corpus_to_uint16_bin(
     }
 
 
+def build_homophone_confusion_map(
+    lexicon_path: Path, vocab: list[str]
+) -> tuple[dict[str, tuple[list[str], np.ndarray]], dict[str, tuple[list[str], np.ndarray]]]:
+    """自核心詞庫依完全相同注音讀音建立 1 字／2 字高頻同音競爭替換表（供無評估集洩漏之對比排序微調）。"""
+    special_set = set(SPECIAL_TOKENS)
+    vocab_set = {tok for tok in vocab if tok not in special_set and len(tok) == 1}
+    by_len_bpm: dict[tuple[int, str], dict[str, int]] = {}
+    best_reading: dict[tuple[int, str], tuple[str, int]] = {}
+
+    with open(lexicon_path, "r", encoding="utf-8") as f:
+        for line in f:
+            s = line.strip()
+            if not s or s.startswith("#"):
+                continue
+            parts = s.split("\t")
+            if len(parts) < 3:
+                continue
+            word, bpm = parts[0].strip(), " ".join(parts[1].strip().split())
+            wlen = len(word)
+            if wlen not in (1, 2) or not bpm:
+                continue
+            if not all(ch in vocab_set for ch in word):
+                continue
+            try:
+                wt = int(parts[2])
+            except ValueError:
+                continue
+            min_wt = 20 if wlen == 1 else 50
+            if wt < min_wt:
+                continue
+            key = (wlen, bpm)
+            bucket = by_len_bpm.setdefault(key, {})
+            if wt > bucket.get(word, 0):
+                bucket[word] = wt
+            prev = best_reading.get((wlen, word))
+            if prev is None or wt > prev[1]:
+                best_reading[(wlen, word)] = (bpm, wt)
+
+    pruned_buckets: dict[tuple[int, str], list[tuple[str, int]]] = {}
+    for (wlen, bpm), entries in by_len_bpm.items():
+        cap = 8 if wlen == 1 else 6
+        top = sorted(entries.items(), key=lambda kv: (-kv[1], kv[0]))[:cap]
+        if len(top) >= 2:
+            pruned_buckets[(wlen, bpm)] = top
+
+    conf1: dict[str, tuple[list[str], np.ndarray]] = {}
+    conf2: dict[str, tuple[list[str], np.ndarray]] = {}
+    for (wlen, word), (primary_bpm, _) in best_reading.items():
+        grp = pruned_buckets.get((wlen, primary_bpm))
+        if not grp:
+            continue
+        alts = [(alt, wt) for alt, wt in grp if alt != word]
+        if not alts:
+            continue
+        words = [a for a, _ in alts]
+        raw_p = np.array([max(1.0, float(wt)) ** 0.7 for _, wt in alts], dtype=np.float64)
+        probs = raw_p / raw_p.sum()
+        if wlen == 1:
+            conf1[word] = (words, probs)
+        else:
+            conf2[word] = (words, probs)
+    return conf1, conf2
+
+
+def corrupt_clause_with_homophones(
+    text: str,
+    conf1: dict[str, tuple[list[str], np.ndarray]],
+    conf2: dict[str, tuple[list[str], np.ndarray]],
+    rng: np.random.Generator,
+) -> str | None:
+    """於保持句長不變前提下隨機挑選 1–2 處互不重疊片段進行同注音替換，生成逼真負樣本。"""
+    spans: list[tuple[int, int, list[str], np.ndarray]] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if i + 2 <= n:
+            w2 = text[i : i + 2]
+            if w2 in conf2:
+                alts, probs = conf2[w2]
+                spans.append((i, i + 2, alts, probs))
+                i += 2
+                continue
+        w1 = text[i]
+        if w1 in conf1:
+            alts, probs = conf1[w1]
+            spans.append((i, i + 1, alts, probs))
+        i += 1
+
+    if not spans:
+        return None
+    k_pick = 2 if (len(spans) >= 2 and rng.random() < 0.25) else 1
+    chosen_idxs = sorted(rng.choice(len(spans), size=k_pick, replace=False).tolist())
+    chars = list(text)
+    changed = False
+    for si in chosen_idxs:
+        s0, s1, alts, probs = spans[si]
+        rep = str(rng.choice(alts, p=probs))
+        if len(rep) == (s1 - s0) and "".join(chars[s0:s1]) != rep:
+            chars[s0:s1] = list(rep)
+            changed = True
+    if not changed:
+        return None
+    neg = "".join(chars)
+    return neg if neg != text else None
+
+
+def run_contrastive_finetune(
+    model,
+    vocab: list[str],
+    train_mm: np.memmap,
+    train_bos: np.memmap,
+    train_lens: np.memmap,
+    lexicon_path: Path,
+    args: argparse.Namespace,
+    device,
+    amp_dtype,
+    use_amp: bool,
+    block_size: int,
+) -> None:
+    """Stage D3-2：僅利用去重訓練集句段＋核心詞庫同音競爭詞執行 CE + Softplus Margin 對比微調（零評估集接觸）。"""
+    import torch
+    import torch.nn.functional as F
+
+    conf1, conf2 = build_homophone_confusion_map(lexicon_path, vocab)
+    print(
+        f"[contrastive] 同音競爭表載入完成: 1字={len(conf1):,}, 2字={len(conf2):,} | "
+        f"steps={args.contrastive_steps}, lr={args.contrastive_lr:.1e}, margin={args.contrastive_margin}, alpha={args.contrastive_alpha}",
+        flush=True,
+    )
+    if len(conf1) < 100:
+        raise RuntimeError("同音競爭詞表過小，中止對比微調以免模型崩壞。")
+
+    c2i = {c: i for i, c in enumerate(vocab)}
+    rng = np.random.default_rng(args.seed + 31337)
+    n_clauses = len(train_bos)
+    max_seq_len = int(args.max_seq_len)
+    bsz = 64
+
+    opt = torch.optim.AdamW(
+        model.parameters(),
+        lr=args.contrastive_lr,
+        betas=(0.9, 0.95),
+        weight_decay=0.05,
+    )
+    use_scaler = use_amp and (amp_dtype == torch.float16)
+    scaler = torch.amp.GradScaler("cuda", enabled=use_scaler)
+
+    def sample_contrastive_pair_batch() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        gold_seqs: list[list[int]] = []
+        neg_seqs: list[list[int]] = []
+        pref_lens: list[int] = []
+        attempts = 0
+        while len(gold_seqs) < bsz and attempts < bsz * 40:
+            attempts += 1
+            idx = int(rng.integers(0, n_clauses))
+            b0 = int(train_bos[idx])
+            l0 = int(train_lens[idx])
+            if l0 < 8 or l0 > 44:
+                continue
+            toks_raw = train_mm[b0 + 1 : b0 + l0 - 1]
+            if np.any(toks_raw == UNK_ID) or np.any(toks_raw < 4):
+                continue
+            text = "".join(vocab[int(t)] for t in toks_raw)
+            if not (6 <= len(text) <= 40):
+                continue
+            neg_text = corrupt_clause_with_homophones(text, conf1, conf2, rng)
+            if neg_text is None or len(neg_text) != len(text):
+                continue
+
+            prefix_toks: list[int] = [BOS_ID]
+            if rng.random() < 0.50 and idx > 0 and ((idx - 1) // block_size) == (idx // block_size):
+                bp = int(train_bos[idx - 1])
+                lp = int(train_lens[idx - 1])
+                if lp > 3:
+                    p_slice = train_mm[bp + 1 : bp + lp - 1].tolist()
+                    if len(p_slice) > 48:
+                        p_slice = p_slice[-48:]
+                    if len(prefix_toks) + len(p_slice) + len(text) <= max_seq_len:
+                        prefix_toks.extend(int(t) for t in p_slice)
+
+            g_ids = [c2i.get(ch, UNK_ID) for ch in text]
+            n_ids = [c2i.get(ch, UNK_ID) for ch in neg_text]
+            if UNK_ID in g_ids or UNK_ID in n_ids:
+                continue
+            gold_seqs.append(prefix_toks + g_ids)
+            neg_seqs.append(prefix_toks + n_ids)
+            pref_lens.append(len(prefix_toks))
+
+        if not gold_seqs:
+            raise RuntimeError("無法合成任何同音對比微調批次。")
+        t_max = max(len(s) for s in gold_seqs) - 1
+        cur_b = len(gold_seqs)
+        inp_g = torch.full((cur_b, t_max), PAD_ID, dtype=torch.long)
+        tgt_g = torch.full((cur_b, t_max), 0, dtype=torch.long)
+        inp_n = torch.full((cur_b, t_max), PAD_ID, dtype=torch.long)
+        tgt_n = torch.full((cur_b, t_max), 0, dtype=torch.long)
+        mask = torch.zeros((cur_b, t_max), dtype=torch.float32)
+
+        for bi in range(cur_b):
+            gs = gold_seqs[bi]
+            ns = neg_seqs[bi]
+            plen = pref_lens[bi]
+            l_eff = len(gs) - 1
+            inp_g[bi, :l_eff] = torch.tensor(gs[:-1], dtype=torch.long)
+            tgt_g[bi, :l_eff] = torch.tensor(gs[1:], dtype=torch.long)
+            inp_n[bi, :l_eff] = torch.tensor(ns[:-1], dtype=torch.long)
+            tgt_n[bi, :l_eff] = torch.tensor(ns[1:], dtype=torch.long)
+            mask[bi, (plen - 1) : l_eff] = 1.0
+
+        return (
+            torch.cat([inp_g, inp_n], dim=0).to(device),
+            tgt_g.to(device),
+            tgt_n.to(device),
+            mask.to(device),
+        )
+
+    t_c0 = time.monotonic()
+    for cstep in range(args.contrastive_steps):
+        prog = cstep / max(1, args.contrastive_steps)
+        lr_cur = args.contrastive_lr * (0.1 + 0.9 * 0.5 * (1.0 + math.cos(math.pi * prog)))
+        for pg in opt.param_groups:
+            pg["lr"] = lr_cur
+
+        model.train()
+        opt.zero_grad(set_to_none=True)
+        inp_both, tgt_g, tgt_n, mask = sample_contrastive_pair_batch()
+        cur_b = tgt_g.shape[0]
+        with torch.amp.autocast(device_type=device.type, dtype=amp_dtype, enabled=use_amp):
+            logits = model(inp_both)
+            log_probs = F.log_softmax(logits.float(), dim=-1)
+            lp_g_tok = log_probs[:cur_b].gather(-1, tgt_g.unsqueeze(-1)).squeeze(-1)
+            lp_n_tok = log_probs[cur_b:].gather(-1, tgt_n.unsqueeze(-1)).squeeze(-1)
+            lp_g = (lp_g_tok * mask).sum(dim=-1)
+            lp_n = (lp_n_tok * mask).sum(dim=-1)
+            ce_loss = -(lp_g_tok * mask).sum() / mask.sum().clamp(min=1.0)
+            diff = lp_g - lp_n
+            rank_loss = F.softplus(args.contrastive_margin - diff).mean()
+            loss = ce_loss + args.contrastive_alpha * rank_loss
+
+        if use_scaler:
+            scaler.scale(loss).backward()
+            scaler.unscale_(opt)
+        else:
+            loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        if use_scaler:
+            scaler.step(opt)
+            scaler.update()
+        else:
+            opt.step()
+
+        if (cstep + 1) % 200 == 0 or cstep == 0 or (cstep + 1) == args.contrastive_steps:
+            pair_acc = float((diff > 0).float().mean().item())
+            mean_gap = float(diff.mean().item())
+            dt = time.monotonic() - t_c0
+            print(
+                f"[contrast {cstep + 1:4d}/{args.contrastive_steps}] ce={float(ce_loss):.4f} "
+                f"rank={float(rank_loss):.4f} pair_acc={pair_acc * 100:.1f}% gap={mean_gap:+.2f} "
+                f"lr={lr_cur:.2e} ({dt:.1f}s)",
+                flush=True,
+            )
+
+
 def run_torch_training(args: argparse.Namespace) -> int:
     import torch
     import torch.nn.functional as F
@@ -1215,11 +1478,27 @@ def run_torch_training(args: argparse.Namespace) -> int:
             )
 
     fp = int.from_bytes(hashlib.sha256(f"{total_toks}:{len(vocab)}".encode()).digest()[:8], "little")
-    meta = write_rlnm0001(args.out_bin, vocab, model.cfg, model.export_numpy_tensors(), corpus_fingerprint=fp)
-    print(f"[export] RLNM0001 匯出完成: {meta}", flush=True)
+    pretrain_out = Path(args.out_pretrain_bin) if args.out_pretrain_bin else Path(args.out_bin)
+    meta_pre = write_rlnm0001(pretrain_out, vocab, model.cfg, model.export_numpy_tensors(), corpus_fingerprint=fp)
+    print(f"[export pretrain] RLNM0001 匯出完成: {meta_pre}", flush=True)
 
-    if args.eval_nbest:
+    if args.eval_nbest and (args.out_pretrain_bin or args.contrastive_steps <= 0):
+        print("[eval pretrain] 評估預訓練模型於 dev N-Best 表現...", flush=True)
         evaluate_nbest_with_torch(model, vocab, Path(args.eval_nbest), device, amp_dtype if use_amp else None)
+
+    if args.contrastive_steps > 0:
+        if not lex_path or not lex_path.is_file():
+            print("[錯誤] --contrastive-steps > 0 需要提供 --lexicon <lexicon_core.tsv>", file=sys.stderr)
+            return 2
+        run_contrastive_finetune(
+            model, vocab, train_mm, train_bos, train_lens, lex_path, args, device, amp_dtype, use_amp, block_size
+        )
+        fp_c = int.from_bytes(hashlib.sha256(f"{total_toks}:{len(vocab)}:c{args.contrastive_steps}".encode()).digest()[:8], "little")
+        meta_fin = write_rlnm0001(args.out_bin, vocab, model.cfg, model.export_numpy_tensors(), corpus_fingerprint=fp_c)
+        print(f"[export contrast] RLNM0001 匯出完成: {meta_fin}", flush=True)
+        if args.eval_nbest:
+            print("[eval contrast] 評估對比微調模型於 dev N-Best 表現...", flush=True)
+            evaluate_nbest_with_torch(model, vocab, Path(args.eval_nbest), device, amp_dtype if use_amp else None)
     return 0
 
 
@@ -1359,12 +1638,13 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--work-dir", default="outputs/v10_charlm_work", help="訓練暫存與斷點目錄")
     ap.add_argument("--checkpoint", help="斷點檔案路徑 (.pt)")
     ap.add_argument("--resume", action="store_true", help="自既有斷點繼續訓練")
+    ap.add_argument("--out-pretrain-bin", default="", help="預訓練完成後先行匯出 RLNM0001 之選填路徑（供 A/B 對照）")
     ap.add_argument("--out-bin", default="outputs/rlnm_zh_tw.bin", help="輸出 RLNM0001 INT8 模型路徑")
     ap.add_argument("--eval-nbest", help="訓練後對指定 dev N-Best JSONL 執行重排校準")
 
-    ap.add_argument("--target-chars", type=int, default=125_000_000)
-    ap.add_argument("--fineweb-timeout-sec", type=int, default=600)
-    ap.add_argument("--max-trad-zh-docs", type=int, default=250_000)
+    ap.add_argument("--target-chars", type=int, default=190_000_000)
+    ap.add_argument("--fineweb-timeout-sec", type=int, default=900)
+    ap.add_argument("--max-trad-zh-docs", type=int, default=500_000)
 
     ap.add_argument("--vocab-size", type=int, default=7200)
     ap.add_argument("--d-model", type=int, default=512)
@@ -1380,6 +1660,10 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--lr", type=float, default=4e-4)
     ap.add_argument("--weight-decay", type=float, default=0.1)
     ap.add_argument("--cold-start-ratio", type=float, default=0.40, help="冷啟動單句／雙句前綴對齊訓練批次比例")
+    ap.add_argument("--contrastive-steps", type=int, default=0, help="預訓練後於訓練集執行同音對比排序微調步數（0=停用）")
+    ap.add_argument("--contrastive-lr", type=float, default=4e-5)
+    ap.add_argument("--contrastive-margin", type=float, default=4.0)
+    ap.add_argument("--contrastive-alpha", type=float, default=0.50)
     ap.add_argument("--bf16", action="store_true", help="於支援 Ampere+ 的 GPU 強制啟用 BF16 混合精度")
     ap.add_argument("--log-every", type=int, default=100)
     ap.add_argument("--eval-every", type=int, default=1000)
