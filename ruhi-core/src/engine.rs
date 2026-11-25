@@ -24229,4 +24229,185 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_live_typing_six_cases_and_contrastives_261125() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec!["ㄧˇ", "ㄒㄧㄚˋ", "ㄕˋ", "ㄨㄛˇ", "ㄍㄤ", "ㄍㄤ", "ㄉㄚˇ", "ㄉㄜ˙", "ㄨㄣˊ", "ㄐㄩˋ"],
+                "以下是我剛剛打的文句",
+            ),
+            (
+                vec!["ㄧˇ", "ㄒㄧㄚˋ", "ㄕˋ", "ㄨㄛˇ", "ㄍㄤ", "ㄍㄤ", "ㄇㄞˇ", "ㄉㄜ˙", "ㄨㄣˊ", "ㄐㄩˋ"],
+                "以下是我剛剛買的文具",
+            ),
+            (
+                vec![
+                    "ㄐㄧㄡˇ", "ㄏㄜˊ", "ㄧ", "ㄉㄚˋ", "ㄒㄩㄢˇ", "ㄏㄞˇ", "ㄨㄞˋ", "ㄓㄥˋ", "ㄓˋ",
+                    "ㄨㄤˇ", "ㄏㄨㄥˊ", "ㄍㄨㄢ", "ㄒㄩㄢˇ", "ㄊㄨㄢˊ", "ㄅㄠˋ", "ㄉㄠˋ",
+                ],
+                "九合一大選海外政治網紅觀選團報到",
+            ),
+            (
+                vec!["ㄏㄨㄥˊ", "ㄍㄨㄢ", "ㄐㄧㄥ", "ㄐㄧˋ", "ㄈㄣ", "ㄒㄧ"],
+                "宏觀經濟分析",
+            ),
+            (
+                vec![
+                    "ㄊㄚ", "ㄗㄞˋ", "ㄏㄢˇ", "ㄌㄧㄤˇ", "ㄢˋ", "ㄧˋ", "ㄐㄧㄚ", "ㄑㄧㄣ", "ㄕˊ",
+                    "ㄕˊ", "ㄐㄧˋ", "ㄕㄤˋ", "ㄕˋ", "ㄨˇ", "ㄌㄧˋ", "ㄨㄟ", "ㄒㄧㄝˊ", "ㄗㄨㄟˋ",
+                    "ㄧㄢˊ", "ㄓㄨㄥˋ", "ㄉㄜ˙", "ㄕˊ", "ㄏㄡˋ",
+                ],
+                "他在喊兩岸一家親時實際上是武力威脅最嚴重的時候",
+            ),
+            (
+                vec!["ㄏㄞˇ", "ㄕㄨㄟˇ", "ㄅㄨˊ", "ㄉㄨㄢˋ", "ㄑㄧㄣ", "ㄕˊ", "ㄏㄞˇ", "ㄢˋ", "ㄒㄧㄢˋ"],
+                "海水不斷侵蝕海岸線",
+            ),
+            (
+                vec!["ㄕˋ", "ㄐㄧㄝˋ", "ㄕˋ", "ㄩㄝˋ", "ㄌㄞˊ", "ㄩㄝˋ", "ㄎㄢˋ", "ㄉㄠˋ", "ㄊㄞˊ", "ㄨㄢ", "ㄌㄜ˙"],
+                "世界是越來越看到台灣了",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄒㄧˇ", "ㄏㄨㄢ", "ㄏㄜ", "ㄇㄟˇ", "ㄕˋ", "ㄎㄚ", "ㄈㄟ"],
+                "我喜歡喝美式咖啡",
+            ),
+            (
+                vec!["ㄇㄧㄣˊ", "ㄓ", "ㄙㄨㄛˇ", "ㄩˋ", "ㄔㄤˊ", "ㄗㄞˋ", "ㄨㄛˇ", "ㄒㄧㄣ"],
+                "民之所欲長在我心",
+            ),
+            (
+                vec![
+                    "ㄧˊ", "ㄍㄜ˙", "ㄔㄠ", "ㄩㄝˋ", "ㄕˋ", "ㄉㄞˋ", "ㄉㄜ˙", "ㄓˋ", "ㄏㄨㄟˋ",
+                    "ㄒㄧㄥˊ", "ㄓㄨˋ", "ㄧㄣ", "ㄕㄨ", "ㄖㄨˋ", "ㄈㄚˇ",
+                ],
+                "一個超越世代的智慧型注音輸入法",
+            ),
+            (
+                vec!["ㄔㄠ", "ㄩㄝˋ", "ㄕˋ", "ㄎㄨㄣˋ", "ㄋㄢˊ", "ㄉㄜ˙"],
+                "超越是困難的",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+
+        let model_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("ruhi_lexicon")
+            .join("data")
+            .join("rlnm_zh_tw.bin");
+        if model_path.is_file() {
+            let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("data");
+            let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+            let model = crate::router::rlnm::RlnmModel::open(&model_path).unwrap();
+            let mut kv_cache = model.alloc_kv_cache();
+            let lambda = 6.0f64;
+            let eff_lambda = lambda * (2.3024 / 2.25);
+
+            for (bpms, expected) in &cases {
+                let syls: Vec<crate::fsm::HsuSyllable> = bpms
+                    .iter()
+                    .map(|s| crate::fsm::HsuSyllable::from_bopomofo_display(s).unwrap())
+                    .collect();
+                let dag = LatticeDAG::new(&engine.lexicon).build_dag(&syls, true);
+                let top_k = if syls.len() >= 15 { 32 } else { 16 };
+                let nbest = engine.router.solve_diverse_nbest_paths_with_prefix(
+                    syls.len(),
+                    &dag,
+                    Some(&mut engine.transitions),
+                    None,
+                    top_k,
+                    top_k,
+                );
+                assert!(!nbest.is_empty(), "nbest should not be empty for {expected}");
+                let top1_sc = nbest[0].1;
+                let mut filtered_idxs = Vec::new();
+                let mut filtered_texts: Vec<String> = Vec::new();
+                for (idx, (nodes, sc)) in nbest.iter().enumerate() {
+                    if top1_sc - *sc > 25.0 {
+                        break;
+                    }
+                    filtered_idxs.push(idx);
+                    filtered_texts.push(nodes.iter().map(|n| n.word.as_str()).collect());
+                }
+                let raw_refs: Vec<&str> = filtered_texts.iter().map(|s| s.as_str()).collect();
+                let (kept_pos, _) =
+                    crate::router::neural_reranker::select_candidates_with_trie_budget(
+                        "",
+                        &raw_refs,
+                        200,
+                    );
+                let kept_refs: Vec<&str> = kept_pos.iter().map(|&p| raw_refs[p]).collect();
+                let nl_scores = model.score_candidates_trie("", &kept_refs, &mut kv_cache, None);
+                let mut best_pos = 0usize;
+                let mut best_tot = f64::NEG_INFINITY;
+                let mut pass1_totals = vec![f64::NEG_INFINITY; kept_pos.len()];
+                for (si, &fp) in kept_pos.iter().enumerate() {
+                    let cand_idx = filtered_idxs[fp];
+                    let (ref nodes, base_sc) = nbest[cand_idx];
+                    let bonus = crate::router::neural_reranker::structural_fusion_bonus(
+                        nodes, 0.0, lambda,
+                    );
+                    let tot = base_sc + eff_lambda * (nl_scores[si] as f64) + bonus;
+                    pass1_totals[si] = tot;
+                    if tot > best_tot {
+                        best_tot = tot;
+                        best_pos = fp;
+                    }
+                }
+                let mut predicted = filtered_texts[best_pos].clone();
+                if let Some(&p_star_si) = kept_pos.first().map(|_| &0usize) {
+                    let p_star_idx = filtered_idxs[kept_pos[p_star_si]];
+                    let p_star_total = pass1_totals[0];
+                    let mut improved: Vec<(&[crate::router::LatticeNode], f64, f64, f64)> =
+                        Vec::new();
+                    for (si, &fp) in kept_pos.iter().enumerate().skip(1) {
+                        let tot = pass1_totals[si];
+                        if tot > p_star_total + 0.5 {
+                            let c_idx = filtered_idxs[fp];
+                            improved.push((
+                                &nbest[c_idx].0,
+                                nbest[c_idx].1,
+                                0.0,
+                                tot - p_star_total,
+                            ));
+                        }
+                    }
+                    if let Some((recomb_nodes, recomb_base, recomb_disc)) =
+                        crate::router::neural_reranker::try_build_disjoint_multi_island_recombination(
+                            &nbest[p_star_idx].0,
+                            nbest[p_star_idx].1,
+                            0.0,
+                            &improved,
+                        )
+                    {
+                        let recomb_txt: String =
+                            recomb_nodes.iter().map(|n| n.word.as_str()).collect();
+                        let best_txt = &filtered_texts[best_pos];
+                        let r_scores = model.score_candidates_trie(
+                            "",
+                            &[best_txt.as_str(), recomb_txt.as_str()],
+                            &mut kv_cache,
+                            None,
+                        );
+                        let bonus = crate::router::neural_reranker::structural_fusion_bonus(
+                            &recomb_nodes,
+                            recomb_disc,
+                            lambda,
+                        );
+                        let recomb_tot = recomb_base + eff_lambda * (r_scores[1] as f64) + bonus;
+                        if recomb_tot > best_tot {
+                            predicted = recomb_txt;
+                        }
+                    }
+                }
+                assert_eq!(
+                    &predicted, expected,
+                    "[neural lambda=6.0] 預期『{}』，實際『{}』",
+                    expected, predicted
+                );
+            }
+        }
+    }
 }

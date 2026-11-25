@@ -5129,24 +5129,12 @@ impl TransitionEngine {
         // ── 構式二十：實戰長句高歧義構式精準消歧（261021 使用者極端造句集） ──
         // 27. 篇章指稱與語句傳遞構式：`[以下/上述/下列/這段/這些/那段/幾句] + [文句] + [我/你/直接/貼/寫/輸入/修改]` vs. 實體辦公用品「文具」：
         if matches!(curr_word, "文句" | "文具") {
-            let prev_is_discourse_mod = matches!(
-                prev_word,
-                "以下" | "上述" | "下列" | "這段" | "那段" | "這些" | "那些" | "幾句" | "這句"
-                    | "那句" | "本段" | "極端" | "測試" | "輸入"
-            );
-            let next_is_discourse_pred = dag
-                .get(&end_idx)
-                .map(|ns| {
-                    ns.iter().any(|m| {
-                        matches!(
-                            m.word.as_str(),
-                            "我" | "你" | "您" | "我們" | "還是" | "直接" | "貼" | "貼給" | "寫"
-                                | "輸入" | "修改" | "分析" | "結構" | "通順" | "語意"
-                        )
-                    })
-                })
-                .unwrap_or(false);
             let has_stationery_cue = matches!(prev_word, "買" | "購買" | "賣" | "批發" | "學生")
+                || (prev_word == "的"
+                    && matches!(
+                        ctx.prev2_word,
+                        "買" | "購買" | "賣" | "批發" | "借" | "送" | "收" | "帶" | "買來" | "買到" | "發"
+                    ))
                 || (prev_word.starts_with("辦公") && prev_word.ends_with('室'))
                 || dag
                     .get(&end_idx)
@@ -5160,6 +5148,31 @@ impl TransitionEngine {
                         })
                     })
                     .unwrap_or(false);
+            let prev_is_discourse_mod = matches!(
+                prev_word,
+                "以下" | "上述" | "下列" | "這段" | "那段" | "這些" | "那些" | "幾句" | "這句"
+                    | "那句" | "本段" | "極端" | "測試" | "輸入"
+            ) || (!has_stationery_cue
+                && prev_word == "的"
+                && (matches!(
+                    ctx.prev2_word,
+                    "打" | "寫" | "貼" | "輸入" | "修改" | "改" | "念" | "唸" | "讀" | "講"
+                        | "說" | "翻譯" | "譯" | "引用" | "摘錄" | "編輯" | "撰寫" | "造"
+                ) || ctx.prefix_words.iter().any(|&w| {
+                    matches!(w, "以下" | "上述" | "下列" | "這段" | "那段" | "這些" | "那些")
+                })));
+            let next_is_discourse_pred = dag
+                .get(&end_idx)
+                .map(|ns| {
+                    ns.iter().any(|m| {
+                        matches!(
+                            m.word.as_str(),
+                            "我" | "你" | "您" | "我們" | "還是" | "直接" | "貼" | "貼給" | "寫"
+                                | "輸入" | "修改" | "分析" | "結構" | "通順" | "語意"
+                        )
+                    })
+                })
+                .unwrap_or(false);
             if has_stationery_cue {
                 if curr_word == "文具" {
                     bonus += 34.0;
@@ -7115,17 +7128,27 @@ impl TransitionEngine {
         {
             bonus -= 32.0;
         }
-        // 2. 複句關聯框架：`[之所以] ... [是 + 因為 / 在於]`、`[寧可/寧願] ... [也不/也要]`、`[站在] ... [角度/立場]`
+        // 2. 複句關聯框架：`[之所以] ... [是 + 因為 / 在於]`、`[是 + 越來越 / 愈來愈]`、`[寧可/寧願] ... [也不/也要]`、`[站在] ... [角度/立場]`
         if matches!(curr_word, "是" | "事" | "式" | "視" | "試" | "世" | "勢") {
             let next_is_yinwei = dag
                 .get(&end_idx)
                 .map(|ns| ns.iter().any(|m| matches!(m.word.as_str(), "因為" | "由於" | "為了")))
+                .unwrap_or(false);
+            let next_is_progressive_adv = dag
+                .get(&end_idx)
+                .map(|ns| ns.iter().any(|m| matches!(m.word.as_str(), "越來越" | "愈來愈")))
                 .unwrap_or(false);
             if next_is_yinwei {
                 if curr_word == "是" {
                     bonus += 32.0;
                 } else {
                     bonus -= 28.0;
+                }
+            } else if next_is_progressive_adv {
+                if curr_word == "是" {
+                    bonus += 24.0;
+                } else {
+                    bonus -= 24.0;
                 }
             }
         }
@@ -7553,10 +7576,13 @@ impl TransitionEngine {
         let curr_word = ctx.curr_word;
         let prev_word = ctx.prev_word;
 
-            // (c) 結構助詞「的」後接雙字名詞「事物／事情／事業／事實／視覺／視野／市場」防「的+是」拆詞劫掠
+            // (c) 結構助詞「的」與受詞支配動詞後接雙字名詞「事物／事情／事業／事實／視覺／視野／市場／世代」防「的/超越+是」拆詞劫掠
             if matches!(
                 prev_word,
-                "的" | "之" | "一切" | "任何" | "所有" | "各種" | "這些" | "那些" | "種種" | "外在" | "內在" | "客觀" | "世間"
+                "的" | "之" | "一切" | "任何" | "所有" | "各種" | "這些" | "那些" | "種種"
+                    | "外在" | "內在" | "客觀" | "世間" | "超越" | "跨越" | "跨" | "跨過"
+                    | "進入" | "開啟" | "迎接" | "引領" | "改變" | "代表" | "屬於" | "整個"
+                    | "每個" | "下個" | "上個"
             ) && matches!(
                 curr_word,
                 "事物" | "事情" | "事業" | "事實" | "事件" | "世人" | "世間" | "世代"
@@ -7575,7 +7601,14 @@ impl TransitionEngine {
         let dag = ctx.dag;
         let prev_word = ctx.prev_word;
 
-            if prev_word == "的" && curr_word == "是" && end_idx >= 1 {
+            if (matches!(
+                prev_word,
+                "的" | "超越" | "跨越" | "跨" | "跨過" | "進入" | "開啟" | "迎接" | "引領"
+                    | "改變" | "代表" | "屬於" | "整個" | "每個" | "下個" | "上個"
+            ) || matches!((ctx.prev2_word, prev_word), ("超", "越") | ("跨", "越")))
+                && curr_word == "是"
+                && end_idx >= 1
+            {
                 let shatters_shi_compound = dag
                     .get(&(end_idx - 1))
                     .map(|ns| {
@@ -19084,6 +19117,52 @@ impl TransitionEngine {
 
         bonus.clamp(-35.0, 35.0)
     }
+
+    #[inline(never)]
+    fn slot_d289(&self, ctx: &SubRuleCtx<'_>) -> f64 {
+        let mut bonus = 0.0f64;
+        let curr_word = ctx.curr_word;
+        let prev_word = ctx.prev_word;
+
+        // A. 古典語境固定搭配「民之所欲／所欲長在」vs「常在」
+        if matches!(curr_word, "長在" | "常在")
+            && (prev_word == "所欲" || ctx.prefix_words.contains(&"所欲"))
+        {
+            if curr_word == "長在" {
+                bonus += 24.0;
+            } else {
+                bonus -= 20.0;
+            }
+        }
+
+        // B. 社群口號構式「喊／兩岸＋一家親」vs 自然物理動詞「海水／土壤＋侵蝕」
+        if matches!(curr_word, "一家親" | "侵蝕") {
+            let has_solidarity_cue = matches!(
+                prev_word,
+                "兩岸" | "四海" | "五湖四海" | "原漢" | "族群" | "鄰里" | "社區"
+            ) || ctx
+                .prefix_words
+                .iter()
+                .any(|&w| matches!(w, "喊" | "高喊" | "唱" | "口號" | "標語" | "宣傳"));
+            let has_erosion_subj = ctx.prefix_words.iter().any(|&w| {
+                matches!(
+                    w,
+                    "海水" | "海浪" | "海風" | "雨水" | "溪水" | "河水" | "洪水" | "風雨"
+                        | "土壤" | "泥土" | "砂石" | "岩石" | "崖壁" | "海岸" | "山坡"
+                        | "利潤" | "獲利" | "信心" | "腐敗"
+                )
+            });
+            if has_solidarity_cue && !has_erosion_subj {
+                if curr_word == "一家親" {
+                    bonus += 30.0;
+                } else {
+                    bonus -= 28.0;
+                }
+            }
+        }
+
+        bonus.clamp(-35.0, 35.0)
+    }
 }
 
 static DISPATCH_SPECS: &[DispatchSlotSpec] = &[
@@ -19376,4 +19455,5 @@ static DISPATCH_SPECS: &[DispatchSlotSpec] = &[
     DispatchSlotSpec { rule_id: "cjk_sub_guard_rbj_round5_modal_xde_and_left_compound_factorization", words: &["覺得", "值得", "記得", "懂得", "曉得", "捨得", "認得", "顯得", "免得", "省得", "難得", "樂得", "懶得", "的", "得", "不小", "市值", "小的", "難的", "樂的", "質的", "不捨得", "是", "事", "藥劑", "記", "計", "賣相", "微詞", "有為"], eval: TransitionEngine::slot_d286 },
     DispatchSlotSpec { rule_id: "cjk_sub_guard_rbk_round6_s5_and_live_disambiguation", words: &["埠", "號", "不", "不出", "以", "已", "一句", "氣得", "依據", "畫", "話", "化", "原型", "圓形", "形態", "型態"], eval: TransitionEngine::slot_d287 },
     DispatchSlotSpec { rule_id: "cjk_sub_guard_rbl_round8_nine_live_constructions", words: &["可以", "已", "渴", "檔案", "建立", "當", "按鍵", "案件", "按", "力", "舊", "就", "到貨", "倒貨", "或者", "或", "部", "不", "事", "不是", "坐", "出", "作出", "做出", "動畫", "話", "動", "誓死", "是", "死的", "花瓣", "花", "瓣", "辦", "半", "毛錢", "錢", "前", "的", "地", "正經", "政經"], eval: TransitionEngine::slot_d288 },
+    DispatchSlotSpec { rule_id: "cjk_sub_guard_rbm_round9_six_live_constructions", words: &["一家親", "侵蝕", "常在", "長在"], eval: TransitionEngine::slot_d289 },
 ];
