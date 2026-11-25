@@ -10,17 +10,17 @@
 
 | 項目 | 目前狀態／實測數值 |
 |---|---|
-| Git 分支與基底 | `main`（含 `v0.9.5` 里程碑 `13a8676`＋Stage D1–D2 `aa65f4d`＋Stage D3 `7dcdb24`＋本版 **`v1.0.0`** 定案盲測與本機雙封裝就緒，尚未推送遠端） |
+| Git 分支與基底 | `main`（含 `v0.9.5` 里程碑 `13a8676`＋Stage D1–D2 `aa65f4d`＋Stage D3 `7dcdb24`＋實境六句修復 `2e18c85`＋本版 **`v0.9.6`** 雙封裝就緒，尚未推送遠端；`v1.0.0` 留待後續里程碑） |
 | `dev` 開發集品質閘門（`ruhi_eval --set dev --gate`） | **離線基準閘門 `PASS`**（`gate_passed: true`，基準線 [`dev_gate_baseline.json`](file:///c:/ATGprjs/ruhi/eval_reports/dev_gate_baseline.json) `3ce79d0` `1,566` 錯字）：目前離線輸出 **`1,565 / 44,855 = 3.49%`**、整句命中 **`2,693 / 3,640 = 73.98%`**（`broken_count = 0, fixed_count = 1`）。<br>**選配純 Rust INT8 神經重排（`--neural-rerank rlnm_zh_tw.bin`，預設 `lambda = 6.0`、`margin = 25.0`、`max_trie_nodes = 200`）**：CER 降至 **`2.60%`**（**`1,168 / 44,855`**，較離線基準淨減 **`-397`** 字錯／相對降幅 **`25.37%`**）、整句完全命中升至 **`2,902 / 3,640`**（**`79.73%`**，淨增 **`+209`** 句；五大文體：`civic_public` `1.55%` / `daily_dialogue` `1.78%` / `literary_narrative` `2.74%` / `moe_idiom_context` `1.65%` / `tech_doc` `6.07%`） |
-| 盲測驗證集（`test.tsv` / `typing_tw.tsv` 單次終檢） | **已於 `v1.0.0`（`7dcdb24` Stage D4 定案後）完成唯一一次終檢（`test.tsv`／`typing_tw.tsv` 原文維持遮蔽，嚴禁重覆調參）：<br>1. **`test.tsv`**（1,560 句／19,058 字）：離線基準 `4.36%`（`831` 字錯、完全命中 `68.14%` = 1,063 句）➔ `v1.0.0` 神經重排 **`3.07%`**（**`585`** 字錯、完全命中 **`75.96%`** = 1,185 句；淨減 **`-246`** 字錯，相對降幅 **`29.60%`**，`fixed = 171, broken = 49`，McNemar $\chi^2 = 66.55, p = 3.449 \times 10^{-16}$）。<br>2. **`typing_tw.tsv`**（4,256 句／48,911 字）：離線基準 `9.01%`（`4,408` 字錯、完全命中 `45.49%` = 1,936 句）➔ `v1.0.0` 神經重排 **`7.08%`**（**`3,462`** 字錯、完全命中 **`54.39%`** = 2,315 句；淨減 **`-946`** 字錯，相對降幅 **`21.46%`**）。 |
+| 盲測驗證集（`test.tsv` / `typing_tw.tsv` 單次終檢） | **已於 `7dcdb24`（Stage D4 定案後）完成唯一一次終檢（`test.tsv`／`typing_tw.tsv` 原文維持遮蔽，嚴禁重覆調參）：**<br>1. **`test.tsv`**（1,560 句／19,058 字）：離線基準 `4.36%`（`831` 字錯、完全命中 `68.14%` = 1,063 句）➔ 神經重排 **`3.07%`**（**`585`** 字錯、完全命中 **`75.96%`** = 1,185 句；淨減 **`-246`** 字錯，相對降幅 **`29.60%`**，`fixed = 171, broken = 49`，McNemar $\chi^2 = 66.55, p = 3.449 \times 10^{-16}$）。<br>2. **`typing_tw.tsv`**（4,256 句／48,911 字）：離線基準 `9.01%`（`4,408` 字錯、完全命中 `45.49%` = 1,936 句）➔ 神經重排 **`7.08%`**（**`3,462`** 字錯、完全命中 **`54.39%`** = 2,315 句；淨減 **`-946`** 字錯，相對降幅 **`21.46%`**）。 |
 | 統計、線上個人化與選配神經語言模型 | 1. **靜態 N-gram（`ngram_zh_tw.bin`）**：商用安全授權 12 組台灣繁體口語與書面語料（合計 **`99,215,460`** 字，經 `twfilter-tables` 與 `9,456` 筆評估集雜湊排重排除 `193` 筆重疊），`RLNG0002` 唯讀 `mmap` 格式 **`50.34 MB`**（詞表 `144,000`、`WB=2,200,000`、`WT=1,500,000`、`CB=750,000`、`CT=1,600,000`）。<br>2. **線上學習快取（[`cache_lm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/cache_lm.rs)）**：於不改動 COM ABI 下實作 `OnceLock` 旁表上下文快取與被拒路徑短期負向懲罰（正向半衰期 30 天／負向 7 天）。<br>3. **選配輕量神經重排（`rlnm_zh_tw.bin`，[`rlnm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/rlnm.rs)／[`neural_reranker.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/neural_reranker.rs)／[`ruhi_reranker.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/bin/ruhi_reranker.rs)）**：保留 C5 模型（Google Colab `A100` 以 `103,159,629` 清潔字元與 40% `<bos>` 重訓，`22.59M` 參數 / `21.79 MB` INT8 `RLNM0001`，`corpus_fingerprint = 0x6f6ff534ce904c9b`，SHA-256 `0E4F45...`）；搭配 Stage D1 跨句前文 KV 快取（`48` 字）與七特徵融合、Stage D2 多樣化繞道與多島重組，以及 Stage D3 校準預設 `lambda = 6.0`；`ruhi_reranker --bench --threads 8`（`n=14`）實測 **`p50 = 8.02 ms`／`p95 = 18.90 ms`／`max = 18.90 ms`**，`#8` 前文快取 `max_drift = 0.00e0`。 |
 | 雲端算力工具（Google Colab CLI） | **`colab` CLI 已就緒**（`C:\Users\Yuktesha\.local\bin\colab.exe`，現為 `0.8.0`），目前確保持續為 **`0` 閒置工作階段**（Stage D3 因 Colab 高階 GPU 503，已以本機 `RTX 5070 Ti` 完成比較並驗證完畢） |
-| `ruhi-core` Release 單元測試 | `--lib`：**`280 passed; 0 failed; 9 ignored`**（含 `test_rlnm_prefix_kv_cache_exact_parity_and_invalidation_261125`、`test_disjoint_multi_island_recombination_helper_261125`、`test_cross_sentence_prefix_context_disambiguates_pronoun_261125`、`test_diverse_trellis_detour_prevents_single_position_starvation_261125`）；整合測試 `--test person_names_and_y_cases`：`4 passed; 0 failed; 1 ignored` |
+| `ruhi-core` Release 單元測試 | `--lib`：**`281 passed; 0 failed; 9 ignored`**（含 `test_live_typing_six_cases_and_contrastives_261125`、`test_rlnm_prefix_kv_cache_exact_parity_and_invalidation_261125`、`test_disjoint_multi_island_recombination_helper_261125`、`test_cross_sentence_prefix_context_disambiguates_pronoun_261125`、`test_diverse_trellis_detour_prevents_single_position_starvation_261125`）；整合測試 `--test person_names_and_y_cases`：`4 passed; 0 failed; 1 ignored` |
 | `ruhi-tsf` 單元測試（`--lib`） | **`31 passed; 0 failed; 0 ignored`**（嚴格維持 `LAYER_B_ABI_EPOCH = 2` 不變，支援免登出 `hot_reload.ps1`） |
 | `ruhi-settings` 單元測試 | **`10 passed; 0 failed; 0 ignored`**（`lib` 9 項含 `test_neural_reranker_config_sync_roundtrip_261125`（預設 `6.0`、上限 `10.0`）＋ `main` 1 項） |
 | 規則靜態檢查（`scripts/lint_scoring_rules.py --full`） | **0 項違規** |
-| 核心詞庫與轉移資料同步 | [`lexicon_core.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/lexicon_core.tsv) **`226,933`** 筆詞條（5 鏡像 SHA-256 同步）；[`morpheme_ontology.json`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/morpheme_ontology.json) **107 類／1,894 語素** |
-| 正式版發布路線（`0.8 → 0.9 → 0.9.5 → 1.0`） | **`v0.8.0`**（已發布）➔ **`v0.9.0`**（已發布）➔ **`v0.9.5`**（里程碑雙封裝已就緒）➔ **`v1.0.0`**（**Stage D1–D4 定案驗證、單次盲測與本機雙封裝已完成**，待使用者簽核後推送 GitHub） |
+| 核心詞庫與轉移資料同步 | [`lexicon_core.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/lexicon_core.tsv) **`226,938`** 筆詞條（含 `v0.9.6` 五筆補詞與 5 鏡像 SHA-256 同步）；[`morpheme_ontology.json`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/morpheme_ontology.json) **107 類／1,894 語素** |
+| 正式版發布路線（`0.8 → 0.9 → 0.9.5 → 0.9.6 → 1.0`） | **`v0.8.0`**（已發布）➔ **`v0.9.0`**（已發布）➔ **`v0.9.5`**（里程碑雙封裝就緒）➔ **`v0.9.6`**（**Stage D1–D4＋實境六句修復＋本機雙封裝完成**，待使用者簽核後推送 GitHub）➔ **`v1.0.0`**（預留後續重大里程碑） |
 
 ---
 
@@ -136,16 +136,17 @@
   - 視需求以 `hf auth` 評估擴充更多對話語料，持續提升口語覆蓋率。
   - 解凍並精準消化 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 第四／五節薄邊際困難例句（含「歷經多代／多代機型」、「雞嘴變鴨嘴」、「他不捨得花錢」輕聲及「它／他」指代細節），並評估 **P2-4**（[`docs/EXTENSION_ARCHITECTURE_SPEC.md`](file:///c:/ATGprjs/ruhi/docs/EXTENSION_ARCHITECTURE_SPEC.md) `manifest.toml` 四層宣告式擴充）。
 
-### 3. **`v0.9.5`（里程碑）與 `v1.0.0`（Stage D1–D4 正式定案）**
+### 3. **`v0.9.5` ➔ `v0.9.6`（Stage D1–D4 ＋ 實境六句修復）與預留 `v1.0.0`**
 - **已完成實作項目（`v0.9.5`：Stage C1–C5）**：
   - 輕量神經語言模型與純 Rust `RLNM0001` 推論引擎、Named Pipe `25 ms` 硬逾時、`CREATE_NO_WINDOW` 自動喚起、`K=32` 長句擴展、`max_trie_nodes = 200`，以及 `v0.9.5` 里程碑雙封裝（`RuhI_v0.9.5_Windows_x64.zip`、`RuhI_Setup_v0.9.5.exe`）。
-- **已完成實作項目（`v1.0.0`：Stage D1–D4 定案）**：
+- **已完成實作項目（`v0.9.6`：Stage D1–D4 ＋ 實境六句修復）**：
   - **Stage D1（跨句前文 KV 快取 ＋ 零 IPC 變更七特徵融合）**：`ENGINE_COMMITTED_CONTEXT`（48 字）＋ `RlnmKvCache` 前綴 KV 快取（`max_drift = 0.00e0`）＋ 5 折交叉驗證七特徵融合（OOF CER `2.89% -> 2.83%`）。
   - **Stage D2（前後向多樣化繞道注入 ＋ 不相交多島重組）**：$O(E)$ 繞道候選使 N-Best Oracle 達 `0.93%`（`91.35%` 整句上界），結合不相交多島並聯重組將 `dev.tsv` 降至 `2.73%`（`1,225` 字錯）。
   - **Stage D3（重訓實驗與 `lambda` 先驗解除校準）**：於本機 RTX 5070 Ti 完成 98.95M 字語料 `24k` 步預訓練與 `+3k` 步對比微調實證對照；解除先驗錨定後確認保留 C5 模型並將預設權重調為 **`lambda = 6.0`**，`dev.tsv` 達 **`2.60%`**（**`1,168 / 44,855`**、整句完全命中 **`79.73%`**）。
-  - **Stage D4（最終盲測與本機雙封裝）**：完成 `test.tsv`（`4.36% -> 3.07%`、相對降幅 `29.60%`，McNemar $\chi^2 = 66.55, p = 3.449 \times 10^{-16}$）與 `typing_tw.tsv`（`9.01% -> 7.08%`、相對降幅 `21.46%`）單次終檢、更新 [`docs/RUHI_V1_BENCHMARK_REPORT.md`](file:///c:/ATGprjs/ruhi/docs/RUHI_V1_BENCHMARK_REPORT.md)，並產出 `RuhI_v1.0.0_Windows_x64.zip` 與 `RuhI_Setup_v1.0.0.exe`（待使用者簽核後推送至 GitHub Release）。
-- **後續維護延伸方向（`v1.0.x`）**：
-  - 視需求消化 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 第四／五節薄邊際例句、規劃 **P2-4**（[`docs/EXTENSION_ARCHITECTURE_SPEC.md`](file:///c:/ATGprjs/ruhi/docs/EXTENSION_ARCHITECTURE_SPEC.md) `manifest.toml` 四層宣告式擴充），以及定期匯入 `tailcat` 匿名對照回饋補強特定領域語彙。
+  - **實境六句詞條與構式修復（`2e18c85`）**：補入 `網紅／九合一／觀選／一家親／所欲` 並完善六組實境長句同音消歧，`dev.tsv` 離線閘門 `PASS`（`3.49% / 1,565`）且神經重排維持 `2.60%`（`1,168 / 79.73%`）。
+  - **Stage D4（盲測與 `v0.9.6` 雙封裝）**：於 `7dcdb24` 完成 `test.tsv`（`4.36% -> 3.07%`、相對降幅 `29.60%`，McNemar $\chi^2 = 66.55, p = 3.449 \times 10^{-16}$）與 `typing_tw.tsv`（`9.01% -> 7.08%`、相對降幅 `21.46%`）單次終檢、更新 [`docs/RUHI_V1_BENCHMARK_REPORT.md`](file:///c:/ATGprjs/ruhi/docs/RUHI_V1_BENCHMARK_REPORT.md)，並產出 `RuhI_v0.9.6_Windows_x64.zip` 與 `RuhI_Setup_v0.9.6.exe`（待使用者簽核後推送至 GitHub Release）。
+- **後續邁向正式 `v1.0.0` 延伸方向**：
+  - 視需求消化 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 第四／五節薄邊際例句、規劃 **P2-4**（[`docs/EXTENSION_ARCHITECTURE_SPEC.md`](file:///c:/ATGprjs/ruhi/docs/EXTENSION_ARCHITECTURE_SPEC.md) `manifest.toml` 四層宣告式擴充）、以及視實測需求擴充台灣對話／技術語料更新 `RLNM0001` 與 `RLNG0002`。
 
 ---
 

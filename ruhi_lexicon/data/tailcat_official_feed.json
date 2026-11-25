@@ -2,11 +2,11 @@
   "compat_feeds": {
     "1": "https://raw.githubusercontent.com/Yuktesha/ruhi/main/ruhi_lexicon/data/tailcat_official_feed.json"
   },
-  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v1.0.0/RuhI_Setup_v1.0.0.exe",
-  "latest_version": "1.0.0",
+  "installer_url": "https://github.com/Yuktesha/ruhi/releases/download/v0.9.6/RuhI_Setup_v0.9.6.exe",
+  "latest_version": "0.9.6",
   "min_compat_version": "0.4.0",
   "protocol": "RUHI_TAILCAT_FEDERATED_SEMANTIC_V1",
-  "release_notes": "RuhI v1.0.0：(1) 新增跨句已送出前文（最高 48 字元）KV 快取與零 IPC 變更 5 折交叉驗證七特徵融合（Stage D1）；(2) 實作 O(E) 前後向多樣化繞道注入與不相交多島並聯重組（Stage D2），將 N-Best Oracle CER 推進至 0.93%；(3) 完成雙階段超參數校準與 D3 模型實證比較，保留 C5 RLNM0001 模型並將預設混合權重定案為 lambda = 6.0，開發集 dev.tsv CER 降至 2.60%（整句命中 79.73%）；(4) 定案後單次盲測驗證 test.tsv 相對降幅 29.60%（4.36%→3.07%，McNemar p=3.45e-16）、typing_tw.tsv 相對降幅 21.46%（9.01%→7.08%）。",
+  "release_notes": "RuhI v0.9.6：(1) 新增跨句已送出前文（最高 48 字元）KV 快取與零 IPC 變更 5 折交叉驗證七特徵融合（Stage D1）；(2) 實作 O(E) 前後向多樣化繞道注入與不相交多島並聯重組（Stage D2），將 N-Best Oracle CER 推進至 0.93%；(3) 完成 Stage D3 校準並保留 C5 RLNM0001 模型，將預設混合權重定案為 lambda = 6.0，開發集 dev.tsv CER 降至 2.60%（整句命中 79.73%）；(4) 補齊網紅／九合一／觀選／一家親／所欲等核心詞條並完善六項實境長句同音構式消歧（離線與神經雙軌零迴歸）；(5) 單次盲測實證（7dcdb24）test.tsv 相對降幅 29.60%（4.36%→3.07%，McNemar p=3.45e-16）、typing_tw.tsv 相對降幅 21.46%（9.01%→7.08%）。",
   "telemetry_intake_url": "https://script.google.com/macros/s/AKfycbzH-n5YhBFSUPZUiUWfZXw46qp9OYliLlnijGmHMpIs4F0Ve_2ZM6k2mNpeoSnU6NMt/exec",
   "rules": [
     {

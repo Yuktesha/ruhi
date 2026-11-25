@@ -6,11 +6,11 @@
 > **「如雲行水流自在歡喜」**  
 > **RuhI**（**R**esponsive **U**niversal **H**uman **I**nput，梵語字根 *Ruh / Rūhi* 意為「萌芽、生長、向上攀升」），是一款面向 Windows 10/11 與 Linux、完全採用純 Rust 打造的次世代自適應通用人本輸入法與語意調校系統。
 
-[![Version](https://img.shields.io/badge/version-v1.0.0-blue.svg)]()
+[![Version](https://img.shields.io/badge/version-v0.9.6-blue.svg)]()
 [![Rust](https://img.shields.io/badge/language-Rust%202021-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2011%2F10%20%7C%20Linux%20(Fcitx5)-blue.svg)]()
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-325%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-326%20passed-brightgreen.svg)]()
 [![LINE OpenChat](https://img.shields.io/badge/LINE%20%E7%A4%BE%E7%BE%A4-%E5%A6%82%E5%96%9C%E9%80%9A%E7%94%A8%E6%99%BA%E6%85%A7%E5%9E%8B%E8%BC%B8%E5%85%A5%E6%B3%95-00C300.svg)](https://line.me/ti/g2/iyLVoHye-Ho49K9SzQBaftTgFzej7stw9S1jSw?utm_source=invitation&utm_medium=link_copy&utm_campaign=default)
 
 </div>
@@ -21,7 +21,7 @@
 
 傳統輸入法常讓人陷入兩難：**打注音／拼音時，遇到不會念的生僻字就卡住；打倉頡／字形碼時，又得死背複雜的字根表，而且不同輸入法之間切換繁瑣、各打各的。**
 
-**如喜（RuhI）通用智慧型輸入法** 把最常用的各種輸入方式整合進**同一個智慧輸入座**，並正式釋出 **`v1.0.0`**（詳見 [v1.0.0 基準評測報告](docs/RUHI_V1_BENCHMARK_REPORT.md)）：
+**如喜（RuhI）通用智慧型輸入法** 把最常用的各種輸入方式整合進**同一個智慧輸入座**，並演進至 **`v0.9.6`**（詳見 [v0.9.6 基準評測報告](docs/RUHI_V1_BENCHMARK_REPORT.md)）：
 
 ### 1. 🐉 整合創新「龍龕形音輸入法」—— 免背字根，看外型或念偏旁就能打出任何漢字
 > **龍龕以形聲結構（形符＋聲符讀音）為核心，相容注音雙拼與漢語拼音，免切換模式即可以部件讀音組字，並提供輸入座內的事後部件融合。**  
@@ -71,7 +71,7 @@
 **如喜注音從誕生之初，便選擇了獨樹一幟的第三條正道——全面從「形式語言學與漢語構式語法」切入：**
 * **打字當下 100% 語言學結構解碼（毫秒級確定性反應、零顯卡負擔）**：將中央研究院《漢語知識標記語料庫（Sinica Corpus）》動詞論元結構、呂叔湘《現代漢語八百詞》虛詞呼應網、Li & Thompson 準分裂句焦點構式，化為引擎內建的 **多維語法槽位陣列（$A_{\text{array}} \times B_{\text{array}}$）**。引擎是因為真正理解漢語的「詞類、主謂賓搭配與句法構式」，才能在毫秒間精準分辨「在／再」、「的／得／地」、「心裡／心理」、「小時候／兩小時後」、「戴口罩／帶口罩」、「權利／權力」、「買的是／買的試」等二十餘組同音難題。
 * **AI 是幕後的「語言學分析師」，而非前台搶方向盤的打字員**：使用者可於 `ruhi-settings` 偏好設定中心啟用 Zero-PII 隱私過濾並回饋匿名對照雙句；透過神經符號分析與語意閘門將問題提煉為**可解釋、可舉一反三的形式化語法構式規則**，並經過記憶體內 **Viterbi 三重零迴歸沙盒** 驗證後寫入詞庫，讓日常打字永遠保持純粹、極速與 100% 可預期。
-* **選配離線輕量神經重排（`v1.0.0` `ruhi_reranker.exe` ＋ `RLNM0001`）**：預設維持上述純語言學＋詞三元離線管線（零背景行程）；如需進一步提升長句與跨句語境準確率，可於安裝程式或偏好設定中心一鍵啟用純 Rust INT8 離線因果字元 Transformer（`21.79 MB`、`22.59M` 參數、無須 GPU，結合跨句前文 KV 快取、七特徵融合與多樣化繞道重組，8 執行緒微基準實測 `p50 = 8.02 ms / p95 = 18.90 ms`、`25 ms` 硬逾時安全回退），將 `dev.tsv` CER 壓低至 **`2.60%`**（整句命中 **`79.73%`**）、內部盲測 `test.tsv` 相對降錯 **`29.60%`**、外部盲測 `typing_tw.tsv` 相對降錯 **`21.46%`**（詳見 [`docs/RUHI_V1_BENCHMARK_REPORT.md`](docs/RUHI_V1_BENCHMARK_REPORT.md) 與 [`docs/RUHI_V1_NEURAL_RERANKER_SPEC.md`](docs/RUHI_V1_NEURAL_RERANKER_SPEC.md)）。
+* **選配離線輕量神經重排（`v0.9.6` `ruhi_reranker.exe` ＋ `RLNM0001`）**：預設維持上述純語言學＋詞三元離線管線（零背景行程）；如需進一步提升長句與跨句語境準確率，可於安裝程式或偏好設定中心一鍵啟用純 Rust INT8 離線因果字元 Transformer（`21.79 MB`、`22.59M` 參數、無須 GPU，結合跨句前文 KV 快取、七特徵融合與多樣化繞道重組，8 執行緒微基準實測 `p50 = 8.02 ms / p95 = 18.90 ms`、`25 ms` 硬逾時安全回退），將 `dev.tsv` CER 壓低至 **`2.60%`**（整句命中 **`79.73%`**）、內部盲測 `test.tsv` 相對降錯 **`29.60%`**、外部盲測 `typing_tw.tsv` 相對降錯 **`21.46%`**（詳見 [`docs/RUHI_V1_BENCHMARK_REPORT.md`](docs/RUHI_V1_BENCHMARK_REPORT.md) 與 [`docs/RUHI_V1_NEURAL_RERANKER_SPEC.md`](docs/RUHI_V1_NEURAL_RERANKER_SPEC.md)）。
 * **7 合 1 跨輸入法反查教練**：想邊打注音邊學龍龕、四角號碼、行列 30 或倉頡？可在輸入座開啟即時反查提示，或一鍵開啟 [🎬 4K 跨輸入法互動查碼與拆碼教學工作台](docs/ruhi_interactive_workbench.html)，輸入整串句子即可同屏對照七種輸入法的拆解步驟。
 
 ---
