@@ -44,7 +44,7 @@ impl Default for NeuralRerankerConfig {
             .unwrap_or(false);
         Self {
             enabled: env_enabled,
-            lambda: 6.0,
+            lambda: 4.5,
             timeout_ms: 25,
             pipe_name: DEFAULT_PIPE_NAME.to_string(),
             min_syllables: 4,
@@ -953,7 +953,7 @@ pub fn compute_fused_candidate_score(
     lambda: f64,
 ) -> f64 {
     let eff_lambda = lambda * (2.3024 / 2.25);
-    let cache_scale = ((eff_lambda - 1.0) * 0.45).clamp(0.0, 2.5);
+    let cache_scale = ((eff_lambda - 1.0) * 0.75).clamp(0.0, 3.0);
     let topic_scale = ((eff_lambda - 1.0) * 0.20).clamp(0.0, 1.0);
     base_score
         + eff_lambda * neural_logp

@@ -1,5 +1,22 @@
 # 如喜（RuhI）通用智慧型輸入法 — 改版說明 (Changelog)
 
+## v0.9.6.3 (2026-11-26) — 純淨多領域重訓練神經重排（`C6-L2R-32k`）與 `lambda = 4.5` 校準
+
+### 🧠 開發集神經重排錯字再降 **`-77` 字**（`2.57% ➔ 2.40%`、`1,077` 錯字），整句完全命中率突破 **`80.93%`**
+- **Wave A (`v0.9.6.1`, `af5f29c`) ＋ Wave B (`v0.9.6.2`, `c33ef0b`) 前導演進**：
+  - Wave A 新增神經重排後之 `cache_lm` 個人糾正保護與文件主題爆發性快取 `topic_cache`、`48` 字元跨句前文實體指代追蹤，以及連字詞網格對齊最佳化（開發集神經 `1,168` 字錯 / `2.60%`）。
+  - Wave B 完成現代台灣網路與科技未登錄詞（OOV）探勘與基準詞權校準，將核心詞庫由 `226,938` 筆擴充並精煉為標準台灣詞條（離線品質閘門降至 `1,551` 字錯 / `3.46%`、神經重排 `1,154` 字錯 / `2.57%` / `2,906` 句 `79.84%`）。
+- **Wave C 判別式對照實證檢驗與路線收斂**：
+  - 於 [`ruhi_eval.rs`](ruhi-core/src/bin/ruhi_eval.rs) 新增 `--dump-train-nbest` 匯出真實 Viterbi 多樣化困難負樣本，並於本機 RTX 5070 Ti 實測 4 組 Listwise 交叉熵＋Forward KL 微調（`C1: 1,152`、`C2: 1,166`、`C3: 1,180`、`C4 [40% ODC 領域均衡]: 1,173`）；實證確認小型 22.59M 字元模型於判別式微調後皆在 `literary_narrative`（`+6..+13`）與 `moe_idiom_context`（`+6..+12`）產生機率校準漂移，故不採用判別式權重。
+- **`C6-L2R-32k` 超純淨多領域生成式重訓練與 `lambda = 4.5` 預設校準（本版正式定案）**：
+  - 自組 **171,653,218** 清潔字元／`18,661,133` 句段（`208,975,484` 詞元）超純淨多領域台灣正體語料（`taiwan-style-quality` `90.00M` ＋ `fineweb_tw` `41.50M` ＋ `ivod + tw_ly` `24.10M` ＋ `tw_reasoning + tw_law` `16.05M`，**完全剔除機器翻譯 COCO 圖說**），以 `40%` `<bos>` 冷啟動切片於本機 RTX 5070 Ti 完成 `32,000` 步預訓練並匯出 `rlnm_zh_tw.bin`（`22,847,208` 位元組、`payload_fnv64 = 0x6901f0ff1187b536`、`SHA-256 = E95B54D166E89E5853EEA3949EBC0F3B4966416579A3C79F59BF8B7EEF250EB6`）。
+  - 依 `lambda` 掃描實測結果，將 [`neural_reranker.rs`](ruhi-core/src/router/neural_reranker.rs)、[`ruhi_eval.rs`](ruhi-core/src/bin/ruhi_eval.rs) 與 [`config_sync.rs`](ruhi-settings/src/config_sync.rs) 之預設混合權重由 `6.0` 校準為 **`4.5`**，並同步將 `cache_scale` 重校準為 `((eff_lambda - 1.0) * 0.75).clamp(0.0, 3.0)`，確保於 `lambda = 4.5` 下個人手動糾正仍具備完整保護力（通過 [`test_wave_a_v0961_topic_cross_sentence_and_cache_protection_e2e`](ruhi-core/src/engine.rs)）。
+  - **開發集 `dev.tsv`**（3,640 句／44,855 字）：離線品質閘門 **`1,551`** 字錯（`3.46%`、`PASS`、`broken = 0`）；神經重排降至 **`1,077`** 字錯（**`2.40%` CER**，較 `v0.9.6.2` 淨減 **`-77`** 字錯、較離線基準淨減 **`-474`** 字錯／相對降幅 **`30.56%`**），整句完全命中率躍升至 **`80.93%`**（**`2,946 / 3,640` 句**，較 `v0.9.6.2` 淨增 **`+40`** 句；五大文體：`civic_public = 165 [1.63%]`、`daily_dialogue = 150 [1.65%]`、`literary_narrative = 204 [2.51%]`、`moe_idiom_context = 148 [1.50%]`、`tech_doc = 410 [5.37%]`）。
+  - **側車推論基準（`ruhi_reranker --bench --threads 8`）**：`n = 14` 全量實測 `p50 = 7.49 ms` / `p95 = 18.07 ms` / `max = 18.07 ms`（`#8` 前文快取 `1.40x` 加速、`max_drift = 0.00e0`）。
+  - **完整品質驗證**：`ruhi-core --lib` **`287 passed; 0 failed; 9 ignored`**、`person_names_and_y_cases` `4 passed; 0 failed; 1 ignored`、`ruhi-tsf --lib` `31 passed; 0 failed`、`ruhi-settings` `9+1 passed; 0 failed`、`lint_scoring_rules.py --full` **`0` 違規**。
+
+---
+
 ## v0.9.6 (2026-11-25) — 跨句語境、多樣化重組神經重排與實境構式修復（Stage D1–D4；為 v1.0.0 預留後續升級空間）
 
 ### 🎯 精度躍升：開發集 CER `2.92% ➔ 2.60%`、內部盲測相對降錯 `29.60%` ＋ 六項實境構式消歧

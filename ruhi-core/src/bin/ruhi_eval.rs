@@ -5397,6 +5397,210 @@ fn dump_nbest_jsonl(
     })
 }
 
+/// 自已篩除評測重疊之純淨語料庫匯出真實 Viterbi 多樣性困難負樣本與邊際候選（供 Wave C Listwise 重排微調）
+fn dump_train_corpus_nbest(
+    base_engine: &RuhiEngine,
+    corpus_txt_path: &Path,
+    out_jsonl_path: &Path,
+    max_sents: usize,
+) -> Value {
+    use ruhi::router::classical_register::ClassicalRegisterProfile;
+    use ruhi::router::discourse_reranker::{
+        dag_has_third_person_pronoun, score_discourse_sentence, RERANK_SCORE_MARGIN,
+    };
+    use ruhi::router::neural_reranker::structural_fusion_bonus;
+    use std::io::{BufRead, BufReader, BufWriter, Write};
+
+    let t0 = Instant::now();
+    let compiler = PhoneticCompiler::from_lexicon(&base_engine.lexicon);
+
+    let file = fs::File::open(corpus_txt_path)
+        .unwrap_or_else(|e| panic!("無法開啟訓練語料檔 {}: {}", corpus_txt_path.display(), e));
+    let reader = BufReader::new(file);
+
+    let mut compiled: Vec<CompiledSentence> = Vec::new();
+    let mut scanned_lines = 0usize;
+    let mut skipped_polyphonic = 0usize;
+
+    for (idx, line_res) in reader.lines().enumerate() {
+        if compiled.len() >= max_sents {
+            break;
+        }
+        let Ok(raw) = line_res else { continue };
+        let text = raw.trim();
+        let clen = text.chars().count();
+        if !(6..=32).contains(&clen) || !text.chars().all(|c| ('\u{4E00}'..='\u{9FFF}').contains(&c)) {
+            continue;
+        }
+        scanned_lines += 1;
+        let item = CorpusItem {
+            id: format!("train_{idx}"),
+            category: "corpus".to_string(),
+            text: text.to_string(),
+        };
+        if let Some(cs) = compiler.compile(&item) {
+            if cs.has_polyphonic_single_char {
+                skipped_polyphonic += 1;
+                continue;
+            }
+            compiled.push(cs);
+        }
+    }
+    let compiled_clean = compiled.len();
+
+    let n_threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(16);
+    let chunk_size = (compiled.len() + n_threads - 1) / n_threads.max(1);
+
+    let chunks: Vec<Vec<(String, bool, bool)>> = std::thread::scope(|s| {
+        let mut handles = Vec::new();
+        for chunk in compiled.chunks(chunk_size.max(1)) {
+            let mut worker = base_engine.clone();
+            handles.push(s.spawn(move || {
+                let mut out: Vec<(String, bool, bool)> = Vec::new();
+                let dag_builder = LatticeDAG::new(&worker.lexicon);
+                for cs in chunk {
+                    let dag = dag_builder.build_dag(&cs.syllables, true);
+                    let astar_k = if cs.syllables.len() >= 15 { 16 } else { 12 };
+                    let max_k = if cs.syllables.len() >= 15 { 32 } else { 24 };
+                    let nbest = worker.router.solve_diverse_nbest_paths_with_prefix(
+                        cs.syllables.len(),
+                        &dag,
+                        Some(&mut worker.transitions),
+                        None,
+                        astar_k,
+                        max_k,
+                    );
+                    if nbest.len() < 2 {
+                        continue;
+                    }
+
+                    let classical_active = ClassicalRegisterProfile::detect(
+                        worker.router.classical_mode,
+                        cs.syllables.len(),
+                        &dag,
+                    )
+                    .active;
+                    let apply_discourse = cs.syllables.len() >= 4
+                        && !classical_active
+                        && !worker.transitions.is_rule_disabled("discourse_reranker")
+                        && dag_has_third_person_pronoun(&dag);
+                    let raw_top1_sc = nbest[0].1;
+
+                    let mut dedup: HashMap<String, f64> = HashMap::with_capacity(nbest.len());
+                    for (nodes, base_sc) in &nbest {
+                        let txt: String = nodes.iter().map(|n| n.word.as_str()).collect();
+                        let d_delta = if apply_discourse && (raw_top1_sc - *base_sc) <= RERANK_SCORE_MARGIN {
+                            score_discourse_sentence(nodes)
+                        } else {
+                            0.0
+                        };
+                        let non_neural = *base_sc + d_delta + structural_fusion_bonus(nodes, d_delta, 6.0);
+                        match dedup.get_mut(&txt) {
+                            Some(prev) => {
+                                if non_neural > *prev {
+                                    *prev = non_neural;
+                                }
+                            }
+                            None => {
+                                dedup.insert(txt, non_neural);
+                            }
+                        }
+                    }
+
+                    if dedup.len() < 2 {
+                        continue;
+                    }
+                    let mut cands: Vec<(String, f64)> = dedup.into_iter().collect();
+                    cands.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+                    let gold = &cs.item.text;
+                    let Some(full_gold_idx) = cands.iter().position(|(t, _)| t == gold) else {
+                        continue;
+                    };
+                    let top_sc = cands[0].1;
+                    let gold_not_top1 = full_gold_idx != 0;
+                    let thin_margin_top1 = !gold_not_top1 && (top_sc - cands[1].1) <= 15.0;
+                    if !gold_not_top1 && !thin_margin_top1 {
+                        continue;
+                    }
+
+                    // 保留最多 12 名近距離競爭候選（容許誤差視窗 25.0），並保證納入正確解答
+                    let mut selected: Vec<(String, f64)> = Vec::with_capacity(12);
+                    for (txt, sc) in &cands {
+                        if selected.len() >= 12 {
+                            break;
+                        }
+                        if selected.len() >= 2 && top_sc - *sc > 25.0 {
+                            break;
+                        }
+                        selected.push((txt.clone(), *sc));
+                    }
+                    if !selected.iter().any(|(t, _)| t == gold) {
+                        if selected.len() >= 12 {
+                            selected.pop();
+                        }
+                        selected.push((gold.clone(), cands[full_gold_idx].1));
+                    }
+                    selected.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                    let Some(final_gold_idx) = selected.iter().position(|(t, _)| t == gold) else {
+                        continue;
+                    };
+                    if selected.len() < 2 {
+                        continue;
+                    }
+
+                    let row_json = json!({
+                        "gold_idx": final_gold_idx,
+                        "cands": selected.iter().map(|(t, sc)| json!([t, ((*sc as f32) * 1000.0).round() / 1000.0])).collect::<Vec<_>>(),
+                    });
+                    out.push((row_json.to_string(), gold_not_top1, thin_margin_top1));
+                }
+                out
+            }));
+        }
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+
+    if let Some(parent) = out_jsonl_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let out_f = fs::File::create(out_jsonl_path)
+        .unwrap_or_else(|e| panic!("無法建立訓練 N-Best 輸出檔 {}: {}", out_jsonl_path.display(), e));
+    let mut writer = BufWriter::new(out_f);
+
+    let mut kept_hard_or_thin = 0usize;
+    let mut gold_not_top1_cnt = 0usize;
+    let mut thin_margin_cnt = 0usize;
+    for part in chunks {
+        for (line, is_hard, is_thin) in part {
+            writeln!(writer, "{}", line).unwrap();
+            kept_hard_or_thin += 1;
+            if is_hard {
+                gold_not_top1_cnt += 1;
+            }
+            if is_thin {
+                thin_margin_cnt += 1;
+            }
+        }
+    }
+    writer.flush().unwrap();
+
+    json!({
+        "corpus_txt": corpus_txt_path.display().to_string(),
+        "out_jsonl": out_jsonl_path.display().to_string(),
+        "scanned_lines": scanned_lines,
+        "skipped_polyphonic": skipped_polyphonic,
+        "compiled_clean": compiled_clean,
+        "kept_hard_or_thin": kept_hard_or_thin,
+        "gold_not_top1": gold_not_top1_cnt,
+        "thin_margin_top1": thin_margin_cnt,
+        "elapsed_secs": ((t0.elapsed().as_secs_f64()) * 100.0).round() / 100.0,
+    })
+}
+
 fn run_longkan_benchmark(root: &Path) -> serde_json::Value {
     let data_dir = root.join("ruhi_lexicon").join("data");
     let t0 = Instant::now();
@@ -5477,8 +5681,10 @@ fn main() {
     let mut diverse_nbest = false;
     let mut top_k: usize = 16;
     let mut dump_nbest_path: Option<PathBuf> = None;
+    let mut dump_train_nbest: Option<(PathBuf, PathBuf)> = None;
+    let mut max_train_sents: usize = 300_000;
     let mut neural_rerank_path: Option<PathBuf> = None;
-    let mut neural_lambda: f64 = 6.0;
+    let mut neural_lambda: f64 = 4.5;
     let mut neural_margin: Option<f64> = None;
     let mut neural_max_trie_nodes: Option<usize> = None;
     let mut confirm_final_blind_test = false;
@@ -5565,6 +5771,17 @@ fn main() {
                 dump_nbest_path = Some(PathBuf::from(&args[i + 1]));
                 i += 2;
             }
+            "--dump-train-nbest" if i + 2 < args.len() => {
+                dump_train_nbest = Some((PathBuf::from(&args[i + 1]), PathBuf::from(&args[i + 2])));
+                i += 3;
+            }
+            "--max-sents" if i + 1 < args.len() => {
+                max_train_sents = args[i + 1].parse::<usize>().unwrap_or_else(|_| {
+                    eprintln!("錯誤：無效的 --max-sents 數值 `{}`", args[i + 1]);
+                    std::process::exit(1);
+                });
+                i += 2;
+            }
             "--neural-rerank" if i + 1 < args.len() => {
                 neural_rerank_path = Some(PathBuf::from(&args[i + 1]));
                 i += 2;
@@ -5600,6 +5817,12 @@ fn main() {
                 i += 1;
             }
         }
+    }
+
+    if let Some((ref corpus_txt, ref out_jsonl)) = dump_train_nbest {
+        let rep = dump_train_corpus_nbest(&engine, corpus_txt, out_jsonl, max_train_sents);
+        println!("{}", serde_json::to_string_pretty(&rep).unwrap());
+        return;
     }
 
     let corpus_path = root

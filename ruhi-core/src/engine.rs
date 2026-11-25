@@ -24364,7 +24364,7 @@ mod tests {
             let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
             let model = crate::router::rlnm::RlnmModel::open(&model_path).unwrap();
             let mut kv_cache = model.alloc_kv_cache();
-            let lambda = 6.0f64;
+            let lambda = 4.5f64;
             let eff_lambda = lambda * (2.3024 / 2.25);
 
             for (bpms, expected) in &cases {
@@ -24466,7 +24466,7 @@ mod tests {
                 }
                 assert_eq!(
                     &predicted, expected,
-                    "[neural lambda=6.0] 預期『{}』，實際『{}』",
+                    "[neural lambda=4.5] 預期『{}』，實際『{}』",
                     expected, predicted
                 );
             }
@@ -24537,7 +24537,7 @@ mod tests {
         );
         assert_eq!(s_anim, "牠每天都在陽台曬太陽");
 
-        // 3. 若本機存在 rlnm_zh_tw.bin，端對端實測神經模型於 lambda=6.0 下之跨句與個人糾正保護
+        // 3. 若本機存在 rlnm_zh_tw.bin，端對端實測神經模型於 lambda=4.5 下之跨句與個人糾正保護
         let model_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("ruhi_lexicon")
@@ -24546,9 +24546,9 @@ mod tests {
         if model_path.is_file() {
             let model = crate::router::rlnm::RlnmModel::open(&model_path).unwrap();
             let mut kv_cache = model.alloc_kv_cache();
-            let lambda = 6.0f64;
+            let lambda = 4.5f64;
 
-            // (a) 跨句實體在 lambda=6.0 下配合 score_discourse_sentence_with_prefix 正確維持「它／她」
+            // (a) 跨句實體在 lambda=4.5 下配合 score_discourse_sentence_with_prefix 正確維持「它／她」
             engine.record_committed("\n\n");
             engine.record_committed("這台新買的伺服器效能非常穩定。");
             let bpms_it = ["ㄊㄚ", "ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄧ", "ㄖㄢˊ", "ㄕˊ", "ㄈㄣ", "ㄎㄜˇ", "ㄎㄠˋ"];
@@ -24597,7 +24597,7 @@ mod tests {
             }
             assert_eq!(best_it, "它現在依然十分可靠");
 
-            // (b) 個人糾正保護：於「剛剛買的 [文具->文句]」錄入使用者手動改字後，lambda=6.0 絕不覆寫
+            // (b) 個人糾正保護：於「剛剛買的 [文具->文句]」錄入使用者手動改字後，lambda=4.5 絕不覆寫
             engine.record_committed("\n\n");
             let now = crate::router::cache_lm::current_unix_secs();
             crate::router::cache_lm::record_correction_for_key(
@@ -24645,7 +24645,7 @@ mod tests {
             }
             assert_eq!(
                 best_wj, "我剛剛買的文句",
-                "post-neural cache_lm protection must preserve manual fix 我剛剛買的文句 at lambda=6.0"
+                "post-neural cache_lm protection must preserve manual fix 我剛剛買的文句 at lambda=4.5"
             );
             crate::router::cache_lm::clear_for_key(cache_key);
         }
@@ -24714,7 +24714,7 @@ mod tests {
             let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
             let model = crate::router::rlnm::RlnmModel::open(&model_path).unwrap();
             let mut kv_cache = model.alloc_kv_cache();
-            let lambda = 6.0f64;
+            let lambda = 4.5f64;
 
             for (bpms, expected) in &cases {
                 let syls: Vec<crate::fsm::HsuSyllable> = bpms
@@ -24769,7 +24769,7 @@ mod tests {
                 }
                 assert_eq!(
                     &best_txt, expected,
-                    "[neural lambda=6.0 Wave B] 預期『{}』，實際『{}』",
+                    "[neural lambda=4.5 Wave B] 預期『{}』，實際『{}』",
                     expected, best_txt
                 );
             }
