@@ -499,6 +499,7 @@ impl TransitionEngine {
             // (a) 曆法與日期單位 (Date & Calendar Units)
             "年", "月", "日", "號", "世紀", "年代", "週", "星期", "禮拜", "季", "旬", "載",
             "年度", "月份", "年份",
+            "年初", "年中", "年底", "年末", "月初", "月中", "月底", "月末", "季初", "季中", "季底", "季末", "週初", "週末", "周初", "周末",
             // (b) 時間與時段單位 (Time & Duration Units)
             "秒", "秒鐘", "分", "分鐘", "時", "小時", "鐘頭", "點", "點鐘", "點半", "刻", "刻鐘",
             "天", "個月", "歲", "週歲", "週年", "周年", "輩子", "代", "世",
@@ -1106,6 +1107,15 @@ impl TransitionEngine {
             "乾淨", "清楚", "看穿", "打破", "解決", "吃光", "看光", "花光",
             "淋濕", "吹倒", "撞倒", "抓走", "帶走", "丟掉",
         ];
+        let adverb_disposal_left = vec![
+            "又", "都", "也", "就", "才", "再", "還", "已", "快", "早", "剛",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(adverb_disposal_left.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::OneOf(disposal_results.iter().map(|s| s.to_string()).collect()),
+            bonus: 16.0,
+            name: "adverb_disposal_result_complement".to_string(),
+        });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::ContentWord,
             curr_pattern: WordPattern::OneOf(disposal_results.into_iter().map(|s| s.to_string()).collect()),
@@ -2531,6 +2541,21 @@ impl TransitionEngine {
             name: "shihou_modifier".to_string(),
         });
 
+        // 情態/時間詞後接重複副詞「又」（如：現在好像又不厲害了、怎麼又、居然又、這時候又、看來又）
+        let modal_temporal_before_you4 = vec![
+            "看來", "看起來",
+            "好像", "似乎", "現在", "如今", "今天", "昨天", "最近", "剛才", "剛剛", "後來", "最後",
+            "怎麼", "為何", "為什麼", "居然", "竟然", "明明", "偏偏", "果然", "終究", "結果", "反倒", "反而",
+            "這時候", "那時候", "這個時候", "那個時候", "這時", "那時", "此時", "當時", "有時候", "有時",
+            "同時", "隨即", "接著", "馬上", "立刻", "忽然", "突然",
+        ];
+        self.grammar_rules.push(GrammarRule {
+            prev_pattern: WordPattern::OneOf(modal_temporal_before_you4.into_iter().map(|s| s.to_string()).collect()),
+            curr_pattern: WordPattern::Exact("又".to_string()),
+            bonus: 26.0,
+            name: "modal_temporal_you4".to_string(),
+        });
+
         // 時間狀語/定語構式 (Temporal topics/specifiers: 未來、過去、現在、目前、今天、明天、昨天、月底...)
         // 必須先對封閉類高頻副詞/繫詞給予同等加分（刻意排除「在/再」留交體貌構式分流），避免「現在就看」因 function_words 排除而落敗於「現在舊看」
         let temporal_topics = vec![
@@ -3150,19 +3175,6 @@ impl TransitionEngine {
             curr_pattern: WordPattern::OneOf(negation_words.into_iter().map(|s| s.to_string()).collect()),
             bonus: 16.0,
             name: "adverb_before_negation".to_string(),
-        });
-        // 情態/時間詞後接重複副詞「又」（如：現在好像又不厲害了、怎麼又、居然又、這時候又）
-        let modal_temporal_before_you4 = vec![
-            "好像", "似乎", "現在", "如今", "今天", "昨天", "最近", "剛才", "剛剛", "後來", "最後",
-            "怎麼", "為何", "為什麼", "居然", "竟然", "明明", "偏偏", "果然", "終究", "結果", "反倒", "反而",
-            "這時候", "那時候", "這個時候", "那個時候", "這時", "那時", "此時", "當時", "有時候", "有時",
-            "同時", "隨即", "接著", "馬上", "立刻", "忽然", "突然",
-        ];
-        self.grammar_rules.push(GrammarRule {
-            prev_pattern: WordPattern::OneOf(modal_temporal_before_you4.into_iter().map(|s| s.to_string()).collect()),
-            curr_pattern: WordPattern::Exact("又".to_string()),
-            bonus: 26.0,
-            name: "modal_temporal_you4".to_string(),
         });
         self.grammar_rules.push(GrammarRule {
             prev_pattern: WordPattern::ContentWordExcept(vec!["右".to_string(), "左".to_string(), "幼".to_string(), "釉".to_string(), "柚".to_string()]),
@@ -6974,18 +6986,24 @@ impl TransitionEngine {
                         continue;
                     }
                     // 防句尾通用「的+是」過度延伸至開放類名物化構造（保留焦點繫詞動詞與主題評述引導語＋的是）
-                    if rule.name == "de_shi_copula"
-                        && edge_ctx.is_clause_tail
-                        && !matches!(
-                            edge_ctx.prev2_word.unwrap_or(""),
+                    if rule.name == "de_shi_copula" && edge_ctx.is_clause_tail {
+                        let p2 = edge_ctx.prev2_word.unwrap_or("");
+                        let allow_tail_de_shi = matches!(
+                            p2,
                             "真" | "有" | "說" | "講" | "要" | "需要" | "想要" | "問"
                                 | "奇妙" | "重要" | "有趣" | "奇怪" | "特別" | "關鍵"
                                 | "幸運" | "遺憾" | "可惜" | "神奇" | "微妙" | "驚人"
                                 | "意外" | "慶幸" | "諷刺" | "好笑" | "難得" | "顯然"
                                 | "肯定" | "確定" | "必然"
-                        )
-                    {
-                        continue;
+                                | "出來" | "寫" | "打" | "讀" | "念" | "唸" | "看" | "聽"
+                                | "想" | "指" | "選" | "顯示" | "輸出" | "呈現" | "發現"
+                                | "出現" | "表示" | "代表" | "看到" | "聽到" | "想到" | "找到"
+                                | "遇到" | "得到" | "收到" | "寫出" | "打出" | "說出" | "印出"
+                                | "跑出" | "查出" | "算出" | "挑出" | "找出"
+                        ) || (p2.ends_with("出來") && !p2.starts_with('做') && !p2.starts_with('作'));
+                        if !allow_tail_de_shi {
+                            continue;
+                        }
                     }
                     // 防體標記「了」於「花+了 / 吃+了」已成詞處重複加權而壓倒整詞邊界
                     if rule.name == "aspect_marker" && edge_ctx.shatters_strong_v_le {

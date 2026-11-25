@@ -27,6 +27,7 @@ pub const MAX_CROSS_SENTENCE_PREFIX_CHARS: usize = 48;
 const MAX_TRACKED_CONTEXT_ENGINES: usize = 64;
 pub const DEFAULT_R2L_WEIGHT_COLD: f32 = 0.50;
 pub const DEFAULT_R2L_WEIGHT_WITH_PREFIX: f32 = 0.35;
+pub const DEFAULT_BIDIR_DISAGREE_DAMP: f32 = 0.50;
 pub const MAX_R2L_CANDS: usize = 8;
 pub const MAX_R2L_TRIE_NODES: usize = 120;
 
@@ -37,6 +38,24 @@ pub fn r2l_blend_weight(prefix: &str) -> f32 {
     } else {
         DEFAULT_R2L_WEIGHT_WITH_PREFIX
     }
+}
+
+/// 依 `top1_scores` 計算雙向加權與方向分歧阻尼（L2R 與 R2L 對勝負方向相反時以 `DEFAULT_BIDIR_DISAGREE_DAMP` 收斂）
+#[inline]
+pub fn blend_bidirectional_score(
+    sl: f32,
+    sr: f32,
+    top1_scores: Option<(f32, f32)>,
+    w: f32,
+) -> f32 {
+    let mut comb = (1.0 - w) * sl + w * sr;
+    if let Some((sl0, sr0)) = top1_scores {
+        if (sl - sl0) * (sr - sr0) < 0.0 {
+            let comb0 = (1.0 - w) * sl0 + w * sr0;
+            comb = comb0 + DEFAULT_BIDIR_DISAGREE_DAMP * (comb - comb0);
+        }
+    }
+    comb
 }
 
 pub fn resolve_sibling_r2l_model_path(l2r_path: &std::path::Path) -> Option<std::path::PathBuf> {
@@ -120,6 +139,10 @@ pub fn score_candidates_bidirectional(
     };
 
     let w = r2l_blend_weight(prefix);
+    let top1_scores = match (l2r_scores.first().copied(), r2l_by_cand.first().copied().flatten()) {
+        (Some(sl0), Some(sr0)) if sl0.is_finite() => Some((sl0, sr0)),
+        _ => None,
+    };
     l2r_scores
         .into_iter()
         .enumerate()
@@ -127,7 +150,8 @@ pub fn score_candidates_bidirectional(
             if !sl.is_finite() {
                 sl
             } else if let Some(sr) = r2l_by_cand[idx] {
-                (1.0 - w) * sl + w * sr
+                let anchor = if idx > 0 { top1_scores } else { None };
+                blend_bidirectional_score(sl, sr, anchor, w)
             } else {
                 sl + w * mean_delta
             }
@@ -1043,6 +1067,58 @@ pub fn select_candidates_with_trie_budget(
     (kept, budget.current_nodes())
 }
 
+/// 依首個差異字元位置多樣性與 `max_trie_nodes` 預算兩階段篩選候選索引，並維持升冪排序以保留 Top-1 與基礎分序
+pub fn select_position_diverse_indices_with_trie_budget(
+    prefix: &str,
+    cands: &[&str],
+    max_trie_nodes: usize,
+) -> (Vec<usize>, usize) {
+    if cands.is_empty() {
+        return (Vec::new(), 0);
+    }
+    let mut budget = PrefixTrieBudget::new(prefix);
+    let mut kept = Vec::with_capacity(cands.len());
+    let mut used = vec![false; cands.len()];
+
+    budget.insert(cands[0]);
+    kept.push(0);
+    used[0] = true;
+
+    let mut seen_diff_positions: Vec<usize> = Vec::new();
+    let c0_len = cands[0].chars().count();
+    for idx in 1..cands.len() {
+        let dp = cands[0]
+            .chars()
+            .zip(cands[idx].chars())
+            .position(|(a, b)| a != b)
+            .unwrap_or_else(|| c0_len.min(cands[idx].chars().count()));
+        if !seen_diff_positions.contains(&dp)
+            && (kept.len() < 2
+                || budget.current_nodes() + budget.count_additional_nodes(cands[idx])
+                    <= max_trie_nodes)
+        {
+            budget.insert(cands[idx]);
+            kept.push(idx);
+            used[idx] = true;
+            seen_diff_positions.push(dp);
+        }
+    }
+
+    for idx in 1..cands.len() {
+        if !used[idx] {
+            let extra = budget.count_additional_nodes(cands[idx]);
+            if kept.len() < 2 || budget.current_nodes() + extra <= max_trie_nodes {
+                budget.insert(cands[idx]);
+                kept.push(idx);
+                used[idx] = true;
+            }
+        }
+    }
+
+    kept.sort_unstable();
+    (kept, budget.current_nodes())
+}
+
 /// D1-B 5 折交叉驗證校準之結構融合加分（無須變更 IPC 協定，隨 `lambda` 平滑縮放）
 #[inline]
 pub fn structural_fusion_bonus(nodes: &[LatticeNode], discourse_delta: f64, lambda: f64) -> f64 {
@@ -1291,26 +1367,32 @@ pub fn rerank_nbest_if_enabled_with_context(
     let prefix_storage = effective_context_prefix(prefix_word);
     let prefix_clean = prefix_storage.as_str();
     let top1_score = candidates[ordered[0]].1;
-    let mut active_indices = Vec::with_capacity(candidates.len());
-    let mut cand_texts: Vec<String> = Vec::with_capacity(candidates.len());
-    let mut trie_budget = PrefixTrieBudget::new(prefix_clean);
+    let mut eligible_indices = Vec::with_capacity(candidates.len());
+    let mut eligible_texts: Vec<String> = Vec::with_capacity(candidates.len());
 
     for idx in ordered {
         let (nodes, sc) = &candidates[idx];
         if top1_score - *sc > cfg.score_margin {
             break;
         }
-        let txt: String = nodes.iter().map(|n| n.word.as_str()).collect();
-        let extra = trie_budget.count_additional_nodes(&txt);
-        if active_indices.len() >= 2
-            && trie_budget.current_nodes() + extra > cfg.max_trie_nodes
-        {
-            continue;
-        }
-        trie_budget.insert(&txt);
-        active_indices.push(idx);
-        cand_texts.push(txt);
+        eligible_indices.push(idx);
+        eligible_texts.push(nodes.iter().map(|n| n.word.as_str()).collect());
     }
+    if eligible_indices.len() < 2 {
+        return None;
+    }
+
+    let eligible_refs: Vec<&str> = eligible_texts.iter().map(|s| s.as_str()).collect();
+    let (selected_pos, _) = select_position_diverse_indices_with_trie_budget(
+        prefix_clean,
+        &eligible_refs,
+        cfg.max_trie_nodes,
+    );
+    let active_indices: Vec<usize> = selected_pos.iter().map(|&p| eligible_indices[p]).collect();
+    let cand_texts: Vec<String> = selected_pos
+        .iter()
+        .map(|&p| eligible_texts[p].clone())
+        .collect();
     if active_indices.len() < 2 {
         return None;
     }
@@ -1706,7 +1788,8 @@ mod tests {
             let s_r2l_cold = r2l.score_candidates_trie("", &rev_refs, &mut r2l_cache, None);
             for i in 0..cold_cands.len() {
                 assert!(bi_cold[i].is_finite());
-                let exp = 0.50 * s_l2r_cold[i] + 0.50 * s_r2l_cold[i];
+                let anchor = (i > 0).then_some((s_l2r_cold[0], s_r2l_cold[0]));
+                let exp = blend_bidirectional_score(s_l2r_cold[i], s_r2l_cold[i], anchor, 0.50);
                 assert!((bi_cold[i] - exp).abs() < 1e-5);
             }
             assert!(
@@ -1737,9 +1820,64 @@ mod tests {
             let rev_pref_refs: Vec<&str> = rev_pref.iter().map(|s| s.as_str()).collect();
             let s_r2l_pref = r2l.score_candidates_trie("", &rev_pref_refs, &mut r2l_cache, None);
             for i in 0..pref_cands.len() {
-                let exp = 0.65 * s_l2r_pref[i] + 0.35 * s_r2l_pref[i];
+                let anchor = (i > 0).then_some((s_l2r_pref[0], s_r2l_pref[0]));
+                let exp = blend_bidirectional_score(s_l2r_pref[i], s_r2l_pref[i], anchor, 0.35);
                 assert!((bi_pref[i] - exp).abs() < 1e-5);
             }
         }
+    }
+
+    #[test]
+    fn test_select_position_diverse_indices_with_trie_budget_261126() {
+        assert_eq!(select_position_diverse_indices_with_trie_budget("", &[], 100), (Vec::new(), 0));
+
+        // prefix "測試" -> base_prefix_nodes = 1 + 2 = 3
+        // cands[0] adds 11 nodes -> total 14.
+        // cands[1], cands[2], cands[3] all differ at char index 0 (each adds ~11 nodes),
+        // while cands[4] differs at char index 8 (shares prefix up to 8, adds only 3 nodes)
+        // and cands[5] differs at char index 10 (adds only 1 node).
+        // Budget = 29: cands[0] (14) + cands[1] (11 -> 25) + cands[4] (3 -> 28) fits!
+        // Repeated diff_pos=0 variants cands[2] & cands[3] would blow budget and must not crowd out cands[4]/cands[5].
+        let prefix = "測試";
+        let cands = [
+            "甲乙丙丁戊己庚辛壬癸子丑",
+            "假乙丙丁戊己庚辛壬癸子丑",
+            "賈乙丙丁戊己庚辛壬癸子丑",
+            "鉀乙丙丁戊己庚辛壬癸子丑",
+            "甲乙丙丁戊己庚辛壬的丑寅",
+            "甲乙丙丁戊己庚辛壬癸子卯",
+        ];
+        let (kept, nodes) = select_position_diverse_indices_with_trie_budget(prefix, &cands, 29);
+        assert!(nodes <= 29, "trie nodes {nodes} exceeded budget 29");
+        assert_eq!(kept[0], 0);
+        assert!(kept.windows(2).all(|w| w[0] < w[1]), "kept must be sorted ascending: {kept:?}");
+        assert!(kept.contains(&1), "top2 fallback must be kept: {kept:?}");
+        assert!(kept.contains(&4) || kept.contains(&5), "Pass 1 must prioritize later diff positions: {kept:?}");
+        assert!(!kept.contains(&2) && !kept.contains(&3), "repeated diff_pos=0 variants must be skipped under tight budget: {kept:?}");
+    }
+
+    #[test]
+    fn test_bidirectional_agreement_damping_formula_261126() {
+        assert!((DEFAULT_BIDIR_DISAGREE_DAMP - 0.50).abs() < 1e-6);
+
+        let w = 0.50_f32;
+        let sl0 = -10.0_f32;
+        let sr0 = -10.0_f32;
+        let comb0 = (1.0 - w) * sl0 + w * sr0; // -10.0
+
+        // 1. Disagreement: L2R prefers cand (+4.0), R2L dislikes cand (-2.0) => (4)*(-2) < 0
+        // raw comb = 0.5*(-6) + 0.5*(-12) = -9.0; damped = -10.0 + 0.50 * (-9.0 - (-10.0)) = -9.5
+        let damped = blend_bidirectional_score(-6.0, -12.0, Some((sl0, sr0)), w);
+        let expected_damped = comb0 + DEFAULT_BIDIR_DISAGREE_DAMP * (-9.0 - comb0);
+        assert!((damped - expected_damped).abs() < 1e-6);
+        assert!((damped - (-9.5)).abs() < 1e-6);
+
+        // 2. Agreement: both L2R and R2L prefer cand (+4.0, +2.0) => no damping
+        let agreed = blend_bidirectional_score(-6.0, -8.0, Some((sl0, sr0)), w);
+        assert!((agreed - (-7.0)).abs() < 1e-6);
+
+        // 3. No anchor (idx == 0) => no damping
+        let anchor = blend_bidirectional_score(sl0, sr0, None, w);
+        assert!((anchor - comb0).abs() < 1e-6);
     }
 }

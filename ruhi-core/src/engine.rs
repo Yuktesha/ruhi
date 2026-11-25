@@ -24775,4 +24775,95 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_v0965_live_typing_disambiguation_and_contrastives_261126() {
+        let cases: Vec<(Vec<&str>, &str)> = vec![
+            (
+                vec![
+                    "ㄎㄢˋ", "ㄌㄞˊ", "ㄧㄡˋ", "ㄉㄠˋ", "ㄌㄜ˙", "ㄧㄥ", "ㄍㄞ", "ㄎㄞ",
+                    "ㄒㄧㄣ", "ㄉㄨㄟˋ", "ㄏㄨㄚˋ", "ㄧˇ", "ㄐㄧˋ", "ㄒㄩˋ", "ㄑㄧㄢˊ", "ㄐㄧㄣˋ",
+                    "ㄉㄜ˙", "ㄕˊ", "ㄏㄡˋ", "ㄌㄜ˙",
+                ],
+                "看來又到了應該開新對話以繼續前進的時候了",
+            ),
+            (
+                vec!["ㄐㄧㄣ", "ㄊㄧㄢ", "ㄧㄡˋ", "ㄉㄠˋ", "ㄌㄜ˙", "ㄓㄡ", "ㄇㄛˋ"],
+                "今天又到了週末",
+            ),
+            (
+                vec!["ㄊㄚ", "ㄧㄡˋ", "ㄉㄠˋ", "ㄌㄜ˙", "ㄒㄩㄝˊ", "ㄒㄧㄠˋ", "ㄌㄜ˙"],
+                "他又到了學校了",
+            ),
+            (
+                vec!["ㄒㄧㄤˋ", "ㄧㄡˋ", "ㄓㄨㄢˇ"],
+                "向右轉",
+            ),
+            (
+                vec!["ㄉㄢˋ", "ㄨㄛˇ", "ㄉㄚˇ", "ㄔㄨ", "ㄌㄞˊ", "ㄉㄜ˙", "ㄕˋ"],
+                "但我打出來的是",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄒㄧㄝˇ", "ㄔㄨ", "ㄌㄞˊ", "ㄉㄜ˙", "ㄕˋ"],
+                "我寫出來的是",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄗㄨㄛˋ", "ㄔㄨ", "ㄌㄞˊ", "ㄉㄜ˙", "ㄕˋ"],
+                "我做出來的事",
+            ),
+            (
+                vec!["ㄨㄛˇ", "ㄧㄠˋ", "ㄗㄨㄛˋ", "ㄉㄜ˙", "ㄕˋ"],
+                "我要做的事",
+            ),
+            (
+                vec![
+                    "ㄐㄧㄚ", "ㄗㄨˊ", "ㄕㄤˋ", "ㄒㄧㄢˋ", "ㄧˇ", "ㄌㄞˊ", "ㄘㄞˊ", "ㄎㄞ",
+                    "ㄕˇ", "ㄧㄡˇ", "ㄌㄜ˙", "ㄓㄣ", "ㄓㄥˋ", "ㄉㄜ˙", "ㄐㄧㄣˋ", "ㄓㄢˇ",
+                ],
+                "家族上線以來才開始有了真正的進展",
+            ),
+        ];
+        assert_bopomofo_dual_mode_cases(&cases);
+
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        let eng_id = &engine as *const RuhiEngine as usize;
+        let cache_key = engine.transitions.cache_lm_key();
+
+        let prefix_cases: Vec<(&str, Vec<&str>, &str)> = vec![
+            ("直到11", vec!["ㄩㄝˋ", "ㄔㄨ"], "月初"),
+            ("12", vec!["ㄩㄝˋ", "ㄉㄧˇ"], "月底"),
+            ("2026", vec!["ㄋㄧㄢˊ", "ㄔㄨ"], "年初"),
+            (
+                "直到11月初Gemini 4",
+                vec![
+                    "ㄐㄧㄚ", "ㄗㄨˊ", "ㄕㄤˋ", "ㄒㄧㄢˋ", "ㄧˇ", "ㄌㄞˊ", "ㄘㄞˊ", "ㄎㄞ",
+                    "ㄕˇ", "ㄧㄡˇ", "ㄌㄜ˙", "ㄓㄣ", "ㄓㄥˋ", "ㄉㄜ˙", "ㄐㄧㄣˋ", "ㄓㄢˇ",
+                ],
+                "家族上線以來才開始有了真正的進展",
+            ),
+        ];
+
+        for mode in ["standard", "hsu"] {
+            for (committed_prefix, bpms, expected) in &prefix_cases {
+                engine.record_committed("\n\n");
+                engine.record_committed(committed_prefix);
+                let prev = engine.last_committed_word.clone();
+                let (keys, actual) = decode_bopomofo_on_engine(&mut engine, mode, &prev, bpms);
+                assert_eq!(
+                    actual, *expected,
+                    "[{}] committed=`{}` prev=`{}` 鍵位 {} 解碼失敗，預期『{}』，實際『{}』",
+                    mode, committed_prefix, prev, keys, expected, actual
+                );
+            }
+        }
+
+        crate::router::neural_reranker::clear_committed_context(eng_id);
+        crate::router::topic_cache::clear_for_key(cache_key);
+    }
 }

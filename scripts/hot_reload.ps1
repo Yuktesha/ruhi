@@ -235,6 +235,25 @@ try {
             }
         }
     }
+
+    # 同步神經重排 sidecar (ruhi_reranker.exe) 至 dist 目錄
+    $rerankerSrc = Join-Path $rootDir "ruhi-core\target\release\ruhi_reranker.exe"
+    $distDirPath = Join-Path $rootDir "dist"
+    $rerankerDist = Join-Path $distDirPath "ruhi_reranker.exe"
+    if ((Test-Path $distDirPath) -and (Test-Path $rerankerSrc)) {
+        $needSyncReranker = (-not (Test-Path $rerankerDist)) -or ((Get-Item $rerankerSrc).LastWriteTime -gt (Get-Item $rerankerDist).LastWriteTime)
+        if ($needSyncReranker) {
+            try {
+                Copy-Item $rerankerSrc -Destination $rerankerDist -Force -ErrorAction Stop
+            } catch {
+                try {
+                    $oldReranker = "$rerankerDist.old_$timestamp"
+                    Move-Item -Path $rerankerDist -Destination $oldReranker -Force -ErrorAction Stop
+                    Copy-Item $rerankerSrc -Destination $rerankerDist -Force -ErrorAction Stop
+                } catch {}
+            }
+        }
+    }
 } finally {
     try { Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = "ctfmon.exe" } -ErrorAction Stop | Out-Null } catch { Start-Process "ctfmon.exe" }
     Start-Sleep -Milliseconds 150
@@ -688,6 +707,77 @@ public class RuhiLiveBridge {
     } else {
         Write-Host "  [4/4] 已完成新版 DLL 部署與詞庫廣播，並安全重啟文字服務框架監聽 (ctfmon)！" -ForegroundColor Green
     }
+}
+
+# 5. 檢查並依需要啟動／重啟神經重排器 sidecar (ruhi_reranker.exe)
+try {
+    $enableNeural = $false
+    $rootConfigPath = Join-Path $rootDir "config.json"
+    if (Test-Path $rootConfigPath) {
+        $cfgObj = Get-Content -Path $rootConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($null -ne $cfgObj.enable_neural_reranker -and [bool]$cfgObj.enable_neural_reranker) {
+            $enableNeural = $true
+        }
+    }
+
+    $sidecarExe = $null
+    foreach ($candExe in @(
+        (Join-Path $rootDir "ruhi-core\target\release\ruhi_reranker.exe"),
+        (Join-Path $rootDir "dist\ruhi_reranker.exe")
+    )) {
+        if (Test-Path $candExe) {
+            $sidecarExe = (Resolve-Path $candExe).Path
+            break
+        }
+    }
+
+    $sidecarModel = $null
+    $candModel = Join-Path $rootDir "ruhi_lexicon\data\rlnm_zh_tw.bin"
+    if (Test-Path $candModel) {
+        $sidecarModel = (Resolve-Path $candModel).Path
+    }
+
+    $sidecarR2l = $null
+    $candR2l = Join-Path $rootDir "ruhi_lexicon\data\rlnm_zh_tw_r2l.bin"
+    if (Test-Path $candR2l) {
+        $sidecarR2l = (Resolve-Path $candR2l).Path
+    }
+
+    if ($enableNeural -and $sidecarExe -and $sidecarModel) {
+        $latestArtifactTime = (Get-Item $sidecarExe).LastWriteTime
+        $modelTime = (Get-Item $sidecarModel).LastWriteTime
+        if ($modelTime -gt $latestArtifactTime) {
+            $latestArtifactTime = $modelTime
+        }
+        if ($sidecarR2l) {
+            $r2lTime = (Get-Item $sidecarR2l).LastWriteTime
+            if ($r2lTime -gt $latestArtifactTime) {
+                $latestArtifactTime = $r2lTime
+            }
+        }
+
+        $runningSidecars = @(Get-Process -Name "ruhi_reranker" -ErrorAction SilentlyContinue)
+        $needsRestart = ($runningSidecars.Count -eq 0)
+        if (-not $needsRestart) {
+            foreach ($rp in $runningSidecars) {
+                if ($rp.StartTime -lt $latestArtifactTime) {
+                    $needsRestart = $true
+                    break
+                }
+            }
+        }
+
+        if ($needsRestart) {
+            if ($runningSidecars.Count -gt 0) {
+                Get-Process -Name "ruhi_reranker" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Milliseconds 150
+            }
+            Start-Process -FilePath $sidecarExe -ArgumentList @("--model", $sidecarModel, "--threads", "8") -WindowStyle Hidden
+            Write-Host "  [Sidecar] 已啟動／更新神經重排器常駐服務 (ruhi_reranker.exe)" -ForegroundColor Green
+        }
+    }
+} catch {
+    Write-Host "  [Sidecar] 檢查或啟動神經重排器時發生非致命異常: $($_.Exception.Message)" -ForegroundColor Yellow
 }
 
 Write-Host ""

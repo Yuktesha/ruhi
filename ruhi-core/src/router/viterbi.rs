@@ -1355,7 +1355,7 @@ impl ViterbiRouter {
                             });
                             nbest_edges
                                 .into_iter()
-                                .take(6)
+                                .take(12)
                                 .map(|(_, pidx, es)| (i, pidx, es))
                                 .collect()
                         } else {
@@ -1388,7 +1388,7 @@ impl ViterbiRouter {
                                     let sb = trellis_past[b.0][b.1].score + b.2;
                                     sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
                                 });
-                                existing.incoming.truncate(6);
+                                existing.incoming.truncate(12);
                             }
                         } else {
                             future_slot.push(ForwardTrellisState {
