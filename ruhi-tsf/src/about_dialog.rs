@@ -37,6 +37,7 @@ const DWMWA_USE_IMMERSIVE_DARK_MODE_19: u32 = 19;
 const DWMWA_USE_IMMERSIVE_DARK_MODE: u32 = 20;
 const DWMWA_WINDOW_CORNER_PREFERENCE: u32 = 33;
 const DWMWCP_ROUND: u32 = 2;
+const RUHI_DISPLAY_VERSION: &str = "0.9.6.11.26";
 
 static ABOUT_OPEN_HWND: AtomicIsize = AtomicIsize::new(0);
 
@@ -1090,7 +1091,7 @@ pub fn show_about_dialog(owner_hwnd: HWND) {
     let (kb_mode, is_caps) = read_candidate_state(|s| (s.keyboard_mode.to_lowercase(), s.is_caps_on))
         .unwrap_or_else(|_| ("hsu".to_string(), false));
     let ui_lang = current_effective_ui_lang();
-    let copy = build_about_copy(ui_lang, &kb_mode, is_caps, env!("CARGO_PKG_VERSION"));
+    let copy = build_about_copy(ui_lang, &kb_mode, is_caps, RUHI_DISPLAY_VERSION);
     let is_dark = resolve_about_dark_theme();
 
     let ruhi_icon_premul = render_ruhi_icon_premul_rgba();
@@ -1368,8 +1369,9 @@ mod tests {
             ("zh-TW", "thai", false),
         ];
         for (lang, kb, caps) in cases {
-            let copy = build_about_copy(lang, kb, caps, "0.9.6");
+            let copy = build_about_copy(lang, kb, caps, RUHI_DISPLAY_VERSION);
             assert!(copy.version_line.contains("0.9.6"));
+            assert!(copy.version_line.contains("0.9.6.11.26"));
             let all = format!(
                 "{}\n{}\n{}\n{}\n{}",
                 copy.window_title, copy.heading, copy.subtitle, copy.motto_title, copy.motto_body

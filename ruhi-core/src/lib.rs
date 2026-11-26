@@ -17,6 +17,7 @@ pub mod korean;
 pub mod western;
 pub mod reverse_coach;
 pub mod engine;
+pub mod extensions;
 
 pub use engine::{EngineResponse, RuhiEngine};
 pub use reverse_coach::{

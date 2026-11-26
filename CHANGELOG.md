@@ -1,5 +1,25 @@
 # 如喜（RuhI）通用智慧型輸入法 — 改版說明 (Changelog)
 
+## v0.9.6.11.26 (2026-11-26) — 61 歲生日特別版：雙向神經重排極致校準、異體雙寫記憶與 P2-4 擴充基礎架構
+
+### 🎂 開發集 CER 降至 **`2.12%`**（`949` 錯字 / `83.10%` 全對）、盲測 `test.tsv` 相對降錯 **`40.15%`**（`2.60%` / `495` 錯字）
+- **雙向神經推論優化與 D2-B 基線修補（[`rlnm.rs`](ruhi-core/src/router/rlnm.rs)、[`neural_reranker.rs`](ruhi-core/src/router/neural_reranker.rs)、[`ruhi_reranker.rs`](ruhi-core/src/bin/ruhi_reranker.rs)）**：
+  - 保留精確介面 `score_candidates_trie` / `score_candidates_bidirectional` 零變更以維持奇偶與回歸測試，新增共用無分歧主幹（strict common trunk > 0）LM-Head 剪枝路徑 `score_candidates_trie_fast_relative` 與 `score_candidates_bidirectional_fast`，相較精確分數維持候選間相對差 `< 1e-4` 等價性。
+  - 修補 D2-B 多島重組二次打分基準：由 2 候選同一 `pair_refs` 呼叫回傳之 `scores[0]` 與 `scores[1]` 執行相對優劣比較，消除與 Pass-1 候選集合規模不同之常量偏移風險。
+  - 經 `ruhi_reranker --bench --threads 8` 實測：`max_trie_nodes = 200` 為 `p50 = 11.66 ms` / `p95 = 32.27 ms` / `max = 32.27 ms`（`#8` 前文 KV 快取 `1.32x` 加速、`max_drift = 0.00e0`）；240 節點預算實測達 `33.42 ms` 未低於 `28 ms` 安全上限，審慎維持 `DEFAULT_MAX_TRIE_NODES = 200`。
+- **異體雙寫自動記憶開關（`variant_prefs.json`）與「正寫」詞庫補齊**：
+  - 於 [`lexicon_core.tsv`](ruhi_lexicon/data/lexicon_core.tsv) 與 [`data/lexicon_core.tsv`](data/lexicon_core.tsv) 同步補齊 `正寫 (ㄓㄥˋ ㄒㄧㄝˇ, 310)`，雙檔 SHA-256 完全一致，`lint_scoring_rules.py --full` 維持 `0` 違規。
+  - 新增 [`variant_prefs.rs`](ruhi-core/src/router/variant_prefs.rs) 並於 [`viterbi.rs`](ruhi-core/src/router/viterbi.rs)、[`engine.rs`](ruhi-core/src/engine.rs)、[`service.rs`](ruhi-tsf/src/service.rs) 與 [`config_sync.rs`](ruhi-settings/src/config_sync.rs)／[`main.rs`](ruhi-settings/src/main.rs) 完成前後端與偏好設定中心 `rud()` 介面整合；採 `OnceLock` 旁表索引 `cache_lm_key()` 嚴守零 COM ABI 結構變動，支援 `general`（一般自動學習）、`official_tw`（中華民國公文書正寫偏好：`臺北／臺灣／公佈` 等 `19` 組無歧義雙寫詞對）與 `custom`（手動自訂），並涵蓋姓氏與人名語境保護與神經重排後覆寫防護。
+- **`KNOWN_HARD_CASES.md` 12 項微弱差距案例雙向神經盤點與 P2-4 擴充載入器**：
+  - 新增 [`test_v0961126_known_hard_cases_bidirectional_audit`](ruhi-core/src/engine.rs) 並於 [`KNOWN_HARD_CASES.md`](docs/KNOWN_HARD_CASES.md) 增補第 6 節：雙向 `C6-L2R-32k + C6-R2L-32k`（`λ = 4.5`）將 12 項薄邊際案例由離線 `1 / 12` 提升至 **`7 / 12` 通過**（含 Stage B2 全部 `3 / 3` 與 Phase 1D 4 例）。
+  - 新增 [`extensions.rs`](ruhi-core/src/extensions.rs)（零外部依賴 `manifest.toml` 解析、三類 FSM 原型 `SyllabicCombinator`／`CodeTableShape`／`TokenizingLexeme`、路徑穿越防護與多根目錄探索）與 [`ruhi_lexicon/data/extensions/README.md`](ruhi_lexicon/data/extensions/README.md)。
+- **`C7` 平衡語料（209.94M 字元）接續訓練與晉升閘門把關**：
+  - 串流彙整 `C6`（171.65M 字）與可商用台灣維基百科（`35.00M`）／維基新聞（`3.29M`）為 `22,261,725` 句段／`209,944,176` 字元（嚴格經 `TaiwanPurityFilter` 與 `eval_hashes.txt` 去重），於本機 RTX 5070 Ti 完成 L2R／R2L 各 `12,000` 步熱啟動接續訓練；因開發集 `C7` 精確全對句數較 `C6` 少 `8` 句（`3,017` vs. `3,025`，`947` vs. `949` 錯字），嚴守「不退步」閘門而維持 `C6` 作為正式模型釋出。
+- **全面測試與單次盲測成績**：
+  - 品質檢核：`ruhi-core --lib` **`308 passed; 0 failed; 9 ignored`**、`ruhi-tsf --lib` **`31 passed; 0 failed`**、`ruhi-settings` **`10+1 passed; 0 failed`**、`dev --gate` **`PASS`**（`1,537 / 44,855 = 3.43%`、`fixed=11, broken=0`）、開發集雙向重排 **`949 / 44,855 (2.12% CER)`**／**`3,025 / 3,640 (83.10%)`**。
+  - **內部盲測 `test.tsv`**（1,560 句／19,058 字）：離線 `827 / 19,058 (4.34% CER, 68.27%)` ➔ 雙向神經 **`495 / 19,058 (2.60% CER, 79.29% = 1,237 / 1,560)`**，較離線淨減 **`-332` 字錯（相對降幅 `40.15%`）**、較 `v0.9.6` 再減 **`-90` 字錯**。
+  - **外部開放盲測 `typing_tw.tsv`**（4,256 句／48,911 字）：離線 `4,406 / 48,911 (9.01% CER, 45.47%)` ➔ 雙向神經 **`2,983 / 48,911 (6.10% CER, 58.04% = 2,470 / 4,256)`**，淨減 **`-1,423` 字錯（相對降幅 `32.30%`）**。
+
 ## v0.9.6.4 (2026-11-26) — 雙向（L2R + R2L）神經重排與 Top-8 後綴 Trie 級聯架構
 
 ### 🧠 開發集神經重排錯字再降 **`-93` 字**（`2.40% ➔ 2.19%`、`984` 錯字），整句完全命中率躍升至 **`82.80%`**（`3,014 / 3,640` 句）

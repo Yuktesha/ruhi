@@ -9284,6 +9284,21 @@ impl RuhiEngine {
         crate::router::cache_lm::clear_for_key(self.transitions.cache_lm_key());
     }
 
+    /// 綁定異體雙寫自動記憶與個人正寫偏好（`variant_prefs.json`）之儲存路徑
+    pub fn bind_user_variant_prefs_path(&mut self, path: &std::path::Path) {
+        crate::router::variant_prefs::bind_path_for_key(self.transitions.cache_lm_key(), path);
+    }
+
+    /// 立即將已更動之異體雙寫偏好寫入磁碟（原子寫入）
+    pub fn flush_user_variant_prefs(&mut self) {
+        crate::router::variant_prefs::flush_if_dirty_for_key(self.transitions.cache_lm_key());
+    }
+
+    /// 清除目前引擎實例之異體雙寫偏好記憶
+    pub fn clear_user_variant_prefs(&mut self) {
+        crate::router::variant_prefs::clear_for_key(self.transitions.cache_lm_key());
+    }
+
     pub fn record_revision(&mut self, bopomofo: &str, rejected: &str, accepted: &str, prev_context: &str, next_context: &str) {
         if rejected.is_empty() || accepted.is_empty() || rejected == accepted {
             return;
@@ -9312,6 +9327,16 @@ impl RuhiEngine {
             now,
         );
         crate::router::cache_lm::flush_if_dirty_for_key(self.transitions.cache_lm_key());
+
+        crate::router::variant_prefs::record_correction_for_key(
+            self.transitions.cache_lm_key(),
+            bopomofo,
+            prev_context,
+            rejected,
+            accepted,
+            next_context,
+            now,
+        );
 
         self.pending_revisions.push(RevisionRecord {
             timestamp: now,
@@ -9344,6 +9369,12 @@ impl RuhiEngine {
                 .map(|d| d.as_secs())
                 .unwrap_or(0);
             crate::router::cache_lm::record_sentence_span_diffs_for_key(
+                self.transitions.cache_lm_key(),
+                raw_s,
+                cor_s,
+                now_ts,
+            );
+            crate::router::variant_prefs::record_sentence_span_diffs_for_key(
                 self.transitions.cache_lm_key(),
                 raw_s,
                 cor_s,
@@ -9386,6 +9417,7 @@ impl RuhiEngine {
             let _ = self.save_pending_revisions_to_file(None);
         }
         crate::router::cache_lm::flush_if_dirty_for_key(self.transitions.cache_lm_key());
+        crate::router::variant_prefs::flush_if_dirty_for_key(self.transitions.cache_lm_key());
     }
 
     pub fn has_pending_revisions(&self) -> bool {
@@ -24865,5 +24897,599 @@ mod tests {
 
         crate::router::neural_reranker::clear_committed_context(eng_id);
         crate::router::topic_cache::clear_for_key(cache_key);
+    }
+
+    #[test]
+    fn test_v0961126_variant_prefs_and_zhengxie() {
+        // 1. 驗證「為正寫」已補齊詞條「正寫」並於雙鍵位正確解碼
+        assert_bopomofo_dual_mode_cases(&[(
+            vec!["ㄨㄟˊ", "ㄓㄥˋ", "ㄒㄧㄝˇ"],
+            "為正寫",
+        )]);
+
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+
+        let tmp_dir = std::env::temp_dir().join(format!(
+            "ruhi_v0961126_variant_prefs_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let vp_path = tmp_dir.join("variant_prefs.json");
+
+        // 2. 學習「台北 -> 臺北」並持久化至 variant_prefs.json，重載新引擎後仍穩定生效
+        let mut eng1 = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        let k1 = eng1.transitions.cache_lm_key();
+        eng1.bind_user_variant_prefs_path(&vp_path);
+        crate::router::variant_prefs::set_key_config(
+            k1,
+            true,
+            crate::router::variant_prefs::VariantPreset::General,
+        );
+
+        let bpms_tp = ["ㄨㄛˇ", "ㄑㄩˋ", "ㄊㄞˊ", "ㄅㄟˇ"];
+        let (_, base_out) = decode_bopomofo_on_engine(&mut eng1, "standard", "", &bpms_tp);
+        assert_eq!(base_out, "我去台北");
+
+        eng1.record_revision("ㄊㄞˊ ㄅㄟˇ", "台北", "臺北", "去", "");
+        assert!(vp_path.is_file(), "variant_prefs.json must be written on revision");
+
+        let (_, learned_out) = decode_bopomofo_on_engine(&mut eng1, "standard", "", &bpms_tp);
+        assert_eq!(learned_out, "我去臺北");
+
+        // 3. 驗證神經重排序後保護可防止「臺北」遭退回「台北」
+        let syls_tp: Vec<crate::fsm::HsuSyllable> = bpms_tp
+            .iter()
+            .map(|s| crate::fsm::HsuSyllable::from_bopomofo_display(s).unwrap())
+            .collect();
+        let dag_tp = LatticeDAG::new(&eng1.lexicon).build_dag(&syls_tp, true);
+        let nbest_tp = eng1.router.solve_diverse_nbest_paths_with_prefix(
+            syls_tp.len(),
+            &dag_tp,
+            Some(&mut eng1.transitions),
+            None,
+            12,
+            24,
+        );
+        let fake_neural = vec![
+            crate::router::lattice::LatticeNode::new(0, 1, "我", 500, "ㄨㄛˇ"),
+            crate::router::lattice::LatticeNode::new(1, 2, "去", 500, "ㄑㄩˋ"),
+            crate::router::lattice::LatticeNode::new(2, 4, "台北", 705, "ㄊㄞˊ ㄅㄟˇ"),
+        ];
+        let protected =
+            crate::router::variant_prefs::apply_post_neural_protection(k1, fake_neural, &nbest_tp);
+        let protected_txt: String = protected.iter().map(|n| n.word.as_str()).collect();
+        assert_eq!(protected_txt, "我去臺北");
+
+        // 4. 新引擎重新載入 variant_prefs.json 驗證持久化與關閉開關
+        let mut eng2 = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        let k2 = eng2.transitions.cache_lm_key();
+        eng2.bind_user_variant_prefs_path(&vp_path);
+        crate::router::variant_prefs::set_key_config(
+            k2,
+            true,
+            crate::router::variant_prefs::VariantPreset::General,
+        );
+        let (_, reloaded_out) = decode_bopomofo_on_engine(&mut eng2, "standard", "", &bpms_tp);
+        assert_eq!(reloaded_out, "我去臺北");
+
+        crate::router::variant_prefs::set_key_config(
+            k2,
+            false,
+            crate::router::variant_prefs::VariantPreset::General,
+        );
+        let (_, disabled_out) = decode_bopomofo_on_engine(&mut eng2, "standard", "", &bpms_tp);
+        assert_eq!(disabled_out, "我去台北");
+
+        // 5. 驗證 OfficialTw 預設集偏好（臺灣、公佈）
+        let mut eng3 = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        let k3 = eng3.transitions.cache_lm_key();
+        crate::router::variant_prefs::set_key_config(
+            k3,
+            true,
+            crate::router::variant_prefs::VariantPreset::OfficialTw,
+        );
+        let (_, tw_out) = decode_bopomofo_on_engine(
+            &mut eng3,
+            "standard",
+            "",
+            &["ㄊㄞˊ", "ㄨㄢ", "ㄍㄨㄥ", "ㄅㄨˋ"],
+        );
+        assert_eq!(tw_out, "臺灣公佈");
+
+        crate::router::variant_prefs::remove_key(k1);
+        crate::router::variant_prefs::remove_key(k2);
+        crate::router::variant_prefs::remove_key(k3);
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn test_v0961126_known_hard_cases_bidirectional_audit() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("ruhi_lexicon")
+            .join("data");
+        if !data_dir.join("lexicon_core.tsv").exists() {
+            return;
+        }
+        let l2r_path = data_dir.join("rlnm_zh_tw.bin");
+        let r2l_path = data_dir.join("rlnm_zh_tw_r2l.bin");
+        if !(l2r_path.is_file() && r2l_path.is_file()) {
+            return;
+        }
+
+        let l2r = crate::router::rlnm::RlnmModel::open(&l2r_path).unwrap();
+        let r2l = crate::router::rlnm::RlnmModel::open(&r2l_path).unwrap();
+        let mut l2r_cache = l2r.alloc_kv_cache();
+        let mut r2l_cache = r2l.alloc_kv_cache();
+
+        let mut engine = RuhiEngine::new_with_data_dir(data_dir.to_str().unwrap());
+        let eng_id = &engine as *const RuhiEngine as usize;
+        let cache_key = engine.transitions.cache_lm_key();
+        let lambda = 4.5_f64;
+        let _timeout_ms_budget = 35_u16;
+
+        let decode_clauses_offline = |eng: &mut RuhiEngine, clauses: &[&[&str]]| -> String {
+            eng.transitions
+                .disabled_rules
+                .insert("neural_reranker".to_string());
+            eng.record_committed("\n\n");
+            eng.last_committed_word.clear();
+            let eid = eng as *const RuhiEngine as usize;
+            let mut full_out = String::new();
+            for (ci, bpms) in clauses.iter().enumerate() {
+                let syls: Vec<crate::fsm::HsuSyllable> = bpms
+                    .iter()
+                    .map(|s| crate::fsm::HsuSyllable::from_bopomofo_display(s).unwrap())
+                    .collect();
+                let dag = LatticeDAG::new(&eng.lexicon).build_dag(&syls, true);
+                let prefix_word = if !eng.last_committed_word.is_empty() {
+                    Some(eng.last_committed_word.clone())
+                } else {
+                    None
+                };
+                let _guard = crate::router::neural_reranker::ScopedContextPrefix::for_engine(eid);
+                let (nodes, _) = eng.router.solve_best_path_with_prefix(
+                    syls.len(),
+                    &dag,
+                    Some(&mut eng.transitions),
+                    prefix_word.as_deref(),
+                );
+                let clause_txt: String = nodes.iter().map(|n| n.word.as_str()).collect();
+                full_out.push_str(&clause_txt);
+                if ci + 1 < clauses.len() {
+                    full_out.push('，');
+                    let commit_seg = format!("{clause_txt}，");
+                    eng.record_committed(&commit_seg);
+                }
+            }
+            full_out
+        };
+
+        let mut decode_clauses_bidir = |eng: &mut RuhiEngine, clauses: &[&[&str]]| -> String {
+            eng.transitions.disabled_rules.remove("neural_reranker");
+            eng.record_committed("\n\n");
+            eng.last_committed_word.clear();
+            let eid = eng as *const RuhiEngine as usize;
+            let mut full_out = String::new();
+            for (ci, bpms) in clauses.iter().enumerate() {
+                let syls: Vec<crate::fsm::HsuSyllable> = bpms
+                    .iter()
+                    .map(|s| crate::fsm::HsuSyllable::from_bopomofo_display(s).unwrap())
+                    .collect();
+                let n_syl = syls.len();
+                let dag = LatticeDAG::new(&eng.lexicon).build_dag(&syls, true);
+                let prefix_word = if !eng.last_committed_word.is_empty() {
+                    Some(eng.last_committed_word.clone())
+                } else {
+                    None
+                };
+                let clean_prefix: Option<String> = prefix_word
+                    .as_deref()
+                    .map(|p| p.rsplit_once('\t').map(|(_, w)| w).unwrap_or(p))
+                    .filter(|w| !w.is_empty())
+                    .map(|w| w.to_string());
+                let _guard = crate::router::neural_reranker::ScopedContextPrefix::for_engine(eid);
+                let ctx_prefix = crate::router::neural_reranker::effective_context_prefix(
+                    clean_prefix.as_deref(),
+                );
+
+                let astar_k = if n_syl >= 15 { 16 } else { 12 };
+                let total_k = if n_syl >= 15 { 40 } else { 28 };
+                let mut nbest = eng.router.solve_diverse_nbest_paths_with_prefix(
+                    n_syl,
+                    &dag,
+                    Some(&mut eng.transitions),
+                    prefix_word.as_deref(),
+                    astar_k,
+                    total_k,
+                );
+                let want_discourse = n_syl >= 4
+                    && !eng.transitions.is_rule_disabled("discourse_reranker")
+                    && crate::router::discourse_reranker::dag_has_third_person_pronoun(&dag);
+                let mut discourse_deltas: Vec<f64> = vec![0.0; nbest.len()];
+                if want_discourse && !nbest.is_empty() {
+                    let raw_top1 = nbest
+                        .iter()
+                        .map(|(_, s)| *s)
+                        .fold(f64::NEG_INFINITY, f64::max);
+                    let mut combined: Vec<(Vec<crate::router::LatticeNode>, f64, f64)> = nbest
+                        .into_iter()
+                        .map(|(nodes, sc)| {
+                            let dd = if raw_top1 - sc
+                                <= crate::router::discourse_reranker::RERANK_SCORE_MARGIN
+                            {
+                                crate::router::discourse_reranker::score_discourse_sentence_with_prefix(
+                                    &nodes,
+                                    &ctx_prefix,
+                                )
+                            } else {
+                                0.0
+                            };
+                            (nodes, sc + dd, dd)
+                        })
+                        .collect();
+                    combined.sort_by(|a, b| {
+                        b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                    nbest = Vec::with_capacity(combined.len());
+                    discourse_deltas = Vec::with_capacity(combined.len());
+                    for (nodes, adj, dd) in combined {
+                        nbest.push((nodes, adj));
+                        discourse_deltas.push(dd);
+                    }
+                }
+
+                let chosen_nodes = if nbest.len() >= 2 && n_syl >= 4 {
+                    let top1_sc = nbest[0].1;
+                    let mut eligible_indices = Vec::new();
+                    let mut eligible_texts: Vec<String> = Vec::new();
+                    for (idx, (nodes, sc)) in nbest.iter().enumerate() {
+                        if top1_sc - *sc > 25.0 {
+                            break;
+                        }
+                        eligible_indices.push(idx);
+                        eligible_texts.push(nodes.iter().map(|n| n.word.as_str()).collect());
+                    }
+                    let eligible_refs: Vec<&str> =
+                        eligible_texts.iter().map(|s| s.as_str()).collect();
+                    let (selected_pos, _) =
+                        crate::router::neural_reranker::select_position_diverse_indices_with_trie_budget(
+                            &ctx_prefix,
+                            &eligible_refs,
+                            crate::router::neural_reranker::DEFAULT_MAX_TRIE_NODES,
+                        );
+                    let active_indices: Vec<usize> =
+                        selected_pos.iter().map(|&p| eligible_indices[p]).collect();
+                    let cand_texts: Vec<String> = selected_pos
+                        .iter()
+                        .map(|&p| eligible_texts[p].clone())
+                        .collect();
+
+                    if active_indices.len() >= 2 {
+                        let cand_refs: Vec<&str> =
+                            cand_texts.iter().map(|s| s.as_str()).collect();
+                        let nl_scores =
+                            crate::router::neural_reranker::score_candidates_bidirectional_fast(
+                                &l2r,
+                                Some(&r2l),
+                                &ctx_prefix,
+                                &cand_refs,
+                                &mut l2r_cache,
+                                Some(&mut r2l_cache),
+                                None,
+                            );
+                        let mut best_pos = 0usize;
+                        let mut best_idx = active_indices[0];
+                        let mut best_total = f64::NEG_INFINITY;
+                        let mut pass1_totals = Vec::with_capacity(active_indices.len());
+                        for (pos, (&cand_idx, &nl_sc)) in
+                            active_indices.iter().zip(nl_scores.iter()).enumerate()
+                        {
+                            let disc_d = if want_discourse {
+                                discourse_deltas.get(cand_idx).copied().unwrap_or(0.0)
+                            } else {
+                                0.0
+                            };
+                            let tot = if nl_sc.is_finite() {
+                                crate::router::neural_reranker::compute_fused_candidate_score(
+                                    nbest[cand_idx].1,
+                                    nl_sc as f64,
+                                    &nbest[cand_idx].0,
+                                    disc_d,
+                                    0.0,
+                                    0.0,
+                                    lambda,
+                                )
+                            } else {
+                                f64::NEG_INFINITY
+                            };
+                            pass1_totals.push(tot);
+                            if tot > best_total {
+                                best_total = tot;
+                                best_idx = cand_idx;
+                                best_pos = pos;
+                            }
+                        }
+
+                        let mut winner_nodes = nbest[best_idx].0.clone();
+                        let p_star_idx = active_indices[0];
+                        let p_star_total = pass1_totals[0];
+                        let p_star_disc = if want_discourse {
+                            discourse_deltas.get(p_star_idx).copied().unwrap_or(0.0)
+                        } else {
+                            0.0
+                        };
+                        if p_star_total.is_finite() {
+                            let mut improved: Vec<(&[crate::router::LatticeNode], f64, f64, f64)> =
+                                Vec::new();
+                            for (pos, &cand_idx) in active_indices.iter().enumerate().skip(1) {
+                                let tot = pass1_totals[pos];
+                                if tot > p_star_total + 0.5 {
+                                    let c_disc = if want_discourse {
+                                        discourse_deltas.get(cand_idx).copied().unwrap_or(0.0)
+                                    } else {
+                                        0.0
+                                    };
+                                    improved.push((
+                                        &nbest[cand_idx].0,
+                                        nbest[cand_idx].1,
+                                        c_disc,
+                                        tot - p_star_total,
+                                    ));
+                                }
+                            }
+                            if let Some((recomb_nodes, recomb_base, recomb_disc)) =
+                                crate::router::neural_reranker::try_build_disjoint_multi_island_recombination(
+                                    &nbest[p_star_idx].0,
+                                    nbest[p_star_idx].1,
+                                    p_star_disc,
+                                    &improved,
+                                )
+                            {
+                                let recomb_text: String =
+                                    recomb_nodes.iter().map(|n| n.word.as_str()).collect();
+                                if !cand_texts.iter().any(|t| t == &recomb_text) {
+                                    let pair_refs =
+                                        [cand_texts[best_pos].as_str(), recomb_text.as_str()];
+                                    let pair_scores =
+                                        crate::router::neural_reranker::score_candidates_bidirectional_fast(
+                                            &l2r,
+                                            Some(&r2l),
+                                            &ctx_prefix,
+                                            &pair_refs,
+                                            &mut l2r_cache,
+                                            Some(&mut r2l_cache),
+                                            None,
+                                        );
+                                    if pair_scores.len() == 2
+                                        && pair_scores[0].is_finite()
+                                        && pair_scores[1].is_finite()
+                                    {
+                                        let best_disc = if want_discourse {
+                                            discourse_deltas.get(best_idx).copied().unwrap_or(0.0)
+                                        } else {
+                                            0.0
+                                        };
+                                        let best_pair_total =
+                                            crate::router::neural_reranker::compute_fused_candidate_score(
+                                                nbest[best_idx].1,
+                                                pair_scores[0] as f64,
+                                                &nbest[best_idx].0,
+                                                best_disc,
+                                                0.0,
+                                                0.0,
+                                                lambda,
+                                            );
+                                        let recomb_total =
+                                            crate::router::neural_reranker::compute_fused_candidate_score(
+                                                recomb_base,
+                                                pair_scores[1] as f64,
+                                                &recomb_nodes,
+                                                recomb_disc,
+                                                0.0,
+                                                0.0,
+                                                lambda,
+                                            );
+                                        if recomb_total > best_pair_total {
+                                            winner_nodes = recomb_nodes;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if eng.transitions.is_rule_disabled("variant_prefs") {
+                            winner_nodes
+                        } else {
+                            crate::router::variant_prefs::apply_post_neural_protection(
+                                eng.transitions.cache_lm_key(),
+                                winner_nodes,
+                                &nbest,
+                            )
+                        }
+                    } else {
+                        nbest[0].0.clone()
+                    }
+                } else if !nbest.is_empty() {
+                    nbest[0].0.clone()
+                } else {
+                    Vec::new()
+                };
+
+                let clause_txt: String = chosen_nodes.iter().map(|n| n.word.as_str()).collect();
+                full_out.push_str(&clause_txt);
+                if ci + 1 < clauses.len() {
+                    full_out.push('，');
+                    let commit_seg = format!("{clause_txt}，");
+                    eng.record_committed(&commit_seg);
+                }
+            }
+            full_out
+        };
+
+        let c_p1d_01: &[&str] = &[
+            "ㄉㄢˋ", "ㄊㄚ", "ㄏㄨㄟˋ", "ㄅㄨˊ", "ㄏㄨㄟˋ", "ㄉㄨㄟˋ",
+            "ㄒㄧˋ", "ㄊㄨㄥˇ", "ㄗㄠˋ", "ㄔㄥˊ", "ㄈㄨˋ", "ㄉㄢ",
+        ];
+        let c_p1d_02: &[&str] = &[
+            "ㄐㄧㄥˋ", "ㄒㄧㄚˋ", "ㄒㄧㄣ", "ㄌㄞˊ", "ㄩˇ", "ㄒㄧㄣ", "ㄉㄨㄟˋ", "ㄏㄨㄚˋ",
+        ];
+        let c_p1d_03: &[&str] = &[
+            "ㄨㄛˇ", "ㄗㄞˋ", "ㄨㄛˇ", "ㄗˋ", "ㄐㄧˇ", "ㄐㄩ", "ㄓㄨˋ", "˙ㄉㄜ", "ㄔㄥˊ", "ㄕˋ",
+            "ㄒㄧㄝˇ", "˙ㄉㄜ", "ㄔㄥˊ", "ㄕˋ", "ㄨㄛˇ", "ㄗˋ", "ㄐㄧˇ", "ㄈㄟ", "ㄔㄤˊ", "ㄒㄧㄤˇ", "ㄩㄥˋ",
+        ];
+        let c_p1d_04: &[&str] = &[
+            "ㄇㄟˇ", "˙ㄍㄜ", "ㄖㄣˊ", "ㄉㄡ", "ㄋㄥˊ", "ㄐㄧㄢˋ", "ㄐㄧㄢˋ", "ㄎㄤ", "ㄎㄤ",
+            "ㄧˊ", "ㄅㄟˋ", "˙ㄗ", "ㄌㄧㄢˊ", "ㄓㄨˋ", "ㄨㄢˋ", "ㄈㄣ", "ㄓ", "ㄧˊ", "˙ㄍㄜ",
+            "ㄩㄢˋ", "ㄉㄡ", "ㄅㄨˋ", "ㄒㄩ", "ㄧㄠˋ",
+        ];
+        let c_p1d_05: &[&str] = &["ㄗㄞˋ", "ㄩㄥˋ", "ㄓㄜˋ", "ㄊㄠˋ", "ㄍㄨㄥ", "ㄐㄩˋ"];
+        let c_p1d_06: &[&str] = &["ㄉㄨㄛ", "ㄉㄞˋ", "ㄐㄧ", "ㄒㄧㄥˊ"];
+        let c_p1d_07: &[&str] = &["ㄎㄠˇ", "˙ㄉㄜ", "ㄕㄤˋ", "ㄘˋ", "ㄋㄚˋ", "ㄊㄧˊ"];
+        let c_p1d_08: &[&str] = &[
+            "ㄨㄛˇ", "ㄇㄣˊ", "ㄕㄜˋ", "ㄑㄩ", "ㄍㄨㄢˇ", "ㄌㄧˇ", "ㄨㄟˇ", "ㄩㄢˊ", "ㄏㄨㄟˋ",
+            "˙ㄉㄜ", "ㄔㄤˊ", "ㄨㄟˇ", "ㄧㄤˇ", "˙ㄌㄜ", "ㄧˋ", "ㄓ", "ㄔㄤˊ", "ㄨㄟˇ", "ㄇㄠ",
+        ];
+        let c_p1d_09_c1: &[&str] = &[
+            "ㄧˋ", "ㄑㄩㄣˊ", "ㄋㄧㄢˊ", "ㄑㄧㄥ", "ㄖㄣˊ", "ㄗㄞˋ", "ㄇㄢˇ", "ㄕㄨˋ",
+            "ㄊㄨㄥˊ", "ㄏㄨㄚ", "˙ㄉㄜ", "ㄕㄨˋ", "ㄧㄣˋ", "ㄒㄧㄚˋ", "ㄨㄢˊ", "ㄑㄧˇ",
+            "ㄆㄨ", "˙ㄎㄜ", "ㄆㄞˊ",
+        ];
+        let c_p1d_09_c2: &[&str] = &[
+            "ㄑㄧˊ", "ㄓㄨㄥ", "ㄧˋ", "ㄖㄣˊ", "ㄌㄧㄤˋ", "ㄔㄨ", "ㄧˋ", "ㄕㄡˇ",
+            "ㄊㄨㄥˊ", "ㄏㄨㄚ", "ㄕㄨㄣˋ", "ㄏㄠˇ", "ㄆㄞˊ",
+        ];
+        let c_p1d_09_c3: &[&str] = &[
+            "ㄙㄨㄛˇ", "ㄧㄡˇ", "ㄖㄣˊ", "ㄉㄡ", "ㄊㄨㄥˊ", "ㄕˊ", "ㄊㄨㄥˊ", "ㄧˋ",
+            "ㄊㄚ", "ㄕˋ", "ㄐㄧㄣ", "ㄊㄧㄢ", "ㄗㄨㄟˋ", "ㄒㄧㄥˋ", "ㄩㄣˋ", "˙ㄉㄜ", "ㄖㄣˊ",
+        ];
+        let c_sb2_01: &[&str] = &[
+            "ㄨㄛˇ", "ㄎㄢˋ", "ㄒㄧㄢˋ", "ㄗㄞˋ", "ㄧㄥ", "ㄍㄞ", "ㄐㄧ", "ㄗㄨㄟˇ", "ㄅㄧㄢˋ", "ㄧㄚ", "ㄗㄨㄟˇ", "˙ㄌㄜ",
+        ];
+        let c_sb2_02: &[&str] = &["ㄌㄧˋ", "ㄐㄧㄥ", "ㄉㄨㄛ", "ㄉㄞˋ"];
+        let c_sb2_03: &[&str] = &["ㄊㄚ", "ㄅㄨˋ", "ㄕㄜˇ", "˙ㄉㄜ", "ㄏㄨㄚ", "ㄑㄧㄢˊ"];
+
+        let audit_cases: Vec<(&str, Vec<&[&str]>, &str)> = vec![
+            // Section 4: Phase 1D v6 (9 cases)
+            ("P1D-01", vec![c_p1d_01], "但他會不會對系統造成負擔"),
+            ("P1D-02", vec![c_p1d_02], "靜下心來與心對話"),
+            ("P1D-03", vec![c_p1d_03], "我在我自己居住的城市寫的程式我自己非常享用"),
+            ("P1D-04", vec![c_p1d_04], "每個人都能健健康康一輩子連住萬分之一個院都不需要"),
+            ("P1D-05", vec![c_p1d_05], "在用這套工具"),
+            ("P1D-06", vec![c_p1d_06], "多代機型"),
+            ("P1D-07", vec![c_p1d_07], "考的上次那題"),
+            ("P1D-08", vec![c_p1d_08], "我們社區管理委員會的常委養了一隻長尾貓"),
+            (
+                "P1D-09",
+                vec![c_p1d_09_c1, c_p1d_09_c2, c_p1d_09_c3],
+                "一群年輕人在滿樹桐花的樹蔭下玩起撲克牌，其中一人亮出一手同花順好牌，所有人都同時同意他是今天最幸運的人",
+            ),
+            // Section 5: Stage B2 RLNG0002 (3 cases)
+            ("SB2-01", vec![c_sb2_01], "我看現在應該雞嘴變鴨嘴了"),
+            ("SB2-02", vec![c_sb2_02], "歷經多代"),
+            ("SB2-03", vec![c_sb2_03], "他不捨得花錢"),
+        ];
+
+        let mut solved_offline = 0usize;
+        let mut solved_bi = 0usize;
+        let mut flipped_pass = Vec::new();
+        let mut still_open = Vec::new();
+
+        for (id, clauses, expected) in &audit_cases {
+            let off = decode_clauses_offline(&mut engine, clauses);
+            let bi = decode_clauses_bidir(&mut engine, clauses);
+            let off_ok = off == *expected;
+            let bi_ok = bi == *expected;
+            if off_ok {
+                solved_offline += 1;
+            }
+            if bi_ok {
+                solved_bi += 1;
+            }
+            if !off_ok && bi_ok {
+                flipped_pass.push(*id);
+            } else if !bi_ok {
+                still_open.push(*id);
+            }
+            let status = if bi_ok { "PASS" } else { "FAIL" };
+            println!(
+                "[2C audit] {} | expected={} | offline={} | bi_neural={} | status={}",
+                id, expected, off, bi, status
+            );
+        }
+
+        // 附加檢查 Phase 1D 長句併列變體與「連住」兩組聲調變體供參考
+        let c_p1d_03_long: &[&str] = &[
+            "ㄨㄛˇ", "ㄗㄞˋ", "ㄨㄛˇ", "ㄗˋ", "ㄐㄧˇ", "ㄐㄩ", "ㄓㄨˋ", "˙ㄉㄜ", "ㄔㄥˊ", "ㄕˋ",
+            "ㄒㄧㄝˇ", "˙ㄉㄜ", "ㄔㄥˊ", "ㄕˋ", "ㄨㄛˇ", "ㄗˋ", "ㄐㄧˇ", "ㄈㄟ", "ㄔㄤˊ", "ㄒㄧㄤˇ", "ㄩㄥˋ",
+            "ㄧㄝˇ", "ㄈㄟ", "ㄔㄤˊ", "ㄒㄧ", "ㄨㄤˋ", "ㄒㄧㄤˇ", "ㄩㄥˋ", "˙ㄉㄜ", "ㄖㄣˊ",
+            "ㄩㄥˋ", "˙ㄌㄜ", "ㄓ", "ㄏㄡˋ", "ㄧㄝˇ", "ㄉㄡ", "ㄕˊ", "ㄈㄣ", "ㄒㄧㄤˇ", "ㄩㄥˋ",
+        ];
+        let c_p1d_04_v2: &[&str] = &[
+            "ㄇㄟˇ", "ㄍㄜˋ", "ㄖㄣˊ", "ㄉㄡ", "ㄋㄥˊ", "ㄐㄧㄢˋ", "ㄐㄧㄢˋ", "ㄎㄤ", "ㄎㄤ",
+            "ㄧˊ", "ㄅㄟˋ", "˙ㄗ", "ㄌㄧㄢˊ", "ㄓㄨˋ", "ㄨㄢˋ", "ㄈㄣ", "ㄓ", "ㄧ", "ㄍㄜˋ",
+            "ㄩㄢˋ", "ㄉㄡ", "ㄅㄨˋ", "ㄒㄩ", "ㄧㄠˋ",
+        ];
+        let c_p1d_04_v3: &[&str] = &[
+            "ㄇㄟˇ", "ㄍㄜˋ", "ㄖㄣˊ", "ㄉㄡ", "ㄋㄥˊ", "ㄐㄧㄢˋ", "ㄐㄧㄢˋ", "ㄎㄤ", "ㄎㄤ",
+            "ㄧˊ", "ㄅㄟˋ", "˙ㄗ", "ㄌㄧㄢˊ", "ㄓㄨˋ", "ㄨㄢˋ", "ㄈㄣ", "ㄓ", "ㄧˊ", "ㄍㄜˋ",
+            "ㄩㄢˋ", "ㄉㄡ", "ㄅㄨˋ", "ㄒㄩ", "ㄧㄠˋ",
+        ];
+        let extra_variants: Vec<(&str, &[&str], &str)> = vec![
+            (
+                "P1D-03-long",
+                c_p1d_03_long,
+                "我在我自己居住的城市寫的程式我自己非常享用也非常希望想用的人用了之後也都十分享用",
+            ),
+            (
+                "P1D-04-v2",
+                c_p1d_04_v2,
+                "每個人都能健健康康一輩子連住萬分之一個院都不需要",
+            ),
+            (
+                "P1D-04-v3",
+                c_p1d_04_v3,
+                "每個人都能健健康康一輩子連住萬分之一個院都不需要",
+            ),
+        ];
+        for (vid, bpms, expected) in &extra_variants {
+            let off = decode_clauses_offline(&mut engine, &[bpms]);
+            let bi = decode_clauses_bidir(&mut engine, &[bpms]);
+            let status = if bi == *expected { "PASS" } else { "FAIL" };
+            println!(
+                "[2C audit variant] {} | expected={} | offline={} | bi_neural={} | status={}",
+                vid, expected, off, bi, status
+            );
+        }
+
+        println!(
+            "[2C audit summary] solved_offline={}/12 | solved_bi={}/12 | flipped_pass={:?} | still_open={:?}",
+            solved_offline, solved_bi, flipped_pass, still_open
+        );
+
+        crate::router::neural_reranker::clear_committed_context(eng_id);
+        crate::router::topic_cache::clear_for_key(cache_key);
+
+        assert!(
+            solved_bi >= solved_offline,
+            "bidirectional neural reranking regressed vs offline: solved_bi={solved_bi} < solved_offline={solved_offline}"
+        );
+        assert!(
+            solved_bi >= 7,
+            "bidirectional neural reranking regression on known hard cases: expected at least 7/12, got {solved_bi}/12 (still_open={still_open:?})"
+        );
+        for req_id in [
+            "P1D-02", "P1D-06", "P1D-07", "P1D-08", "SB2-01", "SB2-02", "SB2-03",
+        ] {
+            assert!(
+                !still_open.contains(&req_id),
+                "expected {req_id} to remain resolved under bidirectional neural reranking (still_open={still_open:?})"
+            );
+        }
     }
 }

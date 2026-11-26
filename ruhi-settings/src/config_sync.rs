@@ -272,10 +272,28 @@ pub struct GrammarSettings {
     /// 神經重排 IPC 逾時上限（毫秒）
     #[serde(default = "default_neural_reranker_timeout_ms")]
     pub neural_reranker_timeout_ms: u16,
+    /// 異體雙寫自動記憶開關（例如：台北/臺北、台灣/臺灣、公布/公佈）
+    #[serde(default = "default_true")]
+    pub variant_memory_enabled: bool,
+    /// 異體雙寫偏好預設集（`"general"` 一般自動學習 / `"official_tw"` 中華民國公文書正寫偏好 / `"custom"` 完全手動自訂）
+    #[serde(default = "default_variant_preset")]
+    pub variant_preset: String,
 }
 
 pub fn default_classical_mode() -> String {
     "auto".to_string()
+}
+
+pub fn default_variant_preset() -> String {
+    "general".to_string()
+}
+
+pub fn normalize_variant_preset(raw: &str) -> String {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "official_tw" | "official" | "tw_official" => "official_tw".to_string(),
+        "custom" | "manual" => "custom".to_string(),
+        _ => "general".to_string(),
+    }
 }
 
 pub fn default_neural_reranker_lambda() -> f64 {
@@ -310,6 +328,8 @@ impl Default for GrammarSettings {
             enable_neural_reranker: false,
             neural_reranker_lambda: default_neural_reranker_lambda(),
             neural_reranker_timeout_ms: default_neural_reranker_timeout_ms(),
+            variant_memory_enabled: true,
+            variant_preset: default_variant_preset(),
         }
     }
 }
@@ -788,6 +808,12 @@ fn merge_settings_from_value(settings: &mut RuhiSettings, val: &Value) {
         if let Some(v) = gr.get("neural_reranker_timeout_ms").and_then(Value::as_u64) {
             settings.grammar.neural_reranker_timeout_ms = (v.clamp(5, 100)) as u16;
         }
+        if let Some(v) = gr.get("variant_memory_enabled").and_then(Value::as_bool) {
+            settings.grammar.variant_memory_enabled = v;
+        }
+        if let Some(v) = gr.get("variant_preset").and_then(Value::as_str) {
+            settings.grammar.variant_preset = normalize_variant_preset(v);
+        }
     }
 
     if let Some(ai) = val.get("ai_and_privacy").and_then(Value::as_object) {
@@ -992,6 +1018,12 @@ fn sync_from_flat_map(settings: &mut RuhiSettings, map: &Map<String, Value>) {
     if let Some(v) = map.get("neural_reranker_timeout_ms").and_then(Value::as_u64) {
         settings.grammar.neural_reranker_timeout_ms = (v.clamp(5, 100)) as u16;
     }
+    if let Some(v) = map.get("variant_memory_enabled").and_then(Value::as_bool) {
+        settings.grammar.variant_memory_enabled = v;
+    }
+    if let Some(v) = map.get("variant_preset").and_then(Value::as_str) {
+        settings.grammar.variant_preset = normalize_variant_preset(v);
+    }
 }
 
 /// 確保目前預設鍵盤模式一定包含在 `enabled_keyboard_modes` 清單中
@@ -1057,6 +1089,7 @@ pub fn mount_single_keyboard_mode_only(settings: &mut RuhiSettings, code: &str) 
 pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), String> {
     ensure_keyboard_modes_consistent(settings);
     settings.grammar.classical_mode = normalize_classical_mode(&settings.grammar.classical_mode);
+    settings.grammar.variant_preset = normalize_variant_preset(&settings.grammar.variant_preset);
     settings.grammar.neural_reranker_lambda = settings.grammar.neural_reranker_lambda.clamp(0.1, 10.0);
     settings.grammar.neural_reranker_timeout_ms = settings.grammar.neural_reranker_timeout_ms.clamp(5, 100);
 
@@ -1278,6 +1311,14 @@ pub fn save_settings(root: &Path, settings: &mut RuhiSettings) -> Result<(), Str
         map.insert(
             "neural_reranker_timeout_ms".to_string(),
             json!(settings.grammar.neural_reranker_timeout_ms),
+        );
+        map.insert(
+            "variant_memory_enabled".to_string(),
+            json!(settings.grammar.variant_memory_enabled),
+        );
+        map.insert(
+            "variant_preset".to_string(),
+            json!(settings.grammar.variant_preset),
         );
 
         if let Ok(s) = serde_json::to_string_pretty(&Value::Object(map)) {
@@ -1529,6 +1570,57 @@ mod tests {
         assert!(reloaded.grammar.enable_neural_reranker);
         assert!((reloaded.grammar.neural_reranker_lambda - 10.0).abs() < 1e-6);
         assert_eq!(reloaded.grammar.neural_reranker_timeout_ms, 100);
+
+        let _ = fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn test_variant_memory_config_sync_roundtrip_261126() {
+        let tmp_dir = std::env::temp_dir().join(format!(
+            "ruhi_variant_cfg_sync_test_{}_{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        ));
+        let _ = fs::create_dir_all(&tmp_dir);
+
+        let initial = load_settings(&tmp_dir);
+        assert!(initial.grammar.variant_memory_enabled);
+        assert_eq!(initial.grammar.variant_preset, "general");
+
+        let mut s = initial;
+        s.grammar.variant_memory_enabled = false;
+        s.grammar.variant_preset = "unknown_preset".to_string();
+        save_settings(&tmp_dir, &mut s).unwrap();
+        assert_eq!(s.grammar.variant_preset, "general");
+
+        s.grammar.variant_memory_enabled = true;
+        s.grammar.variant_preset = "official_tw".to_string();
+        save_settings(&tmp_dir, &mut s).unwrap();
+
+        let flat: Value =
+            serde_json::from_str(&fs::read_to_string(tmp_dir.join("config.json")).unwrap())
+                .unwrap();
+        assert_eq!(flat.get("variant_memory_enabled"), Some(&json!(true)));
+        assert_eq!(flat.get("variant_preset"), Some(&json!("official_tw")));
+
+        let nested: Value = serde_json::from_str(
+            &fs::read_to_string(tmp_dir.join("settings_config.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            nested
+                .get("grammar")
+                .and_then(|g| g.get("variant_memory_enabled")),
+            Some(&json!(true))
+        );
+        assert_eq!(
+            nested.get("grammar").and_then(|g| g.get("variant_preset")),
+            Some(&json!("official_tw"))
+        );
+
+        let reloaded = load_settings(&tmp_dir);
+        assert!(reloaded.grammar.variant_memory_enabled);
+        assert_eq!(reloaded.grammar.variant_preset, "official_tw");
 
         let _ = fs::remove_dir_all(&tmp_dir);
     }

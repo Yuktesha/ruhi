@@ -719,10 +719,31 @@ impl ViterbiRouter {
                             topic_cache_snap.as_ref(),
                         )
                     {
-                        return pair;
+                        let v_key = transitions.as_deref().map_or(0, |eng| eng.cache_lm_key());
+                        let protected = if transitions
+                            .as_deref()
+                            .is_some_and(|eng| eng.is_rule_disabled("variant_prefs"))
+                        {
+                            pair.0
+                        } else {
+                            super::variant_prefs::apply_post_neural_protection(
+                                v_key, pair.0, &nbest,
+                            )
+                        };
+                        return (protected, pair.1);
                     }
                     if want_discourse {
-                        return nbest.into_iter().next().unwrap_or((Vec::new(), 0.0));
+                        let best = nbest.into_iter().next().unwrap_or((Vec::new(), 0.0));
+                        let v_key = transitions.as_deref().map_or(0, |eng| eng.cache_lm_key());
+                        let protected = if transitions
+                            .as_deref()
+                            .is_some_and(|eng| eng.is_rule_disabled("variant_prefs"))
+                        {
+                            best.0
+                        } else {
+                            super::variant_prefs::apply_post_neural_protection(v_key, best.0, &[])
+                        };
+                        return (protected, best.1);
                     }
                 }
             } else if want_discourse {
@@ -850,6 +871,15 @@ impl ViterbiRouter {
             .as_deref()
             .filter(|eng| !eng.is_rule_disabled("topic_cache"))
             .and_then(|eng| super::topic_cache::snapshot_if_non_empty(eng.cache_lm_key()));
+        let variant_prefs_snap = if transitions
+            .as_deref()
+            .is_some_and(|eng| eng.is_rule_disabled("variant_prefs"))
+        {
+            None
+        } else {
+            let v_key = transitions.as_deref().map_or(0, |eng| eng.cache_lm_key());
+            super::variant_prefs::snapshot_if_active(v_key)
+        };
 
         for i in 0..n_syllables {
             if trellis[i].is_empty() {
@@ -1084,7 +1114,11 @@ impl ViterbiRouter {
                     let topic_bonus = topic_cache_snap
                         .as_ref()
                         .map_or(0.0, |tc| tc.score_word(&node.word));
-                    let self_score = freq_score + length_bonus + classical_node + topic_bonus;
+                    let variant_bonus = variant_prefs_snap
+                        .as_ref()
+                        .map_or(0.0, |vp| vp.score_word(&node.word));
+                    let self_score =
+                        freq_score + length_bonus + classical_node + topic_bonus + variant_bonus;
 
                     let node_guards = compute_node_edge_guards(node, nodes, dag, &backward);
                     let (curr_lm_id, curr_lm_uni) = if need_word_ng {
@@ -1310,10 +1344,22 @@ impl ViterbiRouter {
                         } else {
                             0.0
                         };
+                        let variant_ctx_bonus = if let Some(ref vp) = variant_prefs_snap {
+                            vp.score_name_override_edge(
+                                &prev_state.node.word,
+                                node,
+                                j,
+                                n_syllables,
+                                dag,
+                            )
+                        } else {
+                            0.0
+                        };
 
                         let total = prev_state.score
                             + trans_bonus
                             + cache_bonus
+                            + variant_ctx_bonus
                             + classical_trans
                             + ngram_trans
                             + self_score;

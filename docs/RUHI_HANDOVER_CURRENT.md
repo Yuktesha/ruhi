@@ -1,173 +1,67 @@
-# 如喜（RuhI）跨世代開發交接文件（常駐現況與待辦）
+# RuhI 現況交接書（`v0.9.6.11.26` 61 歲生日特別版，2026-11-26）
 
-- **適用對象**：所有後續接手本專案的高階規劃主腦與高速執行代理（**不綁定特定模型版號**）。
-- **前置閱讀順序**：[`C:\ATGprjs\AGENTS.md`](file:///c:/ATGprjs/AGENTS.md) ➔ [`AGENTS.md`](file:///c:/ATGprjs/ruhi/AGENTS.md) ➔ 本文件 ➔ [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md)。
-- **歷史參考**：前階段交接紀錄見 [`docs/RUHI_HANDOVER_20261106_ARGON.md`](file:///c:/ATGprjs/ruhi/docs/RUHI_HANDOVER_20261106_ARGON.md)（其中已標註 `2026-11-07` 完成之里程碑）；架構理論請參閱 [`docs/RUHI_LINGUISTIC_ARCHITECTURE_AND_AI_TUNING_SPEC.md`](file:///c:/ATGprjs/ruhi/docs/RUHI_LINGUISTIC_ARCHITECTURE_AND_AI_TUNING_SPEC.md)。
-
----
-
-## 一、系統現況快照（最後更新：2026-11-26）
-
-| 項目 | 目前狀態／實測數值 |
-|---|---|
-| Git 分支與基底 | `main`（承接 `v0.9.6`、`v0.9.6.1` Wave A [`af5f29c`]、`v0.9.6.2` Wave B [`c33ef0b`]、`v0.9.6.3` `C6-L2R-32k`、`v0.9.6.4` [`13308d7`] 雙向級聯，本版推進至 **`v0.9.6.5`** 實境構式修復、N-Best 召回擴增、位置多樣化 Trie 篩選與雙向一致性阻尼；保留 `v1.0.0` 給長文極低改字門檻） |
-| `dev` 開發集品質閘門（`ruhi_eval --set dev --gate`） | **離線基準閘門 `PASS`**（`gate_passed: true`，基準線 [`dev_gate_baseline.json`](file:///c:/ATGprjs/ruhi/eval_reports/dev_gate_baseline.json) `3ce79d0` `1,566` 錯字）：目前離線輸出 **`1,537 / 44,855 = 3.43%`**、整句命中 **`2,703 / 3,640 = 74.26%`**（`broken_count = 0, fixed_count = 11`、McNemar $\chi^2 = 9.09, p = 0.00257$；`top-k 24` Oracle CER 躍升至 **`0.89%`**／**`399`** 字錯／**`91.51%`**）。<br>**選配純 Rust INT8 雙向神經重排（`--neural-rerank rlnm_zh_tw.bin` 自動配對同目錄 `rlnm_zh_tw_r2l.bin`，預設 `lambda = 4.5`、`timeout_ms = 35`、`margin = 25.0`、`max_trie_nodes = 200`、位置多樣化 Trie 篩選、R2L Top-8 / 120 節點級聯與分歧阻尼 `0.50`）**：CER 降至 **`2.12%`**（**`949 / 44,855`**，較 `v0.9.6.4` 淨減 **`-35`** 字錯、較離線基準淨減 **`-588`** 字錯／相對降幅 **`38.26%`**）、整句完全命中躍升至 **`3,025 / 3,640`**（**`83.10%`**，較 `v0.9.6.4` 淨增 **`+11`** 句；五大文體錯字數：`civic_public = 145` / `daily_dialogue = 150` / `literary_narrative = 170` / `moe_idiom_context = 122` / `tech_doc = 362`） |
-| 盲測驗證集（`test.tsv` / `typing_tw.tsv` 單次終檢） | **維持以 `7dcdb24`（Stage D4 定案後）之唯一一次終檢紀錄（`v0.9.6.1+` 期間嚴禁重覆觸碰盲測集）：**<br>1. **`test.tsv`**（1,560 句／19,058 字）：離線基準 `4.36%`（`831` 字錯、完全命中 `68.14%` = 1,063 句）➔ 神經重排 **`3.07%`**（**`585`** 字錯、完全命中 **`75.96%`** = 1,185 句；淨減 **`-246`** 字錯，相對降幅 **`29.60%`**，`fixed = 171, broken = 49`，McNemar $\chi^2 = 66.55, p = 3.449 \times 10^{-16}$）。<br>2. **`typing_tw.tsv`**（4,256 句／48,911 字）：離線基準 `9.01%`（`4,408` 字錯、完全命中 `45.49%` = 1,936 句）➔ 神經重排 **`7.08%`**（**`3,462`** 字錯、完全命中 **`54.39%`** = 2,315 句；淨減 **`-946`** 字錯，相對降幅 **`21.46%`**）。 |
-| 統計、線上個人化與選配神經語言模型 | 1. **靜態 N-gram（`ngram_zh_tw.bin`）**：商用安全授權 12 組台灣繁體口語與書面語料（合計 **`99,215,460`** 字，經 `twfilter-tables` 與 `9,456` 筆評估集雜湊排重排除 `193` 筆重疊），`RLNG0002` 唯讀 `mmap` 格式 **`50.34 MB`**（詞表 `144,000`、`WB=2,200,000`、`WT=1,500,000`、`CB=750,000`、`CT=1,600,000`）。<br>2. **線上學習快取（[`cache_lm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/cache_lm.rs) 與 [`topic_cache.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/topic_cache.rs)）**：於不改動 COM ABI 下實作 `OnceLock` 旁表上下文快取、被拒路徑短期負向懲罰（正向半衰期 30 天／負向 7 天）與神經後強保護係數 `cache_scale = ((eff_lambda - 1.0) * 0.75).clamp(0.0, 3.0)`。<br>3. **選配雙向輕量神經重排（[`rlnm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/rlnm.rs)／[`neural_reranker.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/neural_reranker.rs)／[`ruhi_reranker.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/bin/ruhi_reranker.rs)）**：正向 **`rlnm_zh_tw.bin`**（`C6-L2R-32k`，`22.59M` / `21.79 MB`、`SHA-256 = E95B54D166E89E5853EEA3949EBC0F3B4966416579A3C79F59BF8B7EEF250EB6`）＋逆向伴隨 **`rlnm_zh_tw_r2l.bin`**（`C6-R2L-32k`，Google Colab A100 `32,000` 步訓練，`22,847,208` 位元組、`payload_fnv64 = 0xae811525a1c68037`、`SHA-256 = A53FB9ECFF2258B4E06E939B0FE7E3F59CA078C0A1C21D8459E2C0EFF3C6B6DA`）；採單一 8 執行緒池 Top-8 / 120 節點後綴 Trie 級聯、位置多樣化 Trie 預算篩選、雙向分歧阻尼（`DEFAULT_BIDIR_DISAGREE_DAMP = 0.50`）與冷啟動自適應權重（無前文 `R2L = 0.50`、具前文 `R2L = 0.35`）、Stage D1 跨句前文 KV 快取（`48` 字）與預設 `lambda = 4.5`、`timeout_ms = 35`；`ruhi_reranker --bench --threads 8`（`n=14`）實測 **`p50 = 10.63 ms`／`p95 = 29.00 ms`／`max = 29.00 ms`**，`#8` 前文快取 `1.29x` 加速、`max_drift = 0.00e0`。 |
-| 雲端算力工具（Google Colab CLI） | **`colab` CLI 已就緒**（`C:\Users\Yuktesha\.local\bin\colab.exe`，現為 `0.8.0`），目前確認為 **`0` 活躍工作階段**（`v0.9.6.4` `C6-R2L-32k` 已於 Colab A100 完成 `32,000` 步訓練並執行 `colab stop` 釋放） |
-| `ruhi-core` Release 單元測試 | `--lib`：**`291 passed; 0 failed; 9 ignored`**（新增 `test_v0965_live_typing_disambiguation_and_contrastives_261126`、`test_select_position_diverse_indices_with_trie_budget_261126`、`test_bidirectional_agreement_damping_formula_261126`，並涵蓋 `test_bidirectional_blend_weights_and_real_model_if_present_261126`、`test_wave_a_v0961_topic_cross_sentence_and_cache_protection_e2e`、`test_wave_b_v0962_modern_taiwanese_and_tech_lexicon`、`test_live_typing_six_cases_and_contrastives_261125`、`test_rlnm_real_model_parity_if_present`、`test_disjoint_multi_island_recombination_helper_261125`） |
-| `ruhi-tsf` 單元測試（`--lib`） | **`31 passed; 0 failed; 0 ignored`**（嚴格維持 `LAYER_B_ABI_EPOCH = 2` 不變，支援免登出 `hot_reload.ps1` 並已整合 `ruhi_reranker.exe` 同步與過時側車自動重啟） |
-| `ruhi-settings` 單元測試 | **`10 passed; 0 failed; 0 ignored`**（`lib` 9 項含 `test_neural_reranker_config_sync_roundtrip_261125`（預設 `4.5`、`timeout = 35`、上限 `10.0`）＋ `main` 1 項） |
-| 規則靜態檢查（`scripts/lint_scoring_rules.py --full`） | **0 項違規** |
-| 核心詞庫與轉移資料同步 | [`lexicon_core.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/lexicon_core.tsv) 完成 Wave B 擴充與 `v0.9.6.5` 19 筆低權重標準詞彙校準（`SHA-256 = 41e81aa1259dbf15814436288f384e5cff60e2231a6162db31d26c6b656b2473` 雙份同步）；[`morpheme_ontology.json`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/morpheme_ontology.json) **107 類／1,894 語素** |
-| 正式版發布路線（`0.8 → 0.9 → 0.9.5 → 0.9.6 → 0.9.6.5 → 1.0`） | **`v0.8.0`**（已發布）➔ **`v0.9.0`**（已發布）➔ **`v0.9.5`**（已打標籤里程碑）➔ **`v0.9.6`**（已發布 GitHub Release）➔ **`v0.9.6.1`–`v0.9.6.5`**（穩步推進至 `dev.tsv` `2.12%` CER / `83.10%` 整句命中）➔ **`v1.0.0`**（預留至隨手數百字僅需修改一兩字之高成熟門檻） |
+> 本文件為每次新對話啟動時應優先閱讀的單一權威實況摘要，取代過時之過渡期筆記。
+> 更早期歷程仍留存於 [`RUHI_HANDOVER_LOG.md`](RUHI_HANDOVER_LOG.md) 與 [`RUHI_V1_BENCHMARK_REPORT.md`](RUHI_V1_BENCHMARK_REPORT.md)。
 
 ---
 
-## 二、近期已完成之關鍵工程項目摘要
+## 一、目前穩定基準點（Milestone Snapshot）
 
-1. **自訂詞庫與自訂範本統一互動體驗**：
-   - `user_dict.tsv` 全面支援自動補齊「注音頭碼」與「自訂縮略碼」（支援以 Tab 或連續空白分隔），並於 `templates.tsv` 擴充星期幾格式變數與 `date`／`time` 快速呼叫。
-   - 統一單按 `` ` `` 與連按兩下 `` `` `` 之行為：引導進入「自訂詞庫」／「自訂範本」，待機等候使用者直接輸入頭碼或縮略碼；若遺忘縮略碼可按 `Tab` 鍵展開完整候選列，並可透過輸入座按鈕一鍵開啟設定／詞庫／範本檔編輯。
-   - 候選座鍵盤行為一致化：許氏注音模式統一支援 `asdfghjkl` 選字、左右方向鍵與 `Tab` 鍵操作。
-2. **TSF 輸入座長句穩定性與 48 音節無標點架構升級**：
-   - 修正輸入座長句組字時預編輯注音碼消失及延遲升高問題，並修正 `Shift + Enter` 換行後尾端文字遺失問題。
-   - [`ruhi-tsf/src/service.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L5273-L5283)：`compute_joint_reeval_window` 聯合重估視窗擴展為 **`JOINT_REEVAL_MAX_LEFT = 28`**、`JOINT_REEVAL_MAX_RIGHT = 20`（合計 **48 音節**）。
-   - [`ruhi-core/src/router/viterbi.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/viterbi.rs#L324-L465)：動態規劃路徑回溯上限 `MAX_LOOKBACK` 由 `12` 提升至 **`24`**（約涵蓋 48 音節左鄰上下文）。
-   - [`ruhi-tsf/src/candidate_window.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/candidate_window.rs#L4088)：輸入座單行最大字數選單新增 **`48`** 選項。
-3. **實境同音詞與高維構式消歧（`constructions.rs` `(r)`–`(y7)` 與康熙筆畫姓名學）**：
-   - 新增 [`onomastics.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/onomastics.rs) 康熙筆畫與姓氏析辨，以及 `(r)`–`(w)` 修復：`稍後／稍候`、`以下／已下`、`城市／程式`、`有趣／有去`＋`醫診所`、`編制／編製／編織` 等。
-   - 補入輕聲詞條 `句子\tㄐㄩˋ ˙ㄗ\t478`（雙份詞庫同步），並於 [`constructions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs#L8470-L8865) 實作 **`(y1)`–`(y7)`**：
-     * `(y1)` `句子`（輕聲／三聲）vs. `鋸子` 與 `鋒利 vs. 風力`（保護 `拿一把鋒利的鋸子`）；
-     * `(y2)` `按需指派`（保護 `案件／方案／需要`）；
-     * `(y3)` `還滿常書寫` vs. `還滿長的`；
-     * `(y4)` `舞弄` vs. 非地址 `五＋弄` 過擬合中和；
-     * `(y5)` `長尾` vs. `常委`；
-     * `(y6)` `滿樹`／`桐花` 植群纖維叢（保護 `同花順／同時／同意`）；
-     * `(y7)` 跨 22 詞位非局域量詞—中心名詞閉包（穩定區辨 41／48 音節長句 `一隻穿著花襯衫搖頭晃腦舞弄長尾的小花貓漫不經心逍遙自在的走在滿樹盛開桐花的樹蔭底下曬著溫暖的陽光` 與對比句 `一支寫起來很順手的鋼筆`）。
-4. **「以便新對話接續」（`心對話 ➔ 新對話`）消歧與詞網格跨度對比保護（2026-11-15 完成）**：
-   - 擴充 [`constructions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs#L8008-L8110) `(r)` 構式右側人機互動與對話抽象中心語（`"對話"`、`"視窗"`、`"分頁"`、`"話題"`、`"對話框"`、`"檔案"` 等），並實作詞網格跨度不變量防同音旁路（`shatters_heart_compound`、`has_lattice_comitative_yu`）與 `(r2)` `[彼此/互相] × [交] × [心]` 因式分解防護，守護 `內心對話`、`真心對話`、`彼此交心對話` 與 `靜下心來與心對話`。
-   - 於 [`transitions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/transitions.rs#L2967-L2975) `copula_shi_indefinite_np` 補入複合繫詞 `"這是"`／`"那是"`／`"也是"`／`"還是"`／`"不是"`，防止 `"這是一場"` 被 `"試 -> 一場"` 碎裂為 `"這試一場"`。
-   - 新增雙鍵盤模式單元測試 [`test_xin_duihua_disambiguation_and_contrast_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs)（標準大千與許氏 8 組正反例共 16 次斷言全數通過）。
-5. **多鍵盤模式輸入座 `Tab` 聯想擴充與歐文輸入法三大支柱升級（2026-11-15 完成）**：
-   - `OnceLock<Arc<WesternLexicon>>` 程序級單例共享與寫入時複製（Copy-on-Write）個人詞彙插入（[`lexicon.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/lexicon.rs)、[`mod.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/mod.rs)）。
-   - **支柱一（`Tab` 前綴補完、變音符號救援與語境拼字勘誤）**：修正前綴命中優先於模糊拼字救援之排序，擴充英／法／德／西外來語變音與常見誤拼表並保留原輸入大小寫型態（`TokenCasing`），整合 `rank_contextual_confusables` 與搭配詞前綴加權（[`mod.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/mod.rs)、[`service.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs)）。
-   - **支柱二（泛歐文空白後下詞聯想與行首縮排防護）**：新增零跨句界 1–3 詞搭配表 [`collocations.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/collocations.rs)（涵蓋英／法／德／西高頻搭配），支援詞尾空白後按 `Tab` 零長度 `(cur, cur)` 插入下詞候選，並保護行首純空白按 `Tab` 維持原生縮排。
-   - **支柱三（雙層非破壞性空白鍵自動勘誤與單鍵還原）**：實作 `evaluate_space_autocorrect`（Tier 1a 無歧義誤拼與縮寫撇號補齊、Tier 1b 封閉雙詞／三詞語法與變音規則），對程式碼識別字、路徑、縮寫、全大寫、歧義實詞及德語 `"ich bin im"` 嚴格豁免；支援單次 `Backspace` 或 `Ctrl+Z` 原子化一鍵還原並釘選原詞防重複觸發，且以靜態雜湊表保存單步還原狀態以嚴格維持 `RuhiTextService` 既有 27 欄位 `#[repr(C)]` COM ABI 不變量。
-   - **字形模式（倉頡、行列 30、四角號碼）組字碼中段 `Tab` 前綴補完**：新增 [`table.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/cangjie/table.rs) `lookup_with_prefix` 與 [`engine.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) `collect_shape_prefix_tab_candidates`，於 TSF 組字碼未送出階段按 `Tab` 即時展開前綴字根／數碼候選（同時保留已成字後按 `Tab` 觸發中文後繼詞聯想）。
-   - 新增單元測試 [`test_multimode_tab_and_european_three_pillars_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs)、`western::tests` 四項支柱測試與 [`test_tsf_com_abi_invariance_and_western_three_pillars_261115`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs)。
-6. **語境感知 `Tab` 聯想與歐文正交句法補完升級（2026-11-15 完成）**：
-   - **全詞典計分前綴檢索（解除靜態高權重遮蔽）**：[`lexicon.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/lexicon.rs) 新增 `WesternLexicon::lookup_prefix_scored` 搭配自適應長度門檻，涵蓋 `data/lexicon_english.tsv` 全體 `37,615` 筆詞條，修正 `insert_word` 重複覆寫累計 `prefixes` 計數之缺陷，並擴充內建核心 `-ing`／分詞／日常詞彙，解決僅依靜態詞頻截取前 8 筆導致 `going`（`56.69`）、`glad`、`guys` 遭截斷的問題。
-   - **正交句法構式投影與雙向右文前瞻**：[`collocations.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/collocations.rs) 實作 `ClauseFrame` 句法解析與 `score_candidate_in_clause_context`，支援 `Wh + BE + Subject` 進行式、不定詞與介系詞 `to` 區辨、`PerfectHave`、情態／`DO`-support、動詞名物化補語、副詞透明穿透、右鄰語境前瞻、同子句實詞提取與法／德／西語構式框架，使 `Where are you g` ➔ `going`、`Today, we are going to s` ➔ `see`、`Where have you g` ➔ `gone` 與 `their are` ➔ `there` 精準居於首位。
-   - **會話詞彙／雙詞記憶與引擎／TSF 貫通**：[`mod.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/mod.rs)、[`engine.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 與 [`service.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) 新增上限 `96` 筆之 `recent_words`／`recent_bigrams`（採靜態旁表 `WesternSessionMemory` 保存，嚴格維持 `WesternEngine` 既有 3 欄位二進位佈局相容性以利執行期免登出熱切換；由 `record_committed` 寫入且不隨單次組字重置），整合 `lookup_contextual_up_arrow_candidates(prefix_before_word, token, next_context)`，並於 `VK_TAB`／`open_associative_candidates` 在歐文模式下略過中文聯想查詢；另已將兩份 `hot_reload.ps1` 之 `.rdata` 掃描上限由 `0x400000`（4 MB）調升至 `0x1000000`（16 MB）以容納成長後之 `4.79 MB` `.rdata` 區段。
-   - **中文單字動詞、可離合動賓與同子句語意聯想**：[`manager.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/lexicon/manager.rs) `lookup_associative_continuations` 擴充單字動詞動賓搭配、最多 4 字透明體貌／數詞／量詞橋接與量詞語意親和（如 `洗個` ➔ `澡`、`吃了一頓` ➔ `飯`、`開了一場` ➔ `會`、`喝杯` ➔ `咖啡`）及同子句領域詞彙提升（`醫院...看` ➔ `醫生/醫師/診/病`、`電影院...看` ➔ `電影`）。
-   - 新增驗證單元測試 [`test_western_contextual_syntactic_and_session_prediction_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/mod.rs)、[`test_chinese_and_european_contextual_tab_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 及 [`test_tsf_com_abi_invariance_and_western_three_pillars_261115`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) 擴充驗證。
-7. **Windows 11 Notepad（`RichEditD2DPT` / `NotepadTextBox`）多行與 `Ctrl+Enter` 送出游標結尾定位修復（2026-11-15 完成）**：
-   - 於 [`service.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L143-L240) 建立宿主換行協定三分類 `HostNewlineKind`（`Win32EditCrlf`、`RichEditCr`、`GenericLfChunked`）及優先透過 `ITfContext::GetActiveView() -> GetWnd()` 判讀之 `context_host_newline_kind`，修正 RichEdit 家族原先誤轉 `\r\n` 導致 ACP 長度與文件實際增長不符並觸發 `TS_E_INVALIDPOS` 而游標滯留段首之問題。
-   - 於 [`edit_session.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/edit_session.rs#L58-L128) 實作共享輔助函式 `commit_into_range_and_collapse_to_end`，透過預置 `(TF_GRAVITY_BACKWARD, TF_GRAVITY_FORWARD)` 重力、`ITfRangeACP::GetExtent/SetExtent` 結尾位置校驗及 `ShiftEnd` 異常夾限重試，確保 `Shift+Enter` 多行送出與 `Ctrl+Enter` 換行送出後游標精確停駐於結尾；新增 [`test_notepad_richedit_multiline_and_ctrl_enter_acp_invariants_261115`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L8747) 驗證通過。
-8. **無組字狀態 `Ctrl + V` 與全體軟體通用快捷鍵直通放行修復（2026-11-15 完成）**：
-   - 於 [`service.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L2020-L2465) 重構 `OnTestKeyDown`、`evaluate_test_key_down_with_mods`（[`L4800`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L4800)）與 `OnKeyDown` 路由順序：將 `is_ctrl` 處理明確置於 `is_english_mode` 之前並補齊 `!is_ctrl && !is_alt && !is_win` 防護，解決部分宿主無視 `OnTestKeyDown` 回傳值逕呼 `OnKeyDown` 時，歐文模式誤攔截 `Ctrl + V` 等組合鍵插入字元之問題。
-   - 新增 [`is_passthrough_non_typing_vk`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L1079-L1119)、`is_win_modifier_down` 與 `resolve_ctrl_symbol_combo`：無條件放行獨立修飾鍵、`Win+*`、`Alt+*`、`Ctrl+Alt+*`、`F1`–`F24`、媒體與瀏覽器功能鍵；於無組字緩衝區狀態下在全體 10 種輸入模式優先放行 `Ctrl+A..Z`／數字（含 `Ctrl+1`、`Ctrl+-`、`Ctrl+/`）／方向與翻頁鍵／`Insert`／`Delete`／`Shift+Insert`／`Shift+Delete`／`Ctrl+Insert` 與標準大千半形小鍵盤數字，並將密碼控制項檢查移至 `Shift+Space` 與 `Caps Lock` 之前。
-   - 於組字緩衝區啟用期間補齊 `paste_text_into_desk`（[`L4741`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L4741)，`\r\n` 標準化與原子化選區貼上）、`normalize_clipboard_copy_text`（寫回 `CF_UNICODETEXT` 統一轉 `\r\n`）、`delete_forward_in_desk`（[`L4768`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L4768)，支援 `Ctrl+Delete` 刪詞）、`Shift+Insert`／`Ctrl+Insert`／`Shift+Delete`／`Ctrl+Home`／`Ctrl+End` 與選區刪除前 `push_undo()` 快照；新增 [`test_shortcut_passthrough_and_input_desk_combos_all_modes_261115`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L9075) 驗證通過。
-9. **歐文縮略語與定義句型雙向對偶投影及開放詞彙形態對齊（2026-11-15 完成）**：
-   - 於 [`collocations.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/collocations.rs#L1907-L2959)、[`mod.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/mod.rs) 與 [`service.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L3416-L3448) 實作 `SentenceItem` 句子邊界與帶點縮寫（`A.I.`／`U.S.`）掃描、`CANONICAL_ACRONYMS` 因式分解標準縮略語表（內含 `require_upper` 小寫日常詞豁免保護如 `it`／`who`／`ram`／`rag`／`spa`）、`analyze_acronym_context`（以 `is_potential_acronym_token` 防止 `is` 等繫詞遮蔽主詞 `TSF`）、`lookup_acronym_candidates_with_context`（正向定義句型 `means`/`stands for`/`is short for`/`refers to`/`denotes`/`represents`/`(` 多槽連續展開、TitleCase／ALL CAPS 形態保持、以及括號雙向對偶與動態開放詞彙首字母合成 `Responsive User Interface (` ➔ `RUI`）、`score_candidate_with_acronym_frame`（未登錄縮略語非末槽形容詞修飾語優先、複數名詞降權），以及空白／`(` 後即時展開 `lookup_acronym_after_space`，同時嚴格維持 `WesternEngine` 既有 3 欄位二進位佈局與 `RuhiTextService` 27 欄位 COM ABI。
-   - 新增驗證單元測試 [`test_western_acronym_definitional_and_parenthetical_projection_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/mod.rs)（含完整 `37,615` 詞 `data/lexicon_english.tsv` 實測 `"Where are you going to eat your dinner? AI means art"` ➔ 第 1 候選 `artificial`、第 2 候選 `artificial intelligence`，以及未登錄縮略語 `AL means art` 形容詞槽位排序）。
-10. **全 10 模式無組字按鍵行為與「`` ` ``」三模式「`~`」切換一致化修復（2026-11-15 完成）**：
-   - 於 [`service.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) 統一全體 10 種鍵盤模式於無組字緩衝區（`!has_buffer`）狀態之按鍵路由：`OnKeyDown` 與 `evaluate_test_key_down_with_mods` 對非 `Ctrl+Caps Lock` 之 `Ctrl+*`／`Ctrl+Shift+*` 組合鍵一律直通放行；`resolve_ctrl_symbol_combo` 限定僅於 `has_buffer && !is_english_mode` 觸發；`OnKeyDown` 對 `Shift+0x6E` 與 `Shift+Numpad`（`0x60..=0x69`）補齊與 `evaluate_test_key_down_with_mods` 一致之直通保護；於 `english` 模式無組字時單按「`` ` ``」同樣進入 `🔖 自訂詞庫`，並於 `snapshot_key_routing_flags` 改以 `tilde_triggers_mode`（`!tilde_is_punct`）確保歐文模式下按「`~`」（`Shift`＋`` ` ``）可正確切換模式；同步擴充 [`test_shortcut_passthrough_and_input_desk_combos_all_modes_261115`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) 涵蓋全 10 模式與 `RuhiTextService` 27 欄位 COM ABI 驗證。
-   - 於 [`engine.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 統一連按「`` ` ``」輪替切換之三種模式（`inline_longkan_active`、`EngineMode::TemplateSelect`、`EngineMode::LexiconSwitch`）於尚未輸入觸發或編碼字元前按「`~`」（`Shift`＋`` ` ``）之行為：一律重設計數器與狀態並呼叫 `open_quick_num_mode` 進入「🔢 數字快打模式」（`EngineMode::QuickNum`）；同步更新 [`service.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs) `compute_coach_hint_and_preview` 引導提示文字，並新增單元測試 [`test_unified_backtick_three_modes_shift_backtick_to_quicknum_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 通過驗證。
-11. **外國人友善泛歐語音韻近似引擎、開源宣告式擴充規範與中文同音構式擴充（2026-11-15 完成）**：
-   - **表驅動泛歐語音韻近似與前綴補全引擎**：新增 [`phonetics.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/phonetics.rs)（[`PhoneticProfile`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/phonetics.rs#L36)、`G2pClusterRule`、`PhoneticConfusionPair`、[`encode_phonetic_forms`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/phonetics.rs#L454)、`pronunciation_distance`、`WesternPhoneticIndex` 及 [`lookup_phonetic_candidates`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/phonetics.rs#L722)），涵蓋靜音輔音群、`ph`/`-tion`/`-ceipt`/`-eau`/`ai` 雙母音變體、`I`/`Y` 近音等效及 `L↔R`、`V↔W` 等 L1/L2 負遷移音素代價模型，並以 `Weak<WesternLexicon>` 靜態旁表快取嚴格維持既有二進位結構佈局。
-   - **字典現代詞元與子句語法框架整合**：於 [`lexicon.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/lexicon.rs#L256) 補入現代高頻詞幹並提供唯讀 [`iter_words`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/lexicon.rs#L256)；於 [`western/mod.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/mod.rs#L1577-L1593) 協調 `COMMON_MISSPELLINGS`（含 `gramer -> grammar`）、長字子序列加權抑制（防 `resit -> repository` 遮蔽精確音韻匹配 `receipt`）與 `Please`/不定詞/`Be`/冠詞等語法框架，並通過雙字典模式測試 [`test_western_l2_phonetic_approximation_and_contextual_rescue_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/mod.rs#L2898)。
-   - **開源四層宣告式擴充規範**：確立現行十大鍵盤架構收斂穩定之方向，撰寫 [`docs/EXTENSION_ARCHITECTURE_SPEC.md`](file:///c:/ATGprjs/ruhi/docs/EXTENSION_ARCHITECTURE_SPEC.md) 定義「按鍵轉導狀態機、詞彙形態、表驅動音韻近似與雙向語境構式」標準擴充介面。
-   - **中文實境同音構式擴充**：於 [`constructions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs) 擴充規則 [`3.`（`勘誤/刊物`）](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs#L3222-L3275) 與 [`3.`（`各/個 + 語種/民族/單位`）](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs#L8386-L8411)，新增 [`(y8)`（`助益/注意`）](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs#L8987-L9028) 與 [`(y9)`（`均/軍` 並修正 `shatters_prev` 首字邊界檢核以防 `"援軍"` 遮蔽 `"人員"`）](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs#L9030-L9101)，通過雙模式單元測試 [`test_errata_benefit_and_jun_homophone_disambiguation_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs#L17065)。
-12. **單一鍵盤模式獨立掛載解耦、全 10 模式反斜線字面轉義與跨對話自動閃避防護（2026-11-15 完成）**：
-    - **解除許氏注音核心強制綁定，支援任一單一鍵盤模式獨立掛載**：重構 [`engine.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs)、[`config_sync.rs`](file:///c:/ATGprjs/ruhi/ruhi-settings/src/config_sync.rs)、[`main.rs`](file:///c:/ATGprjs/ruhi/ruhi-settings/src/main.rs)、[`candidate_window.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/candidate_window.rs) 與 [`service.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs)。設定中心將歐文（`"english"`）納為第一級獨立可掛載模式並新增「`🎯 僅單獨掛載此模式`／`🎯 僅留此模式`」與「`✖ 移出`」（允許安全移除 `"hsu"` 並禁止刪除最後唯一保留模式）；掛載多模式時完整循環自動附帶 `"english"`，僅掛載單一模式時（無論倉頡、行列、日文、韓語諺文或歐文）嚴格維持單一模式而不強制退回許氏注音，並將工作列右鍵選單與 `Shift + ↓` 跨查選單嚴格過濾為已掛載模式；同步於 `capslock_switch` 新增 **`"none"`**（還原作業系統原生 Caps Lock 大寫鎖定）與系統匣選單項。
-    - **軟體工程反斜線字面轉義序列（`\`` ➔ `` ` ``、`\\` ➔ `\`、`\~` ➔ `~`）跨全 10 模式**：不更動 `RuhiEngine` 欄位亦嚴格維持 `RuhiTextService` 27 欄位 COM ABI（以 `OnceLock<Mutex<HashSet<usize>>>` 旁表與 TSF `backslash_escape_pending` 協調），於全數 10 種鍵盤模式下輸入 `\`` 直接輸出半形 `` ` `` 而不觸發「`🔖 自訂詞庫`」、輸入 `\~` 直接輸出半形 `~` 而不觸發 `tilde_toggle_mode`、輸入 `\\` 直接輸出單一 `\`；一般 Windows 路徑如 `\path` 維持原樣不誤改；新增雙側單元測試 [`test_single_mode_mounting_and_decoupling_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 與 [`test_backslash_escape_sequences_all_10_modes_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs)。
-    - **六項日常打字同音消歧與正反對比防護**：雙份核心詞庫補入 `掛載／卸載`（保持位元組同步），於 [`lattice.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/lattice.rs) 與 [`manager.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/lexicon/manager.rs) 解除 `"諺文"` `moe_unattested2` 跨句剪枝屏蔽，並於 [`transitions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/transitions.rs) 與 [`constructions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs) 實作 `(aa)`–`(ae)` 等構式：正確辨析「`把剛剛想到的寫進來` vs `開心地寫`」、「`選擇只掛載一種鍵盤模式` vs `主宰一切`」、「`韓語諺文` vs `檢驗文件`」、「`我這時候又想到一件事情` vs `向右轉`」、「`我啦` vs `瘌痢頭`」與「`再麻煩您了` vs `正在麻煩您`」，並通過 [`test_six_homophone_disambiguations_and_contrastives_261115`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs)。
-    - **原生 Antigravity 跨對話修改碰撞閃避機制**：於工作區根目錄配置 [`hooks.json`](file:///c:/ATGprjs/.agents/hooks.json)、[`workspace_collision_guard.py`](file:///c:/ATGprjs/.agents/hooks/workspace_collision_guard.py)（使用 Windows 原生 `msvcrt.locking` 鎖檔與獨立檔案鎖租約，按 `subproject_root` 隔離並對唯讀命令、Artifact 與父對話派工子代理豁免）及 4 項單元測試 [`test_workspace_collision_guard.py`](file:///c:/ATGprjs/.agents/hooks/test_workspace_collision_guard.py)。
-13. **第二階段全系統健檢與 Wave 1–3b 架構進化（`e0362a8`–`0e48a67`，2026-11-16 完成）**：
-    - **漢語同音消歧、詞網解鎖與自訂人名投射（Wave 1A `53bde24` ＋ Wave 2b `9e9733e`）**：
-      * 修正 [`geo_hierarchy.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/geo_hierarchy.rs) 無行政／街道錨點即施予強分數之誤傷並將 `transitions_user.tsv` `718` 筆超限權重收斂至 `±35` 以內；清除 `862` 筆 `>= 4` 字詞庫短語與 `188` 筆負向遷移行。
-      * 於 [`morpheme_ontology.json`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/morpheme_ontology.json) 啟用 `is_rare_impostor_fast` 阻斷低頻生僻字穿透 `ContentWord`、擴充 `MorphemeMask256` 位元 `75..=91` 收斂「在／再」、「是／事／適／試／視／式」、「為／位」與單句有生性、於 [`lattice.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/lattice.rs) 安全解鎖現代 `< 90` 雙字詞並建立 `OnceLock` 聯想前綴旁表（[`manager.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/lexicon/manager.rs)），還原 12 個多音字單字與 `一律`／`一部` 詞條，同步於 [`constructions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs) 拆解 `260` 槽位 `OnceLock<WordDispatchTable>` 與細粒度消融子開關，推動 `dev` CER 由 `5.22%` 降至 **`4.61%`**（`2,340 -> 2,068`）。
-      * **使用者自訂人名分類與尊稱／親屬稱謂投射**：實作 `PersonNameForm`（單／雙姓 × 單／雙名）、`classify_user_person_name`、`format_person_note_tag`、`upsert_entry` 與 `UserOnomasticRegistry`，支援將「曹大十」等自訂人名自動標記並投影後續行文中的「曹先生／小姐／老師」、「大十」與「大十哥／兄／弟／姊／姐／妹」，並於 Wave 3b 補齊分號複合標記與單姓雙字高頻常用詞（`>= 300`）P2 攔截防護。
-      * **實境八句新增消歧測試全數通過（標準大千與許氏雙模式）**：含「在風力強勁的海邊…鋸出一句…」、「按需指派所有的按鍵…方案獎勵」、「我個人還滿常書寫…滿長的句子」、「…五弄裡的巷弄…舞弄肢體」、「…常委養了一隻長尾貓」、「…滿樹桐花…一手同花順好牌…同時同意…」、「我用一支…鋼筆在紙上寫下…小花貓…」及「雖然其實是極小眾」（對比「市集」），詳見 [`person_names_and_y_cases.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/tests/person_names_and_y_cases.rs)。
-    - **泛歐語多語種可選架構、`sa_am` 梵語獨立詞包與統一模式註冊表（Wave 1B `21e9754` ＋ Wave 2a `dc3dc2b`）**：
-      * 將阿南達瑪迦羅馬拼音梵語詞條分離為獨立詞包 [`packs/pack_western_sanskrit.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/packs/pack_western_sanskrit.tsv)（`10,481` 筆），使核心 [`lexicon_english.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/lexicon_english.tsv) 回歸清潔日常英語（`35,058` 筆），並建立可勾選之 `western_languages`（支援 `en`、`fr`、`de`、`es` 與 `sa_am`）。**出貨程式／範例組態預設維持 `["en"]`（`sa_am` 關閉），本機 6 份執行期組態檔維持 `["en", "sa_am"]` 開啟**。
-      * 修復 [`sanskrit_am.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/western/sanskrit_am.rs#L4366) 變數遮蔽、`collocations.rs` `<= 35.0` 收斂與 Unicode 小寫、音素索引世代失效、`reset_buffer` I/O 節流與 CEFR 去偏斜／`48/64` 桶位保護；建立單一靜態 [`ModeRegistry`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs)（`ALL_MODES`）統一全體鍵盤模式顯示與挑選。
-    - **TSF COM 安全邊界、多螢幕支援、`rud()` 介面與 Layer B 冷重啟收斂（Wave 1C `4fc297d` ＋ Wave 2a `dc3dc2b` ＋ Wave 3b `0e48a67`）**：
-      * 修復負座標多螢幕哨兵 `CARET_UNPROBED = i32::MIN`、原地 Mutex 熱升級、`thread_local!` `DllForwardGuard`、`50 ms` 單鍵密碼欄消費權杖與延後按鍵日誌、Win32 `ToUnicodeEx`/`AltGr` 歐文鍵盤對映、前導 `/`/`.`/`_` 防護、`undo()` 區間釘選、`GDI` 執行緒快取與 `ruhi-settings` `rud()` 自適應排版。
-      * Wave 3a（`ruhi_eval --set dev --calibrate`）於 Stage A/B 實測未能低於 `2,068` 錯字（`delta = 0`），依淨增益原則保留既有 `feature_weights.tsv` 並恢復全鏡像一致。
-      * Wave 3b（`0e48a67` `[Cold-Restart Required]`）將 `BACKSLASH_ESCAPE_ENGINES` 靜態旁表內嵌為 `EscapePendingFlag(AtomicBool)`、補全 `impl Drop for WesternEngine` 與 `impl Drop for RuhiTextService`、升級 `undo_stack`/`redo_stack` 為 `VecDeque<EditorSnapshot>`、將 `CANDIDATE_STATE` 安全遷移為 `TLS_CANDIDATE_STATE`（同 STA 執行緒 `RefCell` 搭配 `CandidateWindow::drop` 重置），並於 [`compute_layer_a_abi_hash()`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L719) 納入 `LAYER_B_ABI_EPOCH = 2` 與 `needs_drop` 指紋，配合同步更新之 `hot_reload.ps1` 執行期守門。
-14. **Phase 1（Phase 1A–1D）台灣正體商用安全統計 N-gram 底盤建置與維特比整合（`ea7a1d3`、`bb25909`、`4f58d39`，2026-11-21 完成）**：
-    - **記憶體映射二進位引擎與授權合規語料訓練**：實作 [`mmap_io.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/mmap_io.rs)、[`ngram_lm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/ngram_lm.rs)（`RLNG0001` 編譯與 16 位元量化讀取）、[`ruhi_ngbin.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/bin/ruhi_ngbin.rs)（與 `--probe` 十組對比診斷）及 [`train_ngram_lm.py`](file:///c:/ATGprjs/ruhi/scripts/train_ngram_lm.py)（移植 `production_s5` 斷詞並排除 `is_narrow_transparent_derived` 雙字代詞粘連問題）；於 Google Colab 完成 9 組商用安全台灣繁體語料（`70,765,616` 字）訓練並編譯為 `26.88 MB` `ngram_zh_tw.bin`（授權規範記於 [`THIRD_PARTY_LICENSES.md`](file:///c:/ATGprjs/ruhi/THIRD_PARTY_LICENSES.md)，同步於 [`package_release.py`](file:///c:/ATGprjs/ruhi/scripts/package_release.py) 與 `.gitignore`）。
-    - **維特比三層邊界防護與均衡高精度校準（`v6`）**：於 [`transitions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/transitions.rs)、[`engine.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 與 [`viterbi.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/viterbi.rs) 整合 `ngram_word_bi`／`ngram_char_bi`／`ngram_char_tri`，實作短詞與非中文前詞防護（Guard 1）、文言模式隔離（Guard 2）、人名邊界中性基線（Guard 3）及 `RUHI_DISABLE_RULES=ngram_lm` 優雅降級；經 [`ruhi_eval.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/bin/ruhi_eval.rs) `--calibrate --ngram-only` 鎖定既有 24 項規則權重並定案為 `(CT=0.2100, WB=0.3000, CB=0.1000)`，補齊 5 筆缺漏標準詞條並將 9 組薄邊際測試紀錄於 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 第四節；盲測 `test.tsv`（`5.45% -> 4.68%`）與外部 `typing_tw.tsv`（`11.29% -> 9.58%`）皆達成逾 14%–15% 相對 CER 降幅，確認無過擬合。
-15. **Phase 2A 實測防拆碎修復與 `v0.8` 局部上下文線上學習（`2c66361` ＋本版 `Cache LM`，2026-11-21 完成）**：
-    - **系統性防拆碎與構式邊界修復（`2c66361`）**：清理 [`transitions_user.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/transitions_user.tsv) 1,326 筆 OOV／退化 `A100_Gemma2_27B` 列（同步至 4 份資料目錄），加入 `shatters_core_len2_at_start`、`shatters_strong_left_len2`（含 `!m.word.ends_with(ch)` 保護 `桌上`）與 `shatters_strong_v_le`（排除 `為了/除了/罷了` 等句尾誤觸發），擴充 `eval_functional_collocation_guards`（`func_copula_shijian_classifier` 與 `func_double_adv_jiu_zhi`）及 `slot_d287` 軟體前綴偵測，全部 7 句 10 處實測錯誤於 `test_phase2a_live_typing_261121_seven_sentences` 雙鍵盤模式全數通過，開發集 `dev.tsv` CER 再降至 **`3.88%`**（`1,742` 錯字，`-3` vs `4f58d39`）。
-    - **`v0.8` 局部上下文線上學習（[`cache_lm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/cache_lm.rs)）**：於不變動 `RuhiEngine`／`RuhiTextService` 二進位佈局下，透過 `OnceLock` 旁表掛載 `(left_ch, word, right_ch)` 三元與左右二元個人強化及被拒錯誤路徑短期負向懲罰（正向半衰期 30 天、負向半衰期 7 天、單表上限 `2,048` 筆），由 `record_revision` 與 `capture_sentence_revision_before_commit` 自動汲取（支援 1 字選字更正與 2–4 字跨界替換）並原子寫入 `user_cache_lm.tsv`，於 [`test_v08_contextual_cache_lm_online_learning_and_isolation`](file:///c:/ATGprjs/ruhi/ruhi-core/src/engine.rs) 驗證「僅請著參 ➔ 謹請卓參」、「因為／他們原本舊址 ➔ 就只」且對 `緊急`、`看著`、`回到學校舊址` 零全域汙染。
-16. **`v0.8.0` Phase 2 消融純化與 Phase 3 Windows 完整打包釋出（`29d059c` ＋ `v0.8.0` 發行準備，2026-11-22 完成）**：
-    - **反事實規則消融與系統性防拆碎純化（`29d059c`）**：依據 `ruhi_eval --ablation` 實證結果，於 [`viterbi.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/viterbi.rs)、[`transitions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/transitions.rs) 與 [`constructions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs) 擴充 `NodeEdgeGuards` 與 `TransitionEdgeCtx`（`shatters_left_len2_300`、`shatters_prev_left_len2`、`next_is_true_numeral_unit`），補齊 `"妳們"/"祂們"`、量詞 `"篇"`、句中一聲「吧」保護及 2-gram `user_chain` 排除清單，調降 `lexical_or_poetic_ci2`／`ci2_lexical_compound_head`（`28.0 -> 16.0`），並自 [`transitions_user.tsv`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/transitions_user.tsv) 移除 `慢慢\t的` 與 `把\t牠`；`dev.tsv` 錯誤由 `1,745`（`3.89%`）顯著降至 **`1,669`**（**`3.72%`**，`-76` 錯字，整句完全正確 **`2,631 / 3,640 = 72.28%`**，McNemar $\chi^2 = 82.5124, p = 1.066 \times 10^{-19}$）。
-    - **`v0.8.0` 封裝與最小權限 ACL（Phase 3）**：[`cache_lm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/cache_lm.rs) 新增受保護目錄（`Program Files\RuhI`）下 `.tmp` 建立失敗時原地覆寫 `user_cache_lm.tsv` 之回退與單元測試；修正 [`package_release.py`](file:///c:/ATGprjs/ruhi/scripts/package_release.py) `--manifest-path` 建置 `longkan.bin`、強制驗證 `ngram_zh_tw.bin` 與 `.ps1` UTF-8 BOM 並產出 `user_cache_lm.tsv` 初始檔頭；同步於 [`ruhi_setup.iss`](file:///c:/ATGprjs/ruhi/installer/ruhi_setup.iss) 與 [`scripts/一鍵安裝.ps1`](file:///c:/ATGprjs/ruhi/scripts/一鍵安裝.ps1) 配置 `Users:M` 權限；將三個 Cargo crate 升版至 `0.8.0`，更新 `CHANGELOG.md` 與 `dev_gate_baseline.json`，成功產出 [`RuhI_v0.8.0_Windows_x64.zip`](file:///c:/ATGprjs/ruhi/dist/RuhI_v0.8.0_Windows_x64.zip)（`51.93 MB`，53 檔案，PE 審計 0 異常）。
-17. **`v0.9` 階段 B1／B2 核心引擎、系統主題關於對話框與 `v0.8.0`／`v0.9.0` 兩階段發布（`2f315f2`、`3ce79d0`、`7050986` 及發布準備，2026-11-22 完成）**：
-    - **階段 B1：Forward-Viterbi ＋ Backward-A\* N-Best（`K=16`）與純 Rust 雙向語篇代詞重排序（`2f315f2`）**：於 [`viterbi.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/viterbi.rs) 實作精確前向格子收集與反向 A\*（`MAX_ASTAR_POPS = 2048`）產出不重複 Top-16 整句候選（開發集 Oracle CER 達 **`1.52%`**／整句命中 **`87.66%`**），並新增 [`discourse_reranker.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/discourse_reranker.rs) 對有生／器物主語進行第三人稱代詞（`他／她／它／牠`）雙向指代一致化重排序（於 [`ruhi_eval.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/bin/ruhi_eval.rs) 新增 `--nbest-oracle`）；僅重排階段即將 `dev.tsv` 錯誤由 `1,669`（`3.72%`）降至 **`1,635`**（**`3.65%`**，淨修 25 句、零迴歸，McNemar $\chi^2 = 23.04, p = 1.59 \times 10^{-6}$）。
-    - **階段 B2：台灣口語／一般繁體語料擴充、`RLNG0002` 詞三元與 ID 外提延遲最佳化（`3ce79d0`）**：擴充 [`train_ngram_lm.py`](file:///c:/ATGprjs/ruhi/scripts/train_ngram_lm.py) 納入 `common_voice_25_zh-TW`、`coco-caption-zh_tw-val` 與 `agentlans/traditional-chinese`（12 組商用安全來源合計 **`99,215,460`** 清潔字元，並經 `9,456` 筆評估集雜湊排重），於 Google Colab CLI（50 GiB RAM，執行完畢立即 `colab stop` 歸零）訓練三階 MKN 模型；於 [`ngram_lm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/ngram_lm.rs)、[`ruhi_ngbin.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/bin/ruhi_ngbin.rs) 與 [`ruhi_eval.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/bin/ruhi_eval.rs) 實作向下相容 `RLNG0002`（`50.34 MB`、`WB=2.2M / WT=1.5M`）並於 [`viterbi.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/viterbi.rs) `run_forward_trellis` 外提前導狀態與節點詞彙索引（`p95` 延遲由 `31.088 ms` 降至 **`20.580 ms`**）；嚴守 [`constructions.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs) 凍結並依第四節先例將 3 句薄邊際案例紀錄於 [`KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 第五節，推動 `dev.tsv` CER 進一步降至 **`3.49%`**（**`1,566`** 字錯、整句命中 **`2,692 / 3,640 = 73.96%`**，較 `v0.8.0` `29d059c` 淨減 **`-103`** 字錯，McNemar $\chi^2 = 29.7521, p = 4.9215 \times 10^{-8}$），同步四份資料目錄之 `ngram_zh_tw.bin` 與 `feature_weights.tsv` 雜湊。
-    - **系統主題「關於如喜」對話框與兩階段正式發布（`7050986` ＋ `v0.8.0`／`v0.9.0` Release）**：新增 [`about_dialog.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/about_dialog.rs)（DWM 深淺色自適應與 `A Solid GUI Studio` 雙主題品牌標誌）並同步於 `ruhi-settings` 精簡標語「如雲行水流自在歡喜」；完成 `v0.8.0` 補打標籤、編譯 `RuhI_Setup_v0.8.0.exe` 與 GitHub Release；隨即補齊無 `ngram_lm` 環境（潔淨 GitHub CI）之測試回退防護、將 [`THIRD_PARTY_LICENSES.md`](file:///c:/ATGprjs/ruhi/THIRD_PARTY_LICENSES.md) 納入安裝與攜帶包、將 `.github/workflows/release.yml` 改為 `workflow_dispatch`、升級 [`dev_gate_baseline.json`](file:///c:/ATGprjs/ruhi/eval_reports/dev_gate_baseline.json) 至 `3ce79d0`（`3.49%`）、更新 [`tailcat_official_feed.json`](file:///c:/ATGprjs/ruhi/ruhi_lexicon/data/tailcat_official_feed.json) 並產出 `v0.9.0` 雙封裝包與 GitHub Release。
-18. **實境修復與 `v1.0` Stage C1–C4 神經語言重排架構落實（`2bc62eb` ＋ Stage C4，2026-11-25 完成）**：
-    - **實境錯字系統化修復**：校準「桌機」（`100 -> 380`）、補入「重置」（`410`，5 鏡像同步）、擴充 `shatters_homophone_locative_len2`（「這裡」）、`shatters_start_len2`（「嘗試手機與桌機版」）、`vo_state_reset_quota_object`（「重置額度」）、句首確定性完成動詞 Guard C（`func_clause_initial_yi3_perfective_verb` ＋ `is_followed_by_wei_frame` 防護「以建立／以取消為由」）及 [`slot_d098`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/constructions.rs#L7810-L7821)「行程」對稱分支（保護「南下形成鋒面」同時修正「已取消南下行程」）。
-    - **Stage C1–C3：Colab T4 訓練、純 Rust `RLNM0001` 樹狀批次引擎與 Named Pipe E2E（`2bc62eb`）**：撰寫 [`docs/RUHI_V1_NEURAL_RERANKER_SPEC.md`](file:///c:/ATGprjs/ruhi/docs/RUHI_V1_NEURAL_RERANKER_SPEC.md) 與 [`scripts/train_neural_reranker.py`](file:///c:/ATGprjs/ruhi/scripts/train_neural_reranker.py)，於 Google Colab T4 完成 6,000 步 FP16 訓練與 INT8 量化匯出 `rlnm_zh_tw.bin`（`21.79 MB`、`22.59M` 參數、`ppl = 22.37`；完成即 `colab stop` 歸零）。實作 [`rlnm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/rlnm.rs) 樹狀批次前向推論（`gemm_range` AVX-512F 4x4 / AVX2+FMA 2x4 ＋ 無鎖 Dekker 自旋池，`--threads 8` 基準 `p50 = 6.42 ms`、`p95 = 9.84 ms`）、[`neural_reranker.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/neural_reranker.rs)（Named Pipe + `OnceLock` 退避，COM ABI 零異動）、[`ruhi_reranker.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/bin/ruhi_reranker.rs)（啟動暖頁與 `Local\RuhI_NeuralReranker_Singleton_v1` 單例）及 `ruhi_eval --neural-rerank`，推動 `dev.tsv` CER 自 `3.49%` 降至 **`3.09%`**（`-179` 字錯、整句命中率 `73.98% -> 76.35%`）。
-    - **Stage C4：無視窗自動喚起、組態合併保護與偏好設定中心 UI**：於 `neural_reranker.rs` ＋ [`service.rs`](file:///c:/ATGprjs/ruhi/ruhi-tsf/src/service.rs#L1270-L1372) 新增 `CREATE_NO_WINDOW` 按需單例喚起與 30 秒冷卻、`save_ruhi_config` 讀改合併寫回（嚴格保留非 `RuhiConfig` 欄位）；於 [`config_sync.rs`](file:///c:/ATGprjs/ruhi/ruhi-settings/src/config_sync.rs) 與 [`ruhi-settings/src/main.rs`](file:///c:/ATGprjs/ruhi/ruhi-settings/src/main.rs) 加入「輕量神經語言模型重排序」模型偵測、`enable_neural_reranker` 開關與 `rud()` 彈性調整滑桿；升級 [`scripts/run_reranker.ps1`](file:///c:/ATGprjs/ruhi/scripts/run_reranker.ps1)（`-Threads 8 -Hidden`）。
+- **目前釋出版本**：**`v0.9.6.11.26`**（61 歲生日特別版，基於 `v0.9.6.5 / b01f726` 持續整合完成）
+- **活躍雙向神經模型組合（定案保留 `C6`）**：
+  - **正向 (L2R)**：[`rlnm_zh_tw.bin`](../ruhi_lexicon/data/rlnm_zh_tw.bin)（`C6-L2R-32k`，`22,847,208` 位元組、`payload_fnv64 = 0x6901f0ff1187b536`）
+  - **逆向 (R2L)**：[`rlnm_zh_tw_r2l.bin`](../ruhi_lexicon/data/rlnm_zh_tw_r2l.bin)（`C6-R2L-32k`，`22,847,208` 位元組、`payload_fnv64 = 0xae811525a1c68037`）
+  - **四處資料鏡像同步**：[`ruhi_lexicon/data/`](../ruhi_lexicon/data/)、[`data/`](../data/)、[`scripts/data/`](../scripts/data/) 與 [`dist/data/`](../dist/data/)（模型、詞庫與 `lint_scoring_rules.py --full` 零違規完全一致）。
+- **核心詞庫規模**：[`lexicon_core.tsv`](../ruhi_lexicon/data/lexicon_core.tsv) 與 [`data/lexicon_core.tsv`](../data/lexicon_core.tsv) 雙鏡像位元組完全一致（SHA-256 `b9f29b11dff64864aeee0379bf8db3acdde895ca40a5c982c0b8db33f4d914bb`），含新補入詞條 `正寫\tㄓㄥˋ ㄒㄧㄝˇ\t310`。
+- **預設線上參數**：
+  - `enable_neural_reranker = true`、`neural_reranker_lambda = 4.5`、`neural_reranker_timeout_ms = 35`、`DEFAULT_MAX_TRIE_NODES = 200`
+  - `variant_memory_enabled = true`、`variant_preset = "general"`（支援 `general`／`official_tw`／`custom`）
 
 ---
 
-## 三、後續優先待辦事項（`v0.8 → v0.9 → v1.0` 正式版路線圖）
+## 二、量化評測指標（`v0.9.6.11.26` 實測）
 
-> 里程碑以品質實證為準，不設固定日曆期限壓力；各階段之間視實測需求彈性釋出 `0.9.x` 中間版本。
+| 資料集與規模 | 模式 | CER | 總字錯數 | 整句完全命中率 | 關鍵說明 |
+|---|---|---:|---:|---:|---|
+| **`dev.tsv`**（3,640 句／44,855 字） | 離線閘門 | `3.43%` | `1,537` | `74.26%` (`2,703`) | `--gate PASS`（`fixed=11, broken=0`） |
+| **`dev.tsv`**（3,640 句／44,855 字） | **雙向神經 (`λ=4.5`)** | **`2.12%`** | **`949`** | **`83.10%` (`3,025`)** | 維持 `C6` 定案基準（五大文體：`145 / 150 / 170 / 122 / 362`） |
+| **`test.tsv`**（1,560 句／19,058 字） | 離線盲測 | `4.34%` | `827` | `68.27%` (`1,065`) | 凍結後單次執行 |
+| **`test.tsv`**（1,560 句／19,058 字） | **雙向神經 (`λ=4.5`)** | **`2.60%`** | **`495`** | **`79.29%` (`1,237`)** | 相對離線 **`-40.15%`**（`-332` 字錯），較 `v0.9.6` 再減 `-90` 字錯 |
+| **`typing_tw.tsv`**（4,256 句／48,911 字） | 離線盲測 | `9.01%` | `4,406` | `45.47%` (`1,935`) | 凍結後單次執行 |
+| **`typing_tw.tsv`**（4,256 句／48,911 字） | **雙向神經 (`λ=4.5`)** | **`6.10%`** | **`2,983`** | **`58.04%` (`2,470`)** | 相對離線 **`-32.30%`**（`-1,423` 字錯） |
 
-### 1. **`v0.8.0` 階段（已發布 GitHub Release）：個人化記憶與統計底盤封裝釋出**
-- **已完成實作項目**：
-  - 局部上下文線上學習 [`cache_lm.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/cache_lm.rs)（Contextual `Cache LM` ＋ 受保護目錄原地覆寫回退 ＋ 單元／整合驗證），零 COM ABI 異動（可免登出熱重載）。
-  - Phase 2 規則消融純化（`dev.tsv` CER `3.89% -> 3.72%`）及 Phase 3 Windows 完整封裝包 `RuhI_v0.8.0_Windows_x64.zip`、`RuhI_Setup_v0.8.0.exe` 與 GitHub `v0.8.0` Release。
-
-### 2. **`v0.9.0` 階段（已發布 GitHub Release）：純統計與搜尋引擎極限突破**
-- **已完成實作項目**：
-  - **台灣本土口語與生活語料擴充＋`RLNG0002` 詞三元（Word Trigram）升級**：經 `colab` CLI 訓練並編譯 `50.34 MB` `RLNG0002` 二進位檔（`99,215,460` 清潔字元，`dev.tsv` CER **`3.49%`**、`1,566` 錯字、`p95 = 20.580 ms`）。
-  - **Forward-Viterbi + Backward-A\* N-Best（`K=16`）與純 Rust 語篇代詞重排序**：[`discourse_reranker.rs`](file:///c:/ATGprjs/ruhi/ruhi-core/src/router/discourse_reranker.rs) 已實裝且 Oracle CER 上界達 **`1.52%`**。
-  - **收尾與發布**：已升版至 `0.9.0`、將 [`dev_gate_baseline.json`](file:///c:/ATGprjs/ruhi/eval_reports/dev_gate_baseline.json) 更新至 Stage B2 `3ce79d0`（`3.49%`）、將 [`THIRD_PARTY_LICENSES.md`](file:///c:/ATGprjs/ruhi/THIRD_PARTY_LICENSES.md) 納入封裝、補齊 CI 無 `ngram_lm` 回退防護、更新 `tailcat_official_feed.json`，並產出 `RuhI_v0.9.0_Windows_x64.zip`、`RuhI_Setup_v0.9.0.exe` 與 GitHub `v0.9.0` Release。
-- **後續延伸優化項目（`v0.9.x`／`v1.0` 前置）**：
-  - 視需求以 `hf auth` 評估擴充更多對話語料，持續提升口語覆蓋率。
-  - 解凍並精準消化 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 第四／五節薄邊際困難例句（含「歷經多代／多代機型」、「雞嘴變鴨嘴」、「他不捨得花錢」輕聲及「它／他」指代細節），並評估 **P2-4**（[`docs/EXTENSION_ARCHITECTURE_SPEC.md`](file:///c:/ATGprjs/ruhi/docs/EXTENSION_ARCHITECTURE_SPEC.md) `manifest.toml` 四層宣告式擴充）。
-
-### 3. **`v0.9.5` ➔ `v0.9.6`（Stage D1–D4 ＋ 實境六句修復）與預留 `v1.0.0`**
-- **已完成實作項目（`v0.9.5`：Stage C1–C5）**：
-  - 輕量神經語言模型與純 Rust `RLNM0001` 推論引擎、Named Pipe `25 ms` 硬逾時、`CREATE_NO_WINDOW` 自動喚起、`K=32` 長句擴展、`max_trie_nodes = 200`，以及 `v0.9.5` 里程碑雙封裝（`RuhI_v0.9.5_Windows_x64.zip`、`RuhI_Setup_v0.9.5.exe`）。
-- **已完成實作項目（`v0.9.6`：Stage D1–D4 ＋ 實境六句修復）**：
-  - **Stage D1（跨句前文 KV 快取 ＋ 零 IPC 變更七特徵融合）**：`ENGINE_COMMITTED_CONTEXT`（48 字）＋ `RlnmKvCache` 前綴 KV 快取（`max_drift = 0.00e0`）＋ 5 折交叉驗證七特徵融合（OOF CER `2.89% -> 2.83%`）。
-  - **Stage D2（前後向多樣化繞道注入 ＋ 不相交多島重組）**：$O(E)$ 繞道候選使 N-Best Oracle 達 `0.93%`（`91.35%` 整句上界），結合不相交多島並聯重組將 `dev.tsv` 降至 `2.73%`（`1,225` 字錯）。
-  - **Stage D3（重訓實驗與 `lambda` 先驗解除校準）**：於本機 RTX 5070 Ti 完成 98.95M 字語料 `24k` 步預訓練與 `+3k` 步對比微調實證對照；解除先驗錨定後確認保留 C5 模型並將預設權重調為 **`lambda = 6.0`**，`dev.tsv` 達 **`2.60%`**（**`1,168 / 44,855`**、整句完全命中 **`79.73%`**）。
-  - **實境六句詞條與構式修復（`2e18c85`）**：補入 `網紅／九合一／觀選／一家親／所欲` 並完善六組實境長句同音消歧，`dev.tsv` 離線閘門 `PASS`（`3.49% / 1,565`）且神經重排維持 `2.60%`（`1,168 / 79.73%`）。
-  - **Stage D4（盲測與 `v0.9.6` 雙封裝）**：於 `7dcdb24` 完成 `test.tsv`（`4.36% -> 3.07%`、相對降幅 `29.60%`，McNemar $\chi^2 = 66.55, p = 3.449 \times 10^{-16}$）與 `typing_tw.tsv`（`9.01% -> 7.08%`、相對降幅 `21.46%`）單次終檢、更新 [`docs/RUHI_V1_BENCHMARK_REPORT.md`](file:///c:/ATGprjs/ruhi/docs/RUHI_V1_BENCHMARK_REPORT.md)，並產出 `RuhI_v0.9.6_Windows_x64.zip` 與 `RuhI_Setup_v0.9.6.exe`（待使用者簽核後推送至 GitHub Release）。
-- **後續邁向正式 `v1.0.0` 延伸方向**：
-  - 視需求消化 [`docs/KNOWN_HARD_CASES.md`](file:///c:/ATGprjs/ruhi/docs/KNOWN_HARD_CASES.md) 第四／五節薄邊際例句、規劃 **P2-4**（[`docs/EXTENSION_ARCHITECTURE_SPEC.md`](file:///c:/ATGprjs/ruhi/docs/EXTENSION_ARCHITECTURE_SPEC.md) `manifest.toml` 四層宣告式擴充）、以及視實測需求擴充台灣對話／技術語料更新 `RLNM0001` 與 `RLNG0002`。
+- **雙向側車延遲基準（`ruhi_reranker --bench --threads 8`）**：`mode = bidirectional`、`max_trie_nodes = 200`、`workers = 8`、`n = 14` 測得 **`p50 = 11.66 ms`｜`p95 = 32.27 ms`｜`max = 32.27 ms`**（`#8` 前文 KV 快取 `1.32x` 加速、`max_drift = 0.00e0`）。
+- **自動化測試與閘門**：`ruhi-core --lib` **`308 passed; 0 failed; 9 ignored`**、`ruhi-tsf --lib` **`31 passed; 0 failed`**、`ruhi-settings` **`10+1 passed; 0 failed`**、`lint_scoring_rules.py --full` **`0` 違規**。
 
 ---
 
-## 四、跨世代模型分派速查
+## 三、`v0.9.6.11.26` 新增核心能力
 
-- **單一獨立子代理（`invoke_subagent`）**：使用抽象能力層級參數（高速施工層 `Model: "flash"`、極輕量 `"flash_lite"`、深度推理 `"pro"` 或 `"inherit"`）。
-- **多代理協作板（`swarm`）**：**先呼叫 `swarm(action: "models", all: true)` 動態查詢當下支援模型**，再按需求選派當代高速系列（如 `gemini-4-hydrogen-low`／`medium`／`high`／`xhigh` 或後續世代對應型號）。
-- **知識圖譜**：新對話啟動時優先執行 `codebase-memory-mcp` 之 `list_projects`／`index_status` 確認 `C-ATGprjs-ruhi` 圖譜狀態（目前最新索引：**`4,495`** 節點、**`25,036`** 邊）。
+1. **異體雙寫自動記憶開關（[`variant_prefs.rs`](../ruhi-core/src/router/variant_prefs.rs)）**：
+   - 以 `OnceLock<RwLock<HashMap<usize, VariantPrefsState>>>` 旁表索引 `cache_lm_key()`，**嚴格不變動任何 COM ABI 結構配置**。
+   - 支援 `general`（一般自動學習）、`official_tw`（中華民國公文書正寫偏好：`臺北／臺灣／臺中／臺南／臺東／公佈／瞭解` 等 19 組無歧義雙寫對）與 `custom`，並具備 `surname_or_name_overrides`（姓氏與人名語境保護）、`Program Files` 只讀目錄自動轉存 `%APPDATA%\Ruhi\variant_prefs.json` 與神經重排後覆寫防護；同步整合至 [`ruhi-tsf/src/service.rs`](../ruhi-tsf/src/service.rs) 與 [`ruhi-settings`](../ruhi-settings/src/main.rs) `rud()` 介面。
+2. **共用無分歧主幹 LM-Head 相對快速評分與 `D2-B` 基線修補**：
+   - 保留 `score_candidates_trie` 與 `score_candidates_bidirectional` 精確介面不變，新增 `score_candidates_trie_fast_relative` 與 `score_candidates_bidirectional_fast`；修補 `D2-B` 多島重組於同一 2 候選呼叫比較 `scores[1]` 與 `scores[0]`。
+3. **`KNOWN_HARD_CASES.md` 雙向神經盤點（第 6 節）**：
+   - 新增 [`test_v0961126_known_hard_cases_bidirectional_audit`](../ruhi-core/src/engine.rs)：12 項薄邊際案例由離線 `1 / 12` 提升至雙向神經 **`7 / 12` 通過**（Stage B2 `3 / 3` 全過）。
+4. **P2-4 四層宣告式擴充基礎載入器（[`extensions.rs`](../ruhi-core/src/extensions.rs)）**：
+   - 提供零外部依賴 `manifest.toml` 解析、三類 FSM 原型（`SyllabicCombinator`、`CodeTableShape`、`TokenizingLexeme`）、路徑安全檢核與跨目錄探索，規格見 [`ruhi_lexicon/data/extensions/README.md`](../ruhi_lexicon/data/extensions/README.md)。
+5. **`C7` 訓練實驗記錄（不晉升）**：
+   - [`eval_reports/local/c7_work/`](../eval_reports/local/c7_work/) 以 `C6` 併入台灣維基百科／維基新聞擴增至 `209,944,176` 字元接續訓練 `12,000` 步；因 `dev.tsv` 精確句數略遜 `C6`（`3,017` vs. `3,025`），依閘門保留 `C6`。
 
 ---
 
-## 五、新對話接續啟動提示詞（可直接複製貼上）
+## 四、架構不變量與作業紅線（新對話必檢核）
 
-```text
-請依序閱讀以下檔案以接手如喜（RuhI）輸入法專案之開發工作：
-1. C:\ATGprjs\AGENTS.md
-2. C:\ATGprjs\ruhi\AGENTS.md
-3. C:\ATGprjs\ruhi\docs\RUHI_HANDOVER_CURRENT.md
-4. C:\ATGprjs\ruhi\docs\KNOWN_HARD_CASES.md
+1. **COM ABI 不變量**：嚴格禁止隨意變更 `RuhiTextService` / `RuhiEngine` / `TransitionEngine` 結構體排版（`LAYER_B_ABI_EPOCH = 2`）；跨執行緒或旁路狀態應採用 `OnceLock` 旁表索引 `cache_lm_key()` 或 `&self as *const Self as usize`。
+2. **詞庫雙鏡像與品質閘門**：[`ruhi_lexicon/data/lexicon_core.tsv`](../ruhi_lexicon/data/lexicon_core.tsv) 與 [`data/lexicon_core.tsv`](../data/lexicon_core.tsv) 必須維持位元組一致；修改構式／詞權後必須通過 `python scripts/lint_scoring_rules.py --full`（0 違規）與 `ruhi_eval.exe --set dev --gate`（`PASS`）。
+3. **本機環境工具鏈與 GUI 禁用規則**：嚴禁對 GUI 程式使用 `IsDaemon: true`；所有 `.ps1` 須保持 UTF-8 BOM 並以 Windows PowerShell 5.1 驗證語法；雲端訓練僅限 Colab H100/A100 且須於 `finally` 執行 `colab stop`（確認 `0` 活躍工作階段）。
+4. **盲測紀律**：禁止以 `test.tsv` 或 `typing_tw.tsv` 作為任何微調、權重調整或超參數挑選依據。
 
-先確認 codebase-memory-mcp 專案圖譜（C-ATGprjs-ruhi）與 git 工作樹現況，並遵守「高階規劃主腦診斷把關 ➔ 高速執行代理批次施工 ➔ 主腦最終複驗」規範（多代理協作板請先以 swarm models all=true 動態查詢當代高速模型系列）。
+---
 
-確認就緒後，請依序檢視 docs/RUHI_HANDOVER_CURRENT.md 第三節待辦事項（階段性 Git 盤點／基準線更新與實境同音詞持續優化），待完成任何修改後須執行 `lint_scoring_rules.py`、單元測試、`ruhi_eval --set dev --gate` 與熱重載部署，並簡要向我回報結果與基準數據。
-```
+## 五、後續可規劃方向（Next Directions）
+
+1. **P2-4 擴充 FSM 執行期掛載與社群外掛示範包**：基於 [`extensions.rs`](../ruhi-core/src/extensions.rs) 完成執行期多鍵盤／外掛熱切換掛載。
+2. **科技文件 (`tech_doc`) 與句首冷啟動語境精進**：針對盲測與開發集中比例最高的跨詞指代（`他／它／她／牠`）與技術專有名詞誤用進行詞彙／語法規則補充。
+3. **更大視窗或精煉版語料（`C8`）全程雙向訓練**：於更長步數搭配更高比例對話與技術文章比例重新驗證 `dev.tsv` 全句命中率是否嚴格突破 `3,025`。

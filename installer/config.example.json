@@ -48,6 +48,8 @@
   "theme": "system",
   "ui_lang": "auto",
   "upload_schedule": "weekly",
+  "variant_memory_enabled": true,
+  "variant_preset": "general",
   "western_languages": [
     "en"
   ]

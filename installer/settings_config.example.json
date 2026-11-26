@@ -47,7 +47,9 @@
     "enable_hot_reload": true,
     "enable_neural_reranker": false,
     "neural_reranker_lambda": 6.0,
-    "neural_reranker_timeout_ms": 25
+    "neural_reranker_timeout_ms": 25,
+    "variant_memory_enabled": true,
+    "variant_preset": "general"
   },
   "ai_and_privacy": {
     "zero_pii_gateway": true,

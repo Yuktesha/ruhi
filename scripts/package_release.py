@@ -9,6 +9,7 @@ RuhI (如喜) 輸入法 - GitHub 發布版自動化封裝工具 (Release Package
 4. 產生標準壓縮檔 RuhI_v<version>_Windows_x64.zip 與 SHA256 校驗碼
 """
 
+import argparse
 import re
 import sys
 import shutil
@@ -70,9 +71,20 @@ def verify_pe_imports(dll_path: Path):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="RuhI (如喜) 輸入法 - GitHub 發布版自動化封裝工具"
+    )
+    parser.add_argument(
+        "--version",
+        default=None,
+        help="指定發布顯示版本號（預設自 ruhi-core/Cargo.toml 讀取）",
+    )
+    args = parser.parse_args()
+
     root = Path(__file__).resolve().parent.parent
     cargo_txt = (root / "ruhi-core" / "Cargo.toml").read_text(encoding="utf-8")
-    version = re.search(r'(?m)^version\s*=\s*"([^"]+)"', cargo_txt).group(1)
+    default_version = re.search(r'(?m)^version\s*=\s*"([^"]+)"', cargo_txt).group(1)
+    version = args.version.strip() if args.version else default_version
     pkg_name = f"RuhI_v{version}_Windows_x64"
     dist_dir = root / "dist"
     release_dir = dist_dir / pkg_name
@@ -174,8 +186,11 @@ def main():
         )
     shutil.copy2(rlnm_bin, release_data / "rlnm_zh_tw.bin")
     rlnm_r2l_bin = root / "ruhi_lexicon" / "data" / "rlnm_zh_tw_r2l.bin"
-    if rlnm_r2l_bin.is_file():
-        shutil.copy2(rlnm_r2l_bin, release_data / "rlnm_zh_tw_r2l.bin")
+    if not rlnm_r2l_bin.is_file():
+        raise FileNotFoundError(
+            f"錯誤：缺少選配反向神經語言模型二進位檔 {rlnm_r2l_bin}，無法封裝完整雙向重排發布包。"
+        )
+    shutil.copy2(rlnm_r2l_bin, release_data / "rlnm_zh_tw_r2l.bin")
     for bin_label, bin_path in [
         ("longkan.bin", release_data / "longkan.bin"),
         ("ngram_zh_tw.bin", release_data / "ngram_zh_tw.bin"),
@@ -201,6 +216,10 @@ def main():
     )
     (release_dir / "user_cache_lm.tsv").write_text(
         "# ruhi user_cache_lm v1\n# kind\tleft\tword\tright\tstrength\tlast_ts\thits\n",
+        encoding="utf-8",
+    )
+    (release_dir / "variant_prefs.json").write_text(
+        '{"enabled": true, "preset": "general", "pairs": {}, "surname_or_name_overrides": {}}\n',
         encoding="utf-8",
     )
 

@@ -30,6 +30,7 @@ pub const DEFAULT_R2L_WEIGHT_WITH_PREFIX: f32 = 0.35;
 pub const DEFAULT_BIDIR_DISAGREE_DAMP: f32 = 0.50;
 pub const MAX_R2L_CANDS: usize = 8;
 pub const MAX_R2L_TRIE_NODES: usize = 120;
+pub const DEFAULT_MAX_TRIE_NODES: usize = 200;
 
 #[inline]
 pub fn r2l_blend_weight(prefix: &str) -> f32 {
@@ -73,7 +74,37 @@ pub fn score_candidates_bidirectional(
     r2l_cache: Option<&mut RlnmKvCache>,
     pool: Option<&RlnmThreadPool>,
 ) -> Vec<f32> {
-    let l2r_scores = l2r.score_candidates_trie(prefix, cands, l2r_cache, pool);
+    score_candidates_bidirectional_impl(l2r, r2l, prefix, cands, l2r_cache, r2l_cache, pool, false)
+}
+
+/// 快速雙向評分（L2R 與 R2L 皆啟用共用無分歧主幹 LM-Head 免算剪枝，嚴格保持候選相對分數差與排序不變）
+pub fn score_candidates_bidirectional_fast(
+    l2r: &RlnmModel,
+    r2l: Option<&RlnmModel>,
+    prefix: &str,
+    cands: &[&str],
+    l2r_cache: &mut RlnmKvCache,
+    r2l_cache: Option<&mut RlnmKvCache>,
+    pool: Option<&RlnmThreadPool>,
+) -> Vec<f32> {
+    score_candidates_bidirectional_impl(l2r, r2l, prefix, cands, l2r_cache, r2l_cache, pool, true)
+}
+
+fn score_candidates_bidirectional_impl(
+    l2r: &RlnmModel,
+    r2l: Option<&RlnmModel>,
+    prefix: &str,
+    cands: &[&str],
+    l2r_cache: &mut RlnmKvCache,
+    r2l_cache: Option<&mut RlnmKvCache>,
+    pool: Option<&RlnmThreadPool>,
+    fast_relative: bool,
+) -> Vec<f32> {
+    let l2r_scores = if fast_relative {
+        l2r.score_candidates_trie_fast_relative(prefix, cands, l2r_cache, pool)
+    } else {
+        l2r.score_candidates_trie(prefix, cands, l2r_cache, pool)
+    };
     let (Some(r2l_m), Some(r2l_c)) = (r2l, r2l_cache) else {
         return l2r_scores;
     };
@@ -118,7 +149,11 @@ pub fn score_candidates_bidirectional(
         .iter()
         .map(|&sub_idx| rev_prio_refs[sub_idx])
         .collect();
-    let r2l_sub_scores = r2l_m.score_candidates_trie("", &rev_budget_refs, r2l_c, pool);
+    let r2l_sub_scores = if fast_relative {
+        r2l_m.score_candidates_trie_fast_relative("", &rev_budget_refs, r2l_c, pool)
+    } else {
+        r2l_m.score_candidates_trie("", &rev_budget_refs, r2l_c, pool)
+    };
 
     let mut r2l_by_cand: Vec<Option<f32>> = vec![None; cands.len()];
     let mut delta_sum: f64 = 0.0;
@@ -182,7 +217,7 @@ impl Default for NeuralRerankerConfig {
             pipe_name: DEFAULT_PIPE_NAME.to_string(),
             min_syllables: 4,
             score_margin: 25.0,
-            max_trie_nodes: 200,
+            max_trie_nodes: DEFAULT_MAX_TRIE_NODES,
         }
     }
 }
@@ -1328,6 +1363,49 @@ pub fn rerank_nbest_if_enabled_with_discourse(
     rerank_nbest_if_enabled_with_context(prefix_word, candidates, discourse_deltas, None, None)
 }
 
+/// D2-B 兩候選複評比較：以同一次 `[best_cand, recomb_text]` 評分結果 `pair_scores[0]` 與 `pair_scores[1]` 比較，
+/// 消除跨次呼叫之共用前綴對數常數偏移（例如 fast_relative 剪枝或 R2L 子集變化）。
+#[inline]
+fn d2b_recombination_beats_best(
+    best_base: f64,
+    best_nodes: &[LatticeNode],
+    best_disc: f64,
+    best_cache: f64,
+    best_topic: f64,
+    best_pass1_total: f64,
+    recomb_base: f64,
+    recomb_nodes: &[LatticeNode],
+    recomb_disc: f64,
+    recomb_cache: f64,
+    recomb_topic: f64,
+    pair_scores: &[f32],
+    lambda: f64,
+) -> Option<f64> {
+    if pair_scores.len() != 2 || !pair_scores[0].is_finite() || !pair_scores[1].is_finite() {
+        return None;
+    }
+    let best_pair_total = compute_fused_candidate_score(
+        best_base,
+        pair_scores[0] as f64,
+        best_nodes,
+        best_disc,
+        best_cache,
+        best_topic,
+        lambda,
+    );
+    let recomb_total = compute_fused_candidate_score(
+        recomb_base,
+        pair_scores[1] as f64,
+        recomb_nodes,
+        recomb_disc,
+        recomb_cache,
+        recomb_topic,
+        lambda,
+    );
+    (recomb_total > best_pair_total)
+        .then_some(best_pass1_total + (recomb_total - best_pair_total))
+}
+
 /// 支援傳入語篇代詞、個人線上快取保護及文件主題快取之完整神經重排序介面
 pub fn rerank_nbest_if_enabled_with_context(
     prefix_word: Option<&str>,
@@ -1410,7 +1488,7 @@ pub fn rerank_nbest_if_enabled_with_context(
                     let rcache = rmap
                         .entry(r2l_key)
                         .or_insert_with(|| r2l_model.alloc_kv_cache());
-                    score_candidates_bidirectional(
+                    score_candidates_bidirectional_fast(
                         model,
                         Some(r2l_model.as_ref()),
                         prefix_clean,
@@ -1421,7 +1499,7 @@ pub fn rerank_nbest_if_enabled_with_context(
                     )
                 })
             } else {
-                model.score_candidates_trie(prefix_clean, &cand_refs, cache, None)
+                model.score_candidates_trie_fast_relative(prefix_clean, &cand_refs, cache, None)
             }
         })
     } else {
@@ -1506,7 +1584,7 @@ pub fn rerank_nbest_if_enabled_with_context(
                                 let rcache = rmap
                                     .entry(r2l_key)
                                     .or_insert_with(|| r2l_model.alloc_kv_cache());
-                                score_candidates_bidirectional(
+                                score_candidates_bidirectional_fast(
                                     model,
                                     Some(r2l_model.as_ref()),
                                     prefix_clean,
@@ -1517,30 +1595,45 @@ pub fn rerank_nbest_if_enabled_with_context(
                                 )
                             })
                         } else {
-                            model.score_candidates_trie(prefix_clean, &pair_refs, cache, None)
+                            model.score_candidates_trie_fast_relative(
+                                prefix_clean,
+                                &pair_refs,
+                                cache,
+                                None,
+                            )
                         }
                     }))
                 } else {
                     score_via_pipe(&cfg, prefix_clean, &pair_refs)
                 };
                 if let Some(scores) = pair_scores {
-                    if scores.len() == 2 && scores[1].is_finite() {
-                        let recomb_cache = cache_lm_snap
-                            .map_or(0.0, |clm| clm.score_sentence(&recomb_nodes, prefix_word));
-                        let recomb_topic = topic_cache_snap
-                            .map_or(0.0, |tc| tc.score_sentence(&recomb_nodes));
-                        let recomb_total = compute_fused_candidate_score(
-                            recomb_base,
-                            scores[1] as f64,
-                            &recomb_nodes,
-                            recomb_disc,
-                            recomb_cache,
-                            recomb_topic,
-                            cfg.lambda,
-                        );
-                        if recomb_total > best_total {
-                            return Some((recomb_nodes, recomb_total));
-                        }
+                    let best_disc = discourse_deltas
+                        .and_then(|v| v.get(best_idx).copied())
+                        .unwrap_or(0.0);
+                    let best_cache = cache_lm_snap
+                        .map_or(0.0, |clm| clm.score_sentence(&candidates[best_idx].0, prefix_word));
+                    let best_topic = topic_cache_snap
+                        .map_or(0.0, |tc| tc.score_sentence(&candidates[best_idx].0));
+                    let recomb_cache = cache_lm_snap
+                        .map_or(0.0, |clm| clm.score_sentence(&recomb_nodes, prefix_word));
+                    let recomb_topic = topic_cache_snap
+                        .map_or(0.0, |tc| tc.score_sentence(&recomb_nodes));
+                    if let Some(adjusted_total) = d2b_recombination_beats_best(
+                        candidates[best_idx].1,
+                        &candidates[best_idx].0,
+                        best_disc,
+                        best_cache,
+                        best_topic,
+                        best_total,
+                        recomb_base,
+                        &recomb_nodes,
+                        recomb_disc,
+                        recomb_cache,
+                        recomb_topic,
+                        &scores,
+                        cfg.lambda,
+                    ) {
+                        return Some((recomb_nodes, adjusted_total));
                     }
                 }
             }
@@ -1879,5 +1972,127 @@ mod tests {
         // 3. No anchor (idx == 0) => no damping
         let anchor = blend_bidirectional_score(sl0, sr0, None, w);
         assert!((anchor - comb0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_d2b_baseline_invariance_with_constant_offsets_261126() {
+        let mk = |s: usize, e: usize, w: &str| LatticeNode::new(s, e, w, 450, "");
+        let best_nodes = vec![mk(0, 2, "在補"), mk(2, 5, "上三句")];
+        let recomb_nodes = vec![mk(0, 2, "再補"), mk(2, 5, "上三句")];
+
+        let lambda = 4.5;
+        let pass1_best_total = 120.0;
+        let base_s0 = -12.5_f32;
+        let base_s1 = -10.0_f32;
+
+        let ref_win = d2b_recombination_beats_best(
+            100.0, &best_nodes, 0.0, 0.0, 0.0, pass1_best_total,
+            99.0, &recomb_nodes, 0.0, 0.0, 0.0,
+            &[base_s0, base_s1], lambda,
+        )
+        .expect("recomb must beat best on baseline");
+
+        // 加上任意常數平移 (+137.25 與 -912.5) 必須維持完全相同之勝負與分數增量
+        for offset in [137.25_f32, -912.5_f32] {
+            let shifted_win = d2b_recombination_beats_best(
+                100.0, &best_nodes, 0.0, 0.0, 0.0, pass1_best_total,
+                99.0, &recomb_nodes, 0.0, 0.0, 0.0,
+                &[base_s0 + offset, base_s1 + offset], lambda,
+            )
+            .expect("constant additive offset must preserve D2-B win decision");
+            assert!(
+                (shifted_win - ref_win).abs() < 1e-4,
+                "D2-B adjusted total drifted under offset {}: {} vs {}",
+                offset, shifted_win, ref_win
+            );
+        }
+
+        // 若未勝過 best（base_s1 太差），即使加上常數偏移亦不得勝出
+        for offset in [0.0_f32, 500.0_f32, -500.0_f32] {
+            assert!(
+                d2b_recombination_beats_best(
+                    100.0, &best_nodes, 0.0, 0.0, 0.0, pass1_best_total,
+                    99.0, &recomb_nodes, 0.0, 0.0, 0.0,
+                    &[-10.0 + offset, -15.0 + offset], lambda,
+                )
+                .is_none()
+            );
+        }
+
+        // 非有限值安全防線（scores[0] 或 scores[1] 為 NaN / -inf 時必須拒絕）
+        assert!(
+            d2b_recombination_beats_best(
+                100.0, &best_nodes, 0.0, 0.0, 0.0, pass1_best_total,
+                99.0, &recomb_nodes, 0.0, 0.0, 0.0,
+                &[f32::NEG_INFINITY, -10.0], lambda,
+            )
+            .is_none()
+        );
+        assert!(
+            d2b_recombination_beats_best(
+                100.0, &best_nodes, 0.0, 0.0, 0.0, pass1_best_total,
+                99.0, &recomb_nodes, 0.0, 0.0, 0.0,
+                &[-10.0, f32::NAN], lambda,
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn test_score_candidates_bidirectional_fast_parity_if_present_261126() {
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("ruhi_lexicon")
+            .join("data");
+        let l2r_path = data_dir.join("rlnm_zh_tw.bin");
+        let r2l_path = data_dir.join("rlnm_zh_tw_r2l.bin");
+        if !(l2r_path.is_file() && r2l_path.is_file()) {
+            return;
+        }
+        let l2r = RlnmModel::open(&l2r_path).unwrap();
+        let r2l = RlnmModel::open(&r2l_path).unwrap();
+        let mut exact_l2r_cache = l2r.alloc_kv_cache();
+        let mut exact_r2l_cache = r2l.alloc_kv_cache();
+        let mut fast_l2r_cache = l2r.alloc_kv_cache();
+        let mut fast_r2l_cache = r2l.alloc_kv_cache();
+
+        // 同時具備長共同前綴與長共同後綴（R2L 反轉後即為長共同前綴主幹）
+        let shared_both = [
+            "此刻視力模糊難以辨識滑鼠底下大概只有",
+            "此刻視力模糊難以便是滑鼠底下大概只有",
+            "此刻視力模糊難以辨是滑鼠底下大概只有",
+            "此刻視力模糊難以變是滑鼠底下大概只有",
+        ];
+        let root_split = ["武士社會", "五世社會", "一原子有一核心", "一元子有一核心"];
+
+        for (pref, cands) in [("", &shared_both[..]), ("今天", &shared_both[..]), ("", &root_split[..])] {
+            let exact = score_candidates_bidirectional(
+                &l2r,
+                Some(&r2l),
+                pref,
+                cands,
+                &mut exact_l2r_cache,
+                Some(&mut exact_r2l_cache),
+                None,
+            );
+            let fast = score_candidates_bidirectional_fast(
+                &l2r,
+                Some(&r2l),
+                pref,
+                cands,
+                &mut fast_l2r_cache,
+                Some(&mut fast_r2l_cache),
+                None,
+            );
+            for i in 0..cands.len() {
+                let rel_exact = exact[i] - exact[0];
+                let rel_fast = fast[i] - fast[0];
+                assert!(
+                    (rel_fast - rel_exact).abs() < 1e-4,
+                    "bidirectional_fast parity drift pref=`{}` idx={}: {} vs {}",
+                    pref, i, rel_fast, rel_exact
+                );
+            }
+        }
     }
 }

@@ -860,6 +860,21 @@ impl RlnmModel {
             .collect()
     }
 
+    /// 以字元前綴樹（Trie）共用 KV-Cache 與「共用無分歧主幹 LM-Head 免算剪枝」快速計算相對對數機率；
+    /// 所有候選同幅平移同一常數，因此任意兩候選差值 `score[i] - score[j]` 與精確版完全一致。
+    pub fn score_candidates_trie_fast_relative(
+        &self,
+        prefix: &str,
+        candidates: &[&str],
+        cache: &mut RlnmKvCache,
+        pool: Option<&RlnmThreadPool>,
+    ) -> Vec<f32> {
+        self.score_candidates_trie_detailed_fast_relative(prefix, candidates, cache, pool)
+            .into_iter()
+            .map(|(total_lp, _)| total_lp)
+            .collect()
+    }
+
     /// 以字元前綴樹（Trie）與跨請求前綴 KV-Cache 精確平行計算每個候選之 `(total_logp, min_edge_logp)`
     pub fn score_candidates_trie_detailed(
         &self,
@@ -867,6 +882,29 @@ impl RlnmModel {
         candidates: &[&str],
         cache: &mut RlnmKvCache,
         pool: Option<&RlnmThreadPool>,
+    ) -> Vec<(f32, f32)> {
+        self.score_candidates_trie_detailed_impl(prefix, candidates, cache, pool, false)
+    }
+
+    /// 以字元前綴樹（Trie）與「共用無分歧主幹 LM-Head 免算剪枝」平行計算 `(rel_total_logp, min_edge_logp)`；
+    /// 僅略過根節點下游（`t > 0`）尚未分歧且無終止候選之共用主幹 LM-Head 投影，Transformer 各層與 KV-Cache 仍維持精確計算。
+    pub fn score_candidates_trie_detailed_fast_relative(
+        &self,
+        prefix: &str,
+        candidates: &[&str],
+        cache: &mut RlnmKvCache,
+        pool: Option<&RlnmThreadPool>,
+    ) -> Vec<(f32, f32)> {
+        self.score_candidates_trie_detailed_impl(prefix, candidates, cache, pool, true)
+    }
+
+    fn score_candidates_trie_detailed_impl(
+        &self,
+        prefix: &str,
+        candidates: &[&str],
+        cache: &mut RlnmKvCache,
+        pool: Option<&RlnmThreadPool>,
+        fast_relative: bool,
     ) -> Vec<(f32, f32)> {
         let n = candidates.len();
         if n == 0 {
@@ -965,6 +1003,19 @@ impl RlnmModel {
         let vocab_size = self.cfg.vocab_size;
         let kv_stride = self.cfg.max_seq_len * d;
         let use_pool = pool.filter(|p| p.num_workers() > 1);
+
+        // 僅標記「由根出發且尚未出現分支亦無候選終止」之嚴格共用主幹節點（不含 t == 0，
+        // 因路徑 A 的 t == 0 直接查 cached_prefix_logits，路徑 B 需由 t == 0 填充 cached_prefix_logits）
+        let mut on_common_trunk = vec![false; nodes.len()];
+        if fast_relative {
+            let mut cur = 0usize;
+            while nodes[cur].terminates.is_empty() && nodes[cur].children.len() == 1 {
+                if cur > 0 {
+                    on_common_trunk[cur] = true;
+                }
+                cur = nodes[cur].children[0].1;
+            }
+        }
 
         let mut node_lp = vec![0.0f32; nodes.len()];
         let mut node_min_lp = vec![f32::INFINITY; nodes.len()];
@@ -1171,53 +1222,73 @@ impl RlnmModel {
                     }
                 }
 
-                bws.ensure_logit_capacity(m_cand, d, vocab_size);
-                for u in 0..m_cand {
-                    self.rmsnorm(
-                        &bws.x[u * d..(u + 1) * d],
-                        self.off_norm_final,
-                        &mut bws.h_logits[u * d..(u + 1) * d],
-                    );
+                if fast_relative && nodes[0].children.len() == 1 {
+                    let mut cur = nodes[0].children[0].1;
+                    while on_common_trunk[cur] {
+                        let c_trie = nodes[cur].children[0].1;
+                        node_lp[c_trie] = node_lp[cur];
+                        node_min_lp[c_trie] = node_min_lp[cur];
+                        cur = c_trie;
+                    }
                 }
 
-                const LOGIT_CHUNK: usize = 64;
-                let mut c0 = 0usize;
-                while c0 < m_cand {
-                    let c1 = (c0 + LOGIT_CHUNK).min(m_cand);
-                    let clen = c1 - c0;
-                    self.gemm_all(
-                        self.tok_emb,
-                        &bws.h_logits[c0 * d..c1 * d],
-                        clen,
-                        &mut bws.logits_chunk[..clen * vocab_size],
-                        vocab_size,
-                        use_pool,
-                    );
-                    for local_i in 0..clen {
-                        let u = c0 + local_i;
-                        let t_idx = cand_trie[u];
-                        let logits_row =
-                            &bws.logits_chunk[local_i * vocab_size..(local_i + 1) * vocab_size];
-                        let mut max_v = f32::NEG_INFINITY;
-                        for &v in logits_row {
-                            if v > max_v {
-                                max_v = v;
+                let active_logit_u: Vec<usize> = if fast_relative {
+                    (0..m_cand)
+                        .filter(|&u| !on_common_trunk[cand_trie[u]])
+                        .collect()
+                } else {
+                    (0..m_cand).collect()
+                };
+                let m_logit = active_logit_u.len();
+                if m_logit > 0 {
+                    bws.ensure_logit_capacity(m_logit, d, vocab_size);
+                    for (idx, &u) in active_logit_u.iter().enumerate() {
+                        self.rmsnorm(
+                            &bws.x[u * d..(u + 1) * d],
+                            self.off_norm_final,
+                            &mut bws.h_logits[idx * d..(idx + 1) * d],
+                        );
+                    }
+
+                    const LOGIT_CHUNK: usize = 64;
+                    let mut c0 = 0usize;
+                    while c0 < m_logit {
+                        let c1 = (c0 + LOGIT_CHUNK).min(m_logit);
+                        let clen = c1 - c0;
+                        self.gemm_all(
+                            self.tok_emb,
+                            &bws.h_logits[c0 * d..c1 * d],
+                            clen,
+                            &mut bws.logits_chunk[..clen * vocab_size],
+                            vocab_size,
+                            use_pool,
+                        );
+                        for local_i in 0..clen {
+                            let u = active_logit_u[c0 + local_i];
+                            let t_idx = cand_trie[u];
+                            let logits_row =
+                                &bws.logits_chunk[local_i * vocab_size..(local_i + 1) * vocab_size];
+                            let mut max_v = f32::NEG_INFINITY;
+                            for &v in logits_row {
+                                if v > max_v {
+                                    max_v = v;
+                                }
+                            }
+                            let mut sum_exp = 0.0f64;
+                            for &v in logits_row {
+                                sum_exp += ((v - max_v) as f64).exp();
+                            }
+                            let lse = (max_v as f64) + sum_exp.ln();
+                            let base_lp = node_lp[t_idx];
+                            let base_min = node_min_lp[t_idx];
+                            for &(ctok, c_trie) in &nodes[t_idx].children {
+                                let edge_lp = ((logits_row[ctok as usize] as f64) - lse) as f32;
+                                node_lp[c_trie] = base_lp + edge_lp;
+                                node_min_lp[c_trie] = base_min.min(edge_lp);
                             }
                         }
-                        let mut sum_exp = 0.0f64;
-                        for &v in logits_row {
-                            sum_exp += ((v - max_v) as f64).exp();
-                        }
-                        let lse = (max_v as f64) + sum_exp.ln();
-                        let base_lp = node_lp[t_idx];
-                        let base_min = node_min_lp[t_idx];
-                        for &(ctok, c_trie) in &nodes[t_idx].children {
-                            let edge_lp = ((logits_row[ctok as usize] as f64) - lse) as f32;
-                            node_lp[c_trie] = base_lp + edge_lp;
-                            node_min_lp[c_trie] = base_min.min(edge_lp);
-                        }
+                        c0 = c1;
                     }
-                    c0 = c1;
                 }
             }
         } else {
@@ -1423,9 +1494,16 @@ impl RlnmModel {
                 }
             }
 
-            let n_logit = m_batch - start_logit;
+            let active_logit_u: Vec<usize> = if fast_relative {
+                (start_logit..m_batch)
+                    .filter(|&u| !on_common_trunk[batch_trie[u]])
+                    .collect()
+            } else {
+                (start_logit..m_batch).collect()
+            };
+            let n_logit = active_logit_u.len();
             bws.ensure_logit_capacity(n_logit, d, vocab_size);
-            for (idx, u) in (start_logit..m_batch).enumerate() {
+            for (idx, &u) in active_logit_u.iter().enumerate() {
                 self.rmsnorm(
                     &bws.x[u * d..(u + 1) * d],
                     self.off_norm_final,
@@ -1447,7 +1525,7 @@ impl RlnmModel {
                     use_pool,
                 );
                 for local_i in 0..clen {
-                    let u = start_logit + c0 + local_i;
+                    let u = active_logit_u[c0 + local_i];
                     let t_idx = batch_trie[u];
                     let logits_row =
                         &bws.logits_chunk[local_i * vocab_size..(local_i + 1) * vocab_size];
@@ -1479,6 +1557,15 @@ impl RlnmModel {
                         } else {
                             base_min.min(edge_lp)
                         };
+                    }
+                    if fast_relative && t_idx == 0 && nodes[0].children.len() == 1 {
+                        let mut cur = nodes[0].children[0].1;
+                        while on_common_trunk[cur] {
+                            let c_trie = nodes[cur].children[0].1;
+                            node_lp[c_trie] = node_lp[cur];
+                            node_min_lp[c_trie] = node_min_lp[cur];
+                            cur = c_trie;
+                        }
                     }
                 }
                 c0 = c1;
@@ -2882,6 +2969,139 @@ mod tests {
                 "Unexpected real model ranking margin: diff={}",
                 diff
             );
+        }
+    }
+
+    #[test]
+    fn test_rlnm_fast_relative_trie_parity_261126() {
+        let dir = std::env::temp_dir().join(format!("ruhi_rlnm_fastrel_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let bin_path = dir.join("syn_fastrel.bin");
+
+        let vocab = [
+            "<pad>", "<bos>", "<eos>", "<unk>", "我", "們", "在", "再", "補", "上", "三", "句",
+            "這", "裡", "今", "天", "早", "已", "取", "消", "南", "下", "行", "程", "旅", "，",
+        ];
+        build_synthetic_rlnm_with_max_seq(&bin_path, &vocab, 40, 2, 4, 64, 64);
+        let model = RlnmModel::open(&bin_path).expect("synthetic RLNM should load");
+        let pool = RlnmThreadPool::new(4);
+
+        // 1. 共享 5 字以上前綴（測試路徑 B 冷未命中、路徑 A 快取命中、及單執行緒／多執行緒）
+        let shared_cands = [
+            "今天早已取消南下行程",
+            "今天早已取消南下旅程",
+            "今天早已取消南",
+            "今天早已取消這句",
+        ];
+        // 2. 第 0 字即分歧（不應觸發任何共用主幹剪枝，應與精確版完全相同）
+        let root_branch_cands = ["再補上三句", "在補上三句", "我們在這裡"];
+
+        for pref in ["", "我們"] {
+            for cands in [&shared_cands[..], &root_branch_cands[..]] {
+                let mut exact_cache = model.alloc_kv_cache();
+                let mut fast_cache = model.alloc_kv_cache();
+
+                let exact_miss = model.score_candidates_trie(pref, cands, &mut exact_cache, Some(&pool));
+                let exact_hit = model.score_candidates_trie(pref, cands, &mut exact_cache, Some(&pool));
+
+                let fast_miss =
+                    model.score_candidates_trie_fast_relative(pref, cands, &mut fast_cache, Some(&pool));
+                let fast_hit =
+                    model.score_candidates_trie_fast_relative(pref, cands, &mut fast_cache, Some(&pool));
+                let fast_st =
+                    model.score_candidates_trie_fast_relative(pref, cands, &mut fast_cache, None);
+
+                for i in 0..cands.len() {
+                    let rel_exact = exact_miss[i] - exact_miss[0];
+                    let rel_exact_hit = exact_hit[i] - exact_hit[0];
+                    let rel_fast_miss = fast_miss[i] - fast_miss[0];
+                    let rel_fast_hit = fast_hit[i] - fast_hit[0];
+                    let rel_fast_st = fast_st[i] - fast_st[0];
+
+                    assert!(
+                        (rel_fast_miss - rel_exact).abs() < 1e-4,
+                        "fast_miss relative mismatch pref=`{}` idx={}: {} vs {}",
+                        pref, i, rel_fast_miss, rel_exact
+                    );
+                    assert!(
+                        (rel_fast_hit - rel_exact_hit).abs() < 1e-4,
+                        "fast_hit relative mismatch pref=`{}` idx={}: {} vs {}",
+                        pref, i, rel_fast_hit, rel_exact_hit
+                    );
+                    assert!(
+                        (rel_fast_st - rel_exact_hit).abs() < 1e-4,
+                        "fast_st relative mismatch pref=`{}` idx={}: {} vs {}",
+                        pref, i, rel_fast_st, rel_exact_hit
+                    );
+                }
+
+                // 路徑 B 寫入的前綴 KV 與 cached_prefix_logits 必須與精確版完全相容
+                let exact_after_fast =
+                    model.score_candidates_trie(pref, cands, &mut fast_cache, Some(&pool));
+                for i in 0..cands.len() {
+                    assert!(
+                        (exact_after_fast[i] - exact_hit[i]).abs() < 1e-4,
+                        "exact after fast_cache mismatch pref=`{}` idx={}: {} vs {}",
+                        pref, i, exact_after_fast[i], exact_hit[i]
+                    );
+                }
+            }
+        }
+
+        drop(model);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_rlnm_fast_relative_real_model_parity_if_present_261126() {
+        let model_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("ruhi_lexicon")
+            .join("data")
+            .join("rlnm_zh_tw.bin");
+        if !model_path.is_file() {
+            return;
+        }
+        let model = RlnmModel::open(&model_path).expect("real rlnm_zh_tw.bin should load");
+        let pool = RlnmThreadPool::new(4);
+
+        // 1. 共享 8 字以上共用前綴（"此刻視力模糊難以"）
+        let long_shared = [
+            "此刻視力模糊難以辨識滑鼠底下大概只有",
+            "此刻視力模糊難以便是滑鼠底下大概只有",
+            "此刻視力模糊難以辨是滑鼠底下大概只有",
+            "此刻視力模糊難以變是滑鼠底下大概只有",
+        ];
+        // 2. 第 0 字即分歧
+        let root_split = ["武士社會", "五世社會", "午時社會"];
+
+        for pref in ["", "今天"] {
+            for cands in [&long_shared[..], &root_split[..]] {
+                let mut exact_cache = model.alloc_kv_cache();
+                let mut fast_cache = model.alloc_kv_cache();
+                let exact_miss =
+                    model.score_candidates_trie(pref, cands, &mut exact_cache, Some(&pool));
+                let fast_miss =
+                    model.score_candidates_trie_fast_relative(pref, cands, &mut fast_cache, Some(&pool));
+                let fast_hit =
+                    model.score_candidates_trie_fast_relative(pref, cands, &mut fast_cache, Some(&pool));
+                for i in 0..cands.len() {
+                    let rel_exact = exact_miss[i] - exact_miss[0];
+                    let rel_fast_miss = fast_miss[i] - fast_miss[0];
+                    let rel_fast_hit = fast_hit[i] - fast_hit[0];
+                    assert!(
+                        (rel_fast_miss - rel_exact).abs() < 1e-4,
+                        "real model fast_miss drift pref=`{}` idx={}: {} vs {}",
+                        pref, i, rel_fast_miss, rel_exact
+                    );
+                    assert!(
+                        (rel_fast_hit - rel_exact).abs() < 1e-4,
+                        "real model fast_hit drift pref=`{}` idx={}: {} vs {}",
+                        pref, i, rel_fast_hit, rel_exact
+                    );
+                }
+            }
         }
     }
 }

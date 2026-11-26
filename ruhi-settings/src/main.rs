@@ -3125,6 +3125,98 @@ impl RuhiStudioApp {
         ui.add_space(10.0);
 
         ui.group(|ui| {
+            ui.heading("異體雙寫自動記憶（例如：台北/臺北、台灣/臺灣、公布/公佈）");
+            ui.add_space(6.0);
+
+            if two_tier_checkbox(
+                ui,
+                &mut self.settings.grammar.variant_memory_enabled,
+                "啟用異體雙寫自動記憶",
+                "記憶個人選字或公文書正寫偏好，並於解碼與神經重排後維持指定異體寫法不被覆寫。",
+                &palette,
+            ) {
+                self.auto_save_settings_quiet();
+            }
+
+            if self.settings.grammar.variant_memory_enabled {
+                ui.add_space(6.0);
+                let mut preset_changed = false;
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("偏好模式：");
+                    if ui
+                        .radio_value(
+                            &mut self.settings.grammar.variant_preset,
+                            "general".to_string(),
+                            "一般自動學習",
+                        )
+                        .changed()
+                    {
+                        preset_changed = true;
+                    }
+                    if ui
+                        .radio_value(
+                            &mut self.settings.grammar.variant_preset,
+                            "official_tw".to_string(),
+                            "中華民國公文書正寫偏好（臺北／臺灣／公佈）",
+                        )
+                        .changed()
+                    {
+                        preset_changed = true;
+                    }
+                    if ui
+                        .radio_value(
+                            &mut self.settings.grammar.variant_preset,
+                            "custom".to_string(),
+                            "完全手動自訂",
+                        )
+                        .changed()
+                    {
+                        preset_changed = true;
+                    }
+                });
+                if preset_changed {
+                    self.auto_save_settings_quiet();
+                }
+
+                ui.add_space(4.0);
+                let preset_desc = match self.settings.grammar.variant_preset.as_str() {
+                    "official_tw" => "模式說明：優先輸出臺北、臺灣、臺中、臺南、臺東、瞭解、部分、公佈、發佈、宣佈等正寫形式；若手動改寫仍優先尊重個人覆寫。",
+                    "custom" => "模式說明：僅依 variant_prefs.json 中手動設定之詞對與姓氏偏好生效，不主動覆蓋或自動學習新雙寫。",
+                    _ => "模式說明：初始維持一般臺灣日常習慣，當您手動選擇特定異體寫法（如「臺北」或「公佈」）後自動記憶並持久沿用。",
+                };
+                ui.label(egui::RichText::new(preset_desc).color(palette.fg_muted.to_egui()));
+            }
+
+            ui.add_space(4.0);
+            let root_vp = self.root_dir.join("variant_prefs.json");
+            let appdata_vp = std::env::var_os("APPDATA")
+                .filter(|s| !s.is_empty())
+                .map(|b| PathBuf::from(b).join("Ruhi").join("variant_prefs.json"));
+            let data_vp = self.data_dir.join("variant_prefs.json");
+            let display_vp = if root_vp.is_file() {
+                root_vp
+            } else if let Some(fb) = appdata_vp.as_ref().filter(|p| p.is_file()) {
+                fb.clone()
+            } else if data_vp.is_file() {
+                data_vp
+            } else if root_vp
+                .to_string_lossy()
+                .to_ascii_lowercase()
+                .contains("\\program files")
+            {
+                appdata_vp.unwrap_or(root_vp)
+            } else {
+                root_vp
+            };
+            ui.label(
+                egui::RichText::new(format!("偏好檔案位置：{}", display_vp.display()))
+                    .color(palette.fg_muted.to_egui()),
+            );
+        });
+
+        ui.add_space(10.0);
+
+        ui.group(|ui| {
             ui.heading("🛠️ 語意調校工作室三層分級權限模式 (Three-Tier Studio Gating)");
             ui.add_space(6.0);
 
@@ -3588,7 +3680,7 @@ impl RuhiStudioApp {
             ui.label(
                 egui::RichText::new(format!(
                     "核心版本：RuhI v{} (100% Pure Rust — ruhi-core + ruhi-tsf + ruhi-settings + atg_lib)",
-                    env!("CARGO_PKG_VERSION")
+                    "0.9.6.11.26"
                 ))
                 .strong(),
             );

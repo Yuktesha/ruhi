@@ -15,6 +15,7 @@ pub mod topic_cache;
 pub mod discourse_reranker;
 pub mod rlnm;
 pub mod neural_reranker;
+pub mod variant_prefs;
 
 pub use lattice::{LatticeDAG, LatticeNode};
 pub use viterbi::{LatticeBackwardProfile, MultiCharBonusPolicy, ViterbiRouter};

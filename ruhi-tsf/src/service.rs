@@ -728,6 +728,10 @@ fn apply_config_to_engine(eng: &mut RuhiEngine, cfg: &RuhiConfig) {
     eng.set_classical_mode(ruhi::router::ClassicalRegisterMode::from_config_str(
         &cfg.classical_mode,
     ));
+    ruhi::router::variant_prefs::set_runtime_config(
+        cfg.variant_memory_enabled,
+        &cfg.variant_preset,
+    );
 }
 
 #[inline]
@@ -900,6 +904,10 @@ pub struct RuhiConfig {
     pub western_languages: Vec<String>,
     #[serde(default = "default_classical_mode")]
     pub classical_mode: String,
+    #[serde(default = "default_variant_memory_enabled")]
+    pub variant_memory_enabled: bool,
+    #[serde(default = "default_variant_preset")]
+    pub variant_preset: String,
 }
 
 impl Default for RuhiConfig {
@@ -948,6 +956,8 @@ impl Default for RuhiConfig {
             tab_key_mode: default_tab_key_mode(),
             western_languages: default_western_languages(),
             classical_mode: default_classical_mode(),
+            variant_memory_enabled: default_variant_memory_enabled(),
+            variant_preset: default_variant_preset(),
         }
     }
 }
@@ -955,6 +965,8 @@ impl Default for RuhiConfig {
 fn default_western_languages() -> Vec<String> { vec!["en".to_string()] }
 fn default_tab_key_mode() -> String { "associative".to_string() }
 fn default_classical_mode() -> String { "auto".to_string() }
+fn default_variant_memory_enabled() -> bool { true }
+fn default_variant_preset() -> String { "general".to_string() }
 fn default_shift_space_toggle_fullwidth() -> bool { true }
 fn default_halfwidth_punct_mode() -> String { "fullwidth".to_string() }
 fn default_telemetry_consent() -> bool { false }
@@ -1322,6 +1334,10 @@ pub fn load_ruhi_config(paths: &RuhiPaths) -> RuhiConfig {
                         "Loaded config from {:?}: punct_mode={}, quick_key={}",
                         paths.config, cfg.punctuation_commit_mode, cfg.candidate_quick_key
                     ));
+                    ruhi::router::variant_prefs::set_runtime_config(
+                        cfg.variant_memory_enabled,
+                        &cfg.variant_preset,
+                    );
                     if let Ok(raw) = serde_json::from_str::<serde_json::Value>(&content) {
                         let env_default =
                             ruhi::router::neural_reranker::NeuralRerankerConfig::default();
@@ -2331,6 +2347,7 @@ impl RuhiTextService {
         {
             let mut eng = engine_arc.lock().unwrap_or_else(|e| e.into_inner());
             eng.bind_user_cache_lm_path(&paths.sandbox_dir.join("user_cache_lm.tsv"));
+            eng.bind_user_variant_prefs_path(&paths.sandbox_dir.join("variant_prefs.json"));
         }
 
         Self {
@@ -2434,6 +2451,7 @@ impl RuhiTextService {
             let mut eng = self.engine.lock().unwrap_or_else(|e| e.into_inner());
             *eng = engine;
             eng.bind_user_cache_lm_path(&paths.sandbox_dir.join("user_cache_lm.tsv"));
+            eng.bind_user_variant_prefs_path(&paths.sandbox_dir.join("variant_prefs.json"));
         }
         {
             let mut cw_guard = self.candidate_window.lock().unwrap_or_else(|e| e.into_inner());

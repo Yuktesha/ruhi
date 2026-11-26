@@ -1304,8 +1304,21 @@ def run_torch_training(args: argparse.Namespace) -> int:
         print(f"[corpus] 準備完成: clean_chars={prep['total_clean_chars']:,}, lines={prep['lines']:,}", flush=True)
 
     lex_path = Path(args.lexicon) if args.lexicon else None
-    vocab = build_char_vocab(corpus_txt, max_vocab_size=args.vocab_size, lexicon_path=lex_path)
-    print(f"[vocab] 建置詞表大小: {len(vocab)}", flush=True)
+    init_ckpt = None
+    if args.init_checkpoint:
+        init_ckpt_path = Path(args.init_checkpoint)
+        if not init_ckpt_path.is_file():
+            print(f"[錯誤] 找不到 --init-checkpoint 檔案: {init_ckpt_path}", file=sys.stderr)
+            return 2
+        init_ckpt = torch.load(args.init_checkpoint, map_location=device, weights_only=False)
+        vocab = list(init_ckpt["vocab"])
+        assert len(vocab) == args.vocab_size, (
+            f"init-checkpoint vocab size {len(vocab)} != --vocab-size {args.vocab_size}"
+        )
+        print(f"[init-ckpt] 載入暖啟動詞表 ({args.init_checkpoint}): {len(vocab)}", flush=True)
+    else:
+        vocab = build_char_vocab(corpus_txt, max_vocab_size=args.vocab_size, lexicon_path=lex_path)
+        print(f"[vocab] 建置詞表大小: {len(vocab)}", flush=True)
 
     work_dir = Path(args.work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -1349,6 +1362,11 @@ def run_torch_training(args: argparse.Namespace) -> int:
         optimizer.load_state_dict(ckpt["optimizer"])
         start_step = int(ckpt["step"])
         print(f"[resume] 從 step={start_step} 恢復訓練", flush=True)
+    elif init_ckpt is not None:
+        model.load_state_dict(init_ckpt["model"])
+        start_step = 0
+        del init_ckpt
+        print("[init-ckpt] 已載入暖啟動權重，自 step=0 以全新優化器與餘弦學習率排程訓練", flush=True)
 
     rng = np.random.default_rng(args.seed)
     seq_len = args.max_seq_len
@@ -1637,6 +1655,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--lexicon", help="核心詞庫路徑 (供補充高頻單字至詞表)")
     ap.add_argument("--work-dir", default="outputs/v10_charlm_work", help="訓練暫存與斷點目錄")
     ap.add_argument("--checkpoint", help="斷點檔案路徑 (.pt)")
+    ap.add_argument("--init-checkpoint", default="", help="暖啟動初始模型斷點 (.pt，沿用其詞表與模型權重並以全新優化器從 step=0 起訓)")
     ap.add_argument("--resume", action="store_true", help="自既有斷點繼續訓練")
     ap.add_argument("--out-pretrain-bin", default="", help="預訓練完成後先行匯出 RLNM0001 之選填路徑（供 A/B 對照）")
     ap.add_argument("--out-bin", default="outputs/rlnm_zh_tw.bin", help="輸出 RLNM0001 INT8 模型路徑")

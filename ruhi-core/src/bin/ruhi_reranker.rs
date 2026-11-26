@@ -8,7 +8,7 @@
 
 use ruhi::router::neural_reranker::{
     decode_request, encode_response, resolve_sibling_r2l_model_path,
-    score_candidates_bidirectional, select_candidates_with_trie_budget, NeuralRerankerConfig,
+    score_candidates_bidirectional_fast, select_candidates_with_trie_budget, NeuralRerankerConfig,
     DEFAULT_PIPE_NAME, MAX_IPC_FRAME_BYTES,
 };
 use ruhi::router::rlnm::{RlnmModel, RlnmThreadPool};
@@ -49,6 +49,7 @@ fn run_benchmark(
     model: &RlnmModel,
     r2l_model: Option<&RlnmModel>,
     pool: &RlnmThreadPool,
+    max_trie_nodes_override: Option<usize>,
 ) {
     let mut cache = model.alloc_kv_cache();
     let mut r2l_cache = r2l_model.map(|m| m.alloc_kv_cache());
@@ -179,7 +180,7 @@ fn run_benchmark(
     ];
 
     // 暖機 1 次確保 mmap 與快取頁完成載入
-    let _ = score_candidates_bidirectional(
+    let _ = score_candidates_bidirectional_fast(
         model,
         r2l_model,
         bench_cases[0].0,
@@ -188,7 +189,8 @@ fn run_benchmark(
         r2l_cache.as_mut(),
         Some(pool),
     );
-    let max_trie_nodes = NeuralRerankerConfig::default().max_trie_nodes;
+    let max_trie_nodes = max_trie_nodes_override
+        .unwrap_or_else(|| NeuralRerankerConfig::default().max_trie_nodes);
 
     let mut latencies_ms = Vec::new();
     for round in 0..2 {
@@ -197,7 +199,7 @@ fn run_benchmark(
                 select_candidates_with_trie_budget(pref, cands, max_trie_nodes);
             let active_cands: Vec<&str> = kept_indices.iter().map(|&i| cands[i]).collect();
             let t0 = Instant::now();
-            let scores = score_candidates_bidirectional(
+            let scores = score_candidates_bidirectional_fast(
                 model,
                 r2l_model,
                 pref,
@@ -234,8 +236,9 @@ fn run_benchmark(
         "l2r-only"
     };
     println!(
-        "[ruhi_reranker --bench] mode={} | workers={} | n={} | p50={:.2} ms | p95={:.2} ms | max={:.2} ms",
+        "[ruhi_reranker --bench] mode={} | max_trie_nodes={} | workers={} | n={} | p50={:.2} ms | p95={:.2} ms | max={:.2} ms",
         mode_str,
+        max_trie_nodes,
         total_workers,
         n,
         p50,
@@ -266,7 +269,7 @@ fn run_benchmark(
     let mut kv_test_cache = model.alloc_kv_cache();
     let mut r2l_test_cache = r2l_model.map(|m| m.alloc_kv_cache());
     let t_cold = Instant::now();
-    let sc_cold = score_candidates_bidirectional(
+    let sc_cold = score_candidates_bidirectional_fast(
         model,
         r2l_model,
         cross_prefix,
@@ -278,7 +281,7 @@ fn run_benchmark(
     let cold_ms = t_cold.elapsed().as_secs_f64() * 1000.0;
 
     let t_warm = Instant::now();
-    let sc_warm = score_candidates_bidirectional(
+    let sc_warm = score_candidates_bidirectional_fast(
         model,
         r2l_model,
         cross_prefix,
@@ -513,7 +516,7 @@ mod win_server {
         let mut cache = model.alloc_kv_cache();
         let mut r2l_cache = r2l_model.map(|m| m.alloc_kv_cache());
         // 預熱 BatchWorkSpace 與 mmap 權重分頁，避免首次按鍵推論觸發冷頁延遲
-        let _ = score_candidates_bidirectional(
+        let _ = score_candidates_bidirectional_fast(
             model,
             r2l_model,
             "",
@@ -567,7 +570,7 @@ mod win_server {
                             if let Some((req_id, _tmo, prefix, cands)) = decode_request(&payload) {
                                 let cand_refs: Vec<&str> =
                                     cands.iter().map(|s| s.as_str()).collect();
-                                let scores = score_candidates_bidirectional(
+                                let scores = score_candidates_bidirectional_fast(
                                     model,
                                     r2l_model,
                                     &prefix,
@@ -601,6 +604,7 @@ fn main() {
     let mut no_r2l = false;
     let mut pipe_name = DEFAULT_PIPE_NAME.to_string();
     let mut threads: Option<usize> = None;
+    let mut max_trie_nodes_override: Option<usize> = None;
     let mut do_bench = false;
     let mut do_once = false;
 
@@ -625,6 +629,10 @@ fn main() {
             }
             "--threads" if i + 1 < args.len() => {
                 threads = args[i + 1].parse::<usize>().ok();
+                i += 2;
+            }
+            "--max-trie-nodes" if i + 1 < args.len() => {
+                max_trie_nodes_override = args[i + 1].parse::<usize>().ok();
                 i += 2;
             }
             "--bench" => {
@@ -685,7 +693,7 @@ fn main() {
     let pool = RlnmThreadPool::new(total_workers);
 
     if do_bench {
-        run_benchmark(&model, r2l_model.as_ref(), &pool);
+        run_benchmark(&model, r2l_model.as_ref(), &pool, max_trie_nodes_override);
         return;
     }
 
